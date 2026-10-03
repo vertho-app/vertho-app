@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getUserContext } from '@/lib/authz';
+import { getUserContext, canViewColabJourney } from '@/lib/authz';
 import { can, type PermissionKey } from '@/lib/permissions';
 import type { UserContext, Role } from '@/types';
 
@@ -144,14 +144,51 @@ export function assertTenantAccess(
 }
 
 /**
- * Valida que o usuário pode acessar dados de um colaborador.
- * - platform admin: acesso total
- * - próprio colab: acesso ao próprio registro
- * - RH: qualquer colaborador da mesma empresa
- * - gestor: apenas colaboradores da mesma empresa E mesma area_depto
- *   (se gestor não tem area_depto definida → fail closed, sem acesso a terceiros)
- * Caso contrário: 403.
+ * Régua única de "liderado" para as rotas de API (R-11, revisão de 02/10/2026).
+ *
+ * Telas e actions decidiam por `canViewColabJourney` (`lib/authz.ts`), que olha
+ * `gestor_email`; estas duas funções olhavam `area_depto`. Eram duas regras
+ * para a mesma pergunta, e a consulta de leitura de 03/10 mediu o estrago: de
+ * 369 pares gestor e liderado, só 61 têm a mesma área. O PDF do liderado de
+ * verdade falhava em 83% dos pares, e o gestor baixava evolução, certificado e
+ * conteúdo de quem era só da mesma área. Agora as rotas delegam à MESMA função
+ * das telas, com a linha lida do banco:
+ *  - platform admin: qualquer colaborador;
+ *  - o próprio colaborador;
+ *  - RH: qualquer colaborador da mesma empresa;
+ *  - gestor: os liderados (`gestor_email` do liderado igual ao e-mail do gestor,
+ *    sem diferença de caixa, em código, nunca por `ilike`).
+ * A leitura já sai escopada pela empresa da sessão: cross-tenant nunca passa.
+ * Falha de leitura responde 503, não "sem acesso" nem "liberado".
  */
+async function lerAlvoDaEquipe(
+  auth: AuthenticatedContext,
+  filtro: { coluna: 'id' | 'email'; valor: string },
+): Promise<Response | null> {
+  if (auth.role !== 'rh' && auth.role !== 'gestor') {
+    return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
+  }
+  if (!auth.empresaId) {
+    return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
+  }
+  const sb = createSupabaseAdmin();
+  const { data, error } = await sb
+    .from('colaboradores')
+    .select('id, empresa_id, gestor_email')
+    .eq(filtro.coluna, filtro.valor)
+    .eq('empresa_id', auth.empresaId)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    return NextResponse.json({ error: 'não foi possível conferir o acesso a este colaborador' }, { status: 503 });
+  }
+  if (!canViewColabJourney(auth, data)) {
+    return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
+  }
+  return null;
+}
+
+/** Acesso aos dados de um colaborador pelo ID. Régua: `lerAlvoDaEquipe`. */
 export async function assertColabAccess(
   auth: AuthenticatedContext,
   colabId: string,
@@ -161,55 +198,19 @@ export async function assertColabAccess(
   }
   if (auth.isPlatformAdmin) return null;
   if (auth.colaborador?.id === colabId) return null;
-  if (auth.role === 'rh' || auth.role === 'gestor') {
-    const sb = createSupabaseAdmin();
-    const { data } = await sb
-      .from('colaboradores')
-      .select('empresa_id, area_depto')
-      .eq('id', colabId)
-      .maybeSingle();
-    if (!data || data.empresa_id !== auth.empresaId) {
-      return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
-    }
-    if (auth.role === 'rh') return null;
-    // Gestor: restringe a mesma area_depto (fail closed se area_depto do gestor é null)
-    const gestorArea = auth.colaborador?.area_depto;
-    if (!gestorArea || data.area_depto !== gestorArea) {
-      return NextResponse.json({ error: 'gestor sem acesso a colaborador de outra área' }, { status: 403 });
-    }
-    return null;
-  }
-  return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
+  return lerAlvoDaEquipe(auth, { coluna: 'id', valor: colabId });
 }
 
-/**
- * Valida acesso por email (mesmas regras de assertColabAccess: RH empresa
- * inteira, gestor restrito a mesma area_depto, fail closed se gestor sem área).
- */
+/** Acesso pelo E-MAIL do colaborador. Mesma régua de `assertColabAccess`. */
 export async function assertEmailAccess(
   auth: AuthenticatedContext,
   emailAlvo: string,
 ): Promise<Response | null> {
-  const normalizado = emailAlvo.trim().toLowerCase();
+  const normalizado = String(emailAlvo || '').trim().toLowerCase();
+  if (!normalizado) {
+    return NextResponse.json({ error: 'email obrigatório' }, { status: 400 });
+  }
   if (auth.isPlatformAdmin) return null;
   if (auth.email === normalizado) return null;
-  if (auth.role === 'rh' || auth.role === 'gestor') {
-    const sb = createSupabaseAdmin();
-    const { data } = await sb
-      .from('colaboradores')
-      .select('empresa_id, area_depto')
-      .eq('email', normalizado)
-      .maybeSingle();
-    if (!data || data.empresa_id !== auth.empresaId) {
-      return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
-    }
-    if (auth.role === 'rh') return null;
-    // Gestor: mesma area_depto (fail closed se gestor sem área)
-    const gestorArea = auth.colaborador?.area_depto;
-    if (!gestorArea || data.area_depto !== gestorArea) {
-      return NextResponse.json({ error: 'gestor sem acesso a colaborador de outra área' }, { status: 403 });
-    }
-    return null;
-  }
-  return NextResponse.json({ error: 'sem acesso a este colaborador' }, { status: 403 });
+  return lerAlvoDaEquipe(auth, { coluna: 'email', valor: normalizado });
 }

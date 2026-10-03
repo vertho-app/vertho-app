@@ -2,17 +2,27 @@ import { describe, it, expect, vi } from 'vitest';
 
 // A linha do colaborador ALVO, controlada por caso. `vi.hoisted` porque a
 // factory do `vi.mock` sobe para o topo do módulo e não enxerga `const` normal.
-const mocks = vi.hoisted(() => ({ colabAlvo: null as { empresa_id: string; area_depto: string } | null }));
+const mocks = vi.hoisted(() => ({ colabAlvo: null as { id?: string; empresa_id: string; gestor_email: string | null } | null }));
 
-// Mock Supabase ANTES do import, mesmo padrão de `colab-access.test.ts`.
+// Mock Supabase ANTES do import. O banco RESPEITA os filtros pedidos: a linha
+// só volta se casar com todos os `.eq` da cadeia (inclusive o de empresa). Um
+// mock que devolvesse a linha ignorando o filtro de tenant esconderia
+// exatamente o defeito que este arquivo existe para pegar.
 vi.mock('@/lib/supabase', () => ({
-  createSupabaseAdmin: () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({ maybeSingle: async () => ({ data: mocks.colabAlvo }) }),
-      }),
-    }),
-  }),
+  createSupabaseAdmin: () => {
+    const filtros: Array<[string, unknown]> = [];
+    const q: any = {
+      select: () => q,
+      eq: (k: string, v: unknown) => { filtros.push([k, v]); return q; },
+      limit: () => q,
+      maybeSingle: async () => {
+        const alvo = mocks.colabAlvo;
+        const casa = alvo && filtros.every(([k, v]) => k === 'id' || (alvo as any)[k] === v);
+        return { data: casa ? { id: alvo!.id ?? 'alvo', ...alvo } : null, error: null };
+      },
+    };
+    return { from: () => q };
+  },
 }));
 
 import { assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
@@ -115,8 +125,9 @@ describe('Isolamento cross-tenant', () => {
    * Os dois casos acima NÃO alcançam a comparação de tenant, e por sete meses
    * deram cobertura aparente a este arquivo.
    *
-   * `assertColabAccess` só consulta o banco e compara `data.empresa_id !==
-   * auth.empresaId` dentro do ramo `role === 'rh' || role === 'gestor'`. O
+   * `assertColabAccess` só consulta o banco no ramo `role === 'rh' || role ===
+   * 'gestor'` (desde 03/10/2026, R-11, a leitura já vai escopada pela empresa
+   * da sessão e a decisão é de `canViewColabJourney`). O
    * `mockAuth` daqui tem `role = 'colaborador'` por default, então o primeiro
    * caso sai no `return 403` final (papel sem regra própria) e o segundo, no
    * `auth.colaborador?.id === colabId`. Auditoria de 30/08: desliguei a
@@ -134,21 +145,20 @@ describe('Isolamento cross-tenant', () => {
    */
   describe('assertColabAccess — o ramo que REALMENTE compara tenant (rh/gestor)', () => {
     it('RH da empresa A NÃO acessa colab da empresa B → 403', async () => {
-      mocks.colabAlvo = { empresa_id: tenantB.id, area_depto: tenantB.area };
+      mocks.colabAlvo = { empresa_id: tenantB.id, gestor_email: null };
       const auth = mockAuth(tenantA, 'rh');
       const res = await assertColabAccess(auth, tenantB.colabId);
       expect(res).not.toBeNull();
       expect(res!.status).toBe(403);
     });
 
-    // ⚠️ A área do alvo é a DO GESTOR de propósito. Com a área divergente, o
-    // caso ficaria verde pela checagem de `area_depto`, que vem DEPOIS da
-    // comparação de tenant, e o teste passaria sem exercitar o tenant. Medido
-    // ao mutar: com `area_depto: tenantB.area` este caso sobrevivia à
-    // desativação da comparação de tenant. Mesma área isola a variável, e o
-    // único motivo possível de 403 passa a ser a empresa.
-    it('gestor da empresa A NÃO acessa colab da empresa B, MESMA área → 403', async () => {
-      mocks.colabAlvo = { empresa_id: tenantB.id, area_depto: tenantA.area };
+    // ⚠️ O alvo tem como gestor O PRÓPRIO GESTOR da sessão, de propósito. Com
+    // outro gestor_email, o caso ficaria verde pela régua de liderado, e o teste
+    // passaria sem exercitar o tenant (medido ao mutar, ainda na régua antiga
+    // de área). Liderado de verdade isola a variável: o único motivo possível
+    // de 403 passa a ser a empresa.
+    it('gestor da empresa A NÃO acessa colab da empresa B, mesmo sendo liderado dele → 403', async () => {
+      mocks.colabAlvo = { empresa_id: tenantB.id, gestor_email: tenantA.email };
       const auth = mockAuth(tenantA, 'gestor');
       const res = await assertColabAccess(auth, tenantB.colabId);
       expect(res).not.toBeNull();
@@ -156,7 +166,7 @@ describe('Isolamento cross-tenant', () => {
     });
 
     it('RH da empresa A acessa colab da PRÓPRIA empresa → null (prova que o caminho chega na comparação)', async () => {
-      mocks.colabAlvo = { empresa_id: tenantA.id, area_depto: tenantA.area };
+      mocks.colabAlvo = { empresa_id: tenantA.id, gestor_email: null };
       const auth = mockAuth(tenantA, 'rh');
       const res = await assertColabAccess(auth, 'outro-colab-da-empresa-a');
       expect(res).toBeNull();
