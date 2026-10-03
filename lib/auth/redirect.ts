@@ -1,4 +1,5 @@
 import { APP_URL } from '@/lib/domain';
+import { caminhoLocalOu } from '@/lib/auth/caminho-local';
 
 export interface SafeAuthRedirect {
   safeRedirectTo: string;
@@ -49,7 +50,10 @@ export function resolveSafeAuthRedirect(
         return {
           safeRedirectTo: parsed.toString(),
           origin: parsed.origin,
-          nextPath: `${parsed.pathname}${parsed.search}${parsed.hash}` || fallbackPath,
+          // O host já foi conferido, mas o CAMINHO vira o `next` do
+          // `/auth/callback`, e `https://app.vertho.ai//outro-site` tem caminho
+          // `//outro-site` (R-75). O callback também confere; aqui ele nem nasce.
+          nextPath: caminhoLocalOu(`${parsed.pathname}${parsed.search}${parsed.hash}`, fallbackPath),
         };
       }
     } catch {

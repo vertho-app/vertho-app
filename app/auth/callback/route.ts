@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { getLocaleForEmail } from '@/lib/i18n-server';
 import { localeCookieName } from '@/lib/i18n';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { caminhoLocalOu } from '@/lib/auth/caminho-local';
 import {
   readAcmeProspectAuthContext,
   recordAcmeProspectPersonalAccess,
@@ -15,8 +16,9 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get('code');
   const token_hash = searchParams.get('token_hash');
   const type = searchParams.get('type') as any;
-  let next = searchParams.get('next') || '/dashboard';
-  if (!next.startsWith('/')) next = '/dashboard';
+  // Só caminho local (R-75): `//outro-site` passava pelo `startsWith('/')` e a
+  // sessão recém-criada seguia para fora do Vertho. Régua em `caminho-local.ts`.
+  const next = caminhoLocalOu(searchParams.get('next'));
 
   const store = await cookies();
   const supabase = await createSupabaseServerClient();

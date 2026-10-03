@@ -5,26 +5,29 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 import { mockPOST } from '../helpers/mock-request';
 
 /**
- * A tela "em qual organização você quer entrar?" — e o destino que ela NÃO tinha.
+ * A tela "em qual organização você quer entrar?" e o que a resposta PÚBLICA
+ * dela pode dizer.
  *
- * 🔴 O buraco, medido em 24/08/2026: a lista vinha só de `colaboradores`, e o
- * painel da plataforma não é uma empresa. Os **3** platform admins têm cadastro
- * de colaborador em 2 a 4 empresas cada — então todos caem nessa tela, e nenhuma
- * das opções levava ao painel. Pior: escolher qualquer uma faz a sessão nascer
- * no SUBDOMÍNIO do tenant (o cookie é host-only), e do dashboard não há link de
- * volta — o painel só era alcançável por URL digitada, e mesmo assim caindo
- * deslogada no host genérico.
+ * Histórico, porque os dois lados importam:
+ *  · 24/08/2026: os 3 platform admins têm cadastro de colaborador em 2 a 4
+ *    empresas, e nenhuma opção da lista levava ao painel. A correção da época
+ *    pôs `painelPlataforma: true` na resposta do `/api/auth/check-email`, e a
+ *    tela passou a oferecer "Administração Vertho".
+ *  · 03/10/2026 (R-77): essa resposta é pública. Ela dizia, a quem não se
+ *    autenticou, se um e-mail é admin de plataforma, e baixava o corte da lista
+ *    para 1 empresa nesse caso. O bit saiu. O painel segue alcançável pela
+ *    porta dele: `/admin` manda para `/login?redirect=/admin/dashboard`, a tela
+ *    pede o link direto com esse destino, e o `/api/auth/magic-link` confere
+ *    `platform_admins` NO SERVIDOR antes de trocar o host.
  *
  * O que estes testes travam:
- *  1. quem administra a plataforma recebe `painelPlataforma: true` — sem esse
- *     campo a opção não tem como aparecer;
- *  2. o mínimo de organizações cai para 1 nesse caso (1 empresa + painel = 2
- *     escolhas de verdade), e continua 2 para todo mundo — a lista de tamanho 1
- *     revelaria onde a pessoa trabalha em troca de nada;
+ *  1. a resposta não diz quem é admin, nem pela presença do campo nem pela
+ *     forma da lista (admin e não admin com as mesmas empresas recebem o mesmo);
+ *  2. o corte é 2 para todo mundo: lista de tamanho 1 revelaria onde a pessoa
+ *     trabalha em troca de nada;
  *  3. o corte é sobre a lista JÁ FILTRADA de demos;
- *  4. o destino do botão do painel é reconhecido pela régua do `/api/auth/
- *     magic-link` que decide o HOST — se as duas divergirem, o botão volta a
- *     mandar a sessão para o tenant, calado.
+ *  4. a porta do painel (`/admin` → `?redirect=`) é reconhecida pela tela e pela
+ *     régua do magic-link que decide o HOST.
  */
 
 let vinculos: any[] = [];
@@ -50,6 +53,16 @@ async function checar(email: string) {
   return res.json();
 }
 
+const QUATRO_EMPRESAS = () => {
+  vinculos = [{ empresa_id: 'e1' }, { empresa_id: 'e2' }, { empresa_id: 'e3' }, { empresa_id: 'e4' }];
+  empresas = [
+    { slug: 'bett', nome: 'Bett', is_demo: false },
+    { slug: 'elo', nome: 'Elo Consultoria Social', is_demo: false },
+    { slug: 'ibipeba', nome: 'Secretaria Municipal de Ibipeba/BA', is_demo: false },
+    { slug: 'teste-piloto', nome: 'Teste Piloto', is_demo: false },
+  ];
+};
+
 beforeEach(() => {
   sb.reset();
   vinculos = [];
@@ -58,43 +71,48 @@ beforeEach(() => {
   slugDoHost = null; // endereço genérico (app.vertho.ai) — é lá que a tela existe
 });
 
-describe('POST /api/auth/check-email — as opções da tela de organização', () => {
-  it('🔑 sócia da plataforma com 4 empresas: o painel vem como destino, além das 4', async () => {
-    vinculos = [
-      { empresa_id: 'e1' }, { empresa_id: 'e2' }, { empresa_id: 'e3' }, { empresa_id: 'e4' },
-    ];
-    empresas = [
-      { slug: 'bett', nome: 'Bett', is_demo: false },
-      { slug: 'elo', nome: 'Elo Consultoria Social', is_demo: false },
-      { slug: 'ibipeba', nome: 'Secretaria Municipal de Ibipeba/BA', is_demo: false },
-      { slug: 'teste-piloto', nome: 'Teste Piloto', is_demo: false },
-    ];
-    adminDaPlataforma = { email: 'juliane@vertho.ai' };
+describe('POST /api/auth/check-email — a resposta pública não diz quem é admin (R-77)', () => {
+  it('🔴 admin de plataforma com 4 empresas: a lista vem, o bit de admin não', async () => {
+    QUATRO_EMPRESAS();
+    adminDaPlataforma = { email: 'admin@vertho.ai' };
 
-    const body = await checar('juliane@vertho.ai');
+    const body = await checar('admin@vertho.ai');
 
-    expect(body.painelPlataforma).toBe(true);
+    expect(body).not.toHaveProperty('painelPlataforma');
     expect(body.orgs).toHaveLength(4);
+    // A rota nem pergunta: um bit que não é calculado não vaza por canal nenhum.
+    expect(sb.chamadas.some((c) => c.tabela === 'platform_admins')).toBe(false);
   });
 
-  it('admin com UMA empresa ainda escolhe: 1 organização + painel = 2 opções', async () => {
+  it('🔴 admin e não admin com as MESMAS empresas recebem a MESMA resposta', async () => {
+    QUATRO_EMPRESAS();
+    adminDaPlataforma = { email: 'admin@vertho.ai' };
+    const deAdmin = await checar('admin@vertho.ai');
+
+    sb.reset();
+    adminDaPlataforma = null;
+    const deColaborador = await checar('colaborador@empresa.com');
+
+    expect(deAdmin).toEqual(deColaborador);
+  });
+
+  it('🔴 admin com UMA empresa: nada a perguntar e nada a revelar (o corte não cai para 1)', async () => {
     vinculos = [{ empresa_id: 'e1' }];
     empresas = [{ slug: 'bett', nome: 'Bett', is_demo: false }];
-    adminDaPlataforma = { email: 'samuel@vertho.ai' };
+    adminDaPlataforma = { email: 'admin@vertho.ai' };
 
-    const body = await checar('samuel@vertho.ai');
+    const body = await checar('admin@vertho.ai');
 
-    expect(body.painelPlataforma).toBe(true);
-    expect(body.orgs.map((o: any) => o.slug)).toEqual(['bett']);
+    expect(body.orgs).toEqual([]);
+    expect(body).not.toHaveProperty('painelPlataforma');
   });
 
-  it('🔒 quem NÃO administra a plataforma com uma empresa só: nada a perguntar, nada a revelar', async () => {
+  it('🔒 quem tem uma empresa só: nada a perguntar, nada a revelar', async () => {
     vinculos = [{ empresa_id: 'e1' }];
     empresas = [{ slug: 'bett', nome: 'Bett', is_demo: false }];
 
     const body = await checar('colaborador@empresa.com');
 
-    expect(body.painelPlataforma).toBe(false);
     expect(body.orgs).toEqual([]);
   });
 
@@ -110,34 +128,45 @@ describe('POST /api/auth/check-email — as opções da tela de organização', 
     expect(body.orgs).toEqual([]);
   });
 
-  it('num subdomínio de tenant a pergunta não existe — e o campo do painel também não', async () => {
+  it('num subdomínio de tenant a pergunta não existe', async () => {
     slugDoHost = 'bett';
-    adminDaPlataforma = { email: 'juliane@vertho.ai' };
+    adminDaPlataforma = { email: 'admin@vertho.ai' };
 
-    const body = await checar('juliane@vertho.ai');
+    const body = await checar('admin@vertho.ai');
 
     expect(body.orgs).toBeUndefined();
-    expect(body.painelPlataforma).toBeUndefined();
+    expect(body).not.toHaveProperty('painelPlataforma');
   });
 });
 
-describe('o destino do botão do painel × a régua que escolhe o host', () => {
+describe('a porta do painel × a régua que escolhe o host', () => {
   const ler = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 
-  it('🔑 `/api/auth/magic-link` reconhece o destino que o login manda — senão a sessão nasce no tenant', () => {
-    const login = ler('app/login/login-form.tsx');
-    const destino = login.match(/const DESTINO_PAINEL = '([^']+)'/)?.[1];
-    expect(destino, 'DESTINO_PAINEL sumiu do login-form').toBeTruthy();
+  it('🔑 o destino que `/admin` manda para o login é reconhecido pela tela E pelo magic-link', () => {
+    const layout = ler('app/admin/layout.tsx');
+    const destino = layout.match(/redirect\('\/login\?redirect=([^']+)'\)/)?.[1];
+    expect(destino, 'o /admin deixou de mandar para o login com destino').toBeTruthy();
 
     // O literal é remontado com `new RegExp` (corpo + flags), e não avaliado: o
     // que se quer daqui é a RÉGUA, não executar o arquivo.
-    const magic = ler('app/api/auth/magic-link/route.ts');
-    const literal = magic.match(
-      /const destinoEhPainelPlataforma = \/(.+?)\/([gimsuy]*)\.test\(nextPath\)/,
-    );
-    expect(literal, 'a régua de host do magic-link mudou de forma').toBeTruthy();
+    const login = ler('app/login/login-form.tsx');
+    const daTela = login.match(/const ehDestinoDoPainel = \(path: string\) => \/(.+?)\/([gimsuy]*)\.test\(path\)/);
+    expect(daTela, 'a régua do painel na tela mudou de forma').toBeTruthy();
+    expect(new RegExp(daTela![1], daTela![2]).test(destino!)).toBe(true);
 
-    const regra = new RegExp(literal![1], literal![2]);
-    expect(regra.test(destino!)).toBe(true);
+    const magic = ler('app/api/auth/magic-link/route.ts');
+    const doServidor = magic.match(/const destinoEhPainelPlataforma = \/(.+?)\/([gimsuy]*)\.test\(nextPath\)/);
+    expect(doServidor, 'a régua de host do magic-link mudou de forma').toBeTruthy();
+    expect(new RegExp(doServidor![1], doServidor![2]).test(destino!)).toBe(true);
+  });
+
+  it('com destino de painel, a tela pede o link sem perguntar organização', () => {
+    const login = ler('app/login/login-form.tsx');
+    const i = login.indexOf('if (ehDestinoDoPainel(redirectTo))');
+    const j = login.indexOf('setOrgs(listaOrgs)');
+    expect(i).toBeGreaterThan(-1);
+    expect(j).toBeGreaterThan(i);
+    // E a tela não lê mais o bit que saiu da resposta.
+    expect(login).not.toContain('painelPlataforma');
   });
 });

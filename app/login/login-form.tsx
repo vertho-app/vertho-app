@@ -8,12 +8,13 @@ import { localeCookieName } from '@/lib/i18n';
 import { locales } from '@/i18n/routing';
 import SignupModal from './signup-modal';
 import AvisoNavegadorEmbutido from '@/components/auth/aviso-navegador-embutido';
+import { ehCaminhoLocal } from '@/lib/auth/caminho-local';
 
 // O painel da equipe Vertho não é um tenant: ele vive no endereço genérico
 // (`app.vertho.ai`), e é o `next` pedido — não o cadastro — que faz a sessão
 // nascer lá (ver o bloco "O DESTINO PEDIDO MANDA NO HOST" em
-// `api/auth/magic-link`). `/admin` sozinho não tem página: a porta é o dashboard.
-const DESTINO_PAINEL = '/admin/dashboard';
+// `api/auth/magic-link`). A porta é abrir `/admin`, que manda para
+// `/login?redirect=/admin/dashboard`.
 const ehDestinoDoPainel = (path: string) => /^\/admin(-v2)?(\/|$|\?)/.test(path);
 
 export default function LoginForm({ branding, embutido = false, ios = false }: { branding: any; embutido?: boolean; ios?: boolean }) {
@@ -25,18 +26,12 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
   // 'login' = tela unificada (e-mail OU WhatsApp); 'password' = e-mail + senha
   const [mode, setMode] = useState<'login' | 'password'>('login');
   const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
-  // true depois que o OTP por WhatsApp foi solicitado → mostra o campo de código
-  const [awaitingCode, setAwaitingCode] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [showSignup, setShowSignup] = useState(false);
   // Organizações do e-mail quando o login não vem de um subdomínio de tenant.
   // Vazio = nada a perguntar (o caso normal: subdomínio, ou uma empresa só).
   const [orgs, setOrgs] = useState<Array<{ slug: string; nome: string }>>([]);
-  // Equipe Vertho: o painel da plataforma entra como uma opção a mais na mesma
-  // tela. Não é uma empresa — por isso não cabe em `orgs`.
-  const [painelAdmin, setPainelAdmin] = useState(false);
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -60,8 +55,11 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    // Só caminho local (R-75): `?redirect=//outro-site` passava pelo
+    // `startsWith('/')` e o `router.replace` levava quem acabou de entrar para
+    // fora do Vertho. Mesma régua do `/auth/callback`.
     const redir = params.get('redirect');
-    if (redir && redir.startsWith('/')) setRedirectTo(redir);
+    if (ehCaminhoLocal(redir)) setRedirectTo(redir);
 
     // 🔴 O `?error=` chegava aqui desde sempre e NINGUÉM o lia (medido 18/08):
     // quem clicava num link já usado via a tela de login limpa, sem uma palavra
@@ -177,29 +175,24 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
       // WhatsApp precisa do slug para existir. Antes disso, o registro era
       // sorteado e a sessão nascia num host sem tenant.
       //
-      // Para quem administra a plataforma há um destino a mais, que não é
-      // empresa nenhuma: o painel. Sem ele na lista, os platform admins (todos
-      // com cadastro em 2+ empresas) só tinham como escolher um tenant — e a
-      // sessão nascia no subdomínio, longe do painel.
-      const listaOrgs: Array<{ slug: string; nome: string }> =
-        Array.isArray(check.orgs) ? check.orgs : [];
-      const painel = check.painelPlataforma === true;
-
-      // Quem JÁ pediu o painel (`/login?redirect=/admin/...`) não tem o que
-      // escolher: nesse caso a rota do magic link ignora a organização e manda a
+      // Quem JÁ pediu o painel (`/login?redirect=/admin/...`, que é para onde
+      // `/admin` manda quem não tem sessão) não tem o que escolher: a rota do
+      // magic link confere `platform_admins` no servidor e, sendo admin, manda a
       // sessão nascer no host genérico. Perguntar aqui seria uma pergunta cuja
       // resposta é jogada fora.
-      if (painel && ehDestinoDoPainel(redirectTo)) {
+      //
+      // 🔴 Até 03/10/2026 a tela também mostrava "Administração Vertho" na lista
+      // quando o check-email dizia que o e-mail era admin de plataforma. Essa
+      // resposta é pública e entregava quem é admin a quem não se autenticou
+      // (R-77); o bit saiu, e a porta do painel é o próprio `/admin`.
+      if (ehDestinoDoPainel(redirectTo)) {
         await enviarMagicLink(trimmed);
         return;
       }
-      if (painel && listaOrgs.length === 0) {
-        await enviarMagicLink(trimmed, undefined, DESTINO_PAINEL);
-        return;
-      }
-      if (listaOrgs.length + (painel ? 1 : 0) > 1) {
+      const listaOrgs: Array<{ slug: string; nome: string }> =
+        Array.isArray(check.orgs) ? check.orgs : [];
+      if (listaOrgs.length > 1) {
         setOrgs(listaOrgs);
-        setPainelAdmin(painel);
         setStatus('idle');
         return;
       }
@@ -218,11 +211,10 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
    * organização na tela — no subdomínio do tenant ele é ignorado pelo servidor,
    * que prefere o host.
    *
-   * `destino` sobrescreve o `redirectTo` da página para esta chamada só. Existe
-   * para a opção do painel: o destino é o que decide o HOST em que a sessão
-   * nasce, então mandar `/dashboard` (o padrão) devolveria a pessoa ao tenant.
+   * O destino é o `redirectTo` da página: é ele que decide o HOST em que a
+   * sessão nasce quando a pessoa pediu o painel (ver `ehDestinoDoPainel`).
    */
-  async function enviarMagicLink(trimmed: string, empresaSlug?: string, destino?: string) {
+  async function enviarMagicLink(trimmed: string, empresaSlug?: string) {
     setStatus('loading');
     setErrorMsg('');
 
@@ -236,7 +228,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: trimmed,
-          redirectTo: `${window.location.origin}${destino || redirectTo}`,
+          redirectTo: `${window.location.origin}${redirectTo}`,
           locale,
           ...(empresaSlug ? { empresaSlug } : {}),
         }),
@@ -273,9 +265,11 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
    *  - No período medido, o magic link por WhatsApp teve **88 falhas para 23
    *    sucessos**; o mesmo magic link por E-MAIL teve **83 sucessos e 0 falhas**.
    *
-   * A infra do OTP fica pronta e inerte (`otp_acesso` aprovado na Meta,
-   * `enviarTemplateOtp`, `/api/auth/phone-otp/*`): se um dia a confiabilidade do
-   * acesso pesar mais que a UX, é trocar o endpoint desta função.
+   * 🔑 Decisão do dono de 03/10/2026 (revisão de 02/10, decisão 3): fica o
+   * LINK, e o código de 6 dígitos não volta. O passo de digitar o código, que
+   * esta tela guardava inerte (nada o acendia), saiu junto: era a única chamada
+   * de `/api/auth/phone-otp/verify`. As rotas públicas do código seguem no
+   * repositório só até a limpeza das allowlists dos guards (R-77).
    */
   async function submitWhatsapp(digits: string) {
     if (digits.length < 10) {
@@ -326,51 +320,15 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
     }
   }
 
-  async function handleWhatsappVerify(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const codeClean = code.replace(/\D/g, '');
-    if (codeClean.length !== 6) {
-      setErrorMsg(t('errors.invalidCodeLength'));
-      setStatus('error');
-      return;
-    }
-    setStatus('loading');
-    setErrorMsg('');
-    try {
-      const res = await fetch('/api/auth/phone-otp/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          telefone: phone.replace(/\D/g, ''),
-          code: codeClean,
-          redirectTo: `${window.location.origin}${redirectTo}`,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || data?.error || !data?.callbackUrl) {
-        setErrorMsg(data?.error || t('errors.invalidCode'));
-        setStatus('error');
-        return;
-      }
-      // /auth/callback estabelece a sessão Supabase (mesmo caminho do magic-link).
-      window.location.href = data.callbackUrl;
-    } catch (err: any) {
-      setErrorMsg(t('errors.network', { message: err.message }));
-      setStatus('error');
-    }
-  }
-
   // Uma régua só para a lista e para o texto acima dela — as duas divergindo
   // dariam um "Entre com seu e-mail" em cima de uma lista de organizações.
-  const mostrarEscolhaDeOrg = orgs.length + (painelAdmin ? 1 : 0) > 1;
+  const mostrarEscolhaDeOrg = orgs.length > 1;
 
-  const promptText = awaitingCode
-    ? t('whatsappCodePrompt')
-    : mostrarEscolhaDeOrg
-      ? t('chooseOrgPrompt')
-      : mode === 'password'
-        ? t('emailPrompt')
-        : t('unifiedPrompt');
+  const promptText = mostrarEscolhaDeOrg
+    ? t('chooseOrgPrompt')
+    : mode === 'password'
+      ? t('emailPrompt')
+      : t('unifiedPrompt');
 
   return (
     <div
@@ -433,58 +391,9 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
           </p>
         ) : null}
 
-        {awaitingCode ? (
-          /* ── Passo de código (OTP por WhatsApp) ── */
-          <form onSubmit={handleWhatsappVerify}>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={code}
-              onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-              placeholder={t('codePlaceholder')}
-              autoComplete="one-time-code"
-              className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-inherit text-2xl text-center tracking-[0.5em] outline-none placeholder:text-[var(--login-font-secondary)] placeholder:opacity-100 transition-colors"
-              onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
-              onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
-            />
-            <button
-              type="submit"
-              disabled={status === 'loading'}
-              className="w-full mt-4 py-3.5 rounded-xl border-none text-inherit text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
-              style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
-            >
-              {status === 'loading' ? t('entering') : common('actions.enter')}
-            </button>
-            <button type="button" onClick={() => { setAwaitingCode(false); setCode(''); setStatus('idle'); setErrorMsg(''); }}
-              className="mt-3 text-xs hover:underline" style={{ color: accentColor }}>
-              {t('resendOrChangePhone')}
-            </button>
-            {status === 'error' && errorMsg && (
-              <p className="text-danger text-sm mt-3">{errorMsg}</p>
-            )}
-          </form>
-        ) : mostrarEscolhaDeOrg ? (
+        {mostrarEscolhaDeOrg ? (
           /* ── Em qual organização? (só sem subdomínio de tenant) ── */
           <div className="flex flex-col gap-2">
-            {/* Equipe Vertho: primeiro da lista porque é o destino de quem
-                administra a plataforma — as empresas abaixo são o cadastro de
-                colaborador da mesma pessoa. */}
-            {painelAdmin && (
-              <button
-                type="button"
-                disabled={status === 'loading'}
-                onClick={() => {
-                  setOrgs([]);
-                  setPainelAdmin(false);
-                  enviarMagicLink(email.trim().toLowerCase(), undefined, DESTINO_PAINEL);
-                }}
-                className="w-full py-3.5 px-4 rounded-xl border-2 bg-white/[0.08] text-inherit text-base font-semibold cursor-pointer transition-colors hover:bg-white/[0.14] disabled:opacity-60"
-                style={{ borderColor: accentColor }}
-              >
-                {t('platformPanelOption')}
-              </button>
-            )}
             {orgs.map((org) => (
               <button
                 key={org.slug}
@@ -500,7 +409,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
             ))}
             <button
               type="button"
-              onClick={() => { setOrgs([]); setPainelAdmin(false); setStatus('idle'); setErrorMsg(''); }}
+              onClick={() => { setOrgs([]); setStatus('idle'); setErrorMsg(''); }}
               className="mt-1 text-sm font-medium hover:underline"
               style={{ color: accentColor }}
             >
