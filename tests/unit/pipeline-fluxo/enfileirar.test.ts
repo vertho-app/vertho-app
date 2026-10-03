@@ -109,7 +109,11 @@ describe('enfileirarKit', () => {
     expect(sb.escritas.find((e) => e.op === 'insert')!.payload.params).toMatchObject({ renderAudio: true, incluirVideo: true, formatos: ['audio', 'texto'] });
     const sb2 = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'n2' } : null) });
     await enfileirarKit(sb2.client, { empresaId: 'e1', item: { ...item, formatos: ['audio', 'case'], video: false } });
-    expect(sb2.escritas.find((e) => e.op === 'insert')!.payload.params).toMatchObject({ renderAudio: true, incluirVideo: false });
+    expect(sb2.escritas.find((e) => e.op === 'insert')!.payload.params).toMatchObject({ renderAudio: true, incluirVideo: false, audioNominal: true });
+    // sem podcast no kit: nada de áudio nominal
+    const sb3 = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'n3' } : null) });
+    await enfileirarKit(sb3.client, { empresaId: 'e1', item });
+    expect(sb3.escritas.find((e) => e.op === 'insert')!.payload.params).toMatchObject({ renderAudio: false, audioNominal: false });
   });
 
   it('a adoção só vale para job do MESMO cargo que cobre os DISC pedidos (grupos do mesmo tema não adotam um ao outro)', async () => {

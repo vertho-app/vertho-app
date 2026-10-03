@@ -18,10 +18,10 @@ import { gerarKitTask } from '@/trigger/gerar-kit';
 describe('task gerar-kit repassa o que o job decidiu', () => {
   beforeEach(() => { gerarKitSemanal.mockClear(); });
   it('formatos, renderAudio e incluirVideo do job chegam ao gerarKitSemanal', async () => {
-    params = { discs: ['D'], formatos: ['audio', 'texto'], renderAudio: true, incluirVideo: true, useBatch: false, porPreferencia: true };
+    params = { discs: ['D'], formatos: ['audio', 'texto'], renderAudio: true, incluirVideo: true, useBatch: false, porPreferencia: true, audioNominal: true };
     mock = sb();
     await (gerarKitTask as any).run({ jobId: 'j1' });
-    expect(gerarKitSemanal.mock.calls[0][0]).toMatchObject({ formatos: ['audio', 'texto'], renderAudio: true, incluirVideo: true, discs: ['D'], porPreferencia: true });
+    expect(gerarKitSemanal.mock.calls[0][0]).toMatchObject({ formatos: ['audio', 'texto'], renderAudio: true, incluirVideo: true, discs: ['D'], porPreferencia: true, audioNominal: true });
   });
   it('job sem formatos (botão manual) segue com o padrão do gerador', async () => {
     params = { discs: ['D', 'I'], renderAudio: false, incluirVideo: false };
@@ -29,5 +29,6 @@ describe('task gerar-kit repassa o que o job decidiu', () => {
     await (gerarKitTask as any).run({ jobId: 'j1' });
     expect(gerarKitSemanal.mock.calls[0][0].formatos).toBeUndefined();
     expect(gerarKitSemanal.mock.calls[0][0].porPreferencia).toBe(false);
+    expect(gerarKitSemanal.mock.calls[0][0].audioNominal).toBe(false);
   });
 });

@@ -220,6 +220,11 @@ export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
   useBatch?: boolean;
   /** Inclui o vídeo renderizado (default true). false = só conteúdo (lote sem GPU). */
   incluirVideo?: boolean;
+  /**
+   * Pré-gera o áudio NOMINAL ("Olá, {nome}") do podcast de cada pessoa da célula (cargo × DISC) que tem ÁUDIO entre os 2
+   * primeiros formatos. Sem isto o áudio nominal nasce na 1ª audição (~2 min de espera). Só vale com `renderAudio`.
+   */
+  audioNominal?: boolean;
 }
 
 /**
@@ -233,7 +238,7 @@ export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
 export async function gerarKitSemanal({
   competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos, discs = ['D', 'I', 'S', 'C'], renderAudio = false,
-  sb, onProgress, useBatch = false, incluirVideo = true, perfilPublico: perfilPublicoIn, porPreferencia = false,
+  sb, onProgress, useBatch = false, incluirVideo = true, perfilPublico: perfilPublicoIn, porPreferencia = false, audioNominal = false,
 }: GerarKitSemanalParams) {
   try {
     const total = discs.length;
@@ -392,6 +397,42 @@ export async function gerarKitSemanal({
       }
     }
 
+    // Áudio NOMINAL de quem tem podcast no top 2. Falha de uma pessoa NÃO derruba o kit: a rota gera na 1ª audição, como
+    // sempre foi. O que o relato carrega é o que foi (ou não) pré-gerado.
+    const audioNominalInfo = { feitos: 0, emCache: 0, erros: [] as string[], puladosPorPrazo: 0 };
+    if (audioNominal && renderAudio && empresaId) {
+      const { prepararAudioNominalCore } = await import('@/lib/conteudo-audio-personalizado-core');
+      const { COLUNAS_PREFERENCIA_KIT, topDoisFormatos } = await import('@/lib/season-engine/kit/formatos-por-preferencia');
+      const { mapComTeto } = await import('@/lib/concorrencia');
+      const { data: pessoas, error: errPessoas } = await sbk.from('colaboradores')
+        .select(`id, nome_completo, perfil_dominante, ${COLUNAS_PREFERENCIA_KIT}`).eq('empresa_id', empresaId).eq('cargo', cargo);
+      if (errPessoas) {
+        audioNominalInfo.erros.push(`leitura das pessoas da célula: ${errPessoas.message}`);
+      } else {
+        // Orçamento: a task tem 1 h; o TTS leva ~2 min por áudio. O que não couber fica para a 1ª audição (a rota gera).
+        const limiteMs = Date.now() + 40 * 60_000;
+        const tarefas: Array<{ contentId: string; colaboradorId: string }> = [];
+        for (const k of kits as any[]) {
+          const contentIds = (k.conteudos || []).filter((c: any) => c.formato === 'audio' && c.ok && c.conteudoId).map((c: any) => c.conteudoId as string);
+          const daCelula = (pessoas || []).filter((p: any) =>
+            String(p.perfil_dominante || '').trim().charAt(0).toUpperCase() === k.disc
+            && String(p.nome_completo || '').trim()
+            && topDoisFormatos(p)?.includes('audio'));
+          for (const contentId of contentIds) for (const p of daCelula) tarefas.push({ contentId, colaboradorId: p.id });
+        }
+        // Concorrência 2: o TTS do Vertex serve podcast e vídeo (auto-saturação medida em 12/08, F-V4).
+        await mapComTeto(tarefas, 2, async (t) => {
+          if (Date.now() > limiteMs) { audioNominalInfo.puladosPorPrazo++; return; }
+          try {
+            const r = await prepararAudioNominalCore(sbk, { empresaId, contentId: t.contentId, colaboradorId: t.colaboradorId });
+            if (!r.success) audioNominalInfo.erros.push(`${t.colaboradorId}: ${r.error}`);
+            else if (r.cached) audioNominalInfo.emCache++; else audioNominalInfo.feitos++;
+          } catch (e: any) { audioNominalInfo.erros.push(`${t.colaboradorId}: ${e?.message || e}`); }
+        });
+        if (audioNominalInfo.erros.length) console.error(`[gerarKitSemanal] áudio nominal: ${audioNominalInfo.erros.length} erro(s): ${audioNominalInfo.erros.slice(0, 3).join(' | ')}`);
+      }
+    }
+
     const okKits = kits.filter((k) => k.success).length;
     if (okKits && empresaId) {
       const { prepararDesafiosDaCoorte } = await import('@/lib/season-engine/kit/plano-desafios');
@@ -405,7 +446,8 @@ export async function gerarKitSemanal({
       audioRendered,
       audioErrors,
       ...(videoGrupo ? { videoGrupo } : {}),
-      message: `Kit semanal ${competencia} › ${descritor}: ${okKits}/${discs.length} DISC` + (renderAudio ? ` · ${audioRendered} podcast(s) renderizado(s)` : ''),
+      message: `Kit semanal ${competencia} › ${descritor}: ${okKits}/${discs.length} DISC` + (renderAudio ? ` · ${audioRendered} podcast(s) renderizado(s)` : '')
+        + (audioNominal ? ` · áudio nominal: ${audioNominalInfo.feitos} gerado(s), ${audioNominalInfo.emCache} já em cache${audioNominalInfo.erros.length ? `, ${audioNominalInfo.erros.length} erro(s)` : ''}${audioNominalInfo.puladosPorPrazo ? `, ${audioNominalInfo.puladosPorPrazo} para a 1ª audição` : ''}` : ''),
     };
   } catch (err: any) {
     console.error('[gerarKitSemanal]', err);

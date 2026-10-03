@@ -1191,27 +1191,13 @@ export async function prepararAudioPersonalizado({ contentId, colab }: { content
       return { success: false, error: 'colaborador de outro tenant' };
     }
 
-    const sani = (v: string) => String(v || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const cachePath = `final/audio-personalizado/${sani(contentId)}/${sani(colab.id)}.mp3`;
-    const { data: cached } = await sb.storage.from('conteudos').download(cachePath);
-    if (cached) return { success: true, cached: true };
-
-    const { extractNarration, generatePersonalizedPodcastAudio } = await import('@/lib/gemini-tts');
-    const narracao = extractNarration(content.conteudo_inline || '');
-    if (narracao.length < 20) return { success: false, error: 'narração curta' };
-    const audio = await generatePersonalizedPodcastAudio(narracao, nome, {
-      feature: 'tts_podcast_personalizado',
-      empresaId: alvo.empresa_id,
-      colaboradorId: colab.id,
-      // O admin está esperando na tela: refaz em série enquanto couber no orçamento da
-      // função que hospeda a action (`app/admin/conteudos/layout.tsx`: 300 s). Ver a
-      // medição de latência × reprovação no comentário de `OpcoesPortao.retakeParalelo`.
-    }, { prazoAteMs: inicioMs + PRAZO_ACTION_AUDIO_MS });
-    const { error } = await sb.storage.from('conteudos').upload(cachePath, audio.buffer, {
-      contentType: audio.contentType, upsert: true,
+    // O admin está esperando na tela: refaz em série enquanto couber no orçamento da função que hospeda a action
+    // (`app/admin/conteudos/layout.tsx`: 300 s). Ver `OpcoesPortao.retakeParalelo`. O núcleo (sem sessão) é o mesmo que o
+    // Kit usa para pré-gerar o áudio nominal; o gate e as checagens de tenant acima ficam AQUI, na porta.
+    const { prepararAudioNominalCore } = await import('@/lib/conteudo-audio-personalizado-core');
+    return await prepararAudioNominalCore(sb, {
+      empresaId: alvo.empresa_id, contentId, colaboradorId: colab.id, prazoAteMs: inicioMs + PRAZO_ACTION_AUDIO_MS,
     });
-    if (error) return { success: false, error: error.message };
-    return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Erro' };
   }
