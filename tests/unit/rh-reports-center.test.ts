@@ -67,8 +67,9 @@ describe('central de relatórios do RH', () => {
     const result = await carregarCentralRelatoriosRH(EMPRESA_ID);
 
     expect(result.companyName).toBe('Empresa Teste');
+    // O Pulso está off-line: o relatório dele (que o mock devolve de propósito) não aparece (R-31).
     expect(result.organization.map((item) => item.kind)).toEqual([
-      'rh', 'perfil_org', 'dna', 'pulso_executivo',
+      'rh', 'perfil_org', 'dna',
     ]);
     expect(result.managers).toEqual([
       expect.objectContaining({ id: 'rel-gestor', recipient: 'Carla Gestora', role: 'Gerente Comercial' }),
@@ -83,6 +84,15 @@ describe('central de relatórios do RH', () => {
       competency: 'Comunicação para Decisão',
       average: 3.2,
     });
+  });
+
+  it('não pede à consulta os tipos do Pulso enquanto o bloco está off-line (R-31)', async () => {
+    await carregarCentralRelatoriosRH(EMPRESA_ID);
+    const pedido = sb.chamadas.find((c: any) => c.tabela === 'relatorios' && c.metodo === 'in' && c.args[0] === 'tipo');
+    expect(pedido, 'a central consulta por tipo').toBeTruthy();
+    expect(pedido!.args[1]).not.toContain('pulso_executivo');
+    expect(pedido!.args[1]).not.toContain('pulso_complementar_nr1');
+    expect(pedido!.args[1]).toEqual(expect.arrayContaining(['individual', 'gestor', 'rh']));
   });
 
   it('consulta relatórios e colaboradores sempre com o filtro automático do tenant', async () => {

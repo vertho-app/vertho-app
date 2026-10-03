@@ -7,6 +7,7 @@ import RelatorioGestorPDF from '@/components/pdf/RelatorioGestor';
 import RelatorioRHPDF from '@/components/pdf/RelatorioRH';
 import RelatorioPulsoExecutivoPDF from '@/components/pdf/RelatorioPulsoExecutivo';
 import RelatorioPulsoNR1PDF from '@/components/pdf/RelatorioPulsoNR1';
+import { tipoRelatorioForaDoAr } from '@/lib/relatorios/tipos-pulso';
 import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 import { storageSlug } from '@/lib/storage-slug';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
@@ -40,6 +41,9 @@ export async function GET(request) {
     const { data: rel } = await sb.from('relatorios')
       .select('*').eq('id', relatorioId).single();
     if (!rel) return NextResponse.json({ error: 'Relatório não encontrado' }, { status: 404 });
+    // Relatório de bloco off-line (Pulso) não é servido, para ninguém, com a mesma
+    // resposta de um id que não existe: não vira oráculo do que há gravado (R-31).
+    if (tipoRelatorioForaDoAr(rel.tipo)) return NextResponse.json({ error: 'Relatório não encontrado' }, { status: 404 });
 
     // Validações de acesso:
     // - Sempre exige mesma empresa (ou platform admin).

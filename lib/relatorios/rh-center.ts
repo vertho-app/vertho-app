@@ -9,6 +9,7 @@ import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
 import { type TurmaDoTenant } from '@/lib/turmas';
 import { resolverRecorteDeTurma } from '@/lib/relatorios/recorte-turma';
+import { tipoRelatorioForaDoAr } from '@/lib/relatorios/tipos-pulso';
 import {
   normalizeRhDescriptorAnalysis,
   normalizeRhReportInsight,
@@ -175,7 +176,8 @@ export async function carregarCentralRelatoriosRH(
     carregarEvolucaoRH(empresaId, { colaboradorIds }),
     tdb.from('relatorios')
       .select('id,colaborador_id,tipo,gerado_em')
-      .in('tipo', [...PDF_TYPES])
+      // Tipos do Pulso saem da consulta enquanto o bloco estiver off-line (R-31).
+      .in('tipo', PDF_TYPES.filter((tipo) => !tipoRelatorioForaDoAr(tipo)))
       .order('gerado_em', { ascending: false }),
     // Só o consolidado mais recente alimenta o dashboard. Não trazemos o
     // `conteudo` dos 30+ PDIs: além de desnecessário, isso faria a página pagar
@@ -242,7 +244,7 @@ export async function carregarCentralRelatoriosRH(
   // O relatório de RH já está representado em `gerenciais.rh`; removê-lo das
   // linhas evita dois cards apontando para o mesmo PDF.
   const pulseDocuments = rows
-    .filter((row: any) => row.tipo === 'pulso_executivo' || row.tipo === 'pulso_complementar_nr1')
+    .filter((row: any) => (row.tipo === 'pulso_executivo' || row.tipo === 'pulso_complementar_nr1') && !tipoRelatorioForaDoAr(row.tipo))
     .map(asDocument);
   const organization: RhReportDocument[] = [
     gerenciais.rh && {
