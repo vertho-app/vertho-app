@@ -39,9 +39,14 @@ describe('parseProgramaCustom (sys_config.programa_custom é DADO, não código)
       .toEqual({ semanas: 4, numCompetencias: 2, fechamento: true });
   });
 
+  it('aceita até 10 semanas de conteúdo', () => {
+    expect(parseProgramaCustom({ semanas: 10, numCompetencias: 2, fechamento: true }))
+      .toEqual({ semanas: 10, numCompetencias: 2, fechamento: true });
+  });
+
   it('rejeita fora dos limites e lixo', () => {
     expect(parseProgramaCustom({ semanas: 0, numCompetencias: 1, fechamento: false })).toBeNull();
-    expect(parseProgramaCustom({ semanas: 5, numCompetencias: 1, fechamento: false })).toBeNull();
+    expect(parseProgramaCustom({ semanas: 11, numCompetencias: 1, fechamento: false })).toBeNull();
     expect(parseProgramaCustom({ semanas: 2, numCompetencias: 3, fechamento: false })).toBeNull();
     expect(parseProgramaCustom({ semanas: 2.5, numCompetencias: 1, fechamento: false })).toBeNull();
     expect(parseProgramaCustom(null)).toBeNull();
@@ -77,8 +82,22 @@ describe('derivarConfigCustom — família degustação', () => {
     expect(ehConfigSemFechamento(c)).toBe(true);
   });
 
+  it('10 semanas: mantém o plano completo e o fechamento extra quando contratado', () => {
+    for (const fechamento of [false, true]) {
+      const c = derivarConfigCustom({ semanas: 10, numCompetencias: 2, fechamento });
+      expect(c.slotsConteudo).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      expect(c.semanas).toBe(fechamento ? 11 : 10);
+      expect(c.semanasCheckpoint).toEqual([3, 7]);
+      expect(c.semanasAvaliacao).toEqual(fechamento ? [11] : []);
+      expect(c.semanaAcumulada).toBe(fechamento ? 10 : 0);
+      expect(c.semanaEspelhoCalendario).toEqual(fechamento ? { 11: 10 } : undefined);
+      expect(deveEncerrarSemFechamento(c, 9)).toBe(false);
+      expect(deveEncerrarSemFechamento(c, 10)).toBe(!fechamento);
+    }
+  });
+
   it('input inválido explode explícito (nunca degrada calado)', () => {
-    expect(() => derivarConfigCustom({ semanas: 9, numCompetencias: 1, fechamento: false })).toThrow(/programa_custom inválido/);
+    expect(() => derivarConfigCustom({ semanas: 11, numCompetencias: 1, fechamento: false })).toThrow(/programa_custom inválido/);
   });
 });
 
@@ -221,7 +240,7 @@ describe('totalSemanasDoPlano — fim REAL do plano pro cron', () => {
   });
 });
 
-describe('sanitizarNarrativaPiloto parametrizado (custom 1–4 semanas)', () => {
+describe('sanitizarNarrativaPiloto parametrizado (custom 1–10 semanas)', () => {
   it('n=3: "3 semanas" é a duração certa e passa; "2 semanas" vira erro corrigível', () => {
     const { parsed, ok } = sanitizarNarrativaPiloto({
       resumo_avaliacao: { mensagem_geral: 'Ao longo de 3 semanas você avançou; ao final de 2 semanas nada disso valeria.' },

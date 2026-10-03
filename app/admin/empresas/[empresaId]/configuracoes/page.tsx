@@ -12,6 +12,7 @@ import { loadConfig, salvarConfig, salvarBranding, salvarSlug, loadEquipe, atual
 import { limparSessoesAntigas, limparSessoesTeste } from '@/app/actions/manutencao';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ROOT_DOMAIN } from '@/lib/domain';
+import { CUSTOM_LIMITES } from '@/lib/season-engine/programa-custom';
 
 import { AI_TASKS, MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
 const MODELOS = MODELOS_DISPONIVEIS;
@@ -921,7 +922,8 @@ function CustomBuilder({ value, onChange, t }: {
           <span className="text-[10px] uppercase tracking-wide text-gray-400">{t('program.customSemanas')}</span>
           <select value={v.semanas} onChange={e => set({ semanas: Number(e.target.value) })}
             className={selectCls} style={{ background: '#091D35' }}>
-            {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
+            {Array.from({ length: CUSTOM_LIMITES.semanasMax - CUSTOM_LIMITES.semanasMin + 1 }, (_, i) => CUSTOM_LIMITES.semanasMin + i)
+              .map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-1">

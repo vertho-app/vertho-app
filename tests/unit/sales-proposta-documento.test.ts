@@ -198,10 +198,10 @@ describe('fronteira de custo do documento público', () => {
   it('a duração customizada vem do programa salvo, incluindo o fechamento quando contratado', () => {
     for (const fechamento of [false, true]) {
       const pg = extrairProgramaDoOrcamento({
-        entradas: { jornada: 'custom', jornadaCustom: { semanas: 3, numCompetencias: 2, fechamento } },
+        entradas: { jornada: 'custom', jornadaCustom: { semanas: 10, numCompetencias: 2, fechamento } },
         resultado: { pessoas: 10, cargos: 2, ciclos: 1, unidades: 1 },
       });
-      expect(pg?.semanasPorCiclo).toBe(fechamento ? 4 : 3);
+      expect(pg?.semanasPorCiclo).toBe(fechamento ? 11 : 10);
     }
     expect(extrairProgramaDoOrcamento({
       entradas: { jornada: 'custom', jornadaCustom: { semanas: 99 } },

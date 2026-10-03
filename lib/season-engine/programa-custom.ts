@@ -4,7 +4,7 @@
  *
  *   { semanas, numCompetencias, fechamento }
  *
- * Família "degustação": 1–4 semanas de conteúdo, 1–2 competências, com ou sem
+ * Família "degustação": 1–10 semanas de conteúdo, 1–2 competências, com ou sem
  * fechamento — SEM missões, mapeamentos (DISC + técnico) sempre ativos. Regular
  * e Onboarding continuam presets de código; este builder cobre a variabilidade
  * real (demos/pilotos curtos por lead), sem expor campos livres da config.
@@ -32,7 +32,7 @@ export interface ProgramaCustomInputs {
 
 export const CUSTOM_LIMITES = Object.freeze({
   semanasMin: 1,
-  semanasMax: 4,
+  semanasMax: 10,
   compsMin: 1,
   compsMax: 2,
 });

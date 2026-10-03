@@ -8,6 +8,7 @@ import BackButton from '@/components/back-button';
 import { CALLS, PRESETS, calcCost, custoColabNaJornada, infraFixaTotal } from '@/lib/ia-cost-catalog';
 import type { Simulador } from '@/lib/simuladores/acesso-cargo';
 import {
+  VERSAO_COTACAO_ORCAMENTO,
   entradasPadrao,
   escopoPropostaDoCenario,
   normalizarEntradas,
@@ -574,6 +575,7 @@ export default function OrcamentoPage() {
    */
   function coletarEntradas(): EntradasOrcamento {
     return {
+      versaoCotacao: VERSAO_COTACAO_ORCAMENTO,
       nClusters,
       nWorkshops,
       nPerfis,
@@ -1433,9 +1435,9 @@ export default function OrcamentoPage() {
                 <div className="pr-3">
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-300">Investimento / pessoa</p>
                   <p className="mt-0.5 text-sm font-extrabold text-amber-100 tabular-nums">{money(calc.investimentoPorPessoaBrl)}</p>
-                  <p className="text-[9px] leading-relaxed text-gray-500">
-                    <span className="tabular-nums">{money(calc.investimentoPorPessoaMesBrl)}</span> / mês · inclui setup rateado
-                  </p>
+                  <p className="mt-2 text-[9px] font-semibold uppercase tracking-wider text-amber-300">Investimento / pessoa / mês</p>
+                  <p className="mt-0.5 text-sm font-extrabold text-amber-100 tabular-nums">{money(calc.investimentoPorPessoaMesBrl)}</p>
+                  <p className="text-[9px] leading-relaxed text-gray-500">inclui setup rateado</p>
                 </div>
                 <div className="border-l border-white/10 pl-3">
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Custo interno / pessoa</p>

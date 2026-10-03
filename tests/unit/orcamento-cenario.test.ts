@@ -23,6 +23,7 @@ import {
   SIMULADORES_DEFAULT,
 } from '@/lib/orcamento/precificacao';
 import {
+  VERSAO_COTACAO_ORCAMENTO,
   entradasPadrao,
   normalizarEntradas,
   normalizarResumo,
@@ -41,6 +42,7 @@ const BASE = entradasPadrao(LISTAS);
 describe('entradasPadrao — os defaults com que a tela abre', () => {
   it('reproduz o cenário inicial da página campo a campo', () => {
     expect(BASE).toEqual({
+      versaoCotacao: VERSAO_COTACAO_ORCAMENTO,
       nClusters: 1,
       nWorkshops: 1,
       nPerfis: 3,
@@ -94,7 +96,7 @@ describe('normalizarEntradas — round-trip', () => {
   it('preserva a quantidade independente de workshops e o programa customizado', () => {
     const gravado = {
       ...BASE, nClusters: 4, nWorkshops: 2, metodo: 'workshop', jornada: 'custom',
-      jornadaCustom: { semanas: 3, numCompetencias: 2, fechamento: true },
+      jornadaCustom: { semanas: 10, numCompetencias: 2, fechamento: true },
     };
     expect(normalizarEntradas(JSON.parse(JSON.stringify(gravado)), LISTAS)).toEqual(gravado);
   });
@@ -111,6 +113,29 @@ describe('normalizarEntradas — round-trip', () => {
     expect(lido.pricing.precoPessoaCiclo).toBe(420);
     // os campos não editados seguem os do cenário, não os de hoje
     expect(lido.pricing.precoSetupGeral).toBe(ORCAMENTO_DEFAULTS.precoSetupGeral);
+  });
+});
+
+describe('normalizarEntradas — cotação padrão', () => {
+  it('migra o antigo padrão de 5,12 para 5,30 ao reabrir', () => {
+    const base = entradasPadrao(LISTAS);
+    const antigo = { ...base, versaoCotacao: undefined, pricing: { ...base.pricing, cotacao: 5.12 } };
+    const lido = normalizarEntradas(antigo, LISTAS)!;
+    expect(lido.pricing.cotacao).toBe(5.30);
+    expect(lido.versaoCotacao).toBe(VERSAO_COTACAO_ORCAMENTO);
+    expect(normalizarEntradas(JSON.parse(JSON.stringify(lido)), LISTAS)).toEqual(lido);
+  });
+
+  it('preserva uma cotação manual diferente no cenário antigo', () => {
+    const base = entradasPadrao(LISTAS);
+    const antigo = { ...base, versaoCotacao: undefined, pricing: { ...base.pricing, cotacao: 6.4 } };
+    expect(normalizarEntradas(antigo, LISTAS)!.pricing.cotacao).toBe(6.4);
+  });
+
+  it('permite escolher 5,12 novamente após atualizar o padrão', () => {
+    const base = entradasPadrao(LISTAS);
+    const editado = { ...base, pricing: { ...base.pricing, cotacao: 5.12 } };
+    expect(normalizarEntradas(JSON.parse(JSON.stringify(editado)), LISTAS)).toEqual(editado);
   });
 });
 

@@ -41,7 +41,11 @@ export const METODOS_MAPEAMENTO: readonly MetodoMapeamento[] = ['votacao', 'work
 
 export type PricingOrcamento = typeof ORCAMENTO_DEFAULTS;
 
+// Marca a atualização do antigo padrão de R$ 5,12 sem sobrescrever edições futuras.
+export const VERSAO_COTACAO_ORCAMENTO = 1;
+
 export type EntradasOrcamento = {
+  versaoCotacao: number;
   nClusters: number;
   /** Quantidade contratada, independente do número de unidades. */
   nWorkshops: number;
@@ -138,6 +142,7 @@ function objeto(v: unknown): Record<string, unknown> {
 export function entradasPadrao(listas: ListasValidas): EntradasOrcamento {
   const porFormato = CONTEUDO_POR_FORMATO_DEFAULT;
   return {
+    versaoCotacao: VERSAO_COTACAO_ORCAMENTO,
     nClusters: 1,
     nWorkshops: 1,
     nPerfis: 3,
@@ -232,6 +237,12 @@ export function normalizarEntradas(bruto: unknown, listas: ListasValidas): Entra
     pricing[chave] = real(pricingBruto[chave], padrao.pricing[chave], MINIMOS_PRICING[chave] ?? 0);
   }
 
+  // Atualiza só o antigo padrão. Cotações diferentes e edições feitas após
+  // esta migração continuam pertencendo ao cenário. O resumo salvo não muda.
+  if (inteiro(b.versaoCotacao, 0, 0) < VERSAO_COTACAO_ORCAMENTO && pricing.cotacao === 5.12) {
+    pricing.cotacao = padrao.pricing.cotacao;
+  }
+
   // Cenário salvo antes de 17/09/2026 não tem `simuladores`: abre com zero, e
   // ninguém tem acesso além das pessoas do programa.
   const nColabs = inteiro(b.nColabs, padrao.nColabs, 0);
@@ -242,6 +253,7 @@ export function normalizarEntradas(bruto: unknown, listas: ListasValidas): Entra
   );
 
   return {
+    versaoCotacao: VERSAO_COTACAO_ORCAMENTO,
     nClusters,
     // Orçamentos antigos cobravam um workshop por unidade. Preserva essa
     // quantidade ao reabrir; depois ela pode ser editada independentemente.
