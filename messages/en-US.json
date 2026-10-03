@@ -5604,5 +5604,116 @@
     "synthesisHelpTeam": "Each competency appears in 3 of the 5 encounters. This shows the highest level demonstrated in it, replays included.",
     "journeyDetails": "View journey progress",
     "encounterDetails": "View context and previous encounters"
+  },
+  "MapeamentoLideranca": {
+    "eyebrow": "Leadership mapping",
+    "perfilAlvo": "Target profile: {cargo}",
+    "calculadoEm": "Calculated on {data} · {n, plural, one {# person} other {# people}} in the population",
+    "meta": "goal: Level {n}",
+    "metaPrograma": "goal set in the program",
+    "corteAdmin": "cutoff {corte} (Vertho admin only)",
+    "notaAdmin": "average {media}, cutoff {corte} (Vertho admin only)",
+    "consolidadoPdf": "Team summary as PDF",
+    "abrirConsolidado": "Open team summary (PDF)",
+    "parecerPdf": "Report as PDF",
+    "abrirPdf": "Open PDF",
+    "ninguemAqui": "nobody here",
+    "eixoY": "demonstrated competency",
+    "eixoX": "style fit with the target profile",
+    "alta": "high",
+    "baixa": "low",
+    "naoIniciaram": "{n, plural, one {# person has not started} other {# people have not started}} the leadership mapping.",
+    "incompletos": "{n, plural, one {# person} other {# people}} with an incomplete mapping: {lista}",
+    "incompletoItem": "{nome} ({feitas} of {total})",
+    "semEstilo": "{n, plural, one {# person} other {# people}} without the style axis: {lista}",
+    "motivoSemEstilo": {
+      "sem_perfil": "no behavioral profile",
+      "estilo_indisponivel": "style axis unavailable"
+    },
+    "colPessoa": "Person",
+    "colQuadrante": "Quadrant",
+    "colNivel": "Level",
+    "colAderencia": "Fit",
+    "listaVazia": "Nobody has both layers complete yet.",
+    "rodape": "Order: {ordem}. Decision support; the decision belongs to the company.",
+    "semCargo": "no job title",
+    "auditoriaPediuRevisao": "audit asked for review",
+    "quadrante": {
+      "pronta": "Ready",
+      "pronta_com_custo": "Ready, with a named cost",
+      "potencial": "Potential",
+      "nao_agora": "Not now"
+    },
+    "recomendacao": {
+      "pronta": "Shows what the role requires and the style fits the target profile. Evidence and reading point the same way: step up now, with individual feedback.",
+      "pronta_com_custo": "Shows what the role requires, with a style far from the target profile. This person will lead differently from the house standard, which is predictable rather than a surprise. The individual plan names the specific friction.",
+      "potencial": "The style helps, but the demonstration does not support it yet. This is the quadrant that misleads most in profile-only assessments. Development track on the competencies below the goal and a new assessment at the end.",
+      "nao_agora": "The competencies below the goal are the ones the role cannot do without. Development track before any move; the report names which ones, with the evidence."
+    },
+    "posicaoTitulo": "Position · demonstrated competency",
+    "nivelGeral": "Overall level {n}",
+    "posicao": {
+      "demonstra": "Demonstrates",
+      "nao_demonstra": "Does not demonstrate"
+    },
+    "nivel": "Level {n}",
+    "sinalFraco": "weak signal",
+    "sinalFracoAjuda": "{n, plural, one {only # behavior assessed} other {only # behaviors assessed}}",
+    "abaixoDaMeta": "Below the goal",
+    "linhaAbaixo": "{competencia}: Level {n}, below the goal",
+    "estiloTitulo": "Style · a reading, not a verdict",
+    "aderencia": "Fit with the target profile {pct}",
+    "estilo": {
+      "aderente": "Style fits the target profile",
+      "distante": "Style is far from the target profile"
+    },
+    "eliminatorio": "Knockout requirement of the ideal profile not met: {motivos}. This reads where the role will cost more; it does not disqualify.",
+    "verGabarito": "see ideal profile",
+    "mapeamentoComportamental": "Behavioral Mapping",
+    "fit": "fit {pct}",
+    "semLacunas": "no relevant gaps",
+    "evidenciasTitulo": "Evidence",
+    "evidenciasAjuda": "In quotes, the excerpt from the person's own answer, checked word for word. Without quotes, the AI's reading that does not match the answer literally.",
+    "auditoria": {
+      "aprovado": "audit: approved",
+      "aprovado_com_ajustes": "audit: approved with adjustments",
+      "revisar": "audit: review"
+    },
+    "semAuditoria": "no audit",
+    "semAvaliacao": "not assessed",
+    "sustentacao": "{forca} support",
+    "forca": {
+      "forte": "strong",
+      "moderada": "moderate",
+      "fraca": "weak"
+    },
+    "resposta": "answer {n}",
+    "leituraDaIa": "AI's reading",
+    "semTrecho": "no excerpt; limits: {limites}",
+    "naoAvaliada": "Answer not assessed by the AI yet.",
+    "tentarDeNovo": "Try again",
+    "erros": {
+      "generico": "Could not load the Leadership mapping. Please try again in a moment.",
+      "MODULO_NAO_CONTRATADO": "Leadership mapping is not part of this company's plan.",
+      "PROGRAMA_NAO_CONFIGURADO": "Leadership mapping has not been set up for this company yet. The Vertho team handles this step.",
+      "SO_RH": "This screen belongs to the company's HR.",
+      "NAO_AUTENTICADO": "Your session has ended. Sign in again to see the Leadership mapping.",
+      "SEM_EMPRESA": "Your access is not linked to a company. Please contact the Vertho team.",
+      "pdf": "Could not generate the PDF. Please try again.",
+      "parecer": "Could not build the report."
+    },
+    "indisponivel": {
+      "incompleto": "Incomplete mapping: missing {faltantes}.",
+      "sem_estilo": "No style axis: {motivo}.",
+      "fora": "Person outside the program population or mapping not started."
+    },
+    "avisos": {
+      "cargo_alvo_inexistente": "The target job title \"{cargo}\" no longer exists in this company.",
+      "alvo_sem_gabarito": "The target job title has no ideal profile: the style axis is unavailable.",
+      "gabarito_sem_faixas": "The ideal profile has no declared cutoff bands: style uses the fit engine classification.",
+      "medidas_sem_discriminacao": "{n, plural, one {# measure of the ideal profile does not separate} other {# measures of the ideal profile do not separate}} the people in this population.",
+      "populacao_sem_cargo": "Nobody in the population has a job title filled in: the style axis is unavailable for everyone.",
+      "cobertura_fraca": "{n, plural, one {# person has} other {# people have}} a competency covered by fewer than {min} behaviors: there the level is a weak signal, not a verdict."
+    }
   }
 }

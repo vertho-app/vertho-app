@@ -5604,5 +5604,116 @@
     "synthesisHelpTeam": "Cada competência aparece em 3 dos 5 encontros. Aqui fica o maior nível demonstrado nela, contando as repetições.",
     "journeyDetails": "Consultar evolução da jornada",
     "encounterDetails": "Consultar contexto e encontros anteriores"
+  },
+  "MapeamentoLideranca": {
+    "eyebrow": "Mapeamento de liderança",
+    "perfilAlvo": "Perfil-alvo: {cargo}",
+    "calculadoEm": "Calculado em {data} · {n, plural, one {# pessoa} other {# pessoas}} na população",
+    "meta": "meta: Nível {n}",
+    "metaPrograma": "meta definida no programa",
+    "corteAdmin": "corte {corte} (só no admin da Vertho)",
+    "notaAdmin": "média {media}, corte {corte} (só no admin da Vertho)",
+    "consolidadoPdf": "Consolidado da equipe em PDF",
+    "abrirConsolidado": "Abrir consolidado (PDF)",
+    "parecerPdf": "Parecer em PDF",
+    "abrirPdf": "Abrir PDF",
+    "ninguemAqui": "ninguém aqui",
+    "eixoY": "competência demonstrada",
+    "eixoX": "aderência de estilo ao perfil-alvo",
+    "alta": "alta",
+    "baixa": "baixa",
+    "naoIniciaram": "{n, plural, one {# pessoa não iniciou} other {# pessoas não iniciaram}} o mapeamento de liderança.",
+    "incompletos": "{n, plural, one {# pessoa} other {# pessoas}} com mapeamento incompleto: {lista}",
+    "incompletoItem": "{nome} ({feitas} de {total})",
+    "semEstilo": "{n, plural, one {# pessoa} other {# pessoas}} sem o eixo de estilo: {lista}",
+    "motivoSemEstilo": {
+      "sem_perfil": "sem perfil comportamental",
+      "estilo_indisponivel": "eixo de estilo indisponível"
+    },
+    "colPessoa": "Pessoa",
+    "colQuadrante": "Quadrante",
+    "colNivel": "Nível",
+    "colAderencia": "Aderência",
+    "listaVazia": "Ninguém com as duas camadas completas ainda.",
+    "rodape": "Ordem: {ordem}. Apoio à decisão; a decisão é da empresa.",
+    "semCargo": "sem cargo",
+    "auditoriaPediuRevisao": "auditoria pediu revisão",
+    "quadrante": {
+      "pronta": "Pronta",
+      "pronta_com_custo": "Pronta, com custo nomeado",
+      "potencial": "Potencial",
+      "nao_agora": "Não agora"
+    },
+    "recomendacao": {
+      "pronta": "Demonstra o que o papel exige e o estilo é aderente ao perfil-alvo. Evidência e leitura apontam para o mesmo lado: assume agora, com devolutiva individual.",
+      "pronta_com_custo": "Demonstra o que o papel exige, com estilo distante do perfil-alvo. Vai liderar de um jeito diferente do padrão da casa, o que é previsível e não surpresa. O plano individual nomeia o atrito específico.",
+      "potencial": "O estilo ajuda, mas a demonstração ainda não sustenta. É o quadrante que mais engana em avaliação só por perfil. Trilha nas competências abaixo da meta e reavaliação ao fim.",
+      "nao_agora": "As competências abaixo da meta são as que o papel não dispensa. Trilha antes de qualquer movimento; o parecer nomeia quais, com a evidência."
+    },
+    "posicaoTitulo": "Posição · competência demonstrada",
+    "nivelGeral": "Nível geral {n}",
+    "posicao": {
+      "demonstra": "Demonstra",
+      "nao_demonstra": "Não demonstra"
+    },
+    "nivel": "Nível {n}",
+    "sinalFraco": "sinal fraco",
+    "sinalFracoAjuda": "{n, plural, one {só # comportamento avaliado} other {só # comportamentos avaliados}}",
+    "abaixoDaMeta": "Abaixo da meta",
+    "linhaAbaixo": "{competencia}: Nível {n}, abaixo da meta",
+    "estiloTitulo": "Estilo · leitura, não veredito",
+    "aderencia": "Aderência ao perfil-alvo {pct}",
+    "estilo": {
+      "aderente": "Estilo aderente ao perfil-alvo",
+      "distante": "Estilo distante do perfil-alvo"
+    },
+    "eliminatorio": "Requisito eliminatório do gabarito não atendido: {motivos}. Aqui é leitura de onde o papel vai custar mais, e não desqualifica.",
+    "verGabarito": "ver gabarito",
+    "mapeamentoComportamental": "Mapeamento Comportamental",
+    "fit": "aderência {pct}",
+    "semLacunas": "sem lacunas relevantes",
+    "evidenciasTitulo": "Evidências",
+    "evidenciasAjuda": "Entre aspas, o trecho da própria resposta, conferido palavra por palavra. Sem aspas, a leitura da IA que não confere literalmente com a resposta.",
+    "auditoria": {
+      "aprovado": "auditoria: aprovado",
+      "aprovado_com_ajustes": "auditoria: aprovado com ajustes",
+      "revisar": "auditoria: revisar"
+    },
+    "semAuditoria": "sem auditoria",
+    "semAvaliacao": "sem avaliação",
+    "sustentacao": "sustentação {forca}",
+    "forca": {
+      "forte": "forte",
+      "moderada": "moderada",
+      "fraca": "fraca"
+    },
+    "resposta": "resposta {n}",
+    "leituraDaIa": "Leitura da IA",
+    "semTrecho": "sem trecho; limites: {limites}",
+    "naoAvaliada": "Resposta ainda não avaliada pela IA.",
+    "tentarDeNovo": "Tentar de novo",
+    "erros": {
+      "generico": "Não foi possível carregar o Mapeamento de liderança. Tente de novo em instantes.",
+      "MODULO_NAO_CONTRATADO": "O Mapeamento de liderança não está contratado para esta empresa.",
+      "PROGRAMA_NAO_CONFIGURADO": "O Mapeamento de liderança ainda não foi configurado para esta empresa. A equipe da Vertho cuida dessa etapa.",
+      "SO_RH": "Esta tela é do RH da empresa.",
+      "NAO_AUTENTICADO": "Sua sessão terminou. Entre de novo para ver o Mapeamento de liderança.",
+      "SEM_EMPRESA": "Seu acesso não está ligado a uma empresa. Fale com a equipe da Vertho.",
+      "pdf": "Não foi possível gerar o PDF. Tente de novo.",
+      "parecer": "Não foi possível montar o parecer."
+    },
+    "indisponivel": {
+      "incompleto": "Mapeamento incompleto: faltam {faltantes}.",
+      "sem_estilo": "Sem o eixo de estilo: {motivo}.",
+      "fora": "Pessoa fora da população do programa ou sem mapeamento iniciado."
+    },
+    "avisos": {
+      "cargo_alvo_inexistente": "O cargo-alvo \"{cargo}\" não existe mais nesta empresa.",
+      "alvo_sem_gabarito": "O cargo-alvo não tem gabarito (perfil ideal): o eixo de estilo fica indisponível.",
+      "gabarito_sem_faixas": "O gabarito não tem faixas de corte declaradas: o estilo usa a classificação do motor de adequação.",
+      "medidas_sem_discriminacao": "{n, plural, one {# medida do gabarito não separa} other {# medidas do gabarito não separam}} as pessoas desta população.",
+      "populacao_sem_cargo": "Ninguém na população tem cargo preenchido: o eixo de estilo fica indisponível para todos.",
+      "cobertura_fraca": "{n, plural, one {# pessoa tem} other {# pessoas têm}} competência coberta por menos de {min} comportamentos: ali o nível é sinal fraco, não veredito."
+    }
   }
 }

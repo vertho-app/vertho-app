@@ -5604,5 +5604,116 @@
     "synthesisHelpTeam": "Cada competencia aparece en 3 de los 5 encuentros. Aquí queda el mayor nivel demostrado en ella, contando las repeticiones.",
     "journeyDetails": "Consultar evolución de la trayectoria",
     "encounterDetails": "Consultar contexto y encuentros anteriores"
+  },
+  "MapeamentoLideranca": {
+    "eyebrow": "Mapeo de liderazgo",
+    "perfilAlvo": "Perfil objetivo: {cargo}",
+    "calculadoEm": "Calculado el {data} · {n, plural, one {# persona} other {# personas}} en la población",
+    "meta": "meta: Nivel {n}",
+    "metaPrograma": "meta definida en el programa",
+    "corteAdmin": "corte {corte} (solo en el admin de Vertho)",
+    "notaAdmin": "media {media}, corte {corte} (solo en el admin de Vertho)",
+    "consolidadoPdf": "Consolidado del equipo en PDF",
+    "abrirConsolidado": "Abrir consolidado (PDF)",
+    "parecerPdf": "Informe en PDF",
+    "abrirPdf": "Abrir PDF",
+    "ninguemAqui": "nadie aquí",
+    "eixoY": "competencia demostrada",
+    "eixoX": "adherencia de estilo al perfil objetivo",
+    "alta": "alta",
+    "baixa": "baja",
+    "naoIniciaram": "{n, plural, one {# persona no inició} other {# personas no iniciaron}} el mapeo de liderazgo.",
+    "incompletos": "{n, plural, one {# persona} other {# personas}} con mapeo incompleto: {lista}",
+    "incompletoItem": "{nome} ({feitas} de {total})",
+    "semEstilo": "{n, plural, one {# persona} other {# personas}} sin el eje de estilo: {lista}",
+    "motivoSemEstilo": {
+      "sem_perfil": "sin perfil conductual",
+      "estilo_indisponivel": "eje de estilo no disponible"
+    },
+    "colPessoa": "Persona",
+    "colQuadrante": "Cuadrante",
+    "colNivel": "Nivel",
+    "colAderencia": "Adherencia",
+    "listaVazia": "Todavía nadie tiene las dos capas completas.",
+    "rodape": "Orden: {ordem}. Apoyo a la decisión; la decisión es de la empresa.",
+    "semCargo": "sin cargo",
+    "auditoriaPediuRevisao": "la auditoría pidió revisión",
+    "quadrante": {
+      "pronta": "Lista",
+      "pronta_com_custo": "Lista, con costo identificado",
+      "potencial": "Potencial",
+      "nao_agora": "Todavía no"
+    },
+    "recomendacao": {
+      "pronta": "Demuestra lo que el rol exige y el estilo es adherente al perfil objetivo. La evidencia y la lectura apuntan en la misma dirección: asume ahora, con devolución individual.",
+      "pronta_com_custo": "Demuestra lo que el rol exige, con un estilo distante del perfil objetivo. Liderará de una forma distinta al patrón de la casa, lo que es previsible y no una sorpresa. El plan individual nombra la fricción específica.",
+      "potencial": "El estilo ayuda, pero la demostración todavía no lo sostiene. Es el cuadrante que más engaña en una evaluación solo por perfil. Itinerario en las competencias por debajo de la meta y reevaluación al final.",
+      "nao_agora": "Las competencias por debajo de la meta son aquellas de las que el rol no puede prescindir. Itinerario antes de cualquier movimiento; el informe nombra cuáles, con la evidencia."
+    },
+    "posicaoTitulo": "Posición · competencia demostrada",
+    "nivelGeral": "Nivel general {n}",
+    "posicao": {
+      "demonstra": "Demuestra",
+      "nao_demonstra": "No demuestra"
+    },
+    "nivel": "Nivel {n}",
+    "sinalFraco": "señal débil",
+    "sinalFracoAjuda": "{n, plural, one {solo # comportamiento evaluado} other {solo # comportamientos evaluados}}",
+    "abaixoDaMeta": "Por debajo de la meta",
+    "linhaAbaixo": "{competencia}: Nivel {n}, por debajo de la meta",
+    "estiloTitulo": "Estilo · lectura, no veredicto",
+    "aderencia": "Adherencia al perfil objetivo {pct}",
+    "estilo": {
+      "aderente": "Estilo adherente al perfil objetivo",
+      "distante": "Estilo distante del perfil objetivo"
+    },
+    "eliminatorio": "Requisito eliminatorio del perfil ideal no cumplido: {motivos}. Es una lectura de dónde el rol costará más, y no descalifica.",
+    "verGabarito": "ver perfil ideal",
+    "mapeamentoComportamental": "Mapeo Conductual",
+    "fit": "adherencia {pct}",
+    "semLacunas": "sin brechas relevantes",
+    "evidenciasTitulo": "Evidencias",
+    "evidenciasAjuda": "Entre comillas, el fragmento de la propia respuesta, comprobado palabra por palabra. Sin comillas, la lectura de la IA que no coincide literalmente con la respuesta.",
+    "auditoria": {
+      "aprovado": "auditoría: aprobado",
+      "aprovado_com_ajustes": "auditoría: aprobado con ajustes",
+      "revisar": "auditoría: revisar"
+    },
+    "semAuditoria": "sin auditoría",
+    "semAvaliacao": "sin evaluación",
+    "sustentacao": "sustento {forca}",
+    "forca": {
+      "forte": "fuerte",
+      "moderada": "moderado",
+      "fraca": "débil"
+    },
+    "resposta": "respuesta {n}",
+    "leituraDaIa": "Lectura de la IA",
+    "semTrecho": "sin fragmento; límites: {limites}",
+    "naoAvaliada": "Respuesta todavía no evaluada por la IA.",
+    "tentarDeNovo": "Intentar de nuevo",
+    "erros": {
+      "generico": "No fue posible cargar el Mapeo de liderazgo. Inténtalo de nuevo en unos instantes.",
+      "MODULO_NAO_CONTRATADO": "El Mapeo de liderazgo no está contratado para esta empresa.",
+      "PROGRAMA_NAO_CONFIGURADO": "El Mapeo de liderazgo todavía no se configuró para esta empresa. El equipo de Vertho se encarga de esa etapa.",
+      "SO_RH": "Esta pantalla es del área de RR. HH. de la empresa.",
+      "NAO_AUTENTICADO": "Tu sesión terminó. Vuelve a entrar para ver el Mapeo de liderazgo.",
+      "SEM_EMPRESA": "Tu acceso no está vinculado a una empresa. Habla con el equipo de Vertho.",
+      "pdf": "No fue posible generar el PDF. Inténtalo de nuevo.",
+      "parecer": "No fue posible preparar el informe."
+    },
+    "indisponivel": {
+      "incompleto": "Mapeo incompleto: faltan {faltantes}.",
+      "sem_estilo": "Sin el eje de estilo: {motivo}.",
+      "fora": "Persona fuera de la población del programa o sin mapeo iniciado."
+    },
+    "avisos": {
+      "cargo_alvo_inexistente": "El cargo objetivo \"{cargo}\" ya no existe en esta empresa.",
+      "alvo_sem_gabarito": "El cargo objetivo no tiene perfil ideal: el eje de estilo no está disponible.",
+      "gabarito_sem_faixas": "El perfil ideal no tiene franjas de corte declaradas: el estilo usa la clasificación del motor de adecuación.",
+      "medidas_sem_discriminacao": "{n, plural, one {# medida del perfil ideal no distingue} other {# medidas del perfil ideal no distinguen}} a las personas de esta población.",
+      "populacao_sem_cargo": "Nadie en la población tiene el cargo completado: el eje de estilo no está disponible para nadie.",
+      "cobertura_fraca": "{n, plural, one {# persona tiene} other {# personas tienen}} una competencia cubierta por menos de {min} comportamientos: ahí el nivel es señal débil, no veredicto."
+    }
   }
 }

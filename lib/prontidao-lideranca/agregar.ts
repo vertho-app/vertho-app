@@ -23,6 +23,8 @@ import { calcularPosicoes, DESCRITORES_MIN_CONFIAVEL, type NotaDescritor, type P
 import { lerEstilo, type EstiloPessoa, type Faixas } from './estilo';
 import { montarLinha, ordenarLinhas, contarPorQuadrante, type LinhaMatriz, type Quadrante } from './matriz';
 import { extrairEvidencias, normalizarAuditoria, type EvidenciasCompetencia } from './evidencias';
+import { nivelMeta } from './cliente';
+import type { Nivel } from '@/lib/nivel-regua';
 
 const PAGINA = 1000;
 
@@ -126,14 +128,34 @@ async function carregarAuditoria(sb: any, empresaId: string, ids: string[], comp
 }
 
 export interface PessoaIncompleta { colaboradorId: string; nome: string; cargo: string | null; cobertas: number; total: number; faltantes: string[] }
-export interface PessoaSemEstilo { colaboradorId: string; nome: string; cargo: string | null; motivo: string }
+export type MotivoSemEstilo = 'sem_perfil' | 'estilo_indisponivel';
+export interface PessoaSemEstilo { colaboradorId: string; nome: string; cargo: string | null; motivo: string; motivoCodigo: MotivoSemEstilo }
+
+/**
+ * Avisos do cálculo com CÓDIGO (R-39, 03/10/2026): a tela do RH traduz pelo
+ * código; o texto pt-BR em `avisos` segue para o PDF e para os testes. Os dois
+ * nascem juntos em `avisar`, para não divergirem.
+ */
+export type CodigoAviso =
+  | 'cargo_alvo_inexistente'
+  | 'alvo_sem_gabarito'
+  | 'gabarito_sem_faixas'
+  | 'medidas_sem_discriminacao'
+  | 'populacao_sem_cargo'
+  | 'cobertura_fraca';
+export interface AvisoCalculo { codigo: CodigoAviso; valores?: Record<string, string | number> }
 
 export interface ProntidaoLideranca {
   cargoAlvo: string;
   competencias: string[];
   /** ISO do instante do cálculo. Não é snapshot, e a tela diz isso. */
   calculadoEm: string;
-  corte: number;
+  /** Corte decimal do programa. `null` na resposta ao cliente (`cliente.ts`). */
+  corte: number | null;
+  /** O nível que o corte representa, quando ele cai numa fronteira da régua. */
+  metaNivel?: Nivel | null;
+  /** Só o admin da Vertho vê nota decimal (decisão 1 do dono). */
+  exibeNota?: boolean;
   populacao: number;
   linhas: LinhaMatriz[];
   porQuadrante: Record<Quadrante, number>;
@@ -143,6 +165,7 @@ export interface ProntidaoLideranca {
   naoIniciados: number;
   faixas: Faixas | null;
   avisos: string[];
+  avisosCodigos: AvisoCalculo[];
 }
 
 /**
@@ -156,6 +179,12 @@ export async function agregarProntidaoLideranca(
   opts: { /** Restringe a população a estes ids (o parecer de UMA pessoa não recalcula a empresa inteira). */ apenasIds?: string[] } = {},
 ): Promise<ProntidaoLideranca> {
   const avisos: string[] = [];
+  const avisosCodigos: AvisoCalculo[] = [];
+  const avisar = (codigo: CodigoAviso, texto: string, valores?: AvisoCalculo['valores']) => {
+    if (avisosCodigos.some((a) => a.codigo === codigo)) return;
+    avisos.push(texto);
+    avisosCodigos.push(valores ? { codigo, valores } : { codigo });
+  };
   const [populacaoToda, cargos] = await Promise.all([carregarPopulacao(sb, empresaId, cfg), carregarCargosParaValidacao(sb, empresaId)]);
   const apenas = opts.apenasIds ? new Set(opts.apenasIds) : null;
   const populacao = apenas ? populacaoToda.filter((p) => apenas.has(p.id)) : populacaoToda;
@@ -166,7 +195,7 @@ export async function agregarProntidaoLideranca(
   // cargo-alvo estava vazio, e o painel diria "não há o que medir" mesmo com
   // todos respondendo. O cargo-alvo segue decidindo só o eixo de estilo.
   const competencias = competenciasDoPrograma(cfg, cargos);
-  if (!alvo) avisos.push(`Cargo-alvo "${cfg.cargo_alvo}" não existe mais em cargos_empresa.`);
+  if (!alvo) avisar('cargo_alvo_inexistente', `Cargo-alvo "${cfg.cargo_alvo}" não existe mais em cargos_empresa.`, { cargo: cfg.cargo_alvo });
 
   const ids = populacao.map((p) => p.id);
   const [notas, auditoria] = await Promise.all([
@@ -181,18 +210,18 @@ export async function agregarProntidaoLideranca(
   let faixas: Faixas | null = null;
   if (alvo?.temGabarito && cargosDaPopulacao.length) {
     const adequacao = await aggregateAdequacao(sb as SupabaseClient, empresaId, alvo.nome, { poolCargos: cargosDaPopulacao });
-    if (adequacao.semGabarito) avisos.push('O cargo-alvo não tem gabarito (perfil ideal): o eixo de estilo fica indisponível.');
+    if (adequacao.semGabarito) avisar('alvo_sem_gabarito', 'O cargo-alvo não tem gabarito (perfil ideal): o eixo de estilo fica indisponível.');
     else {
       faixas = adequacao.perfilIdeal?.faixas || null;
-      if (!faixas) avisos.push('Gabarito sem faixas de corte declaradas: o estilo usa o status do motor.');
+      if (!faixas) avisar('gabarito_sem_faixas', 'Gabarito sem faixas de corte declaradas: o estilo usa o status do motor.');
       for (const p of adequacao.pessoas as PessoaAdequacao[]) if (p.id) estilos.set(p.id, lerEstilo(p, faixas));
       const semDiscriminacao = adequacao.avisosCalibracao?.length || 0;
-      if (semDiscriminacao) avisos.push(`${semDiscriminacao} medida(s) do gabarito do alvo não discriminam neste pool (ver Calibração do gabarito).`);
+      if (semDiscriminacao) avisar('medidas_sem_discriminacao', `${semDiscriminacao} medida(s) do gabarito do alvo não discriminam neste pool (ver Calibração do gabarito).`, { n: semDiscriminacao });
     }
   } else if (alvo && !alvo.temGabarito) {
-    avisos.push('O cargo-alvo não tem gabarito (perfil ideal): o eixo de estilo fica indisponível.');
+    avisar('alvo_sem_gabarito', 'O cargo-alvo não tem gabarito (perfil ideal): o eixo de estilo fica indisponível.');
   } else if (alvo?.temGabarito && populacao.length && !cargosDaPopulacao.length) {
-    avisos.push('Ninguém na população tem cargo preenchido: o eixo de estilo fica indisponível para todos.');
+    avisar('populacao_sem_cargo', 'Ninguém na população tem cargo preenchido: o eixo de estilo fica indisponível para todos.');
   }
 
   const linhas: LinhaMatriz[] = [];
@@ -208,7 +237,11 @@ export async function agregarProntidaoLideranca(
     }
     const est = estilos.get(p.id);
     if (!est) {
-      semEstilo.push({ colaboradorId: p.id, nome: p.nome, cargo: p.cargo, motivo: faixas || estilos.size ? 'sem perfil comportamental' : 'eixo de estilo indisponível' });
+      const motivoCodigo: MotivoSemEstilo = faixas || estilos.size ? 'sem_perfil' : 'estilo_indisponivel';
+      semEstilo.push({
+        colaboradorId: p.id, nome: p.nome, cargo: p.cargo, motivoCodigo,
+        motivo: motivoCodigo === 'sem_perfil' ? 'sem perfil comportamental' : 'eixo de estilo indisponível',
+      });
       continue;
     }
     const linha = montarLinha({
@@ -223,7 +256,7 @@ export async function agregarProntidaoLideranca(
   // sustenta veredito. Sem isto, `parcial` seria campo calculado que ninguém lê.
   const comParcial = [...posicoes.values()].filter((p) => p.completo && p.parciais.length);
   if (comParcial.length) {
-    avisos.push(`${comParcial.length} pessoa(s) com competência coberta por menos de ${DESCRITORES_MIN_CONFIAVEL} descritores: a média ali é sinal fraco, não veredito.`);
+    avisar('cobertura_fraca', `${comParcial.length} pessoa(s) com competência coberta por menos de ${DESCRITORES_MIN_CONFIAVEL} descritores: o nível ali é sinal fraco, não veredito.`, { n: comParcial.length, min: DESCRITORES_MIN_CONFIAVEL });
   }
 
   const ordenadas = ordenarLinhas(linhas);
@@ -232,6 +265,7 @@ export async function agregarProntidaoLideranca(
     competencias,
     calculadoEm: new Date().toISOString(),
     corte: cfg.corte_nota,
+    metaNivel: nivelMeta(cfg.corte_nota),
     populacao: populacao.length,
     linhas: ordenadas,
     porQuadrante: contarPorQuadrante(ordenadas),
@@ -240,6 +274,7 @@ export async function agregarProntidaoLideranca(
     naoIniciados,
     faixas,
     avisos,
+    avisosCodigos,
   };
 }
 
@@ -248,24 +283,38 @@ export interface Parecer {
   evidencias: EvidenciasCompetencia[];
   calculadoEm: string;
   cargoAlvo: string;
-  corte: number;
+  /** Corte decimal do programa. `null` na resposta ao cliente (`cliente.ts`). */
+  corte: number | null;
+  metaNivel?: Nivel | null;
+  exibeNota?: boolean;
 }
+
+/**
+ * Por que o parecer não existe para esta pessoa. O `motivo` é código (a tela
+ * traduz); `indisponivel` é o texto pt-BR, para log.
+ */
+export type ParecerIndisponivel = {
+  indisponivel: string;
+  motivo: 'incompleto' | 'sem_estilo' | 'fora';
+  faltantes?: string[];
+  motivoSemEstilo?: MotivoSemEstilo;
+};
 
 /**
  * O parecer de UMA pessoa = a linha dela na matriz (os mesmos números) + as
  * evidências literais por competência do programa.
  */
-export async function carregarParecer(sb: any, empresaId: string, colaboradorId: string, cfg: ConfigProntidaoLideranca): Promise<Parecer | { indisponivel: string }> {
+export async function carregarParecer(sb: any, empresaId: string, colaboradorId: string, cfg: ConfigProntidaoLideranca): Promise<Parecer | ParecerIndisponivel> {
   // Só esta pessoa: os números são os mesmos da matriz (posição é por pessoa e a
   // aderência ao gabarito é imune ao pool), sem recalcular a empresa inteira.
   const agg = await agregarProntidaoLideranca(sb, empresaId, cfg, { apenasIds: [colaboradorId] });
   const linha = agg.linhas.find((l) => l.colaboradorId === colaboradorId);
   if (!linha) {
     const inc = agg.incompletos.find((i) => i.colaboradorId === colaboradorId);
-    if (inc) return { indisponivel: `Mapeamento incompleto: faltam ${inc.faltantes.join(', ')}.` };
+    if (inc) return { indisponivel: `Mapeamento incompleto: faltam ${inc.faltantes.join(', ')}.`, motivo: 'incompleto', faltantes: inc.faltantes };
     const se = agg.semEstilo.find((s) => s.colaboradorId === colaboradorId);
-    if (se) return { indisponivel: `Sem eixo de estilo: ${se.motivo}.` };
-    return { indisponivel: 'Pessoa fora da população do programa ou sem mapeamento iniciado.' };
+    if (se) return { indisponivel: `Sem eixo de estilo: ${se.motivo}.`, motivo: 'sem_estilo', motivoSemEstilo: se.motivoCodigo };
+    return { indisponivel: 'Pessoa fora da população do programa ou sem mapeamento iniciado.', motivo: 'fora' };
   }
   const chaves = new Set(agg.competencias.map(chaveCompetencia));
   // Ordem DECLARADA: o catálogo pode ser recomposto com UUID novo preservando o
@@ -273,7 +322,8 @@ export async function carregarParecer(sb: any, empresaId: string, colaboradorId:
   // `competencia_nome` coexistem. Sem `.order()` quem vence é a ordem que o
   // Postgres devolver, e é este documento que leva o nome da pessoa.
   const { data, error } = await sb.from('respostas')
-    .select('id, competencia_id, competencia_nome, avaliacao_ia, status_ia4, avaliado_em, feedback_ia4')
+    // r1 a r4: o texto das respostas, para conferir cada trecho citado (R-134).
+    .select('id, competencia_id, competencia_nome, avaliacao_ia, status_ia4, avaliado_em, feedback_ia4, r1, r2, r3, r4')
     .eq('empresa_id', empresaId)
     .eq('colaborador_id', colaboradorId)
     .order('avaliado_em', { ascending: false, nullsFirst: false })
@@ -288,6 +338,6 @@ export async function carregarParecer(sb: any, empresaId: string, colaboradorId:
   const evidencias = agg.competencias.map((c) => porComp.get(chaveCompetencia(c)) || {
     respostaId: null, competenciaId: null, competencia: c, auditoria: null, avaliadoEm: null, feedback: null, descritores: [],
   });
-  return { linha, evidencias, calculadoEm: agg.calculadoEm, cargoAlvo: agg.cargoAlvo, corte: agg.corte };
+  return { linha, evidencias, calculadoEm: agg.calculadoEm, cargoAlvo: agg.cargoAlvo, corte: agg.corte, metaNivel: agg.metaNivel ?? null };
 }
 

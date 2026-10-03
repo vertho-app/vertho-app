@@ -28,12 +28,16 @@ export const QUADRANTE_LABEL: Record<Quadrante, string> = {
   nao_agora: 'Não agora',
 };
 
-/** O que cada quadrante recomenda. Texto fixo; os gaps entram nomeados ao lado. */
+/**
+ * O que cada quadrante recomenda. Texto fixo; os gaps entram nomeados ao lado.
+ * Este é o texto do PDF (pt-BR); a tela lê o mesmo texto traduzido em
+ * `MapeamentoLideranca.recomendacao` (messages/*.json). Mudou aqui, muda lá.
+ */
 export const RECOMENDACAO_POR_QUADRANTE: Record<Quadrante, string> = {
   pronta: 'Demonstra o que o papel exige e o estilo é aderente ao perfil-alvo. Evidência e leitura apontam para o mesmo lado: assume agora, com devolutiva individual.',
   pronta_com_custo: 'Demonstra o que o papel exige, com estilo distante do perfil-alvo. Vai liderar de um jeito diferente do padrão da casa, o que é previsível e não surpresa. O plano individual nomeia o atrito específico.',
-  potencial: 'O estilo ajuda, mas a demonstração ainda não sustenta. É o quadrante que mais engana em avaliação só por perfil. Trilha nas competências-gap e reavaliação ao fim.',
-  nao_agora: 'Os gaps aparecem em competências que o papel não dispensa. Trilha antes de qualquer movimento; o parecer nomeia quais, com a evidência.',
+  potencial: 'O estilo ajuda, mas a demonstração ainda não sustenta. É o quadrante que mais engana em avaliação só por perfil. Trilha nas competências abaixo da meta e reavaliação ao fim.',
+  nao_agora: 'As competências abaixo da meta são as que o papel não dispensa. Trilha antes de qualquer movimento; o parecer nomeia quais, com a evidência.',
 };
 
 /** Ordem de LEITURA da lista (não da matriz): do mais pronto ao que menos está. */

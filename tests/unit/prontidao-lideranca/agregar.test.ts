@@ -116,7 +116,7 @@ describe('agregarProntidaoLideranca', () => {
     cenario.adequacao = adequacaoDe([pessoaAdeq('ana', 88)]);
     let r = await agregarProntidaoLideranca(mock().client, 'emp', cfg);
     expect(r.linhas.map((l) => l.nome)).toEqual(['Ana']);
-    expect(r.semEstilo).toEqual([{ colaboradorId: 'bia', nome: 'Bia', cargo: 'Vendedor', motivo: 'sem perfil comportamental' }]);
+    expect(r.semEstilo).toEqual([{ colaboradorId: 'bia', nome: 'Bia', cargo: 'Vendedor', motivo: 'sem perfil comportamental', motivoCodigo: 'sem_perfil' }]);
 
     cenario.cargoAlvo = { nome: 'Gerente', gabarito: null, top5_workshop: LID };
     vi.mocked(aggregateAdequacao).mockClear();
@@ -124,6 +124,9 @@ describe('agregarProntidaoLideranca', () => {
     expect(r.linhas).toEqual([]);
     expect(r.semEstilo.map((s) => s.nome)).toEqual(['Ana', 'Bia']);
     expect(r.avisos.join(' ')).toMatch(/gabarito/);
+    // R-39: o aviso vem também com código, para a tela traduzir.
+    expect(r.avisosCodigos.map((a) => a.codigo)).toContain('alvo_sem_gabarito');
+    expect(r.semEstilo.every((s) => s.motivoCodigo === 'estilo_indisponivel')).toBe(true);
     expect(vi.mocked(aggregateAdequacao)).not.toHaveBeenCalled();
   });
 
@@ -139,6 +142,9 @@ describe('agregarProntidaoLideranca', () => {
     cenario.colabs = cenario.colabs.map((c) => (c.role === 'rh' ? c : { ...c, cargo: null }));
     const r = await agregarProntidaoLideranca(mock().client, 'emp', cfg);
     expect(r.avisos.join(' ')).toMatch(/Ninguém na população tem cargo/);
+    expect(r.avisosCodigos.map((a) => a.codigo)).toContain('populacao_sem_cargo');
+    // Um aviso de texto para cada código, na mesma ordem: as duas listas nascem juntas.
+    expect(r.avisos).toHaveLength(r.avisosCodigos.length);
     expect(r.linhas).toEqual([]);
     expect(vi.mocked(aggregateAdequacao)).not.toHaveBeenCalled();
   });
@@ -160,7 +166,11 @@ describe('agregarProntidaoLideranca', () => {
   it('carregarParecer traz a linha da matriz e as evidências das competências do programa', async () => {
     cenario.respostas.push({
       colaborador_id: 'ana', competencia_id: 'c-pri', competencia_nome: 'Priorização', status_ia4: 'aprovado',
-      avaliacao_ia: { avaliacao_por_descritor: [{ numero: 1, nome: 'D0', nota_decimal: 3.5, evidencias: [{ resposta: 'R1', trecho: 'listei as três contas antes da reunião', forca_evidencia: 'forte' }] }] },
+      r1: 'Antes de tudo, listei as três contas antes da reunião e avisei o time.', r2: 'Delegaria a parte operacional.',
+      avaliacao_ia: { avaliacao_por_descritor: [{ numero: 1, nome: 'D0', nota_decimal: 3.5, evidencias: [
+        { resposta: 'R1', trecho: 'listei as três contas antes da reunião', forca_evidencia: 'forte' },
+        { resposta: 'R2', trecho: 'a pessoa demonstra que delega bem', forca_evidencia: 'moderada' },
+      ] }] },
     });
     const p = await carregarParecer(mock().client, 'emp', 'ana', cfg);
     expect('indisponivel' in p).toBe(false);
@@ -168,9 +178,11 @@ describe('agregarProntidaoLideranca', () => {
     expect(p.linha.quadrante).toBe('pronta');
     expect(p.evidencias.map((e) => e.competencia)).toEqual(LID);
     expect(p.evidencias[0].descritores[0].evidencias[0].trecho).toBe('listei as três contas antes da reunião');
+    // R-134: o trecho que está na resposta é citação; a paráfrase não.
+    expect(p.evidencias[0].descritores[0].evidencias.map((e) => e.literal)).toEqual([true, false]);
     expect(p.evidencias[1].descritores).toEqual([]);
 
     const inc = await carregarParecer(mock().client, 'emp', 'caio', cfg);
-    expect(inc).toEqual({ indisponivel: 'Mapeamento incompleto: faltam Delegação.' });
+    expect(inc).toEqual({ indisponivel: 'Mapeamento incompleto: faltam Delegação.', motivo: 'incompleto', faltantes: ['Delegação'] });
   });
 });

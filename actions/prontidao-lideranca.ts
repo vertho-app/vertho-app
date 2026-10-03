@@ -27,20 +27,32 @@ import {
   agregarProntidaoLideranca, carregarParecer, carregarCargosParaValidacao, carregarPopulacao,
 } from '@/lib/prontidao-lideranca/agregar';
 import { instalarMatrizLideranca, estadoMatrizLideranca } from '@/lib/simuladores/lideranca/instalar';
+import { parecerParaCliente, prontidaoParaCliente } from '@/lib/prontidao-lideranca/cliente';
 import { COMPETENCIAS_LIDERANCA, ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
 
 type Falha = { success: false; error: string; code?: string };
 
+/**
+ * Falha técnica (banco, Storage, render) vai para o log do servidor e volta à
+ * tela como frase com código, nunca com a mensagem do banco (R-39,
+ * 03/10/2026: o RH lia "não foi possível ler as respostas: <erro do
+ * PostgREST>" e o código interno em fonte mono).
+ */
+function falhaTecnica(onde: string, e: unknown, error: string, code = 'ERRO_LEITURA') {
+  console.error(`[prontidao-lideranca] ${onde}:`, (e as any)?.message || e);
+  return { success: false as const, error, code };
+}
+
 /** Parecer é documento NOMINAL: vai no bucket privado dos relatórios, nunca no `conteudos` (público). */
 const BUCKET_PDF = 'relatorios-pdf';
 
-async function ctxRh(): Promise<{ empresaId: string } | { erro: string }> {
+async function ctxRh(): Promise<{ empresaId: string } | { erro: string; code: string }> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { erro: 'Não autenticado.' };
+  if (!email) return { erro: 'Não autenticado.', code: 'NAO_AUTENTICADO' };
   const ctx = await getUserContext(email);
-  if (ctx?.role !== 'rh') return { erro: 'Acesso exclusivo do RH.' };
-  if (!ctx.empresaId) return { erro: 'RH sem empresa vinculada.' };
+  if (ctx?.role !== 'rh') return { erro: 'Acesso exclusivo do RH.', code: 'SO_RH' };
+  if (!ctx.empresaId) return { erro: 'RH sem empresa vinculada.', code: 'SEM_EMPRESA' };
   // Papel e módulo decidem; a aba de cargos diz só quem treina (decisão do dono, 22/09/2026).
   return { empresaId: ctx.empresaId };
 }
@@ -50,7 +62,7 @@ async function lerSysConfig(sb: any, empresaId: string): Promise<{ sysConfig: an
   // (o filtro por tenant aqui é o próprio `.eq('id', empresaId)`).
   const base = sb?.raw || sb;
   const { data, error } = await base.from('empresas').select('nome, sys_config').eq('id', empresaId).maybeSingle();
-  if (error) return { success: false, error: `não foi possível ler a configuração: ${error.message}` };
+  if (error) return falhaTecnica('configuração', error, 'Não foi possível ler a configuração do Mapeamento de liderança.');
   if (!data) return { success: false, error: 'Empresa não encontrada.' };
   return { sysConfig: data.sys_config || {}, nome: data.nome || '' };
 }
@@ -79,7 +91,7 @@ async function _exportar(sb: any, empresaId: string, alvo: { tipo: 'parecer'; co
     if (alvo.tipo === 'parecer') {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(alvo.colaboradorId)) return { success: false as const, error: 'Colaborador inválido.' };
       const r = await carregarParecer(sb, empresaId, alvo.colaboradorId, p.cfg);
-      if ('indisponivel' in r) return { success: false as const, error: r.indisponivel, code: 'PARECER_INDISPONIVEL' };
+      if ('indisponivel' in r) return { success: false as const, error: r.indisponivel, code: 'PARECER_INDISPONIVEL', motivo: r.motivo };
       const { renderParecerPDF } = await import('@/lib/prontidao-lideranca/parecer-pdf');
       buffer = await renderParecerPDF({ empresaNome: p.nome, parecer: r, competencias: r.linha.posicao.competencias.map((c) => c.competencia) });
       sufixo = `parecer-${alvo.colaboradorId}`;
@@ -95,27 +107,34 @@ async function _exportar(sb: any, empresaId: string, alvo: { tipo: 'parecer'; co
     // O link é assinado (30 min); sem ele a URL não abre.
     const path = `prontidao-lideranca/${empresaId}/${sufixo}.pdf`;
     const up = await sb.storage.from(BUCKET_PDF).upload(path, buffer, { contentType: 'application/pdf', upsert: true });
-    if (up.error) return { success: false as const, error: `Falha ao salvar PDF: ${up.error.message}` };
+    if (up.error) return falhaTecnica('PDF (upload)', up.error, 'Não foi possível gerar o PDF.', 'ERRO_PDF');
     const signed = await sb.storage.from(BUCKET_PDF).createSignedUrl(path, 60 * 30);
-    if (signed.error || !signed.data?.signedUrl) return { success: false as const, error: 'Falha ao gerar link do PDF.' };
+    if (signed.error || !signed.data?.signedUrl) return falhaTecnica('PDF (link)', signed.error, 'Não foi possível gerar o PDF.', 'ERRO_PDF');
     return { success: true as const, url: signed.data.signedUrl as string };
   } catch (e: any) {
-    return { success: false as const, error: e?.message || 'Erro ao gerar o PDF.' };
+    return falhaTecnica('PDF', e, 'Não foi possível gerar o PDF.', 'ERRO_PDF');
   }
 }
 
-async function _get(sb: any, empresaId: string) {
+/**
+ * `escopo` decide a forma do dado: o cliente (RH) recebe nível, sem nota
+ * decimal, já projetado no servidor (`lib/prontidao-lideranca/cliente.ts`,
+ * decisão 1 do dono); o admin da Vertho recebe os números (`exibeNota`).
+ */
+type Escopo = 'cliente' | 'admin';
+
+async function _get(sb: any, empresaId: string, escopo: Escopo) {
   try {
     const p = await programa(sb, empresaId);
     if ('error' in p) return p;
     const data = await agregarProntidaoLideranca(sb, empresaId, p.cfg);
-    return { success: true as const, data };
+    return { success: true as const, data: escopo === 'cliente' ? prontidaoParaCliente(data) : { ...data, exibeNota: true } };
   } catch (e: any) {
-    return { success: false as const, error: e?.message || 'Erro ao carregar o mapeamento de liderança.' };
+    return falhaTecnica('leitura', e, 'Não foi possível carregar o Mapeamento de liderança.');
   }
 }
 
-async function _parecer(sb: any, empresaId: string, colaboradorId: string) {
+async function _parecer(sb: any, empresaId: string, colaboradorId: string, escopo: Escopo) {
   try {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(colaboradorId || ''))) {
       return { success: false as const, error: 'Colaborador inválido.' };
@@ -123,37 +142,42 @@ async function _parecer(sb: any, empresaId: string, colaboradorId: string) {
     const p = await programa(sb, empresaId);
     if ('error' in p) return p;
     const r = await carregarParecer(sb, empresaId, colaboradorId, p.cfg);
-    if ('indisponivel' in r) return { success: false as const, error: r.indisponivel, code: 'PARECER_INDISPONIVEL' };
-    return { success: true as const, data: r };
+    if ('indisponivel' in r) {
+      return {
+        success: false as const, error: r.indisponivel, code: 'PARECER_INDISPONIVEL', motivo: r.motivo,
+        faltantes: r.faltantes, detalhe: r.motivoSemEstilo,
+      };
+    }
+    return { success: true as const, data: escopo === 'cliente' ? parecerParaCliente(r) : { ...r, exibeNota: true } };
   } catch (e: any) {
-    return { success: false as const, error: e?.message || 'Erro ao montar o parecer.' };
+    return falhaTecnica('parecer', e, 'Não foi possível montar o parecer.');
   }
 }
 
 // ── RH self-service (empresa da sessão) ───────────────────────────────────────
 
 export async function getProntidaoLideranca() {
-  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
+  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro, code: g.code };
   // tenantDb, não o client cru: o escopo é a empresa da sessão e o filtro vai
   // em toda leitura de tabela de tenant por construção (regra do CLAUDE.md).
-  return _get(tenantDb(g.empresaId), g.empresaId);
+  return _get(tenantDb(g.empresaId), g.empresaId, 'cliente');
 }
 
 export async function getParecerLideranca(colaboradorId: string) {
-  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
-  return _parecer(tenantDb(g.empresaId), g.empresaId, colaboradorId);
+  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro, code: g.code };
+  return _parecer(tenantDb(g.empresaId), g.empresaId, colaboradorId, 'cliente');
 }
 
 // ── Preview e configuração do admin (empresa da rota) ─────────────────────────
 
 export async function getProntidaoLiderancaAdmin(empresaId: string) {
   const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'getProntidaoLiderancaAdmin');
-  return _get(sb, empresaId);
+  return _get(sb, empresaId, 'admin');
 }
 
 export async function getParecerLiderancaAdmin(empresaId: string, colaboradorId: string) {
   const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'getParecerLiderancaAdmin');
-  return _parecer(sb, empresaId, colaboradorId);
+  return _parecer(sb, empresaId, colaboradorId, 'admin');
 }
 
 /** Tudo que a aba de configuração precisa: estado atual, cargos elegíveis e turmas. */
@@ -356,7 +380,7 @@ export async function reinstalarMatrizLiderancaAdmin(empresaId: string) {
 // ── PDF: parecer individual e consolidado da equipe ───────────────────────────
 
 export async function exportarParecerPDF(colaboradorId: string) {
-  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
+  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro, code: g.code };
   return _exportar(tenantDb(g.empresaId), g.empresaId, { tipo: 'parecer', colaboradorId });
 }
 
@@ -366,7 +390,7 @@ export async function exportarParecerPDFAdmin(empresaId: string, colaboradorId: 
 }
 
 export async function exportarConsolidadoPDF() {
-  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
+  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro, code: g.code };
   return _exportar(tenantDb(g.empresaId), g.empresaId, { tipo: 'consolidado' });
 }
 

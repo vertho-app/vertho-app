@@ -1,11 +1,17 @@
 /**
- * PDF do PARECER DE PRONTIDÃO (individual) e do CONSOLIDADO da equipe:
- * @react-pdf/renderer, no molde visual de `lib/adequacao-cargo/ranking-pdf.tsx`
- * (Tinta & Sinal, Fraunces + Inter).
+ * PDF do PARECER do Mapeamento de liderança (individual) e do CONSOLIDADO da
+ * equipe: @react-pdf/renderer, no molde visual de
+ * `lib/adequacao-cargo/ranking-pdf.tsx` (Tinta & Sinal, Fraunces + Inter).
  *
- * VIEW PURA do que a agregação calculou: não recomputa, não chama IA. As
- * frases de gap chegam ANCORADAS (competência + média + corte) e são impressas
- * como vieram: o PDF não reescreve o parecer.
+ * VIEW PURA do que a agregação calculou: não recomputa, não chama IA.
+ *
+ * Três regras de 03/10/2026 (R-39 e R-134 da revisão de 02/10):
+ *   - o documento se chama "Mapeamento de liderança": "Simulador de liderança"
+ *     é outro produto, e o PDF ficou com o nome antigo depois da troca de 19/09;
+ *   - o PDF vai para o cliente, então mostra NÍVEL, nunca a média decimal nem
+ *     o corte (decisão 1 do dono), mesmo quando quem exporta é o admin;
+ *   - só vai entre aspas o trecho que confere com a resposta (`literal`); o
+ *     resto aparece como leitura da IA.
  *
  * ⚠️ Nada de "→" no texto: a subset Inter dos PDFs não cobre a seta e o glifo
  * sai em branco (medido: 19 glifos fora do subset). Usa "—".
@@ -16,6 +22,8 @@ import type { Parecer, ProntidaoLideranca } from './agregar';
 import { QUADRANTE_LABEL, RECOMENDACAO_POR_QUADRANTE, ORDEM_QUADRANTES, type Quadrante } from './matriz';
 import { DESCRITORES_MIN_CONFIAVEL, POSICAO_LABEL } from './posicao';
 import { ESTILO_LABEL } from './estilo';
+import { nivelMeta } from './cliente';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 const CDN = 'https://cdn.jsdelivr.net/fontsource/fonts';
 try {
@@ -36,7 +44,8 @@ const COR_Q: Record<Quadrante, { cor: string; fundo: string }> = {
   pronta: { cor: T.verde, fundo: CL.zVerde },
   pronta_com_custo: { cor: T.clay, fundo: CL.zClay },
   potencial: { cor: T.teal, fundo: CL.zCyan },
-  nao_agora: { cor: T.vermelho, fundo: CL.zVerm },
+  // Lilás, não vermelho: "Não agora" é um momento da pessoa, não reprovação (R-39).
+  nao_agora: { cor: T.lilas, fundo: CL.zLilas },
 };
 
 const s = StyleSheet.create({
@@ -58,8 +67,21 @@ const s = StyleSheet.create({
 });
 
 const DISCLAIMER = 'Apoio à decisão. Este documento organiza o que a pessoa demonstrou e o que o perfil dela indica, sem decidir por ninguém. O parecer é insumo da empresa; a decisão é dela.';
-const fmtNota = (v: number | null | undefined) => (v == null ? '—' : Number(v).toFixed(2).replace('.', ','));
-const fmtPct = (v: number | null | undefined) => (v == null ? '—' : `${Number(v).toFixed(1).replace('.', ',')}%`);
+/** Nível por extenso; nunca a nota (decisão 1 do dono). */
+const fmtNivel = (n: number | null | undefined) => (n == null ? '—' : `Nível ${n}`);
+/** Aderência em porcentagem inteira, sem casa decimal. */
+const fmtPct = (v: number | null | undefined) => (v == null ? '—' : `${Math.round(Number(v))}%`);
+/** "meta: Nível 3", ou a meta do programa quando o corte não cai numa fronteira da régua. */
+const fmtMeta = (corte: number | null | undefined, metaNivel?: number | null) => {
+  const n = metaNivel ?? nivelMeta(corte);
+  return n ? `meta: Nível ${n}` : 'meta definida no programa';
+};
+const nivelDoDescritor = (d: { nivel?: number | null; nota: number | null }) =>
+  d.nivel ?? (d.nota == null || d.nota < 1 ? null : nivelDaNota(d.nota));
+const RESPOSTA = (r: string) => {
+  const m = /^R\s*([1-4])$/i.exec(String(r || '').trim());
+  return m ? `resposta ${m[1]}` : r;
+};
 const fmtDataHora = (iso: string) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
@@ -77,7 +99,7 @@ const Pill = ({ q }: { q: Quadrante }) => (
 );
 
 const Rodape = ({ empresaNome }: { empresaNome: string }) => (
-  <Text style={s.footer} fixed render={({ pageNumber, totalPages }) => `${empresaNome} · Simulador de liderança · ${pageNumber}/${totalPages} · ${DISCLAIMER}`} />
+  <Text style={s.footer} fixed render={({ pageNumber, totalPages }) => `${empresaNome} · Mapeamento de liderança · ${pageNumber}/${totalPages} · ${DISCLAIMER}`} />
 );
 
 // ── PARECER INDIVIDUAL ───────────────────────────────────────────────────────
@@ -94,7 +116,7 @@ function CapaParecer({ p, empresaNome }: { p: Parecer; empresaNome: string }) {
     <Page size="A4" style={s.pageDark}>
       <View style={s.row}><Marca /><Text style={s.eyebrowDark}>{empresaNome}</Text></View>
       <View style={{ marginTop: 120 }}>
-        <Text style={s.eyebrowDark}>Parecer do simulador de liderança</Text>
+        <Text style={s.eyebrowDark}>Parecer do Mapeamento de liderança</Text>
         <Text style={s.h1}>{l.nome}</Text>
         <Text style={{ color: T.off, opacity: 0.8, marginTop: 4, fontSize: 10 }}>{l.cargo || 'sem cargo'}  ·  perfil-alvo: {p.cargoAlvo}</Text>
         <View style={{ marginTop: 22, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -104,7 +126,7 @@ function CapaParecer({ p, empresaNome }: { p: Parecer; empresaNome: string }) {
       </View>
       <View style={{ position: 'absolute', bottom: 46, left: 46, right: 46 }}>
         <View style={s.row}>
-          <View><Text style={s.eyebrowDark}>Competência demonstrada</Text><Text style={{ fontFamily: DISPLAY, fontSize: 22, color: T.off }}>{fmtNota(l.posicao.mediaGeral)}</Text><Text style={{ fontSize: 7.5, color: T.off, opacity: 0.7 }}>média geral · corte {fmtNota(p.corte)}</Text></View>
+          <View><Text style={s.eyebrowDark}>Competência demonstrada</Text><Text style={{ fontFamily: DISPLAY, fontSize: 22, color: T.off }}>{fmtNivel(l.posicao.nivelGeral)}</Text><Text style={{ fontSize: 7.5, color: T.off, opacity: 0.7 }}>nível geral · {fmtMeta(p.corte, p.metaNivel)}</Text></View>
           <View><Text style={s.eyebrowDark}>Aderência de estilo</Text><Text style={{ fontFamily: DISPLAY, fontSize: 22, color: T.off }}>{fmtPct(l.estilo.aderenciaPct)}</Text><Text style={{ fontSize: 7.5, color: T.off, opacity: 0.7 }}>{ESTILO_LABEL[l.estilo.estilo]}</Text></View>
           <View><Text style={s.eyebrowDark}>Calculado em</Text><Text style={{ fontSize: 10, color: T.off, marginTop: 6 }}>{fmtDataHora(p.calculadoEm)}</Text><Text style={{ fontSize: 7.5, color: T.off, opacity: 0.7 }}>não é snapshot</Text></View>
         </View>
@@ -120,25 +142,26 @@ function PaginaPosicao({ p, empresaNome }: { p: Parecer; empresaNome: string }) 
       <Text style={s.eyebrow}>Camada 1 · o que a pessoa demonstrou</Text>
       <Text style={s.h2}>Posição por competência</Text>
       <View style={s.card}>
-        <View style={s.row}><Text style={s.h3}>Média geral {fmtNota(l.posicao.mediaGeral)} · {POSICAO_LABEL[l.posicao.posicao!]}</Text><Text style={s.small}>corte {fmtNota(p.corte)}</Text></View>
+        <View style={s.row}><Text style={s.h3}>{fmtNivel(l.posicao.nivelGeral)} no geral · {POSICAO_LABEL[l.posicao.posicao!]}</Text><Text style={s.small}>{fmtMeta(p.corte, p.metaNivel)}</Text></View>
         {l.posicao.competencias.map((c) => (
           <View key={c.competencia} style={[s.linha, s.row]}>
-            <Text style={{ flex: 1, color: c.gap ? T.vermelho : T.ink }}>{c.competencia}{c.parcial ? ' *' : ''}</Text>
-            <Text style={{ width: 60, textAlign: 'right' }}>{fmtNota(c.media)}</Text>
-            <Text style={{ width: 46, textAlign: 'right', color: T.mute }}>{c.descritores} desc.</Text>
-            <Text style={{ width: 30, textAlign: 'right', color: T.mute }}>N{c.nivel ?? '—'}</Text>
+            <Text style={{ flex: 1, color: c.gap ? T.clay : T.ink }}>{c.competencia}{c.parcial ? ' *' : ''}</Text>
+            <Text style={{ width: 60, textAlign: 'right' }}>{fmtNivel(c.nivel)}</Text>
+            <Text style={{ width: 90, textAlign: 'right', color: T.mute }}>{c.descritores} comportamentos</Text>
             <Text style={{ width: 90, textAlign: 'right', color: T.mute }}>{c.posicao ? POSICAO_LABEL[c.posicao] : '—'}</Text>
           </View>
         ))}
         {l.posicao.parciais.length > 0 && (
           <Text style={{ marginTop: 8, color: T.clay }}>
-            * {l.posicao.parciais.join(', ')} · coberta(s) por menos de {DESCRITORES_MIN_CONFIAVEL} descritores. A média ali é sinal fraco: leia as evidências antes de usá-la.
+            * {l.posicao.parciais.join(', ')} · coberta(s) por menos de {DESCRITORES_MIN_CONFIAVEL} comportamentos. O nível ali é sinal fraco: leia as evidências antes de usá-lo.
           </Text>
         )}
-        {l.frasesGap.length > 0 && (
+        {l.posicao.competencias.some((c) => c.gap && c.nivel != null) && (
           <View style={{ marginTop: 10 }}>
-            <Text style={[s.eyebrow, { color: T.vermelho }]}>Gaps nomeados</Text>
-            {l.frasesGap.map((f) => <Text key={f} style={{ marginTop: 3 }}>{f}</Text>)}
+            <Text style={[s.eyebrow, { color: T.clay }]}>Abaixo da meta</Text>
+            {l.posicao.competencias.filter((c) => c.gap && c.nivel != null).map((c) => (
+              <Text key={c.competencia} style={{ marginTop: 3 }}>{c.competencia}: {fmtNivel(c.nivel)}, abaixo da meta</Text>
+            ))}
           </View>
         )}
         {l.auditoriaPendente && <Text style={{ marginTop: 10, color: T.clay }}>A auditoria da segunda IA pediu revisão em ao menos uma avaliação desta pessoa. Leia as evidências antes de decidir.</Text>}
@@ -162,8 +185,9 @@ function PaginaPosicao({ p, empresaNome }: { p: Parecer; empresaNome: string }) 
 function PaginaEvidencias({ p, empresaNome }: { p: Parecer; empresaNome: string }) {
   return (
     <Page size="A4" style={s.pageLight} wrap>
-      <Text style={s.eyebrow}>Evidências · trechos da própria resposta</Text>
-      <Text style={s.h2}>O que sustenta cada nota</Text>
+      <Text style={s.eyebrow}>Evidências</Text>
+      <Text style={s.h2}>O que sustenta cada nível</Text>
+      <Text style={{ color: T.mute, marginBottom: 10, lineHeight: 1.4 }}>Entre aspas, o trecho da própria resposta, conferido palavra por palavra. Sem aspas, a leitura da IA que não confere literalmente com a resposta.</Text>
       {p.evidencias.map((ev) => (
         <View key={ev.competencia} style={s.card}>
           <View style={s.row}>
@@ -172,8 +196,10 @@ function PaginaEvidencias({ p, empresaNome }: { p: Parecer; empresaNome: string 
           </View>
           {ev.descritores.length ? ev.descritores.map((d) => (
             <View key={d.descritor} style={{ marginTop: 4 }}>
-              <Text><Text style={{ fontWeight: 600 }}>{d.descritor}</Text> · {fmtNota(d.nota)}{d.sustentacao ? ` · sustentação ${d.sustentacao}` : ''}</Text>
-              {d.evidencias.map((e, i) => <Text key={i} style={s.quote}>“{e.trecho}” <Text style={s.mute}>· {e.resposta}{e.forca ? `, ${e.forca}` : ''}</Text></Text>)}
+              <Text><Text style={{ fontWeight: 600 }}>{d.descritor}</Text> · {fmtNivel(nivelDoDescritor(d))}{d.sustentacao ? ` · sustentação ${d.sustentacao}` : ''}</Text>
+              {d.evidencias.map((e, i) => (e.literal
+                ? <Text key={i} style={s.quote}>“{e.trecho}” <Text style={s.mute}>· {RESPOSTA(e.resposta)}{e.forca ? `, ${e.forca}` : ''}</Text></Text>
+                : <Text key={i} style={s.quote}><Text style={s.mute}>Leitura da IA: </Text>{e.trecho} <Text style={s.mute}>· {RESPOSTA(e.resposta)}{e.forca ? `, ${e.forca}` : ''}</Text></Text>))}
               {!d.evidencias.length && d.limites.length > 0 && <Text style={[s.quote, { color: T.clay }]}>sem trecho; limites: {d.limites.join('; ')}</Text>}
             </View>
           )) : <Text style={s.mute}>Resposta ainda não avaliada.</Text>}
@@ -187,7 +213,7 @@ function PaginaEvidencias({ p, empresaNome }: { p: Parecer; empresaNome: string 
 export async function renderParecerPDF(input: ParecerPDFInput): Promise<Buffer> {
   const { parecer: p, empresaNome } = input;
   return renderToBuffer(
-    <Document producer="Vertho" creator="Vertho" title={`Parecer do simulador de liderança · ${p.linha.nome}`}>
+    <Document producer="Vertho" creator="Vertho" title={`Parecer do Mapeamento de liderança · ${p.linha.nome}`}>
       <CapaParecer p={p} empresaNome={empresaNome} />
       <PaginaPosicao p={p} empresaNome={empresaNome} />
       <PaginaEvidencias p={p} empresaNome={empresaNome} />
@@ -206,12 +232,12 @@ export async function renderConsolidadoPDF(input: ConsolidadoPDFInput): Promise<
   const { data, empresaNome } = input;
   const porQ = (q: Quadrante) => data.linhas.filter((l) => l.quadrante === q);
   return renderToBuffer(
-    <Document producer="Vertho" creator="Vertho" title={`Simulador de liderança · ${data.cargoAlvo}`}>
+    <Document producer="Vertho" creator="Vertho" title={`Mapeamento de liderança · ${data.cargoAlvo}`}>
       <Page size="A4" style={s.pageDark}>
         <View style={s.row}><Marca /><Text style={s.eyebrowDark}>{empresaNome}</Text></View>
         <View style={{ marginTop: 120 }}>
           <Text style={s.eyebrowDark}>Consolidado da equipe</Text>
-          <Text style={s.h1}>Simulador de liderança</Text>
+          <Text style={s.h1}>Mapeamento de liderança</Text>
           <Text style={{ color: T.off, opacity: 0.8, marginTop: 4, fontSize: 10 }}>perfil-alvo: {data.cargoAlvo} · calculado em {fmtDataHora(data.calculadoEm)}</Text>
           <Text style={{ color: T.off, opacity: 0.75, marginTop: 10, fontSize: 9 }}>Competências: {data.competencias.join(' · ')}</Text>
         </View>
@@ -232,7 +258,7 @@ export async function renderConsolidadoPDF(input: ConsolidadoPDFInput): Promise<
             {porQ(q).map((l) => (
               <View key={l.colaboradorId} style={[s.linha, s.row]}>
                 <Text style={{ flex: 1 }}>{l.nome} <Text style={s.mute}>· {l.cargo || '—'}</Text></Text>
-                <Text style={{ width: 70, textAlign: 'right' }}>{fmtNota(l.posicao.mediaGeral)}</Text>
+                <Text style={{ width: 70, textAlign: 'right' }}>{fmtNivel(l.posicao.nivelGeral)}</Text>
                 <Text style={{ width: 70, textAlign: 'right', color: T.mute }}>{fmtPct(l.estilo.aderenciaPct)}</Text>
               </View>
             ))}
