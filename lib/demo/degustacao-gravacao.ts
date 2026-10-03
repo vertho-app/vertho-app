@@ -31,6 +31,27 @@ export function entradaDaEtiqueta(codigo: string): string {
   return `${GRAVACAO_PREFIXO_DA_ETIQUETA}${codigo}`;
 }
 
+/**
+ * Rotas da sala onde a pessoa ESCREVE (conversa de evidências, avaliação,
+ * simuladores, prática). Texto digitado reaparece na tela como mensagem, e
+ * máscara de campo não cobre o eco. Nessas rotas a gravação PAUSA e volta quando
+ * a pessoa sai delas. O guard de `degustacao-gravacao.test.ts` varre as páginas
+ * do `/dashboard` com `<textarea>` e falha se uma rota nova não estiver aqui.
+ */
+const ROTAS_COM_CONVERSA: readonly RegExp[] = [
+  /^\/dashboard\/assessment(\/|$)/,
+  /^\/dashboard\/praticar(\/|$)/,
+  /^\/dashboard\/simulador-lideranca(\/|$)/,
+  /^\/dashboard\/simulador-vendas(\/|$)/,
+  /^\/dashboard\/treino-atendimento(\/|$)/,
+  /^\/dashboard\/temporada\/(semana|sem14)(\/|$)/,
+];
+
+export function rotaPermiteGravar(pathname: string): boolean {
+  const caminho = String(pathname || '').split('?')[0];
+  return !ROTAS_COM_CONVERSA.some((rota) => rota.test(caminho));
+}
+
 /** Parâmetros de query que carregam credencial do convite ou da sala. */
 const PARAMETROS_COM_CREDENCIAL = ['sala', 'volta', 'ticket', 'passe'] as const;
 
@@ -44,4 +65,61 @@ export function redigirUrlDaGravacao(texto: string): string {
   return String(texto)
     .replace(comParametros, '$1x')
     .replace(/(\/c\/)[A-Za-z0-9_-]{24}(?![A-Za-z0-9_-])/g, '$1x');
+}
+
+function redigirCampos(objeto: any, campos: readonly string[]): void {
+  if (!objeto || typeof objeto !== 'object') return;
+  for (const campo of campos) {
+    if (typeof objeto[campo] === 'string') objeto[campo] = redigirUrlDaGravacao(objeto[campo]);
+  }
+}
+
+/**
+ * Evento da GRAVAÇÃO (o fluxo do rrweb). 🔴 `Medido 03/10/2026` em produção, com o
+ * passaporte de QA: a URL inteira do início, com o código do convite, ficava no
+ * `href` do evento de metadados (`data.href`) e no `page.view` da gravação, e a
+ * primeira versão deste gancho só olhava os campos aninhados em `payload`.
+ */
+export function redigirEventoDeGravacao<T>(evento: T): T {
+  try {
+    const e: any = evento;
+    redigirCampos(e?.data, ['href']);
+    const carga = e?.data?.payload;
+    redigirCampos(carga, ['description', 'message', 'href', 'url']);
+    redigirCampos(carga?.data, ['from', 'to', 'url', 'href']);
+  } catch {
+    /* a redação nunca derruba a gravação */
+  }
+  return evento;
+}
+
+/**
+ * Evento do SENTRY (resumo da gravação, erro, transação), via processador de
+ * eventos. O resumo da gravação guarda a lista de páginas (`urls`) FORA do fluxo
+ * do rrweb, então só um processador a alcança. Cobre também a URL da requisição,
+ * os breadcrumbs de navegação e os spans: sem isso o código do convite ia para o
+ * Sentry em cada erro ou transação da página.
+ */
+export function redigirEventoDoSentry<T>(evento: T): T {
+  try {
+    const e: any = evento;
+    if (Array.isArray(e?.urls)) {
+      e.urls = e.urls.map((url: unknown) => (typeof url === 'string' ? redigirUrlDaGravacao(url) : url));
+    }
+    redigirCampos(e?.request, ['url']);
+    redigirCampos(e?.request?.headers, ['Referer', 'referer']);
+    redigirCampos(e?.contexts?.trace?.data, ['url', 'http.url']);
+    if (Array.isArray(e?.breadcrumbs)) {
+      for (const breadcrumb of e.breadcrumbs) redigirCampos(breadcrumb?.data, ['from', 'to', 'url']);
+    }
+    if (Array.isArray(e?.spans)) {
+      for (const span of e.spans) {
+        redigirCampos(span, ['description']);
+        redigirCampos(span?.data, ['url', 'http.url']);
+      }
+    }
+  } catch {
+    /* a redação nunca derruba o envio */
+  }
+  return evento;
 }

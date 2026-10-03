@@ -604,11 +604,21 @@ carregando o integrador da CDN do Sentry (`lazyLoadIntegration`) para não pesar
 telas. O mapeamento (DISC) fica de fora. A etiqueta de busca é `demo_chave:<hash>`: `sha256("degustacao:"
 + código do convite)`, 12 hex, igual no navegador e no painel (`etiquetaDaGravacao`); o código do
 convite, o nome e o e-mail NUNCA vão como tag. Campos de texto mascarados, conteúdo de demonstração
-visível. Cada host abre outra sessão de gravação (estimativa de 2 a 4 por lead). Limites conhecidos:
-o ticket (`sala`) e o código de volta passam pelas navegações que a gravação registra, e a redação
-(`redigirUrlDaGravacao`) cobre o que passa pelo gancho (breadcrumbs e spans), não a lista de URLs
-do resumo da gravação; e texto que o lead digita num chat e que reaparece em tela não é mascarado
-(a persona é fictícia, mas a fala dele não). A página avisa que registra telas e cliques.
+visível. Cada host abre outra sessão de gravação (confirmado em produção: 2 gravações para início +
+sala). A página avisa que registra telas e cliques.
+
+🔴 `Medido 03/10/2026` em produção (e apontado pela revisão de segurança do commit): a primeira versão
+deixava o CÓDIGO DO CONVITE inteiro em `urls` e no `page.view` da gravação, porque o gancho só
+olhava campos aninhados do `payload`. Hoje a redação cobre os três lugares: o fluxo do rrweb
+(`redigirEventoDeGravacao`, inclusive o `href` do evento de metadados), o resumo da gravação, o erro e
+a transação (`redigirEventoDoSentry`, por processador de eventos). E a gravação PAUSA nas rotas onde a
+pessoa escreve (`rotaPermiteGravar`: avaliação, prática, conversa de evidências, simuladores), porque o
+texto digitado reaparece como mensagem e máscara de campo não cobre o eco; o chat do Beto leva
+`data-sentry-mask`. Um guard varre as páginas do `/dashboard` com `<textarea>`.
+**Ainda aberto:** a transação de pageload da página (amostra de 10%, anterior à C) leva a URL com o
+código em tracing que o Sentry já recebia para a B; o processador só passa a cobri-la nas páginas onde
+a C o instala. E o texto que a pessoa digita em tela fora da lista (campo novo) depende de a página
+usar `<textarea>`/`<input>`.
 
 **Verificação.** 21 mutações de código e 6 de gravação derrubaram cada uma o teste nomeado
 (base verde). Os pontos do painel descrevem a tela REAL: confira-os no ambiente de demonstração ao

@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import * as Sentry from '@sentry/nextjs';
 import {
   GRAVACAO_TAG,
   GRAVACAO_TAMANHO_DA_ETIQUETA,
   entradaDaEtiqueta,
-  redigirUrlDaGravacao,
+  redigirEventoDeGravacao,
+  redigirEventoDoSentry,
+  rotaPermiteGravar,
 } from '@/lib/demo/degustacao-gravacao';
 
 /**
@@ -22,8 +25,15 @@ import {
  *   importá-lo: importar colocaria o replay no bundle de TODAS as telas.
  * - `replay.start()` grava em modo sessão independentemente das taxas.
  * - Campos de texto ficam mascarados e o que for da pessoa leva
- *   `data-sentry-mask`. O conteúdo das telas é de demonstração, então o texto
- *   delas fica visível (sem isso a gravação mostra só a moldura).
+ *   `data-sentry-mask` (nome no início, conversa do Beto). O conteúdo das telas é
+ *   de demonstração, então o texto delas fica visível.
+ * - 🔴 Nas rotas onde a pessoa ESCREVE (`rotaPermiteGravar`) a gravação PAUSA: o
+ *   texto digitado reaparece na tela como mensagem, e máscara de campo não
+ *   cobre o eco. Voltar a uma tela sem conversa retoma.
+ * - 🔴 O código do convite (`/c/<código>`) e o ticket da sala viajam em URL, e a
+ *   gravação as registra em três lugares: o fluxo do rrweb (`beforeAddRecordingEvent`),
+ *   a lista de páginas do resumo e os eventos de erro/transação (os dois últimos
+ *   só um processador de eventos alcança). Medido em produção em 03/10/2026.
  * - Falha de carga (bloqueador de anúncio, rede) é silêncio: gravação nunca
  *   atrapalha a página nem vira erro para o lead.
  */
@@ -37,25 +47,36 @@ async function etiquetaDoConvite(codigo: string): Promise<string> {
     .slice(0, GRAVACAO_TAMANHO_DA_ETIQUETA);
 }
 
-/** Gancho de gravação: tira a credencial das URLs que a gravação registra. */
-function redigirEvento(evento: any) {
-  try {
-    const carga = evento?.data?.payload;
-    if (carga && typeof carga === 'object') {
-      for (const campo of ['description', 'message']) {
-        if (typeof carga[campo] === 'string') carga[campo] = redigirUrlDaGravacao(carga[campo]);
+/**
+ * Carrega e instala o replay UMA vez por página, mesmo com várias montagens do
+ * componente (início e sala rodam em hosts diferentes, mas a sala re-renderiza a
+ * cada navegação). Sem o singleton, duas montagens adicionariam o integrador e o
+ * processador duas vezes.
+ */
+let preparando: Promise<ReturnType<typeof Sentry.getReplay>> | null = null;
+function prepararReplay() {
+  if (!preparando) {
+    preparando = (async () => {
+      let replay = Sentry.getReplay();
+      if (!replay) {
+        const fabrica = await Sentry.lazyLoadIntegration('replayIntegration');
+        Sentry.addIntegration(fabrica({
+          maskAllInputs: true,
+          maskAllText: false,
+          blockAllMedia: false,
+          mask: ['[data-sentry-mask]', 'textarea', '[contenteditable="true"]'],
+          beforeAddRecordingEvent: redigirEventoDeGravacao,
+        }));
+        Sentry.addEventProcessor(redigirEventoDoSentry);
+        replay = Sentry.getReplay();
       }
-      const dados = carga.data;
-      if (dados && typeof dados === 'object') {
-        for (const campo of ['from', 'to', 'url', 'href']) {
-          if (typeof dados[campo] === 'string') dados[campo] = redigirUrlDaGravacao(dados[campo]);
-        }
-      }
-    }
-  } catch {
-    /* a redação nunca derruba a gravação */
+      return replay;
+    })().catch((erro) => {
+      preparando = null;
+      throw erro;
+    });
   }
-  return evento;
+  return preparando;
 }
 
 export default function GravacaoDaDegustacao({ codigo, onde }: {
@@ -63,6 +84,8 @@ export default function GravacaoDaDegustacao({ codigo, onde }: {
   codigo: string | null;
   onde: 'inicio' | 'sala';
 }) {
+  const pathname = usePathname();
+
   useEffect(() => {
     if (!codigo) return;
     let cancelado = false;
@@ -72,31 +95,27 @@ export default function GravacaoDaDegustacao({ codigo, onde }: {
         if ((navigator as Navigator & { webdriver?: boolean }).webdriver === true) return;
         if (!Sentry.getClient()) return;
 
-        let replay = Sentry.getReplay();
-        if (!replay) {
-          const fabrica = await Sentry.lazyLoadIntegration('replayIntegration');
-          if (cancelado) return;
-          Sentry.addIntegration(fabrica({
-            maskAllInputs: true,
-            maskAllText: false,
-            blockAllMedia: false,
-            mask: ['[data-sentry-mask]'],
-            beforeAddRecordingEvent: redigirEvento,
-          }));
-          replay = Sentry.getReplay();
-        }
+        const permitido = rotaPermiteGravar(pathname);
+        // Rota com conversa e nada gravando ainda: não carrega nem o integrador.
+        if (!permitido && !Sentry.getReplay()) return;
+
+        const replay = await prepararReplay();
         if (!replay || cancelado) return;
 
+        if (!permitido) {
+          if (replay.getRecordingMode()) await replay.stop();
+          return;
+        }
         Sentry.setTag(GRAVACAO_TAG, await etiquetaDoConvite(codigo));
         Sentry.setTag('demo_versao', 'C');
         Sentry.setTag('demo_onde', onde);
-        replay.start();
+        if (!replay.getRecordingMode()) replay.start();
       } catch {
         /* sem gravação, a experiência segue igual */
       }
     })();
     return () => { cancelado = true; };
-  }, [codigo, onde]);
+  }, [codigo, onde, pathname]);
 
   return null;
 }

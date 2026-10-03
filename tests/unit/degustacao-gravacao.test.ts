@@ -5,7 +5,10 @@ import { semComentarios } from '../helpers/fonte';
 import {
   GRAVACAO_TAMANHO_DA_ETIQUETA,
   entradaDaEtiqueta,
+  redigirEventoDeGravacao,
+  redigirEventoDoSentry,
   redigirUrlDaGravacao,
+  rotaPermiteGravar,
 } from '@/lib/demo/degustacao-gravacao';
 import { etiquetaDaGravacao } from '@/lib/demo/degustacao-gravacao-servidor';
 import { emitirCodigoCurto } from '@/lib/demo/degustacao-link-curto';
@@ -107,5 +110,95 @@ describe('a cota de 50 gravações por mês (guard estático)', () => {
     // nunca o código como valor de tag: só a etiqueta (hash do código)
     expect(fonte).not.toMatch(/setTag\(\s*[^,]+,\s*codigo\s*\)/);
     expect(fonte).toMatch(/setTag\(GRAVACAO_TAG, await etiquetaDoConvite\(codigo\)\)/);
+  });
+
+  it('o componente instala os três redatores e pausa nas rotas com conversa', () => {
+    const fonte = semComentarios(readFileSync('app/degustacao/gravacao-da-degustacao.tsx', 'utf8'));
+    expect(fonte).toMatch(/beforeAddRecordingEvent: redigirEventoDeGravacao/);
+    expect(fonte).toMatch(/addEventProcessor\(redigirEventoDoSentry\)/);
+    expect(fonte).toMatch(/rotaPermiteGravar\(pathname\)/);
+    expect(fonte).toMatch(/replay\.stop\(\)/);
+  });
+});
+
+describe('o código do convite não vai para o Sentry em nenhum dos três lugares', () => {
+  const URL_COM_CODIGO = `https://acme-demo.vertho.ai/c/${CODIGO}`;
+
+  it('🔴 fluxo da gravação: o href do evento de metadados (a falha medida em produção) e o payload aninhado', () => {
+    const meta: any = { type: 4, data: { href: URL_COM_CODIGO, width: 1280, height: 720 } };
+    expect(redigirEventoDeGravacao(meta).data.href).toBe('https://acme-demo.vertho.ai/c/x');
+    expect(meta.data.width).toBe(1280);
+
+    const nav: any = { type: 5, data: { tag: 'performanceSpan', payload: { description: `${URL_COM_CODIGO}?aviso=x`, data: { from: `/c/${CODIGO}`, to: '/dashboard?sala=abc.def' } } } };
+    const limpo = redigirEventoDeGravacao(nav).data.payload;
+    expect(limpo.description).toBe('https://acme-demo.vertho.ai/c/x?aviso=x');
+    expect(limpo.data.from).toBe('/c/x');
+    expect(limpo.data.to).toBe('/dashboard?sala=x');
+  });
+
+  it('🔴 resumo da gravação: a lista de páginas (urls) sai redigida', () => {
+    const resumo: any = { type: 'replay_event', urls: [URL_COM_CODIGO, 'https://rh-demo.vertho.ai/dashboard/gestor/engajamento?cena=engajamento'] };
+    expect(redigirEventoDoSentry(resumo).urls).toEqual([
+      'https://acme-demo.vertho.ai/c/x',
+      'https://rh-demo.vertho.ai/dashboard/gestor/engajamento?cena=engajamento',
+    ]);
+  });
+
+  it('erro e transação: URL da requisição, referer, breadcrumbs de navegação e spans', () => {
+    const evento: any = {
+      request: { url: URL_COM_CODIGO, headers: { Referer: `https://rh-demo.vertho.ai/x?volta=${CODIGO}`, Accept: 'text/html' } },
+      contexts: { trace: { data: { 'http.url': URL_COM_CODIGO } } },
+      breadcrumbs: [{ category: 'navigation', data: { from: `/c/${CODIGO}`, to: '/dashboard' } }],
+      spans: [{ description: `GET ${URL_COM_CODIGO}`, data: { url: `${URL_COM_CODIGO}?x=1` } }],
+    };
+    const limpo = redigirEventoDoSentry(evento);
+    expect(limpo.request.url).toBe('https://acme-demo.vertho.ai/c/x');
+    expect(limpo.request.headers.Referer).toBe('https://rh-demo.vertho.ai/x?volta=x');
+    expect(limpo.request.headers.Accept).toBe('text/html');
+    expect(limpo.contexts.trace.data['http.url']).toBe('https://acme-demo.vertho.ai/c/x');
+    expect(limpo.breadcrumbs[0].data.from).toBe('/c/x');
+    expect(limpo.spans[0].description).toBe('GET https://acme-demo.vertho.ai/c/x');
+    expect(limpo.spans[0].data.url).toBe('https://acme-demo.vertho.ai/c/x?x=1');
+    expect(JSON.stringify(limpo)).not.toContain(CODIGO);
+  });
+
+  it('formas estranhas de evento nunca lançam (a redação não derruba a gravação nem o envio)', () => {
+    for (const lixo of [null, undefined, 5, 'texto', [], {}, { urls: 'x' }, { data: null }, { spans: [null, 3] }, { breadcrumbs: [null] }]) {
+      expect(() => redigirEventoDeGravacao(lixo)).not.toThrow();
+      expect(() => redigirEventoDoSentry(lixo)).not.toThrow();
+    }
+  });
+});
+
+describe('a gravação pausa onde a pessoa escreve', () => {
+  it('rotas com conversa não gravam; telas de leitura gravam', () => {
+    for (const caminho of ['/dashboard/assessment', '/dashboard/praticar/evidencia', '/dashboard/temporada/semana/2', '/dashboard/temporada/sem14',
+      '/dashboard/simulador-vendas', '/dashboard/simulador-lideranca/x', '/dashboard/treino-atendimento']) {
+      expect(rotaPermiteGravar(caminho), caminho).toBe(false);
+    }
+    for (const caminho of ['/c/abc', '/dashboard', '/dashboard/temporada', '/dashboard/gestor', '/dashboard/gestor/engajamento',
+      '/dashboard/gestor/equipe-evolucao', '/dashboard/relatorios', '/dashboard/temporada/semanal']) {
+      expect(rotaPermiteGravar(caminho), caminho).toBe(true);
+    }
+    expect(rotaPermiteGravar('/dashboard/assessment?x=1')).toBe(false);
+    expect(rotaPermiteGravar(undefined as any)).toBe(true);
+  });
+
+  it('🔴 toda página do /dashboard com <textarea> está na lista (rota nova com conversa não escapa)', () => {
+    const paginas = execFileSync('git', ['ls-files', 'app/dashboard'], { encoding: 'utf8' })
+      .split(/\r?\n/)
+      .filter((arquivo) => /\/page\.tsx$/.test(arquivo));
+    const comTexto = paginas.filter((arquivo) => /<textarea\b/.test(readFileSync(arquivo, 'utf8')));
+    // denominador: hoje são 4 (assessment, praticar/evidencia, temporada/sem14, temporada/semana/[week])
+    expect(comTexto.length).toBeGreaterThanOrEqual(4);
+    const furos = comTexto
+      .map((arquivo) => arquivo.replace(/^app/, '').replace(/\/page\.tsx$/, '').replace(/\[[^\]]+\]/g, 'x'))
+      .filter((rota) => rotaPermiteGravar(rota));
+    expect(furos).toEqual([]);
+  });
+
+  it('o chat do Beto leva a máscara (o eco do que se escreve a ele)', () => {
+    const fonte = readFileSync('components/beto-chat.tsx', 'utf8');
+    expect(fonte).toMatch(/<div ref=\{scrollRef\} data-sentry-mask /);
   });
 });

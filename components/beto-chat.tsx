@@ -237,7 +237,9 @@ export default function BetoChat() {
       </div>
 
       {/* Mensagens */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 sm:min-h-[200px]">
+      {/* data-sentry-mask: o que a pessoa escreve ao Beto reaparece nesta lista, e a
+          gravação de tela da degustação (Sentry Replay) mascara este bloco. */}
+      <div ref={scrollRef} data-sentry-mask className="flex-1 overflow-y-auto p-3 space-y-3 sm:min-h-[200px]">
         {messages.map((m, i) => (
           <div key={i} className={`flex items-end gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {m.role === 'assistant' && (
