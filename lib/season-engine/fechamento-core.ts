@@ -4,7 +4,7 @@ import {
   type RedigirDevolutivaResultado,
 } from '@/lib/season-engine/fechamento-scorer';
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
-import { maskColaborador, maskTextPII } from '@/lib/pii-masker';
+import { maskColaborador, maskTextPII, maskDeepPII } from '@/lib/pii-masker';
 import { desmascararResultadoFechamento, mascararExtracaoArguicao, mascararResumo } from '@/lib/season-engine/fechamento-pii';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { gravarProgressoSemana } from '@/lib/season-engine/progresso-semana';
@@ -218,7 +218,10 @@ export async function finalizarFechamentoCore(
       nomeColab: colabMasked.nome,
       perfilDominante: colab?.perfil_dominante,
       evidenciasAcumuladas: maskTextPII(evidenciasAcumuladas, piiMap),
-      acumuladoPrimaria,
+      // 🔴 O acumulado está GRAVADO desmascarado (resumo e justificativas com o
+      // primeiro nome, para a pessoa ler). Ia assim ao scorer e ao auditor até
+      // 03/10/2026 (R-05): mascara de novo antes de devolver à IA.
+      acumuladoPrimaria: maskDeepPII(acumuladoPrimaria, piiMap),
       config,
       // Fusão da arguição (Fase B): modula a nota quando a defesa oral concluiu.
       // Mascarada: a redação final e o auditor leem as citações.

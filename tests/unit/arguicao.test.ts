@@ -156,9 +156,13 @@ describe('arguição — motor', () => {
 });
 
 describe('arguição — PII masking (Fase C)', () => {
-  // Espelha a ORDEM do maskColaborador: alias→primeiroNome ANTES de
-  // nomeCompleto→alias (senão as duas entradas se cancelam no maskTextPII).
-  const PII = { map: { 'COLAB_1A2B': 'Rodrigo', 'Rodrigo Naves': 'COLAB_1A2B' }, nomeMasked: 'COLAB_1A2B' };
+  // Mapas separados por sentido, como o maskColaborador devolve desde 03/10/2026
+  // (R-05): `ida` mascara, `volta` desmascara. Com um mapa só, as duas entradas
+  // se cancelavam no maskTextPII e o primeiro nome ia à IA.
+  const PII = {
+    map: { ida: { 'Rodrigo Naves': 'COLAB_1A2B', Rodrigo: 'COLAB_1A2B' }, volta: { COLAB_1A2B: 'Rodrigo' } },
+    nomeMasked: 'COLAB_1A2B',
+  };
   const CTX_PII: ArguicaoContexto = {
     ...CTX,
     nomeColab: 'Rodrigo',
@@ -208,7 +212,7 @@ describe('arguição — PII masking (Fase C)', () => {
     // Conversa enviada à IA: mascarada
     const userPrompt = String(mockAI.mock.calls[0][1]);
     expect(userPrompt).toContain('COLAB_1A2B');
-    expect(userPrompt).not.toContain('Rodrigo Naves');
+    expect(userPrompt).not.toContain('Rodrigo');
     // Retorno: citações/resumo despersonalizados
     expect(ext?.resumo.leitura_geral).toContain('Rodrigo');
     expect(ext?.evidencias_por_descritor[0].citacao).toContain('Rodrigo');

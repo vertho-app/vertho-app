@@ -2,7 +2,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from '@/actions/ai-client';
 import { promptAvaliacaoAcumulada, promptAvaliacaoAcumuladaCheck, validateAvaliacaoAcumulada, validateAvaliacaoAcumuladaCheck } from '@/lib/season-engine/prompts/acumulado';
-import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { maskColaborador, maskTextPII, maskDeepPII, unmaskDeepPII } from '@/lib/pii-masker';
 import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { parseJsonIA } from '@/lib/ai-json';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
@@ -188,8 +188,8 @@ export async function gerarAvaliacaoAcumuladaParcialCore(trilhaId: string, compe
         nivelMetaAlvo,
       });
       const r = await callAI(system, user, {}, 12000, { taskKey: 'acumulada_primaria' });
-      const primaria = validateAvaliacaoAcumulada(parseJsonIA(r));
-      if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
+      // Todo texto do resultado volta com o nome (trechos e limites incluídos).
+      const primaria = unmaskDeepPII(validateAvaliacaoAcumulada(parseJsonIA(r)), piiMap);
       acumuladosPorComp.push({ competencia: comp, primaria });
     } catch (err: any) {
       console.error(`[acumulada parcial ${comp}]`, err);
@@ -255,13 +255,9 @@ async function avaliarCompAcumulada(
       nivelMetaAlvo,
     });
     const r = await callAI(system, user, {}, 12000, { taskKey: 'acumulada_primaria', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id });
-    primaria = validateAvaliacaoAcumulada(parseJsonIA(r));
-    if (primaria?.resumo_geral) primaria.resumo_geral = unmaskPII(primaria.resumo_geral, piiMap);
-    if (Array.isArray(primaria?.avaliacao_acumulada)) {
-      primaria.avaliacao_acumulada = primaria.avaliacao_acumulada.map((d: any) => ({
-        ...d, justificativa: unmaskPII(d.justificativa, piiMap),
-      }));
-    }
+    // Todo texto volta com o nome: antes só `resumo_geral` e `justificativa`, e
+    // trechos, limites e alertas podiam ficar com o alias na tela.
+    primaria = unmaskDeepPII(validateAvaliacaoAcumulada(parseJsonIA(r)), piiMap);
   } catch (err: any) {
     console.error(`[acumulado primária ${competencia}]`, err);
     return { error: 'Falha na 1ª IA: ' + err.message };
@@ -270,7 +266,9 @@ async function avaliarCompAcumulada(
   // 2ª IA — check (mask também na primária que vai pro prompt)
   let auditoria = null;
   try {
-    const primariaMask = JSON.parse(maskTextPII(JSON.stringify(primaria), piiMap));
+    // Campo a campo, não sobre o JSON serializado: no texto do `JSON.stringify`
+    // o nome depois de uma quebra de linha vem colado no escape da quebra.
+    const primariaMask = maskDeepPII(primaria, piiMap);
     const { system, user } = promptAvaliacaoAcumuladaCheck({
       competencia,
       descritores: descritoresFresh,
@@ -280,8 +278,7 @@ async function avaliarCompAcumulada(
     // 2ª IA (auditor) configurável — default GPT 5.6 Luna (cross-família, barato).
     const checkModel = await getModelForTask(trilha.empresa_id, 'acumulada_check');
     const r = await callAI(system, user, { model: checkModel }, 8000, { taskKey: 'acumulada_check', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id });
-    auditoria = validateAvaliacaoAcumuladaCheck(parseJsonIA(r));
-    if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
+    auditoria = unmaskDeepPII(validateAvaliacaoAcumuladaCheck(parseJsonIA(r)), piiMap);
   } catch (err) {
     console.error(`[acumulado check ${competencia}]`, err);
     // Não falha — retorna primária sem auditoria

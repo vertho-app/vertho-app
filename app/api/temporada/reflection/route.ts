@@ -14,7 +14,7 @@ import {
   parseExtracaoResponse,
   validateExtracaoAnalytic,
 } from '@/lib/season-engine/prompts/extrator-conversa';
-import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { maskColaborador, maskTextPII, unmaskPII, unmaskDeepPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
@@ -455,12 +455,17 @@ export async function POST(request) {
     // Persiste
     const novoSlotData = { ...dados, transcript_completo: historico };
     if (finished) {
-      // Extração estruturada via IA (substitui regex)
+      // Extração estruturada via IA (substitui regex).
+      // 🔴 A extração vê a conversa INTEIRA, inclusive a última fala da IA já
+      // desmascarada acima: sem mascarar de novo aqui, o nome e o que a pessoa
+      // digitou (e-mail, telefone) iam à IA no último passo da conversa (R-05).
+      // O que volta é texto que a pessoa e o RH leem: desmascara antes de gravar.
       try {
-        const extracao = await extrairDadosEstruturados(historico, tipoConversa, semanaPlan, {
+        const historicoParaExtracao = historico.map((m) => ({ ...m, content: maskTextPII(m.content, piiMap) }));
+        const extracao = await extrairDadosEstruturados(historicoParaExtracao, tipoConversa, semanaPlan, {
           empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
         });
-        Object.assign(novoSlotData, extracao);
+        Object.assign(novoSlotData, unmaskDeepPII(extracao, piiMap));
       } catch (err) {
         console.error('[VERTHO] extração JSON falhou:', err.message);
       }

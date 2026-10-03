@@ -7,7 +7,7 @@ import { csrfCheck } from '@/lib/csrf';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { reservarFinalizacao, finalizarFechamentoCore } from '@/lib/season-engine/fechamento-core';
 import { estadoDoFechamento, resumoDaAvaliacao, respostasDoCenario } from '@/lib/season-engine/estado-fechamento';
-import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { maskColaborador, maskTextPII, unmaskPII, unmaskDeepPII } from '@/lib/pii-masker';
 import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
@@ -228,15 +228,19 @@ export async function POST(request) {
       historico.push({ role: 'assistant', content: respostaIA, timestamp: new Date().toISOString(), turn: proximoTurnIA });
       const novoSlot = { ...dados, transcript_completo: historico };
       if (finished) {
-        // Extrai dados estruturados
+        // Extrai dados estruturados. Mesmo cuidado da gêmea em `reflection`: a
+        // conversa vai mascarada (inclusive a última fala da IA, já desmascarada
+        // acima) e o que volta é desmascarado antes de gravar (R-05).
         try {
-          const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
+          const transcript = historico
+            .map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${maskTextPII(m.content, piiMapQ)}`)
+            .join('\n\n');
           const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores, transcript });
           const r = await callAI(s2, u2, {}, 8000, {
             taskKey: 'temporada_extracao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
           });
           const parsed = validateEvolutionExtract(parseJsonIA(r), descritores);
-          Object.assign(novoSlot, parsed);
+          Object.assign(novoSlot, unmaskDeepPII(parsed, piiMapQ));
         } catch (e) { console.error('[VERTHO] extract sem13:', e.message); }
       }
 

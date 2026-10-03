@@ -11,10 +11,10 @@
  * conversa). Desde que a redação final e o auditor passaram a recebê-la, ela
  * precisa entrar mascarada como o resto.
  */
-import { maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { maskTextPII, unmaskPII, type PIIMapas } from '@/lib/pii-masker';
 import type { ArguicaoExtracao } from './arguicao';
 
-type Mapa = Record<string, string>;
+type Mapa = PIIMapas;
 
 /** Cópia mascarada da extração: resumo e citações. Classificação e descritor passam intactos. */
 export function mascararExtracaoArguicao(ext: ArguicaoExtracao | null | undefined, map: Mapa): ArguicaoExtracao | null {

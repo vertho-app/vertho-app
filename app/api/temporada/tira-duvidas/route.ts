@@ -133,11 +133,18 @@ export async function POST(request) {
     const conteudoResumo = [enquadramento, corpoConteudo && `\nCONTEÚDO LIDO PELO COLABORADOR:\n${corpoConteudo}`]
       .filter(Boolean).join('\n');
 
+    // PII masking: substitui nome real por alias opaco antes de mandar pra IA.
+    // Calculado ANTES da busca: a pergunta também sai do servidor ali.
+    const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
+
     // RAG/grounding: busca top-5 trechos relevantes na base do tenant.
     // Query = última pergunta do colab. Sem pesquisa = sem contexto (OK).
+    // 🔴 Mascarada: a busca híbrida gera o vetor da pergunta num provedor
+    // externo de embeddings, e até 03/10/2026 a pergunta ia crua, com o nome e
+    // o que mais a pessoa tivesse digitado (R-05).
     let groundingBlock = '';
     try {
-      const chunks = await retrieveContext(trilha.empresa_id, message, 5);
+      const chunks = await retrieveContext(trilha.empresa_id, maskTextPII(message, piiMap), 5);
       groundingBlock = formatGroundingBlock(chunks);
     } catch (err) {
       console.warn('[tira-duvidas] retrieveContext falhou (seguindo sem grounding):', err?.message);
@@ -196,8 +203,6 @@ export async function POST(request) {
       console.warn('[tira-duvidas] conteúdos relacionados falhou (seguindo sem):', err?.message);
     }
 
-    // PII masking: substitui nome real por alias opaco antes de mandar pra IA
-    const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
     // Sanitiza histórico (substitui PII do texto + nome do colab por alias)
     const historicoMasked = historico.map((m: any) => ({
       ...m,

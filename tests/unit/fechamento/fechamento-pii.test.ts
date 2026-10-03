@@ -11,12 +11,11 @@ const { masked, map } = maskColaborador({ id: 'col-teste', nome_completo: 'Ana B
 const ALIAS = masked!.nome;
 
 describe('mascararExtracaoArguicao', () => {
-  // O contrato do mascarador (`maskTextPII`) é nome COMPLETO, e-mail, telefone e
-  // CPF; ele não detecta o primeiro nome solto. É o mesmo para a resposta ao
-  // cenário, que já ia para a IA assim.
+  // O contrato do mascarador (`maskTextPII`): nome completo, nome composto,
+  // primeiro nome solto (desde 03/10/2026, R-05), e-mail, telefone e CPF.
   const ext = {
     resumo: {
-      leitura_geral: 'Ana Beatriz Teste sustentou bem.',
+      leitura_geral: 'Ana Beatriz Teste sustentou bem. Ana explicou depois.',
       sustentacao_mais_forte: 'Explicou o critério ao cliente.',
       fragilidade_mais_relevante: 'Escreva para ana@exemplo.com ou 21 99999-8888 depois.',
     },
@@ -28,7 +27,7 @@ describe('mascararExtracaoArguicao', () => {
   it('mascara resumo e citações; classificação e descritor passam intactos', () => {
     const m = mascararExtracaoArguicao(ext, map)!;
     const tudo = JSON.stringify(m);
-    expect(tudo).not.toContain('Ana Beatriz Teste');
+    expect(tudo).not.toContain('Ana');
     expect(tudo).not.toContain('ana@exemplo.com');
     expect(tudo).not.toContain('99999-8888');
     expect(m.evidencias_por_descritor[0].citacao).toBe(`eu, ${ALIAS}, mudaria a ordem`);

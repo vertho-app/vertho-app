@@ -18,7 +18,7 @@
 
 import { callAIChat, callAI, type AIConfig } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
-import { maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { maskTextPII, unmaskPII, type PIIMapas } from '@/lib/pii-masker';
 
 /**
  * PII da arguição (Fase C): a conversa é COM o colaborador (chat vivo). A
@@ -30,8 +30,8 @@ import { maskTextPII, unmaskPII } from '@/lib/pii-masker';
  * comportamento é idêntico ao anterior — nada é mascarado.
  */
 export interface ArguicaoPII {
-  /** Map do maskColaborador (real→alias e alias→real). */
-  map: Record<string, string>;
+  /** Mapas do maskColaborador: `ida` (real→alias) e `volta` (alias→real). */
+  map: PIIMapas;
   /** Alias do primeiro nome (colabMasked.nome) — substitui ctx.nomeColab. */
   nomeMasked?: string;
 }

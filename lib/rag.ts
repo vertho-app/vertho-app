@@ -1,5 +1,6 @@
 import { createSupabaseAdmin } from './supabase';
 import { embedQuery, embedText, kbEmbeddingUpdate, VOYAGE_4_MODEL } from './embeddings';
+import { maskTextPII } from './pii-masker';
 
 /**
  * RAG / grounding per-tenant via knowledge_base.
@@ -73,7 +74,11 @@ export async function retrieveContext(
   k = Math.min(k, 30);
 
   const sb = createSupabaseAdmin();
-  const queryTrunc = query.slice(0, 500);
+  // A consulta vira vetor num provedor externo (Voyage). Quem chama com texto
+  // da pessoa mascara o nome dela antes (só o chamador conhece o colaborador);
+  // aqui sai pelo menos e-mail, telefone e CPF, para nenhum chamador futuro
+  // mandar contato cru por esquecimento (R-05, 03/10/2026).
+  const queryTrunc = maskTextPII(query).slice(0, 500);
   // Há fragmentos de índice no acervo; buscar candidatos extras evita gastar o top-k com eles.
   const candidateLimit = Math.min(30, k * 3);
 

@@ -6,7 +6,7 @@ import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
 import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
-import { maskColaborador, maskTextPII } from '@/lib/pii-masker';
+import { maskColaborador, maskTextPII, maskDeepPII } from '@/lib/pii-masker';
 import { desmascararResultadoFechamento, mascararExtracaoArguicao } from '@/lib/season-engine/fechamento-pii';
 
 /**
@@ -173,9 +173,11 @@ ${ajustesTexto}`;
     nomeColab: colabMasked.nome,
     perfilDominante: colab?.perfil_dominante,
     evidenciasAcumuladas: evidenciasMasked,
-    acumuladoPrimaria,
+    // O acumulado e a auditoria anterior estão GRAVADOS desmascarados (com o
+    // primeiro nome): mascarar de novo antes de devolver à IA (R-05).
+    acumuladoPrimaria: maskDeepPII(acumuladoPrimaria, piiMap),
     config: programaConfig,
-    regeracao: { feedbackAuditoria },
+    regeracao: { feedbackAuditoria: maskTextPII(feedbackAuditoria, piiMap) },
     // Regeneração respeita a arguição já feita (fb.arguicao) — mesma modulação.
     // Mascarada: a redação final e o auditor leem as citações.
     evidenciasArguicao: fb.arguicao?.concluida ? mascararExtracaoArguicao(fb.arguicao.extracao, piiMap) : null,

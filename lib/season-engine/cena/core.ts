@@ -17,7 +17,7 @@
 
 import { callAI, callAIChat, type AIConfig } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
-import { maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { maskTextPII, unmaskPII, type PIIMapas } from '@/lib/pii-masker';
 import {
   podeEncerrar, proximoBeat, validarContratoDaCena, validarGabaritoDaCena,
   type BeatDaCena, type EvidenciaDescritor, type MotivoParada, type PedidoDoModelo,
@@ -150,7 +150,7 @@ export interface EstadoCena {
 }
 
 export interface PIICena {
-  map: Record<string, string>;
+  map: PIIMapas;
   nomeMasked?: string;
 }
 

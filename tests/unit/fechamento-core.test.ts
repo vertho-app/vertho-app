@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
   redigir: vi.fn(),
   report: vi.fn(),
   degradacao: vi.fn(),
+  acumulado: null as any,
 }));
 
 vi.mock('@/lib/tenant-db', () => ({
@@ -37,7 +38,7 @@ vi.mock('@/lib/season-engine/regua', () => ({
 }));
 vi.mock('@/lib/season-engine/evidencias-fechamento', () => ({
   agregarEvidenciasAteAcumulada: async () => 'evidências',
-  normalizarAcumuladoPrimaria: () => null,
+  normalizarAcumuladoPrimaria: () => h.acumulado,
 }));
 vi.mock('@/lib/degradacao', () => ({
   DEGRADACAO: { FECHAMENTO_SCORER_FALHOU: 'fechamento-scorer-falhou', FECHAMENTO_REDACAO_FALHOU: 'fechamento-redacao-falhou' },
@@ -99,6 +100,7 @@ beforeEach(() => {
   h.redigir.mockReset();
   h.report.mockReset().mockResolvedValue({ success: true, evolution_report: { ok: 1 } });
   h.degradacao.mockReset();
+  h.acumulado = null;
   h.estado.atual = progHelmar();
   h.estado.relatorio = null;
   h.sb = criarSupabaseMock({
@@ -373,6 +375,32 @@ describe('finalizarFechamentoCore', () => {
     await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
     const slot = escritasProgresso().find((e: any) => e.payload.status === 'concluido').payload.feedback;
     expect(JSON.stringify({ r: slot.resumo_avaliacao, q: slot.resumo_avaliacao_rascunho, a: slot.auditoria })).not.toContain(alias);
+  });
+
+  /**
+   * 🔴 R-05 (03/10/2026): o acumulado é GRAVADO desmascarado (a pessoa lê o
+   * resumo com o próprio nome) e ia assim ao scorer e ao auditor. As respostas
+   * do cenário também: o primeiro nome solto não era mascarado.
+   */
+  it('acumulado gravado e respostas com o nome vão MASCARADOS ao scorer', async () => {
+    h.estado.atual = reservado({
+      transcript_completo: transcript(['Eu, Helmar, chamaria a família.', 'r2', 'r3', 'r4']),
+    });
+    h.acumulado = {
+      resumo_geral: 'Helmar evoluiu na escuta.',
+      avaliacao_acumulada: [{ descritor: 'D1', justificativa: 'Helmar Miranda da Silva sustentou\nHelmar repetiu', nota_acumulada: 2.5 }],
+    };
+    h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1 } });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    const args = h.pontuar.mock.calls[0][0];
+    const alias = args.nomeColab;
+    expect(alias).toMatch(/^COLAB_/);
+    expect(JSON.stringify(args.acumuladoPrimaria)).not.toContain('Helmar');
+    expect(args.acumuladoPrimaria.resumo_geral).toBe(`${alias} evoluiu na escuta.`);
+    expect(args.resposta).not.toContain('Helmar');
+    expect(args.resposta).toContain(`Eu, ${alias}, chamaria`);
+    // A nota numérica passa intacta.
+    expect(args.acumuladoPrimaria.avaliacao_acumulada[0].nota_acumulada).toBe(2.5);
   });
 });
 
