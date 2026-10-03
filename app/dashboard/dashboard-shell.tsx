@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity, Headset, Handshake, ChartLine, Compass, Crown } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity, Headset, Handshake, ChartLine, Compass, Crown, ClipboardCheck } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import { PresentationEnvironment } from '@/components/dashboard/presentation-role-switcher';
@@ -27,6 +27,8 @@ type NavItem = {
   acompanha?: boolean;
   /** Simulador interativo: a população autorizada do trilho de liderança (`/api/me`). */
   simuladorLideranca?: boolean;
+  /** O próprio Mapeamento de liderança: quem responde o trilho (`/api/me`, R-98). */
+  mapeamentoLideranca?: boolean;
   liderancaEquipe?: boolean;
 };
 
@@ -88,6 +90,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/treino-atendimento', labelKey: 'receptionTraining', icon: Headset, recepcao: true, treina: true },
   { href: '/dashboard/simulador-vendas', labelKey: 'salesTraining', icon: Handshake, vendas: true, treina: true },
   { href: '/dashboard/simulador-lideranca', labelKey: 'leadershipSimulator', icon: Crown, simuladorLideranca: true },
+  // Porta própria do Mapeamento de liderança (R-98, 03/10/2026): sem ela, quem
+  // não tinha Top 5 no cargo nem o simulador liberado não chegava ao trilho.
+  { href: '/dashboard/assessment?trilho=lideranca', labelKey: 'leadershipMapping', icon: ClipboardCheck, mapeamentoLideranca: true },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
 
   // ── O QUE A PESSOA ACOMPANHA ─────────────────────────────────────────────
@@ -143,7 +148,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const isImmersiveContent = pathname.startsWith('/dashboard/conteudo/');
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean; treinoVendas?: boolean; prontidaoLideranca?: boolean; soAcompanhaSimuladores?: boolean; simuladorLideranca?: boolean; liderancaEquipe?: boolean } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean; treinoVendas?: boolean; prontidaoLideranca?: boolean; soAcompanhaSimuladores?: boolean; simuladorLideranca?: boolean; mapeamentoLideranca?: boolean; liderancaEquipe?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
   const ehAdminDaEmpresa = colaborador?.role === 'rh';
   // Cargo com Top 5 vazio não faz mapeamento nem trilha: as telas de jornada
@@ -169,6 +174,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
     && (!it.treina || !soAcompanha)
     && (!it.acompanha || soAcompanha)
     && (!it.simuladorLideranca || colaborador?.simuladorLideranca === true)
+    && (!it.mapeamentoLideranca || colaborador?.mapeamentoLideranca === true)
     && (!it.liderancaEquipe || (colaborador?.liderancaEquipe === true && colaborador?.simuladorLideranca !== true)),
   );
   const ativo = hrefAtivo(pathname, navItems);

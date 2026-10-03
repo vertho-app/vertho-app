@@ -634,6 +634,7 @@
   "DashboardShell": {
     "privacyLink": "Privacidad y términos de uso",
     "nav": {
+      "leadershipMapping": "Mapeo de liderazgo",
       "home": "Inicio",
       "prontidaoLideranca": "Mapeo de liderazgo",
       "ranking": "Adecuación",

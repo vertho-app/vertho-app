@@ -100,22 +100,38 @@ describe('/api/me: simuladores no menu', () => {
     expect(await me()).toMatchObject({ simuladorLideranca: false });
   });
 
-  it('sem módulo, sem liberação do cargo, ou RH: sem treino de liderança e sem consulta', async () => {
+  it('sem módulo, ou RH: sem treino nem mapeamento de liderança, e sem consulta', async () => {
     mocks.acesso = { vendas: false, atendimento: false, lideranca: true };
     mocks.colab = cadastro('gestor');
     mocks.lideranca = false;
-    expect(await me()).toMatchObject({ simuladorLideranca: false });
+    expect(await me()).toMatchObject({ simuladorLideranca: false, mapeamentoLideranca: false });
 
     mocks.lideranca = true;
-    mocks.acesso = { vendas: false, atendimento: false, lideranca: false };
-    expect(await me()).toMatchObject({ simuladorLideranca: false });
-
-    mocks.acesso = { vendas: false, atendimento: false, lideranca: true };
     for (const role of ['rh']) {
       mocks.colab = cadastro(role);
-      expect(await me()).toMatchObject({ simuladorLideranca: false });
+      expect(await me()).toMatchObject({ simuladorLideranca: false, mapeamentoLideranca: false });
     }
     expect(mocks.resolver).not.toHaveBeenCalled();
+  });
+
+  it('cargo sem liberação no simulador: sem o treino, mas o trilho é consultado para o Mapeamento', async () => {
+    mocks.colab = cadastro('gestor');
+    mocks.lideranca = true;
+    mocks.acesso = { vendas: false, atendimento: false, lideranca: false };
+    expect(await me()).toMatchObject({ simuladorLideranca: false, mapeamentoLideranca: true });
+    expect(mocks.resolver).toHaveBeenCalledOnce();
+  });
+
+  it('🔴 R-98: quem está na população tem a porta do Mapeamento sem depender da aba de cargos nem do Top 5', async () => {
+    // Colaborador com cargo de Top 5 vazio (o card dentro do mapeamento do cargo
+    // nunca aparece) e sem o simulador liberado (o link do simulador também não).
+    mocks.colab = cadastro('colaborador');
+    mocks.lideranca = true;
+    mocks.acesso = { vendas: false, atendimento: false, lideranca: false };
+    expect(await me()).toMatchObject({ mapeamentoLideranca: true, simuladorLideranca: false });
+    // Fora da população, a porta não aparece.
+    mocks.trilho = { ok: false, code: 'FORA_DA_POPULACAO' };
+    expect(await me()).toMatchObject({ mapeamentoLideranca: false });
   });
 
   // A aba de cargos diz só quem TREINA (decisão do dono, 22/09/2026): o item do

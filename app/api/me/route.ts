@@ -97,8 +97,16 @@ export async function GET() {
     // quando ele de fato responde o trilho (módulo contratado, cargo liberado e
     // dentro da população do programa), com a MESMA régua da tela de
     // mapeamento; sem isso o item levaria a "não está aberto para você".
+    //
+    // O MAPEAMENTO de liderança ganha porta própria no menu (R-98, 03/10/2026):
+    // até aqui só se chegava ao trilho pelo card dentro do mapeamento do cargo
+    // (que exige Top 5 com cenários) ou pelo link do simulador (que exige o
+    // cargo liberado na aba de cargos). Quem estava na população sem essas duas
+    // condições não tinha caminho e aparecia ao RH como "não iniciou". O item
+    // depende só da régua do trilho, não da aba de cargos, que diz quem TREINA.
     let simuladorLideranca = false;
-    if (sbServico && (data as any)?.role !== 'rh' && liderancaEmpresa && (platformAdmin || acessoSimuladores.lideranca)) {
+    let mapeamentoLideranca = false;
+    if (sbServico && (data as any)?.role !== 'rh' && liderancaEmpresa) {
       try {
         const { data: empresa, error } = await sbServico.from('empresas')
           .select('sys_config')
@@ -113,7 +121,8 @@ export async function GET() {
             role: (data as any).role,
             email: user.email,
           }, empresa.sys_config);
-          simuladorLideranca = trilho.ok;
+          mapeamentoLideranca = trilho.ok;
+          simuladorLideranca = trilho.ok && (platformAdmin || acessoSimuladores.lideranca);
         }
       } catch (erro: any) {
         // Na dúvida, esconde: o item levaria a uma tela que recusa.
@@ -123,7 +132,7 @@ export async function GET() {
 
     // O id do cadastro entrou na leitura para a régua do trilho; não sai na resposta.
     const { id: _id, ...publico } = (data || {}) as any;
-    return NextResponse.json(data ? { ...publico, locale, platformAdmin, temTrilhaPossivel, treinoRecepcao, treinoVendas, prontidaoLideranca, soAcompanhaSimuladores: soAcompanha, simuladorLideranca, liderancaEquipe } : {
+    return NextResponse.json(data ? { ...publico, locale, platformAdmin, temTrilhaPossivel, treinoRecepcao, treinoVendas, prontidaoLideranca, soAcompanhaSimuladores: soAcompanha, simuladorLideranca, mapeamentoLideranca, liderancaEquipe } : {
       nome_completo: user.email,
       foto_url: null,
       avatar_preset: null,

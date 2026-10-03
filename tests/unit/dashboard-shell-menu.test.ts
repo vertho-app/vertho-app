@@ -85,6 +85,13 @@ describe('menu lateral do dashboard', () => {
     expect(fonte).toMatch(/\(!it\.simuladorLideranca \|\| colaborador\?\.simuladorLideranca === true\)/);
   });
 
+  it('R-98: o Mapeamento de liderança tem porta própria, ligada à flag do servidor', () => {
+    const item = itensDoMenu().find((i) => i.labelKey === 'leadershipMapping');
+    expect(item?.href).toBe('/dashboard/assessment?trilho=lideranca');
+    expect(item?.resto).toMatch(/\bmapeamentoLideranca: true\b/);
+    expect(fonte).toMatch(/\(!it\.mapeamentoLideranca \|\| colaborador\?\.mapeamentoLideranca === true\)/);
+  });
+
   it('todo item do menu tem nome nas quatro línguas', () => {
     const faltando: string[] = [];
     for (const locale of ['pt-BR', 'pt-PT', 'en-US', 'es-ES']) {

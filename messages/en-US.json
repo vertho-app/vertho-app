@@ -634,6 +634,7 @@
   "DashboardShell": {
     "privacyLink": "Privacy and terms of use",
     "nav": {
+      "leadershipMapping": "Leadership mapping",
       "home": "Home",
       "prontidaoLideranca": "Leadership mapping",
       "ranking": "Job Fit",
