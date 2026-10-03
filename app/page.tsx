@@ -52,18 +52,15 @@ export default async function Home() {
             {t('description')}
           </p>
 
+          {/* "Ver Radar" saiu em 03/10/2026 (R-106): levava a radar.vertho.ai,
+              que desde 10/08/2026 redireciona para vertho.ai (o Radar virou
+              ferramenta interna, ver SUBDOMINIOS_APOSENTADOS no proxy.js). */}
           <div className="flex flex-wrap gap-3">
             <Link
               href="https://app.vertho.ai/login"
               className="rounded-lg bg-cyan-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
             >
               {t('accessPlatform')}
-            </Link>
-            <Link
-              href="https://radar.vertho.ai"
-              className="rounded-lg border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-300/70 hover:text-cyan-200"
-            >
-              {t('viewRadar')}
             </Link>
           </div>
         </div>
