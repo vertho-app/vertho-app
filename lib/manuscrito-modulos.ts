@@ -52,6 +52,11 @@ export interface DescritorResolvido {
   idsEquivalentes?: string[];
   /** Cargos que compartilham esta matriz (vazio/ausente = só o cargo da linha). */
   cargosDaMatriz?: string[];
+  /**
+   * true = modo DESCRITOR ÚNICO: o manuscrito inteiro é de UM descritor do modelo e os
+   * capítulos são subtemas dele. Todos os capítulos compartilham a mesma `comp`.
+   */
+  descritorUnico?: true;
 }
 
 /**
@@ -69,8 +74,11 @@ export async function resolverDescritores(
   sb: SupabaseClient,
   parse: ManuscritoParseResult,
   empresaId?: string | null,
-  opts?: { codCompAlvo?: string | null; cargo?: string | null },
+  opts?: { codCompAlvo?: string | null; cargo?: string | null; descritorUnico?: string | null },
 ): Promise<{ resolvidos?: DescritorResolvido[]; avisos: string[]; error?: string; cargosDisponiveis?: string[] }> {
+  if (opts?.descritorUnico) {
+    return resolverDescritorUnico(sb, parse, empresaId, opts.descritorUnico, opts.cargo);
+  }
   const tabela = empresaId ? 'competencias' : 'competencias_base';
   // O código do manuscrito e o código do catálogo do tenant podem divergir: o
   // manuscrito de Gerenciamento de Conflitos vem como DIR08 (numeração do
@@ -136,6 +144,52 @@ export async function resolverDescritores(
   return { resolvidos, avisos };
 }
 
+/**
+ * Modo DESCRITOR ÚNICO (02/10/2026): o manuscrito é de UM descritor do modelo da empresa e os
+ * capítulos são SUBTEMAS dele (QPM01 → CN_01_06 "Questionamento propositivo…", 6 capítulos).
+ *
+ * O casamento normal é por ORDEM de `cod_desc` e exige capítulos == descritores da competência.
+ * Num manuscrito de um descritor só isso ancora o capítulo 1 em CN_01_01, o 3 em CN_01_03… —
+ * módulo no descritor errado, sem erro e sem sintoma até o conteúdo entregue meses depois.
+ * Aqui o descritor é DECLARADO (nunca inferido), tem de existir exatamente uma vez no modelo
+ * (depois da escolha da cópia da matriz) e recebe todos os capítulos.
+ */
+async function resolverDescritorUnico(
+  sb: SupabaseClient,
+  parse: ManuscritoParseResult,
+  empresaId: string | null | undefined,
+  codDesc: string,
+  cargo?: string | null,
+): Promise<{ resolvidos?: DescritorResolvido[]; avisos: string[]; error?: string; cargosDisponiveis?: string[] }> {
+  if (!empresaId) {
+    return { avisos: [], error: `Modo descritor único exige empresa: ${codDesc} é do modelo do tenant, não do catálogo base.` };
+  }
+  const { data, error } = await sb.from('competencias').select('*').eq('empresa_id', empresaId).eq('cod_desc', codDesc);
+  if (error) return { avisos: [], error: error.message };
+  const encontradas = (data || []) as CompetenciaRow[];
+  if (!encontradas.length) {
+    return { avisos: [], error: `Descritor ${codDesc} não encontrado em competencias para esta empresa.` };
+  }
+  const copia = escolherCopiaDaMatriz(encontradas, cargo);
+  if ('erro' in copia) return { avisos: [], error: `${codDesc}: ${copia.erro}`, cargosDisponiveis: copia.cargosDisponiveis };
+  if (copia.linhas.length !== 1) {
+    return { avisos: [], error: `${codDesc} resolve para ${copia.linhas.length} linhas depois de escolher a cópia da matriz; esperava exatamente 1.` };
+  }
+  const comp = copia.linhas[0];
+  const ids = copia.idsPorDescritor.get(chaveDoCodigoDescritor(comp.cod_desc)) ?? [comp.id];
+  const resolvidos: DescritorResolvido[] = parse.descritores.map((g) => ({
+    indice: g.indice, descritorManuscrito: g.descritor, comp, matchExato: false,
+    idsEquivalentes: ids, cargosDaMatriz: copia.cargos, descritorUnico: true,
+  }));
+  const avisos = [
+    `Modo descritor único: os ${parse.descritores.length} capítulos do manuscrito ${parse.cod_comp} ficam TODOS ancorados em ${comp.cod_desc} "${comp.nome_curto}".`,
+  ];
+  if (copia.cargos.length > 1) {
+    avisos.push(`Matriz compartilhada por ${copia.cargos.length} cargos (${copia.cargos.join(', ')}): os módulos servem a todos.`);
+  }
+  return { resolvidos, avisos };
+}
+
 export interface ReqModulo {
   customId: string;
   descritorIdx: number;
@@ -147,6 +201,11 @@ export interface ReqModulo {
   idsEquivalentes: string[];
   /** Cargo(s) que o módulo serve — vai para a autoria e para `contexto_pedagogico`. */
   contextoCargo: string;
+  /**
+   * Só no modo descritor único: o título do capítulo. Vários módulos compartilham descritor e
+   * transição, então é ele que distingue um do outro (título e idempotência).
+   */
+  tituloCapitulo?: string;
   microblocos: string[];
   system: string;
   user: string;
@@ -182,6 +241,7 @@ export function montarReqsManuscrito(opts: {
         comp,
         idsEquivalentes: resolvidos[di].idsEquivalentes ?? [comp.id],
         contextoCargo,
+        tituloCapitulo: resolvidos[di].descritorUnico ? grupo.descritor : undefined,
         microblocos: t.microblocos,
         system: SYSTEM_AUTOR,
         user: montarUserPrompt(comp, t.nivel_entrada, t.nivel_destino, {
@@ -218,6 +278,8 @@ export async function persistirModuloDeManuscrito(
     createdBy: string;
     /** Cargo(s) que o módulo serve. Ausente = o cargo da linha (comportamento de antes). */
     contextoCargo?: string | null;
+    /** Modo descritor único: título do capítulo. Ausente = título pelo descritor (comportamento de antes). */
+    tituloCapitulo?: string | null;
   },
 ): Promise<{ id?: string; error?: string }> {
   const isEmpresa = !!args.empresaId;
@@ -237,9 +299,15 @@ export async function persistirModuloDeManuscrito(
     competencia_id: isEmpresa ? args.comp.id : null,
     nivel_entrada: args.nivel_entrada,
     nivel_destino: args.nivel_destino,
-    titulo: `${ancora} · ${args.nivel_entrada}→${args.nivel_destino}`.slice(0, 120),
+    // Descritor único: 6 módulos dividem descritor e transição, então o título leva o CAPÍTULO.
+    // O `descritor` segue sendo a âncora da régua — título editorial nunca vai nele.
+    titulo: args.tituloCapitulo
+      ? tituloDoModuloDeCapitulo(args.tituloCapitulo, args.nivel_entrada, args.nivel_destino)
+      : `${ancora} · ${args.nivel_entrada}→${args.nivel_destino}`.slice(0, 120),
     descritor: ancora.slice(0, 200),
-    finalidade: `Matéria-prima pedagógica do manuscrito ${args.codManuscrito} para a transição ${args.nivel_entrada}→${args.nivel_destino} em "${args.comp.nome}".`.slice(0, 400),
+    finalidade: (args.tituloCapitulo
+      ? `Matéria-prima pedagógica do manuscrito ${args.codManuscrito}, capítulo "${args.tituloCapitulo.trim()}", para a transição ${args.nivel_entrada}→${args.nivel_destino} em "${ancora}".`
+      : `Matéria-prima pedagógica do manuscrito ${args.codManuscrito} para a transição ${args.nivel_entrada}→${args.nivel_destino} em "${args.comp.nome}".`).slice(0, 400),
     // Nomeia o cargo → a auditora aplica o gancho de contexto de cargo (exemplos
     // ancorados no cargo deixam de ser "falta de universalidade"). Matriz
     // compartilhada: todos os cargos, para o bônus de cargo do resolver valer a cada um.
@@ -268,17 +336,36 @@ export async function modulosExistentes(
   opts: { compIds: string[]; empresaId?: string | null; locale: string },
 ): Promise<Set<string>> {
   const col = opts.empresaId ? 'competencia_id' : 'competencia_base_id';
-  const { data } = await sb
+  const { data, error } = await sb
     .from('modulos_base_conteudo')
-    .select(`id, ${col}, nivel_entrada, nivel_destino`)
+    .select(`id, ${col}, nivel_entrada, nivel_destino, titulo`)
     .in(col, opts.compIds)
     .eq('locale', opts.locale)
     .neq('status', 'obsoleto');
-  return new Set((data || []).map((m: any) => `${m[col]}|${m.nivel_entrada}|${m.nivel_destino}`));
+  // O supabase-js RETORNA o erro. Sem esta checagem uma leitura que falha virava "nenhum módulo
+  // existe", a idempotência abria e reimportar GERAVA (e pagava) tudo de novo, em duplicata.
+  // Aqui é construção (admin/task, com retry): falha alto.
+  if (error) throw new Error(`modulosExistentes: ${error.message}`);
+  // Duas chaves por módulo: a antiga (competência|transição) e a COM TÍTULO. O modo descritor
+  // único usa a segunda — a antiga colidiria (vários capítulos por transição).
+  const chaves = new Set<string>();
+  for (const m of (data || []) as any[]) {
+    chaves.add(`${m[col]}|${m.nivel_entrada}|${m.nivel_destino}`);
+    if (m.titulo) chaves.add(`${m[col]}|${m.nivel_entrada}|${m.nivel_destino}|${m.titulo}`);
+  }
+  return chaves;
 }
 
-export const chaveModulo = (compId: string, ne: string, nd: string) => `${compId}|${ne}|${nd}`;
+export const chaveModulo = (compId: string, ne: string, nd: string, titulo?: string | null) =>
+  titulo ? `${compId}|${ne}|${nd}|${titulo}` : `${compId}|${ne}|${nd}`;
 
-/** O módulo desta transição já existe em QUALQUER cópia idêntica da matriz? */
-export const moduloJaExiste = (existentes: Set<string>, ids: string[], ne: string, nd: string) =>
-  ids.some((id) => existentes.has(chaveModulo(id, ne, nd)));
+/**
+ * O módulo desta transição já existe em QUALQUER cópia idêntica da matriz? Com `titulo` (modo
+ * descritor único), a pergunta é por CAPÍTULO: o título tem de ser o mesmo que `persistir…` grava.
+ */
+export const moduloJaExiste = (existentes: Set<string>, ids: string[], ne: string, nd: string, titulo?: string | null) =>
+  ids.some((id) => existentes.has(chaveModulo(id, ne, nd, titulo)));
+
+/** O título que `persistirModuloDeManuscrito` grava no modo descritor único (mesma conta, num lugar só). */
+export const tituloDoModuloDeCapitulo = (capitulo: string, ne: string, nd: string) =>
+  `${capitulo.trim()} · ${ne}→${nd}`.slice(0, 120);
