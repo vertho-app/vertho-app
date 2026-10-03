@@ -45,6 +45,27 @@ export function semanaLiberadaPorData(dataInicio: string | null | undefined, n: 
 }
 
 /**
+ * Em que semana do CALENDÁRIO da trilha estamos hoje, pela data: a maior N cuja
+ * liberação já passou. `0` = a trilha ainda não começou; `null` = sem data.
+ *
+ * É a régua de data da cadência (R-15, 03/10/2026). O relógio que o cron guarda
+ * (`fase4_envios.semana_atual`) é avançado por ele mesmo, uma vez por semana, e
+ * só acompanha a trilha se a linha nasceu junto com ela. Quem foi inscrito ou
+ * reativado no meio (o botão "Iniciar envios", a jornada seguinte) ficava com o
+ * relógio na 1 e recebia a semana 1 de novo. Com esta régua o cron alinha o
+ * relógio por baixo: nunca fica ATRÁS da data. `Medido: 03/10/2026` (sábado),
+ * Macaé: 95 de 95 envios ativos com `semana_atual` = esta semana + 1, que é o
+ * avanço da quinta; ninguém atrás, então alinhar por baixo não muda quem já anda.
+ */
+export function semanaPorData(dataInicio: string | null | undefined, now: Date = new Date()): number | null {
+  const inicio = semanaLiberadaEm(dataInicio, 1);
+  if (!inicio || !Number.isFinite(inicio.getTime())) return null;
+  const decorrido = now.getTime() - inicio.getTime();
+  if (decorrido < 0) return 0;
+  return Math.floor(decorrido / (7 * 24 * 3600 * 1000)) + 1;
+}
+
+/**
  * A degradação desta semana representa uma ENTREGA REAL (e portanto deve ir para
  * o `degradacao_log`)?
  *

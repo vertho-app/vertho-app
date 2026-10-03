@@ -37,8 +37,26 @@ export const DEGRADACAO = {
   CONTEUDO_AUSENTE: 'conteudo-ausente',
   /** build-season (piloto): semana com menos entregas que o esperado. */
   PILOTO_DISTRIBUICAO_INCOMPLETA: 'piloto-distribuicao-incompleta',
-  /** jornada: fechamento concluiu, mas a jornada seguinte não foi gerada (mig 199). */
+  /**
+   * jornada: fechamento concluiu, mas a jornada seguinte não foi gerada (mig 199).
+   * Desde 03/10/2026 (R-90) inclui `detalhe.motivo = 'sem-mapeamento'`: há
+   * competências do cargo por fazer e a pessoa não tem mapeamento em NENHUMA.
+   */
   JORNADA_ENCADEAMENTO_FALHOU: 'jornada-encadeamento-falhou',
+  /**
+   * jornada: a próxima competência do cargo não tinha mapeamento da pessoa e o
+   * encadeamento seguiu para a seguinte que tinha (R-90, 03/10/2026). `aviso`: a
+   * jornada nasceu, mas fora da ordem de prioridade do cargo; rodar o mapeamento
+   * da competência pulada a devolve à fila. Chave: `<colaborador>:<temporada>`.
+   */
+  JORNADA_COMPETENCIA_PULADA: 'jornada-competencia-pulada',
+  /**
+   * jornada: a trilha seguinte nasceu, mas a linha da pessoa em `fase4_envios`
+   * não foi reativada (R-15, 03/10/2026). `critico`: sem isso a jornada nova não
+   * recebe nenhum envio semanal. Conserto: "Iniciar envios" na tela de envios,
+   * que alinha o relógio pela data da trilha.
+   */
+  JORNADA_CADENCIA_NAO_REATIVADA: 'jornada-cadencia-nao-reativada',
   /**
    * Personalizado SEM fechamento: a última semana de conteúdo concluiu, mas a
    * trilha não foi marcada como concluída (o relatório não gravou). A pessoa
@@ -294,6 +312,15 @@ export const DEGRADACAO = {
    * `scripts/refazer-redacao-fechamento.ts` produz a completa. Chave: trilha.
    */
   FECHAMENTO_REDACAO_FALHOU: 'fechamento-redacao-falhou',
+  /**
+   * fechamento-core: a nota foi gravada (semana do Cenário B concluída), mas o
+   * Relatório de Evolução não: a trilha seguiu `ativa`, sem relatório, sem
+   * certificado e sem encadeamento (R-137, 03/10/2026). Antes era só um
+   * `console.warn`. `critico`. A retomada é da própria tela da avaliação final
+   * (`generate_report`, quando `estadoDoRelatorio` diz `falhou`), e o admin refaz pela
+   * auditoria do fechamento. Chave: trilha.
+   */
+  FECHAMENTO_RELATORIO_FALHOU: 'fechamento-relatorio-falhou',
   /**
    * régua (lib/season-engine/regua.ts): descritor da trilha sem régua N1-N4 — sem
    * linha que case, ou linhas homônimas de cargos com réguas diferentes. A

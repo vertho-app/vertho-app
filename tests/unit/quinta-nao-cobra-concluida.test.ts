@@ -70,7 +70,8 @@ describe('quinta não cobra quem já concluiu a semana acessível', () => {
     expect(FONTE).toContain('if (concluiuSemanaAcessivel) cobrancasPuladas++;');
     expect(FONTE).toMatch(/cobrancasPuladas:\s*number/);
     // Nos três pontos de retorno, senão o número some conforme o caminho.
-    const retornos = FONTE.match(/return \{ pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas \}/g) || [];
+    // `aguardandoInicio` (R-15, 03/10/2026) entrou no mesmo resumo, nos mesmos três pontos.
+    const retornos = FONTE.match(/return \{ pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio \}/g) || [];
     expect(retornos.length).toBe(3);
   });
 });

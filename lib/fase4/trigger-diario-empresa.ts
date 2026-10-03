@@ -29,7 +29,7 @@ import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido
 import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engine/formato-anunciado';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
-import { primeiraSemanaAcessivel } from '@/lib/season-engine/week-gating';
+import { primeiraSemanaAcessivel, semanaPorData } from '@/lib/season-engine/week-gating';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
 import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
 import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
@@ -88,6 +88,14 @@ export interface ResumoEmpresaDiario {
    * cadência volta a cobrar quem está em dia, sem nada acusando.
    */
   cobrancasPuladas: number;
+  /**
+   * Envios ativos cuja trilha ainda não começou (data no futuro): nem mensagem
+   * nem avanço de relógio (R-15, 03/10/2026). O caso típico é a jornada
+   * seguinte, reativada pelo encadeamento antes da segunda do início. Sai no
+   * resumo pelo mesmo motivo do `cobrancasPuladas`: um pulo que não se conta é
+   * indistinguível de um pulo que passou a pegar gente demais.
+   */
+  aguardandoInicio: number;
 }
 
 /**
@@ -110,6 +118,8 @@ export async function processarEmpresaDiario(
    * cobrar quem está em dia) seria indistinguível de "ninguém estava em dia".
    */
   let cobrancasPuladas = 0;
+  /** Envios cuja trilha ainda não começou: pulados sem enviar e sem avançar o relógio. */
+  let aguardandoInicio = 0;
 
   const cadencia = (empresa as any).sys_config?.cadencia || {};
   /**
@@ -131,7 +141,7 @@ export async function processarEmpresaDiario(
     console.log(`[triggerDiario] ${(empresa as any).slug}: feriado nacional nesta semana — ${deslocou.join(' · ')}`);
   }
   if (hoje !== diaP1 && hoje !== diaP2 && hoje !== diaEv) {
-    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas }; // empresa sem nada hoje
+    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio }; // empresa sem nada hoje
   }
 
   // Deep-link da pílula = URL do TENANT (ibipeba.vertho.ai), não a genérica.
@@ -150,7 +160,7 @@ export async function processarEmpresaDiario(
   const { data: envios } = await tdb.from('fase4_envios')
     .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_evidencia_whatsapp_em, ultima_evidencia_email_em, ultima_evidencia_push_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
     .eq('status', ENVIO.ATIVO);
-  if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas };
+  if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio };
 
   // Trilha mais recente de CADA colaborador em UMA query (era 1 query por
   // envio — N+1). Ordenada por numero_temporada desc, a PRIMEIRA ocorrência
@@ -400,13 +410,33 @@ export async function processarEmpresaDiario(
      * semana 1, 45 delas sem nenhum turno de conversa. Anunciar a semana 6 para
      * quem precisa concluir a 1 é um convite para uma porta fechada.
      */
-    const semanaCalendario = envio.semana_atual || 1;
+    const trilha = trilhaPorColab.get(envio.colaborador_id);
+
+    /**
+     * 🔴 TRILHA QUE AINDA NÃO COMEÇOU: nada sai e o relógio NÃO anda (R-15,
+     * 03/10/2026). Acontece com a jornada seguinte, que o encadeamento cria
+     * para a próxima segunda e reativa aqui com o relógio na 1: sem este pulo,
+     * a quinta antes do início cobraria a "semana 1" ainda fechada e avançaria
+     * o relógio para a 2. Vale também para quem foi inscrito antes da data da
+     * turma. Só com `data_inicio` lido e no FUTURO: sem trilha (leitura que
+     * falhou, colab legado) o comportamento é o de antes.
+     */
+    const semanaDaTrilha = trilha?.data_inicio ? semanaPorData(trilha.data_inicio) : null;
+    if (semanaDaTrilha === 0) { aguardandoInicio++; continue; }
+
+    /**
+     * O relógio nunca fica ATRÁS da data da trilha (R-15). Quem entrou na
+     * cadência no meio da trilha (reinscrição, retomada depois de pausa) tinha
+     * o relógio na 1 e recebia a semana 1 de novo, para sempre um passo atrás.
+     * Para quem anda desde o começo nada muda: o relógio está na data, ou um à
+     * frente dela de quinta a domingo (medido em `semanaPorData`).
+     */
+    const semanaCalendario = Math.max(envio.semana_atual || 1, semanaDaTrilha ?? 0);
     let semana = semanaCalendario;
 
     let plan: any = null, conteudosDia: any[] = [], competenciaFoco: any = null;
     let plano: any[] = [];
     let totalSemanas = TOTAL_SEMANAS;
-    const trilha = trilhaPorColab.get(envio.colaborador_id);
     plano = (trilha?.temporada_plano || []) as any[];
 
     /**
@@ -1086,7 +1116,7 @@ export async function processarEmpresaDiario(
     });
   }
 
-  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas };
+  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio };
 }
 
 /**

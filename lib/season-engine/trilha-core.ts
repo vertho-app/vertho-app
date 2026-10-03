@@ -317,6 +317,8 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
       ok: true,
       trilhaId: persist.trilhaId,
       numeroTemporada: persist.numeroTemporada,
+      // O encadeamento reativa a cadência com o calendário da trilha nova.
+      dataInicio: persist.dataInicio,
       competencia: competenciaAlvo,
       ...(competenciasDoPrograma ? { competencias: competenciasDoPrograma, modo: 'custom' } : {}),
       descritores: descritoresSelecionados.length,
@@ -881,7 +883,7 @@ export async function persistirTrilha(tdb: any, args: {
    * diferentes, que é a coorte se desfazendo sozinha.
    */
   dataInicioTurma?: string | null;
-}): Promise<{ trilhaId: string; numeroTemporada: number } | { error: string }> {
+}): Promise<{ trilhaId: string; numeroTemporada: number; dataInicio: string } | { error: string }> {
   const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados, programaConfig, novaJornada, turmaMembroId, dataInicioTurma } = args;
 
   // Normaliza campos DERIVADOS de conteudos_dia antes de salvar (chokepoint dos 4
@@ -922,6 +924,7 @@ export async function persistirTrilha(tdb: any, args: {
     ? (existente?.numero_temporada || 0) + 1
     : (existente?.numero_temporada || 1);
   const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
+  const proximaSegunda = nextMondayISO();
   // empresa_id é injetado pelo tdb.upsert — não precisa repetir aqui.
   const payload = {
     colaborador_id: colaboradorId,
@@ -945,9 +948,16 @@ export async function persistirTrilha(tdb: any, args: {
     // Turma (mig 210): a safra tem uma segunda-feira canônica; quem entra nela
     // herda esse calendário. Sem turma (ou turma sem data) → comportamento
     // idêntico ao anterior.
-    data_inicio: criarNova
-      ? (dataInicioTurma || nextMondayISO())
-      : (existente?.data_inicio || dataInicioTurma || nextMondayISO()),
+    // 🔴 A JORNADA SEGUINTE NÃO HERDA A DATA DA TURMA (R-90, 03/10/2026). A data
+    // da turma é a segunda da PRIMEIRA jornada, semanas no passado quando o
+    // encadeamento cria a segunda: herdá-la abria as 7 semanas de uma vez, todas
+    // liberadas por data. Com `novaJornada`, o calendário é a próxima segunda,
+    // ou a da turma se ela ainda estiver no futuro (datas ISO comparam por texto).
+    data_inicio: novaJornada
+      ? (dataInicioTurma && dataInicioTurma > proximaSegunda ? dataInicioTurma : proximaSegunda)
+      : criarNova
+        ? (dataInicioTurma || proximaSegunda)
+        : (existente?.data_inicio || dataInicioTurma || proximaSegunda),
     turma_membro_id: turmaMembroId ?? null,     // carimbo da participação (mig 210)
     cursos: [],                                 // legado — conteúdo vive em temporada_plano
   };
@@ -1016,7 +1026,7 @@ export async function persistirTrilha(tdb: any, args: {
     console.warn(`[persistirTrilha] trilha ${trilhaId}: semanas ${preservadas.join(',')} saíram do plano mas GUARDAM trabalho do colaborador — preservadas.`);
   }
 
-  return { trilhaId, numeroTemporada };
+  return { trilhaId, numeroTemporada, dataInicio: payload.data_inicio };
 }
 
 /**

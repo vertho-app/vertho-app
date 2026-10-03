@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { persistirTrilha } from '@/lib/season-engine/trilha-core';
 
 /**
@@ -66,7 +66,7 @@ describe('persistirTrilha · header da trilha é UPSERT atômico (F-C1)', () => 
   it('grava o header por upsert com onConflict (empresa, colab, temporada) — sem update/insert', async () => {
     const tdb = tdbMock();
     const r = await persistirTrilha(tdb, ARGS);
-    expect(r).toEqual({ trilhaId: 'trilha-1', numeroTemporada: 1 });
+    expect(r).toMatchObject({ trilhaId: 'trilha-1', numeroTemporada: 1 });
 
     const header = tdb.ops.filter((o) => o.tabela === 'trilhas');
     const upserts = header.filter((o) => o.tipo === 'upsert');
@@ -89,7 +89,7 @@ describe('persistirTrilha · header da trilha é UPSERT atômico (F-C1)', () => 
     // Regeração legítima: trilha ativa, mesmo formato (a trava de regeração deixa passar).
     const tdb = tdbMock({ existente: { id: 'trilha-9', numero_temporada: 3, data_inicio: '2026-01-05', status: 'ativa', programa_modo: 'regular' } });
     const r = await persistirTrilha(tdb, ARGS);
-    expect(r).toEqual({ trilhaId: 'trilha-1', numeroTemporada: 3 });
+    expect(r).toMatchObject({ trilhaId: 'trilha-1', numeroTemporada: 3 });
 
     const upsert = tdb.ops.find((o) => o.tabela === 'trilhas' && o.tipo === 'upsert');
     expect(upsert?.payload.data_inicio).toBe('2026-01-05');
@@ -107,7 +107,7 @@ describe('persistirTrilha · header da trilha é UPSERT atômico (F-C1)', () => 
   it('trava não se aplica a linha nova (encadeamento): grava a próxima temporada', async () => {
     const tdb = tdbMock({ existente: { id: 'trilha-9', numero_temporada: 1, status: 'concluida', programa_modo: 'jornada' } });
     const r = await persistirTrilha(tdb, { ...ARGS, programaModo: 'jornada' as any, novaJornada: true });
-    expect(r).toEqual({ trilhaId: 'trilha-1', numeroTemporada: 2 });
+    expect(r).toMatchObject({ trilhaId: 'trilha-1', numeroTemporada: 2 });
   });
 
   it('trilha nova (SELECT vazio) calcula data_inicio da próxima segunda', async () => {
@@ -115,5 +115,52 @@ describe('persistirTrilha · header da trilha é UPSERT atômico (F-C1)', () => 
     await persistirTrilha(tdb, ARGS);
     const upsert = tdb.ops.find((o) => o.tabela === 'trilhas' && o.tipo === 'upsert');
     expect(upsert?.payload.data_inicio).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+/**
+ * R-90 (03/10/2026): a jornada SEGUINTE herdava a data da turma, que é a
+ * segunda da PRIMEIRA jornada, semanas no passado quando o encadeamento cria a
+ * segunda. As 7 semanas abriam de uma vez, todas liberadas por data.
+ *
+ * Relógio congelado numa quarta ao meio-dia (longe da virada das 06:00 UTC):
+ * a próxima segunda é 12/10/2026.
+ */
+describe('persistirTrilha · calendário da jornada seguinte (R-90)', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  const QUARTA = new Date('2026-10-07T15:00:00Z');
+  const PROXIMA_SEGUNDA = '2026-10-12';
+  const JORNADA_1 = { id: 'trilha-9', numero_temporada: 1, status: 'concluida', programa_modo: 'jornada', data_inicio: '2026-08-17', turma_membro_id: 'tm-1' };
+  const dataGravada = (tdb: any) => tdb.ops.find((o: any) => o.tabela === 'trilhas' && o.tipo === 'upsert')?.payload.data_inicio;
+
+  it('novaJornada com turma de data PASSADA começa na próxima segunda, não na data da turma', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(QUARTA);
+    const tdb = tdbMock({ existente: JORNADA_1 });
+    const r: any = await persistirTrilha(tdb, {
+      ...ARGS, programaModo: 'jornada' as any, novaJornada: true, turmaMembroId: 'tm-1', dataInicioTurma: '2026-08-17',
+    });
+    expect(dataGravada(tdb)).toBe(PROXIMA_SEGUNDA);
+    expect(r.dataInicio).toBe(PROXIMA_SEGUNDA);
+  });
+
+  it('novaJornada com turma de data FUTURA respeita a turma', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(QUARTA);
+    const tdb = tdbMock({ existente: JORNADA_1 });
+    await persistirTrilha(tdb, {
+      ...ARGS, programaModo: 'jornada' as any, novaJornada: true, turmaMembroId: 'tm-1', dataInicioTurma: '2026-10-26',
+    });
+    expect(dataGravada(tdb)).toBe('2026-10-26');
+  });
+
+  it('troca de participação (turma nova, sem novaJornada) segue herdando a data da turma', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(QUARTA);
+    const tdb = tdbMock({ existente: { ...JORNADA_1, status: 'ativa' } });
+    await persistirTrilha(tdb, {
+      ...ARGS, programaModo: 'jornada' as any, turmaMembroId: 'tm-2', dataInicioTurma: '2026-09-28',
+    });
+    expect(dataGravada(tdb)).toBe('2026-09-28');
   });
 });
