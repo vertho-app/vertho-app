@@ -229,3 +229,113 @@ describe('cron diário × calendário da trilha', () => {
     expect(avanco?.payload.semana_atual).toBe(6);
   });
 });
+
+/**
+ * R-89 (03/10/2026): a semana da AVALIAÇÃO FINAL na cadência.
+ *
+ * Antes: a segunda não dizia nada (a semana do Cenário B não tem
+ * `conteudos_dia`, e a pílula só sai com conteúdo) e a quinta cobrava
+ * "registro de evidências", com a promessa de ajustar "as próximas semanas",
+ * que não existem. Agora: anúncio na segunda, cobrança própria na quinta, nos
+ * três canais; WhatsApp só pelo template do papel `avaliacao_final`.
+ *
+ * Trilha de 28/09: a segunda 09/11 abre a semana 7, a do Cenário B.
+ */
+describe('cadência da semana da avaliação final (R-89)', () => {
+  const INICIO_SEMANA_7 = '2026-09-28';
+  const CONTEUDO_CONCLUIDO = [1, 2, 3, 4, 5, 6];
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    h.templates = {};
+    for (const f of [h.envioTemplate, h.envioPilula, h.email, h.push, h.fila]) f.mockReset();
+    h.envioTemplate.mockResolvedValue({ tentou: true, ok: true });
+    h.envioPilula.mockResolvedValue({ tentou: true, ok: true });
+    h.email.mockResolvedValue({ ok: true });
+    h.push.mockResolvedValue({ entregues: 0, falhas: 0 });
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  const papeisWhatsapp = () => h.envioTemplate.mock.calls.map((c: any[]) => c[0]);
+
+  it('segunda: ANUNCIA a avaliação final (e-mail e, com o template ligado, WhatsApp no papel dela)', async () => {
+    vi.setSystemTime(new Date(SEGUNDA.agora));
+    h.templates = { avaliacao_final: 'avaliacao_final_pendente' };
+    cron({ semanaAtual: 7, dataInicio: INICIO_SEMANA_7, concluidas: CONTEUDO_CONCLUIDO });
+    await processarEmpresaDiario(EMPRESA, SEGUNDA);
+    expect(papeisWhatsapp()).toEqual(['avaliacao_final']);
+    expect(h.envioTemplate.mock.calls[0][1]).toMatchObject({ semana: 7, formato: null });
+    expect(h.envioPilula).not.toHaveBeenCalled();
+    expect(h.email).toHaveBeenCalledTimes(1);
+    expect(h.email.mock.calls[0][1]).toBe('Sua avaliação final está aberta');
+    expect(h.email.mock.calls[0][3]).toMatchObject({ kind: 'avaliacao_final' });
+    // Carimbo do slot de segunda: o que segura a idempotência do dia.
+    const carimbo = atualizacoesDoEnvio().find((e: any) => 'ultima_pilula1_em' in e.payload);
+    expect(carimbo?.payload).toHaveProperty('ultima_pilula1_email_em');
+  });
+
+  it('quinta: cobra a AVALIAÇÃO FINAL, nunca o "registro de evidências"', async () => {
+    vi.setSystemTime(new Date(QUINTA.agora));
+    h.templates = { avaliacao_final: 'avaliacao_final_pendente' };
+    cron({ semanaAtual: 7, dataInicio: INICIO_SEMANA_7, concluidas: CONTEUDO_CONCLUIDO });
+    await processarEmpresaDiario(EMPRESA, QUINTA);
+    expect(papeisWhatsapp()).toEqual(['avaliacao_final']);
+    expect(h.email.mock.calls[0][1]).toBe('Avaliação final pendente');
+    const html: string = h.email.mock.calls[0][2];
+    expect(html).toContain('avaliação final');
+    expect(html).not.toContain('próximas semanas');
+    // O relógio anda do mesmo jeito: o fim do programa é do calendário.
+    const avanco = atualizacoesDoEnvio().find((e: any) => 'semana_atual' in e.payload);
+    expect(avanco?.payload.semana_atual).toBe(8);
+  });
+
+  it('template desligado: nada por WhatsApp (nem pela fila de texto livre), e-mail sai com a copy certa', async () => {
+    vi.setSystemTime(new Date(QUINTA.agora));
+    cron({ semanaAtual: 7, dataInicio: INICIO_SEMANA_7, concluidas: CONTEUDO_CONCLUIDO });
+    await processarEmpresaDiario(EMPRESA, QUINTA);
+    expect(h.envioTemplate).not.toHaveBeenCalled();
+    expect(h.fila).not.toHaveBeenCalled();
+    expect(h.email.mock.calls[0][1]).toBe('Avaliação final pendente');
+  });
+
+  it('nota sendo gerada: não cobra (a pessoa já respondeu tudo), e o relógio anda', async () => {
+    vi.setSystemTime(new Date(QUINTA.agora));
+    h.templates = { avaliacao_final: 'avaliacao_final_pendente' };
+    const progresso = [
+      ...CONTEUDO_CONCLUIDO.map((s) => ({ trilha_id: 't1', colaborador_id: 'c1', semana: s, status: 'concluido' })),
+      {
+        trilha_id: 't1', colaborador_id: 'c1', semana: 7, status: 'em_andamento',
+        feedback: {
+          cenario: 'c', perguntas: [{ texto: 'p' }],
+          transcript_completo: [{ role: 'user', content: 'r' }],
+          finalizacao: { status: 'processando', iniciada_em: new Date(Date.parse(QUINTA.agora) - 60_000).toISOString() },
+        },
+      },
+    ];
+    cron({ semanaAtual: 7, dataInicio: INICIO_SEMANA_7, concluidas: [], progresso });
+    const r = await processarEmpresaDiario(EMPRESA, QUINTA);
+    expect(h.envioTemplate).not.toHaveBeenCalled();
+    expect(h.email).not.toHaveBeenCalled();
+    expect(r.cobrancasPuladas).toBe(1);
+    const avanco = atualizacoesDoEnvio().find((e: any) => 'semana_atual' in e.payload);
+    expect(avanco?.payload.semana_atual).toBe(8);
+  });
+
+  it('progresso que não foi lido: a semana segue o caminho antigo (não afirma o que não leu)', async () => {
+    vi.setSystemTime(new Date(QUINTA.agora));
+    h.templates = { avaliacao_final: 'avaliacao_final_pendente' };
+    cron({ semanaAtual: 7, dataInicio: INICIO_SEMANA_7, concluidas: CONTEUDO_CONCLUIDO });
+    h.sb.falharEm({ tabela: 'temporada_semana_progresso', op: 'select', mensagem: 'timeout no pool' });
+    await processarEmpresaDiario(EMPRESA, QUINTA);
+    expect(papeisWhatsapp()).not.toContain('avaliacao_final');
+  });
+
+  it('semana de conteúdo continua cobrando o desafio (o papel novo não vaza para as outras semanas)', async () => {
+    vi.setSystemTime(new Date(QUINTA.agora));
+    h.templates = { avaliacao_final: 'avaliacao_final_pendente' };
+    cron({ semanaAtual: 7, dataInicio: INICIO_SEMANA_7, concluidas: [1, 2, 3, 4] });
+    await processarEmpresaDiario(EMPRESA, QUINTA);
+    expect(papeisWhatsapp()).toEqual(['desafio']);
+    expect(h.envioTemplate.mock.calls[0][1]).toMatchObject({ semana: 5 });
+  });
+});

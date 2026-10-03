@@ -77,6 +77,19 @@ export function pushEvidencia(semana: number): TextoPush {
 }
 
 /**
+ * Semana da AVALIAÇÃO FINAL (R-89, 03/10/2026): anúncio na segunda, cobrança
+ * na quinta. Antes a quinta reaproveitava `pushEvidencia` ("Você ainda não
+ * registrou como foi a prática desta semana"), que não descreve a última
+ * semana: ela não tem prática a registrar, tem a avaliação.
+ */
+export function pushAvaliacaoFinal(momento: 'abertura' | 'pendente'): TextoPush {
+  return {
+    titulo: limitar(momento === 'abertura' ? 'Avaliação final aberta' : 'Avaliação final pendente', LIMITE_TITULO),
+    corpo: limitar('O Relatório de Evolução é gerado quando ela é concluída.', LIMITE_CORPO),
+  };
+}
+
+/**
  * SEMANA PENDENTE: a trilha avançou no calendário e a pessoa segue travada numa
  * semana anterior, porque quem conclui a semana é a conversa de evidências.
  *

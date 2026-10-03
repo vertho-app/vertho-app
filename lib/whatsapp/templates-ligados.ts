@@ -46,6 +46,9 @@ export const PAPEIS: PapelCadencia[] = [
    * descreve: sai, entrega, e custa 6× em silêncio.
    */
   'pendencia', 'conteudo_pendente',
+  // Semana da avaliação final na cadência (R-89, 03/10/2026): entra ligado ao
+  // cron, então a categoria dele tem que ser vigiada desde o primeiro dia.
+  'avaliacao_final',
 ];
 
 export interface TemplateLigado {

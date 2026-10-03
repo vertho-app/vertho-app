@@ -23,19 +23,20 @@ import { mesmoDiaUTC, pilulaPendente } from '@/lib/notifications/carimbo-canal';
 import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, tenantUrl } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppNudgeDesafio } from '@/lib/notifications';
-import { textoPilulaWhatsapp, emailPilula, emailPilulaPendente, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia, emailSemanaPendente } from '@/lib/notifications/pilula-envio';
+import { textoPilulaWhatsapp, emailPilula, emailPilulaPendente, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia, emailSemanaPendente, emailAvaliacaoFinal } from '@/lib/notifications/pilula-envio';
 import { enviarPilulaPorTemplate, enviarPorTemplate, templateAtivo } from '@/lib/notifications/pilula-template';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engine/formato-anunciado';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
-import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { semanaCenarioBDoPlano, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { estadoDoFechamento } from '@/lib/season-engine/estado-fechamento';
 import { primeiraSemanaAcessivel, semanaPorData } from '@/lib/season-engine/week-gating';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
 import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
 import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarPush } from '@/lib/notifications/push-core';
-import { pushPilula, pushPilulaPendente, pushMissao, pushEvidencia, pushSemanaPendente } from '@/lib/notifications/push-copy';
+import { pushPilula, pushPilulaPendente, pushMissao, pushEvidencia, pushSemanaPendente, pushAvaliacaoFinal } from '@/lib/notifications/push-copy';
 import { temaPilula } from '@/lib/notifications/pilula-envio';
 import { ENVIO, PROGRESSO } from '@/lib/status';
 import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
@@ -503,6 +504,33 @@ export async function processarEmpresaDiario(
     const ultimoEnvio = [envio.ultima_pilula1_em, envio.ultima_pilula2_em, envio.ultima_evidencia_em]
       .filter(Boolean).map((d: any) => new Date(d).getTime()).sort((a, b) => b - a)[0] || null;
 
+    /**
+     * A semana que a pessoa consegue abrir é a da AVALIAÇÃO FINAL (Cenário B)?
+     * (R-89, 03/10/2026.) Antes ela não era anunciada na segunda (sem
+     * `conteudos_dia`, a pílula não saía), e a quinta cobrava "registro de
+     * evidências" prometendo ajustar "as próximas semanas", que não existem.
+     *
+     * Exige progresso CONFIÁVEL: sem ele `semana` é o calendário cru, e a
+     * mensagem afirmaria "as semanas de conteúdo foram concluídas" sem ter lido
+     * isso. Nesse caso a semana segue o caminho antigo, como o resto do arquivo.
+     * A régua do estado é a do fechamento (`estadoDoFechamento`), a mesma do
+     * envio manual (`avaliacao_final_pendente`): concluída ou com a nota sendo
+     * gerada, não se anuncia nem se cobra.
+     */
+    const semanaFinal = semanaCenarioBDoPlano(plano, 0);
+    const ehAvaliacaoFinal = progressoConfiavel && plan?.tipo === 'avaliacao' && semanaFinal > 0 && Number(semana) === semanaFinal;
+    const estadoFinal = ehAvaliacaoFinal
+      ? estadoDoFechamento(
+        (progressoPorColab.get(envio.colaborador_id) || []).find((p: any) => Number(p?.semana) === semanaFinal),
+        { arguicaoAtiva: false },
+        Date.now(),
+      ).estado
+      : null;
+    const notaFinalEmGeracao = estadoFinal === 'processando';
+    const avaliacaoFinalAberta = ehAvaliacaoFinal && estadoFinal !== 'avaliado' && !notaFinalEmGeracao;
+    /** Sem o template aprovado, a semana da avaliação final não sai por WhatsApp (sem texto livre). */
+    const avaliacaoFinalLigada = !!templateAtivo('avaliacao_final');
+
     // Envia a pílula do dia por WhatsApp E e-mail (cada canal best-effort), no
     // formato preferido + deep-link do tenant. Carimba o timestamp da pílula.
     const enviarPilulaDia = async (
@@ -773,6 +801,74 @@ export async function processarEmpresaDiario(
       }
     };
 
+    /**
+     * SEGUNDA da semana da AVALIAÇÃO FINAL: anuncia que ela abriu (R-89).
+     *
+     * Reusa os carimbos da pílula 1, como a missão: é o slot de segunda, e é o
+     * que segura a idempotência do dia. WhatsApp só pelo template do papel
+     * `avaliacao_final`, sem caminho de texto livre (ver `ENV_DO_PAPEL`).
+     */
+    const enviarAberturaAvaliacaoFinal = async () => {
+      const agora = new Date().toISOString();
+      const stamp: Record<string, string> = {};
+      const vagaFinal = avaliacaoFinalLigada && telefone && !mesmoDiaUTC(envio.ultima_pilula1_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
+      if (vagaFinal !== null) {
+        try {
+          const viaTemplate = await enviarPorTemplate('avaliacao_final', {
+            telefone, nome, semana, tema: '',
+            slug: (empresa as any).slug, baseUrl,
+            // O botão leva à semana do Cenário B, sem formato: não há conteúdo a anunciar.
+            formato: null, pilula: null,
+            empresaId: empresa.id, colaboradorId: envio.colaborador_id,
+            dedupeKey: `avaliacao-final:${envio.id}:${semana}`,
+          });
+          if (viaTemplate.tentou) {
+            if (viaTemplate.ok) { pilulas++; stamp.ultima_pilula1_whatsapp_em = agora; } else erros++;
+          }
+        } catch { erros++; }
+      }
+      if (email && !mesmoDiaUTC(envio.ultima_pilula1_email_em, hojeUTC)) {
+        const { subject, html } = emailAvaliacaoFinal(nome, { semana, baseUrl, momento: 'abertura' });
+        const r = await enviarEmailPilula(email, subject, html, {
+          kind: 'avaliacao_final',
+          empresaId: empresa.id,
+          colaboradorId: envio.colaborador_id,
+          dedupeKey: `avaliacao-final:${envio.id}:semana${semana}`,
+        });
+        if (r.ok) { emails++; stamp.ultima_pilula1_email_em = agora; } else erros++;
+      }
+      if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_pilula1_push_em, hojeUTC)) {
+        const texto = pushAvaliacaoFinal('abertura');
+        const r = await enviarPush({
+          colaboradorId: envio.colaborador_id,
+          empresaId: empresa.id,
+          kind: 'avaliacao_final',
+          titulo: texto.titulo,
+          corpo: texto.corpo,
+          url: deepLinkSemana(baseUrl, semana, null, null, 'push'),
+          dedupeKey: `avaliacao-final-push:${envio.id}:${semana}`,
+        });
+        if (r.entregues > 0) { stamp.ultima_pilula1_push_em = agora; } else if (r.falhas > 0) erros++;
+      }
+      if (Object.keys(stamp).length) {
+        // A mensagem JÁ saiu: carimbo perdido faria o retry repeti-la. Degrada
+        // registrando, como o carimbo da pendência.
+        const { error: errStamp } = await tdb.from('fase4_envios')
+          .update({ ...stamp, ultima_pilula1_em: agora }).eq('id', envio.id);
+        if (errStamp) {
+          erros++;
+          await registrarDegradacao({
+            fluxo: 'envio',
+            tipo: DEGRADACAO.TELEMETRIA_ENTREGA_FALHOU,
+            chave: `carimbo-avaliacao-final:${empresa.id}`,
+            empresaId: empresa.id,
+            severidade: 'critico',
+            detalhe: { motivo: errStamp.message, envioId: envio.id, canais: Object.keys(stamp) },
+          });
+        }
+      }
+    };
+
     // Há canal PENDENTE hoje? Ver lib/notifications/carimbo-canal.
     const temPush = comPush.has(envio.colaborador_id);
     const pendente = (wppCol: string, mailCol: string, pushCol?: string) =>
@@ -794,7 +890,7 @@ export async function processarEmpresaDiario(
     const bloqueadaNaAnterior = semana < semanaCalendario;
 
     // ── 1ª PÍLULA (com a PENDÊNCIA embutida, para quem está travado) ──
-    if (hoje === diaP1 && !ehImpl(semana, plan) && conteudosDia[0] && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
+    if (hoje === diaP1 && !ehAvaliacaoFinal && !ehImpl(semana, plan) && conteudosDia[0] && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
       await enviarPilulaDia(conteudosDia[0], 'ultima_pilula1_em', conteudoPendenteLigado && bloqueadaNaAnterior);
     }
 
@@ -878,6 +974,11 @@ export async function processarEmpresaDiario(
       }
     }
 
+    // ── AVALIAÇÃO FINAL: a segunda ANUNCIA que ela abriu (R-89) ──
+    if (hoje === diaP1 && avaliacaoFinalAberta && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
+      await enviarAberturaAvaliacaoFinal();
+    }
+
     /**
      * ── 2ª PÍLULA (DUO) — ou a SEMANA PENDENTE, para quem está travado ──
      *
@@ -923,7 +1024,7 @@ export async function processarEmpresaDiario(
       && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')
     ) {
       await enviarSemanaPendente();
-    } else if (hoje === diaP2 && !ehImpl(semana, plan) && conteudosDia[1] && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')) {
+    } else if (hoje === diaP2 && !ehAvaliacaoFinal && !ehImpl(semana, plan) && conteudosDia[1] && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')) {
       await enviarPilulaDia(conteudosDia[1], 'ultima_pilula2_em');
     }
 
@@ -1008,22 +1109,29 @@ export async function processarEmpresaDiario(
        * que falhou), `concluiuSemanaAcessivel` fica false e a cobrança sai como
        * sempre saiu. Falha de leitura não pode calar a cadência inteira.
        */
-      const concluiuSemanaAcessivel = progressoConfiavel && (progressoPorColab.get(envio.colaborador_id) || [])
-        .some((p: any) => Number(p?.semana) === Number(semana) && p?.status === PROGRESSO.CONCLUIDO);
+      const concluiuSemanaAcessivel = progressoConfiavel && ((progressoPorColab.get(envio.colaborador_id) || [])
+        .some((p: any) => Number(p?.semana) === Number(semana) && p?.status === PROGRESSO.CONCLUIDO)
+        // Avaliação final com a nota sendo gerada: a pessoa já respondeu tudo,
+        // e cobrar "pendente" seria afirmar o que ela sabe que não é verdade.
+        || notaFinalEmGeracao);
       if (concluiuSemanaAcessivel) cobrancasPuladas++;
 
-      const vagaEv = !concluiuSemanaAcessivel && telefone && !mesmoDiaUTC(envio.ultima_evidencia_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
+      // Avaliação final só sai por WhatsApp com o template dela LIGADO: a vaga
+      // não é gasta com quem não vai receber nada por esse canal.
+      const vagaEv = !concluiuSemanaAcessivel && telefone && (!ehAvaliacaoFinal || avaliacaoFinalLigada) && !mesmoDiaUTC(envio.ultima_evidencia_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
       if (vagaEv !== null) {
         const mensagem = ehDesafio
           ? templateWhatsAppNudgeDesafio(nome, semana, linkSemana)
           : templateWhatsAppEvidencia(nome, semana, linkSemana);
         try {
-          // A quinta tem DOIS papéis, e eles não são intercambiáveis: semana de
-          // aplicação cobra EVIDÊNCIA, semana de conteúdo cobra o DESAFIO.
-          // Trocar um pelo outro entrega a cobrança errada para a pessoa certa,
-          // e nada no código acusaria — por isso o papel vem do mesmo `ehDesafio`
-          // que escolhe a copy do caminho legado.
-          const viaTemplate = await enviarPorTemplate(ehDesafio ? 'desafio' : 'evidencia', {
+          // A quinta tem TRÊS papéis, e eles não são intercambiáveis: semana de
+          // aplicação cobra EVIDÊNCIA, semana de conteúdo cobra o DESAFIO, e a
+          // semana do Cenário B cobra a AVALIAÇÃO FINAL (R-89). Trocar um pelo
+          // outro entrega a cobrança errada para a pessoa certa, e nada no
+          // código acusaria; por isso o papel vem dos mesmos predicados que
+          // escolhem a copy dos outros canais.
+          const papelQuinta = ehAvaliacaoFinal ? 'avaliacao_final' : ehDesafio ? 'desafio' : 'evidencia';
+          const viaTemplate = await enviarPorTemplate(papelQuinta, {
             telefone, nome, semana,
             tema: '',                       // a quinta não anuncia tema
             slug: (empresa as any).slug, baseUrl,
@@ -1035,7 +1143,9 @@ export async function processarEmpresaDiario(
           if (viaTemplate.tentou) {
             // Cloud API é síncrona: o carimbo é aqui, não no webhook da fila.
             if (viaTemplate.ok) { evidencias++; stampEv.ultima_evidencia_whatsapp_em = agoraEv; } else erros++;
-          } else {
+          } else if (!ehAvaliacaoFinal) {
+            // Sem caminho legado para a avaliação final: o texto livre da fila
+            // é o da evidência, a promessa falsa que o R-89 tirou daqui.
             // Carimbo do canal vem do webhook, PÓS-envio — mesmo contrato da
             // pílula. Carimbar aqui afirmaria envio que ainda pode não sair.
             const enfileirou = await agendarWhatsapp({
@@ -1049,9 +1159,11 @@ export async function processarEmpresaDiario(
       }
 
       if (!concluiuSemanaAcessivel && email && !ehDemo && !mesmoDiaUTC(envio.ultima_evidencia_email_em, hojeUTC)) {
-        const { subject, html } = emailEvidencia(nome, { semana, baseUrl });
+        const { subject, html } = ehAvaliacaoFinal
+          ? emailAvaliacaoFinal(nome, { semana, baseUrl, momento: 'pendente' })
+          : emailEvidencia(nome, { semana, baseUrl });
         const r = await enviarEmailPilula(email, subject, html, {
-          kind: 'evidencia',
+          kind: ehAvaliacaoFinal ? 'avaliacao_final' : 'evidencia',
           empresaId: empresa.id,
           colaboradorId: envio.colaborador_id,
           dedupeKey: `evidencia:${envio.id}:semana${semana}`,
@@ -1060,11 +1172,11 @@ export async function processarEmpresaDiario(
       }
 
       if (!concluiuSemanaAcessivel && pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_evidencia_push_em, hojeUTC)) {
-        const texto = pushEvidencia(semana);
+        const texto = ehAvaliacaoFinal ? pushAvaliacaoFinal('pendente') : pushEvidencia(semana);
         const r = await enviarPush({
           colaboradorId: envio.colaborador_id,
           empresaId: empresa.id,
-          kind: 'evidencia',
+          kind: ehAvaliacaoFinal ? 'avaliacao_final' : 'evidencia',
           titulo: texto.titulo,
           corpo: texto.corpo,
           url: linkSemana,

@@ -128,6 +128,41 @@ export function emailEvidencia(
 }
 
 /**
+ * Assunto + HTML do e-mail da semana da AVALIAÇÃO FINAL (Cenário B), nos dois
+ * momentos da cadência: `abertura` (segunda) e `pendente` (quinta). R-89,
+ * 03/10/2026.
+ *
+ * Até aqui a quinta dessa semana mandava o `emailEvidencia`, que diz "o
+ * registro de evidências desta semana está pendente" e promete ajustar "as
+ * próximas semanas da sua trilha", que não existem: a semana do Cenário B é a
+ * última. A copy segue a do template `avaliacao_final_pendente` (os nomes são
+ * os da TELA: "avaliação final" e "Relatório de Evolução"), em tom factual.
+ *
+ * Só sai para quem tem a avaliação final como semana acessível, ou seja, com
+ * as semanas de conteúdo concluídas: é isso que torna a primeira frase
+ * verdadeira.
+ */
+export function emailAvaliacaoFinal(
+  nome: string,
+  opts: { semana: number; baseUrl: string; momento: 'abertura' | 'pendente' },
+): { subject: string; html: string } {
+  const link = deepLinkSemana(opts.baseUrl, opts.semana);
+  const primeiro = (nome || 'Colaborador').split(' ')[0];
+  const abertura = opts.momento === 'abertura';
+  const subject = abertura ? 'Sua avaliação final está aberta' : 'Avaliação final pendente';
+  const estado = abertura
+    ? 'e a <strong>avaliação final</strong> já está aberta.'
+    : 'e a <strong>avaliação final</strong> continua <strong>pendente</strong>.';
+  const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
+<p>Olá, ${primeiro}.</p>
+<p>As semanas de conteúdo da sua trilha foram concluídas, ${estado}</p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a avaliação final</a></p>
+<p style="color:#666;font-size:14px">O Relatório de Evolução é gerado quando a avaliação final é concluída.</p>
+<p style="color:#666;font-size:14px">Equipe Vertho</p></div>`;
+  return { subject, html };
+}
+
+/**
  * Envia e-mail pelo provedor configurado. NUNCA lança — devolve {ok, reason}.
  *
  * `meta` é o contexto de negócio para a telemetria de entrega (mig 198) e não

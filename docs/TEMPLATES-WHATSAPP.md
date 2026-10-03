@@ -40,6 +40,15 @@ cai no caminho legado — silenciosamente, que é o motivo da R13 existir.
 | 8 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
 | 9 | `plano_desenvolvimento` | UTILITY | `plano` · `WHATSAPP_TEMPLATE_PLANO` | Relatório individual: pelo cron `avisar_planos` (só **depois do corte**) ou pela tela, sob demanda | `lib/notifications/avisar-plano-pronto.ts` · `/admin-v2/cliente` → "Planos (PDI)" |
 | 10 | `avaliacao_pendente` | UTILITY | — (nome fixo na tela) | Convite ao mapeamento comportamental pendente, independente de cenários | **tela de Envios** (aba WhatsApp) |
+| 11 | `avaliacao_final_pendente` ⏳ | UTILITY (a submeter) | `avaliacao_final` · `WHATSAPP_TEMPLATE_AVALIACAO_FINAL` | Semana acessível = a do Cenário B, sem nota e sem nota sendo gerada: **segunda** (abriu) e **quinta** (pendente) | `lib/fase4/trigger-diario-empresa.ts` (`enviarAberturaAvaliacaoFinal` e a quinta) |
+
+🔑 **O nº 11 entrou na cadência em 03/10/2026 (R-89)**, e a env fica **ausente até o template
+estar APPROVED**. Sem ela, a semana da avaliação final não sai por WhatsApp (não há texto livre de
+propósito) e segue por e-mail e push, com a copy própria (`emailAvaliacaoFinal`,
+`pushAvaliacaoFinal`). Antes, a segunda dessa semana não dizia nada e a quinta mandava
+`registro_evidencia`, que promete ajustar "as próximas semanas", que não existem. O papel já está na
+lista da R13 (`PAPEIS` em `lib/whatsapp/templates-ligados.ts`), então a categoria passa a ser
+vigiada no dia em que a env for gravada.
 
 🔑 **Dois gatilhos, réguas diferentes — 17/08.** O CRON usa o `CORTE_ISO` fixo e roda sem ninguém
 olhando. A TELA ignora o corte de propósito: há prévia com números e um humano confirmando, então a
@@ -187,7 +196,7 @@ exemplo, continua saindo apenas quando um humano escolhe e confirma o lote.
 | Template | Consumidor atual | Regra que impede público errado |
 |---|---|---|
 | `trilha_liberada_v2` | Tela de Envios | Trilha ativa e ainda não iniciada |
-| `avaliacao_final_pendente` | Tela de Envios | Semana acessível = Cenário B, não concluída, `feedback.finalizacao` fora de `processando` |
+| `avaliacao_final_pendente` | Tela de Envios + cadência (papel `avaliacao_final`, desde 03/10/2026) | Semana acessível = Cenário B, não concluída, `feedback.finalizacao` fora de `processando` |
 | `trilha_concluida` | Tela de Envios | Trilha mais recente concluída |
 | `plano_desenvolvimento` | Cron + tela de Envios | Relatório individual/PDI existente |
 | `avaliacao_pendente` | Tela de Envios | Mapeamento comportamental pendente, sem exigir cenários |

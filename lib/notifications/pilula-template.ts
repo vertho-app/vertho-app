@@ -129,7 +129,7 @@ export function caminhoDoBotao(a: Pick<PilulaTemplateArgs, 'slug' | 'semana' | '
  */
 export type PapelCadencia =
   | 'pilula' | 'evidencia' | 'desafio' | 'retomada' | 'perfil' | 'acesso' | 'missao' | 'plano'
-  | 'boas_vindas' | 'recorte' | 'pendencia' | 'conteudo_pendente';
+  | 'boas_vindas' | 'recorte' | 'pendencia' | 'conteudo_pendente' | 'avaliacao_final';
 
 const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
   pilula: 'WHATSAPP_TEMPLATE_PILULA',
@@ -165,6 +165,20 @@ const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
    * mesmo desenho de interruptor único do `pendencia`.
    */
   conteudo_pendente: 'WHATSAPP_TEMPLATE_CONTEUDO_PENDENTE',
+  /**
+   * Semana da AVALIAÇÃO FINAL (Cenário B), na cadência: anúncio na segunda e
+   * cobrança na quinta (R-89, 03/10/2026). Até aqui a quinta dessa semana
+   * saía como `registro_evidencia`, que promete ajustar "as próximas semanas",
+   * que não existem; e a segunda não dizia nada.
+   *
+   * O template é o `avaliacao_final_pendente` (só nome + botão para a semana do
+   * Cenário B). ⚠️ Em 16/09 ele não tinha sido submetido à Meta: até a chave
+   * existir (APPROVED), esta semana não sai por WhatsApp, e e-mail e push
+   * levam a copy certa. Não há caminho de texto livre de propósito: o canal de
+   * texto livre está morto desde 13/08 e cair no da evidência seria repetir a
+   * promessa falsa.
+   */
+  avaliacao_final: 'WHATSAPP_TEMPLATE_AVALIACAO_FINAL',
   /**
    * CONARH: o recorte da demonstração para o lead que pediu no estande.
    *
