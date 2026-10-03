@@ -96,7 +96,7 @@ describe('normalizarEntradas — round-trip', () => {
   it('preserva a quantidade independente de workshops e o programa customizado', () => {
     const gravado = {
       ...BASE, nClusters: 4, nWorkshops: 2, metodo: 'workshop', jornada: 'custom',
-      jornadaCustom: { semanas: 10, numCompetencias: 2, fechamento: true },
+      jornadaCustom: { semanas: 6, numCompetencias: 2, fechamento: true },
     };
     expect(normalizarEntradas(JSON.parse(JSON.stringify(gravado)), LISTAS)).toEqual(gravado);
   });

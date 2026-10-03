@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   parseProgramaCustom,
   derivarConfigCustom,
+  resumoProgramaPersonalizado,
   deveEncerrarSemFechamento,
   ehConfigSemFechamento,
   montarReportSemFechamento,
@@ -68,9 +69,9 @@ describe('parseProgramaCustom: limites novos (1 a 6 semanas, 1 ou 2 competência
       .toEqual({ semanas: 1, numCompetencias: 1, fechamento: false });
   });
 
-  it('aceita até 10 semanas de conteúdo', () => {
-    expect(parseProgramaCustom({ semanas: 10, numCompetencias: 2, fechamento: true }))
-      .toEqual({ semanas: 10, numCompetencias: 2, fechamento: true });
+  it('aceita até 6 semanas de conteúdo por competência, com 2 competências', () => {
+    expect(parseProgramaCustom({ semanas: 6, numCompetencias: 2, fechamento: true }))
+      .toEqual({ semanas: 6, numCompetencias: 2, fechamento: true });
   });
 
   it('rejeita fora dos limites e lixo', () => {
@@ -363,5 +364,20 @@ describe('sanitizarNarrativaPiloto parametrizado (piloto e trilhas antigas de de
     expect(ok).toBe(true);
     expect(parsed.resumo_avaliacao.mensagem_geral).toContain('ao final de 2 semanas');
     expect(parsed.avaliacao_por_descritor[0].justificativa).toBe('sustentado na degustação de 2 semanas.');
+  });
+});
+
+describe('resumoProgramaPersonalizado: o programa inteiro, para orçamento e proposta', () => {
+  it('2 competências em sequência dobram a duração da trilha', () => {
+    const r = resumoProgramaPersonalizado({ semanas: 6, numCompetencias: 2, fechamento: true });
+    expect(r.porTrilha.semanas).toBe(7);
+    expect(r.trilhas).toBe(2);
+    expect(r.semanasTotais).toBe(14);
+  });
+
+  it('1 competência sem fechamento é a própria trilha', () => {
+    const r = resumoProgramaPersonalizado({ semanas: 4, numCompetencias: 1, fechamento: false });
+    expect(r.trilhas).toBe(1);
+    expect(r.semanasTotais).toBe(4);
   });
 });

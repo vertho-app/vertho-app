@@ -10,7 +10,7 @@
 // objeto inteiro nem um spread — um campo novo no orçamento viraria vazamento
 // silencioso. O teste `proposal-programa.test.ts` trava isso.
 import { getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
-import { derivarConfigCustom, parseProgramaCustom } from '@/lib/season-engine/programa-custom';
+import { parseProgramaCustom, resumoProgramaPersonalizado } from '@/lib/season-engine/programa-custom';
 import { mesesDoPrograma } from '@/lib/orcamento/precificacao';
 import { SIMULADORES, type Simulador } from '@/lib/simuladores/acesso-cargo';
 
@@ -81,8 +81,10 @@ export function extrairProgramaDoOrcamento(orc: OrcamentoVinculado): ProposalPro
 
   const jornada = typeof e.jornada === 'string' ? e.jornada : '';
   const custom = jornada === 'custom' ? parseProgramaCustom(e.jornadaCustom) : null;
+  // Personalizado: as competências são trilhas em sequência, então o ciclo soma
+  // todas (`resumoProgramaPersonalizado`), e não só a primeira.
   const semanasPorCiclo = custom
-    ? inteiroPositivo(derivarConfigCustom(custom).semanas)
+    ? inteiroPositivo(resumoProgramaPersonalizado(custom).semanasTotais)
     : JORNADAS_CONHECIDAS.has(jornada)
     ? inteiroPositivo(getProgramaConfigByModo(jornada).semanas)
     : null;

@@ -139,15 +139,15 @@ describe('salvarConfig: chaves de PROGRAMA (R-73)', () => {
   it('master com `program.configure` troca o programa por um valor VÁLIDO', async () => {
     master();
     sb = gravadoQueAceita(GRAVADO);
-    const r: any = await salvarConfig('emp-A', { ...GRAVADO, programa_modo: 'custom', programa_custom: { semanas: 10, numCompetencias: 2, fechamento: false } });
+    const r: any = await salvarConfig('emp-A', { ...GRAVADO, programa_modo: 'custom', programa_custom: { semanas: 6, numCompetencias: 2, fechamento: false } });
     expect(r.success).toBe(true);
-    expect(payloadSalvo()).toMatchObject({ programa_modo: 'custom', programa_custom: { semanas: 10, numCompetencias: 2, fechamento: false } });
+    expect(payloadSalvo()).toMatchObject({ programa_modo: 'custom', programa_custom: { semanas: 6, numCompetencias: 2, fechamento: false } });
   });
 
   it.each([
     [{ programa_modo: 'regular' }, /Programa inválido/],
     [{ programa_modo: 'quatorze_semanas' }, /Programa inválido/],
-    [{ programa_custom: { semanas: 11, numCompetencias: 1 } }, /personalizado inválido/],
+    [{ programa_custom: { semanas: 7, numCompetencias: 1 } }, /personalizado inválido/],
     [{ programa_custom: 'texto' }, /personalizado inválido/],
     [{ competencias_onboarding: 'Liderança' }, /Onboarding inválidas/],
     [{ competencias_onboarding: ['', 'Comunicação'] }, /Onboarding inválidas/],

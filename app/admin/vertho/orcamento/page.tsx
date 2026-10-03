@@ -56,7 +56,7 @@ import {
   PROGRAMA_JORNADA, PROGRAMA_ONBOARDING,
 } from '@/lib/season-engine/programa-config';
 import {
-  CUSTOM_LIMITES, derivarConfigCustom, type ProgramaCustomInputs,
+  CUSTOM_LIMITES, derivarConfigCustom, resumoProgramaPersonalizado, type ProgramaCustomInputs,
 } from '@/lib/season-engine/programa-custom';
 
 type Metodo = 'votacao' | 'workshop';
@@ -318,6 +318,10 @@ export default function OrcamentoPage() {
       : (JORNADAS.find((j) => j.key === jornada)?.cfg ?? PROGRAMA_JORNADA),
     [jornada, jornadaCustom],
   );
+  // No Personalizado cada competência é uma trilha em sequência: o ciclo soma
+  // as semanas e o custo de IA de todas, não só da primeira.
+  const trilhasPorCiclo = jornada === 'custom' ? resumoProgramaPersonalizado(jornadaCustom).trilhas : 1;
+  const semanasPorCiclo = cfgJornada.semanas * trilhasPorCiclo;
   const presetLabel = preset === 'atual' ? 'Configuração atual da plataforma' : PRESETS[preset].label;
   // 48 peças por pessoa/ciclo: 12 de cada um dos quatro formatos.
   const [conteudoColab, setConteudoColab] = useState({
@@ -357,7 +361,7 @@ export default function OrcamentoPage() {
     // Custo IA (USD)
     const custoSetupPorCluster = custoIASetupCluster(nPerfis, metodo, presetFn);
     const custoTaggingTotal = custoIATaggingTotal(presetFn);
-    const custoPorColab = custoIAPorColab(presetFn, cfgJornada);
+    const custoPorColab = custoIAPorColab(presetFn, cfgJornada) * trilhasPorCiclo;
     const conteudo = custoIAConteudo(conteudoColab, nColabs, reusoConteudo, comAvatar);
     const custoConteudoTotal = conteudo.total;
     const custoConteudoPorColab = conteudo.perColab;
@@ -535,7 +539,7 @@ export default function OrcamentoPage() {
       tabelaPerfis,
       tabelaWorkshop,
     };
-  }, [nClusters, nWorkshops, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, tipoComissao, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo, simuladores, configSimuladores]);
+  }, [nClusters, nWorkshops, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, tipoComissao, preset, cfgJornada, trilhasPorCiclo, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo, simuladores, configSimuladores]);
 
   // ── Orçamento salvo (mig 253) ──────────────────────────────────────────────
   // `id` nulo = cenário novo; preenchido = este cenário já existe no banco e
@@ -801,7 +805,7 @@ export default function OrcamentoPage() {
     const j = JORNADAS.find((x) => x.key === jornada) ?? JORNADAS[0];
     setConvEscopo(escopoPropostaDoCenario(coletarEntradas(), resumo, {
       rotulo: j.rotulo,
-      semanas: cfgJornada.semanas,
+      semanas: semanasPorCiclo,
     }));
     setConvPagamento(`${calc.parcelas} parcelas de ${money(calc.mensalidadeFlat)}`);
     setConvAberta(true);
@@ -1063,7 +1067,7 @@ export default function OrcamentoPage() {
             <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/[0.035] p-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-gray-400">
-                  Semanas de conteúdo
+                  Semanas por competência
                   <select value={jornadaCustom.semanas}
                     onChange={(e) => setJornadaCustom((v) => ({ ...v, semanas: Number(e.target.value) }))}
                     className="rounded-lg border border-white/10 bg-[#091D35] px-3 py-2 text-sm text-white outline-none focus:border-amber-300/50">
@@ -1091,8 +1095,8 @@ export default function OrcamentoPage() {
                 </label>
               </div>
               <p className="mt-2 text-[10px] text-gray-500">
-                {jornadaCustom.semanas} {jornadaCustom.semanas === 1 ? 'semana' : 'semanas'} de conteúdo
-                {jornadaCustom.fechamento ? ' + avaliação de fechamento' : ''} · {jornadaCustom.numCompetencias} {jornadaCustom.numCompetencias === 1 ? 'competência' : 'competências'}
+                {jornadaCustom.semanas} {jornadaCustom.semanas === 1 ? 'semana' : 'semanas'} de conteúdo por competência
+                {jornadaCustom.fechamento ? ' + avaliação de fechamento' : ''} · {jornadaCustom.numCompetencias} {jornadaCustom.numCompetencias === 1 ? 'competência' : 'competências em sequência'} · {semanasPorCiclo} semanas no total
               </p>
             </div>
           )}
@@ -1825,7 +1829,7 @@ export default function OrcamentoPage() {
 
             <p className="text-[10px] uppercase text-gray-500 mb-1 mt-3">Programa</p>
             <Row label={`${nColabs.toLocaleString(locale)} pessoas × ${money(pricing.precoPessoaCiclo)} / ciclo`} value={money(calc.tabelaPessoasCiclo)} />
-            <Row label={`× ${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'} de ${cfgJornada.semanas} semanas`} value={money(calc.tabelaPrograma)} />
+            <Row label={`× ${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'} de ${semanasPorCiclo} semanas`} value={money(calc.tabelaPrograma)} />
             {calc.simuladoresItens.filter((i) => i.acessos > 0).map((i) => (
               <Row key={i.simulador}
                 label={`${ROTULO_SIMULADOR[i.simulador]}: ${i.acessos.toLocaleString(locale)} × ${money(configSimuladores[i.simulador].precoPessoaCiclo)} × ${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'}`}
@@ -1850,7 +1854,7 @@ export default function OrcamentoPage() {
           </h3>
           <p className="text-[10px] text-gray-500">Modelos: {presetLabel}</p>
           <p className="text-[10px] text-amber-300/70 mb-2">
-            {t('ai.basis', { cycles: calc.ciclos, weeks: cfgJornada.semanas, installments: calc.parcelas })}
+            {t('ai.basis', { cycles: calc.ciclos, weeks: semanasPorCiclo, installments: calc.parcelas })}
           </p>
           <div className="space-y-1.5 text-sm">
             <Row label={`${t('ai.setupLine', { clusters: nClusters, profiles: nPerfis, method: metodo })} ${t('ai.oneTimeTag')}`} value={`USD ${(nClusters * calc.custoSetupPorCluster).toFixed(2)}`} />
