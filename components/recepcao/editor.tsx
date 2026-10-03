@@ -46,12 +46,15 @@ function preparar(c: Cenario): Cenario {
 export function EditorCenario({
   registro,
   admin = false,
+  somenteLeitura = false,
   busy,
   salvar,
   fechar,
 }: {
   registro: any;
   admin?: boolean;
+  /** Quem só lê os casos (Sócio): campos travados e sem salvar, publicar ou arquivar. */
+  somenteLeitura?: boolean;
   busy: boolean;
   salvar: (cmd: any) => Promise<any>;
   fechar: () => void;
@@ -109,7 +112,9 @@ export function EditorCenario({
               : 'Preparar um exercício'}
           </p>
           <h2>
-            {registro.id
+            {somenteLeitura
+              ? 'Ver caso'
+              : registro.id
               ? 'Editar rascunho'
               : noCatalogo
                 ? 'Nova versão no catálogo'
@@ -131,7 +136,7 @@ export function EditorCenario({
           {erros}
         </p>
       )}
-      {!registro.id && admin && (
+      {!registro.id && admin && !somenteLeitura && (
         <label className={styles.checkLabel}>
           <input
             type="checkbox"
@@ -143,7 +148,7 @@ export function EditorCenario({
           empresa
         </label>
       )}
-      <fieldset disabled={busy || registro.estado === 'publicado'}>
+      <fieldset disabled={busy || registro.estado === 'publicado' || somenteLeitura}>
         <div className={styles.formGrid}>
           <label>
             Identificador do caso
@@ -513,6 +518,7 @@ export function EditorCenario({
         >
           {preview ? 'Fechar prévia' : 'Conferir ficha visível'}
         </button>
+        {!somenteLeitura && (
         <button
           className={styles.primary}
           disabled={busy || registro.estado === 'publicado'}
@@ -520,7 +526,8 @@ export function EditorCenario({
         >
           Salvar rascunho
         </button>
-        {registro.id && registro.estado === 'rascunho' && (
+        )}
+        {!somenteLeitura && registro.id && registro.estado === 'rascunho' && (
           <button
             className={styles.primary}
             disabled={busy}

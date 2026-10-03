@@ -84,12 +84,16 @@ beforeEach(() => {
 });
 
 describe('RH: a tela de treino do atendimento segue aberta com simulador.casos.manage', () => {
-  it('aba Cenários (GET visao=cenarios): RH e plataforma entram; gestor, colaborador e sócio não', async () => {
+  it('aba Cenários (GET visao=cenarios): RH e plataforma entram e editam; gestor e colaborador não entram', async () => {
     como('rh');
-    expect((await get('visao=cenarios')).status).toBe(200);
+    const rh = await get('visao=cenarios');
+    expect(rh.status).toBe(200);
+    expect((await rh.json()).podeEditar).toBe(true);
     como('master');
-    expect((await get('visao=cenarios')).status).toBe(200);
-    for (const quem of ['gestor', 'colaborador', 'socio'] as const) {
+    const master = await get('visao=cenarios');
+    expect(master.status).toBe(200);
+    expect((await master.json()).podeEditar).toBe(true);
+    for (const quem of ['gestor', 'colaborador'] as const) {
       como(quem);
       expect((await get('visao=cenarios')).status, quem).toBe(403);
     }
@@ -134,5 +138,46 @@ describe('RH: a tela de treino do atendimento segue aberta com simulador.casos.m
   it('a tela desenha as abas (podeCenarios) para o RH e não para o gestor', async () => {
     expect((await consultar(como('rh'))).podeCenarios).toBe(true);
     expect((await consultar(como('gestor'))).podeCenarios).toBe(false);
+  });
+});
+
+/**
+ * Sócio: LÊ os casos e a biblioteca de competências (`simulador.casos.view`), sem
+ * criar, editar, publicar, arquivar nem rascunhar com IA. Pedido do dono em
+ * 03/10/2026, depois que a chave de edição saiu do papel rh.
+ */
+describe('Sócio: lê os casos do treino de atendimento, sem editar', () => {
+  it('abre a aba Cenários, com podeEditar falso', async () => {
+    como('socio');
+    const r = await get('visao=cenarios');
+    expect(r.status).toBe(200);
+    const corpo = await r.json();
+    expect(corpo.podeEditar).toBe(false);
+    expect(corpo.cenarios.length).toBeGreaterThan(0);
+  });
+
+  it('não rascunha com IA, e a IA nem é chamada', async () => {
+    como('socio');
+    const r = await post({ acao: 'rascunho_ia', descricao: 'Paciente chega atrasado e pede encaixe no mesmo dia.' });
+    expect(r.status).toBe(403);
+    expect(efeitos.gerarRascunho).not.toHaveBeenCalled();
+  });
+
+  it('não grava caso nenhum', async () => {
+    await expect(editarCenario(como('socio'), { acao: 'salvar', conteudo: structuredClone(catalogoInicial[0]) } as any))
+      .rejects.toThrow('não permite editar');
+    expect(banco.escritas).toEqual([]);
+  });
+
+  it('lê a biblioteca de competências sem botão de editar, embora seja da plataforma', async () => {
+    const r = await listarCompetencias(como('socio'));
+    expect(r.podeEditar).toBe(false);
+    await expect(editarCompetencia(como('socio'), { acao: 'competencia', op: 'salvar', conteudo: competenciasBase[0] } as any))
+      .rejects.toThrow('editada pela plataforma');
+    expect(banco.escritas).toEqual([]);
+  });
+
+  it('a tela desenha as abas para o Sócio', async () => {
+    expect((await consultar(como('socio'))).podeCenarios).toBe(true);
   });
 });

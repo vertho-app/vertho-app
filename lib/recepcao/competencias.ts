@@ -1,18 +1,18 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { type ContextoRecepcao, RecepcaoError } from './access';
+import { type ContextoRecepcao, podeVerCasos, RecepcaoError } from './access';
 import { competenciaSchema, type competenciaComandoSchema } from './schema';
 import { can } from '@/lib/permissions';
 import type { z } from 'zod';
 import { COMPETENCIAS_ATENDIMENTO, MATRIZ_ATENDIMENTO_VERSION } from './matriz';
 
-// Biblioteca global (Catálogo Vertho): quem vê a aba Cenários (simulador.casos.manage) lê; só a plataforma escreve.
+// Biblioteca global (Catálogo Vertho): quem vê a aba Cenários (`podeVerCasos`) lê; só a plataforma com a chave de edição escreve.
 // Os cenários copiam nome/critério/níveis para a própria rubrica: nada aqui altera um caso publicado.
 export async function listarCompetencias(
   c: ContextoRecepcao,
   incluirInativas = false,
 ) {
-  if (!(await can(c.auth, 'simulador.casos.manage')))
+  if (!(await podeVerCasos(c.auth)))
     throw new RecepcaoError(
       403,
       'Seu perfil não permite ver a biblioteca de competências.',
@@ -24,7 +24,8 @@ export async function listarCompetencias(
     throw new RecepcaoError(503, 'Não foi possível carregar as competências.');
   return {
     competencias: data || [],
-    podeEditar: c.auth.isPlatformAdmin === true,
+    // A mesma régua de `editarCompetencia`: o Sócio é da plataforma e só lê.
+    podeEditar: c.auth.isPlatformAdmin === true && (await can(c.auth, 'simulador.casos.manage')),
     matriz: {
       versao: MATRIZ_ATENDIMENTO_VERSION,
       competencias: COMPETENCIAS_ATENDIMENTO,

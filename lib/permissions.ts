@@ -23,6 +23,7 @@ export type PermissionKey =
   | 'journey.team.view'
   | 'content.manage'
   | 'simulador.casos.manage'
+  | 'simulador.casos.view'
   | 'knowledge_base.manage'
   | 'ai.audit.regenerate'
   | 'ai.costs.view'
@@ -78,6 +79,7 @@ export const PERMISSIONS: PermissionDefinition[] = [
   // Esta só abre os casos do simulador de atendimento da PRÓPRIA empresa e a
   // leitura da biblioteca de competências; o Catálogo Vertho e a biblioteca
   // continuam escritos só pela plataforma (`isPlatformAdmin`, nos consumidores).
+  { key: 'simulador.casos.view', domain: 'Simuladores', label: 'Ver casos do simulador de atendimento', description: 'Ler a biblioteca de casos e a de competências do treino de atendimento, sem criar, editar, publicar nem arquivar.', risk: 'low' },
   { key: 'simulador.casos.manage', domain: 'Simuladores', label: 'Gerenciar casos do simulador de atendimento', description: 'Criar, editar, publicar e rascunhar com IA os casos da própria empresa no treino de atendimento; ler a biblioteca de competências.', risk: 'medium' },
   { key: 'knowledge_base.manage', domain: 'Conteúdo', label: 'Gerenciar knowledge base', description: 'Editar base RAG por tenant.', risk: 'high' },
   { key: 'ai.audit.regenerate', domain: 'IA', label: 'Regenerar auditorias IA', description: 'Reprocessar avaliações, checks e scorings com IA.', risk: 'critical' },
@@ -121,6 +123,9 @@ export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
     'radar_empresas.access',
     'sales_channel.view',
     'settings.locale.manage',
+    // Lê os casos do treino de atendimento; editar exige `simulador.casos.manage`
+    // (pedido do dono em 03/10/2026, depois que a chave de edição saiu do RH).
+    'simulador.casos.view',
   ],
   // Admin da empresa (cliente). Decisão do dono de 24/08/2026: "a Vertho opera,
   // o cliente consome". R-73 (revisão de 02/10/2026): saíram as permissões que

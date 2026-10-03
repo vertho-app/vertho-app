@@ -6,6 +6,16 @@ import { acessoSimuladoresDoColaborador } from '@/lib/simuladores/acesso';
 import { soAcompanhaSimuladores } from '@/lib/simuladores/papel';
 import { DOMINIO_PADRAO, dominioExiste } from './dominio';
 
+/**
+ * Quem LÊ os casos e a biblioteca de competências do treino de atendimento:
+ * quem edita (`simulador.casos.manage`) e quem só lê (`simulador.casos.view`, o
+ * Sócio). Editar, publicar, arquivar e rascunhar com IA seguem exigindo a chave
+ * de edição. Pedido do dono em 03/10/2026.
+ */
+export async function podeVerCasos(auth: Parameters<typeof can>[0]): Promise<boolean> {
+  return (await can(auth, 'simulador.casos.manage')) || (await can(auth, 'simulador.casos.view'));
+}
+
 export class RecepcaoError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }

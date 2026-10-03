@@ -42,6 +42,10 @@ export default function GestaoRecepcao({
   const [dados, setDados] = useState<any>(null),
     [erro, setErro] = useState(''),
     [busy, setBusy] = useState(false);
+  // A rota diz se quem abriu PODE EDITAR os casos (`simulador.casos.manage`). O
+  // Sócio lê: vê a biblioteca e abre cada caso travado, sem criar, publicar nem
+  // arquivar. Sem a resposta ainda, nada de botão de edição.
+  const podeEditar = dados?.podeEditar === true;
   const [dias, setDias] = useState('30'),
     [testes, setTestes] = useState(false),
     [detalhe, setDetalhe] = useState<any>(null),
@@ -165,6 +169,7 @@ export default function GestaoRecepcao({
           key={editor.id || 'novo'}
           registro={editor}
           admin={admin}
+          somenteLeitura={!podeEditar}
           busy={busy}
           salvar={salvar}
           fechar={() => {
@@ -225,7 +230,7 @@ export default function GestaoRecepcao({
             )}
           </div>
         ) : (
-          <div className={styles.filters}>
+          podeEditar && <div className={styles.filters}>
           {/* Segmento sem caso nenhum também precisa de um ponto de partida (18/09/2026). */}
           <button
             className={styles.secondary}
@@ -316,7 +321,16 @@ export default function GestaoRecepcao({
                       : '1 pessoa simulada'}
                   </small>
                   <div className={styles.filters}>
-                    {r.estado === 'rascunho' && (!global || admin) && (
+                    {!podeEditar && (
+                      <button
+                        className={styles.secondary}
+                        disabled={busy}
+                        onClick={() => setEditor(r)}
+                      >
+                        Ver caso
+                      </button>
+                    )}
+                    {podeEditar && r.estado === 'rascunho' && (!global || admin) && (
                       <button
                         className={styles.secondary}
                         disabled={busy}
@@ -325,7 +339,7 @@ export default function GestaoRecepcao({
                         Editar rascunho
                       </button>
                     )}
-                    {r.estado !== 'rascunho' && (
+                    {podeEditar && r.estado !== 'rascunho' && (
                       <button
                         className={styles.secondary}
                         disabled={busy}
@@ -336,7 +350,7 @@ export default function GestaoRecepcao({
                         {global ? 'Copiar para a empresa' : 'Criar nova versão'}
                       </button>
                     )}
-                    {global && admin && r.estado !== 'rascunho' && (
+                    {podeEditar && global && admin && r.estado !== 'rascunho' && (
                       <button
                         className={styles.secondary}
                         disabled={busy}
@@ -353,7 +367,7 @@ export default function GestaoRecepcao({
                         Nova versão no catálogo
                       </button>
                     )}
-                    {(!global || admin) && r.estado !== 'arquivado' && (
+                    {podeEditar && (!global || admin) && r.estado !== 'arquivado' && (
                       <button
                         className={styles.link}
                         disabled={busy}

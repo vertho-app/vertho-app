@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireUser } from '@/lib/auth/request-context';
 import { csrfCheck } from '@/lib/csrf';
 import { can } from '@/lib/permissions';
-import { contextoRecepcao, RecepcaoError } from '@/lib/recepcao/access';
+import { contextoRecepcao, podeVerCasos, RecepcaoError } from '@/lib/recepcao/access';
 import { catalogo, editarCenario } from '@/lib/recepcao/cenarios';
 import { detalheEquipe, painelEquipe } from '@/lib/recepcao/equipe';
 import { competenciaComandoSchema, editarCenarioSchema } from '@/lib/recepcao/schema';
@@ -29,8 +29,9 @@ export async function GET(req:Request) {
   const empresa=q.get('empresaId');if(empresa) z.string().uuid().parse(empresa);
   const c=await contextoRecepcao(req,empresa,false,auth);if(c instanceof Response) return c;
   if(q.get('visao')==='cenarios') {
-   if(!(await can(auth,'simulador.casos.manage'))) throw new RecepcaoError(403,'Sem permissão para editar cenários.');
-   return json({cenarios:await catalogo(c,true),dominio:c.dominio});
+   // Ler é de quem vê os casos; a tela só oferece edição a quem tem a chave de edição.
+   if(!(await podeVerCasos(auth))) throw new RecepcaoError(403,'Sem permissão para ver os cenários.');
+   return json({cenarios:await catalogo(c,true),dominio:c.dominio,podeEditar:await can(auth,'simulador.casos.manage')});
   }
   if(q.get('visao')==='competencias') return json(await listarCompetencias(c,q.get('inativas')==='1'));
   const id=q.get('sessaoId');if(id) return json(await detalheEquipe(c,z.string().uuid().parse(id)));

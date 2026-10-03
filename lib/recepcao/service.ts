@@ -9,7 +9,7 @@ import {
   sugerirNivelComMotivo,
 } from './core';
 import { cenario } from './cenario.mjs';
-import { RecepcaoError, contextoRecepcao } from './access';
+import { RecepcaoError, contextoRecepcao, podeVerCasos } from './access';
 import { geradorRecepcao, textoParaTreino } from './ai';
 import type { z } from 'zod';
 import { comandoSchema } from './schema';
@@ -209,7 +209,9 @@ export async function consultar(c: Ctx, id?: string | null) {
         ['rh', 'gestor'].includes(c.auth.role)) &&
       (await can(c.auth, 'journey.team.view')) &&
       (await can(c.auth, 'reports.individual.view')),
-    podeCenarios: await can(c.auth, 'simulador.casos.manage'),
+    // As abas Cenários e Competências aparecem para quem LÊ os casos (inclui o
+    // Sócio); a edição dentro delas é decidida pela chave de edição.
+    podeCenarios: await podeVerCasos(c.auth),
     historico: rows.map(itemDoHistorico),
     historicoTemMais: (lidas || []).length > PAGINA_HISTORICO,
     abertos: (abertas.data || []).map(itemDoHistorico),
