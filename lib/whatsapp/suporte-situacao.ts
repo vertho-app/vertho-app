@@ -28,9 +28,20 @@
  */
 
 import { TRILHA } from '@/lib/status';
+import { VALIDADE_LINK_ACESSO_MS } from '@/lib/auth/validade-link';
 
-/** O que o template aprovado promete: "O link expira em 15 minutos". */
-export const VALIDADE_LINK_MS = 15 * 60 * 1000;
+/**
+ * Quanto o link vale DE VERDADE: 1 hora, medida no Supabase em 03/10/2026
+ * (R-47). Até essa data esta régua era a promessa do template aprovado ("O
+ * link expira em 15 minutos"), e com ela um login 20 minutos depois do link
+ * virava "expirou", embora tivesse entrado com ele.
+ *
+ * ⚠️ Os textos daqui NÃO citam número. O corpo do `acesso_vertho` continua
+ * dizendo 15 minutos (trocar é versão nova na Meta), e ele chega na mesma
+ * conversa: o Beto dizer "1 hora" logo abaixo seria uma contradição na cara da
+ * pessoa, e repetir "15 minutos" seria afirmar o que não é.
+ */
+export const VALIDADE_LINK_MS = VALIDADE_LINK_ACESSO_MS;
 /** Folga para o relógio do banco e o do servidor: entrar aos 15:30 ainda é "com ele". */
 const FOLGA_MS = 60 * 1000;
 
@@ -128,14 +139,14 @@ export function textoAoEnviarLink(a: AnteriorDoLink, now = Date.now()): string {
       + 'Quando quiser entrar de novo depois, me peça outro por aqui.';
   }
   if (caso === 'anterior-expirado') {
-    return `${oLinkDe(a.ultimoLinkEm!, now)} expirou: cada link vale por 15 minutos. `
+    return `${oLinkDe(a.ultimoLinkEm!, now)} expirou. `
       + `Te mandei um novo, ${COMO_ENTRAR}. Ele abre uma vez só.`;
   }
   if (caso === 'anterior-valendo') {
     return `Te mandei um novo link; use este, que é o mais recente. ${capitalizar(COMO_ENTRAR)}. `
-      + 'Ele vale por 15 minutos e abre uma vez só.';
+      + 'Ele abre uma vez só.';
   }
-  return `Te mandei seu link de acesso: ${COMO_ENTRAR}. Ele vale por 15 minutos e abre uma vez só. `
+  return `Te mandei seu link de acesso: ${COMO_ENTRAR}. Ele abre uma vez só. `
     + 'Quando quiser entrar de novo depois, me peça outro por aqui.';
 }
 

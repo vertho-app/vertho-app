@@ -386,6 +386,12 @@ fixa não cabe em template reutilizável, e prazo é o que empurra a copy para o
 > _Rodapé:_ Não compartilhe este link com ninguém.
 > _Botão:_ **Acessar Vertho** → `https://app.vertho.ai/entrar?t={{1}}`
 
+⚠️ **A validade real do link é 1 hora, não 15 minutos** (medido em 03/10/2026: `mailer_otp_exp =
+3600` no Supabase Auth; ver `lib/auth/validade-link.ts`). O corpo aprovado subestima, e trocar o
+texto é versão nova do template na Meta (decisão do dono). O e-mail e o WhatsApp em texto dizem
+1 hora; o Beto não cita número no texto que acompanha este template, para não contradizê-lo na
+mesma conversa, e usa a validade real para dizer se o link anterior foi usado ou expirou.
+
 No Beto do WhatsApp, esse template é **obrigatório** (`whatsappTemplateRequired: true`): falha de
 template não cai no legado de texto livre e o token nunca passa pelo modelo de IA. O emissor
 preserva o `numeroId` que recebeu a conversa, aplica idempotência por mensagem, intervalo de 5

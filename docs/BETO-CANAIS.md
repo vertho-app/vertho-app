@@ -69,9 +69,11 @@ acesso. A `resposta` do modelo só é enviada quando o link NÃO saiu, e por iss
 dizer que está gerando ou enviando um link (medido no ensaio, §2.6).
 
 Quando o link sai, vai logo depois um **texto fixo**, montado com fatos do banco e não pelo modelo
-(`lib/whatsapp/suporte-situacao.ts`): não há senha, o link vale 15 minutos e abre uma vez; e, se
-houve outro link nas 24 h anteriores, o que houve com ele. "Usado" é login dentro da validade
-daquele link; fora disso, "expirou". Até 25/09 o link saía mudo, e dois casos reais mostraram o
+(`lib/whatsapp/suporte-situacao.ts`): não há senha e o link abre uma vez; e, se houve outro link
+nas 24 h anteriores, o que houve com ele. "Usado" é login dentro da validade daquele link; fora
+disso, "expirou". A validade é a real, 1 hora (medida em 03/10/2026, `lib/auth/validade-link.ts`);
+o texto não cita número porque o corpo do template aprovado diz 15 minutos e chega na mesma
+conversa (R-47). Até 25/09 o link saía mudo, e dois casos reais mostraram o
 custo: "Qual é a senha pra entrar?" recebeu só o botão; e uma professora que tinha entrado às 08:55
 tocou no mesmo botão mais quatro vezes (cada toque, "link inválido ou expirado"), reclamou, e
 recebeu outro link sem saber por que o primeiro parou. O texto só sai depois do link; se ele
