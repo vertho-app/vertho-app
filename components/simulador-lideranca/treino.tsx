@@ -74,6 +74,8 @@ export default function TreinoLideranca({
    */
   mapeamento?: string | null;
 }) {
+  // Aviso de "não altera" comum aos três simuladores (R-119, 03/10/2026).
+  const tRelatorio = useTranslations('SimuladoresRelatorio');
   const t = useTranslations('SimuladorLideranca'),
     locale = useLocale();
   const [dados, setDados] = useState<Dados | null>(null);
@@ -740,7 +742,7 @@ export default function TreinoLideranca({
                           <p className={styles.eyebrow}>{t('feedback')}</p>
                           <h2>{t('feedbackTitle')}</h2>
                           <p>{ep.avaliacao.sintese}</p>
-                          <p className={styles.notice}>{t('assessmentNote')}</p>
+                          <p className={styles.notice}>{tRelatorio('naoAltera')} {t('assessmentNote')}</p>
                           {/* A próxima prática e o que fazer com ela ficam juntas, no topo
                               (27/09/2026): antes os botões de repetir e avançar moravam no
                               fim da devolutiva, depois das competências e da reflexão. */}

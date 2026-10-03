@@ -117,3 +117,110 @@ describe('C-1: competência sem nível por evidência descartada', () => {
     }
   });
 });
+
+/**
+ * R-126 (revisão de 02/10/2026): com descarte PARCIAL (sobraram observados
+ * abaixo do mínimo), o aviso dizia "faltou oportunidade de demonstrar os
+ * demais" e o comportamento descartado aparecia como "Não observado". Agora o
+ * aviso tem a variante que conta as citações descartadas, e o descritor leva o
+ * rótulo "Evidência descartada".
+ */
+function relatorioComDescarteParcial() {
+  const c = aplicarMatrizAtendimento(structuredClone(catalogoLimites[0]));
+  const s = abrirSessao(c, 0);
+  s.historico.push(
+    { id: 'm1', role: 'user', content: 'Entendo o impacto. Qual horário funciona para você?' },
+    { id: 'm2', role: 'assistant', content: 'Só depois das 17h30.' },
+  );
+  s.respostas = 1;
+  // Resolução (ci 3): dois comportamentos com citação válida e um com citação inventada.
+  const insumos: Insumos = {
+    dimensoes: c.matriz!.competencias.flatMap((comp, ci) =>
+      comp.descritores.map((d, di) => {
+        const avaliado = ci < 3 || (ci === 3 && di <= 2);
+        if (!avaliado)
+          return { id: d.codigo, classificacao: 'nao_observavel' as const, justificativa: 'Sem oportunidade.', evidencias: [], oportunidades: [] };
+        const inventada = ci === 3 && di === 2;
+        return {
+          id: d.codigo,
+          classificacao: 'n3' as const,
+          justificativa: 'Você perguntou pela disponibilidade.',
+          evidencias: [{ mensagemId: 'm1', trecho: inventada ? 'Frase que nunca foi dita.' : 'Qual horário funciona para você?' }],
+          oportunidades: [{ mensagemId: 'm0', trecho: s.historico[0].content.slice(0, 20) }],
+        };
+      }),
+    ),
+    ocorrencias: [],
+    desfecho: { tipo: 'nao_resolvido', justificativa: 'Sem combinado.', evidencias: [] },
+    feedback: { acerto: 'a', melhoria: 'b', novaTentativa: 'c' },
+  };
+  const relatorio = consolidar(s, insumos)!;
+  return { relatorio, historico: s.historico, dominio: c.dominio, descartado: c.matriz!.competencias[3].descritores[2].nome };
+}
+
+/**
+ * O bloco inteiro da competência (resumo + corpo), até a próxima competência.
+ * Não dá para cortar em `<details`: a régua e o grupo "sem oportunidade" de
+ * cada comportamento também são `<details>`.
+ */
+function bloco(html: string, nome: string) {
+  const ini = html.indexOf(`<span>${nome}</span>`);
+  expect(ini, `competência ${nome} não renderizada`).toBeGreaterThan(-1);
+  const resto = html.slice(ini);
+  const prox = resto.search(/<details class="[^"]*_competencia_/);
+  return prox < 0 ? resto : resto.slice(0, prox);
+}
+
+describe('R-126: descarte parcial não vira "faltou oportunidade"', () => {
+  it('o aviso conta as citações descartadas e o descritor diz "Evidência descartada"', () => {
+    const { relatorio, historico, dominio, descartado } = relatorioComDescarteParcial();
+    // Pré-condição: o descarte foi parcial (sobraram observados, abaixo do mínimo).
+    expect(relatorio.descartados).toHaveLength(1);
+    const res = relatorio.competencias!.find((c) => c.codigo === 'resolucao')!;
+    expect(res).toMatchObject({ observados: 2, suficiente: false, nivel: null });
+
+    const html = render(createElement(MatrizAtendimento, { relatorio, historico, nomePersona: 'Marina', dominio }));
+    const resolucao = bloco(html, 'Resolução e encaminhamento');
+    expect(resolucao).toContain('não conferiu com o que foi dito e foi descartada');
+    expect(resolucao).not.toContain('faltou oportunidade');
+    // O descritor descartado tem o próprio rótulo, não "Não observado".
+    // O React escapa aspas e apóstrofos no HTML; o nome vem do catálogo.
+    const escapado = descartado.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const item = resolucao.split('<li>').find((li) => li.includes(escapado))!;
+    expect(item).toBeTruthy();
+    expect(item).toContain('Evidência descartada');
+    expect(item).not.toContain('Não observado');
+  });
+
+  it('sem descarte, o aviso de falta de oportunidade continua (controle)', () => {
+    const competencias = [
+      {
+        codigo: 'x', nome: 'Competência X', nota: null, nivel: null, observados: 2, total: 6, suficiente: false,
+        descritores: [
+          { codigo: 'x1', nome: 'Visto', nivel: 3 },
+          { codigo: 'x2', nome: 'Também visto', nivel: 2 },
+        ],
+      },
+    ];
+    const html = render(createElement(RelatorioCompetencias, { competencias, regra: { minDescritores: 4, minCompetencias: 3 } }));
+    expect(html).toContain('faltou oportunidade');
+  });
+
+  it('a variante existe nos quatro idiomas e é usada pelo componente', () => {
+    const competencias = [
+      {
+        codigo: 'x', nome: 'Competência X', nota: null, nivel: null, observados: 1, total: 6, suficiente: false,
+        descritores: [
+          { codigo: 'x1', nome: 'Visto', nivel: 3 },
+          { codigo: 'x2', nome: 'Caiu', nivel: null, descartado: true },
+        ],
+      },
+    ];
+    for (const locale of Object.keys(MENSAGENS)) {
+      expect(MENSAGENS[locale].SimuladoresRelatorio.insufficientDiscarded, locale).toBeTruthy();
+      const html = render(createElement(RelatorioCompetencias, { competencias, regra: { minDescritores: 4, minCompetencias: 3 } }), locale);
+      expect(html, locale).not.toContain(MENSAGENS[locale].SimuladoresRelatorio.notObservedShort);
+      expect(html, locale).toContain(MENSAGENS[locale].SimuladoresRelatorio.discardedShort);
+    }
+  });
+});

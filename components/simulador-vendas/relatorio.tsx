@@ -35,6 +35,8 @@ export default function Relatorio({
    */
   modo?: 'participante' | 'equipe';
 }) {
+  // Aviso de "não altera" comum aos três simuladores (R-119, 03/10/2026).
+  const tRelatorio = useTranslations('SimuladoresRelatorio');
   const t = useTranslations('SimuladorVendas'),
     locale = useLocale();
   const equipe = modo === 'equipe';
@@ -194,7 +196,7 @@ export default function Relatorio({
           ))}
         </details>
       )}
-      <p className="text-xs text-slate-400 mt-6">{t(equipe ? 'disclaimerTeam' : 'disclaimer')}</p>
+      <p className="text-xs text-slate-400 mt-6">{tRelatorio(equipe ? 'naoAlteraEquipe' : 'naoAltera')}</p>
       {documental && (
         <p className="text-xs text-slate-400 mt-2">{t(equipe ? 'documentSourcesTeam' : 'documentSources')}</p>
       )}

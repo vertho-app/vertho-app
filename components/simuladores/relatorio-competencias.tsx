@@ -151,7 +151,17 @@ export default function RelatorioCompetencias({
           </summary>
           {c.resumo && <p className={styles.resumo}>{c.resumo}</p>}
           {!c.suficiente && regra && c.observados > 0 && (
-            <p className={styles.aviso}>{t('insufficient', { n: c.observados, min: c.minDescritores ?? regra.minDescritores })}</p>
+            <p className={styles.aviso}>
+              {/* Com citação descartada, faltou EVIDÊNCIA conferida, não oportunidade
+                  (R-126, 03/10/2026): a variante diz quantas caíram. */}
+              {c.descritores.some((d) => d.descartado)
+                ? t('insufficientDiscarded', {
+                    n: c.observados,
+                    min: c.minDescritores ?? regra.minDescritores,
+                    discarded: c.descritores.filter((d) => d.descartado).length,
+                  })
+                : t('insufficient', { n: c.observados, min: c.minDescritores ?? regra.minDescritores })}
+            </p>
           )}
           {(() => {
             // O que foi observado vem aberto; o que não teve oportunidade fica
@@ -163,7 +173,8 @@ export default function RelatorioCompetencias({
                 <div className={styles.dCabeca}>
                   <span>{d.nome}</span>
                   <span className={d.nivel != null ? styles.dNivel : styles.dSem}>
-                    {d.nivel != null ? t('level', { n: d.nivel }) : t('notObservedShort')}
+                    {/* O descartado foi observado e a citação caiu: "Não observado" era falso. */}
+                    {d.nivel != null ? t('level', { n: d.nivel }) : d.descartado ? t('discardedShort') : t('notObservedShort')}
                   </span>
                 </div>
                 {d.descartado && <p className={styles.aviso}>{t('discarded')}</p>}

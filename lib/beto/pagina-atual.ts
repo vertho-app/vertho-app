@@ -20,8 +20,10 @@ const PAGINAS_CONHECIDAS: Record<string, string> = {
   '/dashboard/gestor/engajamento': 'Engajamento da equipe',
   '/dashboard/gestor/engajamento/relatorio': 'Relatório de engajamento da equipe',
   '/dashboard/gestor/equipe-evolucao': 'Evolução da equipe',
-  '/dashboard/gestor/prontidao-lideranca': 'Prontidão para liderança',
-  '/dashboard/gestor/ranking': 'Ranking da equipe',
+  // Nomes do menu (R-119, 03/10/2026): o Beto dizia "Prontidão para liderança"
+  // e "Ranking da equipe", e a pessoa não achava a tela pelo nome que ele usava.
+  '/dashboard/gestor/prontidao-lideranca': 'Mapeamento de liderança',
+  '/dashboard/gestor/ranking': 'Adequação (Ranking de Adequação ao Cargo)',
   '/dashboard/gestor/selecao': 'Seleção',
   '/dashboard/jornada': 'Minha jornada',
   '/dashboard/jornada/historico': 'Histórico da jornada',

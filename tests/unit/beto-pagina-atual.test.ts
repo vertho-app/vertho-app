@@ -16,6 +16,14 @@ describe('contexto da página atual do Beto interno', () => {
     });
   });
 
+  it('R-119: as telas do RH têm o nome do menu', () => {
+    expect(resolverPaginaAtualBeto('/dashboard/gestor/prontidao-lideranca')?.tela).toBe('Mapeamento de liderança');
+    expect(resolverPaginaAtualBeto('/dashboard/gestor/ranking')?.tela).toMatch(/^Adequação/);
+    for (const rota of ['/dashboard/gestor/prontidao-lideranca', '/dashboard/gestor/ranking']) {
+      expect(resolverPaginaAtualBeto(rota)?.tela).not.toMatch(/Prontidão|Ranking da equipe/);
+    }
+  });
+
   it('leva o número da semana sem expor outros parâmetros', () => {
     expect(resolverPaginaAtualBeto('/dashboard/temporada/semana/4?trilha=segredo')).toEqual({
       rota: '/dashboard/temporada/semana/[semana]',

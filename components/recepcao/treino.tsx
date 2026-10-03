@@ -71,6 +71,8 @@ class ErroDeRede extends Error {}
  */
 export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const t = useTranslations('SimuladorAtendimento');
+  // Aviso de "não altera" comum aos três simuladores (R-119, 03/10/2026).
+  const tRelatorio = useTranslations('SimuladoresRelatorio');
   const locale = useLocale();
   const searchParams = useSearchParams();
   const empresaNaUrl = searchParams.get('empresa');
@@ -822,7 +824,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     </div>
                   )}
                 </header>
-                <p className={styles.small}>{t('reportDisclaimer')}</p>
+                <p className={styles.small}>{tRelatorio('naoAltera')}</p>
                 {relatorio.escalaOriginal && (
                   <p className={styles.small}>{t('legacyScale')}</p>
                 )}
