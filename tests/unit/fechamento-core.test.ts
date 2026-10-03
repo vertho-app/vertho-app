@@ -41,7 +41,11 @@ vi.mock('@/lib/season-engine/evidencias-fechamento', () => ({
   normalizarAcumuladoPrimaria: () => h.acumulado,
 }));
 vi.mock('@/lib/degradacao', () => ({
-  DEGRADACAO: { FECHAMENTO_SCORER_FALHOU: 'fechamento-scorer-falhou', FECHAMENTO_REDACAO_FALHOU: 'fechamento-redacao-falhou' },
+  DEGRADACAO: {
+    FECHAMENTO_SCORER_FALHOU: 'fechamento-scorer-falhou',
+    FECHAMENTO_REDACAO_FALHOU: 'fechamento-redacao-falhou',
+    FECHAMENTO_RELATORIO_FALHOU: 'fechamento-relatorio-falhou',
+  },
   registrarDegradacao: h.degradacao,
 }));
 vi.mock('@/lib/season-engine/trilha-runtime', async () => {
@@ -302,6 +306,18 @@ describe('finalizarFechamentoCore', () => {
     const r = await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
     expect(r.ok).toBe(true);
     expect(r.warnings.some(w => w.includes('sem avaliação por descritor'))).toBe(true);
+    // R-137 (03/10/2026): era só um console.warn; a trilha ficava aberta sem
+    // ninguém saber. Agora é degradação CRÍTICA, com a trilha como chave.
+    const d = h.degradacao.mock.calls.map((c: any[]) => c[0]).find((x: any) => x.tipo === 'fechamento-relatorio-falhou');
+    expect(d).toMatchObject({ chave: 'tr-1', severidade: 'critico', empresaId: 'emp-1', colaboradorId: 'col-1' });
+    expect(d.detalhe.erro).toContain('sem avaliação por descritor');
+  });
+
+  it('relatório gerado: nenhuma degradação de relatório', async () => {
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1 } });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(h.degradacao.mock.calls.some((c: any[]) => c[0]?.tipo === 'fechamento-relatorio-falhou')).toBe(false);
   });
 
   /**

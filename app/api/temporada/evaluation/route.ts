@@ -7,7 +7,8 @@ import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
 import { reservarFinalizacao, finalizarFechamentoCore } from '@/lib/season-engine/fechamento-core';
-import { estadoDoFechamento, resumoDaAvaliacao, respostasDoCenario } from '@/lib/season-engine/estado-fechamento';
+import { estadoDoFechamento, estadoDoRelatorio, resumoDaAvaliacao, respostasDoCenario } from '@/lib/season-engine/estado-fechamento';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { maskColaborador, maskTextPII, unmaskPII, unmaskDeepPII } from '@/lib/pii-masker';
 import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
@@ -89,9 +90,13 @@ export async function POST(request) {
     if (!trilhaId || !semana) return NextResponse.json({ error: 'trilhaId+semana' }, { status: 400 });
 
     const sb = createSupabaseAdmin();
-    const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados, data_inicio, programa_modo, programa_config')
+    // `status`: a tela da avaliação final precisa saber se o RELATÓRIO saiu
+    // (a trilha só conclui quando ele grava; R-137). Falha de leitura é 500, não
+    // "trilha não existe": a pessoa não pode ser mandada procurar o que está lá.
+    const { data: trilha, error: errTrilha } = await sb.from('trilhas')
+      .select('id, colaborador_id, empresa_id, status, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados, data_inicio, programa_modo, programa_config')
       .eq('id', trilhaId).maybeSingle();
+    if (errTrilha) return NextResponse.json({ error: 'Falha ao ler a trilha' }, { status: 500 });
     if (!trilha) return NextResponse.json({ error: 'trilha' }, { status: 404 });
 
     // Config pela FONTE ÚNICA (carimbo da trilha, mig 154 → fallback sys_config)
@@ -114,10 +119,49 @@ export async function POST(request) {
     }
 
     if (action === 'generate_report') {
-      // Núcleo headless: a sessão é do COLAB (assertColabAccess já validou o dono
-      // da trilha acima) — passa o tenant da SESSÃO (B5), sem endpoint gatado.
-      const r = await gerarEvolutionReportCore(trilhaId, { empresaId: auth.empresaId });
-      return NextResponse.json(r);
+      /**
+       * RETOMADA do relatório que falhou depois da nota (R-137, 03/10/2026).
+       * Quem chama é a tela da avaliação final, quando `fechamento_status`
+       * devolve `relatorio: 'falhou'`. Só nesse estado roda: com a trilha já
+       * concluída não há o que refazer, e dentro da janela o fechamento ainda
+       * pode estar gerando (rodar em paralelo duplicaria o trabalho).
+       *
+       * Em `after()`: o relatório é programático, mas o encadeamento que vem
+       * atrás dele gera a próxima jornada com IA, em minutos. A tela acompanha
+       * por `fechamento_status` até `pronto`, que chega assim que a trilha
+       * conclui, antes de o encadeamento terminar.
+       */
+      const { data: progFinal, error: errFinal } = await sb.from('temporada_semana_progresso')
+        .select('status, concluido_em')
+        .eq('trilha_id', trilhaId).eq('semana', semCenarioB).maybeSingle();
+      if (errFinal) return NextResponse.json({ error: 'Falha ao ler a avaliação final' }, { status: 500 });
+      const relatorio = estadoDoRelatorio(
+        { statusSemana: progFinal?.status, concluidoEm: progFinal?.concluido_em, trilhaStatus: trilha.status },
+        Date.now(),
+      );
+      if (relatorio === 'nao-avaliado') {
+        return NextResponse.json({ relatorio, error: 'A avaliação final ainda não foi concluída.' }, { status: 409 });
+      }
+      if (relatorio !== 'falhou') return NextResponse.json({ relatorio });
+      after(async () => {
+        // Núcleo headless: a sessão é da dona da trilha (posse checada acima),
+        // e o tenant passado é o da SESSÃO (B5), nunca o do corpo do pedido.
+        const r = await gerarEvolutionReportCore(trilhaId, { empresaId: auth.empresaId });
+        if (!r?.success) {
+          const erro = r && 'error' in r ? String(r.error || '') : 'motivo desconhecido';
+          console.error('[VERTHO] retomada do relatório falhou:', trilhaId, erro);
+          await registrarDegradacao({
+            fluxo: 'trilha',
+            tipo: DEGRADACAO.FECHAMENTO_RELATORIO_FALHOU,
+            chave: trilhaId,
+            empresaId: trilha.empresa_id,
+            colaboradorId: trilha.colaborador_id,
+            severidade: 'critico',
+            detalhe: { erro: erro.slice(0, 500), semana: semCenarioB, onde: 'retomada' },
+          });
+        }
+      });
+      return NextResponse.json({ relatorio: 'gerando' }, { status: 202 });
     }
 
     // Polling do piloto: o client consulta o status da acumulada (disparada em
@@ -324,10 +368,16 @@ export async function POST(request) {
 
       // Acompanhamento da pontuação (tela em polling). Só leitura.
       if (action === 'fechamento_status') {
-        const leitura = estadoDoFechamento(prog, { arguicaoAtiva: !!programaConfig.arguicao?.ativa }, Date.now());
+        const agora = Date.now();
+        const leitura = estadoDoFechamento(prog, { arguicaoAtiva: !!programaConfig.arguicao?.ativa }, agora);
         return NextResponse.json({
           ...leitura,
           avaliacao: leitura.estado === 'avaliado' ? resumoDaAvaliacao(dados) : null,
+          // R-137: a nota sai antes do relatório; a tela só oferece "Ver
+          // relatório" com ele pronto, e retoma quando ficou pendente.
+          relatorio: leitura.estado === 'avaliado'
+            ? estadoDoRelatorio({ statusSemana: prog?.status, concluidoEm: prog?.concluido_em, trilhaStatus: trilha.status }, agora)
+            : null,
         });
       }
 

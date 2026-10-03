@@ -59,9 +59,11 @@ export default function TemporadaPage() {
       // A action por ID aplica o mesmo gate central da jornada: próprio usuário,
       // RH ou gestor responsável. Assim o gestor vê a temporada REAL do
       // colaborador, sem impersonar a conta nem trocar a sessão.
+      // A própria pessoa recebe também a temporada ANTERIOR concluída: depois do
+      // encadeamento a atual é a seguinte, e o relatório da que fechou sumia.
       const r = colaboradorAlvo
         ? await loadTemporada(colaboradorAlvo)
-        : await loadTemporadaPorEmail(user.email);
+        : await loadTemporadaPorEmail(user.email, { incluirAnterior: true });
       if (r.error) setError(r.error); else setData(r);
       setLoading(false);
     })();
@@ -154,12 +156,37 @@ export default function TemporadaPage() {
           </GlassCard>
         )}
 
+        {/* Temporada anterior concluída (R-16): o relatório dela continua a um
+            toque, mesmo com a seguinte em curso. */}
+        {!visaoGestor && data.anteriorConcluida && (
+          <GlassCard className="mb-6 border-emerald-500/30 bg-emerald-500/[0.05]">
+            <div className="flex items-start gap-3">
+              <Award size={18} className="text-emerald-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white">
+                  {t('previousSeason.title', { number: data.anteriorConcluida.numeroTemporada })}
+                </p>
+                <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                  {t('previousSeason.body', { competency: data.anteriorConcluida.competencia || '' })}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/dashboard/temporada/concluida?trilha=${encodeURIComponent(data.anteriorConcluida.id)}&origem=temporada`)}
+                  className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-[#062032] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/60"
+                >
+                  {t('previousSeason.cta', { number: data.anteriorConcluida.numeroTemporada })}
+                </button>
+              </div>
+            </div>
+          </GlassCard>
+        )}
+
         {trilha.status === 'concluida' && trilha.evolution_report && (
           <>
             <EvolutionReportCard report={trilha.evolution_report} t={t} />
             {!visaoGestor && <div className="mb-6">
               <button
-                onClick={() => router.push('/dashboard/temporada/concluida')}
+                onClick={() => router.push(`/dashboard/temporada/concluida?trilha=${encodeURIComponent(trilha.id)}&origem=temporada`)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98]"
                 style={{ background: 'var(--phase-accent)', color: '#062032' }}
               >

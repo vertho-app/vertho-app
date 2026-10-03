@@ -291,12 +291,25 @@ export async function finalizarFechamentoCore(
 
     // Relatório: consolidação programática (sem IA). A semana JÁ está concluída;
     // falha aqui não desfaz a nota, mas não pode ser silenciosa.
+    // 🔴 Até 03/10/2026 (R-137) era só um `console.warn`: a trilha ficava ativa,
+    // sem relatório, sem certificado e sem encadeamento, e só um admin percebia.
+    // Agora é degradação crítica, e a tela da avaliação final RETOMA sozinha
+    // (`estadoDoRelatorio` = falhou → `generate_report`).
     const report = await gerarEvolutionReportCore(trilhaId, { empresaId: trilha.empresa_id });
     const evolutionReport = report && 'evolution_report' in report ? report.evolution_report : null;
     if (!report?.success) {
       const motivo = report && 'error' in report ? report.error : 'motivo desconhecido';
       warnings.push(`evolution report não gerado: ${motivo}`);
       console.warn('[fechamento-core] evolution report não gerado:', trilhaId, motivo);
+      await registrarDegradacao({
+        fluxo: 'trilha',
+        tipo: DEGRADACAO.FECHAMENTO_RELATORIO_FALHOU,
+        chave: trilhaId,
+        empresaId: trilha.empresa_id,
+        colaboradorId: trilha.colaborador_id,
+        severidade: 'critico',
+        detalhe: { erro: String(motivo || '').slice(0, 500), semana: config.semanaCenarioB, onde: 'fechamento' },
+      });
     }
 
     return {

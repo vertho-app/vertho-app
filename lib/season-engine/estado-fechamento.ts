@@ -1,4 +1,4 @@
-import { PROGRESSO } from '@/lib/status';
+import { PROGRESSO, TRILHA } from '@/lib/status';
 import { resumoSemTratamentoDeGenero } from '@/lib/redacao-sem-genero';
 
 /**
@@ -84,6 +84,47 @@ export function estadoDoFechamento(
   }
   if (fin?.status === 'erro') return { estado: 'erro', ...base, erro: fin.erro || null };
   return { estado: 'pronto-para-pontuar', ...base };
+}
+
+/**
+ * Quanto tempo, depois de a nota ser gravada, o relatório ainda é lido como
+ * "sendo gerado". No caminho normal ele sai na MESMA execução, logo depois da
+ * nota (consolidação programática, sem IA): milissegundos. Passada a janela com
+ * a trilha ainda aberta, o relatório falhou e a tela pode retomar sem correr o
+ * risco de gerar em paralelo com o fechamento.
+ */
+export const RELATORIO_JANELA_MS = 90_000;
+
+/**
+ * Onde está o RELATÓRIO de evolução de um fechamento (R-137, 03/10/2026).
+ *
+ * `avaliado` não basta para a tela da avaliação final: a nota é gravada antes
+ * do relatório, e se ele falha a pessoa via "Avaliação concluída" com um "Ver
+ * relatório" que abria "Temporada ainda não concluída", sem retomada nenhuma.
+ *
+ *  - `nao-avaliado`: a semana do Cenário B ainda não concluiu (ou a trilha
+ *    não está ativa nem concluída: arquivada e pausada não se retomam);
+ *  - `pronto`: a trilha está concluída (o relatório é o ato que a conclui);
+ *  - `gerando`: nota gravada há menos de `RELATORIO_JANELA_MS`;
+ *  - `falhou`: nota gravada, janela vencida e trilha aberta. Retome.
+ */
+export type EstadoRelatorio = 'nao-avaliado' | 'gerando' | 'falhou' | 'pronto';
+
+export function estadoDoRelatorio(
+  input: { statusSemana?: string | null; concluidoEm?: string | null; trilhaStatus?: string | null },
+  agoraMs: number,
+): EstadoRelatorio {
+  if (input.trilhaStatus === TRILHA.CONCLUIDA) return 'pronto';
+  if (input.statusSemana !== PROGRESSO.CONCLUIDO) return 'nao-avaliado';
+  // Só trilha ATIVA se retoma: gerar o relatório CONCLUI a trilha, e uma
+  // arquivada ou pausada não pode ser reaberta como concluída por uma tela.
+  if (input.trilhaStatus !== TRILHA.ATIVA) return 'nao-avaliado';
+  const concluidoMs = Date.parse(input.concluidoEm || '');
+  // Sem carimbo legível não há como saber se o fechamento ainda roda: trata
+  // como vencido. Retomar é idempotente (o encadeamento não duplica a trilha
+  // seguinte), então o custo do engano é uma consolidação a mais.
+  if (Number.isFinite(concluidoMs) && agoraMs - concluidoMs < RELATORIO_JANELA_MS) return 'gerando';
+  return 'falhou';
 }
 
 /** O recorte da avaliação que a tela mostra ao concluir (o mesmo nas duas pontas). */

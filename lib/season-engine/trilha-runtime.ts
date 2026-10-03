@@ -16,6 +16,7 @@
 import { getProgramaConfigByModo, getProgramaConfigLegado, type ProgramaConfig } from './programa-config';
 import { parseConfigSnapshot, parseProgramaCustom, derivarConfigCustom } from './programa-custom';
 import { avaliarAcessoSemana } from './week-gating';
+import { PROGRESSO } from '@/lib/status';
 
 interface TrilhaRuntime {
   id: string;
@@ -156,6 +157,21 @@ export function semanasAvaliacaoDoPlano(plano: any): number[] {
 export function semanaCenarioBDoPlano(plano: any, fallback = 14): number {
   const avaliacoes = semanasAvaliacaoDoPlano(plano);
   return avaliacoes.length ? avaliacoes[avaliacoes.length - 1] : fallback;
+}
+
+/**
+ * A AVALIAÇÃO FINAL desta trilha (a semana do Cenário B) foi concluída?
+ *
+ * É o sinal da fase "Reavaliação" da jornada (R-95, 03/10/2026), que antes
+ * contava respostas com `rodada = 2`, gravadas por nenhum código. Plano sem
+ * semana de avaliação (Personalizado SEM fechamento) não tem avaliação final:
+ * devolve `false`, e não cai no fallback de 14 de `semanaCenarioBDoPlano`.
+ */
+export function avaliacaoFinalConcluida(plano: any, progresso: Array<{ semana?: number | string | null; status?: string | null }> | null | undefined): boolean {
+  const avaliacoes = semanasAvaliacaoDoPlano(plano);
+  if (!avaliacoes.length) return false;
+  const semanaFinal = avaliacoes[avaliacoes.length - 1];
+  return (progresso || []).some((p) => Number(p?.semana) === semanaFinal && p?.status === PROGRESSO.CONCLUIDO);
 }
 
 /**

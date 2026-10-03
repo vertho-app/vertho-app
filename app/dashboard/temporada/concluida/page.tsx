@@ -18,6 +18,7 @@ export default function TemporadaConcluidaPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trilhaHistoricaId = searchParams.get('trilha');
+  const origem = searchParams.get('origem');
   const sb = getSupabase();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +39,16 @@ export default function TemporadaConcluidaPage() {
   if (error) return <Center><div className="text-center"><p className="text-gray-400">{error}</p><button onClick={() => router.push('/dashboard/temporada')} className="text-brand-400 text-xs mt-3">{t('back')}</button></div></Center>;
 
   const { colab, trilha, evolutionReport, momentos, missoes, sem14 } = data;
+  // A trilha DESTE relatório: a do link, ou a concluída que a action escolheu.
+  // PDF e certificado vão com ela (R-16): sem `?trilha`, as duas rotas pegavam
+  // a trilha mais recente, que depois do encadeamento é a jornada seguinte,
+  // ainda aberta.
+  const trilhaDoRelatorio = trilhaHistoricaId || trilha.id;
+  // Voltar para onde a pessoa veio: a tela da temporada (botão dela e fim da
+  // avaliação final) ou o histórico. `origem` só escolhe entre esses dois.
+  const voltarHref = trilhaHistoricaId && origem !== 'temporada'
+    ? `/dashboard/jornada/historico/${encodeURIComponent(trilhaHistoricaId)}`
+    : '/dashboard/temporada';
   const firstName = (colab.nome || '').split(' ')[0];
   const descritores = evolutionReport?.descritores || [];
 
@@ -50,13 +61,13 @@ export default function TemporadaConcluidaPage() {
     const niveisDePartida = nivelDePartidaPorCompetencia(descritores, trilha.competencia);
     return (
       <PageContainer>
-        <BackButton href={trilhaHistoricaId ? `/dashboard/jornada/historico/${encodeURIComponent(trilhaHistoricaId)}` : '/dashboard/temporada'} />
+        <BackButton href={voltarHref} />
         <div className="flex items-center justify-end mb-4">
           <CertificadoButton
             sb={sb}
             numeroTemporada={trilha.numeroTemporada}
             certificado={data.certificado}
-            trilhaId={trilhaHistoricaId}
+            trilhaId={trilhaDoRelatorio}
             label={t('downloadCertificate')}
             errorLabel={t('certificateError')}
             notEligibleLabel={(pct) => t('certificateNotEligible', { pct })}
@@ -140,11 +151,11 @@ export default function TemporadaConcluidaPage() {
   if (evolutionReport?.modo === 'piloto') {
     return (
       <PageContainer>
-        <BackButton href={trilhaHistoricaId ? `/dashboard/jornada/historico/${encodeURIComponent(trilhaHistoricaId)}` : '/dashboard/temporada'} />
+        <BackButton href={voltarHref} />
         {/* Degustação SEM fechamento: não há avaliação → PDF do piloto não se aplica */}
         {!evolutionReport?.sem_fechamento && (
           <div className="flex items-center justify-end mb-4">
-            <PdfButton sb={sb} numeroTemporada={trilha.numeroTemporada} trilhaId={trilhaHistoricaId} label={t('downloadPdf')} errorLabel={t('pdfError')} />
+            <PdfButton sb={sb} numeroTemporada={trilha.numeroTemporada} trilhaId={trilhaDoRelatorio} label={t('downloadPdf')} errorLabel={t('pdfError')} />
           </div>
         )}
 
@@ -247,20 +258,20 @@ export default function TemporadaConcluidaPage() {
 
   return (
     <PageContainer>
-      <BackButton href={trilhaHistoricaId ? `/dashboard/jornada/historico/${encodeURIComponent(trilhaHistoricaId)}` : '/dashboard/temporada'} />
+      <BackButton href={voltarHref} />
       <div className="flex items-center justify-end mb-4 gap-2">
         <CertificadoButton
           sb={sb}
           numeroTemporada={trilha.numeroTemporada}
           certificado={data.certificado}
-          trilhaId={trilhaHistoricaId}
+          trilhaId={trilhaDoRelatorio}
           label={t('downloadCertificate')}
           errorLabel={t('certificateError')}
           notEligibleLabel={(pct) => t('certificateNotEligible', { pct })}
         />
         <button onClick={async () => {
           const { data: { session } } = await sb.auth.getSession();
-          const query = trilhaHistoricaId ? `?trilha=${encodeURIComponent(trilhaHistoricaId)}` : '';
+          const query = trilhaDoRelatorio ? `?trilha=${encodeURIComponent(trilhaDoRelatorio)}` : '';
           const res = await fetch(`/api/temporada/concluida/pdf${query}`, {
             headers: { Authorization: `Bearer ${session?.access_token}` },
           });

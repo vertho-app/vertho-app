@@ -31,6 +31,12 @@ function argMsgsFromHistorico(hist) {
 /** Intervalo do acompanhamento da pontuação. O `aiLimiter` da rota é 10/min. */
 const POLL_FECHAMENTO_MS = 8000;
 const POLL_FECHAMENTO_MAX = 60;
+/**
+ * Acompanhamento do RELATÓRIO depois da nota (R-137): ~4 min. Cobre a janela
+ * em que o servidor ainda o considera "sendo gerado" (`RELATORIO_JANELA_MS`,
+ * 90 s) e a retomada, que conclui a trilha em segundos.
+ */
+const POLL_RELATORIO_MAX = 30;
 
 /**
  * Onde está a pontuação do fechamento, do ponto de vista de quem espera.
@@ -102,6 +108,10 @@ export default function Sem14Page() {
   const [fechamento, setFechamento] = useState(null);
   // Quantas respostas ao cenário já estão gravadas: reenviar essas empurraria falas duplicadas.
   const [respostasSalvas, setRespostasSalvas] = useState(0);
+  // Relatório de evolução depois da nota (R-137): verificando | gerando | pronto | indisponivel.
+  // "Ver relatório" só abre com ele pronto: antes, abria "Temporada ainda não concluída".
+  const [relatorio, setRelatorio] = useState(null);
+  const [tentativaRelatorio, setTentativaRelatorio] = useState(0);
 
   // Arguição (defesa oral) — modo CHAT turn-by-turn após as 4 perguntas.
   const [argMsgs, setArgMsgs] = useState([]); // { role: 'assistant'|'user', content }
@@ -276,6 +286,47 @@ export default function Sem14Page() {
     if (pollRef.current) setFechamento('lento');
     return 'lento';
   }
+
+  /**
+   * Acompanha o RELATÓRIO depois da nota (R-137). A nota é gravada antes dele, e
+   * se ele falha a trilha fica aberta: "Ver relatório" abria "Temporada ainda
+   * não concluída", sem retomada nenhuma. Aqui, `falhou` (o servidor diz que
+   * a janela do fechamento passou) dispara a retomada UMA vez por tentativa, e o
+   * botão só abre com o relatório `pronto`. Resposta sem o campo (servidor de
+   * antes desta mudança) é lida como pronto: é o comportamento anterior.
+   */
+  async function acompanharRelatorio(tid, semCB) {
+    setRelatorio('verificando');
+    let pediuRetomada = false;
+    for (let i = 0; i < POLL_RELATORIO_MAX && pollRef.current; i++) {
+      if (i > 0) await new Promise((res) => setTimeout(res, POLL_FECHAMENTO_MS));
+      if (!pollRef.current) return;
+      const resp = await fetchAuth('/api/temporada/evaluation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trilhaId: tid, semana: semCB, action: 'fechamento_status' }),
+      }).catch(() => null);
+      if (!resp?.ok) continue; // 429 do limitador ou rede: tenta na próxima volta
+      const s = await resp.json().catch(() => ({}));
+      if (s.relatorio === undefined || s.relatorio === 'pronto') { setRelatorio('pronto'); return; }
+      setRelatorio('gerando');
+      if (s.relatorio === 'falhou' && !pediuRetomada) {
+        pediuRetomada = true;
+        await fetchAuth('/api/temporada/evaluation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trilhaId: tid, semana: semCB, action: 'generate_report' }),
+        }).catch(() => null);
+      }
+    }
+    if (pollRef.current) setRelatorio('indisponivel');
+  }
+
+  // Ao chegar no resultado (carregado já concluído ou recém-pontuado), confere o relatório.
+  useEffect(() => {
+    if (step === 6 && trilhaId) acompanharRelatorio(trilhaId, semCenarioB);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, trilhaId, tentativaRelatorio]);
 
   async function gerarAvaliacaoFinal() {
     setFechamento('processando');
@@ -621,10 +672,26 @@ export default function Sem14Page() {
               {avaliacao.resumo_avaliacao.mensagem_geral}
             </div>
           )}
-          <button onClick={() => router.push('/dashboard/temporada/concluida')}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-600 hover:opacity-90 text-sm font-bold text-white">
-            {t('done.viewReport')}
-          </button>
+          {/* O relatório DESTA trilha (R-16): sem `?trilha`, a tela abria a mais
+              recente, que depois do encadeamento é a jornada seguinte. */}
+          {relatorio === 'indisponivel' ? (
+            <div className="rounded-lg bg-white/[0.03] border border-white/10 p-3">
+              <p className="text-xs text-gray-400 leading-relaxed mb-3">{t('done.reportUnavailable')}</p>
+              <button onClick={() => setTentativaRelatorio((n) => n + 1)}
+                className="w-full py-3 rounded-xl border border-white/15 hover:border-white/30 text-sm font-bold text-white">
+                {t('done.reportRetry')}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => router.push(`/dashboard/temporada/concluida?trilha=${encodeURIComponent(trilhaId)}&origem=temporada`)}
+              disabled={relatorio !== 'pronto'}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-600 hover:opacity-90 text-sm font-bold text-white disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-2">
+              {relatorio === 'pronto'
+                ? t('done.viewReport')
+                : <><Loader2 size={14} className="animate-spin" /> {t('done.reportPreparing')}</>}
+            </button>
+          )}
         </div>
       )}
     </div>

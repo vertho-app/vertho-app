@@ -1657,7 +1657,10 @@
       "progress": "Avanço",
       "viewReport": "Ver relatório completo →",
       "demoScore": "Nota da demonstração",
-      "pilotNote": "No piloto, a avaliação demonstra o método da temporada completa — não mede evolução em 2 semanas."
+      "pilotNote": "No piloto, a avaliação demonstra o método da temporada completa — não mede evolução em 2 semanas.",
+      "reportPreparing": "A preparar o seu relatório…",
+      "reportUnavailable": "O seu relatório ainda está a ser preparado. Tente novamente dentro de alguns minutos.",
+      "reportRetry": "Tentar novamente"
     },
     "arguicao": {
       "badge": "Arguição · defesa oral",
@@ -1941,6 +1944,11 @@
     },
     "paused": "A sua temporada está pausada pelo gestor. Poderá continuar quando for retomada.",
     "viewFullReport": "Ver relatório completo da temporada →",
+    "previousSeason": {
+      "title": "Temporada {number} concluída",
+      "body": "{competency}: o Relatório de Evolução desta temporada continua disponível.",
+      "cta": "Ver o relatório da temporada {number}"
+    },
     "progress": {
       "title": "Progresso",
       "weeks": "semanas"

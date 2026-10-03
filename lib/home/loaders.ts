@@ -9,7 +9,7 @@ import { FASE_FORA_DA_DEGUSTACAO, PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
 import { totalDoMapeamento } from '@/lib/demo/convidado-demo';
 import { colaboradorEmDegustacao } from '@/lib/demo/degustacao-mapeamento';
-import { ehSemanaDeImplementacao, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { avaliacaoFinalConcluida, ehSemanaDeImplementacao, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { estaAtrasada } from '@/lib/season-engine/atraso';
 import { semanaLiberadaEm, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
@@ -335,9 +335,11 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
 
   // Fase 4 — Temporada (já carregada acima)
   let semanaAtual = 1;
+  let progressoTrilha: Array<{ semana: number; status: string }> = [];
   if (temPlano) {
     const { data: progresso } = await sb.from('temporada_semana_progresso')
       .select('semana, status').eq('trilha_id', trilha.id).order('semana');
+    progressoTrilha = progresso || [];
     const concluidas = (progresso || []).filter(p => p.status === PROGRESSO.CONCLUIDO).length;
     semanaAtual = Math.min(totalSemanasDoPlano(trilha.temporada_plano, TOTAL_SEMANAS_FALLBACK), concluidas + 1);
   }
@@ -362,19 +364,16 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
       : null,
   });
 
-  // Fase 5 — Reavaliação
-  // Check if there's a second round of respostas or a reavaliacao flag
-  const { count: reavaliacoes } = await sb.from('respostas')
-    .select('id', { count: 'exact', head: true })
-    .eq('colaborador_id', colab.id)
-    .eq('empresa_id', colab.empresa_id)
-    .eq('rodada', 2);
-
+  // Fase 5, Reavaliação: é a AVALIAÇÃO FINAL da trilha (R-95, 03/10/2026).
+  // Antes contava respostas com `rodada = 2`, que nenhum código grava: quem
+  // fechava a avaliação final ficava em "4 de 5" para sempre. A medição de
+  // evolução pós-capacitação é o Cenário B da trilha, e o sinal é a semana
+  // dele concluída, a mesma régua da tela da temporada e do relatório.
   fases.push({
     fase: 5,
     titulo: 'Reavaliação',
     descricao: 'Medição de evolução pós-capacitação',
-    status: reavaliacoes > 0 ? 'completed' : 'pending',
+    status: temPlano && avaliacaoFinalConcluida(trilha.temporada_plano, progressoTrilha) ? 'completed' : 'pending',
     data: null,
   });
 

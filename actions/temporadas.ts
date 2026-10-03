@@ -30,7 +30,7 @@ interface GerarTemporadaParams {
 /**
  * Wrapper: carrega temporada do colab logado via email.
  */
-export async function loadTemporadaPorEmail(email: string, opts: { semanaTranscrito?: number; trilhaId?: string } = {}) {
+export async function loadTemporadaPorEmail(email: string, opts: { semanaTranscrito?: number; trilhaId?: string; incluirAnterior?: boolean } = {}) {
   try {
     await requireUserAction();
     const colab = await findColabByEmail(email, 'id');
@@ -839,7 +839,7 @@ export async function loadProgressoDetalhado(trilhaId: string) {
 /**
  * Carrega a temporada ativa de um colaborador (com plano + progresso).
  */
-export async function loadTemporada(colaboradorId: string, opts: { semanaTranscrito?: number; trilhaId?: string } = {}) {
+export async function loadTemporada(colaboradorId: string, opts: { semanaTranscrito?: number; trilhaId?: string; incluirAnterior?: boolean } = {}) {
   try {
     const ctx = await requireUserAction();
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
@@ -896,6 +896,33 @@ export async function loadTemporada(colaboradorId: string, opts: { semanaTranscr
     // e o desafio = o do kit. Aditivo: sem kit, o conteúdo (buildSeason) permanece.
     await aplicarOverlayKit(sbRaw, plano, colaborador, trilha);
 
+    // A temporada ANTERIOR concluída (R-16, 03/10/2026). Com o encadeamento, a
+    // trilha mais recente passa a ser a jornada seguinte, e o relatório da que
+    // acabou de fechar sumia desta tela: só o histórico o abria. Só quando a
+    // tela pede, e só se a atual ainda não é ela mesma a concluída.
+    let anteriorConcluida: { id: string; numeroTemporada: number; competencia: string } | null = null;
+    if (opts.incluirAnterior && trilha.status !== TRILHA.CONCLUIDA && (Number(trilha.numero_temporada) || 1) > 1) {
+      const { data: ant, error: errAnt } = await tdb.from('trilhas')
+        .select('id, numero_temporada, competencia_foco, competencias_foco')
+        .eq('colaborador_id', colaboradorId)
+        .eq('status', TRILHA.CONCLUIDA)
+        .lt('numero_temporada', trilha.numero_temporada)
+        .order('numero_temporada', { ascending: false })
+        .limit(1).maybeSingle();
+      // Cartão de conveniência: a leitura que falha não derruba a temporada
+      // atual, mas também não vira "não há temporada anterior" calada.
+      if (errAnt) console.warn('[loadTemporada] temporada anterior (leitura):', errAnt.message);
+      else if (ant) {
+        anteriorConcluida = {
+          id: ant.id,
+          numeroTemporada: Number(ant.numero_temporada) || 1,
+          competencia: Array.isArray(ant.competencias_foco) && ant.competencias_foco.length > 1
+            ? ant.competencias_foco.join(' + ')
+            : ant.competencia_foco,
+        };
+      }
+    }
+
     return {
       ok: true,
       viewerRole: ctx.role,
@@ -905,6 +932,7 @@ export async function loadTemporada(colaboradorId: string, opts: { semanaTranscr
       },
       progresso: progresso || [],
       colaborador,
+      anteriorConcluida,
     };
   } catch (err: any) {
     return { error: err?.message || 'Erro' };

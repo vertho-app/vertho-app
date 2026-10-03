@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUserAction } from '@/lib/auth/action-context';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
 import { calcularParticipacao } from '@/lib/season-engine/participacao';
+import { TRILHA } from '@/lib/status';
 
 /**
  * Carrega dados pra tela "Temporada Concluída" do colaborador.
@@ -31,12 +32,22 @@ export async function loadTemporadaConcluida(email: string, trilhaId?: string) {
     .select('id, competencia_foco, competencias_foco, numero_temporada, status, evolution_report, descritores_selecionados, temporada_plano')
     .eq('colaborador_id', colab.id)
     .eq('empresa_id', colab.empresa_id);
+  // Sem `trilhaId`: a temporada CONCLUÍDA mais recente, não a trilha mais
+  // recente (R-16, 03/10/2026). Com o encadeamento, a mais recente é a jornada
+  // seguinte, ainda aberta, e "Ver relatório" no fim da avaliação final abria
+  // "Temporada ainda não concluída" sobre a temporada que acabara de concluir.
   trilhaQuery = trilhaId
     ? trilhaQuery.eq('id', trilhaId)
-    : trilhaQuery.order('criado_em', { ascending: false }).limit(1);
-  const { data: trilha } = await trilhaQuery.maybeSingle();
-  if (!trilha) return { error: 'Nenhuma trilha encontrada' };
-  if (trilha.status !== 'concluida') return { error: 'Temporada ainda não concluída' };
+    : trilhaQuery.eq('status', TRILHA.CONCLUIDA)
+      .order('numero_temporada', { ascending: false })
+      .order('criado_em', { ascending: false })
+      .limit(1);
+  const { data: trilha, error: errTrilha } = await trilhaQuery.maybeSingle();
+  // Falha de leitura não é "não há trilha": a pessoa seria mandada procurar o
+  // que está lá.
+  if (errTrilha) return { error: 'Não foi possível carregar a temporada. Tente de novo.' };
+  if (!trilha) return { error: trilhaId ? 'Nenhuma trilha encontrada' : 'Temporada ainda não concluída' };
+  if (trilha.status !== TRILHA.CONCLUIDA) return { error: 'Temporada ainda não concluída' };
 
   // Puxa momentos literais (top insights) das 14 semanas
   const { data: progressos } = await sb.from('temporada_semana_progresso')

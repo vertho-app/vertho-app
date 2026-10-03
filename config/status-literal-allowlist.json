@@ -7,7 +7,6 @@
     "actions/fase5/evolucao.ts": 1,
     "actions/fase5/reavaliacao.ts": 3,
     "actions/recalcular-impacto-conteudo.ts": 1,
-    "actions/temporada-concluida.ts": 1,
     "actions/whatsapp-lote.ts": 1,
     "app/admin/empresas/[empresaId]/actions.ts": 9,
     "app/admin/empresas/[empresaId]/fase2/page.tsx": 3,
