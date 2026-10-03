@@ -30,6 +30,12 @@ export function competenciasDaMatriz(
   rotulos: {
     nome: (codigo: CodigoCompetencia) => string;
     origem: (e: Evidencia) => string;
+    /**
+     * Rótulo da evidência que chegou SEM texto (visão da equipe, R-42: o plano
+     * fica com a pessoa, `lib/simulador-vendas/visao-equipe.ts`). Sem ele, vale
+     * o `origem`.
+     */
+    reservada?: (e: Evidencia) => string;
   },
   narrativas: Partial<Record<CodigoCompetencia, string | null | undefined>> = {},
   regraGravada?: string | null,
@@ -57,12 +63,18 @@ export function competenciasDaMatriz(
         .filter((d) => !fora.includes(d.codigo))
         .map((d) => {
           const a = matriz.descritores.find((x) => x.codigo === d.codigo);
+          // Evidência sem texto não vira citação (aspas vazias): o rótulo da
+          // fonte ocupa o lugar da justificativa, como na liderança.
+          const todas = a?.evidencias || [];
+          const citadas = todas.filter((e) => !!e.citacao);
+          const rotuloReservada = rotulos.reservada || rotulos.origem;
+          const reservadas = [...new Set(todas.filter((e) => !e.citacao).map((e) => rotuloReservada(e)))];
           return {
             codigo: d.codigo,
             nome: d.nome,
             nivel: a?.nivel ?? null,
-            justificativa: a?.justificativa ?? null,
-            evidencias: (a?.evidencias || []).map((e) => ({ texto: e.citacao, origem: rotulos.origem(e) })),
+            justificativa: reservadas.length ? reservadas.join(' · ') : (a?.justificativa ?? null),
+            evidencias: citadas.map((e) => ({ texto: e.citacao, origem: rotulos.origem(e) })),
             regua: [d.niveis.n1, d.niveis.n2, d.niveis.n3, d.niveis.n4] as [string, string, string, string],
             descartado: descartados.has(d.codigo),
           };

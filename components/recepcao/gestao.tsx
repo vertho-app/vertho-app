@@ -448,9 +448,15 @@ export default function GestaoRecepcao({
                       {s.critica ? ` · ${t('historyAttention')}` : ''}
                     </td>
                     <td>
-                      <button className={styles.link} disabled={busy} onClick={() => abrir(s.id)}>
-                        {t('teamOpen')}
-                      </button>
+                      {/* Só o atendimento CONCLUÍDO abre para a equipe (decisão 5 da
+                          revisão de 02/10/2026): o servidor recusa os demais. */}
+                      {s.status === RECEPCAO_SESSAO.CONCLUIDA ? (
+                        <button className={styles.link} disabled={busy} onClick={() => abrir(s.id)}>
+                          {t('teamOpen')}
+                        </button>
+                      ) : (
+                        <span className={styles.small}>{t('teamOpenWhenDone')}</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -509,18 +515,20 @@ export default function GestaoRecepcao({
             </button>
           </header>
           {(() => {
-            const hist = detalhe.sessao.historico,
+            // A equipe não recebe a conversa (decisão 5 da revisão de 02/10/2026):
+            // só as referências de cada mensagem (id e papel), para situar as citações.
+            const refs = detalhe.sessao.referencias || [],
               nome = detalhe.sessao.cenario.nomePaciente,
               rel = detalhe.sessao.relatorio;
             // Posição na conversa em terceira pessoa ("2ª resposta de quem atende"), traduzida.
             const pos = (id: string) => {
-              const p = posicaoNaConversa(hist, id);
+              const p = posicaoNaConversa(refs, id);
               if (!p) return id;
               return p.papel === 'user' ? t('teamReply', { n: p.ordem }) : t('personLine', { n: p.ordem, name: nome });
             };
             // O texto do relatório é escrito pela IA em português: a posição segue a mesma língua.
             const h = (texto: string) =>
-              humanizarReferencias(texto || '', hist, nome, 'terceira', detalhe.sessao.cenario.dominio);
+              humanizarReferencias(texto || '', refs, nome, 'terceira', detalhe.sessao.cenario.dominio);
             return (
               <>
                 {/* O que a pessoa recebeu (18/09/2026): quem acompanhava lia só a matriz. */}
@@ -562,20 +570,15 @@ export default function GestaoRecepcao({
                 )}
                 <div className={styles.reviewColumns}>
                   <div>
-                    <h3>{t('reviewConversation')}</h3>
-                    {hist.map((m: any) => (
-                      <blockquote key={m.id}>
-                        <strong>{pos(m.id)}</strong>
-                        <p>{m.content}</p>
-                      </blockquote>
-                    ))}
+                    <h3>{t('reviewConversationPrivateTitle')}</h3>
+                    <p className={styles.small}>{t('reviewConversationPrivate')}</p>
                   </div>
                   <div>
                     <h3>{t('reviewAi')}</h3>
                     {rel?.competencias && (
                       <MatrizAtendimento
                         relatorio={rel}
-                        historico={hist}
+                        historico={refs}
                         nomePersona={nome}
                         dominio={detalhe.sessao.cenario.dominio}
                         publico="equipe"

@@ -164,6 +164,28 @@ export function visaoPublica(s: Estado) {
   });
 }
 
+/**
+ * O que a EQUIPE (gestor, RH e plataforma) recebe de um atendimento.
+ *
+ * 🔑 Decisão do dono (decisão 5 da revisão de 02/10/2026, R-10): a conversa
+ * fica com quem treina, como no simulador de liderança
+ * (`lib/simulador-lideranca/visao-equipe.ts`). Até aqui o detalhe da equipe
+ * levava o `historico` inteiro, inclusive de atendimento em andamento, e a
+ * tela o mostrava como "Conversa preservada", sem aviso a quem treinava.
+ *
+ * A equipe recebe o nível, o relatório e os trechos que a avaliação CITA (são
+ * as provas do nível). No lugar da conversa vão só as `referencias` de cada
+ * mensagem (id e papel, sem o texto): é o que a tela precisa para dizer "3ª
+ * resposta de quem atende" ao lado de uma citação.
+ */
+export function visaoEquipe(s: Estado) {
+  const { historico: _conversa, ...semConversa } = visaoPublica(s);
+  return {
+    ...semConversa,
+    referencias: s.historico.map((m) => ({ id: m.id, role: m.role })),
+  };
+}
+
 export function fichaPublica(c: Cenario) {
   return clone({
     ...c.publico,

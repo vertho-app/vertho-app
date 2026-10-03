@@ -12,6 +12,7 @@ import {
 } from './historico';
 import { notaPacePublica, relatorioPacePublico } from './escala';
 import { escalaNativa14 } from './matriz-avaliacao';
+import { relatorioParaEquipe } from './visao-equipe';
 import {
   agregarPainel,
   type PainelVendas,
@@ -283,7 +284,9 @@ export async function relatorioEquipe(c: Contexto, id: string) {
     id: data.id,
     nomeVendedor: data.resumo.nomeVendedor,
     versaoRegua: data.resumo.versaoRegua,
-    relatorio: relatorioPacePublico(data.relatorio, data.resumo.versaoRegua),
+    // Sem o texto do plano (decisão 5 da revisão de 02/10/2026, R-42): a
+    // projeção é feita AQUI, no servidor, para o plano nem sair na resposta.
+    relatorio: relatorioParaEquipe(relatorioPacePublico(data.relatorio, data.resumo.versaoRegua)),
   };
 }
 

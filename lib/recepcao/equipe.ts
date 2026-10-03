@@ -3,7 +3,7 @@ import { RECEPCAO_SESSAO } from '@/lib/status';
 import { can } from '@/lib/permissions';
 import { canViewColabJourney } from '@/lib/authz';
 import { type ContextoRecepcao, RecepcaoError } from './access';
-import { visaoPublica } from './core';
+import { visaoEquipe } from './core';
 import { notaAtendimento } from './matriz-avaliacao';
 import { competenciasAtendimento } from './matriz';
 import { respondeu, visaoPorCompetencia, type PessoaAtendimento } from './painel';
@@ -323,7 +323,18 @@ export async function painelEquipe(
     visao: { ...visao, nomes: Object.fromEntries(competencias.map((x) => [x.codigo, x.nome])) },
   };
 }
+/**
+ * Detalhe de um atendimento para quem acompanha: só CONCLUÍDO e sem a conversa
+ * (decisão 5 da revisão de 02/10/2026, R-10; projeção em `visaoEquipe`).
+ * Atendimento em andamento ou aguardando avaliação ainda é da pessoa: abrir no
+ * meio era ler por cima do ombro de quem está treinando.
+ */
 export async function detalheEquipe(c: ContextoRecepcao, id: string) {
   const row = await sessaoDaEquipe(c, id);
-  return { sessao: visaoPublica(row.estado) };
+  if (row.estado?.status !== RECEPCAO_SESSAO.CONCLUIDA)
+    throw new RecepcaoError(
+      409,
+      'Este atendimento ainda não foi concluído. O detalhe abre para a equipe quando ele termina.',
+    );
+  return { sessao: visaoEquipe(row.estado) };
 }

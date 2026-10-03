@@ -50,6 +50,8 @@ export default function Relatorio({
             e.origem === 'planejamento'
               ? t('matrixEvidencePlan')
               : t('matrixEvidenceTurn', { turn: e.turno ?? 0 }),
+          // Na visão da equipe a evidência do plano chega sem o texto (R-42).
+          reservada: () => t('matrixEvidencePlanReserved'),
         },
         { P: r.Preparacao, A: r.Analise, C: r.Cocriacao, E: r.Engajamento },
         r.regraCobertura,
