@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import { X, Send, Loader2 } from 'lucide-react';
 import { chatWithBeto } from '@/app/actions/beto';
@@ -140,6 +140,9 @@ function renderInline(text: string) {
 // ─── Main component ────────────────────────────────────────────────────────
 export default function BetoChat() {
   const t = useTranslations('Beto');
+  // O Beto responde no idioma em que a tela está (R-68): sem isto ele lia só o
+  // cookie, que o login por senha não grava, e caía em pt-BR.
+  const locale = useLocale();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([
@@ -161,7 +164,7 @@ export default function BetoChat() {
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setLoading(true);
     try {
-      const reply = await chatWithBeto(userMsg, messages.slice(-10), pathname);
+      const reply = await chatWithBeto(userMsg, messages.slice(-10), pathname, locale);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: t('error') }]);

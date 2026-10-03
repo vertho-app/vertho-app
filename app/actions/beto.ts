@@ -12,6 +12,9 @@ import { resolverContextoSemanal } from '@/lib/fase4/contexto-semanal';
 import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@/lib/conteudos-relacionados';
 import { formatarPaginaAtualParaBeto } from '@/lib/beto/pagina-atual';
 import { maskColaborador, maskTextPII, unmaskPII, type PIIMapas } from '@/lib/pii-masker';
+import { cookies } from 'next/headers';
+import { localeCookieName, normalizeAppLocale } from '@/lib/i18n';
+import { defaultLocale, type AppLocale } from '@/i18n/routing';
 
 const SYSTEM_PROMPT_BASE = `Você é o BETO (Business Evolution & Talent Optimizer), um mentor de desenvolvimento profissional acolhedor e empático da plataforma Vertho Mentor IA.
 
@@ -39,14 +42,19 @@ Regras:
  * @param {Array} history - Últimas 10 mensagens
  * @param paginaAtual - pathname capturado no momento do envio. É normalizado
  *   por allowlist e usado apenas como pista; autorização continua na sessão.
+ * @param localeDaTela - idioma em que a tela está (o `useLocale()` do chat).
+ *   Só escolhe a língua da resposta para a própria pessoa, e passa pela lista
+ *   fechada de idiomas: não decide acesso a nada.
  */
 export async function chatWithBeto(
   userMessage: string,
   history: Array<{ role: string; content: string }> = [],
   paginaAtual: string | null = null,
+  localeDaTela: string | null = null,
 ) {
   const auth = await requireUserAction();
   const email = auth.email;
+  const locale = await idiomaDoBeto(localeDaTela, email);
   // Doutrina teórica (DISC + Jung) sempre disponível: o Beto pode explicar o
   // framework mesmo para quem ainda não tem mapeamento.
   let systemPrompt = `${SYSTEM_PROMPT_BASE}\n\n${DISC_DOUTRINA}`;
@@ -116,13 +124,44 @@ ${ctx.competenciaFoco ? `\nCOMPETÊNCIA EM FOCO: ${ctx.competenciaFoco}` : ''}`;
     { role: 'user', content: maskTextPII(userMessage, pii) },
   ];
 
-  // callAIChat injeta a instrução de idioma conforme o locale do usuário (cookie
-  // vertho-locale) — sem isto o Beto respondia sempre em PT, ignorando a língua
-  // selecionada no painel.
+  // callAIChat injeta a instrução de idioma pelo `locale` passado aqui. Sem
+  // ele, o wrapper lê só o cookie `vertho-locale`, e o login por senha não
+  // grava o cookie: o Beto respondia em pt-BR enquanto a tela seguia o idioma
+  // da empresa (R-68).
   const resposta = await callAIChat(systemPrompt, messages, { model: 'claude-sonnet-4-6' }, 1000, {
-    taskKey: 'beto', empresaId, colaboradorId,
+    taskKey: 'beto', empresaId, colaboradorId, locale,
   });
   return unmaskPII(resposta, pii);
+}
+
+/**
+ * Em que idioma o Beto responde (R-68, 03/10/2026): o da TELA.
+ *
+ * A tela resolve o idioma por cookie, depois o idioma da empresa (pelo
+ * subdomínio), depois o do navegador (`i18n/request.ts`). O Beto lia só o
+ * cookie e caía em pt-BR, e o cookie só nasce no `/auth/callback` (login por
+ * link) ou no seletor de idioma: quem entra com senha ficava com a tela num
+ * idioma e o Beto noutro.
+ *
+ * Ordem: o idioma que a tela informa; sem ele (bundle antigo, sem o 4º
+ * argumento), o cookie; sem cookie, o idioma da pessoa no cadastro e, na falta,
+ * o da empresa dela (a mesma régua que o callback usa para gravar o cookie).
+ */
+async function idiomaDoBeto(localeDaTela: unknown, email: string | null | undefined): Promise<AppLocale> {
+  const daTela = typeof localeDaTela === 'string' ? normalizeAppLocale(localeDaTela) : null;
+  if (daTela) return daTela;
+  try {
+    const doCookie = normalizeAppLocale((await cookies()).get(localeCookieName)?.value);
+    if (doCookie) return doCookie;
+  } catch {
+    // Fora de uma request (não acontece numa action); segue para o cadastro.
+  }
+  try {
+    const { getLocaleForEmail } = await import('@/lib/i18n-server');
+    return (await getLocaleForEmail(email)) ?? defaultLocale;
+  } catch {
+    return defaultLocale;
+  }
 }
 
 /**
