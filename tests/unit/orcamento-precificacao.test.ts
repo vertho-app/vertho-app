@@ -65,11 +65,12 @@ describe('premissas comerciais do orçamento', () => {
     expect(CONTEUDO_POR_FORMATO_DEFAULT).toBe(12);
   });
 
-  it('oferece as três políticas de comissão aprovadas', () => {
+  it('oferece as quatro políticas de comissão aprovadas', () => {
     expect(OPCOES_COMISSAO_ORCAMENTO.map(({ key, percentual }) => ({ key, percentual }))).toEqual([
       { key: 'rc', percentual: 20 },
-      { key: 'consultor_parceiro', percentual: 10 },
-      { key: 'consultor_integrador', percentual: 0 },
+      { key: 'indicacao', percentual: 10 },
+      { key: 'indicador', percentual: 12 },
+      { key: 'venda_direta', percentual: 0 },
     ]);
     expect(obterComissaoOrcamento('canal_invalido').key).toBe('rc');
   });

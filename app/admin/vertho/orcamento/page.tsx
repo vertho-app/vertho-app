@@ -1260,7 +1260,7 @@ export default function OrcamentoPage() {
             </div>
             <p className="text-xs font-bold text-amber-100">{calc.comissaoLabel} · {calc.comissaoPct.toFixed(0)}%</p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Tipo de comissão comercial">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4" role="radiogroup" aria-label="Tipo de comissão comercial">
             {OPCOES_COMISSAO_ORCAMENTO.map((opcao) => {
               const selecionada = tipoComissao === opcao.key;
               return (
@@ -1443,6 +1443,9 @@ export default function OrcamentoPage() {
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Custo interno / pessoa</p>
                   <p className="mt-0.5 text-sm font-extrabold text-white tabular-nums">{money(calc.custoPorPessoaBrl)}</p>
                   <p className="text-[9px] text-gray-500"><span className="tabular-nums">{money(calc.custoPorPessoaMesBrl)}</span> / mês</p>
+                  <div className="mt-3">
+                    <KpiBox label={t('kpis.marginPct')} value={`${calc.margemPct.toFixed(1)}%`} sub={`alvo ${pricing.margemAlvoPct}%`} tone={calc.margemPct < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1461,8 +1464,9 @@ export default function OrcamentoPage() {
         <div className="mt-4 grid grid-cols-2 gap-3">
           <KpiBox label="Custo all-in" value={money(calc.custoTotalBrl)} sub={`operação ${money(calc.custoOperacionalBrl)}`} tone="gray" />
           <KpiBox label={t('kpis.marginValue')} value={money(calc.margemAbs)} tone={calc.margemPct < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
-          <KpiBox label={t('kpis.marginPct')} value={`${calc.margemPct.toFixed(1)}%`} sub={`alvo ${pricing.margemAlvoPct}%`} tone={calc.margemPct < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
-          <KpiBox label="Exposição máxima" value={money(calc.piorSaldo?.saldo ?? 0)} sub={`mês ${calc.piorSaldo?.mes ?? 1}`} tone={(calc.piorSaldo?.saldo ?? 0) < 0 ? 'amber' : 'emerald'} />
+          <div className="col-span-2">
+            <KpiBox label="Exposição máxima" value={money(calc.piorSaldo?.saldo ?? 0)} sub={`mês ${calc.piorSaldo?.mes ?? 1}`} tone={(calc.piorSaldo?.saldo ?? 0) < 0 ? 'amber' : 'emerald'} />
+          </div>
         </div>
 
         {/* Trava de desconto: o piso vem da margem-alvo, e barra antes de virar proposta */}

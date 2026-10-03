@@ -282,15 +282,20 @@ export const CONTEUDO_POR_FORMATO_DEFAULT = 12;
 /** Canais mutuamente exclusivos usados para calcular o custo comercial. */
 export const OPCOES_COMISSAO_ORCAMENTO = [
   { key: 'rc', label: 'RC', percentual: 20 },
-  { key: 'consultor_parceiro', label: 'Consultor parceiro', percentual: 10 },
-  { key: 'consultor_integrador', label: 'Consultor integrador', percentual: 0 },
+  { key: 'indicacao', label: 'Indicação', percentual: 10 },
+  { key: 'indicador', label: 'Indicador', percentual: 12 },
+  { key: 'venda_direta', label: 'Venda Direta', percentual: 0 },
 ] as const;
 
 export type TipoComissaoOrcamento = (typeof OPCOES_COMISSAO_ORCAMENTO)[number]['key'];
 
 /** Retorna a política do canal; RC é o fallback seguro do orçamento. */
 export function obterComissaoOrcamento(tipo: string) {
-  return OPCOES_COMISSAO_ORCAMENTO.find((opcao) => opcao.key === tipo)
+  // Orçamentos anteriores preservam a alíquota com o nome atual do canal.
+  const canal = tipo === 'consultor_parceiro' ? 'indicacao'
+    : tipo === 'consultor_integrador' ? 'venda_direta'
+    : tipo;
+  return OPCOES_COMISSAO_ORCAMENTO.find((opcao) => opcao.key === canal)
     ?? OPCOES_COMISSAO_ORCAMENTO[0];
 }
 

@@ -210,6 +210,20 @@ describe('normalizarEntradas — invariantes que a tela pressupõe', () => {
     expect(normalizarEntradas({ ...BASE, metodo: 'workshop' }, LISTAS)!.metodo).toBe('workshop');
   });
 
+  it.each(['rc', 'indicacao', 'indicador', 'venda_direta'])('preserva o canal %s ao salvar e reabrir', (tipoComissao) => {
+    const gravado = { ...entradasPadrao(LISTAS), tipoComissao };
+    expect(normalizarEntradas(JSON.parse(JSON.stringify(gravado)), LISTAS)).toEqual(gravado);
+  });
+
+  it.each([
+    ['consultor_parceiro', 'indicacao', 10],
+    ['consultor_integrador', 'venda_direta', 0],
+  ] as const)('migra %s para %s preservando a comissão de %i%%', (antigo, atual, percentual) => {
+    const lido = normalizarEntradas({ ...entradasPadrao(LISTAS), tipoComissao: antigo }, LISTAS)!;
+    expect(lido.tipoComissao).toBe(atual);
+    expect(OPCOES_COMISSAO_ORCAMENTO.find((opcao) => opcao.key === lido.tipoComissao)?.percentual).toBe(percentual);
+  });
+
   it('canal de comissão inválido cai no RC (o fallback conservador da régua)', () => {
     const lido = normalizarEntradas({ ...BASE, tipoComissao: 'canal_inventado' }, LISTAS)!;
     expect(lido.tipoComissao).toBe('rc');
