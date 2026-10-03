@@ -1929,6 +1929,13 @@
     "alreadyVoted": {
       "title": "Vote registered!",
       "savedAt": "Your vote has been saved in {date}."
+    },
+    "erro": {
+      "VOTACAO_FECHADA": "Voting is not open right now.",
+      "VOTACAO_INDISPONIVEL": "We could not load the voting. Please try again in a moment.",
+      "VOTO_TAMANHO": "Select exactly 5 competencies.",
+      "VOTO_REPETIDO": "Choose 5 different competencies.",
+      "VOTO_FORA_DA_CEDULA": "One of the chosen competencies is not on your ballot. Reload the page."
     }
   },
   "Season": {

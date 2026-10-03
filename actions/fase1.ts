@@ -53,8 +53,10 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts:
       opts.faseCarreira || (empresa as any)?.sys_config?.fase_carreira_default || undefined;
 
     // 2. Buscar competências da empresa (catálogo completo)
-    const { data: competencias } = await tdb.from('competencias')
+    const { data: competencias, error: errComps } = await tdb.from('competencias')
       .select('id, nome, descricao, cod_comp, pilar, cargo');
+    // Falha de leitura não vira "nenhuma competência cadastrada".
+    if (errComps) return { success: false, error: `Não foi possível ler as competências: ${errComps.message}` };
 
     if (!competencias?.length) return { success: false, error: 'Nenhuma competência cadastrada. Importe competências primeiro.' };
 
@@ -84,8 +86,9 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts:
     });
 
     // Buscar dados ricos do cargo (cargos_empresa) — match flexível
-    const { data: cargosDetalhados } = await tdb.from('cargos_empresa')
+    const { data: cargosDetalhados, error: errCargos } = await tdb.from('cargos_empresa')
       .select('*');
+    if (errCargos) return { success: false, error: `Não foi possível ler os cargos: ${errCargos.message}` };
     const cargosDetalheMap = {};
     (cargosDetalhados || []).forEach(c => {
       cargosDetalheMap[c.nome.toLowerCase()] = c;
@@ -115,8 +118,14 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts:
       return nomeOrig;
     };
 
-    // 5. Para cada cargo (das competências), pedir à IA que selecione as melhores
+    // 5. Para cada cargo (das competências), pedir à IA que selecione as melhores.
+    // A seleção NOVA é montada inteira ANTES de tocar no Top 10 gravado (R-83,
+    // 03/10/2026): antes o Top 10 do cargo era apagado logo no início, e uma IA
+    // que falhava, respondia JSON inválido ou não casava nenhuma competência
+    // deixava o cargo SEM Top 10 (a cédula da votação caía na matriz inteira),
+    // e a action respondia "IA1 concluída" mesmo assim.
     let totalSelecionadas = 0;
+    const falhas: string[] = [];
 
     for (const cargoNomeRaw of cargosParaProcessar) {
       // Reconcilia: 'Consultor' → 'Rare Diseases Demand Sr Consultant' quando
@@ -132,99 +141,142 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts:
         tensoes: detalhe.tensoes_comuns || '', contexto_extra: detalhe.contexto_cultural || '',
       };
 
-      // Limpar seleção anterior deste cargo
-      await tdb.from('top10_cargos')
-        .delete()
-        .eq('cargo', cargoNome);
+      // Linhas da seleção nova (empresa_id é injetado pelo tdb.insert).
+      const novas: Record<string, any>[] = [];
+      let resumoCargo: any = null;
 
       if (compsDoCargo.length <= 10) {
         // <= 10: selecionar TODAS direto, sem chamar IA
-        // empresa_id é injetado pelo tdb.insert
-        for (let i = 0; i < compsDoCargo.length; i++) {
-          await tdb.from('top10_cargos').insert({
-            cargo: cargoNome,
-            competencia_id: compsDoCargo[i].id,
-            posicao: i + 1,
-            justificativa: null,
-          });
-          totalSelecionadas++;
-        }
+        compsDoCargo.forEach((c: any, i: number) => {
+          novas.push({ cargo: cargoNome, competencia_id: c.id, posicao: i + 1, justificativa: null });
+        });
       } else {
         // > 10: chamar IA para selecionar as 10 melhores
         const system = buildSystemPromptSelecao(compsDoCargo, cargoNome, faseCarreira);
         const user = buildUserPrompt(empresa, cargoInfo, valores, contextoPPP);
 
-        const resposta = await callAI(system, user, aiConfig, 14000, { taskKey: 'ia1_top10' });
-        let resultado = await extractJSON(resposta);
+        let resultado: any;
+        try {
+          const resposta = await callAI(system, user, aiConfig, 14000, { taskKey: 'ia1_top10' });
+          resultado = await extractJSON(resposta);
 
-        if (resultado?.top10 && Array.isArray(resultado.top10)) {
-          // Validação pós-resposta
-          const validIds = new Set(competencias.map((c: any) => (c.cod_comp || c.id || '').toLowerCase()));
-          const validNomes = new Set(competencias.map((c: any) => c.nome.toLowerCase()));
+          if (resultado?.top10 && Array.isArray(resultado.top10)) {
+            // Filtrar top10 válidos
+            const top10Valid = (resultado.top10 || []).filter((sel: any) => {
+              const selId = (sel.id || '').trim().toLowerCase();
+              const selNome = (sel.nome || '').trim().toLowerCase();
+              if (!selId && !selNome) return false;
+              if (typeof sel.confianca === 'number' && (sel.confianca < 0 || sel.confianca > 1)) return false;
+              return true;
+            });
 
-          // Filtrar top10 válidos
-          const top10Valid = (resultado.top10 || []).filter((sel: any) => {
-            const selId = (sel.id || '').trim().toLowerCase();
-            const selNome = (sel.nome || '').trim().toLowerCase();
-            if (!selId && !selNome) return false;
-            if (typeof sel.confianca === 'number' && (sel.confianca < 0 || sel.confianca > 1)) return false;
-            return true;
-          });
-
-          // Se menos de 7 válidos (de 10), fazer retry
-          if (top10Valid.length < Math.min(7, compsDoCargo.length)) {
-            console.warn(`[IA1] ${cargoNome}: só ${top10Valid.length} válidos. Retry.`);
-            const retry = await callAI(system, user + '\n\nATENÇÃO: sua resposta anterior não tinha competências suficientes da lista. Use EXATAMENTE os IDs/nomes da lista fornecida.', aiConfig, 14000, { taskKey: 'ia1_top10' });
-            const retryResult = await extractJSON(retry);
-            if (retryResult?.top10?.length > top10Valid.length) {
-              resultado.top10 = retryResult.top10;
+            // Se menos de 7 válidos (de 10), fazer retry
+            if (top10Valid.length < Math.min(7, compsDoCargo.length)) {
+              console.warn(`[IA1] ${cargoNome}: só ${top10Valid.length} válidos. Retry.`);
+              const retry = await callAI(system, user + '\n\nATENÇÃO: sua resposta anterior não tinha competências suficientes da lista. Use EXATAMENTE os IDs/nomes da lista fornecida.', aiConfig, 14000, { taskKey: 'ia1_top10' });
+              const retryResult = await extractJSON(retry);
+              if (retryResult?.top10?.length > top10Valid.length) {
+                resultado.top10 = retryResult.top10;
+              }
             }
           }
-
-          // Persistir top10
-          const usedIds = new Set();
-          for (let i = 0; i < (resultado.top10 || []).length; i++) {
-            const sel = resultado.top10[i];
-            // Só entre as linhas do CARGO: a empresa pode ter a mesma matriz em
-            // outro cargo, e o id gravado precisa ser o que a entrega encontra.
-            const match = casarSelecaoIA1(competencias as any[], cargoNomeRaw, sel, usedIds as Set<string>);
-
-            if (!match) continue;
-            usedIds.add(match.id);
-
-            await tdb.from('top10_cargos').insert({
-              cargo: cargoNome,
-              competencia_id: match.id,
-              posicao: sel.posicao || i + 1,
-              justificativa: sel.justificativa || null,
-              confianca: typeof sel.confianca === 'number' ? Math.max(0, Math.min(1, sel.confianca)) : null,
-              aderencia_cargo: typeof sel.aderencia_cargo === 'number' ? Math.max(0, Math.min(1, sel.aderencia_cargo)) : null,
-              aderencia_mercado: typeof sel.aderencia_mercado === 'number' ? Math.max(0, Math.min(1, sel.aderencia_mercado)) : null,
-              motivo: sel.motivo || null,
-              evidencias: Array.isArray(sel.evidencias_do_caso) ? sel.evidencias_do_caso : [],
-              papel_na_cobertura: sel.papel_na_cobertura || null,
-            });
-            totalSelecionadas++;
-          }
-
-          // Persistir resumo do cargo (quase_entrou + resumo_executivo)
-          if (resultado.quase_entrou || resultado.resumo_executivo) {
-            await tdb.from('cargos_empresa').update({
-              ia1_resultado: {
-                quase_entrou: resultado.quase_entrou || [],
-                resumo_executivo: resultado.resumo_executivo || {},
-                gerado_em: new Date().toISOString(),
-              },
-            }).eq('nome', cargoNome);
-          }
+        } catch (e: any) {
+          falhas.push(`${cargoNome}: a IA falhou (${e?.message || e})`);
+          continue;
         }
+
+        if (!resultado?.top10 || !Array.isArray(resultado.top10)) {
+          falhas.push(`${cargoNome}: a IA não devolveu uma seleção válida`);
+          continue;
+        }
+
+        const usedIds = new Set();
+        for (let i = 0; i < resultado.top10.length; i++) {
+          const sel = resultado.top10[i];
+          // Só entre as linhas do CARGO: a empresa pode ter a mesma matriz em
+          // outro cargo, e o id gravado precisa ser o que a entrega encontra.
+          const match = casarSelecaoIA1(competencias as any[], cargoNomeRaw, sel, usedIds as Set<string>);
+          if (!match) continue;
+          usedIds.add(match.id);
+          novas.push({
+            cargo: cargoNome,
+            competencia_id: match.id,
+            posicao: sel.posicao || i + 1,
+            justificativa: sel.justificativa || null,
+            confianca: typeof sel.confianca === 'number' ? Math.max(0, Math.min(1, sel.confianca)) : null,
+            aderencia_cargo: typeof sel.aderencia_cargo === 'number' ? Math.max(0, Math.min(1, sel.aderencia_cargo)) : null,
+            aderencia_mercado: typeof sel.aderencia_mercado === 'number' ? Math.max(0, Math.min(1, sel.aderencia_mercado)) : null,
+            motivo: sel.motivo || null,
+            evidencias: Array.isArray(sel.evidencias_do_caso) ? sel.evidencias_do_caso : [],
+            papel_na_cobertura: sel.papel_na_cobertura || null,
+          });
+        }
+        if (resultado.quase_entrou || resultado.resumo_executivo) {
+          resumoCargo = {
+            quase_entrou: resultado.quase_entrou || [],
+            resumo_executivo: resultado.resumo_executivo || {},
+            gerado_em: new Date().toISOString(),
+          };
+        }
+      }
+
+      if (!novas.length) {
+        falhas.push(`${cargoNome}: nenhuma competência da seleção casou com a matriz do cargo`);
+        continue;
+      }
+
+      const troca = await substituirTop10DoCargo(tdb, cargoNome, novas);
+      if (troca.error) {
+        falhas.push(`${cargoNome}: ${troca.error}`);
+        continue;
+      }
+      totalSelecionadas += novas.length;
+
+      // Persistir resumo do cargo (quase_entrou + resumo_executivo)
+      if (resumoCargo) {
+        const { error: errResumo } = await tdb.from('cargos_empresa')
+          .update({ ia1_resultado: resumoCargo })
+          .eq('nome', cargoNome);
+        if (errResumo) console.warn(`[IA1] ${cargoNome}: resumo não gravado (${errResumo.message})`);
       }
     }
 
+    const okCargos = cargosParaProcessar.length - falhas.length;
+    const resumo = `IA1: ${totalSelecionadas} competências selecionadas para ${okCargos} de ${cargosParaProcessar.length} cargos`;
+    if (falhas.length) {
+      return {
+        success: false,
+        error: `${resumo}. Nos demais, o Top 10 anterior foi mantido: ${falhas.join(' · ')}`,
+      };
+    }
     return { success: true, message: `IA1 concluída: ${totalSelecionadas} competências selecionadas para ${cargosParaProcessar.length} cargos` };
   } catch (err) {
     return { success: false, error: err.message };
   }
+}
+
+/**
+ * Troca o Top 10 de UM cargo pela seleção nova. Só é chamada com a seleção já
+ * pronta e não vazia. O banco tem `UNIQUE (empresa_id, cargo, competencia_id)`,
+ * então inserir antes de apagar colidiria nas competências que permanecem:
+ * apaga, insere, e se o insert falhar devolve as linhas antigas, para o cargo
+ * nunca ficar sem Top 10 por uma falha no meio.
+ */
+async function substituirTop10DoCargo(tdb: any, cargoNome: string, novas: Record<string, any>[]): Promise<{ error?: string }> {
+  const { data: antigas, error: errLer } = await tdb.from('top10_cargos').select('*').eq('cargo', cargoNome);
+  if (errLer) return { error: `não foi possível ler o Top 10 atual (${errLer.message})` };
+
+  const { error: errDel } = await tdb.from('top10_cargos').delete().eq('cargo', cargoNome);
+  if (errDel) return { error: `não foi possível substituir o Top 10 (${errDel.message})` };
+
+  const { error: errIns } = await tdb.from('top10_cargos').insert(novas);
+  if (!errIns) return {};
+
+  if ((antigas || []).length) {
+    const { error: errVolta } = await tdb.from('top10_cargos').insert(antigas);
+    if (errVolta) return { error: `gravar a seleção nova falhou (${errIns.message}) e o Top 10 anterior NÃO foi restaurado (${errVolta.message})` };
+  }
+  return { error: `gravar a seleção nova falhou (${errIns.message}); o Top 10 anterior foi restaurado` };
 }
 
 // ── CRUD top10 (para validação manual) ──────────────────────────────────────

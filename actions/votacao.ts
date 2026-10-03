@@ -68,29 +68,31 @@ export async function checkVotacaoStatus() {
 
 // ── Colaborador: carregar competências para votar ─────────────────────────
 
-export async function loadCompetenciasParaVotar() {
-  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
-  const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { error: 'Não autenticado' };
-
-  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id');
-  if (!colab) return { error: 'Colaborador não encontrado' };
-
+/**
+ * A cédula de QUEM vota, com a votação aberta: fonte única da tela que mostra a
+ * cédula e do servidor que aceita o voto (R-83, 03/10/2026). Antes só a tela
+ * conferia a votação aberta e a cédula; `salvarVoto` aceitava qualquer lista de
+ * 5 nomes, com a votação fechada, fora da cédula e com repetição.
+ */
+async function cedulaDaVotacaoAberta(
+  colab: { empresa_id: string; cargo?: string | null },
+): Promise<{ cedula: Cedula } | { error: string; code?: string }> {
   const sb = createSupabaseAdmin();
   const tdb = tenantDb(colab.empresa_id);
 
-  // Verificar se votação está ativa
-  const { data: empresa } = await sb.from('empresas')
+  // Verificar se votação está ativa. Falha de leitura não vira "fechada": diz que falhou.
+  const { data: empresa, error: errEmpresa } = await sb.from('empresas')
     .select('sys_config').eq('id', colab.empresa_id).maybeSingle();
+  if (errEmpresa) return { error: 'Não foi possível carregar a votação. Tente de novo em instantes.', code: 'VOTACAO_INDISPONIVEL' };
   const votacaoAtiva = empresa?.sys_config?.votacao_ativa === true;
-  if (!votacaoAtiva) return { error: 'Votação não está aberta no momento' };
+  if (!votacaoAtiva) return { error: 'Votação não está aberta no momento', code: 'VOTACAO_FECHADA' };
 
   // Cédula = Top 10 do cargo; sem Top 10, a matriz inteira (lib/votacao/cedula.ts).
   // Falha de leitura NÃO pode virar "cargo sem Top 10": a pessoa receberia a
   // matriz inteira sem ninguém saber por quê.
   const { data: top10, error: errTop10 } = await tdb.from('top10_cargos')
     .select('cargo, competencia:competencias(nome, cod_comp, descricao, pilar)');
-  if (errTop10) return { error: 'Não foi possível carregar as competências. Tente de novo em instantes.' };
+  if (errTop10) return { error: 'Não foi possível carregar as competências. Tente de novo em instantes.', code: 'VOTACAO_INDISPONIVEL' };
 
   let cedula = montarCedula({ cargo: colab.cargo, top10: (top10 || []) as any[], matriz: [] });
   if (cedula.fonte === 'matriz') {
@@ -100,11 +102,25 @@ export async function loadCompetenciasParaVotar() {
     // O PostgREST corta em 1.000 linhas calado: a matriz cortada tiraria
     // competências da cédula sem aviso.
     if (errMatriz || (matriz?.length ?? 0) < (totalMatriz ?? 0)) {
-      return { error: 'Não foi possível carregar as competências. Tente de novo em instantes.' };
+      return { error: 'Não foi possível carregar as competências. Tente de novo em instantes.', code: 'VOTACAO_INDISPONIVEL' };
     }
     cedula = montarCedula({ cargo: colab.cargo, top10: [], matriz: matriz || [] });
   }
-  const competencias = cedula.competencias;
+  return { cedula };
+}
+
+export async function loadCompetenciasParaVotar() {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { error: 'Não autenticado' };
+
+  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id');
+  if (!colab) return { error: 'Colaborador não encontrado' };
+
+  const tdb = tenantDb(colab.empresa_id);
+  const aberta = await cedulaDaVotacaoAberta(colab);
+  if ('error' in aberta) return aberta;
+  const competencias = aberta.cedula.competencias;
 
   // Buscar voto existente
   const { data: votoExist } = await (tdb.from('votacao_competencias') as any)
@@ -127,11 +143,24 @@ export async function salvarVoto(competencias: string[], sugestaoNova?: string) 
   if (!email) return { error: 'Não autenticado' };
 
   if (!Array.isArray(competencias) || competencias.length !== 5) {
-    return { error: 'Selecione exatamente 5 competências' };
+    return { error: 'Selecione exatamente 5 competências', code: 'VOTO_TAMANHO' };
+  }
+  // A ordem é o voto (1ª = 5 pontos): repetir um nome daria a ele duas posições.
+  const escolhidas = competencias.map((c) => String(c ?? '').trim());
+  if (escolhidas.some((c) => !c) || new Set(escolhidas).size !== escolhidas.length) {
+    return { error: 'Escolha 5 competências diferentes.', code: 'VOTO_REPETIDO' };
   }
 
   const colab = await findColabByEmail(email, 'id, cargo, empresa_id');
   if (!colab) return { error: 'Colaborador não encontrado' };
+
+  // A mesma porta da tela: votação aberta e a cédula DESTA pessoa.
+  const aberta = await cedulaDaVotacaoAberta(colab);
+  if ('error' in aberta) return aberta;
+  const naCedula = new Set(aberta.cedula.competencias.map((c) => c.nome));
+  if (escolhidas.some((c) => !naCedula.has(c))) {
+    return { error: 'Uma das competências escolhidas não está na sua cédula. Recarregue a página.', code: 'VOTO_FORA_DA_CEDULA' };
+  }
 
   const tdb = tenantDb(colab.empresa_id);
   const meta = await captureRequestMetadata();
@@ -139,7 +168,7 @@ export async function salvarVoto(competencias: string[], sugestaoNova?: string) 
   const { error } = await (tdb.from('votacao_competencias') as any).upsert({
     colaborador_id: colab.id,
     cargo: colab.cargo,
-    competencias_escolhidas: competencias,
+    competencias_escolhidas: escolhidas,
     sugestao_nova: sugestaoNova?.trim() || null,
     votado_em: new Date().toISOString(),
     device_type: meta.device_type,
@@ -335,10 +364,32 @@ export async function aprovarTop5Votacao(empresaId: string, cargo: string, top: 
   if (dedup.length === 0) return { success: false, error: 'Nenhuma competência válida' };
 
   const tdb = tenantDb(empresaId);
-  const { error } = await tdb.from('cargos_empresa')
+  // O `cargo` vem do resultado da votação, que agrupa pelo cargo das PESSOAS; o
+  // Top 5 mora no cadastro do cargo. Os dois nomes podem diferir em caixa ou
+  // acento, e um `.eq('nome', cargo)` exato atualizava ZERO linhas e respondia
+  // "aprovada" (R-83, 03/10/2026). Resolve pela mesma régua de cargo da cédula e
+  // falha alto quando não há (ou há mais de um) cadastro correspondente.
+  const { data: cargos, error: errCargos } = await tdb.from('cargos_empresa').select('nome');
+  if (errCargos) return { success: false, error: errCargos.message };
+  const alvo = normalizarCargoDaCedula(cargo);
+  const candidatos = (cargos || []).filter((c: any) => normalizarCargoDaCedula(c.nome) === alvo);
+  const exato = candidatos.find((c: any) => c.nome === cargo);
+  const nomeCadastro: string | null = exato?.nome ?? (candidatos.length === 1 ? candidatos[0].nome : null);
+  if (!nomeCadastro) {
+    return {
+      success: false,
+      error: candidatos.length > 1
+        ? `Mais de um cargo cadastrado corresponde a "${cargo}". Nada foi gravado.`
+        : `O cargo "${cargo}" não está cadastrado nesta empresa. Nada foi gravado.`,
+    };
+  }
+
+  const { data: gravados, error } = await tdb.from('cargos_empresa')
     .update({ top5_workshop: dedup })
-    .eq('nome', cargo);
+    .eq('nome', nomeCadastro)
+    .select('id');
 
   if (error) return { success: false, error: error.message };
-  return { success: true, message: `${dedup.length} competência${dedup.length === 1 ? '' : 's'} aprovada${dedup.length === 1 ? '' : 's'} para ${cargo}` };
+  if (!gravados?.length) return { success: false, error: `Nenhum cargo "${cargo}" foi atualizado. Nada foi gravado.` };
+  return { success: true, message: `${dedup.length} competência${dedup.length === 1 ? '' : 's'} aprovada${dedup.length === 1 ? '' : 's'} para ${nomeCadastro}` };
 }

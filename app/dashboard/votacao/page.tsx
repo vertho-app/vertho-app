@@ -9,8 +9,13 @@ import { Loader2, Check, GripVertical, Plus, X, Send } from 'lucide-react';
 import { loadCompetenciasParaVotar, salvarVoto } from '@/actions/votacao';
 import BackButton from '@/components/back-button';
 
+/** Recusas do servidor que a tela traduz; as demais mostram o texto que veio. */
+const ERROS_CONHECIDOS = new Set(['VOTACAO_FECHADA', 'VOTACAO_INDISPONIVEL', 'VOTO_TAMANHO', 'VOTO_REPETIDO', 'VOTO_FORA_DA_CEDULA']);
+
 export default function VotacaoPage() {
   const t = useTranslations('Voting');
+  const mensagemDe = (r: { error?: string; code?: string }) =>
+    (r.code && ERROS_CONHECIDOS.has(r.code) ? t(`erro.${r.code}`) : r.error) || '';
   const locale = useLocale();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -28,8 +33,8 @@ export default function VotacaoPage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const result = await loadCompetenciasParaVotar();
-      if (result.error) setError(result.error);
+      const result: any = await loadCompetenciasParaVotar();
+      if (result.error) setError(mensagemDe(result));
       else {
         setData(result);
         // Se já votou, a tela read-only será exibida
@@ -73,7 +78,7 @@ export default function VotacaoPage() {
     setSaving(true);
     const r = await salvarVoto(selected, sugestao);
     setSaving(false);
-    if (r.error) { toast.error(r.error); }
+    if (r.error) { toast.error(mensagemDe(r as any)); }
     else { setSaved(true); toast.success(t('toast.saved')); setTimeout(() => router.push('/dashboard'), 1500); }
   }
 

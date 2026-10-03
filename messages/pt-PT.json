@@ -1929,6 +1929,13 @@
     "alreadyVoted": {
       "title": "Voto registado!",
       "savedAt": "O seu voto foi guardado em {date}."
+    },
+    "erro": {
+      "VOTACAO_FECHADA": "A votação não está aberta neste momento.",
+      "VOTACAO_INDISPONIVEL": "Não foi possível carregar a votação. Tente novamente dentro de instantes.",
+      "VOTO_TAMANHO": "Selecione exatamente 5 competências.",
+      "VOTO_REPETIDO": "Escolha 5 competências diferentes.",
+      "VOTO_FORA_DA_CEDULA": "Uma das competências escolhidas não está no seu boletim. Recarregue a página."
     }
   },
   "Season": {
