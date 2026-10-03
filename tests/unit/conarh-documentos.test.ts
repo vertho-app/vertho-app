@@ -3,6 +3,17 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import conteudoJson from '@/app/conarh/_data/conteudo.json';
 import manifesto from '@/app/conarh/_data/paginas-pdf.json';
+import { blocoEstaOffline } from '@/lib/blocos-offline';
+
+/**
+ * ⛔ 03/10/2026 (R-108): a mídia do estande (`public/conarh/`, 101 MB) saiu do
+ * repositório. O CONARH está off-line desde 31/08/2026, mas `public/` é servido
+ * sem passar pelo layout: o 404 da tela não fechava os PDFs e vídeos, que
+ * seguiam abrindo por URL direta. Os dois testes que leem `public/conarh/` só
+ * valem com o bloco ligado; religar exige restaurar a mídia do histórico
+ * (`git checkout a0dbfbed -- public/conarh`), e aí eles voltam a cobrar.
+ */
+const MIDIA_FORA = blocoEstaOffline('conarh');
 
 /**
  * CONARH 52 — os documentos abrem DENTRO da demo, e offline.
@@ -48,7 +59,7 @@ function pdfsDaTela(): string[] {
 }
 
 describe('CONARH · documentos', () => {
-  it('todo PDF que a tela abre tem páginas no manifesto, e os arquivos existem', () => {
+  it.skipIf(MIDIA_FORA)('todo PDF que a tela abre tem páginas no manifesto, e os arquivos existem', () => {
     const pdfs = pdfsDaTela();
     expect(pdfs.length).toBeGreaterThan(0); // denominador: se a varredura zerar, o teste não prova nada
 
@@ -84,7 +95,7 @@ describe('CONARH · documentos', () => {
     }
   });
 
-  it('o manifesto da tela e o do service worker são o mesmo arquivo', () => {
+  it.skipIf(MIDIA_FORA)('o manifesto da tela e o do service worker são o mesmo arquivo', () => {
     const daTela = readFileSync(join(RAIZ, 'app', 'conarh', '_data', 'paginas-pdf.json'), 'utf8');
     const doWorker = readFileSync(join(PUBLICO, 'conarh', 'paginas-pdf.json'), 'utf8');
     expect(doWorker).toBe(daTela);

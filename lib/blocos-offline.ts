@@ -64,6 +64,10 @@ export const BLOCOS_OFFLINE = {
     evidencia:
       'Descontinuado após a feira. Nenhuma das 7 rotas é referenciada por link em lugar nenhum do código — só eram alcançáveis por URL direta.',
   },
+  // A mídia do estande (`public/conarh/`, 101 MB) saiu do repositório em
+  // 03/10/2026 (R-108): `public/` não passa pelo layout, então o bloco off-line
+  // seguia servindo PDFs e vídeos por URL direta. Religar o CONARH exige
+  // restaurá-la (`git checkout a0dbfbed -- public/conarh`); o guard cobra.
   conarh: {
     rotulo: 'CONARH 52',
     desde: '2026-08-31',

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import conteudoJson from '@/app/conarh/_data/conteudo.json';
 import type { ConteudoConarh, ReguaVitrine } from '@/app/conarh/_data/types';
 import { formatarNota, lerRespostas } from '@/lib/conarh/leitura';
+import { blocoEstaOffline } from '@/lib/blocos-offline';
 
 /**
  * CONARH 52 — integridade do pacote de conteúdo da demo.
@@ -27,6 +28,14 @@ import { formatarNota, lerRespostas } from '@/lib/conarh/leitura';
  */
 
 const conteudo = conteudoJson as unknown as ConteudoConarh;
+
+/**
+ * ⛔ 03/10/2026 (R-108): a mídia do estande (`public/conarh/`) saiu do
+ * repositório; o CONARH está off-line e `public/` abria os arquivos por URL
+ * direta. As checagens de ARQUIVO só valem com o bloco ligado (religar exige
+ * restaurar a mídia do histórico); as de conteúdo continuam valendo.
+ */
+const MIDIA_FORA = blocoEstaOffline('conarh');
 
 function reguas(): ReguaVitrine[] {
   const { porta1 } = conteudo;
@@ -201,7 +210,7 @@ describe('pacote de conteúdo do CONARH', () => {
     expect(pdf.src.startsWith('/conarh/')).toBe(true);
     expect(pdf.capa.startsWith('/conarh/')).toBe(true);
     expect(pdf.paginas).toBeGreaterThan(0);
-    for (const rel of [pdf.src, pdf.capa]) {
+    for (const rel of MIDIA_FORA ? [] : [pdf.src, pdf.capa]) {
       const caminho = join(process.cwd(), 'public', rel.replace(/^\//, ''));
       expect(existsSync(caminho), `arquivo ausente: ${rel}`).toBe(true);
       expect(statSync(caminho).size, `arquivo vazio: ${rel}`).toBeGreaterThan(10_000);
@@ -222,6 +231,7 @@ describe('pacote de conteúdo do CONARH', () => {
     const rel = conteudo.porta4.relatorio_perfil;
     expect(rel?.src, 'Camada 2 sem relatório de perfil').toBeTruthy();
     expect(rel!.nota?.trim(), 'relatório sem a nota que diz que é de persona demo').toBeTruthy();
+    if (MIDIA_FORA) return;
     const caminho = join(process.cwd(), 'public', String(rel!.src).replace(/^\//, ''));
     expect(existsSync(caminho), `${rel!.src} ausente`).toBe(true);
     expect(statSync(caminho).size, 'relatório vazio').toBeGreaterThan(50_000);
@@ -244,7 +254,7 @@ describe('pacote de conteúdo do CONARH', () => {
     ).toBe(false);
   });
 
-  it('a mídia de cada pessoa do espelho existe no pacote (a demo roda offline)', () => {
+  it.skipIf(MIDIA_FORA)('a mídia de cada pessoa do espelho existe no pacote (a demo roda offline)', () => {
     for (const p of conteudo.porta4.pessoas) {
       if (!p.midia?.src) continue; // formato texto não tem arquivo
       const caminho = join(process.cwd(), 'public', p.midia.src.replace(/^\//, ''));
@@ -260,6 +270,7 @@ describe('pacote de conteúdo do CONARH', () => {
     expect(rels.length, 'etapa 5 sem relatórios').toBeGreaterThanOrEqual(3);
     for (const r of rels) {
       expect(r.nota?.trim(), `${r.titulo} sem nota`).toBeTruthy();
+      if (MIDIA_FORA) continue;
       const caminho = join(process.cwd(), 'public', r.src.replace(/^\//, ''));
       expect(existsSync(caminho), `${r.titulo}: ${r.src} ausente`).toBe(true);
       expect(statSync(caminho).size, `${r.titulo}: PDF vazio`).toBeGreaterThan(50_000);

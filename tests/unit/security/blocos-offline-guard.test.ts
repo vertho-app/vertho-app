@@ -204,6 +204,20 @@ describe('blocos off-line — a porta está fechada', () => {
     ).toEqual([]);
   });
 
+  it('🔴 a mídia do estande do CONARH não volta ao public/ (o 404 da tela não fecha arquivo estático)', () => {
+    // `public/` é servido sem passar pelo layout: com o bloco off-line desde
+    // 31/08, /conarh respondia 404 e /conarh/media/relatorio-rh.pdf respondia
+    // 200 (medido em produção, 03/10/2026). A mídia saiu do repositório (R-108);
+    // religar o CONARH é tirar a entrada do registro E restaurá-la do histórico.
+    if (!blocoEstaOffline('conarh')) return;
+    let versionados: string[];
+    try {
+      versionados = execFileSync('git', ['ls-files', '-z', '--', 'public/conarh/'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] })
+        .split('\0').filter(Boolean);
+    } catch { return; } // fora de repo git: guard não se aplica
+    expect(versionados, 'arquivo de bloco off-line em public/ abre por URL direta: ' + versionados.slice(0, 5).join(', ')).toEqual([]);
+  });
+
   it('🔴 as rotas de API do CONARH respondem 410 antes de autenticar por chave', () => {
     if (!blocoEstaOffline('conarh')) return;
     const abertas = ROTAS_API_CONARH.filter((arq) => {
