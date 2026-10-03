@@ -10,7 +10,6 @@
     "actions/pulse/signals.ts": 1,
     "actions/temporadas.ts": 2,
     "actions/trilhas-load.ts": 2,
-    "actions/tutor-evidencia.ts": 1,
     "actions/video-analytics.ts": 2,
     "actions/video-tracking.ts": 1,
     "app/admin/_shell/actions.ts": 1,

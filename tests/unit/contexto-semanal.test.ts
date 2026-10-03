@@ -123,24 +123,18 @@ describe('resolverContextoSemanal', () => {
   });
 });
 
-describe('os dois consumidores usam o resolvedor', () => {
+// Eram dois consumidores; o tutor de evidência do Praticar
+// (`actions/tutor-evidencia.ts`) saiu com a página legada em 03/10/2026 (R-125).
+describe('o consumidor usa o resolvedor', () => {
   const BETO = readFileSync(join(process.cwd(), 'app/actions/beto.ts'), 'utf-8');
-  const TUTOR = readFileSync(join(process.cwd(), 'actions/tutor-evidencia.ts'), 'utf-8');
 
-  it('nenhum dos dois seleciona a coluna fantasma', () => {
-    for (const [nome, src] of [['beto', BETO], ['tutor', TUTOR]] as const) {
-      const selects: string[] = src.match(/\.select\('[^']*'\)/g) ?? [];
-      const comFantasma = selects.filter((s) => s.includes('competencia_id'));
-      expect(comFantasma, `${nome} ainda seleciona competencia_id`).toEqual([]);
-    }
+  it('não seleciona a coluna fantasma', () => {
+    const selects: string[] = BETO.match(/\.select\('[^']*'\)/g) ?? [];
+    const comFantasma = selects.filter((s) => s.includes('competencia_id'));
+    expect(comFantasma, 'beto ainda seleciona competencia_id').toEqual([]);
   });
 
-  it('os dois chamam `resolverContextoSemanal`', () => {
+  it('chama `resolverContextoSemanal`', () => {
     expect(BETO).toContain('resolverContextoSemanal(sb, {');
-    expect(TUTOR).toContain('resolverContextoSemanal(sb, {');
-  });
-
-  it('o tutor traz `empresa_id` do colaborador — sem ele a competência não escopa', () => {
-    expect(TUTOR).toContain("'nome_completo, cargo, perfil_dominante, empresa_id'");
   });
 });

@@ -51,7 +51,6 @@ vi.mock('@/lib/authz', async (importOriginal) => {
 });
 
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
-import { loadTrilhaAtual } from '@/app/dashboard/praticar/praticar-actions';
 import { loadUltimosVideosColab } from '@/actions/video-analytics';
 import { loadAvatarData } from '@/app/dashboard/dashboard-actions';
 
@@ -94,19 +93,8 @@ describe('loadTemporadaConcluida — posse via canViewColabJourney', () => {
   });
 });
 
-describe('loadTrilhaAtual — identidade vem da sessão', () => {
-  it('sem sessão → Não autenticado (antes nem auth tinha)', async () => {
-    const r: any = await loadTrilhaAtual('b@x.com');
-    expect(r.error).toMatch(/autenticado/i);
-  });
-
-  it('ignora o email do client e usa o da SESSÃO', async () => {
-    sessao = colabA;
-    const r: any = await loadTrilhaAtual('b@x.com');
-    expect(findColabByEmailMock).toHaveBeenCalledWith('a@x.com', expect.anything());
-    expect(r.colaborador?.id).toBe('c1');
-  });
-});
+// `loadTrilhaAtual` (Praticar) saiu com a página legada de evidência em
+// 03/10/2026 (R-125): o arquivo inteiro foi removido, não há mais o que gatar.
 
 describe('loadUltimosVideosColab — identidade vem da sessão', () => {
   it('ignora o email do client e usa o da SESSÃO', async () => {

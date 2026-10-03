@@ -110,8 +110,7 @@ empresa (§2.3), e aí o provedor é o do modelo escolhido.
 | Auditoria da IA4 (síncrono e lote) | respostas, avaliação gravada | modelo da tarefa `ia4_check` | **sim** | `lib/check-ia4-core.ts` · idem |
 | Reavaliação da IA4 | respostas, avaliação anterior, auditoria | modelo da tarefa `ia4_avaliacao` | **sim** | `lib/ia4-reavaliacao.ts` · idem |
 | PDI: gerador e auditor (síncrono e lote) | respostas, parecer da IA4, plano, perfil | modelo da tarefa + auditor `pdi_check` | **sim** (o PDI grava com o primeiro nome) | `lib/relatorio-individual-prompt.ts`, `lib/relatorios/individual-core.ts` · idem |
-| Praticar: avaliação da evidência | texto da prática, cargo, perfil | IA do pipeline | **sim** | `actions/tutor-evidencia.ts` · `tests/unit/conversas-pii.test.ts` |
-| Beto no app | mensagem, histórico, perfil comportamental, plano, cargo | Anthropic | **sim** | `app/actions/beto.ts` · idem |
+| Beto no app | mensagem, histórico, perfil comportamental, plano, cargo | Anthropic | **sim** | `app/actions/beto.ts` · `tests/unit/conversas-pii.test.ts` |
 | Beto no WhatsApp: texto | mensagem, histórico de 24 h, nome e cargo do cadastro, empresa | **Google** (Gemini) | **sim** (resposta desmascarada antes da checagem de conduta) | `lib/whatsapp/suporte-auto.ts` · `tests/unit/integrations/suporte-auto.test.ts` |
 | Beto no WhatsApp: áudio | **a voz da pessoa** | **Google** (Gemini) | **não** (voz não se mascara) | idem, §2.4 |
 | Simulador de vendas | nome do vendedor, falas, planejamento | modelo PACE configurado | **sim** (nome vira identificador em todas as etapas; falas já sem contato) | `lib/simulador-vendas/ai.ts` · `tests/unit/simulador-vendas-ai.test.ts` |

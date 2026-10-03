@@ -365,7 +365,6 @@ nextjs-app/
 │   ├── evolucao-granular.ts      # Delta por descritor
 │   ├── fit-v2.ts                 # Calculo Fit v2
 │   ├── trilhas-load.ts           # Carregar trilhas
-│   ├── tutor-evidencia.ts        # Avaliacao evidencia
 │   ├── competencias.ts           # CRUD por empresa
 │   ├── competencias-base.ts      # CRUD base global
 │   ├── votacao.ts                # NOVO: Votacao colabs nas top10 do cargo (load+save case+accent insensitive)

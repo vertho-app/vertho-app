@@ -173,7 +173,7 @@ describe('o código do convite não vai para o Sentry em nenhum dos três lugare
 
 describe('a gravação pausa onde a pessoa escreve', () => {
   it('rotas com conversa não gravam; telas de leitura gravam', () => {
-    for (const caminho of ['/dashboard/assessment', '/dashboard/praticar/evidencia', '/dashboard/temporada/semana/2', '/dashboard/temporada/sem14',
+    for (const caminho of ['/dashboard/assessment', '/dashboard/temporada/semana/2', '/dashboard/temporada/sem14',
       '/dashboard/simulador-vendas', '/dashboard/simulador-lideranca/x', '/dashboard/treino-atendimento']) {
       expect(rotaPermiteGravar(caminho), caminho).toBe(false);
     }
@@ -190,8 +190,9 @@ describe('a gravação pausa onde a pessoa escreve', () => {
       .split(/\r?\n/)
       .filter((arquivo) => /\/page\.tsx$/.test(arquivo));
     const comTexto = paginas.filter((arquivo) => /<textarea\b/.test(readFileSync(arquivo, 'utf8')));
-    // denominador: hoje são 4 (assessment, praticar/evidencia, temporada/sem14, temporada/semana/[week])
-    expect(comTexto.length).toBeGreaterThanOrEqual(4);
+    // denominador: hoje são 3 (assessment, temporada/sem14, temporada/semana/[week]);
+    // praticar/evidencia saiu em 03/10/2026 com a página legada (R-125)
+    expect(comTexto.length).toBeGreaterThanOrEqual(3);
     const furos = comTexto
       .map((arquivo) => arquivo.replace(/^app/, '').replace(/\/page\.tsx$/, '').replace(/\[[^\]]+\]/g, 'x'))
       .filter((rota) => rotaPermiteGravar(rota));

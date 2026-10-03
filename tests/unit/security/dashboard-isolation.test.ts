@@ -30,7 +30,6 @@ describe('Dashboard actions — identidade não vem por parâmetro', () => {
     { file: 'app/dashboard/jornada/jornada-actions.ts', functions: ['loadJornada'] },
     { file: 'app/dashboard/perfil/perfil-actions.ts', functions: ['loadPerfil', 'salvarFotoPerfil', 'salvarAvatarPreset', 'removerAvatar'] },
     { file: 'app/dashboard/pdi/pdi-actions.ts', functions: ['loadPDI', 'baixarMeuPdiPdf'] },
-    { file: 'app/dashboard/praticar/praticar-actions.ts', functions: ['registrarEvidencia'] },
     { file: 'actions/dashboard-kpis.ts', functions: ['loadHomeKpis'] },
     { file: 'app/dashboard/gestor/equipe-evolucao/actions.ts', functions: ['listarEquipeEvolucao', 'listarCheckpointsPendentes', 'salvarCheckpointGestor', 'loadLideradoConcluida'] },
     { file: 'app/dashboard/assessment/assessment-actions.ts', functions: ['getDiagnosticoDoDia', 'salvarRespostaDiagnostico', 'loadAssessmentData'] },

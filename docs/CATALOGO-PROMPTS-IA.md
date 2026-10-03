@@ -1980,6 +1980,11 @@ Cinco prompts migrados do simulador RNaves, sem alteração intencional do texto
 ### 15.3 Tutor Evidência (Avaliar evidência submetida — legado Fase 4 GAS)
 > `LEGADO` · Prompt documentado como: `resumo_editorial`
 
+> ⛔ **Removido em 03/10/2026 (R-125):** o arquivo saiu com a página legada
+> `/dashboard/praticar/evidencia`, alcançável só por URL direta e sem nenhuma
+> evidência gravada em `capacitacao` (medido em 03/10). O texto abaixo fica
+> como registro do prompt; não há mais chamada no código.
+
 - **Arquivo**: `actions/tutor-evidencia.ts::avaliarEvidencia`
 - **Max tokens**: 1024
 - **Trigger**: Colaborador submete evidência semanal na antiga Fase 4.

@@ -19,7 +19,9 @@ import { descritorParaHumano } from '@/lib/descritor-humano';
  *     foco, conhecimento curado do descritor e Módulo-Base **nunca executaram**,
  *     para ninguém, desde sempre. Não são "os 75 envios": são 100% das chamadas.
  *   · `actions/tutor-evidencia.ts` — o `envio?.competencia_id` engolia igual, e
- *     `competenciaNome` ficava `''` em toda avaliação de evidência.
+ *     `competenciaNome` ficava `''` em toda avaliação de evidência. (Esse
+ *     segundo consumidor saiu em 03/10/2026 com a página legada do Praticar,
+ *     R-125; hoje o Beto é o único.)
  *
  * 🔑 POR QUE NÃO CRIAR A COLUNA. Levantei os 9 arquivos que escrevem em
  * `fase4_envios`: **nenhum** grava `competencia_id`. Criá-la (com ou sem

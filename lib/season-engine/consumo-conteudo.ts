@@ -38,8 +38,9 @@
  * divergência que só espera o primeiro curso ser cadastrado para começar a
  * valer, num campo que já é catraca de duas decisões.
  *
- * NÃO removi o ramo do array: cursos é feature de produto (a tela `/dashboard/
- * praticar` e a home leem essa lista), e apagá-la seria decisão de produto que
+ * NÃO removi o ramo do array: cursos é feature de produto (a home lê essa
+ * lista; o leitor do Praticar, `praticar-actions`, saiu em 03/10/2026 com a
+ * página legada de evidência, R-125), e apagá-la seria decisão de produto que
  * ninguém tomou. O que este módulo faz é garantir que TODO leitor da pergunta
  * booleana use a MESMA régua, e que as duas escritas parem de se destruir.
  */

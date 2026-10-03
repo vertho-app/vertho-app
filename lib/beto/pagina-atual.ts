@@ -34,7 +34,6 @@ const PAGINAS_CONHECIDAS: Record<string, string> = {
   '/dashboard/perfil-comportamental/mapeamento': 'Mapeamento do perfil comportamental',
   '/dashboard/perfil-comportamental/relatorio': 'Relatório do perfil comportamental',
   '/dashboard/praticar': 'Praticar',
-  '/dashboard/praticar/evidencia': 'Registro de evidência prática',
   '/dashboard/relatorios': 'Relatórios',
   '/dashboard/simulador-lideranca': 'Simulador de liderança',
   '/dashboard/simulador-vendas': 'Simulador de vendas',
