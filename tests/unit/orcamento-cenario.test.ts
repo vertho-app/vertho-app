@@ -33,7 +33,7 @@ import {
 /** As listas que a TELA passa — mesmas chaves de PRESET_KEYS e JORNADAS. */
 const LISTAS: ListasValidas = {
   presets: ['atual', 'premium', 'balanced', 'cheap'],
-  jornadas: ['jornada', 'regular_duo', 'regular_single', 'onboarding', 'piloto'],
+  jornadas: ['jornada', 'onboarding', 'custom'],
 };
 
 const BASE = entradasPadrao(LISTAS);
@@ -42,6 +42,7 @@ describe('entradasPadrao — os defaults com que a tela abre', () => {
   it('reproduz o cenário inicial da página campo a campo', () => {
     expect(BASE).toEqual({
       nClusters: 1,
+      nWorkshops: 1,
       nPerfis: 3,
       nColabs: 100,
       matrizNovas: 3,
@@ -50,6 +51,7 @@ describe('entradasPadrao — os defaults com que a tela abre', () => {
       tipoComissao: 'rc',
       preset: 'atual',
       jornada: 'jornada',
+      jornadaCustom: { semanas: 1, numCompetencias: 1, fechamento: false },
       conteudoColab: {
         video: CONTEUDO_POR_FORMATO_DEFAULT,
         podcast: CONTEUDO_POR_FORMATO_DEFAULT,
@@ -89,8 +91,16 @@ describe('entradasPadrao — os defaults com que a tela abre', () => {
 });
 
 describe('normalizarEntradas — round-trip', () => {
+  it('preserva a quantidade independente de workshops e o programa customizado', () => {
+    const gravado = {
+      ...BASE, nClusters: 4, nWorkshops: 2, metodo: 'workshop', jornada: 'custom',
+      jornadaCustom: { semanas: 3, numCompetencias: 2, fechamento: true },
+    };
+    expect(normalizarEntradas(JSON.parse(JSON.stringify(gravado)), LISTAS)).toEqual(gravado);
+  });
+
   it('devolve intacto um cenário válido', () => {
-    const gravado = { ...BASE, nColabs: 3000, ciclosPorAno: 6, jornada: 'regular_duo' };
+    const gravado = { ...BASE, nColabs: 3000, ciclosPorAno: 6, jornada: 'onboarding' };
     expect(normalizarEntradas(gravado, LISTAS)).toEqual(gravado);
   });
 
@@ -105,6 +115,20 @@ describe('normalizarEntradas — round-trip', () => {
 });
 
 describe('normalizarEntradas — cenário antigo ou incompleto', () => {
+  it('preserva um workshop por unidade de um cenário anterior ao campo de quantidade', () => {
+    const antigo = { ...BASE, nClusters: 4, metodo: 'workshop', nWorkshops: undefined, jornadaCustom: undefined };
+    const lido = normalizarEntradas(antigo, LISTAS)!;
+    expect(lido.nWorkshops).toBe(4);
+    expect(lido.jornadaCustom).toEqual(BASE.jornadaCustom);
+  });
+
+  it('normaliza quantidades inválidas e configurações customizadas fora dos limites', () => {
+    expect(normalizarEntradas({ ...BASE, nWorkshops: -3 }, LISTAS)!.nWorkshops).toBe(0);
+    expect(normalizarEntradas({ ...BASE, nWorkshops: 2.9 }, LISTAS)!.nWorkshops).toBe(2);
+    expect(normalizarEntradas({ ...BASE, jornadaCustom: { semanas: 99, numCompetencias: 5 } }, LISTAS)!.jornadaCustom)
+      .toEqual(BASE.jornadaCustom);
+  });
+
   it('campo ausente cai no default da régua (não vira undefined nem NaN)', () => {
     const antigo: any = { ...BASE };
     delete antigo.nVideosExtraidos;

@@ -536,13 +536,13 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
 
   it('workshop ganha linha própria e o plural aparece certo', () => {
     const linhas = escopoPropostaDoCenario(
-      { ...entradas, metodo: 'workshop' },
+      { ...entradas, metodo: 'workshop', nWorkshops: 2 },
       { ...resumo, cargos: 1, unidades: 4, ciclos: 3 },
       { rotulo: 'Regular DUO', semanas: 14 },
     ).split('\n');
     expect(linhas[0]).toMatch(/Regular DUO de 14 semanas · 3 ciclos/);
     expect(linhas[1]).toBe('100 pessoas · 4 unidades');
-    expect(linhas[2]).toBe('4 workshops presenciais, um por unidade, para definir com a equipe as competências de cada cargo');
+    expect(linhas[2]).toBe('2 workshops presenciais para definir com a equipe as competências de cada cargo');
     expect(linhas[3]).toBe('1 matriz de competência');
   });
 

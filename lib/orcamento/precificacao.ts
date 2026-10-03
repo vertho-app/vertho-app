@@ -28,7 +28,7 @@ export interface TabelaPreco {
   matrizNova: number;
   /** R$ por matriz adaptada do catálogo canônico. */
   matrizAdaptada: number;
-  /** R$ por unidade quando o mapeamento é por workshop presencial. */
+  /** R$ por workshop presencial contratado. */
   workshop: number;
   descontoPct: number;
   /** Piso de margem que decide o desconto máximo. */
@@ -41,9 +41,8 @@ export interface TabelaPreco {
  * sugestão nasce daqui para não haver duas tabelas concorrentes.
  */
 export const ORCAMENTO_DEFAULTS = {
-  // PTAX de fechamento do BCB em 10/09/2026 (R$ 5,1149), arredondada e
-  // editável para que o cenário possa aplicar a margem cambial da negociação.
-  cotacao: 5.12,
+  // Cotação padrão definida pelo Rodrigo em 03/10/2026; editável por cenário.
+  cotacao: 5.30,
   precoSetupGeral: 2000,
   precoPessoaCiclo: 300,
   precoCluster: 2000,
@@ -377,7 +376,8 @@ export interface EscopoProjeto {
   unidades: number;
   matrizesNovas: number;
   matrizesAdaptadas: number;
-  workshop: boolean;
+  /** Quantidade de workshops contratados, independente das unidades. */
+  workshops: number;
   /** Acessos e preço de cada simulador no escopo. Ausente = nenhum. */
   simuladores?: { acessos: number; precoPessoaCiclo: number }[];
   /** Em quantas parcelas o cliente paga. NÃO entra no preço. */
@@ -428,7 +428,7 @@ export function calcularProjeto(
     escopo.unidades * preco.unidade +
     escopo.matrizesNovas * preco.matrizNova +
     escopo.matrizesAdaptadas * preco.matrizAdaptada +
-    (escopo.workshop ? escopo.unidades * preco.workshop : 0);
+    Math.max(0, Math.floor(escopo.workshops || 0)) * preco.workshop;
 
   // O programa escala por pessoa e por ciclo — as duas dimensões da entrega.
   const programa = escopo.pessoas * preco.pessoaCiclo * ciclos;

@@ -42,7 +42,7 @@ const BASE: EscopoProjeto = {
   unidades: 1,
   matrizesNovas: 3,
   matrizesAdaptadas: 0,
-  workshop: false,
+  workshops: 0,
   parcelas: 12,
 };
 
@@ -51,6 +51,7 @@ const CUSTO: CustoProjeto = { totalBrl: 8000, oneTimeBrl: 5000, mesesPrograma: 4
 describe('premissas comerciais do orçamento', () => {
   it('mantém os padrões aprovados na régua única', () => {
     expect(ORCAMENTO_DEFAULTS).toMatchObject({
+      cotacao: 5.30,
       precoPessoaCiclo: 300,
       precoMatrizNova: 1000,
       precoMatrizAdaptada: 500,
@@ -123,6 +124,15 @@ describe('premissas comerciais do orçamento', () => {
 });
 
 describe('precificação do projeto', () => {
+  it('cobra a quantidade de workshops independentemente das unidades', () => {
+    const sem = calcularProjeto({ ...BASE, unidades: 4 }, PRECO, CUSTO);
+    const com = calcularProjeto({ ...BASE, unidades: 4, workshops: 2 }, PRECO, CUSTO);
+    expect(com.oneTime - sem.oneTime).toBe(2 * PRECO.workshop);
+    expect(com.valorTabela - sem.valorTabela).toBe(30_000);
+    expect(calcularProjeto({ ...BASE, workshops: 3 }, PRECO, CUSTO).oneTime - calcularProjeto(BASE, PRECO, CUSTO).oneTime)
+      .toBe(3 * PRECO.workshop);
+  });
+
   it('o prazo NÃO muda o valor do projeto — só a parcela', () => {
     const em12 = calcularProjeto(BASE, PRECO, CUSTO);
     const em24 = calcularProjeto({ ...BASE, parcelas: 24 }, PRECO, CUSTO);

@@ -10,6 +10,7 @@
 // objeto inteiro nem um spread — um campo novo no orçamento viraria vazamento
 // silencioso. O teste `proposal-programa.test.ts` trava isso.
 import { getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
+import { derivarConfigCustom, parseProgramaCustom } from '@/lib/season-engine/programa-custom';
 import { mesesDoPrograma } from '@/lib/orcamento/precificacao';
 import { SIMULADORES, type Simulador } from '@/lib/simuladores/acesso-cargo';
 
@@ -78,7 +79,10 @@ export function extrairProgramaDoOrcamento(orc: OrcamentoVinculado): ProposalPro
   const e = (orc.entradas && typeof orc.entradas === 'object' ? orc.entradas : {}) as Record<string, unknown>;
 
   const jornada = typeof e.jornada === 'string' ? e.jornada : '';
-  const semanasPorCiclo = JORNADAS_CONHECIDAS.has(jornada)
+  const custom = jornada === 'custom' ? parseProgramaCustom(e.jornadaCustom) : null;
+  const semanasPorCiclo = custom
+    ? inteiroPositivo(derivarConfigCustom(custom).semanas)
+    : JORNADAS_CONHECIDAS.has(jornada)
     ? inteiroPositivo(getProgramaConfigByModo(jornada).semanas)
     : null;
 

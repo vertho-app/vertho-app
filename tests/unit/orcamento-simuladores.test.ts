@@ -41,7 +41,7 @@ const PRECO: TabelaPreco = {
   workshop: 15000, descontoPct: 0, margemAlvoPct: 50,
 };
 const ESCOPO: EscopoProjeto = {
-  pessoas: 100, ciclos: 2, unidades: 1, matrizesNovas: 3, matrizesAdaptadas: 0, workshop: false, parcelas: 4,
+  pessoas: 100, ciclos: 2, unidades: 1, matrizesNovas: 3, matrizesAdaptadas: 0, workshops: 0, parcelas: 4,
 };
 const CUSTO = { totalBrl: 10_000, oneTimeBrl: 5_000, mesesPrograma: 4 };
 

@@ -34,6 +34,7 @@ import {
   type ConteudoPorFormato,
   type TipoComissaoOrcamento,
 } from './precificacao';
+import { parseProgramaCustom, type ProgramaCustomInputs } from '@/lib/season-engine/programa-custom';
 
 export type MetodoMapeamento = 'votacao' | 'workshop';
 export const METODOS_MAPEAMENTO: readonly MetodoMapeamento[] = ['votacao', 'workshop'];
@@ -42,6 +43,8 @@ export type PricingOrcamento = typeof ORCAMENTO_DEFAULTS;
 
 export type EntradasOrcamento = {
   nClusters: number;
+  /** Quantidade contratada, independente do número de unidades. */
+  nWorkshops: number;
   nPerfis: number;
   nColabs: number;
   /** Matrizes criadas do zero; as restantes são adaptadas (`distribuirMatrizes`). */
@@ -53,6 +56,7 @@ export type EntradasOrcamento = {
   preset: string;
   /** Chave da jornada contratada — validada contra a lista da tela. */
   jornada: string;
+  jornadaCustom: ProgramaCustomInputs;
   conteudoColab: ConteudoPorFormato;
   nVideosExtraidos: number;
   auditarExtracao: boolean;
@@ -135,6 +139,7 @@ export function entradasPadrao(listas: ListasValidas): EntradasOrcamento {
   const porFormato = CONTEUDO_POR_FORMATO_DEFAULT;
   return {
     nClusters: 1,
+    nWorkshops: 1,
     nPerfis: 3,
     nColabs: 100,
     matrizNovas: 3,
@@ -143,6 +148,7 @@ export function entradasPadrao(listas: ListasValidas): EntradasOrcamento {
     tipoComissao: OPCOES_COMISSAO_ORCAMENTO[0].key,
     preset: listas.presets[0] ?? 'atual',
     jornada: listas.jornadas[0] ?? 'jornada',
+    jornadaCustom: { semanas: 1, numCompetencias: 1, fechamento: false },
     conteudoColab: { video: porFormato, podcast: porFormato, texto: porFormato, case: porFormato },
     nVideosExtraidos: 0,
     auditarExtracao: true,
@@ -212,6 +218,7 @@ export function normalizarEntradas(bruto: unknown, listas: ListasValidas): Entra
   const tipoComissao = obterComissaoOrcamento(String(b.tipoComissao ?? '')).key;
 
   const nPerfis = inteiro(b.nPerfis, padrao.nPerfis, 1);
+  const nClusters = inteiro(b.nClusters, padrao.nClusters, 1);
   const cont = objeto(b.conteudoColab);
   const formatos = ['video', 'podcast', 'texto', 'case'] as const;
   const conteudoColab = formatos.reduce(
@@ -235,7 +242,10 @@ export function normalizarEntradas(bruto: unknown, listas: ListasValidas): Entra
   );
 
   return {
-    nClusters: inteiro(b.nClusters, padrao.nClusters, 1),
+    nClusters,
+    // Orçamentos antigos cobravam um workshop por unidade. Preserva essa
+    // quantidade ao reabrir; depois ela pode ser editada independentemente.
+    nWorkshops: inteiro(b.nWorkshops, metodo === 'workshop' ? nClusters : padrao.nWorkshops, 0),
     nPerfis,
     nColabs,
     // Uma matriz "nova" além do número de cargos não existe: o resto é adaptada.
@@ -245,6 +255,7 @@ export function normalizarEntradas(bruto: unknown, listas: ListasValidas): Entra
     tipoComissao,
     preset,
     jornada,
+    jornadaCustom: parseProgramaCustom(b.jornadaCustom) ?? padrao.jornadaCustom,
     conteudoColab,
     nVideosExtraidos: inteiro(b.nVideosExtraidos, padrao.nVideosExtraidos, 0),
     auditarExtracao: booleano(b.auditarExtracao, padrao.auditarExtracao),
@@ -352,15 +363,16 @@ export function escopoPropostaDoCenario(
     'Mentor IA e trilhas personalizadas por cargo e perfil comportamental',
     'Relatório de evolução por competência ao fim de cada ciclo',
   ];
-  if (workshop) {
+  const nWorkshops = e.nWorkshops ?? r.unidades;
+  if (workshop && nWorkshops > 0) {
     // Linha própria logo depois do tamanho do programa: é entrega presencial,
     // cobrada à parte, e sumia no fim de "cargos mapeados por workshop".
     linhas.splice(
       2,
       0,
-      r.unidades === 1
+      nWorkshops === 1
         ? 'Workshop presencial para definir, com a equipe da instituição, as competências de cada cargo'
-        : `${n(r.unidades)} workshops presenciais, um por unidade, para definir com a equipe as competências de cada cargo`,
+        : `${n(nWorkshops)} workshops presenciais para definir com a equipe as competências de cada cargo`,
     );
   }
   // Um simulador por linha, antes do Mentor IA, nunca acima das pessoas do

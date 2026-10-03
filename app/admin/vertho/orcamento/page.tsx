@@ -52,9 +52,11 @@ import {
   type TipoComissaoOrcamento,
 } from '@/lib/orcamento/precificacao';
 import {
-  PROGRAMA_JORNADA, PROGRAMA_REGULAR_DUO, PROGRAMA_REGULAR,
-  PROGRAMA_ONBOARDING, PROGRAMA_PILOTO,
+  PROGRAMA_JORNADA, PROGRAMA_ONBOARDING,
 } from '@/lib/season-engine/programa-config';
+import {
+  CUSTOM_LIMITES, derivarConfigCustom, type ProgramaCustomInputs,
+} from '@/lib/season-engine/programa-custom';
 
 type Metodo = 'votacao' | 'workshop';
 type PresetKey = 'atual' | 'premium' | 'balanced' | 'cheap';
@@ -71,10 +73,8 @@ const PRESET_KEYS: PresetKey[] = ['atual', 'premium', 'balanced', 'cheap'];
  */
 const JORNADAS = [
   { key: 'jornada', rotulo: 'Jornada', sub: '7 sem · 1 comp', cfg: PROGRAMA_JORNADA },
-  { key: 'regular_duo', rotulo: 'Regular DUO', sub: '14 sem · 2 comp', cfg: PROGRAMA_REGULAR_DUO },
-  { key: 'regular_single', rotulo: 'Regular', sub: '14 sem · 1 comp', cfg: PROGRAMA_REGULAR },
   { key: 'onboarding', rotulo: 'Onboarding', sub: '10 sem · 5 comp', cfg: PROGRAMA_ONBOARDING },
-  { key: 'piloto', rotulo: 'Piloto', sub: 'degustação', cfg: PROGRAMA_PILOTO },
+  { key: 'custom', rotulo: 'Customizada', sub: 'defina o programa', cfg: null },
 ] as const;
 
 /**
@@ -294,6 +294,7 @@ export default function OrcamentoPage() {
 
   // Inputs do escopo
   const [nClusters, setNClusters] = useState(1);
+  const [nWorkshops, setNWorkshops] = useState(1);
   const [nPerfis, setNPerfis] = useState(3);
   const [metodo, setMetodo] = useState<Metodo>('votacao');
   const [nColabs, setNColabs] = useState(100);
@@ -307,9 +308,14 @@ export default function OrcamentoPage() {
   const [tipoComissao, setTipoComissao] = useState<TipoComissaoOrcamento>('rc');
   const [preset, setPreset] = useState<PresetKey>('atual');
   const [jornada, setJornada] = useState<string>('jornada');
+  const [jornadaCustom, setJornadaCustom] = useState<ProgramaCustomInputs>({
+    semanas: 1, numCompetencias: 1, fechamento: false,
+  });
   const cfgJornada = useMemo(
-    () => (JORNADAS.find((j) => j.key === jornada) || JORNADAS[0]).cfg,
-    [jornada],
+    () => jornada === 'custom'
+      ? derivarConfigCustom(jornadaCustom)
+      : (JORNADAS.find((j) => j.key === jornada)?.cfg ?? PROGRAMA_JORNADA),
+    [jornada, jornadaCustom],
   );
   const presetLabel = preset === 'atual' ? 'Configuração atual da plataforma' : PRESETS[preset].label;
   // 48 peças por pessoa/ciclo: 12 de cada um dos quatro formatos.
@@ -375,7 +381,7 @@ export default function OrcamentoPage() {
       pricing.horasImplantacao +
       matrizesNovas * pricing.horasMatrizNova +
       matrizesAdaptadas * pricing.horasMatrizAdaptada +
-      (metodo === 'workshop' ? nClusters * pricing.horasWorkshop : 0);
+      (metodo === 'workshop' ? nWorkshops * pricing.horasWorkshop : 0);
     const custoHorasBrl = horasTotais * pricing.custoHora;
     const custoMsgBrl = pessoasAtivas * pricing.msgsPorPessoaCiclo * pricing.custoMsgUnitario * ciclos;
     // Duração do programa (dois meses por ciclo; as parcelas são uma a mais): é por ela que a
@@ -418,7 +424,7 @@ export default function OrcamentoPage() {
         unidades: nClusters,
         matrizesNovas,
         matrizesAdaptadas,
-        workshop: metodo === 'workshop',
+        workshops: metodo === 'workshop' ? nWorkshops : 0,
         simuladores: sims.itens.map((i) => ({
           acessos: i.acessos,
           precoPessoaCiclo: configSimuladores[i.simulador].precoPessoaCiclo,
@@ -452,7 +458,7 @@ export default function OrcamentoPage() {
     const tabelaSetupGeral = pricing.precoSetupGeral;
     const tabelaClusters = nClusters * pricing.precoCluster;
     const tabelaPerfis = matrizesNovas * pricing.precoMatrizNova + matrizesAdaptadas * pricing.precoMatrizAdaptada;
-    const tabelaWorkshop = metodo === 'workshop' ? nClusters * pricing.adicionalWorkshop : 0;
+    const tabelaWorkshop = metodo === 'workshop' ? nWorkshops * pricing.adicionalWorkshop : 0;
     const tabelaPessoasCiclo = nColabs * pricing.precoPessoaCiclo;
 
     // Cada simulador sozinho: preço mínimo para a margem-alvo e margem no preço
@@ -502,9 +508,9 @@ export default function OrcamentoPage() {
       comissaoPct: comissaoRate * 100,
       custoTotalBrl,
       investimentoPorPessoaBrl: investimentoUnitario.contrato,
-      investimentoPorPessoaCicloBrl: investimentoUnitario.porCiclo,
+      investimentoPorPessoaMesBrl: investimentoUnitario.contrato / parcelas,
       custoPorPessoaBrl: custoUnitario.contrato,
-      custoPorPessoaCicloBrl: custoUnitario.porCiclo,
+      custoPorPessoaMesBrl: custoUnitario.contrato / parcelas,
       mesesPrograma,
       tabelaPessoasCiclo,
       parcelas,
@@ -528,7 +534,7 @@ export default function OrcamentoPage() {
       tabelaPerfis,
       tabelaWorkshop,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, tipoComissao, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo, simuladores, configSimuladores]);
+  }, [nClusters, nWorkshops, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, tipoComissao, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo, simuladores, configSimuladores]);
 
   // ── Orçamento salvo (mig 253) ──────────────────────────────────────────────
   // `id` nulo = cenário novo; preenchido = este cenário já existe no banco e
@@ -569,6 +575,7 @@ export default function OrcamentoPage() {
   function coletarEntradas(): EntradasOrcamento {
     return {
       nClusters,
+      nWorkshops,
       nPerfis,
       nColabs,
       matrizNovas,
@@ -577,6 +584,7 @@ export default function OrcamentoPage() {
       tipoComissao,
       preset,
       jornada,
+      jornadaCustom,
       conteudoColab,
       nVideosExtraidos,
       auditarExtracao,
@@ -590,6 +598,7 @@ export default function OrcamentoPage() {
   /** Devolve um cenário normalizado à tela. Sempre via `normalizarEntradas`. */
   function aplicarEntradas(e: EntradasOrcamento) {
     setNClusters(e.nClusters);
+    setNWorkshops(e.nWorkshops);
     setNPerfis(e.nPerfis);
     setNColabs(e.nColabs);
     // A régua é `cargos = novas + adaptadas`: novas nunca passam de cargos.
@@ -600,6 +609,7 @@ export default function OrcamentoPage() {
     // Seguro: normalizarEntradas só devolve chave presente em LISTAS_VALIDAS.
     setPreset(e.preset as PresetKey);
     setJornada(e.jornada);
+    setJornadaCustom(e.jornadaCustom);
     setConteudoColab(e.conteudoColab);
     setNVideosExtraidos(e.nVideosExtraidos);
     setAuditarExtracao(e.auditarExtracao);
@@ -789,7 +799,7 @@ export default function OrcamentoPage() {
     const j = JORNADAS.find((x) => x.key === jornada) ?? JORNADAS[0];
     setConvEscopo(escopoPropostaDoCenario(coletarEntradas(), resumo, {
       rotulo: j.rotulo,
-      semanas: j.cfg.semanas,
+      semanas: cfgJornada.semanas,
     }));
     setConvPagamento(`${calc.parcelas} parcelas de ${money(calc.mensalidadeFlat)}`);
     setConvAberta(true);
@@ -1025,6 +1035,11 @@ export default function OrcamentoPage() {
               {metodo === 'votacao' ? t('methods.voteHint') : t('methods.workshopHint')}
             </p>
           </div>
+          {metodo === 'workshop' && (
+            <FieldNumber locale={locale} icon={<Users size={14} />} label="Qtd. de workshops"
+              sub={`Preço ${money(pricing.adicionalWorkshop)} · custo ${pricing.horasWorkshop}h por workshop`}
+              value={nWorkshops} onChange={(v) => setNWorkshops(Math.floor(v))} min={0} />
+          )}
         </div>
 
         {/* Jornada contratada — decide semanas, competências e o custo por pessoa */}
@@ -1042,6 +1057,43 @@ export default function OrcamentoPage() {
               </button>
             ))}
           </div>
+          {jornada === 'custom' && (
+            <div className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/[0.035] p-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-gray-400">
+                  Semanas de conteúdo
+                  <select value={jornadaCustom.semanas}
+                    onChange={(e) => setJornadaCustom((v) => ({ ...v, semanas: Number(e.target.value) }))}
+                    className="rounded-lg border border-white/10 bg-[#091D35] px-3 py-2 text-sm text-white outline-none focus:border-amber-300/50">
+                    {Array.from({ length: CUSTOM_LIMITES.semanasMax - CUSTOM_LIMITES.semanasMin + 1 }, (_, i) => i + CUSTOM_LIMITES.semanasMin)
+                      .map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-gray-400">
+                  Competências
+                  <select value={jornadaCustom.numCompetencias}
+                    onChange={(e) => setJornadaCustom((v) => ({ ...v, numCompetencias: Number(e.target.value) }))}
+                    className="rounded-lg border border-white/10 bg-[#091D35] px-3 py-2 text-sm text-white outline-none focus:border-amber-300/50">
+                    {Array.from({ length: CUSTOM_LIMITES.compsMax - CUSTOM_LIMITES.compsMin + 1 }, (_, i) => i + CUSTOM_LIMITES.compsMin)
+                      .map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wide text-gray-400">
+                  Avaliação de fechamento
+                  <select value={jornadaCustom.fechamento ? '1' : '0'}
+                    onChange={(e) => setJornadaCustom((v) => ({ ...v, fechamento: e.target.value === '1' }))}
+                    className="rounded-lg border border-white/10 bg-[#091D35] px-3 py-2 text-sm text-white outline-none focus:border-amber-300/50">
+                    <option value="0">Sem fechamento</option>
+                    <option value="1">Com fechamento</option>
+                  </select>
+                </label>
+              </div>
+              <p className="mt-2 text-[10px] text-gray-500">
+                {jornadaCustom.semanas} {jornadaCustom.semanas === 1 ? 'semana' : 'semanas'} de conteúdo
+                {jornadaCustom.fechamento ? ' + avaliação de fechamento' : ''} · {jornadaCustom.numCompetencias} {jornadaCustom.numCompetencias === 1 ? 'competência' : 'competências'}
+              </p>
+            </div>
+          )}
           <p className="text-[9px] text-gray-600 mt-1">
             Move o custo de IA por pessoa (USD {calc.custoPorColab.toFixed(2)}/colab nesta jornada), não o valor de tabela.
           </p>
@@ -1167,7 +1219,7 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} label={t('pricing.perCluster')} sub={t('pricing.setupValue', { value: money(pricing.precoCluster) })} value={pricing.precoCluster} onChange={(v) => setPricingField('precoCluster', v)} min={0} />
           <FieldNumber locale={locale} label="Preço / matriz nova" sub={`${money(pricing.precoMatrizNova)} cobrado por matriz`} value={pricing.precoMatrizNova} onChange={(v) => setPricingField('precoMatrizNova', v)} min={0} />
           <FieldNumber locale={locale} label="Preço / matriz adaptada" sub={`${money(pricing.precoMatrizAdaptada)} cobrado por matriz`} value={pricing.precoMatrizAdaptada} onChange={(v) => setPricingField('precoMatrizAdaptada', v)} min={0} />
-          <FieldNumber locale={locale} label={t('pricing.workshopPerCluster')} sub={t('pricing.ifWorkshop', { value: money(pricing.adicionalWorkshop) })} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
+          <FieldNumber locale={locale} label={t('pricing.workshopUnitPrice')} sub={t('pricing.ifWorkshop', { value: money(pricing.adicionalWorkshop) })} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.discount')} sub={`piso: ${calc.descontoMaxPct.toFixed(1)}%`} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
           <FieldNumber locale={locale} label="Margem-alvo (%)" sub="define o desconto máximo" value={pricing.margemAlvoPct} onChange={(v) => setPricingField('margemAlvoPct', v)} min={0} allowDecimals />
           <FieldNumber locale={locale} label="Impostos (%)" sub={pricing.impostosPct === 0 ? 'confirmar antes da proposta' : 'sobre a receita final'} value={pricing.impostosPct} onChange={(v) => setPricingField('impostosPct', v)} min={0} allowDecimals />
@@ -1233,7 +1285,7 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} label="Custo / hora" sub="aplicado às horas internas" value={pricing.custoHora} onChange={(v) => setPricingField('custoHora', v)} min={0} />
           <FieldNumber locale={locale} label="Horas de implantação" sub="custo interno, fora as matrizes" value={pricing.horasImplantacao} onChange={(v) => setPricingField('horasImplantacao', v)} min={0} />
           <FieldNumber locale={locale} label="Horas / matriz nova" sub={`custo interno · adaptada: ${pricing.horasMatrizAdaptada}h`} value={pricing.horasMatrizNova} onChange={(v) => setPricingField('horasMatrizNova', v)} min={0} />
-          <FieldNumber locale={locale} label="Horas / workshop" sub="por unidade" value={pricing.horasWorkshop} onChange={(v) => setPricingField('horasWorkshop', v)} min={0} />
+          <FieldNumber locale={locale} label="Horas / workshop" sub="por workshop" value={pricing.horasWorkshop} onChange={(v) => setPricingField('horasWorkshop', v)} min={0} />
           <FieldNumber locale={locale} label="Mensagens / pessoa / ciclo" sub={`${moneyBRLUnit(pricing.custoMsgUnitario, locale)} cada · UTILITY`} value={pricing.msgsPorPessoaCiclo} onChange={(v) => setPricingField('msgsPorPessoaCiclo', v)} min={0} />
           <FieldNumber locale={locale} label="Clientes ativos" sub="rateio da infra fixa" value={pricing.clientesAtivos} onChange={(v) => setPricingField('clientesAtivos', v)} min={1} />
         </div>
@@ -1241,37 +1293,45 @@ export default function OrcamentoPage() {
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">
             <p className="text-[9px] uppercase text-gray-500">IA</p>
             <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoIABrl)}</p>
+            <CostShare value={calc.custoIABrl} total={calc.custoTotalBrl} locale={locale} />
           </div>
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">
             <p className="text-[9px] uppercase text-gray-500">Horas · {calc.horasTotais}h</p>
             <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoHorasBrl)}</p>
+            <CostShare value={calc.custoHorasBrl} total={calc.custoTotalBrl} locale={locale} />
           </div>
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">
             <p className="text-[9px] uppercase text-gray-500">Mensagens</p>
             <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoMsgBrl)}</p>
+            <CostShare value={calc.custoMsgBrl} total={calc.custoTotalBrl} locale={locale} />
           </div>
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">
             <p className="text-[9px] uppercase text-gray-500">Infra · {calc.mesesPrograma} {calc.mesesPrograma === 1 ? 'mês' : 'meses'}</p>
             <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoInfraBrl)}</p>
+            <CostShare value={calc.custoInfraBrl} total={calc.custoTotalBrl} locale={locale} />
           </div>
           {calc.acessosSimulador > 0 && (
             <div className="rounded-lg bg-white/[0.03] px-3 py-2">
               <p className="text-[9px] uppercase text-gray-500">Simuladores · {calc.acessosSimulador.toLocaleString(locale)} acessos</p>
               <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoSimuladorBrl)}</p>
+              <CostShare value={calc.custoSimuladorBrl} total={calc.custoTotalBrl} locale={locale} />
             </div>
           )}
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">
             <p className="text-[9px] uppercase text-gray-500">Comissão · {calc.comissaoPct.toFixed(0)}%</p>
             <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoComissoesBrl)}</p>
+            <CostShare value={calc.custoComissoesBrl} total={calc.custoTotalBrl} locale={locale} />
             <p className="text-[9px] text-gray-600">{calc.comissaoLabel}</p>
           </div>
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">
             <p className="text-[9px] uppercase text-gray-500">Impostos · {pricing.impostosPct}%</p>
             <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoImpostosBrl)}</p>
+            <CostShare value={calc.custoImpostosBrl} total={calc.custoTotalBrl} locale={locale} />
           </div>
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">
             <p className="text-[9px] uppercase text-gray-500">Contingência · {pricing.contingenciaPct}%</p>
             <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoContingenciaBrl)}</p>
+            <CostShare value={calc.custoContingenciaBrl} total={calc.custoTotalBrl} locale={locale} />
           </div>
         </div>
         {pricing.impostosPct === 0 && (
@@ -1374,13 +1434,13 @@ export default function OrcamentoPage() {
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-300">Investimento / pessoa</p>
                   <p className="mt-0.5 text-sm font-extrabold text-amber-100 tabular-nums">{money(calc.investimentoPorPessoaBrl)}</p>
                   <p className="text-[9px] leading-relaxed text-gray-500">
-                    <span className="tabular-nums">{money(calc.investimentoPorPessoaCicloBrl)}</span> / ciclo · inclui setup rateado
+                    <span className="tabular-nums">{money(calc.investimentoPorPessoaMesBrl)}</span> / mês · inclui setup rateado
                   </p>
                 </div>
                 <div className="border-l border-white/10 pl-3">
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Custo interno / pessoa</p>
                   <p className="mt-0.5 text-sm font-extrabold text-white tabular-nums">{money(calc.custoPorPessoaBrl)}</p>
-                  <p className="text-[9px] text-gray-500"><span className="tabular-nums">{money(calc.custoPorPessoaCicloBrl)}</span> / ciclo</p>
+                  <p className="text-[9px] text-gray-500"><span className="tabular-nums">{money(calc.custoPorPessoaMesBrl)}</span> / mês</p>
                 </div>
               </div>
             </div>
@@ -1751,7 +1811,7 @@ export default function OrcamentoPage() {
               <Row label={`Matrizes adaptadas: ${calc.matrizesAdaptadas} × ${money(pricing.precoMatrizAdaptada)}`} value={money(calc.matrizesAdaptadas * pricing.precoMatrizAdaptada)} />
             )}
             {metodo === 'workshop' && (
-              <Row label={`Workshop: ${nClusters} × ${money(pricing.adicionalWorkshop)}`} value={money(calc.tabelaWorkshop)} />
+              <Row label={`Workshop: ${nWorkshops} × ${money(pricing.adicionalWorkshop)}`} value={money(calc.tabelaWorkshop)} />
             )}
             <div className="pt-1.5 border-t border-white/5">
               <Row label={t('breakdown.oneTimeSubtotal')} value={money(calc.oneTimeTabela)} bold />
@@ -1843,6 +1903,13 @@ function CalculatedField({
       {sub && <p className="mt-0.5 min-h-[12px] text-[9px] text-gray-600">{sub}</p>}
     </div>
   );
+}
+
+function CostShare({ value, total, locale }: { value: number; total: number; locale: string }) {
+  const percentual = new Intl.NumberFormat(locale, {
+    style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1,
+  }).format(total > 0 ? value / total : 0);
+  return <p className="mt-1 text-[10px] text-gray-400 tabular-nums">{percentual} do custo total</p>;
 }
 
 /**

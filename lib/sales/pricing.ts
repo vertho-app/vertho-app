@@ -29,7 +29,7 @@ export function simularMensalidade(input: PricingInput): number | null {
       unidades: 1,
       matrizesNovas: roles,
       matrizesAdaptadas: 0,
-      workshop: false,
+      workshops: 0,
       parcelas,
     },
     {

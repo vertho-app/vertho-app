@@ -195,6 +195,20 @@ describe('fronteira de custo do documento público', () => {
     expect(pg?.pessoas).toBe(10);
   });
 
+  it('a duração customizada vem do programa salvo, incluindo o fechamento quando contratado', () => {
+    for (const fechamento of [false, true]) {
+      const pg = extrairProgramaDoOrcamento({
+        entradas: { jornada: 'custom', jornadaCustom: { semanas: 3, numCompetencias: 2, fechamento } },
+        resultado: { pessoas: 10, cargos: 2, ciclos: 1, unidades: 1 },
+      });
+      expect(pg?.semanasPorCiclo).toBe(fechamento ? 4 : 3);
+    }
+    expect(extrairProgramaDoOrcamento({
+      entradas: { jornada: 'custom', jornadaCustom: { semanas: 99 } },
+      resultado: { pessoas: 10 },
+    })?.semanasPorCiclo).toBeNull();
+  });
+
   it('sem orçamento vinculado, o programa é null (fluxo do RC)', () => {
     expect(extrairProgramaDoOrcamento(null)).toBeNull();
     expect(extrairProgramaDoOrcamento({ entradas: {}, resultado: {} })).toBeNull();
