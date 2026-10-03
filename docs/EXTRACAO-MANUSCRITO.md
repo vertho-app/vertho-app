@@ -407,3 +407,37 @@ permite N1→N4. A regra "sempre 1 nível de diferença" é de negócio; o parse
 | "Não usar Batch API na v1" | Batch é o caminho, e paga −50% |
 | Nível precisa ser inferido do conteúdo | Está codificado no número do MB |
 | FK para `competencias_base(id)` | SED08 vive em `competencias` (Ibipeba) |
+
+## Manuscrito de UM descritor só: modo descritor único (02/10/2026)
+
+O importador assume que o manuscrito é de uma **competência inteira** (capítulos == descritores, casados **por ordem
+de `cod_desc`**). O **QPM01** (Boehringer) é o manuscrito de **um descritor** (CN_01_06 "Questionamento propositivo e
+melhoria de processos"): os 6 capítulos são **subtemas** dele. Importado pelo caminho normal contra a competência,
+o capítulo 1 ancoraria em CN_01_01, o 3 em CN_01_03… — avisos na tela e **nenhum erro**; o conteúdo errado só aparece
+semanas depois, na entrega.
+
+- **`resolverDescritores(…, { descritorUnico: 'CN_01_06' })`** (`lib/manuscrito-modulos.ts`): o descritor é DECLARADO
+  (nunca inferido), tem de existir **exatamente uma vez** no modelo da empresa (depois de escolher a cópia da matriz) e
+  recebe **todos** os capítulos. Exige empresa. Sem a opção, nada muda.
+- **Título por capítulo** (`persistirModuloDeManuscrito(…, tituloCapitulo)`): 6 módulos compartilham descritor e
+  transição, então o `titulo` vira `"<capítulo> · N1→N2"` (≤ 120). O campo `descritor` continua sendo o `nome_curto` da
+  régua — título editorial nunca vai nele (F-I12).
+- **Idempotência por capítulo**: `modulosExistentes` devolve também a chave `…|titulo` e `moduloJaExiste(…, titulo)` a usa.
+  A chave antiga (competência|transição) colidiria entre os capítulos e faria uma reexecução pular módulos que ainda
+  não existem. `tituloDoModuloDeCapitulo` é a conta única entre gravar e procurar.
+- **`modulosExistentes` agora FALHA ALTO** quando a leitura falha. Antes engolia o `{ error }`: o conjunto vinha vazio,
+  a idempotência abria e reimportar **gerava (e pagava) tudo em duplicata**. Estava declarado na allowlist do guard E11;
+  a entrada saiu (875 → 874).
+- **Como rodar**: `scripts/_extrair-manuscrito-qpm01.ts` (git-ignored, headless, **sem a task do Trigger** e portanto sem
+  `trigger.dev deploy`). Dry-run por padrão; `--aplicar --desc=1` é o piloto (3 módulos); `--aplicar` faz o resto. Gera por
+  `submitClaudeBatch` (−50%), valida, persiste, audita (Dual-IA) e imprime o relatório **do banco**. **Não publica**: o módulo
+  fica em `revisao`. A **task e a tela** de importação ainda não conhecem o modo único.
+- **Medido (QPM01 inteiro, Sonnet 4.6 + auditoria GPT 5.6 Terra, `ia_usage_log`)**: **US$ 2,94 para 18 módulos** (geração e
+  refino US$ 2,40 em 24 chamadas; auditoria US$ 0,54 em 24), ~US$ 0,16 por módulo. O piloto de 3 módulos custou US$ 0,31
+  (~US$ 0,10 cada) e **extrapolar dele subestima**: esquece o refino (síncrono, sem o −50% do batch) e a regeração. O batch de
+  3 voltou em ~4 min.
+- **Resultado da 1ª geração (18)**: 13 aprovados, **5 reprovados**, 1 deles com `conteudo_central` vazio (o log da geração o
+  marcou `ok`; só o banco mostra). Os 4 reprovados "de verdade" eram **auto-consistência**: o módulo proíbe linguagem com
+  gênero e os exemplos da IA diziam "o consultor", "ele", "uma consultora". Refino resolveu 3 em 1 passada. O vazio: marcar
+  `obsoleto` (a idempotência por título ignora `obsoleto`) e rodar o extrator de novo regera só ele (`scripts/_corrigir-qpm01.ts`).
+  Um módulo seguiu reprovado após 2 passadas de refino com uma frase só ("a si mesmo", lido como gênero masculino): ficou para revisão humana.

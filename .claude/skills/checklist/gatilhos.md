@@ -332,6 +332,7 @@ Casa: importar manuscrito, gerar/refinar Módulo-Base em lote, publicar acervo d
   versões com 54 IDs colidindo e **0 títulos iguais** — um merge por ID apagaria um manuscrito
   inteiro em silêncio. Comparar por CONTEÚDO (`scripts/_comparar-manuscritos.ts`); o casamento com o
   tenant é explícito (`--comp=C014`), nunca por semelhança de nome.
+- 🔴 **Manuscrito de UM descritor (não de uma competência) ancora errado SEM erro.** O casamento é por ordem de `cod_desc` e só exige capítulos == descritores. O QPM01 tem 6 capítulos e a competência tem 6 descritores, então passaria: capítulo 1 → CN_01_01. Antes de importar, pergunte "os capítulos SÃO os descritores, ou são subtemas de um?" e, no segundo caso, use `descritorUnico` e leia o mapeamento capítulo → descritor no dry-run (02/10/2026). `docs/EXTRACAO-MANUSCRITO.md`, "modo descritor único".
 - Refino: 13 de 14 recuperados numa passada, mas **custa 2× a geração** (wrapper síncrono, sem o
   −50% do batch — `docs/CUSTO-QUALIDADE.md`). "Sem ganho" com nota igual pode ser conteúdo NOVO:
   conferir `versao`/`auditado_em_versao` e rodar a 2ª passada antes de desistir.
