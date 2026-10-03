@@ -100,7 +100,7 @@ describe('salvarConfig — chaves só-plataforma', () => {
  * Agora são só-plataforma: passam pelo formulário apenas com
  * `program.configure` (master) e com valor válido.
  */
-describe('salvarConfig — chaves de PROGRAMA (R-73)', () => {
+describe('salvarConfig: chaves de PROGRAMA (R-73)', () => {
   const GRAVADO = { programa_modo: 'jornada', programa_custom: { semanas: 2, numCompetencias: 1, fechamento: true }, cadencia: { dia: 'segunda' } };
   // O update da trava otimista precisa "casar" a linha para a gravação contar como feita.
   const gravadoQueAceita = (valor: any) => criarSupabaseMock({

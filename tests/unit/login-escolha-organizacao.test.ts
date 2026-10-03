@@ -71,7 +71,7 @@ beforeEach(() => {
   slugDoHost = null; // endereço genérico (app.vertho.ai) — é lá que a tela existe
 });
 
-describe('POST /api/auth/check-email — a resposta pública não diz quem é admin (R-77)', () => {
+describe('POST /api/auth/check-email: a resposta pública não diz quem é admin (R-77)', () => {
   it('🔴 admin de plataforma com 4 empresas: a lista vem, o bit de admin não', async () => {
     QUATRO_EMPRESAS();
     adminDaPlataforma = { email: 'admin@vertho.ai' };
