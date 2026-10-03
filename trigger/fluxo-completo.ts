@@ -71,7 +71,7 @@ export const fluxoCompletoTask = task({
             pdi: () => filaPdiEscopo(tdb, permitidos),
             trilha: () => filaTrilhaEscopo(tdb, permitidos, params.excecaoInternos),
             // RAW de propósito: a varredura do plano precisa enxergar também os kits GLOBAIS (empresa_id nulo).
-            kit: () => filaKitEscopo(sb, empresaId, { turmaId: params.escopo?.turmaId, cargos: params.escopo?.cargos }),
+            kit: () => filaKitEscopo(sb, empresaId, { turmaId: params.escopo?.turmaId, cargos: params.escopo?.cargos, semanaMax: params.kitSemanaMax }),
           },
           // Modelo IMPRESSO por etapa: `callAI` não consulta `getModelForTask`, então quem decide é este mapa, e ele
           // vai para o `progress` (config declarada não é config aplicada).

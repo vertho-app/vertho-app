@@ -8,8 +8,8 @@ import type { KitItem } from './executor';
  * Sem trilha (ou sem pessoas no recorte) não é erro: é fila vazia. Qualquer outro erro LANÇA.
  * Cada item leva os formatos da célula (2 primeiros das preferências, `formatos-por-preferencia.ts`) e se tem vídeo.
  */
-export async function filaKitEscopo(sb: any, empresaId: string, escopo: { turmaId?: string | null; cargos?: string[] | null }): Promise<KitItem[]> {
-  const plano = await levantarPlanoKitsCoorte(sb, empresaId, { turmaId: escopo.turmaId || undefined });
+export async function filaKitEscopo(sb: any, empresaId: string, escopo: { turmaId?: string | null; cargos?: string[] | null; semanaMax?: number | null }): Promise<KitItem[]> {
+  const plano = await levantarPlanoKitsCoorte(sb, empresaId, { turmaId: escopo.turmaId || undefined, ...(escopo.semanaMax ? { semanaMax: escopo.semanaMax } : {}) });
   if ('error' in plano) {
     if (/^(Nenhuma semana|Empresa sem|Turma sem)/.test(plano.error)) return [];
     throw new Error(`fila do kit: ${plano.error}`);

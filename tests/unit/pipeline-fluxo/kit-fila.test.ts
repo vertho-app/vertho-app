@@ -57,3 +57,13 @@ describe('filaKitEscopo: formatos por DISC (2 primeiros das preferências)', () 
     expect((await filaKitEscopo({}, 'e1', {}))[0]).toMatchObject({ formatos: ['texto', 'case'], video: false });
   });
 });
+
+describe('filaKitEscopo: limite de semana (piloto)', () => {
+  it('passa semanaMax ao plano da coorte; sem limite, não manda a chave (horizonte inteiro)', async () => {
+    levantar.mockResolvedValue({ plano: [], totalFaltantes: 0, colaboradores: 1, inicioMaisCedo: null });
+    await filaKitEscopo({}, 'e1', { semanaMax: 1 });
+    expect(levantar).toHaveBeenLastCalledWith({}, 'e1', { turmaId: undefined, semanaMax: 1 });
+    await filaKitEscopo({}, 'e1', {});
+    expect(levantar).toHaveBeenLastCalledWith({}, 'e1', { turmaId: undefined });
+  });
+});

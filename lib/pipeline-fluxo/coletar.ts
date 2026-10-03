@@ -37,7 +37,7 @@ export type EscopoColeta = {
    */
   incluirInternos?: string[];
   /** Com isto a prévia também mede os kits faltantes (precisa do client RAW: enxerga kits globais). */
-  kit?: { sb: any; empresaId: string; turmaId?: string | null };
+  kit?: { sb: any; empresaId: string; turmaId?: string | null; semanaMax?: number | null };
 };
 
 export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Promise<{ entrada?: EntradaPrevia; error?: string }> {
@@ -92,7 +92,7 @@ export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Prom
   let kitPlano: { kits: number; podcasts: number; videos: number } | undefined;
   if (escopo.kit) {
     try {
-      const itens = await filaKitEscopo(escopo.kit.sb, escopo.kit.empresaId, { turmaId: escopo.kit.turmaId, cargos: escopo.cargos });
+      const itens = await filaKitEscopo(escopo.kit.sb, escopo.kit.empresaId, { turmaId: escopo.kit.turmaId, cargos: escopo.cargos, semanaMax: escopo.kit.semanaMax });
       const soma = (f: (i: (typeof itens)[number]) => boolean) => itens.filter(f).reduce((n, i) => n + i.faltantes.length, 0);
       kitPlano = { kits: soma(() => true), podcasts: soma((i) => i.formatos.includes('audio')), videos: soma((i) => i.video) };
     } catch (e: any) { return { error: String(e?.message || e) }; }

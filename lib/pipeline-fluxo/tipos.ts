@@ -64,6 +64,12 @@ export interface ParamsFluxo {
    * então todo fluxo que abriu a exceção deixa o rastro de quem foi incluído.
    */
   excecaoInternos?: string[];
+  /**
+   * Limita o KIT às primeiras N semanas da trilha (ex.: piloto de uma pessoa: `1`). A TRILHA e a biblioteca de conteúdo-base
+   * seguem completas (a trilha monta todas as semanas e exige conteúdo para cada uma); o que se poupa é o Kit (e o vídeo),
+   * que são os itens caros. Ausente = o horizonte inteiro, como o botão da coorte.
+   */
+  kitSemanaMax?: number;
 }
 
 export const TITULOS_ETAPA: Record<EtapaId, string> = {

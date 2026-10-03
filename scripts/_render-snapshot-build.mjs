@@ -10,7 +10,7 @@
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import os from 'node:os';
 
 const exec = promisify(execFile);
@@ -36,7 +36,28 @@ runcmd:
   - systemctl enable --now docker
 `;
 
+/**
+ * O bundle de render (`worker-hetzner/spike-bundle`) NÃO está no git, e o CCleaner apaga binários do working tree (mp3, png,
+ * mp4, wav) sem tocar no código. Em 28/09 sumiram 63 arquivos, inclusive o `logo-vertho.png`; o snapshot de 02/10 foi
+ * construído em cima do diretório incompleto e TODO render falhou ("Error loading image ... logo-vertho.png"). Agora o build
+ * confere o diretório contra o manifesto versionado (`worker-hetzner/spike-bundle.manifest`: tamanho e caminho) e aborta ANTES
+ * de subir a box. Restauração: `C:\GAS\backup-render\spike-bundle-436923553.tar.gz` (extrair em `worker-hetzner/spike-bundle`), ou
+ * copiar `/app/spike-bundle` de dentro da imagem docker `vw` de um snapshot bom (box pequena, `docker create` + `docker cp`).
+ */
+function conferirBundle() {
+  const linhas = readFileSync('worker-hetzner/spike-bundle.manifest', 'utf8').split(/\r?\n/).filter(Boolean);
+  const problemas = [];
+  for (const l of linhas) {
+    const i = l.indexOf(' '); const tamanho = Number(l.slice(0, i)); const arq = l.slice(i + 1);
+    try { if (statSync('worker-hetzner/spike-bundle/' + arq).size !== tamanho) problemas.push('tamanho diferente: ' + arq); }
+    catch { problemas.push('ausente: ' + arq); }
+  }
+  if (problemas.length) throw new Error(`spike-bundle incompleto (${problemas.length} de ${linhas.length}); restaure do backup antes de buildar:\n  ` + problemas.slice(0, 15).join('\n  '));
+  log(`spike-bundle confere com o manifesto (${linhas.length} arquivos)`);
+}
+
 async function main() {
+  conferirBundle();
   let id = null;
   try {
     // Builda no MENOR tipo alvo (cx33) — o snapshot herda o disco do build, e a

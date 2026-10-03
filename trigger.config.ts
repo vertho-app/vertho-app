@@ -76,6 +76,9 @@ export default defineConfig({
       // @remotion/compositor-linux-x64-gnu".
       additionalPackages({ packages: ['@remotion/compositor-linux-x64-gnu@4.0.476'] }),
       additionalFiles({ files: ['spike-bundle/**'] }),
+      // Vinheta de abertura/encerramento do podcast: `gerarPodcastAudioCore` lê de `public/audio/podcast/`. Sem isto o áudio
+      // pré-renderizado do Kit falhava na task com ENOENT (`/app/public/audio/podcast/mentorIA-abertura.wav`, 03/10/2026).
+      additionalFiles({ files: ['public/audio/podcast/**'] }),
     ],
   },
 });
