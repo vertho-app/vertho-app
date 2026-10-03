@@ -61,9 +61,26 @@ test.describe('Navegação autenticada', () => {
     await page.waitForURL('**/dashboard');
   });
 
-  test('assessment lista competências', async ({ page }) => {
+  // 03/10/2026 (R-80): vermelho desde 02/10 por 19 execuções. Desde então o
+  // Diagnóstico exige o Perfil DA PESSOA, a conta de smoke está sem Perfil
+  // (medido no banco), e a tela mostrava a frase crua do servidor, que nenhuma
+  // das palavras da âncora antiga casava. A âncora agora é o ESTADO que a tela
+  // declara: uma fase conhecida ou um bloqueio com código. "erro" (sem código)
+  // é falha de verdade; o bloqueio por Perfil tem que trazer a saída.
+  test('assessment abre num estado conhecido, e o bloqueio por Perfil tem saída', async ({ page }) => {
     await page.goto('/dashboard/assessment');
-    await expect(page.locator('text=/Suas Competências|Nenhuma competência|Avaliação/i').first()).toBeVisible();
+    const tela = page.locator('[data-assessment-fase], [data-assessment-bloqueio]').first();
+    await expect(tela).toBeVisible({ timeout: 30000 });
+
+    const bloqueio = await tela.getAttribute('data-assessment-bloqueio');
+    if (bloqueio) {
+      expect(bloqueio, 'erro sem código é falha da tela, não um bloqueio previsto').not.toBe('erro');
+      if (bloqueio === 'PERFIL_PESSOAL_PENDENTE') {
+        await expect(page.locator('[data-assessment-cta="perfil"]')).toBeVisible();
+      }
+      return;
+    }
+    expect(['explicacao', 'hoje', 'concluido']).toContain(await tela.getAttribute('data-assessment-fase'));
   });
 
   test('perfil comportamental mostra resultado ou mapeamento', async ({ page }) => {

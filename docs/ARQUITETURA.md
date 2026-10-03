@@ -797,7 +797,7 @@ barrava de verdade:
 
 | Camada | Arquivo | Barra? |
 |---|---|---|
-| Gate de acesso | `lib/access-gates/mapeamento-cenarios.ts` | **SIM** — lido por `/api/assessment`, `/api/chat`, `app/dashboard/assessment/assessment-actions.ts:93` |
+| Gate de acesso | `lib/access-gates/mapeamento-cenarios.ts` | **SIM**, lido por `/api/chat` e por `app/dashboard/assessment/assessment-actions.ts` (ao servir E ao gravar; a rota `/api/assessment` foi aposentada em 03/10/2026, R-81) |
 | Toggle "liberar cenários" | `actions/votacao.ts::toggleMapeamentoCenarios` | não (só grava) |
 | Toggle "bloquear perfil" | `actions/votacao.ts::togglePerfilComportamental` | não (só grava) |
 
@@ -814,8 +814,9 @@ aparece como bug do usuário, não como configuração.
 flags). Ele nunca perguntou se a pessoa fez o Perfil, então com os dois liberados qualquer um abria os cenários
 antes do DISC (4Life: 3 pessoas). Decisão do dono: a ordem vale por pessoa. `lib/access-gates/diagnostico-ordem.ts`
 (`canAccessDiagnosticoNaOrdem` puro, `gateDiagnosticoDaPessoa` lê `perfil_dominante` + contagem de `respostas`)
-bloqueia com `PERFIL_PESSOAL_PENDENTE` em `getDiagnosticoDoDia`, `salvarRespostaDiagnostico`, `/api/assessment`
-(GET/POST), `/api/chat` e no link da fase 2 da home. Duas exceções, de propósito: empresa com `perfil_externo_fonte`
+bloqueia com `PERFIL_PESSOAL_PENDENTE` em `getDiagnosticoDoDia`, `salvarRespostaDiagnostico`,
+`/api/chat` e no link da fase 2 da home. Desde 03/10/2026 (R-80) a tela traduz o bloqueio pelo `code` e oferece
+"Fazer meu perfil", e `getDiagnosticoDoDia` diz "sem competência" ANTES de pedir o Perfil. Duas exceções, de propósito: empresa com `perfil_externo_fonte`
 (senão volta o beco desta seção) e quem **já respondeu algum cenário** (não tranca no meio). Falha de leitura bloqueia
 com `ORDEM_INDISPONIVEL`, nunca libera em silêncio. ⚠️ Nome na home: a fase 1 se chama "Diagnóstico" e é o PERFIL; a
 fase 2 ("Avaliação") é o que `getDiagnosticoDoDia` serve. Teste: `tests/unit/access-gates-diagnostico-ordem.test.ts`.
@@ -1193,7 +1194,7 @@ Tabelas: empresas, colaboradores, platform_admins
 >
 > ⚠️ **Não confundir com `/dashboard/assessment`, que está VIVO.** A raiz do
 > assessment é outro caminho: grava em `respostas` (393 linhas, escrita hoje) via
-> `assessment-actions.ts` e `/api/assessment`, e é o destino do template de
+> `assessment-actions.ts` (a rota `/api/assessment` foi aposentada em 03/10/2026), e é o destino do template de
 > WhatsApp da pílula. O que está morto é o subdiretório `/chat`.
 >
 > Fica documentado em vez de removido porque a decisão sobre ele ainda não foi

@@ -15,6 +15,10 @@ import { assessmentCompetencyWasAnswered, findAssessmentAnswer } from '@/lib/ass
 import { competenciasDaDegustacao, isAssessmentDeDegustacao } from '@/lib/demo/convidado-demo';
 import { resolverTrilhoLideranca, respondeuHojeNoTrilho, trilhoDe, type Trilho } from '@/lib/prontidao-lideranca/trilho';
 import { escolherCenarioDaCompetencia, cenarioAtendeNotaMinima, notaMinimaDaEmpresa } from '@/lib/assessment/cenario-elegivel';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
+
+/** Teto por resposta (P1 a P4). A tela limita o campo no mesmo número. */
+const MAX_CARACTERES_RESPOSTA = 5000;
 
 /**
  * Lista de competências que ESTA pessoa responde — fonte única.
@@ -120,7 +124,7 @@ async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string,
       const comp = compPorId[cid];
       const key = (comp?.nome || '').toLowerCase();
       if (!key || cenarioPorNome[key]) continue;
-      // Mesma régua da rota /api/assessment e do chat: PPP > rede > mais recente, SÓ entre os aptos.
+      // Mesma régua do chat: PPP > rede > mais recente, SÓ entre os aptos.
       const escolhido = escolherCenarioDaCompetencia(rows, pppEscolaId, nm.notaMinima);
       if (!escolhido) continue; // corte ligado e nenhum cenário apto: a competência fica sem cenário
       cenarioPorNome[key] = { ...escolhido, compId: comp.id };
@@ -143,6 +147,33 @@ async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string,
     const comp = compPrincipalPorNome[key];
     return { nome: n, id: cenario?.compId || comp?.id || null, cenarioId: cenario?.id || null };
   });
+}
+
+/**
+ * A próxima competência a SERVIR: a primeira pendente, na ordem do Top 5, que tem
+ * cenário servível. Fonte única para a tela (`getDiagnosticoDoDia`) e para o
+ * "próxima competência" que o salvamento devolve; com duas regras a tela
+ * ofereceria um botão que levaria a um bloqueio.
+ */
+function proximaComCenario<T extends { cenarioId?: string | null }>(pendentes: T[]): T | null {
+  return pendentes.find((c) => !!c.cenarioId) || null;
+}
+
+/** Registra (sem lançar) cada competência pendente sem cenário que a tela pulou. */
+async function registrarCompetenciasSemCenario(
+  colab: { id: string; empresa_id: string },
+  cargo: string,
+  semCenario: Array<{ nome: string; id?: string | null }>,
+) {
+  await Promise.all(semCenario.map((c) => registrarDegradacao({
+    fluxo: 'assessment',
+    tipo: DEGRADACAO.COMPETENCIA_SEM_CENARIO,
+    chave: `${colab.empresa_id}:${cargo}:${c.nome}`,
+    empresaId: colab.empresa_id,
+    colaboradorId: colab.id,
+    severidade: 'aviso',
+    detalhe: { cargo, competencia: c.nome, competencia_id: c.id || null },
+  })));
 }
 
 /**
@@ -250,10 +281,6 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
   if (!gate.allowed) {
     return { error: gate.message, code: gate.code, remediation: gate.remediation };
   }
-  const ordem = await gateDiagnosticoDaPessoa(sb, colab.empresa_id, (colab as any).id, cfg);
-  if (!ordem.allowed) {
-    return { error: ordem.message, code: ordem.code, remediation: ordem.remediation };
-  }
 
   const { data: empresaRow, error: empresaErr } = await sb.from('empresas')
     .select('is_demo, sys_config')
@@ -267,9 +294,20 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
   if ('error' in resolvido) return { error: resolvido.error, code: resolvido.code };
   const { competencias: top5ComCenario, degustacao, cargoCenario, umPorDia, cargoAlvo } = resolvido;
   if (!top5ComCenario.length) {
-    return { error: trilho === 'lideranca' ? 'Nenhuma competência configurada para o cargo-alvo' : 'Nenhuma competência configurada para seu cargo' };
+    return {
+      error: trilho === 'lideranca' ? 'Nenhuma competência configurada para o cargo-alvo' : 'Nenhuma competência configurada para seu cargo',
+      code: 'SEM_COMPETENCIAS',
+    };
   }
   const top5 = top5ComCenario;
+
+  // A ordem Perfil → Diagnóstico vem DEPOIS de saber que há o que responder
+  // (R-80, 03/10/2026): antes, quem não tinha Top 5 ouvia "faça o seu Perfil",
+  // fazia, e só então descobria que não havia nenhuma competência para ele.
+  const ordem = await gateDiagnosticoDaPessoa(sb, colab.empresa_id, (colab as any).id, cfg);
+  if (!ordem.allowed) {
+    return { error: ordem.message, code: ordem.code, remediation: ordem.remediation };
+  }
 
   // O trilho do cargo avisa a tela que existe o de liderança (e quanto falta),
   // para a pessoa encontrar o segundo mapeamento sem link novo. Custa uma
@@ -403,25 +441,37 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
     };
   }
 
-  const proxima = pendentes[0];
+  // Serve a PRIMEIRA pendente que TEM cenário servível (R-82, 03/10/2026). Antes era
+  // sempre `pendentes[0]`: uma competência sem cenário (não gerado, ou abaixo da nota
+  // mínima) travava todas as seguintes, e a pessoa só lia "ainda não foi gerado". A que
+  // ficou para trás não some: segue pendente, o mapeamento não fecha sem ela, e ela
+  // volta sozinha quando o cenário existir. O pulo fica registrado (degradação), para
+  // a equipe Vertho saber que falta gerar. O resolvedor (`resolverTop5ComCenario`) já
+  // aplicou PPP > rede e o corte de nota ao escolher o `cenarioId`.
+  const semCenario = pendentes.filter((c: any) => !c.cenarioId);
+  if (semCenario.length) await registrarCompetenciasSemCenario(colab as any, cargoCenario, semCenario);
+  const proxima = proximaComCenario(pendentes);
+  if (!proxima) {
+    return { error: 'Os cenários das suas próximas competências ainda estão em preparação.', code: 'SEM_CENARIO_DISPONIVEL' };
+  }
 
-  // Busca o cenário A daquela competência/cargo.
+  // Busca o cenário escolhido pelo resolvedor (por id, no tenant e no cargo do trilho).
   const nmDoDia = await notaMinimaDaEmpresa(sb, colab.empresa_id);
   if (nmDoDia.error) return { error: nmDoDia.error };
-  let query = sb.from('banco_cenarios')
+  const { data: cen, error: cenErr } = await sb.from('banco_cenarios')
     .select('id, titulo, descricao, alternativas, nota_check')
     .eq('empresa_id', colab.empresa_id)
     .eq('cargo', cargoCenario)
     .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
-    .order('created_at', { ascending: false })
-    .limit(1);
-  query = proxima.cenarioId ? query.eq('id', proxima.cenarioId) : query.eq('competencia_id', proxima.id);
-  const { data: cen } = await query.maybeSingle();
-  if (!cen) return { error: `Cenário para "${proxima.nome}" ainda não foi gerado` };
-  // Corte ligado: este caminho também serve por competência quando o resolvedor não achou cenário apto, então
-  // o corte vale aqui de novo (senão o "mais recente" reprovado entraria pela porta dos fundos).
+    .eq('id', proxima.cenarioId)
+    .maybeSingle();
+  if (cenErr) return { error: cenErr.message };
+  // Sumiu entre a escolha e a leitura (regerado agora): a próxima carga escolhe de novo.
+  if (!cen) return { error: 'Os cenários das suas próximas competências ainda estão em preparação.', code: 'SEM_CENARIO_DISPONIVEL' };
+  // Defesa em profundidade: o resolvedor já cortou por nota; reconferir aqui custa nada e
+  // impede que um caminho futuro sirva por fora do corte.
   if (!cenarioAtendeNotaMinima(cen, nmDoDia.notaMinima)) {
-    return { error: `Cenário para "${proxima.nome}" ainda não foi aprovado pela revisão automática` };
+    return { error: 'Os cenários das suas próximas competências ainda estão em preparação.', code: 'SEM_CENARIO_DISPONIVEL' };
   }
 
   // `alternativas` pode vir como array legado [{numero,texto}] OU como objeto
@@ -474,10 +524,15 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
-  if (!compId || !compNome) return { error: 'Competência inválida' };
+  if (!compId) return { error: 'Competência inválida' };
   const { r1, r2, r3, r4, repr } = payload || {};
-  if (!r1 || r1.length < 20 || !r2 || r2.length < 20 || !r3 || r3.length < 20 || !r4 || r4.length < 20) {
+  const textos = [r1, r2, r3, r4];
+  if (textos.some((r) => typeof r !== 'string' || r.trim().length < 20)) {
     return { error: 'Todas as respostas precisam ter ao menos 20 caracteres' };
+  }
+  // Teto que a rota antiga aplicava: a resposta vai inteira para o prompt da IA4.
+  if (textos.some((r) => r.length > MAX_CARACTERES_RESPOSTA)) {
+    return { error: `Cada resposta pode ter até ${MAX_CARACTERES_RESPOSTA} caracteres`, code: 'RESPOSTA_LONGA' };
   }
   if (!repr || repr < 1 || repr > 10) {
     return { error: 'Representatividade inválida' };
@@ -488,10 +543,18 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
 
   const sb = createSupabaseAdmin();
 
-  // Server action é endpoint: a ordem Perfil → Diagnóstico vale aqui também, não
-  // só na tela que carrega os cenários.
-  const cfgOrdem = await configEfetivaDoColaborador(sb, colab.empresa_id, (colab as any).id);
-  const ordem = await gateDiagnosticoDaPessoa(sb, colab.empresa_id, (colab as any).id, cfgOrdem);
+  // Server action é endpoint: as portas da tela que SERVE o cenário valem aqui
+  // também (R-81, 03/10/2026). Até então só a ordem Perfil → Diagnóstico era
+  // reaplicada; uma chamada direta gravava resposta com os cenários bloqueados,
+  // com a votação aberta, para competência fora do Top 5 ou em cenário que a
+  // pessoa nunca receberia. A rota `/api/assessment`, que fazia essas checagens,
+  // não tinha consumidor e foi aposentada: este é o único caminho de gravação.
+  const cfg = await configEfetivaDoColaborador(sb, colab.empresa_id, (colab as any).id);
+  const gate = canAccessMapeamentoCenarios(cfg);
+  if (!gate.allowed) {
+    return { error: gate.message, code: gate.code, remediation: gate.remediation };
+  }
+  const ordem = await gateDiagnosticoDaPessoa(sb, colab.empresa_id, (colab as any).id, cfg);
   if (!ordem.allowed) {
     return { error: ordem.message, code: ordem.code, remediation: ordem.remediation };
   }
@@ -503,17 +566,41 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
   if (empresaErr) return { error: empresaErr.message };
 
   // A MESMA lista que a tela usa (por id, não por nome) — resolvida ANTES do
-  // upsert porque, no trilho de liderança, ela é o gate: o compId vem do
-  // browser e precisa pertencer ao trilho; e "um por dia" é regra do servidor,
-  // não da tela.
+  // upsert porque ela é o gate: o compId e o cenarioId vêm do browser.
   const resolvido = await competenciasDoTrilho(sb, colab as any, empresaRow, trilho);
   if ('error' in resolvido) return { error: resolvido.error, code: resolvido.code };
   const { competencias: top5ComCenario, degustacao, umPorDia } = resolvido;
 
+  const competencia = top5ComCenario.find((c: any) => c.id && c.id === compId);
+  if (!competencia) {
+    return {
+      error: trilho === 'lideranca'
+        ? 'Esta competência não faz parte do seu mapeamento de liderança.'
+        : 'Esta competência não faz parte do seu mapeamento.',
+      code: 'COMPETENCIA_FORA_DO_TRILHO',
+    };
+  }
+  // O cenário tem que ser o que a tela serviria para esta competência: o do PPP
+  // da pessoa (ou o de rede), dentro do corte de nota da empresa.
+  if (!cenarioId || competencia.cenarioId !== cenarioId) {
+    return { error: 'Este cenário não está disponível para você. Recarregue a página.', code: 'CENARIO_NAO_ELEGIVEL' };
+  }
+
+  // Reenviar antes da IA4 é edição (o upsert sobrescreve). Depois da IA4, não:
+  // o texto novo ficaria sob a avaliação do texto antigo.
+  const { data: jaAvaliada, error: jaAvaliadaErr } = await sb.from('respostas')
+    .select('id')
+    .eq('colaborador_id', colab.id)
+    .eq('empresa_id', colab.empresa_id)
+    .eq('competencia_id', compId)
+    .not('avaliacao_ia', 'is', null)
+    .limit(1);
+  if (jaAvaliadaErr) return { error: jaAvaliadaErr.message };
+  if ((jaAvaliada || []).length) {
+    return { error: 'Esta competência já foi respondida e avaliada.', code: 'COMPETENCIA_JA_AVALIADA' };
+  }
+
   if (trilho === 'lideranca') {
-    if (!top5ComCenario.some((c: any) => c.id === compId)) {
-      return { error: 'Esta competência não faz parte do seu mapeamento de liderança.', code: 'COMPETENCIA_FORA_DO_TRILHO' };
-    }
     if (umPorDia) {
       const { data: doDia, error: doDiaErr } = await sb.from('respostas')
         .select('competencia_id, competencia_nome, timestamp_resposta')
@@ -536,9 +623,10 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
     email_colaborador: colab.email,
     nome_colaborador: colab.nome_completo,
     cargo: colab.cargo,
-    cenario_id: cenarioId || null,
+    cenario_id: cenarioId,
     competencia_id: compId,
-    competencia_nome: compNome,
+    // O nome vem da lista do servidor, não do browser.
+    competencia_nome: competencia.nome,
     r1, r2, r3, r4,
     representatividade: repr,
     canal: 'dashboard',
@@ -554,8 +642,7 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
   if (respostasRecalcError) return { error: respostasRecalcError.message };
 
   const pendentes = top5ComCenario
-    .filter((competencia: any) => !assessmentCompetencyWasAnswered(competencia, respostas || []))
-    .map((c: any) => c.nome);
+    .filter((c: any) => !assessmentCompetencyWasAnswered(c, respostas || []));
   const concluiuTudo = top5ComCenario.length > 0 && pendentes.length === 0;
 
   // Degustação: ninguém vai apertar "IA4 — Avaliar" por este convidado, então a
@@ -581,7 +668,6 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
   // pessoa tem cargo próprio), na próxima carga da tela.
   let precisaPreferencias = false;
   if (trilho === 'cargo') {
-    const cfg = await configEfetivaDoColaborador(sb, colab.empresa_id, (colab as any).id);
     const pref = await avaliarPrecisaPreferencias(sb, colab as any, cfg, {
       primeiroMapeamento: true,
       respondidas: top5ComCenario.length - pendentes.length,
@@ -597,7 +683,9 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
     concluiuTudo,
     degustacao,
     precisaPreferencias,
-    proximaCompetencia: pendentes[0] || null,
+    // A mesma régua da tela: a próxima COM cenário. Pendente sem cenário não vira
+    // botão "Próxima competência" que leva a um bloqueio.
+    proximaCompetencia: proximaComCenario(pendentes)?.nome || null,
   };
 }
 

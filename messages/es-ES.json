@@ -4170,6 +4170,43 @@
       "todayDescription": "Vuelve mañana para el próximo escenario de liderazgo.",
       "doneTitle": "¡Mapeo de liderazgo concluido, {name}!",
       "doneDescription": "Tus respuestas serán analizadas y cruzadas con tu perfil conductual. El resultado lo presenta tu liderazgo."
+    },
+    "bloqueio": {
+      "PERFIL_PESSOAL_PENDENTE": {
+        "title": "Falta tu Perfil comportamental",
+        "text": "El Diagnóstico empieza después del Perfil. Haz tu Perfil comportamental, que lleva pocos minutos, y vuelve aquí.",
+        "cta": "Hacer mi perfil →"
+      },
+      "ORDEM_INDISPONIVEL": {
+        "title": "No fue posible comprobar tu Perfil",
+        "text": "Inténtalo de nuevo en unos instantes."
+      },
+      "PERFIL_BLOQUEADO": {
+        "title": "Etapa aún no habilitada",
+        "text": "El Diagnóstico aún no está habilitado para ti. Vuelve más tarde."
+      },
+      "VOTACAO_ATIVA": {
+        "title": "Votación en curso",
+        "text": "El Diagnóstico se abre después de que se cierre la votación de las competencias."
+      },
+      "CENARIOS_BLOQUEADOS": {
+        "title": "Etapa aún no habilitada",
+        "text": "Los escenarios del Diagnóstico aún no están habilitados para ti. Vuelve más tarde."
+      },
+      "SEM_COMPETENCIAS": {
+        "title": "Ninguna competencia para responder",
+        "text": "Todavía no hay competencias definidas para este mapeo. Cuando las haya, aparecerán aquí."
+      },
+      "SEM_CENARIO_DISPONIVEL": {
+        "title": "Próximos escenarios en preparación",
+        "text": "Los escenarios de tus próximas competencias todavía se están preparando. Vuelve más tarde para continuar."
+      }
+    },
+    "envio": {
+      "CENARIO_NAO_ELEGIVEL": "Este escenario ya no está disponible. Recarga la página para continuar.",
+      "COMPETENCIA_JA_AVALIADA": "Esta competencia ya fue respondida y evaluada.",
+      "COMPETENCIA_FORA_DO_TRILHO": "Esta competencia no forma parte de tu mapeo.",
+      "RESPOSTA_LONGA": "Cada respuesta puede tener hasta 5.000 caracteres."
     }
   },
   "AdminRadarFunnel": {

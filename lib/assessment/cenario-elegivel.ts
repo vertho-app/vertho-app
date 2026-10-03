@@ -4,6 +4,7 @@
  * Antes desta função a regra "PPP do colaborador > rede > mais recente" estava escrita em quatro lugares
  * (`app/api/assessment/route.ts`, duas vezes em `assessment-actions.ts` e em `app/api/chat/route.ts`), e
  * NADA filtrava por nota: um cenário com nota 58 chegava à pessoa igual a um com 90 (medido em 01/10/2026).
+ * A rota `/api/assessment` foi aposentada em 03/10/2026 (R-81, sem consumidor no app).
  *
  * NOTA MÍNIMA (opt-in por empresa, decisão do dono 01/10/2026: "todos >= 80", sem reavaliar o passado):
  *   `empresas.sys_config.cenario_nota_minima = 80` liga o filtro NAQUELA empresa. Sem a chave, nada muda —

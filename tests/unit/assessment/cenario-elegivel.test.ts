@@ -96,14 +96,10 @@ describe('notaMinimaDaEmpresa — falha de leitura não desliga o corte em silê
 });
 
 describe('os pontos que servem cenário usam a MESMA régua (guard de fonte)', () => {
-  it('a rota /api/assessment usa a função compartilhada, sem cópia local, e não manda a nota ao navegador', () => {
-    const f = lerFonte('app/api/assessment/route.ts');
-    expect(f).toMatch(/from '@\/lib\/assessment\/cenario-elegivel'/);
-    expect(f).not.toMatch(/^function selecionarCenariosElegiveis/m);
-    expect((f.match(/selecionarCenariosElegiveis\(cenariosRaw, pppEscolaId, nm\.notaMinima\)/g) || []).length).toBe(2); // GET e POST
-    expect((f.match(/notaMinimaDaEmpresa\(/g) || []).length).toBe(2);
-    expect(f).toMatch(/nota_check: _nota/); // GET remove a métrica interna da resposta
-    expect(f).toMatch(/if \(nm\.error\) return NextResponse\.json/);
+  // A rota `/api/assessment` foi aposentada em 03/10/2026 (R-81): não tinha consumidor no app, e manter dois
+  // caminhos de gravação com validações diferentes era exatamente o defeito.
+  it('a rota legada /api/assessment não volta', () => {
+    expect(() => lerFonte('app/api/assessment/route.ts')).toThrow();
   });
   it('o dashboard usa a mesma função nos DOIS pontos: o resolvedor das competências e a busca do cenário do dia', () => {
     const f = lerFonte('app/dashboard/assessment/assessment-actions.ts');
@@ -112,7 +108,7 @@ describe('os pontos que servem cenário usam a MESMA régua (guard de fonte)', (
     expect(f).toMatch(/escolherCenarioDaCompetencia\(rows, pppEscolaId, nm\.notaMinima\)/);
     expect(f).not.toMatch(/rows\.find\(\(r: any\) => !r\.ppp_escola_id\)/);
     expect(f).toMatch(/if \(nm\.error\) throw new Error\(nm\.error\)/);
-    // Ponto B: sem cenário apto no resolvedor a busca cai POR COMPETÊNCIA — o corte vale de novo ali
+    // Ponto B: o cenário do dia é lido pelo id que o resolvedor escolheu, e o corte é reconferido ali
     expect(f).toMatch(/cenarioAtendeNotaMinima\(cen, nmDoDia\.notaMinima\)/);
     expect(f).toMatch(/if \(nmDoDia\.error\) return \{ error: nmDoDia\.error \}/);
     // a nota é métrica interna: o payload do cenário do dia continua sem ela

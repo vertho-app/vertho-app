@@ -37,6 +37,10 @@ function respostasNoBanco() {
   return [...cenario.respostas, ...gravadas];
 }
 
+// O mock ignora filtros; a única leitura com `.not('avaliacao_ia')` é a de "já avaliada".
+const soAvaliadas = (cadeia: any[], linhas: any[]) =>
+  cadeia.some((c) => c.metodo === 'not' && c.args[0] === 'avaliacao_ia') ? linhas.filter((r: any) => r.avaliacao_ia != null) : linhas;
+
 sb = criarSupabaseMock({
   resolver: (table) => {
     if (table === 'cargos_empresa') return { top5_workshop: TOP5 };
@@ -47,11 +51,11 @@ sb = criarSupabaseMock({
     if (table === 'respostas') return { id: 'resp-nova', colaborador_id: 'colab-1', competencia_id: 'comp-1' };
     return null;
   },
-  lista: (table) => {
+  lista: (table, _cols, cadeia) => {
     if (table === 'competencias') {
       return TOP5.map((nome, i) => ({ id: `comp-${i + 1}`, nome, cod_desc: null }));
     }
-    if (table === 'respostas') return respostasNoBanco();
+    if (table === 'respostas') return soAvaliadas(cadeia, respostasNoBanco());
     if (table === 'banco_cenarios') return [{ id: 'cen-1', competencia_id: 'comp-1' }];
     return [];
   },

@@ -435,10 +435,19 @@ export const DEGRADACAO = {
    * chamou). R-45, 03/10/2026. Chave = `<taskKey>:<modelo pedido>`.
    */
   MODELO_NAO_DECLARADO: 'modelo-nao-declarado',
+  /**
+   * assessment: a pessoa chegou a uma competência do Top 5 que não tem cenário
+   * servível (não gerado, ou abaixo da nota mínima da empresa). A tela passa para a
+   * PRÓXIMA competência que tem cenário, em vez de travar todas as seguintes (R-82,
+   * 03/10/2026); a que ficou para trás volta sozinha quando o cenário existir. `aviso`:
+   * a pessoa segue respondendo, mas o mapeamento dela não fecha até alguém gerar o
+   * cenário. Chave = `<empresaId>:<cargo>:<competência>`.
+   */
+  COMPETENCIA_SEM_CENARIO: 'competencia-sem-cenario',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
-export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo' | 'votacao' | 'ia';
+export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo' | 'votacao' | 'ia' | 'assessment';
 export type DegradacaoSeveridade = 'info' | 'aviso' | 'critico';
 
 export interface DegradacaoInput {

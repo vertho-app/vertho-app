@@ -41,6 +41,10 @@ const comps = [
   ...LID5.map((nome, i) => ({ id: `l-${i + 1}`, nome, cod_desc: null })),   // sob a variante em uso
 ];
 
+// O mock ignora filtros; a única leitura com `.not('avaliacao_ia')` é a de "já avaliada".
+const soAvaliadas = (cadeia: any[], linhas: any[]) =>
+  cadeia.some((c) => c.metodo === 'not' && c.args[0] === 'avaliacao_ia') ? linhas.filter((r: any) => r.avaliacao_ia != null) : linhas;
+
 sb = criarSupabaseMock({
   resolver: (table, cols) => {
     // O mock ignora filtros: as duas leituras de cargos_empresa se distinguem pelo select.
@@ -51,11 +55,11 @@ sb = criarSupabaseMock({
     if (table === 'banco_cenarios') return { id: 'cen-1', titulo: 'Cenário', descricao: 'Contexto', alternativas: [] };
     return null;
   },
-  lista: (table) => {
+  lista: (table, _cols, cadeia) => {
     // O trilho lê a LISTA de cargos e casa o alvo por nome normalizado.
     if (table === 'cargos_empresa') return [{ nome: 'Gerente Comercial', top5_workshop: LID5 }, { nome: 'Vendedor', top5_workshop: CARGO5 }];
     if (table === 'competencias') return comps;
-    if (table === 'respostas') return respostasNoBanco();
+    if (table === 'respostas') return soAvaliadas(cadeia, respostasNoBanco());
     if (table === 'banco_cenarios') return comps.map((c) => ({ id: `cen-${c.id}`, competencia_id: c.id }));
     return [];
   },

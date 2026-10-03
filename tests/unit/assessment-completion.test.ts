@@ -34,12 +34,10 @@ describe('conclusão da avaliação por competência', () => {
     expect(normalizeAssessmentCompetency('  Resiliência E Constância  ')).toBe('resiliencia e constancia');
   });
 
-  it('aplica a mesma regra na action do dashboard e na rota legada', () => {
+  // A rota legada `/api/assessment` foi aposentada em 03/10/2026 (R-81): a action
+  // do dashboard é o único caminho que serve e grava o cenário A.
+  it('a action do dashboard aplica a regra', () => {
     const action = readFileSync('app/dashboard/assessment/assessment-actions.ts', 'utf8');
-    const route = readFileSync('app/api/assessment/route.ts', 'utf8');
-
     expect(action).toContain('assessmentCompetencyWasAnswered');
-    expect(route).toContain('assessmentCompetencyWasAnswered');
-    expect(route).toContain(".eq('cargo', colab.cargo)");
   });
 });

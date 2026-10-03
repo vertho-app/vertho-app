@@ -57,7 +57,6 @@
     "actions/video-tracking.ts": 2,
     "actions/votacao.ts": 1,
     "app/actions/beto.ts": 1,
-    "app/api/assessment/route.ts": 2,
     "app/api/auth/cargos/route.ts": 1,
     "app/api/auth/check-email/route.ts": 1,
     "app/api/auth/magic-link/route.ts": 1,

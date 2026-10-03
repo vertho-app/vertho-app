@@ -66,6 +66,30 @@ function CardTrilhoLideranca({ t, data, trilho, router }: { t: any; data: any; t
   );
 }
 
+/**
+ * Bloqueios que a tela sabe explicar na língua da pessoa (R-80, 03/10/2026).
+ * O servidor devolve um `code` estável; a mensagem dele é em pt-BR e escrita
+ * para o operador, então a tela não a mostra quando conhece o código. Código
+ * desconhecido cai na mensagem do servidor, como antes.
+ */
+const BLOQUEIOS_CONHECIDOS = new Set([
+  'PERFIL_PESSOAL_PENDENTE',
+  'ORDEM_INDISPONIVEL',
+  'PERFIL_BLOQUEADO',
+  'VOTACAO_ATIVA',
+  'CENARIOS_BLOQUEADOS',
+  'SEM_COMPETENCIAS',
+  'SEM_CENARIO_DISPONIVEL',
+]);
+
+/** Recusas do ENVIO que a tela traduz (toast); as demais mostram o texto do servidor. */
+const ERROS_DE_ENVIO = new Set([
+  'CENARIO_NAO_ELEGIVEL',
+  'COMPETENCIA_JA_AVALIADA',
+  'COMPETENCIA_FORA_DO_TRILHO',
+  'RESPOSTA_LONGA',
+]);
+
 // Vídeo de encerramento da avaliação (pedido do deck "Experiência do usuário - Elo"):
 // agradecimento + próximas etapas (PDI e Temporada).
 // TODO: vídeo em produção — trocar pelo ID real do Bunny Stream quando estiver pronto.
@@ -92,6 +116,9 @@ function AssessmentInner() {
 
   const [phase, setPhase] = useState(PHASE.LOADING);
   const [error, setError] = useState('');
+  // Código estável do bloqueio (o servidor devolve junto da mensagem): decide o
+  // texto traduzido e o botão de saída. Vazio = erro sem código.
+  const [errorCode, setErrorCode] = useState('');
   const [data, setData] = useState(null);
 
   const [pergIdx, setPergIdx] = useState(0); // 0..3
@@ -125,14 +152,14 @@ function AssessmentInner() {
     // carregar o novo — senão a resposta meio digitada do cargo vaza para o de
     // liderança.
     setTrilho(trilhoQuery);
-    setPhase(PHASE.LOADING); setError(''); setData(null);
+    setPhase(PHASE.LOADING); setError(''); setErrorCode(''); setData(null);
     setRespostas({ r1: '', r2: '', r3: '', r4: '' }); setRepr(null); setPergIdx(0); setSaveResult(null);
     (async () => {
       try {
         const r: any = await getDiagnosticoDoDia(trilhoQuery);
         if (!ativo) return;
         if (!r) { setError(t('emptyServer')); setPhase(PHASE.ERROR); return; }
-        if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
+        if (r.error) { setError(r.error); setErrorCode(r.code || ''); setPhase(PHASE.ERROR); return; }
         setData(r);
         if (irParaPreferencias(r)) return;
         if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
@@ -176,7 +203,13 @@ function AssessmentInner() {
       repr,
     }, trilho);
     setSaving(false);
-    if (r.error) { flash(r.error); return; }
+    if (r.error) {
+      // Porta fechada no meio do caminho (ex.: cenários bloqueados enquanto a
+      // pessoa respondia): a mesma tela de bloqueio da carga, com saída.
+      if (BLOQUEIOS_CONHECIDOS.has(r.code)) { setError(r.error); setErrorCode(r.code); setPhase(PHASE.ERROR); return; }
+      flash(ERROS_DE_ENVIO.has(r.code) ? t(`envio.${r.code}`) : r.error);
+      return;
+    }
     setSaveResult(r);
     if (irParaPreferencias(r)) return;
     if (r.concluiuTudo) {
@@ -210,18 +243,43 @@ function AssessmentInner() {
   }
 
   if (phase === PHASE.ERROR) {
+    const conhecido = BLOQUEIOS_CONHECIDOS.has(errorCode);
     return (
       <div className="max-w-[600px] mx-auto px-4 py-6">
         <BackButton />
-        <div className="rounded-xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
-          <p className="text-base text-gray-300">{error}</p>
+        <div
+          className="rounded-xl p-6 border border-white/[0.06] text-center"
+          style={{ background: '#0F2A4A' }}
+          data-assessment-bloqueio={errorCode || 'erro'}
+        >
+          {conhecido ? (
+            <>
+              <p className="text-base font-bold text-white mb-1">{t(`bloqueio.${errorCode}.title`)}</p>
+              <p className="text-sm text-gray-300">{t(`bloqueio.${errorCode}.text`)}</p>
+            </>
+          ) : (
+            <p className="text-base text-gray-300">{error}</p>
+          )}
+          {/* O bloqueio por ordem tem saída: o Perfil é a etapa que falta, e ele
+              está a um clique. Sem o botão a pessoa lia "faça o seu Perfil" e
+              tinha de achar sozinha onde ele fica. */}
+          {errorCode === 'PERFIL_PESSOAL_PENDENTE' && (
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/perfil-comportamental')}
+              data-assessment-cta="perfil"
+              className="mt-5 w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition"
+            >
+              {t('bloqueio.PERFIL_PESSOAL_PENDENTE.cta')}
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-[640px] mx-auto px-5 py-6 space-y-4">
+    <div className="max-w-[640px] mx-auto px-5 py-6 space-y-4" data-assessment-fase={phase}>
       <BackButton />
 
       {/* Header com progresso */}
@@ -334,6 +392,7 @@ function AssessmentInner() {
               onChange={e => setCurrentR(e.target.value)}
               placeholder={t('questions.placeholder')}
               rows={6}
+              maxLength={5000}
               className="w-full p-3 rounded-xl border-2 border-white/10 bg-[#091D35] text-white text-sm outline-none focus:border-brand-400 transition-colors placeholder:text-gray-500"
             />
             <p className={`text-right text-[11px] mt-1 ${len < 20 ? 'text-red-400' : 'text-gray-500'}`}>{t('questions.minChars', { count: len })}</p>
@@ -405,7 +464,7 @@ function AssessmentInner() {
                 setPergIdx(0);
                 setSaveResult(null);
                 const r: any = await getDiagnosticoDoDia(trilho);
-                if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
+                if (r.error) { setError(r.error); setErrorCode(r.code || ''); setPhase(PHASE.ERROR); return; }
                 setData(r);
                 if (irParaPreferencias(r)) return;
                 if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);

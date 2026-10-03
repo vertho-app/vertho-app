@@ -4170,6 +4170,43 @@
       "todayDescription": "Volte amanhã para o próximo cenário de liderança.",
       "doneTitle": "Mapeamento de liderança concluído, {name}!",
       "doneDescription": "As suas respostas serão analisadas e cruzadas com o seu perfil comportamental. O resultado é apresentado pela sua chefia."
+    },
+    "bloqueio": {
+      "PERFIL_PESSOAL_PENDENTE": {
+        "title": "Falta o seu Perfil comportamental",
+        "text": "O Diagnóstico começa depois do Perfil. Faça o seu Perfil comportamental, que demora poucos minutos, e volte aqui.",
+        "cta": "Fazer o meu perfil →"
+      },
+      "ORDEM_INDISPONIVEL": {
+        "title": "Não foi possível verificar o seu Perfil",
+        "text": "Tente novamente dentro de instantes."
+      },
+      "PERFIL_BLOQUEADO": {
+        "title": "Etapa ainda não disponível",
+        "text": "O Diagnóstico ainda não foi disponibilizado para si. Volte mais tarde."
+      },
+      "VOTACAO_ATIVA": {
+        "title": "Votação em curso",
+        "text": "O Diagnóstico abre depois de a votação das competências ser encerrada."
+      },
+      "CENARIOS_BLOQUEADOS": {
+        "title": "Etapa ainda não disponível",
+        "text": "Os cenários do Diagnóstico ainda não foram disponibilizados para si. Volte mais tarde."
+      },
+      "SEM_COMPETENCIAS": {
+        "title": "Nenhuma competência para responder",
+        "text": "Ainda não há competências definidas para este mapeamento. Quando houver, aparecem aqui."
+      },
+      "SEM_CENARIO_DISPONIVEL": {
+        "title": "Próximos cenários em preparação",
+        "text": "Os cenários das suas próximas competências ainda estão a ser preparados. Volte mais tarde para continuar."
+      }
+    },
+    "envio": {
+      "CENARIO_NAO_ELEGIVEL": "Este cenário já não está disponível. Recarregue a página para continuar.",
+      "COMPETENCIA_JA_AVALIADA": "Esta competência já foi respondida e avaliada.",
+      "COMPETENCIA_FORA_DO_TRILHO": "Esta competência não faz parte do seu mapeamento.",
+      "RESPOSTA_LONGA": "Cada resposta pode ter até 5.000 caracteres."
     }
   },
   "AdminRadarFunnel": {

@@ -5054,6 +5054,43 @@
       "todayDescription": "Volte amanhã para o próximo cenário de liderança.",
       "doneTitle": "Mapeamento de liderança concluído, {name}!",
       "doneDescription": "Suas respostas serão analisadas e cruzadas com o seu perfil comportamental. O resultado é apresentado pela sua liderança."
+    },
+    "bloqueio": {
+      "PERFIL_PESSOAL_PENDENTE": {
+        "title": "Falta o seu Perfil comportamental",
+        "text": "O Diagnóstico começa depois do Perfil. Faça o seu Perfil comportamental, que leva poucos minutos, e volte aqui.",
+        "cta": "Fazer meu perfil →"
+      },
+      "ORDEM_INDISPONIVEL": {
+        "title": "Não foi possível conferir o seu Perfil",
+        "text": "Tente de novo em instantes."
+      },
+      "PERFIL_BLOQUEADO": {
+        "title": "Etapa ainda não liberada",
+        "text": "O Diagnóstico ainda não foi liberado para você. Volte mais tarde."
+      },
+      "VOTACAO_ATIVA": {
+        "title": "Votação em andamento",
+        "text": "O Diagnóstico abre depois que a votação das competências for encerrada."
+      },
+      "CENARIOS_BLOQUEADOS": {
+        "title": "Etapa ainda não liberada",
+        "text": "Os cenários do Diagnóstico ainda não foram liberados para você. Volte mais tarde."
+      },
+      "SEM_COMPETENCIAS": {
+        "title": "Nenhuma competência para responder",
+        "text": "Ainda não há competências definidas para este mapeamento. Quando houver, elas aparecem aqui."
+      },
+      "SEM_CENARIO_DISPONIVEL": {
+        "title": "Próximos cenários em preparação",
+        "text": "Os cenários das suas próximas competências ainda estão sendo preparados. Volte mais tarde para continuar."
+      }
+    },
+    "envio": {
+      "CENARIO_NAO_ELEGIVEL": "Este cenário não está mais disponível. Recarregue a página para continuar.",
+      "COMPETENCIA_JA_AVALIADA": "Esta competência já foi respondida e avaliada.",
+      "COMPETENCIA_FORA_DO_TRILHO": "Esta competência não faz parte do seu mapeamento.",
+      "RESPOSTA_LONGA": "Cada resposta pode ter até 5.000 caracteres."
     }
   },
   "ManagerDashboard": {

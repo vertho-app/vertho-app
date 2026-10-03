@@ -106,7 +106,6 @@ const PAGES = [
 // em lista de esperados — era o que fazia o check aceitar o servidor quebrado.
 const APIS = [
   { path: '/api/version', method: 'GET', status: [200], label: 'Version API (público)' },
-  { path: '/api/assessment', method: 'GET', status: [401], label: 'Assessment API' },
   { path: '/api/colaboradores', method: 'GET', status: [401, 403], label: 'Colaboradores API' },
   { path: '/api/chat', method: 'POST', body: {}, status: [400, 401, 403], label: 'Chat API (no body)' },
   { path: '/api/chat-simulador', method: 'POST', body: { system: 'test', messages: [{ role: 'user', content: 'oi' }], model: 'claude-sonnet-4-6' }, status: [400, 401, 403], label: 'Simulador API' },

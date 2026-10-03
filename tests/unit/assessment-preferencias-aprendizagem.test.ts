@@ -35,6 +35,10 @@ const comps = [
 
 let sb: ReturnType<typeof criarSupabaseMock>;
 
+// O mock ignora filtros; a única leitura com `.not('avaliacao_ia')` é a de "já avaliada".
+const soAvaliadas = (cadeia: any[], linhas: any[]) =>
+  cadeia.some((c) => c.metodo === 'not' && c.args[0] === 'avaliacao_ia') ? linhas.filter((r: any) => r.avaliacao_ia != null) : linhas;
+
 sb = criarSupabaseMock({
   resolver: (table, cols) => {
     if (table === 'cargos_empresa') {
@@ -45,7 +49,7 @@ sb = criarSupabaseMock({
     if (table === 'banco_cenarios') return { id: 'cen-1', titulo: 'Cenário', descricao: 'Contexto', alternativas: [] };
     return null;
   },
-  lista: (table) => {
+  lista: (table, _cols, cadeia) => {
     if (table === 'cargos_empresa') return [{ nome: 'Gerente Comercial', top5_workshop: LID5 }, { nome: 'Vendedor', top5_workshop: CARGO5 }];
     if (table === 'competencias') return comps;
     if (table === 'respostas') {
@@ -53,14 +57,14 @@ sb = criarSupabaseMock({
       const gravadas = (sb?.escritas || [])
         .filter((e) => e.tabela === 'respostas')
         .map((e) => ({ competencia_id: e.payload?.competencia_id, competencia_nome: e.payload?.competencia_nome, timestamp_resposta: e.payload?.timestamp_resposta }));
-      return [
+      return soAvaliadas(cadeia, [
         ...cenario.respondidas.map((nome) => ({
           competencia_id: comps.find((c) => c.nome === nome)?.id,
           competencia_nome: nome,
           timestamp_resposta: '2026-09-30T12:00:00Z',
         })),
         ...gravadas,
-      ];
+      ]);
     }
     if (table === 'banco_cenarios') return comps.map((c) => ({ id: `cen-${c.id}`, competencia_id: c.id }));
     return [];
@@ -145,7 +149,7 @@ describe('assessment: pede as preferências de aprendizagem depois da primeira c
     beforeEach(() => { cenario.respondidas = []; });
 
     it('🔴 salvar a PRIMEIRA competência já devolve precisaPreferencias (a pergunta de aderência é seguida da tela)', async () => {
-      const r: any = await salvarRespostaDiagnostico('cen-1', 'c-1', CARGO5[0], resposta, 'cargo');
+      const r: any = await salvarRespostaDiagnostico('cen-c-1', 'c-1', CARGO5[0], resposta, 'cargo');
       expect(r.success).toBe(true);
       expect(r.concluiuTudo).toBe(false);
       expect(r.precisaPreferencias).toBe(true);
@@ -153,21 +157,21 @@ describe('assessment: pede as preferências de aprendizagem depois da primeira c
 
     it('já preencheu -> a resposta salva sem pedir', async () => {
       cenario.prefVideoCurto = 5;
-      const r: any = await salvarRespostaDiagnostico('cen-1', 'c-1', CARGO5[0], resposta, 'cargo');
+      const r: any = await salvarRespostaDiagnostico('cen-c-1', 'c-1', CARGO5[0], resposta, 'cargo');
       expect(r.success).toBe(true);
       expect(r.precisaPreferencias).toBe(false);
     });
 
     it('tenant com DISC nativo -> salva sem pedir', async () => {
       cenario.cfg = COM_DISC;
-      const r: any = await salvarRespostaDiagnostico('cen-1', 'c-1', CARGO5[0], resposta, 'cargo');
+      const r: any = await salvarRespostaDiagnostico('cen-c-1', 'c-1', CARGO5[0], resposta, 'cargo');
       expect(r.success).toBe(true);
       expect(r.precisaPreferencias).toBe(false);
     });
 
     it('🔴 falha ao ler a preferência NÃO derruba o salvamento (a resposta já foi gravada)', async () => {
       sb.falharEm({ tabela: 'colaboradores', op: 'select', mensagem: 'coluna inexistente' });
-      const r: any = await salvarRespostaDiagnostico('cen-1', 'c-1', CARGO5[0], resposta, 'cargo');
+      const r: any = await salvarRespostaDiagnostico('cen-c-1', 'c-1', CARGO5[0], resposta, 'cargo');
       expect(r.success).toBe(true);
       expect(r.error).toBeUndefined();
       expect(r.precisaPreferencias).toBe(false);

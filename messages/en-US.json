@@ -5054,6 +5054,43 @@
       "todayDescription": "Come back tomorrow for the next leadership scenario.",
       "doneTitle": "Leadership mapping completed, {name}!",
       "doneDescription": "Your answers will be analyzed and cross-read with your behavioral profile. The result is presented by your leadership."
+    },
+    "bloqueio": {
+      "PERFIL_PESSOAL_PENDENTE": {
+        "title": "Your Behavioral Profile comes first",
+        "text": "The Diagnosis starts after the Profile. Complete your Behavioral Profile, which takes a few minutes, and come back here.",
+        "cta": "Take my profile →"
+      },
+      "ORDEM_INDISPONIVEL": {
+        "title": "We could not check your Profile",
+        "text": "Please try again in a moment."
+      },
+      "PERFIL_BLOQUEADO": {
+        "title": "Step not open yet",
+        "text": "The Diagnosis has not been opened for you yet. Please come back later."
+      },
+      "VOTACAO_ATIVA": {
+        "title": "Voting in progress",
+        "text": "The Diagnosis opens after the competency voting is closed."
+      },
+      "CENARIOS_BLOQUEADOS": {
+        "title": "Step not open yet",
+        "text": "The Diagnosis scenarios have not been opened for you yet. Please come back later."
+      },
+      "SEM_COMPETENCIAS": {
+        "title": "No competencies to answer",
+        "text": "No competencies have been defined for this mapping yet. When they are, they will show up here."
+      },
+      "SEM_CENARIO_DISPONIVEL": {
+        "title": "Next scenarios being prepared",
+        "text": "The scenarios for your next competencies are still being prepared. Please come back later to continue."
+      }
+    },
+    "envio": {
+      "CENARIO_NAO_ELEGIVEL": "This scenario is no longer available. Reload the page to continue.",
+      "COMPETENCIA_JA_AVALIADA": "This competency has already been answered and assessed.",
+      "COMPETENCIA_FORA_DO_TRILHO": "This competency is not part of your mapping.",
+      "RESPOSTA_LONGA": "Each answer can have up to 5,000 characters."
     }
   },
   "ManagerDashboard": {
