@@ -5,8 +5,9 @@
  * POR QUE SÓ DESSES
  * ─────────────────
  * O áudio da trilha é gerado sob demanda e **personalizado por pessoa** ("Olá,
- * {nome}. Que bom ter você aqui."), com cache em
- * `final/audio-personalizado/<conteudo>/<colaborador>.mp3`. Quem clica primeiro
+ * {nome}. Que bom ter você aqui."), com cache no bucket PRIVADO `relatorios-pdf`
+ * em `<empresa>/audio-personalizado/<conteudo>/<colaborador>.mp3` (até 03/10/2026,
+ * `conteudos/final/audio-personalizado/...`, público). Quem clica primeiro
  * paga a espera do TTS. Pré-aquecer TODO MUNDO seria uma geração por pessoa —
  * caro e, em geral, para quem nem vai abrir a aba de áudio. Quem recebe a
  * PROMESSA de áudio na mensagem é outra história: para essa pessoa, a espera
@@ -33,6 +34,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { coletarEntregasPrevistas } from '@/lib/pipeline-health/coleta';
 import { precarregarKits, overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
+import { BUCKET_AUDIO_PERSONALIZADO, caminhoAudioPersonalizado } from '@/lib/conteudo/audio-personalizado';
 
 const arg = (n: string) => process.argv.find((a) => a.startsWith(`--${n}=`))?.split('=')[1];
 const SLUG = arg('empresa');
@@ -105,12 +107,14 @@ async function main() {
     const j: any = await r.json().catch(() => null);
     console.log(`    → ${r.status} ${JSON.stringify(j)}`);
 
-    // Prova do EFEITO, não do 200: o arquivo tem que estar no path que a rota de
+    // Prova do EFEITO, não do 200: o arquivo tem que estar no lugar que a rota de
     // leitura consulta. Sem isto, "ok: true" seria só a promessa do servidor.
-    const path = `final/audio-personalizado/${audioId}/${alvo.colaboradorId}.mp3`;
-    const { data: lista } = await sb.storage.from('conteudos')
-      .list(path.split('/').slice(0, -1).join('/'), { search: path.split('/').pop()!, limit: 1 });
-    const arquivo = lista?.[0];
+    // O `search` do Storage é substring: o nome exato é conferido em código.
+    const path = caminhoAudioPersonalizado({ empresaId, conteudoId: audioId, colaboradorId: alvo.colaboradorId });
+    const nomeArquivo = path.split('/').pop()!;
+    const { data: lista } = await sb.storage.from(BUCKET_AUDIO_PERSONALIZADO)
+      .list(path.split('/').slice(0, -1).join('/'), { search: nomeArquivo, limit: 10 });
+    const arquivo = lista?.find((f: any) => f.name === nomeArquivo);
     console.log(`    cache: ${arquivo ? `✅ ${((arquivo as any).metadata?.size / 1024).toFixed(0)} KB` : '🔴 não encontrado'}`);
   }
 

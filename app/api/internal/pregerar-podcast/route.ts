@@ -3,24 +3,23 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { safeSecretEqual } from '@/lib/secure-compare';
 import { extractNarration, generatePersonalizedPodcastAudio } from '@/lib/gemini-tts';
 import { escopoTenantDaLinha } from '@/lib/repositories/conteudos-repo';
+import { salvarAudioPersonalizado } from '@/lib/conteudo/audio-personalizado';
 
 /**
  * Pré-geração do áudio de podcast, no runtime da Vercel (onde o lamejs/encoder MP3
  * funciona; não roda no tsx). TTS o roteiro → MP3 → storage. Dois modos:
  *  - SEM colaboradorId: áudio-BASE (sem nome) em final/podcast-base/{id}.mp3 +
  *    grava `url` no micro_conteudo (fallback p/ admin/sem-colab).
- *  - COM colaboradorId: áudio PERSONALIZADO (com "Olá, {nome}...") no MESMO path de
+ *  - COM colaboradorId: áudio PERSONALIZADO (com "Olá, {nome}...") no MESMO lugar de
  *    cache que /api/conteudo/{id}/podcast lê → pré-aquece o cache por colaborador,
  *    servido INSTANTÂNEO. (Fim do TTS on-demand que estourava o maxDuration.)
+ *    Esse lugar é o bucket PRIVADO, na pasta da empresa da pessoa
+ *    (`lib/conteudo/audio-personalizado.ts`); até 03/10/2026 era o `conteudos`, público.
  *
  * Auth: header `x-internal-secret` (INTERNAL_API_KEY OU service-role de compat).
  */
 export const runtime = 'nodejs';
 export const maxDuration = 300;
-
-function sanitizeSegment(value: string) {
-  return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-}
 
 export async function POST(req: Request) {
   const secret = req.headers.get('x-internal-secret') || '';
@@ -48,20 +47,28 @@ export async function POST(req: Request) {
     // Leitura RAW (sem empresa_id) allowlistada: rota interna sem sessão, atrás
     // do x-internal-secret — o chamador é o nosso próprio worker e o segredo já
     // vale por qualquer tenant, então filtrar por tenant aqui não acrescenta
-    // barreira. Lê só nome_completo, para a saudação do TTS.
-    const { data: colab } = await sb.from('colaboradores')
-      .select('nome_completo').eq('id', colaboradorId).maybeSingle();
-    const nome = colab?.nome_completo?.trim() || '';
+    // barreira. Lê o nome, para a saudação do TTS, e a empresa, que é a pasta
+    // do arquivo no bucket privado (o áudio é dado da PESSOA).
+    const { data: colab, error: erroColab } = await sb.from('colaboradores')
+      .select('nome_completo, empresa_id').eq('id', colaboradorId).maybeSingle();
+    if (erroColab) return NextResponse.json({ error: erroColab.message }, { status: 500 });
+    // Sem a pessoa não há a quem saudar nem onde guardar: antes, o TTS era pago
+    // e o arquivo ia para o id de alguém que não existe.
+    if (!colab?.empresa_id) return NextResponse.json({ error: 'colaborador não encontrado' }, { status: 404 });
+    const nome = colab.nome_completo?.trim() || '';
     const audio = await generatePersonalizedPodcastAudio(narracao, nome, {
       feature: 'tts_podcast_pregerado',
       empresaId: content.empresa_id,
       colaboradorId,
     });
-    // MESMO path que /api/conteudo/[id]/podcast lê no cache.
-    const path = `final/audio-personalizado/${sanitizeSegment(content.id)}/${sanitizeSegment(colaboradorId)}.mp3`;
-    const { error: upErr } = await sb.storage.from('conteudos')
-      .upload(path, audio.buffer, { contentType: audio.contentType, upsert: true });
-    if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+    // MESMO lugar que /api/conteudo/[id]/podcast lê no cache.
+    const salvo = await salvarAudioPersonalizado(
+      sb.storage,
+      { empresaId: colab.empresa_id, conteudoId: content.id, colaboradorId },
+      audio.buffer,
+      audio.contentType,
+    );
+    if ('erro' in salvo) return NextResponse.json({ error: salvo.erro }, { status: 500 });
     return NextResponse.json({ ok: true, personalizado: true, bytes: audio.buffer.length });
   }
 

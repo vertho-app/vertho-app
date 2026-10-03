@@ -23,6 +23,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  */
 
 let sessao: any = null;
+/** Objetos que "existem" no Storage, como `bucket:caminho` (o cache do áudio). */
+const existentes = new Set<string>();
 
 const CONTEUDOS: Record<string, any> = {
   'k-A':      { id: 'k-A',      empresa_id: 'emp-A', formato: 'texto', conteudo_inline: 'x'.repeat(50), url: 'https://gen/A.pdf' },
@@ -40,7 +42,9 @@ const COLABS: Record<string, any> = {
 // `vi.mock` é içado acima das const, e estas são avaliadas DENTRO das factories
 // (não só chamadas depois) — sem `vi.hoisted` o módulo falha ao mockar.
 const { uploadMock, ttsMock, iaMock } = vi.hoisted(() => ({
-  uploadMock: vi.fn(async () => ({ error: null })),
+  // O 1º argumento é o BUCKET (o mock de storage abaixo o injeta): a gravação
+  // do áudio com o nome tem que ir para o bucket PRIVADO (continuação do R-74).
+  uploadMock: vi.fn(async (..._args: any[]) => ({ error: null })),
   ttsMock: vi.fn(async (_narracao: string, _nome: string) => ({ buffer: Buffer.from('mp3'), contentType: 'audio/mpeg' })),
   iaMock: vi.fn(async () => ''),
 }));
@@ -69,9 +73,14 @@ function makeClient() {
   return {
     from,
     storage: {
-      from: () => ({
+      from: (bucket: string) => ({
         download: async () => ({ data: null, error: { message: 'sem cache' } }),
-        upload: uploadMock,
+        // O Storage recusa assinar objeto que não existe: é assim que o cache
+        // do áudio é procurado (`lib/conteudo/audio-personalizado.ts`).
+        createSignedUrl: async (caminho: string) => (existentes.has(`${bucket}:${caminho}`)
+          ? { data: { signedUrl: `https://assinado/${bucket}/${caminho}` }, error: null }
+          : { data: null, error: { message: 'Object not found' } }),
+        upload: (...args: any[]) => uploadMock(bucket, ...args),
         getPublicUrl: (p: string) => ({ data: { publicUrl: `https://cache/${p}` } }),
       }),
     },
@@ -102,7 +111,7 @@ const colabA = { email: 'ana@a.com', role: 'colaborador', isPlatformAdmin: false
 const rhA = { email: 'rh@a.com', role: 'rh', isPlatformAdmin: false, empresaId: 'emp-A', colaborador: { id: 'rh1', empresa_id: 'emp-A' } };
 const admin = { email: 'adm@vertho.ai', role: 'admin', isPlatformAdmin: true, empresaId: null, colaborador: null };
 
-beforeEach(() => { sessao = null; uploadMock.mockClear(); ttsMock.mockClear(); iaMock.mockClear(); });
+beforeEach(() => { sessao = null; existentes.clear(); uploadMock.mockClear(); ttsMock.mockClear(); iaMock.mockClear(); });
 
 describe('gerarConteudoFinalPersonalizado — posse do CONTEÚDO e do COLABORADOR', () => {
   it('sem sessão não entrega nem o PDF genérico, e não chama IA', async () => {
@@ -192,5 +201,21 @@ describe('prepararAudioPersonalizado — mesma régua, e o NOME vem do banco', (
     expect(r.success).toBe(true);
     expect(ttsMock).toHaveBeenCalledTimes(1);
     expect(ttsMock.mock.calls[0][1]).toBe('Ana do Banco');
+    // e o arquivo com o nome vai para o bucket PRIVADO, na pasta da empresa DA PESSOA
+    expect(uploadMock).toHaveBeenCalledTimes(1);
+    expect(uploadMock.mock.calls[0][0]).toBe('relatorios-pdf');
+    expect(uploadMock.mock.calls[0][1]).toBe('emp-A/audio-personalizado/a-A/c1.mp3');
+  });
+
+  it('cache já pronto, no privado OU no formato antigo: não paga TTS de novo', async () => {
+    sessao = rhA;
+    for (const local of ['relatorios-pdf:emp-A/audio-personalizado/a-A/c1.mp3', 'conteudos:final/audio-personalizado/a-A/c1.mp3']) {
+      existentes.clear();
+      existentes.add(local);
+      const r: any = await prepararAudioPersonalizado({ contentId: 'a-A', colab: { id: 'c1' } });
+      expect(r, local).toEqual({ success: true, cached: true });
+    }
+    expect(ttsMock).not.toHaveBeenCalled();
+    expect(uploadMock).not.toHaveBeenCalled();
   });
 });

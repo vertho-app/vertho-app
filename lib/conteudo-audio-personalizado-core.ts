@@ -11,14 +11,14 @@
  * desse tenant (um conteúdo do tenant A nunca ganha o nome de alguém do tenant B).
  */
 import 'server-only';
+import { localizarAudioPersonalizado, salvarAudioPersonalizado } from '@/lib/conteudo/audio-personalizado';
 
 export type AudioNominalResultado = { success: boolean; cached?: boolean; error?: string };
 
-const sani = (v: string) => String(v || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-
-/** Onde o áudio nominal de uma pessoa fica no Storage. A rota `/api/conteudo/[id]/podcast` lê exatamente este caminho. */
-export const caminhoAudioNominal = (contentId: string, colaboradorId: string) =>
-  `final/audio-personalizado/${sani(contentId)}/${sani(colaboradorId)}.mp3`;
+// ONDE o áudio nominal mora é decisão de privacidade (R-74, 03/10/2026) e vive em UM lugar:
+// `lib/conteudo/audio-personalizado.ts`. O áudio diz "Olá, {nome}", é dado DA PESSOA e vai para o bucket PRIVADO,
+// na pasta da empresa dela; a rota `/api/conteudo/[id]/podcast` o entrega por link assinado. Este núcleo não monta
+// caminho nem escolhe bucket: o Kit, que o chama em lote, não pode recriar o arquivo no bucket público.
 
 export async function prepararAudioNominalCore(
   sb: any,
@@ -39,9 +39,12 @@ export async function prepararAudioNominalCore(
   const nome = alvo?.nome_completo?.trim();
   if (!nome) return { success: false, error: 'colaborador sem nome (ou de outro tenant)' };
 
-  const caminho = caminhoAudioNominal(contentId, colaboradorId);
-  const { data: emCache } = await sb.storage.from('conteudos').download(caminho);
-  if (emCache) return { success: true, cached: true };
+  // Empresa da PESSOA (lida acima, dentro do tenant do pedido): é a pasta do arquivo no bucket privado.
+  const chave = { empresaId, conteudoId: contentId, colaboradorId };
+  const achado = await localizarAudioPersonalizado(sb.storage, chave);
+  if ('url' in achado) return { success: true, cached: true };
+  // Storage fora do ar não é "sem cache": gerar às cegas é pagar TTS por um arquivo que provavelmente já existe.
+  if ('erro' in achado) return { success: false, error: `cache do áudio indisponível: ${achado.erro}` };
 
   const { extractNarration, generatePersonalizedPodcastAudio } = await import('@/lib/gemini-tts');
   const narracao = extractNarration(content.conteudo_inline || '');
@@ -49,7 +52,7 @@ export async function prepararAudioNominalCore(
   const audio = await generatePersonalizedPodcastAudio(narracao, nome, {
     feature: 'tts_podcast_personalizado', empresaId, colaboradorId,
   }, prazoAteMs ? { prazoAteMs } : {});
-  const { error } = await sb.storage.from('conteudos').upload(caminho, audio.buffer, { contentType: audio.contentType, upsert: true });
-  if (error) return { success: false, error: error.message };
+  const salvo = await salvarAudioPersonalizado(sb.storage, chave, audio.buffer, audio.contentType);
+  if ('erro' in salvo) return { success: false, error: salvo.erro };
   return { success: true };
 }

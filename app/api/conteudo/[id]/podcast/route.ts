@@ -3,13 +3,24 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { logAdminAction } from '@/lib/audit';
 import { servirComoDownload } from '@/lib/conteudo/download';
+import {
+  assinarAudioPersonalizado,
+  BUCKET_AUDIO_PERSONALIZADO,
+  localizarAudioPersonalizado,
+  salvarAudioPersonalizado,
+  type ChaveAudioPersonalizado,
+} from '@/lib/conteudo/audio-personalizado';
 import { extractNarration, generatePersonalizedPodcastAudio } from '@/lib/gemini-tts';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // fallback on-demand p/ colab sem cache pré-aquecido
 
 function redirectTo(url: string) {
-  return NextResponse.redirect(url, { status: 302 });
+  const res = NextResponse.redirect(url, { status: 302 });
+  // O destino do áudio personalizado é um link ASSINADO que expira: o 302 não
+  // pode ficar em cache (do browser ou de CDN) apontando para um link morto.
+  res.headers.set('Cache-Control', 'private, no-store');
+  return res;
 }
 
 /**
@@ -23,10 +34,6 @@ async function entregar(url: string, req: Request): Promise<Response> {
   const q = new URL(req.url).searchParams;
   if (q.get('download') !== '1') return redirectTo(url);
   return servirComoDownload(url, q.get('name'), 'mp3');
-}
-
-function sanitizeSegment(value: string) {
-  return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 async function downloadBaseAudio(sb: ReturnType<typeof createSupabaseAdmin>, content: any): Promise<Buffer | null> {
@@ -91,17 +98,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   // (que já cobre platform admin, o próprio colab e rh/gestor do tenant), nunca
   // confiado em silêncio. NÃO é o padrão de bypass em que o chamador passa a
   // identidade e o gate é PULADO (ver `gerarConteudoFinalPersonalizado({colab})`).
-  let alvo: { id: string; nome_completo?: string | null } | null = auth.colaborador || null;
+  let alvo: { id: string; nome_completo?: string | null; empresa_id?: string | null } | null = auth.colaborador || null;
   const pedido = new URL(req.url).searchParams.get('colaboradorId');
   if (pedido && pedido !== auth.colaborador?.id) {
     const denied = await assertColabAccess(auth, pedido);
     if (denied) return denied;
-    const { data: outro } = await sb
+    const { data: outro, error: erroOutro } = await sb
       .from('colaboradores')
-      .select('id, nome_completo')
+      .select('id, nome_completo, empresa_id')
       .eq('id', pedido)
       .eq('empresa_id', content.empresa_id)
       .maybeSingle();
+    if (erroOutro) return NextResponse.json({ error: 'não foi possível conferir o colaborador agora' }, { status: 503 });
     if (!outro) return NextResponse.json({ error: 'colaborador não encontrado neste conteúdo' }, { status: 404 });
     alvo = outro;
   }
@@ -114,18 +122,29 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       : NextResponse.json({ error: 'Podcast ainda não gerado' }, { status: 404 });
   }
 
-  const cachePath = [
-    'final',
-    'audio-personalizado',
-    sanitizeSegment(content.id),
-    `${sanitizeSegment(alvo!.id)}.mp3`,
-  ].join('/');
+  // O áudio com o nome é dado DA PESSOA: mora no bucket privado, na pasta da
+  // empresa dela, e sai só por link assinado (`lib/conteudo/audio-personalizado.ts`).
+  // Até 03/10/2026 esta rota autorizava e depois entregava a URL PÚBLICA e
+  // permanente do bucket `conteudos` (continuação do R-74).
+  const empresaDaPessoa = alvo?.empresa_id || null;
+  if (!empresaDaPessoa) {
+    console.error('[podcast personalizado] pessoa sem empresa; servindo o áudio-base', { colaboradorId: alvo?.id });
+    return content.url
+      ? entregar(content.url, req)
+      : NextResponse.json({ error: 'Podcast ainda não gerado' }, { status: 404 });
+  }
+  const chave: ChaveAudioPersonalizado = { empresaId: empresaDaPessoa, conteudoId: content.id, colaboradorId: alvo!.id };
 
-  const cached = await sb.storage.from('conteudos').download(cachePath);
-  if (!cached.error && cached.data) {
-    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(cachePath);
+  const achado = await localizarAudioPersonalizado(sb.storage, chave);
+  if ('url' in achado) {
     await registrarAuditoria(auth, alvo, content.id, req);
-    return entregar(publicUrl, req);
+    return entregar(achado.url, req);
+  }
+  if ('erro' in achado) {
+    // Storage fora: NÃO gerar de novo. Seria pagar TTS e prender a pessoa por
+    // minutos por um arquivo que provavelmente já existe.
+    console.error('[podcast personalizado] cache indisponível', { conteudoId: content.id, erro: achado.erro });
+    return NextResponse.json({ error: 'podcast indisponível agora, tente de novo em instantes' }, { status: 503 });
   }
 
   try {
@@ -141,15 +160,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         empresaId: content.empresa_id,
         colaboradorId: alvo!.id,
       }, { prazoAteMs: inicioMs + maxDuration * 1000 });
-      const { error: uploadError } = await sb.storage.from('conteudos').upload(cachePath, audio.buffer, {
-        contentType: audio.contentType,
-        upsert: true,
-      });
-      if (uploadError) throw uploadError;
+      const salvo = await salvarAudioPersonalizado(sb.storage, chave, audio.buffer, audio.contentType);
+      if ('erro' in salvo) throw new Error(`upload do áudio personalizado: ${salvo.erro}`);
 
-      const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(cachePath);
+      const assinado = await assinarAudioPersonalizado(sb.storage, { bucket: BUCKET_AUDIO_PERSONALIZADO, caminho: salvo.caminho });
+      if (!('url' in assinado)) throw new Error(`link do áudio personalizado: ${'erro' in assinado ? assinado.erro : 'não encontrado'}`);
       await registrarAuditoria(auth, alvo, content.id, req);
-      return entregar(publicUrl, req);
+      return entregar(assinado.url, req);
     }
   } catch (err) {
     console.error('[podcast personalizado]', err);

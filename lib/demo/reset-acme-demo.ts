@@ -76,6 +76,11 @@ import { buildAcmeDemoBehavioralReport } from '@/lib/demo/acme-behavioral-report
 // DEMO_TENANT_PROFILES, logo abaixo.
 import { rosterDemo, type DemoRosterKey } from '@/lib/demo/rosters';
 import { seedSimuladoresDemo } from '@/lib/demo/seed-simuladores';
+import {
+  listarAudiosPersonalizadosDoConteudo,
+  moverAudioPersonalizado,
+  type RefAudioPersonalizado,
+} from '@/lib/conteudo/audio-personalizado';
 import { PPP_REDE_ESCOLAS_ACME, VALORES_REDE_ESCOLAS_ACME } from '@/lib/demo/rosters/escolar';
 import {
   COMERCIAL_AREA,
@@ -775,7 +780,8 @@ type DemoWarmSnapshot = {
   audiosPersonalizadosJornada: Array<{
     ownerEmail: string;
     contentId: string;
-    sourcePath: string;
+    /** Onde o MP3 está hoje: bucket privado ou o formato antigo, no público. */
+    origem: Pick<RefAudioPersonalizado, 'bucket' | 'caminho'>;
   }>;
   videosPersonalizadosJornada: Array<{
     ownerEmail: string;
@@ -786,11 +792,6 @@ type DemoWarmSnapshot = {
     bunnyLibrary: string | null;
   }>;
 };
-
-function demoAudioPersonalizadoPath(contentId: string, colaboradorId: string): string {
-  const seguro = (value: string) => String(value || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-  return `final/audio-personalizado/${seguro(contentId)}/${seguro(colaboradorId)}.mp3`;
-}
 
 /**
  * Progresso da persona navegável: N semanas concluídas + a semana em curso.
@@ -988,6 +989,9 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     // a pagar TTS (~2-5 min), mesmo com o áudio já pronto. Capturamos somente os
     // MP3s que pertencem às personas atuais e aos conteúdos deste tenant. Os
     // arquivos serão MOVIDOS para o UUID novo no restore (não duplicados).
+    // Desde 03/10/2026 o cache mora no bucket PRIVADO (o áudio leva o nome da
+    // pessoa); a listagem olha também o formato antigo, no público, e o
+    // restore leva o que estiver lá para o privado.
     const audios = await must('snapshot conteúdos de áudio demo', sb.from('micro_conteudos')
       .select('id')
       .eq('empresa_id', empresaId)
@@ -997,19 +1001,17 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       // A pasta é a parte estável até o contentId. Construí-la explicitamente
       // evita listar o Storage inteiro e mantém o reset proporcional ao
       // catálogo do tenant.
-      const pastaAudio = `final/audio-personalizado/${String(audio.id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-      const { data: arquivos, error: arquivosError } = await sb.storage.from('conteudos')
-        .list(pastaAudio, { limit: 1000 });
-      if (arquivosError) throw new Error(`snapshot áudio ${audio.id}: ${arquivosError.message}`);
-      for (const arquivo of arquivos || []) {
-        if (!arquivo.name.endsWith('.mp3') || Number(arquivo.metadata?.size || 0) <= 0) continue;
-        const colaboradorId = arquivo.name.slice(0, -4);
-        const ownerEmail = emailPorId.get(colaboradorId);
+      const { audios: arquivos, erros } = await listarAudiosPersonalizadosDoConteudo(sb.storage, empresaId, audio.id);
+      if (erros.length) throw new Error(`snapshot áudio ${audio.id}: ${erros.join('; ')}`);
+      for (const arquivo of arquivos) {
+        // Na pasta antiga não há empresa no caminho: só entra quem é persona
+        // DESTE tenant (o id casa com o elenco lido acima).
+        const ownerEmail = emailPorId.get(arquivo.colaboradorId);
         if (!ownerEmail) continue;
         audiosPersonalizadosJornada.push({
           ownerEmail,
           contentId: audio.id,
-          sourcePath: `${pastaAudio}/${arquivo.name}`,
+          origem: { bucket: arquivo.bucket, caminho: arquivo.caminho },
         });
       }
     }
@@ -1119,10 +1121,13 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     for (const audio of snapshot.audiosPersonalizadosJornada) {
       const colaboradorId = idPorEmail.get(audio.ownerEmail);
       if (!colaboradorId) continue;
-      const destino = demoAudioPersonalizadoPath(audio.contentId, colaboradorId);
-      if (destino === audio.sourcePath) continue;
-      const { error } = await sb.storage.from('conteudos').move(audio.sourcePath, destino);
-      if (error) throw new Error(`restaurar áudio de jornada ${audio.ownerEmail}: ${error.message}`);
+      const movido = await moverAudioPersonalizado(sb.storage, audio.origem, {
+        empresaId,
+        conteudoId: audio.contentId,
+        colaboradorId,
+      });
+      if ('erro' in movido) throw new Error(`restaurar áudio de jornada ${audio.ownerEmail}: ${movido.erro}`);
+      if (movido.aviso) console.warn(`[reset-demo] áudio de jornada ${audio.ownerEmail}: ${movido.aviso}`);
     }
   }
 
