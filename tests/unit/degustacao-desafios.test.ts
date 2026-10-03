@@ -83,6 +83,19 @@ describe('os desafios de cada ambiente', () => {
     }
   });
 
+  it('🔴 o texto da gestão não promete quem está parado: a tela ao lado pode dizer "ninguém parado"', () => {
+    // Medido na tela em produção (03/10/2026, Escolas): "PRECISAM DE APOIO 0 · ninguém
+    // parado". Um ponto que dissesse "quem precisa de apoio" seria desmentido pelo número
+    // ao lado. Contar (quantos) vale com 0 e com N; apontar (quem) não.
+    for (const slug of AMBIENTES) {
+      const gestao = desafioDoAmbiente(slug, 'gestao')!;
+      for (const texto of [gestao.titulo, gestao.com, gestao.emGeral, ...gestao.pontos]) {
+        expect(texto, `${slug}: ${texto}`).not.toMatch(/quem precisa|quem est[áa] parad/i);
+      }
+      expect(gestao.pontos.join(' ')).toMatch(/quantos precisam de apoio/);
+    }
+  });
+
   it('vocabulário de escola nas Escolas e de empresa nas empresas (a cópia não vaza de um para o outro)', () => {
     const escolas = JSON.stringify(desafiosDoAmbiente('escolas-acme')) + JSON.stringify(copiaDaVersaoC('escolas-acme'));
     const empresa = JSON.stringify(desafiosDoAmbiente('acme-demo')) + JSON.stringify(copiaDaVersaoC('acme-demo'));

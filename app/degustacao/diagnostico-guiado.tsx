@@ -136,8 +136,11 @@ export default function DiagnosticoGuiado({ passe, codigo, primeiroNome, copia, 
                 >
                   <Icone size={20} aria-hidden="true" />
                 </span>
-                <span className="min-w-0 flex-1 pr-16 lg:pr-0">
-                  <span className="block text-[10.5px] font-bold uppercase tracking-[0.14em]" style={{ color: COR.texto3 }}>{desafio.tema}</span>
+                <span className="min-w-0 flex-1">
+                  {/* Só a linha do tema desvia da seta/selo "Visto" (canto superior direito); o
+                      título usa a largura toda. `Medido 03/10/2026` no celular: reservar a
+                      folga no bloco inteiro quebrava títulos de 3 linhas em 4. */}
+                  <span className="block pr-16 text-[10.5px] font-bold uppercase tracking-[0.14em] lg:pr-0" style={{ color: COR.texto3 }}>{desafio.tema}</span>
                   <span className="mt-1 block text-[16px] font-semibold leading-snug lg:text-[17px]" style={{ color: COR.texto }}>{desafio.titulo}</span>
                 </span>
                 {visto ? (

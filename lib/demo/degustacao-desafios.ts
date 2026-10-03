@@ -117,7 +117,7 @@ const EMPRESA: readonly DesafioDaDegustacao[] = [
     frase: 'os gestores não acompanharem o desenvolvimento do time',
     sala: 'gestor', caminho: '/dashboard/gestor',
     pontos: [
-      'A equipe numa tela só: quantos estão em trilha, quem precisa de apoio e a atividade da semana.',
+      'A equipe numa tela só: quantos estão em trilha, quantos precisam de apoio e a atividade da semana.',
       'Uma leitura pronta para decidir: o que sustentar, o que acompanhar e a próxima decisão.',
       'O pulso de cada competência e os pontos fortes a reconhecer, com nome e nível.',
     ],
@@ -185,7 +185,7 @@ const ESCOLAS: readonly DesafioDaDegustacao[] = [
     frase: 'a coordenação não acompanhar o desenvolvimento dos professores',
     sala: 'gestor', caminho: '/dashboard/gestor',
     pontos: [
-      'Os professores numa tela só: quantos estão em trilha, quem precisa de apoio e a atividade da semana.',
+      'Os professores numa tela só: quantos estão em trilha, quantos precisam de apoio e a atividade da semana.',
       'Uma leitura pronta para decidir: o que sustentar, o que acompanhar e a próxima decisão.',
       'O pulso de cada competência e os pontos fortes a reconhecer, com nome e nível.',
     ],
