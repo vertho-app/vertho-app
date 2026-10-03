@@ -22,6 +22,7 @@ import { resolverNomeOficial, chaveDescritor } from '@/lib/descritores';
 import { buscarContextoPPP } from '@/lib/ia2-gabarito';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
+import { maskColaborador, maskTextPII, unmaskDeepPII } from '@/lib/pii-masker';
 
 export const IA4_SYSTEM = `Você é o Motor de Avaliação de Competências da Vertho Mentor IA.
 
@@ -350,14 +351,21 @@ export function buildIA4UserPrompt(
   if (ctx.perguntasTexto) contextoBlocks.push(`═══ PERGUNTAS E MAPEAMENTO ═══\n${ctx.perguntasTexto}`);
   const cachedUserPrefix = contextoBlocks.join('\n\n');
 
+  // Avaliação SEM o nome (decisão 10b do dono, 03/10/2026): a régua não precisa
+  // saber quem é a pessoa. Vai o identificador, e as respostas passam pela mesma
+  // máscara das conversas (o nome e o contato que ela digitou). O texto que a IA
+  // devolve é desmascarado em `consolidarEPersistirIA4`, por onde os dois
+  // caminhos (síncrono e lote) gravam.
+  const { masked: colabMasked, map: pii } = maskColaborador(colab);
+  const resposta = (r: unknown) => maskTextPII(typeof r === 'string' ? r : '', pii) || '(sem resposta)';
   const userBlocks: string[] = [];
-  userBlocks.push(`═══ PROFISSIONAL ═══\nNome: ${colab?.nome_completo || '—'}\nCargo: ${colab?.cargo || '—'}`);
+  userBlocks.push(`═══ PROFISSIONAL ═══\nNome: ${colabMasked?.nome} (identificador da pessoa: use-o exatamente assim onde citaria o nome)\nCargo: ${colab?.cargo || '(não informado)'}`);
   if (perfilCIS) userBlocks.push(`═══ PERFIL COMPORTAMENTAL ═══\n${perfilCIS}\nNOTA: O perfil NÃO altera a nota. Influencia APENAS o tom do feedback.`);
   userBlocks.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
-R1: ${resp.r1 || '(sem resposta)'}
-R2: ${resp.r2 || '(sem resposta)'}
-R3: ${resp.r3 || '(sem resposta)'}
-R4: ${resp.r4 || '(sem resposta)'}`);
+R1: ${resposta(resp.r1)}
+R2: ${resposta(resp.r2)}
+R3: ${resposta(resp.r3)}
+R4: ${resposta(resp.r4)}`);
   userBlocks.push(`═══ INSTRUÇÃO DE AVALIAÇÃO ═══
 1. Leia cada resposta SEPARADAMENTE antes de avaliar
 2. Extraia evidências textuais REAIS (não invente)
@@ -538,8 +546,13 @@ export function blocoConsolidacao(c: ConsolidacaoIA4) {
  * `{success, message|error}` que o fluxo síncrono sempre devolveu.
  */
 export async function consolidarEPersistirIA4(
-  tdb: any, resp: any, colab: any, avaliacao: any, ctx: ContextoRespostaIA4,
+  tdb: any, resp: any, colab: any, avaliacaoDaIA: any, ctx: ContextoRespostaIA4,
 ): Promise<{ success: boolean; message?: string; error?: string }> {
+  // O prompt levou o identificador (`buildIA4UserPrompt`); o que se grava é lido
+  // pela pessoa e pelo RH, então volta com o nome. O alias sai do mesmo
+  // colaborador de forma determinística: o lote, que monta o prompt numa
+  // invocação e grava em outra, desmascara igual ao síncrono.
+  const avaliacao = unmaskDeepPII(avaliacaoDaIA, maskColaborador(colab).map);
   const descPorDescritor = avaliacao.avaliacao_por_descritor;
   const cons = consolidarNotasIA4(descPorDescritor);
   const { notasPorDesc, mediaDescritores, nivelGeral } = cons;

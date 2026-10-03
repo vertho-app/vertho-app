@@ -14,6 +14,7 @@ import {
   promptAuditoriaPdi, parseAuditoriaPdi, RODADAS_SEMANTICAS, type PdiAuditCheck,
 } from './pdi-audit';
 import { getModelForTask } from '@/lib/ai-tasks';
+import { maskDeepPII, unmaskDeepPII } from '@/lib/pii-masker';
 
 /**
  * Relatório Individual (PDI) — núcleo SEM gate.
@@ -135,11 +136,15 @@ export async function persistRelatorioIndividualFromText(
   try {
     const built = args.built ?? await buildRelatorioIndividualPrompt(sbRaw, { empresaId, colaboradorId });
     if ('error' in built) return { success: false, error: built.error };
-    const { user, dadosComps, blueprint, colab, empresa, cenarioERespostas } = built;
+    const { user, dadosComps, blueprint, colab, empresa, cenarioERespostas, pii } = built;
 
-    const relatorio: any = await extractJSON(texto);
+    const doGerador: any = await extractJSON(texto);
 
-    if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
+    if (!doGerador) return { success: false, error: 'IA não retornou relatório válido' };
+    // O gerador escreveu para o identificador (`COLAB_…, seu perfil...`); a pessoa
+    // lê com o primeiro nome dela. No lote, `built` é reconstruído aqui e o alias
+    // sai igual, porque deriva do mesmo colaborador.
+    const relatorio: any = unmaskDeepPII(doGerador, pii);
 
     // Pós-processo: força nivel/nota_decimal dos dados reais (LLM as vezes ignora).
     const overlay = (c: any, src: (typeof dadosComps)[number], key: 'nome' | 'competencia'): any => {
@@ -261,7 +266,9 @@ export async function persistRelatorioIndividualFromText(
       // na evidência do auditor é "sem lastro" fabricado pelo instrumento.
       const evidencia = user.slice(0, 90000);
       const modeloCheck = await getModelForTask(empresaId, 'pdi_check');
-      const { system: sysA, user: userA } = promptAuditoriaPdi(relatorio, evidencia);
+      // O auditor também não precisa do nome (decisão 10b): lê o PDI mascarado,
+      // e os achados voltam desmascarados para o admin.
+      const { system: sysA, user: userA } = promptAuditoriaPdi(maskDeepPII(relatorio, pii), evidencia);
       // Duas rodadas em paralelo, e `fail` só quando as duas reprovam: com o
       // gerador que vê as respostas, o fail que sobrava era ruído de UMA rodada
       // (medido 25/09/2026, ver `combinarRodadasSemanticas`). Rodada que falha
@@ -271,7 +278,7 @@ export async function persistRelatorioIndividualFromText(
           const bruto = await callAI(sysA, userA, { model: modeloCheck }, 6000, {
             taskKey: 'pdi_check', empresaId, colaboradorId,
           });
-          return parseAuditoriaPdi(await extractJSON(bruto));
+          return unmaskDeepPII(parseAuditoriaPdi(await extractJSON(bruto)), pii);
         } catch (e: any) {
           console.warn('[pdi_check] rodada do auditor falhou:', e?.message);
           return [indisponivel(e)];

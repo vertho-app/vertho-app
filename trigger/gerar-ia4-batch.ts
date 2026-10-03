@@ -217,14 +217,14 @@ export const gerarIA4BatchTask = task({
       if (checkModel && alvosCheck.length) {
         // Relê as respostas: o check audita a avaliação PERSISTIDA, não a que
         // está na memória desta run.
-        const checks: Array<{ customId: string; resp: any; rotulo: string; system: string; user: string }> = [];
+        const checks: Array<{ customId: string; resp: any; rotulo: string; system: string; user: string; pii: any }> = [];
         for (const [i, a] of alvosCheck.entries()) {
           const { data: resp } = await tdb.from('respostas')
             .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, avaliacao_ia, nivel_ia4')
             .eq('id', a.id).maybeSingle();
           if (!resp?.avaliacao_ia) continue;
-          const { system, prefix, user } = await montarCheckIA4Prompt(sb, resp, empresaId);
-          checks.push({ customId: `k${i}`, resp, rotulo: a.rotulo, system, user: `${prefix}\n\n${user}` });
+          const { system, prefix, user, pii } = await montarCheckIA4Prompt(sb, resp, empresaId);
+          checks.push({ customId: `k${i}`, resp, rotulo: a.rotulo, system, user: `${prefix}\n\n${user}`, pii });
         }
 
         let respostasChk = new Map<string, string>();
@@ -300,7 +300,8 @@ export const gerarIA4BatchTask = task({
           let registrado = false;
           if (texto && texto.trim()) {
             const raw = await extractJSON(texto);
-            const { status, check } = processCheckResult(raw, c.resp.avaliacao_ia);
+            // Mesmo desmascaramento do síncrono: o veredito volta com o nome.
+            const { status, check } = processCheckResult(raw, c.resp.avaliacao_ia, c.pii);
             if (check) {
               const { error } = await persistirCheckIA4(sb, c.resp.id, empresaId, status, check);
               resultados.push(error

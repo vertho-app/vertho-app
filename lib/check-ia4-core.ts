@@ -20,6 +20,7 @@ import { getModelForTask } from '@/lib/ai-tasks';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { tenantDb } from '@/lib/tenant-db';
 import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
+import { maskColaborador, maskTextPII, maskDeepPII, unmaskDeepPII, type PIIMapas } from '@/lib/pii-masker';
 
 /**
  * Itens do CHECKLIST do auditor. A 2ª IA responde SIM/NÃO em cada um; a nota é
@@ -138,18 +139,24 @@ function buildCheckUser(colab: any, compNome: string, perfilCIS: string, resp: a
   if (cenarioTexto) estavel.push(`═══ CENÁRIO ═══\n${cenarioTexto}`);
   if (perguntasTexto) estavel.push(`═══ PERGUNTAS ═══\n${perguntasTexto}`);
 
+  // Auditoria SEM o nome (decisão 10b do dono, 03/10/2026): o auditor confere a
+  // avaliação contra a régua e as respostas, e nada disso depende de quem é a
+  // pessoa. A avaliação a auditar está GRAVADA com o nome (é texto que ela lê),
+  // então passa pela máscara junto com as respostas.
+  const { masked: colabMasked, map: pii } = maskColaborador(colab);
+  const m = (s: unknown) => maskTextPII(typeof s === 'string' ? s : '', pii) || '(sem resposta)';
   const variavel: string[] = [];
   variavel.push(`═══ PROFISSIONAL ═══
-${colab?.nome_completo || '—'} · ${colab?.cargo || '—'}`);
+${colabMasked?.nome} (identificador da pessoa) · ${colab?.cargo || '(cargo não informado)'}`);
   if (perfilCIS) variavel.push(`═══ PERFIL CIS ═══\n${perfilCIS}`);
   variavel.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
-R1: ${resp.r1 || '—'}
-R2: ${resp.r2 || '—'}
-R3: ${resp.r3 || '—'}
-R4: ${resp.r4 || '—'}`);
+R1: ${m(resp.r1)}
+R2: ${m(resp.r2)}
+R3: ${m(resp.r3)}
+R4: ${m(resp.r4)}`);
   // Avaliação a auditar — incluir campos enriquecidos se disponíveis
   const av = typeof resp.avaliacao_ia === 'string' ? JSON.parse(resp.avaliacao_ia) : resp.avaliacao_ia;
-  variavel.push(`═══ AVALIAÇÃO A AUDITAR ═══\n${JSON.stringify(av, null, 2)}`);
+  variavel.push(`═══ AVALIAÇÃO A AUDITAR ═══\n${JSON.stringify(maskDeepPII(av, pii), null, 2)}`);
   variavel.push(`═══ INSTRUÇÃO ═══
 Verifique se esta avaliação é DEFENSÁVEL como produto Vertho.
 Se for bem escrita mas metodologicamente fraca, PENALIZE.
@@ -166,7 +173,7 @@ Prefira rigor a elegância.`);
  */
 export async function montarCheckIA4Prompt(
   sb: SupabaseClient, resp: any, empresaId: string,
-): Promise<{ system: string; prefix: string; user: string; compNome: string; colab: any }> {
+): Promise<{ system: string; prefix: string; user: string; compNome: string; colab: any; pii: PIIMapas }> {
   const { data: colab } = await sb.from('colaboradores')
     .select('id, nome_completo, cargo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, perfil_externo_fonte, perfil_externo_dados')
     .eq('empresa_id', empresaId)
@@ -203,7 +210,8 @@ export async function montarCheckIA4Prompt(
 
   const perfilCIS = formatPerfilContext(colab as any);
   const { prefix, user } = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
-  return { system: CHECK_SYSTEM, prefix, user, compNome, colab };
+  // `pii` volta para quem chama desmascarar o veredito (`processCheckResult`).
+  return { system: CHECK_SYSTEM, prefix, user, compNome, colab, pii: maskColaborador(colab).map };
 }
 
 /** Persistência do veredito — um lugar só, usado pelo síncrono e pelo lote. */
@@ -319,8 +327,11 @@ function faixaDeStatus(nota: number): string {
  * `revisar` por mais alta que seja a nota. Inventar evidência não passa — mas
  * também não derruba a nota num degrau artificial.
  */
-export function processCheckResult(check: any, avaliacao?: any): { status: string; check: any } {
-  if (!check) return { status: 'erro', check: null };
+export function processCheckResult(checkDaIA: any, avaliacao?: any, pii?: PIIMapas | null): { status: string; check: any } {
+  if (!checkDaIA) return { status: 'erro', check: null };
+  // O auditor leu o identificador da pessoa (`buildCheckUser`); o veredito que
+  // se grava e que o admin lê volta com o nome. Sem `pii`, passa como veio.
+  const check = unmaskDeepPII(checkDaIA, pii);
 
   // Itens objetivos: o CÓDIGO responde e sobrescreve o que a IA porventura
   // tenha dito. Fato verificável não se pergunta a um modelo.
@@ -449,13 +460,13 @@ export async function checkAvaliacoesCore(sb: SupabaseClient, empresaId: string,
 
     for (const resp of respostas) {
       try {
-        const { system, prefix, user } = await montarCheckIA4Prompt(sb, resp, empresaId);
+        const { system, prefix, user, pii } = await montarCheckIA4Prompt(sb, resp, empresaId);
         const resultado = await callAI(system, user, { model }, 8192, {
           ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check',
           empresaId, colaboradorId: resp.colaborador_id ?? null,
         });
         const raw = await extractJSON(resultado);
-        const { status, check } = processCheckResult(raw, resp.avaliacao_ia);
+        const { status, check } = processCheckResult(raw, resp.avaliacao_ia, pii);
 
         if (check) {
           const { error: updErr } = await persistirCheckIA4(sb, resp.id, empresaId, status, check);
@@ -495,13 +506,13 @@ export async function checarUmaRespostaCore(sb: SupabaseClient, respostaId: stri
 
     const model = aiConfig?.model || await getModelForTask(resp.empresa_id, 'ia4_check');
 
-    const { system, prefix, user, compNome } = await montarCheckIA4Prompt(sb, resp, resp.empresa_id);
+    const { system, prefix, user, compNome, pii } = await montarCheckIA4Prompt(sb, resp, resp.empresa_id);
     const resultado = await callAI(system, user, { model }, 8192, {
       ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check',
       empresaId: resp.empresa_id, colaboradorId: resp.colaborador_id ?? null,
     });
     const raw = await extractJSON(resultado);
-    const { status, check } = processCheckResult(raw, resp.avaliacao_ia);
+    const { status, check } = processCheckResult(raw, resp.avaliacao_ia, pii);
 
     if (check) {
       const { error: updErr } = await persistirCheckIA4(sb, respostaId, resp.empresa_id, status, check);

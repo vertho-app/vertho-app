@@ -19,6 +19,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
+import { maskColaborador, maskTextPII, maskDeepPII, unmaskDeepPII } from '@/lib/pii-masker';
 import {
   consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao,
   comModeloDaTask, IA4_CALL_OPTIONS, IA4_MAX_TOKENS,
@@ -165,23 +166,29 @@ export async function reavaliarRespostaCore(sbRaw: SupabaseClient, respostaId: s
     }
 
     // ── User prompt estruturado ──
+    // Sem o nome, como a IA4 original (decisão 10b do dono, 03/10/2026): vai o
+    // identificador; respostas, avaliação anterior e auditoria (gravadas com o
+    // nome) passam pela máscara. A revisão volta desmascarada antes de gravar.
+    const { masked: colabMasked, map: pii } = maskColaborador(colab);
+    const m = (s: unknown) => maskTextPII(typeof s === 'string' ? s : '', pii);
     const userBlocks: string[] = [];
 
-    userBlocks.push(`═══ PROFISSIONAL ═══\n${colab?.nome_completo || '—'} · ${colab?.cargo || '—'} · ${empresa?.nome || '—'}`);
+    userBlocks.push(`═══ PROFISSIONAL ═══\n${colabMasked?.nome} (identificador da pessoa: use-o exatamente assim onde citaria o nome) · ${colab?.cargo || '(cargo não informado)'} · ${empresa?.nome || '(empresa não informada)'}`);
     userBlocks.push(`═══ COMPETÊNCIA ═══\n${compCod} — ${compNome}`);
     userBlocks.push(`═══ RÉGUA DE MATURIDADE ═══\n${descritoresTexto || '(não disponíveis)'}`);
     if (cenarioTexto) userBlocks.push(`═══ CENÁRIO ═══\n${cenarioTexto}`);
     if (perguntasTexto) userBlocks.push(`═══ PERGUNTAS ═══\n${perguntasTexto}`);
 
     userBlocks.push(`═══ RESPOSTAS DO PROFISSIONAL ═══
-R1: ${resp.r1 || '—'}
-R2: ${resp.r2 || '—'}
-R3: ${resp.r3 || '—'}
-R4: ${resp.r4 || '—'}`);
+R1: ${m(resp.r1) || '(sem resposta)'}
+R2: ${m(resp.r2) || '(sem resposta)'}
+R3: ${m(resp.r3) || '(sem resposta)'}
+R4: ${m(resp.r4) || '(sem resposta)'}`);
 
     // Avaliação anterior (resumida)
     if (avaliacaoAnterior) {
-      const descAnterior = avaliacaoAnterior.avaliacao_por_descritor || [];
+      // Gravada com o nome (o racional é texto que a pessoa lê): mascara antes.
+      const descAnterior = maskDeepPII(avaliacaoAnterior.avaliacao_por_descritor || [], pii);
       const resumoAnterior = descAnterior.map((d: any) =>
         `${d.nome}: nota ${d.nota_decimal} (N${d.nivel_sugerido}) conf ${d.confianca} — ${d.racional || ''}`
       ).join('\n');
@@ -195,7 +202,7 @@ ${resumoAnterior || '(formato legado — sem detalhamento por descritor)'}`);
     }
 
     if (feedbackCheck) {
-      userBlocks.push(`═══ FEEDBACK DA AUDITORIA (2ª IA) ═══\n${feedbackCheck}`);
+      userBlocks.push(`═══ FEEDBACK DA AUDITORIA (2ª IA) ═══\n${JSON.stringify(maskDeepPII(check, pii), null, 2)}`);
     }
 
     userBlocks.push(`═══ INSTRUÇÃO DE REVISÃO ═══
@@ -213,9 +220,11 @@ ${resumoAnterior || '(formato legado — sem detalhamento por descritor)'}`);
     // régua de uma pessoa no meio da mesma população.
     const cfgRev = await comModeloDaTask(aiConfig, resp.empresa_id);
     const resultado = await callAI(IA4_REVIEW_SYSTEM, user, cfgRev, IA4_MAX_TOKENS, { ...IA4_CALL_OPTIONS, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
-    let revisao = await extractJSON(resultado);
+    const revisaoDaIA = await extractJSON(resultado);
 
-    if (!revisao) return { success: false, error: 'IA não retornou revisão válida' };
+    if (!revisaoDaIA) return { success: false, error: 'IA não retornou revisão válida' };
+    // O que se grava é lido pela pessoa e pelo RH: volta com o nome.
+    const revisao = unmaskDeepPII(revisaoDaIA, pii);
 
     // ── Consolidação em código (mesmo padrão da IA4 original) ──
     const descPorDescritor = revisao.avaliacao_revisada?.avaliacao_por_descritor || [];

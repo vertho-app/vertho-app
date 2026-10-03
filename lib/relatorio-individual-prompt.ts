@@ -10,6 +10,7 @@ import { focoDoCargo } from '@/lib/foco-cargo';
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { nivelDaNota, nivelOuNull } from '@/lib/nivel-regua';
+import { maskColaborador, maskTextPII, maskDeepPII, type PIIMapas } from '@/lib/pii-masker';
 
 export interface DadoComp {
   competencia: string;
@@ -151,6 +152,11 @@ export interface PdiPromptBuilt {
   empresa: any;
   /** O bloco "CENÁRIO E RESPOSTAS" do `user`, sozinho: o que a pessoa leu e escreveu. */
   cenarioERespostas: string;
+  /**
+   * Mapas da máscara do `user` (decisão 10b do dono, 03/10/2026): o prompt leva
+   * o identificador da pessoa, e quem grava o PDI desmascara com estes mapas.
+   */
+  pii: PIIMapas;
 }
 
 export async function buildRelatorioIndividualPrompt(
@@ -424,6 +430,10 @@ export async function buildRelatorioIndividualPrompt(
   // auditoria (que recebe este MESMO `user`) acusou esse tipo de afirmação em 31
   // de 36 execuções sobre 18 PDIs reais. Mesma leitura de cenário da IA4
   // (`carregarContextoRespostaIA4`), sem a régua de diferenciação de níveis.
+  // PDI SEM o nome (decisão 10b do dono, 03/10/2026): gerador e auditor recebem
+  // o identificador, e o texto gerado é desmascarado antes de gravar
+  // (`persistRelatorioIndividualFromText`, nos caminhos síncrono e em lote).
+  const { masked: colabMasked, map: pii } = maskColaborador(colab);
   const cenarios = new Map<string, any>();
   const perguntasDe = new Map<string, any[]>();
   const blocosResposta: string[] = [];
@@ -450,7 +460,7 @@ export async function buildRelatorioIndividualPrompt(
     const pares = textos.map((t, i) => {
       const p = pergs[i];
       const pergunta = p?.texto ? `P${p?.numero || i + 1}: ${String(p.texto).slice(0, 500)}\n` : '';
-      return `${pergunta}R${i + 1} (resposta da pessoa): ${t ? String(t).slice(0, 1500) : '(sem resposta)'}`;
+      return `${pergunta}R${i + 1} (resposta da pessoa): ${t ? maskTextPII(String(t).slice(0, 1500), pii) : '(sem resposta)'}`;
     }).join('\n\n');
     blocosResposta.push(`COMPETÊNCIA: ${competencia}\n${cenarioTxt}\n\nPERGUNTAS E RESPOSTAS:\n${pares}`);
   }
@@ -459,9 +469,12 @@ export async function buildRelatorioIndividualPrompt(
     : '';
 
   const totalComps = dadosComps.length;
-  const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) avaliadas. Todos os níveis são inteiros válidos entre N1 e N4. O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${respostasTexto}${trilhaTexto}${blueprintBlock}`;
+  // O nome sai como identificador; o parecer da IA4 e o blueprint estão GRAVADOS
+  // com o nome (são textos que a pessoa lê) e passam pela máscara. `dadosComps`
+  // volta intacto para o pós-processo, que só lê competência, nível e nota.
+  const user = `COLABORADOR: ${colabMasked?.nome} (identificador da pessoa: ao chamá-la pelo nome, escreva exatamente ${colabMasked?.nome})\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) avaliadas. Todos os níveis são inteiros válidos entre N1 e N4. O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(maskDeepPII(dadosComps, pii), null, 2)}${respostasTexto}${trilhaTexto}${maskTextPII(blueprintBlock, pii)}`;
 
   // `cenarioERespostas` sai à parte para a auditoria estrutural: jargão que a
   // fonte já usa (o "feedback escrito" do cenário) não é jargão do gerador.
-  return { system: RELATORIO_IND_SYSTEM, user, dadosComps, blueprint, colab, empresa, cenarioERespostas: respostasTexto };
+  return { system: RELATORIO_IND_SYSTEM, user, dadosComps, blueprint, colab, empresa, cenarioERespostas: respostasTexto, pii };
 }
