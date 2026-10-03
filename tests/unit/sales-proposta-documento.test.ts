@@ -363,6 +363,55 @@ describe('conteúdo institucional', () => {
   });
 });
 
+/**
+ * Revisão de 02/10/2026: o texto institucional prometia o que o produto não entrega.
+ * Cada caso abaixo é uma frase que chegou ao cliente pela página e pelo PDF.
+ */
+describe('o que a proposta promete existe no produto (revisão de 02/10/2026)', () => {
+  const prometidoDe = (doc: ReturnType<typeof buildProposalDocument>) => JSON.stringify([
+    doc.entregas, doc.paraPessoa, doc.paraInstituicao, doc.cronograma, doc.pilares,
+  ]).toLowerCase();
+
+  it('não promete Plenária nem Dossiê do Gestor, que nunca foram gerados (R-12)', () => {
+    const prometido = prometidoDe(buildProposalDocument(propostaBase(), null, null, {}));
+    expect(prometido).not.toContain('plenária');
+    expect(prometido).not.toContain('dossiê');
+    expect(prometido).toContain('relatório do gestor');
+    expect(prometido).toContain('pdf executivo de fim de jornada');
+  });
+
+  it('mostra nível e avanço, nunca nota nem delta (R-24)', () => {
+    const doc = buildProposalDocument(propostaBase(), null, null, {});
+    const prometido = prometidoDe(doc);
+    expect(prometido).not.toContain('nota final');
+    expect(prometido).not.toContain('sustenta a nota');
+    expect(prometido).not.toContain('delta');
+    expect(doc.pilares[2].texto).toContain('o nível de partida');
+    expect(doc.pilares[2].texto).toContain('o avanço em cada comportamento');
+  });
+
+  it('a dupla IA fica onde ela roda: mapeamento, PDI e cenários (R-133)', () => {
+    const doc = buildProposalDocument(propostaBase(), null, null, {});
+    const prometido = prometidoDe(doc);
+    expect(prometido).not.toContain('nunca sai de um único julgamento');
+    expect(prometido).not.toContain('cada avaliação crítica');
+    expect(doc.pilares[0].texto).toContain('No mapeamento, no PDI e na geração dos cenários, uma segunda IA');
+  });
+
+  it('o mapeamento se chama mapeamento, não avaliação (R-50)', () => {
+    const prometido = prometidoDe(buildProposalDocument(propostaBase(), null, null, {}));
+    expect(prometido).not.toContain('avaliação por cenários');
+    expect(prometido).toContain('mapeamento por cenários');
+  });
+
+  it('o texto que vai ao cliente não usa travessão', () => {
+    for (const tipo of ['escola', 'empresa']) {
+      const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, {});
+      expect(prometidoDe(doc), tipo).not.toMatch(/[–—]/);
+    }
+  });
+});
+
 describe('blocos vindos dos decks de venda (17/09/2026)', () => {
   it('escola e rede de ensino leem a versão de educação; o resto, a corporativa', () => {
     for (const tipo of ['escola', 'rede_ensino']) {
@@ -459,5 +508,18 @@ describe('simuladores incluídos (17/09/2026)', () => {
     expect(serializado).not.toContain('precoSimulador');
     expect(serializado).not.toContain('precoPessoaCiclo');
     expect(serializado).not.toContain('custoFixoTreinoUsd');
+  });
+
+  it('nenhum simulador promete revisão humana, extinta em 22/09/2026 (R-04)', () => {
+    const doc = buildProposalDocument(propostaBase(), null, null, {
+      orcamento: comSimuladores({ vendas: 100, atendimento: 100, lideranca: 100 }),
+    });
+    expect(doc.simuladores).toHaveLength(3);
+    for (const s of doc.simuladores) {
+      expect(s.descricao.toLowerCase(), s.nome).not.toContain('revisão humana');
+      expect(s.descricao, s.nome).not.toMatch(/[–—]/);
+    }
+    const atendimento = doc.simuladores.find((s) => s.nome === 'Simulador de atendimento');
+    expect(atendimento?.descricao).toContain('fala literal da pessoa');
   });
 });

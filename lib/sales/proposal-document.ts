@@ -151,11 +151,15 @@ export type ProposalDocumentVM = {
 
 // ── Conteúdo institucional (mesma história em toda proposta) ────────────────
 
+// A dupla IA vale onde ela roda: mapeamento (avaliação e auditoria), PDI e geração
+// de cenários. Os simuladores têm avaliador único, conferido por código pela fala
+// literal da pessoa, então "toda avaliação" e "a decisão nunca sai de um único
+// julgamento" prometiam mais do que existe (R-133 e decisão 11 da revisão de 02/10/2026).
 const PILARES_PADRAO = [
   {
     titulo: 'Diagnóstico por pessoa',
-    texto: 'Mapeamento Comportamental e avaliação por cenários do dia a dia do cargo. '
-      + 'Cada avaliação crítica passa por uma segunda IA que confere a primeira — a decisão nunca sai de um único julgamento.',
+    texto: 'Mapeamento Comportamental e mapeamento por cenários do dia a dia do cargo. '
+      + 'No mapeamento, no PDI e na geração dos cenários, uma segunda IA confere o trabalho da primeira.',
   },
   {
     titulo: 'Trilha personalizada',
@@ -163,9 +167,11 @@ const PILARES_PADRAO = [
       + 'em que ela aprende melhor: vídeo, podcast, texto ou case. Duas pessoas na mesma função podem fazer jornadas diferentes.',
   },
   {
+    // Ninguém do cliente vê nota decimal: a pessoa, o gestor e o RH leem nível e
+    // avanço (decisão 1 e R-24 da revisão de 02/10/2026).
     titulo: 'Evidência de evolução',
-    texto: 'Ao fim do ciclo a pessoa é reavaliada e o relatório mostra o delta por competência — '
-      + 'de onde saiu, onde chegou, com a evidência que sustenta a nota. Desenvolvimento que se mede, não que se presume.',
+    texto: 'Ao fim do ciclo a pessoa é reavaliada, e o relatório mostra, em cada competência, o nível de partida, '
+      + 'o nível de chegada e o avanço em cada comportamento. Desenvolvimento que se mede, não que se presume.',
   },
 ];
 
@@ -176,7 +182,7 @@ const ENTREGAS_PADRAO = [
   },
   {
     titulo: 'Matrizes de competência por cargo',
-    texto: 'Competências e descritores definidos para cada cargo mapeado — a régua que diz o que se espera de quem ocupa a função.',
+    texto: 'Competências e descritores definidos para cada cargo mapeado: a régua que diz o que se espera de quem ocupa a função.',
   },
   {
     titulo: 'Diagnóstico individual',
@@ -202,8 +208,11 @@ const ENTREGAS_PADRAO = [
     texto: 'Novo cenário e arguição oral com a IA ao fim do ciclo, para medir o que mudou na prática.',
   },
   {
+    // Só documentos que chegam ao cliente. A Plenária e o Dossiê do Gestor nunca
+    // foram gerados (R-12 da revisão de 02/10/2026); o PDI tem cartão próprio acima.
     titulo: 'Relatórios',
-    texto: 'Relatório de evolução por participante, consolidado de RH, dossiê do gestor e plenária institucional de fechamento.',
+    texto: 'Relatório de evolução por participante, em tela e PDF, e certificado de conclusão para quem tem participação mínima de 75%; Relatório do Gestor sobre a própria equipe; '
+      + 'e, para o RH, relatório consolidado, PDF executivo de fim de jornada e relatório de engajamento.',
   },
   {
     titulo: 'Suporte dedicado',
@@ -212,7 +221,7 @@ const ENTREGAS_PADRAO = [
 ];
 
 const PARA_PESSOA_PADRAO = [
-  'Um perfil comportamental com narrativa — não um rótulo de quatro letras.',
+  'Um perfil comportamental com narrativa, não um rótulo de quatro letras.',
   'Um PDI com o foco, as ações e a evidência esperada em cada competência.',
   'Trilha no formato que ela aprende melhor, contextualizada pelo cargo.',
   'Desafios aplicados ao trabalho real, não exercícios genéricos.',
@@ -224,8 +233,8 @@ const PARA_INSTITUICAO_PADRAO = [
   'Mapa de competências por cargo, com o nível real de cada pessoa.',
   'Painel de engajamento: quem avançou, quem parou, em que semana.',
   'Relatório consolidado de RH com a leitura do conjunto.',
-  'Dossiê por gestor, para conversas de desenvolvimento com evidência.',
-  'Plenária institucional de fechamento com os resultados do ciclo.',
+  'Relatório do Gestor sobre a própria equipe, para conversas de desenvolvimento.',
+  'PDF executivo de fim de jornada, com a evolução por competência, por comportamento e por pessoa.',
 ];
 
 // ── Blocos vindos dos decks de venda (17/09/2026, pedido do Rodrigo) ────────
@@ -356,8 +365,9 @@ const NIVEIS_GESTAO: Record<ProposalSegmento, string> = {
 const DESCRICAO_SIMULADOR: Record<Simulador, string> = {
   vendas: 'Conversas de venda com um cliente simulado por IA, a partir dos produtos, do público e das condições '
     + 'da própria empresa, com devolutiva por competência na metodologia PACE.',
+  // A revisão humana foi extinta nos três simuladores em 22/09/2026 (R-04).
   atendimento: 'Atendimentos com um cliente simulado por IA, em casos que a instituição pode adaptar, avaliados '
-    + 'por competência em quatro níveis e com espaço para revisão humana.',
+    + 'por competência em quatro níveis, com devolutiva que cita a fala literal da pessoa em cada competência.',
   lideranca: 'Cinco encontros com personagens simulados por IA, avaliados por competência em quatro níveis e '
     + 'acompanhados pelo RH e pelo gestor. Inclui o Mapeamento de liderança: quem está pronto para liderar e em que estilo.',
 };
@@ -404,12 +414,12 @@ const CRONOGRAMA_PADRAO: ProposalEtapa[] = [
   {
     fase: 'Fechamento',
     descricao: 'Novo cenário situacional e arguição oral com a IA, com reavaliação das competências trabalhadas.',
-    entrega: 'Nota final por descritor, conferida por uma segunda IA.',
+    entrega: 'Nível de chegada e avanço em cada comportamento, com a leitura conferida por uma segunda IA.',
   },
   {
     fase: 'Resultados',
     descricao: 'Leitura do ciclo com o RH e com os gestores, e definição do foco do ciclo seguinte.',
-    entrega: 'Relatório de evolução, consolidado de RH, dossiê do gestor e plenária institucional.',
+    entrega: 'Relatório de evolução por participante, Relatório do Gestor, consolidado de RH e PDF executivo de fim de jornada.',
   },
 ];
 const PROXIMOS_PASSOS_PADRAO = [
