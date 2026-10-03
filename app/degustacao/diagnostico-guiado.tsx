@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { ArrowRight, ChartColumn, Check, Eye, MessageCircle, Route, TrendingUp, Users } from 'lucide-react';
+import { ArrowRight, ChartColumn, Check, Copy, Eye, MessageCircle, Route, Share2, TrendingUp, Users } from 'lucide-react';
 import {
   OUTRO_DESAFIO_MAX,
   VISTOS_STORAGE_PREFIX,
   ehDesafio,
+  resumoParaEncaminhar,
   type CopiaDaVersaoC,
   type DesafioChave,
   type IconeDoDesafio,
@@ -53,7 +54,7 @@ function lerVistos(chave: string): DesafioChave[] {
   }
 }
 
-export default function DiagnosticoGuiado({ passe, codigo, primeiroNome, copia, desafios, contato, aviso, children }: {
+export default function DiagnosticoGuiado({ passe, codigo, primeiroNome, copia, desafios, contato, aviso, perfilFeito, children }: {
   passe: string;
   codigo: string;
   primeiroNome: string;
@@ -61,6 +62,8 @@ export default function DiagnosticoGuiado({ passe, codigo, primeiroNome, copia, 
   desafios: DesafioDoInicio[];
   contato: { titulo: string; botao: string };
   aviso: ReactNode;
+  /** Fez o mapeamento: entra no resumo que o lead encaminha. */
+  perfilFeito: boolean;
   /** O cartão do perfil comportamental (servidor), entre os desafios e o contato. */
   children: ReactNode;
 }) {
@@ -70,10 +73,17 @@ export default function DiagnosticoGuiado({ passe, codigo, primeiroNome, copia, 
   const [vistos, setVistos] = useState<DesafioChave[]>([]);
   const [outroAberto, setOutroAberto] = useState(false);
   const [outro, setOutro] = useState('');
+  const [podeCompartilhar, setPodeCompartilhar] = useState(false);
+  const [avisoResumo, setAvisoResumo] = useState('');
 
   useEffect(() => {
     setVistos(lerVistos(chaveDoNavegador));
   }, [chaveDoNavegador]);
+
+  useEffect(() => {
+    // Só o celular costuma ter o compartilhamento do sistema (WhatsApp, e-mail...).
+    setPodeCompartilhar(typeof navigator !== 'undefined' && typeof navigator.share === 'function');
+  }, []);
 
   function marcarVisto(chave: DesafioChave) {
     const atuais = lerVistos(chaveDoNavegador);
@@ -87,6 +97,47 @@ export default function DiagnosticoGuiado({ passe, codigo, primeiroNome, copia, 
   }
 
   const jaViu = vistos.length > 0;
+  // Na ordem em que a pessoa abriu. O texto leva só título e resposta de cada
+  // desafio: nunca o código, o passe ou o nome (ver `resumoParaEncaminhar`).
+  const itensVistos = vistos
+    .map((chave) => desafios.find((desafio) => desafio.chave === chave))
+    .filter((desafio): desafio is DesafioDoInicio => Boolean(desafio));
+  const textoDoResumo = resumoParaEncaminhar(
+    itensVistos.map((item) => ({ titulo: item.titulo, com: item.com })),
+    { perfilFeito },
+  );
+
+  async function copiarResumo() {
+    try {
+      await navigator.clipboard.writeText(textoDoResumo);
+      setAvisoResumo('Resumo copiado.');
+      return;
+    } catch {
+      /* alguns navegadores embutidos recusam; tenta o caminho antigo */
+    }
+    try {
+      const campo = document.createElement('textarea');
+      campo.value = textoDoResumo;
+      campo.setAttribute('readonly', '');
+      campo.style.position = 'fixed';
+      campo.style.opacity = '0';
+      document.body.appendChild(campo);
+      campo.select();
+      const copiou = document.execCommand('copy');
+      document.body.removeChild(campo);
+      setAvisoResumo(copiou ? 'Resumo copiado.' : 'Não foi possível copiar aqui. Use Compartilhar, se estiver disponível.');
+    } catch {
+      setAvisoResumo('Não foi possível copiar aqui.');
+    }
+  }
+
+  async function compartilharResumo() {
+    try {
+      await navigator.share({ title: 'Resumo da minha experiência com a Vertho', text: textoDoResumo });
+    } catch {
+      /* a pessoa cancelou o compartilhamento: não é erro */
+    }
+  }
 
   return (
     <>
@@ -206,9 +257,55 @@ export default function DiagnosticoGuiado({ passe, codigo, primeiroNome, copia, 
         )}
       </section>
 
+      {jaViu && (
+        <section className="mt-8 lg:mt-12" aria-label="Seu resumo" data-layout="resumo">
+          <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] lg:mb-4" style={{ color: COR.acento }}>Seu resumo</p>
+          <div className="rounded-2xl border p-5 lg:p-8" style={{ background: COR.card, borderColor: COR.borda }}>
+            <h2 className="text-[20px] font-bold lg:text-[22px]" style={{ color: COR.texto }}>O que você viu</h2>
+            <ul className="mt-4 grid gap-3">
+              {itensVistos.map((item) => (
+                <li key={item.chave} className="flex items-start gap-3 text-[14.5px] leading-snug" style={{ color: COR.texto }}>
+                  <Check size={16} strokeWidth={3} className="mt-0.5 shrink-0" style={{ color: COR.acento }} aria-hidden="true" />
+                  <span>
+                    {item.titulo}
+                    <small className="mt-0.5 block text-[13px] leading-snug" style={{ color: COR.texto2 }}>Com a Vertho: {item.com}</small>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-[13.5px] leading-relaxed" style={{ color: COR.texto2 }}>
+              Leve para quem decide com você. O resumo não leva o seu link de acesso.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={copiarResumo}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-5 text-[14px] font-bold"
+                style={{ background: 'transparent', color: COR.texto, border: `1px solid ${COR.bordaAcento}` }}
+              >
+                <Copy size={16} aria-hidden="true" />
+                Copiar resumo
+              </button>
+              {podeCompartilhar && (
+                <button
+                  type="button"
+                  onClick={compartilharResumo}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-5 text-[14px] font-bold"
+                  style={{ background: 'transparent', color: COR.texto, border: `1px solid ${COR.borda}` }}
+                >
+                  <Share2 size={16} aria-hidden="true" />
+                  Compartilhar
+                </button>
+              )}
+            </div>
+            <p role="status" aria-live="polite" className="mt-2 min-h-5 text-[13px]" style={{ color: COR.acento }}>{avisoResumo}</p>
+          </div>
+        </section>
+      )}
+
       {children}
 
-      <section className="mt-8 lg:mt-12" aria-label="Falar com a Vertho">
+      <section id="proximo-passo" className="mt-8 scroll-mt-4 lg:mt-12" aria-label="Falar com a Vertho">
         <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.2em] lg:mb-4" style={{ color: COR.acento }}>Próximo passo</p>
         <div
           data-layout="cartao-contato"

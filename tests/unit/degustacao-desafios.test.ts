@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { semComentarios } from '../helpers/fonte';
 import {
+  resumoParaEncaminhar,
   DESAFIOS_CHAVES,
   OUTRO_DESAFIO_MAX,
   alvoDoDesafio,
@@ -194,5 +197,63 @@ describe('o "outro desafio" é texto do lead que vai para uma URL', () => {
 
   it('não altera acento nem pontuação do lead', () => {
     expect(limparOutroDesafio('Não sei por onde começar: é tudo urgente?')).toBe('Não sei por onde começar: é tudo urgente?');
+  });
+});
+
+describe('o resumo que o lead encaminha', () => {
+  const itens = (slug: string, chaves: string[]) => chaves.map((c) => {
+    const d = desafioDoAmbiente(slug, c)!;
+    return { titulo: d.titulo, com: d.com };
+  });
+
+  it('sem desafio visto não há resumo', () => {
+    expect(resumoParaEncaminhar([])).toBe('');
+  });
+
+  it('leva título e resposta de cada desafio, na ordem em que foram vistos', () => {
+    const texto = resumoParaEncaminhar(itens('acme-demo', ['engajamento', 'resultado']));
+    const d1 = desafioDoAmbiente('acme-demo', 'engajamento')!;
+    const d2 = desafioDoAmbiente('acme-demo', 'resultado')!;
+    expect(texto).toContain('Desafios que vi:');
+    expect(texto.indexOf(d1.titulo)).toBeGreaterThan(-1);
+    expect(texto.indexOf(d1.titulo)).toBeLessThan(texto.indexOf(d2.titulo));
+    expect(texto).toContain(`Com a Vertho: ${d1.com}`);
+    expect(texto).toContain(`Com a Vertho: ${d2.com}`);
+  });
+
+  it('o cabeçalho concorda com a quantidade, e o perfil só aparece se foi feito', () => {
+    const um = resumoParaEncaminhar(itens('acme-demo', ['gestao']));
+    expect(um).toContain('Desafio que vi:');
+    expect(um).not.toContain('Desafios que vi:');
+    expect(um).not.toMatch(/perfil comportamental/);
+    expect(resumoParaEncaminhar(itens('acme-demo', ['gestao']), { perfilFeito: true })).toContain('Também fiz o mapeamento do meu perfil comportamental.');
+  });
+
+  it('🔴 nunca leva credencial, link do convite, nome nem travessão, em nenhum ambiente', () => {
+    for (const slug of AMBIENTES) {
+      const texto = resumoParaEncaminhar(itens(slug, [...DESAFIOS_CHAVES]), { perfilFeito: true });
+      // o link do convite é individual e é a credencial do lead
+      expect(texto, slug).not.toMatch(/https?:|\/c\/|passe|ticket|sala=|volta=/i);
+      // nenhum token do tamanho do código do convite (24 caracteres base64url)
+      expect(texto, slug).not.toMatch(/[A-Za-z0-9_-]{24}/);
+      expect(texto, slug).not.toMatch(/[—–]/);
+      expect(texto.endsWith('Para saber mais: vertho.ai'), slug).toBe(true);
+    }
+  });
+
+  it('🔴 o componente do início não passa código, passe nem nome para o resumo', () => {
+    const fonte = semComentarios(readFileSync('app/degustacao/diagnostico-guiado.tsx', 'utf8'));
+    const chamada = fonte.match(/resumoParaEncaminhar\(([\s\S]*?)\);/)?.[1] ?? '';
+    expect(chamada.length).toBeGreaterThan(10);
+    expect(chamada).not.toMatch(/codigo|passe|primeiroNome/);
+  });
+
+  it('o botão de contato da cena sem ticket leva ao "Próximo passo" do início (a âncora existe nos dois lados)', () => {
+    const cena = readFileSync('app/dashboard/cena-degustacao.tsx', 'utf8');
+    const inicio = readFileSync('app/degustacao/diagnostico-guiado.tsx', 'utf8');
+    expect(cena).toMatch(/#proximo-passo/);
+    expect(inicio).toMatch(/id="proximo-passo"/);
+    // sem ticket não há botão desabilitado e mudo
+    expect(semComentarios(cena)).not.toMatch(/disabled=\{!ticket\}/);
   });
 });

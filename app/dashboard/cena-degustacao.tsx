@@ -190,19 +190,34 @@ export default function CenaDaDegustacao({ tenantSlug, minhaCasa, cenas }: {
       )}
 
       <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
-        <form action="/auth/degustacao/contato-sala" method="post" target="_blank" rel="noopener">
-          <input type="hidden" name="ticket" value={ticket ?? ''} />
-          <input type="hidden" name="desafio" value={cena.chave} />
-          <button
-            type="submit"
-            disabled={!ticket}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-[13.5px] font-bold transition-transform active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+        {ticket ? (
+          <form action="/auth/degustacao/contato-sala" method="post" target="_blank" rel="noopener">
+            <input type="hidden" name="ticket" value={ticket} />
+            <input type="hidden" name="desafio" value={cena.chave} />
+            <button
+              type="submit"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-[13.5px] font-bold transition-transform active:scale-[0.99]"
+              style={{ background: 'var(--brand-400, #34C5CC)', color: '#04212B' }}
+            >
+              <MessageCircle size={16} aria-hidden="true" />
+              Quero ver isso {minhaCasa}
+            </button>
+          </form>
+        ) : inicio ? (
+          // Sem o ticket da sala (navegador que bloqueia o armazenamento e já perdeu o
+          // parâmetro da URL) o formulário não teria como provar quem pede, e o botão
+          // desabilitado ficaria mudo. O "Próximo passo" do início prova pelo passe.
+          <a
+            href={`${inicio}#proximo-passo`}
+            target="_top"
+            data-degustacao="contato-no-inicio"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-[13.5px] font-bold transition-transform active:scale-[0.99]"
             style={{ background: 'var(--brand-400, #34C5CC)', color: '#04212B' }}
           >
             <MessageCircle size={16} aria-hidden="true" />
             Quero ver isso {minhaCasa}
-          </button>
-        </form>
+          </a>
+        ) : null}
         {inicio ? (
           <a
             href={inicio}

@@ -630,9 +630,20 @@ foram trocados pelo que cada tela mostra. Passaporte de QA da C: nome começando
 `TESTE INTERNO` (ficam fora da coorte); criado por script server-side quando o painel não está
 logado.
 
-**Fora da fatia 1** (pedem DDL ou decisão): página de resumo, "encaminhar para quem decide", a
-pergunta "foi fácil de entender?", tabela de eventos por passo e o link "ver gravação" no painel
-(hoje o painel mostra a etiqueta para buscar no Sentry).
+**Resumo para encaminhar (03/10/2026, só no navegador).** Depois do primeiro desafio visto, o início
+mostra "Seu resumo" com o que a pessoa viu (título e resposta de cada desafio, na ordem em que
+abriu) e dois botões: copiar e, no celular, compartilhar. Nada é enviado nem guardado.
+`resumoParaEncaminhar` (em `degustacao-desafios.ts`) 🔴 nunca leva nome, empresa nem link: o link do
+convite é individual e é a credencial do lead (`/c/<código>`), então um resumo que o levasse
+entregaria o acesso a quem ele encaminhasse. Guards: nenhum token do tamanho do código, nenhuma URL,
+e o componente não passa código, passe nem nome para a função.
+
+**Botão de contato da cena sem ticket.** Se o navegador bloqueia o armazenamento e a URL já perdeu o
+`sala`, o formulário não teria como provar quem pede. Em vez de um botão desabilitado e mudo, o painel
+mostra um link para o "Próximo passo" do início (`#proximo-passo`), que prova pelo passe.
+
+**Fora da fatia 1** (pedem DDL ou decisão): a pergunta "foi fácil de entender?", tabela de eventos por
+passo e o link "ver gravação" no painel (hoje o painel mostra a etiqueta para buscar no Sentry).
 
 ### Simuladores por papel e simulador de liderança (17/09/2026)
 

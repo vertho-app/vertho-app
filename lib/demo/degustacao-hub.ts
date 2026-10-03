@@ -30,6 +30,8 @@ export type DesafioDoInicio = {
   icone: IconeDoDesafio;
   tema: string;
   titulo: string;
+  /** "Com a Vertho": a linha da resposta, usada no resumo que o lead encaminha. */
+  com: string;
   url: string;
 };
 
@@ -195,7 +197,7 @@ export async function carregarPaginaDaDegustacao(
       const url = new URL(demoPresentationAuthUrl(desafio.sala, ticket, undefined, acesso.slug));
       url.searchParams.set(DEMO_PRESENTATION_RETURN_PARAM, acesso.codigo);
       url.searchParams.set(CENA_PARAM, desafio.chave);
-      return { chave: desafio.chave, icone: desafio.icone, tema: desafio.tema, titulo: desafio.titulo, url: url.toString() };
+      return { chave: desafio.chave, icone: desafio.icone, tema: desafio.tema, titulo: desafio.titulo, com: desafio.com, url: url.toString() };
     })
     : [];
 

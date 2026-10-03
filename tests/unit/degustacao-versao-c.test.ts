@@ -237,6 +237,8 @@ describe('o início da versão C (carregador)', () => {
     for (const d of pagina.desafios) {
       const url = new URL(d.url);
       const esperado = desafiosDoAmbiente('acme-demo').find((x) => x.chave === d.chave)!;
+      // a linha "Com a Vertho" viaja para o resumo que o lead encaminha
+      expect(d.com).toBe(esperado.com);
       expect(url.pathname).toBe('/auth/apresentacao');
       expect(url.hostname.split('.')[0]).toBe(getDemoPresentationRole(esperado.sala, 'acme-demo').hostSlug);
       expect(url.searchParams.get('cena')).toBe(d.chave);

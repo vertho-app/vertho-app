@@ -245,6 +245,7 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
           desafios={pagina.desafios}
           contato={{ titulo: pagina.contato.titulo, botao: pagina.contato.botao }}
           aviso={avisoTexto ? <Aviso texto={avisoTexto} /> : null}
+          perfilFeito={pessoal.discFeito}
         >
           <section className="mt-8 lg:mt-12" aria-label="Seu perfil">
             <Eyebrow>{pessoal.discFeito ? 'Sobre você' : 'Sobre você · opcional'}</Eyebrow>

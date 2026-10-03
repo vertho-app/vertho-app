@@ -303,6 +303,31 @@ export function desafiosDaLista(bruto: unknown): DesafioChave[] {
   return [...vistos];
 }
 
+/**
+ * O resumo que o lead leva para quem decide com ele (copiar ou compartilhar, só no
+ * navegador: nada é enviado nem guardado).
+ *
+ * 🔴 Só entram o que ele VIU (título do desafio e a resposta da Vertho) e se fez o
+ * perfil. Sem nome, sem empresa, sem link: o link do convite é individual e é a
+ * credencial dele (`/c/<código>`), então um resumo que o levasse entregaria o acesso
+ * a quem ele encaminhar. O destino do texto é o site público.
+ */
+export function resumoParaEncaminhar(
+  itens: ReadonlyArray<{ titulo: string; com: string }>,
+  opcoes: { perfilFeito?: boolean } = {},
+): string {
+  if (itens.length === 0) return '';
+  const linhas = [
+    'Resumo da minha experiência com a Vertho',
+    '',
+    itens.length === 1 ? 'Desafio que vi:' : 'Desafios que vi:',
+    ...itens.flatMap((item) => [`- ${item.titulo}`, `  Com a Vertho: ${item.com}`]),
+  ];
+  if (opcoes.perfilFeito) linhas.push('', 'Também fiz o mapeamento do meu perfil comportamental.');
+  linhas.push('', 'Os dados que vi são de exemplo, de um ambiente de demonstração. Para saber mais: vertho.ai');
+  return linhas.join('\n');
+}
+
 export const OUTRO_DESAFIO_MAX = 140;
 
 /**
