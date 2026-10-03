@@ -82,7 +82,7 @@ export function pushEvidencia(semana: number): TextoPush {
  * registrou como foi a prática desta semana"), que não descreve a última
  * semana: ela não tem prática a registrar, tem a avaliação.
  */
-export function pushAvaliacaoFinal(momento: 'abertura' | 'pendente'): TextoPush {
+export function pushAvaliacaoFinal(momento: 'abertura' | 'cobranca'): TextoPush {
   return {
     titulo: limitar(momento === 'abertura' ? 'Avaliação final aberta' : 'Avaliação final pendente', LIMITE_TITULO),
     corpo: limitar('O Relatório de Evolução é gerado quando ela é concluída.', LIMITE_CORPO),

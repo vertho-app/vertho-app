@@ -1160,7 +1160,7 @@ export async function processarEmpresaDiario(
 
       if (!concluiuSemanaAcessivel && email && !ehDemo && !mesmoDiaUTC(envio.ultima_evidencia_email_em, hojeUTC)) {
         const { subject, html } = ehAvaliacaoFinal
-          ? emailAvaliacaoFinal(nome, { semana, baseUrl, momento: 'pendente' })
+          ? emailAvaliacaoFinal(nome, { semana, baseUrl, momento: 'cobranca' })
           : emailEvidencia(nome, { semana, baseUrl });
         const r = await enviarEmailPilula(email, subject, html, {
           kind: ehAvaliacaoFinal ? 'avaliacao_final' : 'evidencia',
@@ -1172,7 +1172,7 @@ export async function processarEmpresaDiario(
       }
 
       if (!concluiuSemanaAcessivel && pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_evidencia_push_em, hojeUTC)) {
-        const texto = ehAvaliacaoFinal ? pushAvaliacaoFinal('pendente') : pushEvidencia(semana);
+        const texto = ehAvaliacaoFinal ? pushAvaliacaoFinal('cobranca') : pushEvidencia(semana);
         const r = await enviarPush({
           colaboradorId: envio.colaborador_id,
           empresaId: empresa.id,

@@ -129,7 +129,7 @@ export function emailEvidencia(
 
 /**
  * Assunto + HTML do e-mail da semana da AVALIAÇÃO FINAL (Cenário B), nos dois
- * momentos da cadência: `abertura` (segunda) e `pendente` (quinta). R-89,
+ * momentos da cadência: `abertura` (segunda) e `cobranca` (quinta). R-89,
  * 03/10/2026.
  *
  * Até aqui a quinta dessa semana mandava o `emailEvidencia`, que diz "o
@@ -144,7 +144,7 @@ export function emailEvidencia(
  */
 export function emailAvaliacaoFinal(
   nome: string,
-  opts: { semana: number; baseUrl: string; momento: 'abertura' | 'pendente' },
+  opts: { semana: number; baseUrl: string; momento: 'abertura' | 'cobranca' },
 ): { subject: string; html: string } {
   const link = deepLinkSemana(opts.baseUrl, opts.semana);
   const primeiro = (nome || 'Colaborador').split(' ')[0];
