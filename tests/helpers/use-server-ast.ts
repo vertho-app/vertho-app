@@ -204,6 +204,11 @@ export function analisarFonte(file: string, src: string): ExportUseServer[] {
         let a: RegExpExecArray | null;
         const corpoDoExport = semComentarios(fn.getText(sf));
         while ((a = acesso.exec(corpoDoExport)) !== null) paramsIndiretos.push(a[1]);
+        // `formData.get('empresa_id')`: o id do cliente que chega por FormData.
+        // Sem isto, `uploadConteudo(formData)` passou pelo guard do A5 com o
+        // tenant escolhido no formulário (lote 4 da revisão de 02/10/2026).
+        const viaGet = new RegExp(`\\b(?:${nomesDeParam.join('|')})\\.get\\(\\s*['"\`](\\w+)['"\`]`, 'g');
+        while ((a = viaGet.exec(corpoDoExport)) !== null) paramsIndiretos.push(a[1]);
       }
 
       out.push({

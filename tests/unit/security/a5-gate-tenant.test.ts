@@ -23,13 +23,15 @@ let sessao: any = null;
 let temPermissao = true;
 /** Tenant da linha/registro alvo — a vítima. */
 let tenantDoRegistro: string | null = 'emp-B';
+/** Linhas que chegaram ao `insert`: prova que o gate impediu a escrita, não só mudou a mensagem. */
+const inserts: any[] = [];
 
 function makeClient() {
   const from = () => {
     const b: any = {
       select: () => b, eq: () => b, in: () => b, not: () => b, or: () => b, is: () => b,
       order: () => b, limit: () => b, neq: () => b, update: () => b, delete: () => b,
-      insert: () => b, upsert: () => b,
+      insert: (row: any) => { inserts.push(row); return b; }, upsert: () => b,
       single: async () => ({ data: { id: 'x', empresa_id: tenantDoRegistro, nome: 'Empresa' }, error: null }),
       maybeSingle: async () => ({
         data: { id: 'x', empresa_id: tenantDoRegistro, formato: 'audio', competencia: 'C', storage_path: null, url: null, conteudo_inline: 'x'.repeat(100) },
@@ -86,7 +88,7 @@ vi.mock('@/lib/season-engine/perfil-publico', () => ({ resolverPerfilPublicoDaEm
 import {
   atualizarConteudo, gerarConteudoFinal, gerarPodcastAudio, aprovarRoteiroPodcastEGerarAudio,
   excluirConteudoFinal, deletarConteudo, aplicarTagsIA, gerarConteudoIA, gerarConteudoLote,
-  importarVideosBunny,
+  importarVideosBunny, uploadConteudo,
 } from '@/actions/conteudos';
 import { removerTop10 } from '@/actions/fase1';
 import { excluirCompetenciaBase, salvarCompetenciaBase } from '@/actions/competencias-base';
@@ -104,6 +106,7 @@ beforeEach(() => {
   sessao = rhEmpA;
   temPermissao = true;
   tenantDoRegistro = 'emp-B';
+  inserts.length = 0;
 });
 
 /** O tenant vem da LINHA: o cliente manda o id do RECURSO, não o da empresa. */
@@ -280,5 +283,50 @@ describe('o fluxo legítimo continua passando', () => {
     temPermissao = false;
     const r: any = await atualizarConteudo('c-1', { titulo: 'X' });
     expect(r.error).toMatch(/permissão necessária/);
+  });
+});
+
+/**
+ * `uploadConteudo(formData)`: o tenant vem do FORMULÁRIO. Passou pelo guard do A5
+ * porque o id não estava na assinatura (achado do lote 4 da revisão de
+ * 02/10/2026); o guard agora lê `formData.get('...')`.
+ */
+describe('uploadConteudo: o tenant vem do formulário', () => {
+  const form = (campos: Record<string, string>) => {
+    const fd = new FormData();
+    fd.set('formato', 'texto');
+    fd.set('titulo', 'T');
+    fd.set('conteudo_inline', 'corpo do conteúdo');
+    for (const [k, v] of Object.entries(campos)) fd.set(k, v);
+    return fd;
+  };
+
+  it('RH do tenant A não grava no acervo do tenant B', async () => {
+    const r: any = await uploadConteudo(form({ empresa_id: OUTRO }));
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(FORBIDDEN);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it('RH sem empresa_id = catálogo global: barrado', async () => {
+    const r: any = await uploadConteudo(form({}));
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(FORBIDDEN);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it('RH grava no acervo da própria empresa, com o empresa_id dela', async () => {
+    const r: any = await uploadConteudo(form({ empresa_id: 'emp-A' }));
+    expect(r.success).toBe(true);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].empresa_id).toBe('emp-A');
+  });
+
+  it('platform admin grava no catálogo global (a tela /admin/conteudos não manda empresa_id)', async () => {
+    sessao = platformAdmin;
+    const r: any = await uploadConteudo(form({}));
+    expect(r.success).toBe(true);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].empresa_id).toBeNull();
   });
 });

@@ -328,7 +328,15 @@ export async function gerarConteudoIA({
  */
 export async function uploadConteudo(formData: any) {
   try {
-    const sb = await requireAdminSupabase('content.manage');
+    // O `empresa_id` vem do FORMULÁRIO, ou seja, do cliente. Com
+    // `requireAdminSupabase('content.manage')` só a permissão era conferida, e
+    // `content.manage` está no papel `rh`: o RH de qualquer cliente gravava
+    // conteúdo em outra empresa ou, sem `empresa_id`, no catálogo global que
+    // serve todos os tenants (classe A5, achado no lote 4 da revisão de
+    // 02/10/2026). `requireEmpresaSupabase` confronta o tenant e reserva o
+    // catálogo global (`null`) à plataforma, a mesma régua de `gerarConteudoIA`.
+    const empresaId = String(formData.get('empresa_id') || '').trim() || null;
+    const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'conteudo.upload');
     const formato = formData.get('formato');
     const titulo = formData.get('titulo');
     const pilar = String(formData.get('pilar') || '').trim() || null;
@@ -366,7 +374,7 @@ export async function uploadConteudo(formData: any) {
     }
 
     const { data, error } = await sb.from('micro_conteudos').insert({
-      empresa_id: formData.get('empresa_id') || null,
+      empresa_id: empresaId,
       titulo, descricao: formData.get('descricao') || null,
       formato, duracao_min, url, storage_path, conteudo_inline,
       pilar,
