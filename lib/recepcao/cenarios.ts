@@ -15,7 +15,7 @@ export async function catalogo(c: ContextoRecepcao, editor = false) {
   // Só os casos do segmento da empresa (mig 263): uma loja não recebe caso de clínica.
   // Na biblioteca de edição, a empresa vê todos os estados das PRÓPRIAS versões, mas do
   // Catálogo Vertho só as publicadas (27/09/2026): rascunhos e arquivados do catálogo, que
-  // incluem a persona reservada, chegavam a qualquer RH com `content.manage` e só a tela os
+  // incluem a persona reservada, chegavam a qualquer RH com permissão de editar casos e só a tela os
   // escondia. A plataforma, que edita o catálogo, continua vendo tudo.
   const escopo =
     editor && !c.auth.isPlatformAdmin
@@ -72,7 +72,7 @@ export async function editarCenario(
   c: ContextoRecepcao,
   cmd: z.infer<typeof editarCenarioSchema>,
 ) {
-  if (!(await can(c.auth, 'content.manage')))
+  if (!(await can(c.auth, 'simulador.casos.manage')))
     throw new RecepcaoError(403, 'Seu perfil não permite editar cenários.');
   // Catálogo Vertho (empresa_id nulo, todas as clínicas): só a plataforma escreve. A clínica sempre grava cópia própria.
   if (cmd.catalogo && !c.auth.isPlatformAdmin)

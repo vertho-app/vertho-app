@@ -22,6 +22,7 @@ export type PermissionKey =
   | 'journey.own.view'
   | 'journey.team.view'
   | 'content.manage'
+  | 'simulador.casos.manage'
   | 'knowledge_base.manage'
   | 'ai.audit.regenerate'
   | 'ai.costs.view'
@@ -70,6 +71,14 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { key: 'journey.own.view', domain: 'Jornada', label: 'Ver própria jornada', description: 'Acessar dashboard, PDI e trilha próprios.', risk: 'low' },
   { key: 'journey.team.view', domain: 'Jornada', label: 'Ver jornada da equipe', description: 'Acompanhar progresso da própria equipe.', risk: 'medium' },
   { key: 'content.manage', domain: 'Conteúdo', label: 'Gerenciar conteúdos', description: 'Editar competências, trilhas, vídeos e base de aprendizagem.', risk: 'high' },
+  // Existe para tirar `content.manage` do RH sem tirar dele a tela que usa
+  // (`/dashboard/treino-atendimento`, abas Cenários e Competências). Com a chave
+  // larga, o RH alcançava pelo action id cerca de 80 exports de operação da
+  // Vertho (conteúdo, kits, turmas, vídeo, geração por IA) dentro da empresa.
+  // Esta só abre os casos do simulador de atendimento da PRÓPRIA empresa e a
+  // leitura da biblioteca de competências; o Catálogo Vertho e a biblioteca
+  // continuam escritos só pela plataforma (`isPlatformAdmin`, nos consumidores).
+  { key: 'simulador.casos.manage', domain: 'Simuladores', label: 'Gerenciar casos do simulador de atendimento', description: 'Criar, editar, publicar e rascunhar com IA os casos da própria empresa no treino de atendimento; ler a biblioteca de competências.', risk: 'medium' },
   { key: 'knowledge_base.manage', domain: 'Conteúdo', label: 'Gerenciar knowledge base', description: 'Editar base RAG por tenant.', risk: 'high' },
   { key: 'ai.audit.regenerate', domain: 'IA', label: 'Regenerar auditorias IA', description: 'Reprocessar avaliações, checks e scorings com IA.', risk: 'critical' },
   { key: 'ai.costs.view', domain: 'IA', label: 'Ver custos de IA', description: 'Acessar ledger, projeções de custo e catálogo de chamadas.', risk: 'high' },
@@ -123,11 +132,12 @@ export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
   // `assessments.dispatch` (envio de links, PDFs em lote e WhatsApp: nenhum
   // consumidor do RH; os três exports da allowlist do `gate-permissao-guard`
   // deixam de ser achado e a entrada sai de config/ no mesmo pacote).
-  // Fica, e por quê: `content.manage`. A tela `/dashboard/treino-atendimento`
-  // do RH usa as abas Cenários e Competências (`/api/recepcao/gestao`,
-  // `podeCenarios`). Ela também abre, pelo action id, gerar conteúdo, kits e
-  // Cenários B; fechar isso pede uma chave própria para os cenários do
-  // simulador (decisão do dono).
+  // Em 03/10/2026 saiu também `content.manage` (decisão do dono). Ela abria, pelo
+  // action id e dentro da própria empresa, gerar conteúdo e kits com IA paga,
+  // Cenários B, upload e exclusão de conteúdo, manuscrito, PPP e competências.
+  // O único consumidor legítimo do RH era a tela `/dashboard/treino-atendimento`
+  // (abas Cenários e Competências: `/api/recepcao/gestao`, `podeCenarios`,
+  // `lib/recepcao/competencias.ts`), que passou para `simulador.casos.manage`.
   rh: [
     'users.view',
     'settings.locale.manage',
@@ -136,7 +146,7 @@ export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
     'reports.individual.view',
     'journey.own.view',
     'journey.team.view',
-    'content.manage',
+    'simulador.casos.manage',
   ],
   gestor: [
     'assessments.answer',

@@ -6,13 +6,13 @@ import { can } from '@/lib/permissions';
 import type { z } from 'zod';
 import { COMPETENCIAS_ATENDIMENTO, MATRIZ_ATENDIMENTO_VERSION } from './matriz';
 
-// Biblioteca global (Catálogo Vertho): quem vê a aba Cenários (content.manage) lê; só a plataforma escreve.
+// Biblioteca global (Catálogo Vertho): quem vê a aba Cenários (simulador.casos.manage) lê; só a plataforma escreve.
 // Os cenários copiam nome/critério/níveis para a própria rubrica: nada aqui altera um caso publicado.
 export async function listarCompetencias(
   c: ContextoRecepcao,
   incluirInativas = false,
 ) {
-  if (!(await can(c.auth, 'content.manage')))
+  if (!(await can(c.auth, 'simulador.casos.manage')))
     throw new RecepcaoError(
       403,
       'Seu perfil não permite ver a biblioteca de competências.',
@@ -36,7 +36,7 @@ export async function editarCompetencia(
   c: ContextoRecepcao,
   cmd: z.infer<typeof competenciaComandoSchema>,
 ) {
-  if (!(await can(c.auth, 'content.manage')) || !c.auth.isPlatformAdmin)
+  if (!(await can(c.auth, 'simulador.casos.manage')) || !c.auth.isPlatformAdmin)
     throw new RecepcaoError(
       403,
       'A biblioteca de competências é editada pela plataforma.',

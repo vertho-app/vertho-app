@@ -29,7 +29,7 @@ export async function GET(req:Request) {
   const empresa=q.get('empresaId');if(empresa) z.string().uuid().parse(empresa);
   const c=await contextoRecepcao(req,empresa,false,auth);if(c instanceof Response) return c;
   if(q.get('visao')==='cenarios') {
-   if(!(await can(auth,'content.manage'))) throw new RecepcaoError(403,'Sem permissão para editar cenários.');
+   if(!(await can(auth,'simulador.casos.manage'))) throw new RecepcaoError(403,'Sem permissão para editar cenários.');
    return json({cenarios:await catalogo(c,true),dominio:c.dominio});
   }
   if(q.get('visao')==='competencias') return json(await listarCompetencias(c,q.get('inativas')==='1'));
@@ -48,7 +48,7 @@ export async function POST(req:Request) {
   if(parsed.acao==='rascunho_ia') {
    const cmd=z.object({acao:z.literal('rascunho_ia'),empresaId:z.string().uuid().optional(),descricao:z.string().trim().min(20).max(2000)}).strict().parse(parsed);
    const c=await contextoRecepcao(req,cmd.empresaId,false,auth);if(c instanceof Response) return c;
-   if(!(await can(auth,'content.manage'))) throw new RecepcaoError(403,'Sem permissão para editar cenários.');
+   if(!(await can(auth,'simulador.casos.manage'))) throw new RecepcaoError(403,'Sem permissão para editar cenários.');
    const limited=await aiLimiter.check(req,auth.email);if(limited) return limited;
    return json({conteudo:await gerarRascunho(c,cmd.descricao)});
   }

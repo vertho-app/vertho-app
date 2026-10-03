@@ -209,7 +209,7 @@ export async function consultar(c: Ctx, id?: string | null) {
         ['rh', 'gestor'].includes(c.auth.role)) &&
       (await can(c.auth, 'journey.team.view')) &&
       (await can(c.auth, 'reports.individual.view')),
-    podeCenarios: await can(c.auth, 'content.manage'),
+    podeCenarios: await can(c.auth, 'simulador.casos.manage'),
     historico: rows.map(itemDoHistorico),
     historicoTemMais: (lidas || []).length > PAGINA_HISTORICO,
     abertos: (abertas.data || []).map(itemDoHistorico),

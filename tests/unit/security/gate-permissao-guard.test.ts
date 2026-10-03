@@ -4,8 +4,9 @@
  * confronta o tenant pedido com o do contexto autenticado.
  *
  * Num arquivo `'use server'` todo export é endpoint HTTP e todo parâmetro é
- * escolhido pelo cliente. `requireAdminSupabase('content.manage')` prova que quem
- * chamou TEM a permissão — e `content.manage` está em `BASE_ROLE_PERMISSIONS.rh`.
+ * escolhido pelo cliente. `requireAdminSupabase('<perm do rh>')` prova que quem
+ * chamou TEM a permissão, e a permissão está em `BASE_ROLE_PERMISSIONS.rh`.
+ * (Até 03/10/2026 o exemplo era `content.manage`; ela saiu do papel rh.)
  * Logo um RH do tenant A passa, e o `empresaId` (ou o id do recurso) que decide a
  * linha veio dele. Foi a classe A1/A2/A3/A5 da auditoria de 22/08.
  *
@@ -57,6 +58,17 @@ const allowlist: Record<string, { motivo: string; exports: string[] }> = config.
  * ao guard sem ninguém tocar nele. É a classe "cobertura se lê no arquivo".
  */
 const PERMS_RH = new Set<string>(BASE_ROLE_PERMISSIONS.rh as unknown as string[]);
+
+/**
+ * Permissão do rh que as fixtures usam para montar o caso POSITIVO.
+ *
+ * Até 03/10/2026 as fixtures citavam `content.manage` direto. Quando ela saiu do
+ * papel rh, as que esperam achado ficariam vermelhas e, pior, as que esperam ZERO
+ * (gate que sanciona, export sem id) ficariam verdes pelo motivo errado: permissão
+ * de plataforma nem é a classe, então o sancionamento deixaria de ser exercitado.
+ * A fixture usa uma chave do rh e o teste abaixo confere que ela continua no papel.
+ */
+const PERM_RH_FIXTURE = 'simulador.casos.manage';
 
 /** Gate que prova PERMISSÃO e nada mais. Captura o argumento para cruzar com PERMS_RH. */
 const GATE_PERMISSAO = /\b(?:requireAdminSupabase|requirePermissionAction)\s*\(\s*'([^']+)'/g;
@@ -155,6 +167,8 @@ describe('Guard G-A5: gate de permissão sem gate de tenant', () => {
   it('o guard enxerga o repositório (não passou vazio por engano)', () => {
     expect(trackedTsFiles().length).toBeGreaterThan(100);
     expect(PERMS_RH.size).toBeGreaterThan(5);
+    // Sem isto as fixtures abaixo perdem o caso positivo em silêncio.
+    expect(PERMS_RH.has(PERM_RH_FIXTURE)).toBe(true);
     expect(exportsUseServer().length).toBeGreaterThan(100);
   });
 
@@ -181,8 +195,8 @@ describe('Guard G-A5: gate de permissão sem gate de tenant', () => {
         fora.map(([f, as]) =>
           `  ❌ ${f}\n` + as.map((a) => `       ${a.nome}(${a.ids.join(', ')})  :${a.line}  [${a.perm}]`).join('\n'),
         ).join('\n') +
-        '\n\nO gate de permissão NÃO é gate de tenant: `content.manage`, `users.manage`,\n' +
-        '`settings.company.manage`, `exports.run` e `assessments.dispatch` estão no papel rh.\n' +
+        '\n\nO gate de permissão NÃO é gate de tenant: as permissões do papel rh\n' +
+        `(${[...PERMS_RH].join(', ')}) passam qualquer RH, de qualquer empresa.\n` +
         'Conserto:\n' +
         '  · tenant é PARÂMETRO  → requireEmpresaSupabase(empresaId, perm, "<acao>")\n' +
         '  · tenant vem da LINHA → requireLinhaSupabase(tabela, id, perm, "<acao>")\n' +
@@ -234,7 +248,7 @@ describe('o predicado ainda vê a classe (fixtures — a allowlist real está qu
   it('a forma canônica: permissão de rh + id na assinatura, sem gate de tenant', () => {
     const achados = varrerFonte(`'use server';
       export async function editar(id: string, patch: any) {
-        const sb = await requireAdminSupabase('content.manage');
+        const sb = await requireAdminSupabase('${PERM_RH_FIXTURE}');
         return sb.from('micro_conteudos').update(patch).eq('id', id);
       }`);
     expect(achados).toHaveLength(1);
@@ -245,7 +259,7 @@ describe('o predicado ainda vê a classe (fixtures — a allowlist real está qu
     const achados = varrerFonte(`'use server';
       interface Params { empresaId?: string | null; competencia: string }
       export async function enfileirar(p: Params) {
-        const sb = await requireAdminSupabase('content.manage');
+        const sb = await requireAdminSupabase('${PERM_RH_FIXTURE}');
         return sb.from('kit_jobs').insert({ empresa_id: p.empresaId });
       }`);
     expect(achados).toHaveLength(1);
@@ -255,7 +269,7 @@ describe('o predicado ainda vê a classe (fixtures — a allowlist real está qu
   it('id que só aparece no CORPO — o ponto cego de `salvarCompetenciaBase(comp: any)`', () => {
     const achados = varrerFonte(`'use server';
       export async function salvar(comp: any) {
-        const sb = await requireAdminSupabase('content.manage');
+        const sb = await requireAdminSupabase('${PERM_RH_FIXTURE}');
         return sb.from('competencias_base').update(comp).eq('id', comp.id);
       }`);
     expect(achados).toHaveLength(1);
@@ -270,19 +284,28 @@ describe('o predicado ainda vê a classe (fixtures — a allowlist real está qu
       }`)).toHaveLength(0);
   });
 
+  it('content.manage, fora do rh desde 03/10/2026, deixou de ser a classe', () => {
+    expect(PERMS_RH.has('content.manage')).toBe(false);
+    expect(varrerFonte(`'use server';
+      export async function editar(id: string, patch: any) {
+        const sb = await requireAdminSupabase('content.manage');
+        return sb.from('micro_conteudos').update(patch).eq('id', id);
+      }`)).toHaveLength(0);
+  });
+
   it('export sem id do cliente não é a classe', () => {
     expect(varrerFonte(`'use server';
       export async function listarTudo() {
-        const sb = await requireAdminSupabase('content.manage');
+        const sb = await requireAdminSupabase('${PERM_RH_FIXTURE}');
         return sb.from('micro_conteudos').select('id');
       }`)).toHaveLength(0);
   });
 
   it.each([
-    ['requireEmpresaSupabase', `const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'x');`],
-    ['requireLinhaSupabase', `const { sb } = await requireLinhaSupabase('t', id, 'content.manage', 'x');`],
-    ['requirePlataformaSupabase', `const sb = await requirePlataformaSupabase('content.manage');`],
-    ['requireAdminAction', `await requireAdminAction('content.manage'); const sb = await requireAdminSupabase('content.manage');`],
+    ['requireEmpresaSupabase', `const sb = await requireEmpresaSupabase(empresaId, '${PERM_RH_FIXTURE}', 'x');`],
+    ['requireLinhaSupabase', `const { sb } = await requireLinhaSupabase('t', id, '${PERM_RH_FIXTURE}', 'x');`],
+    ['requirePlataformaSupabase', `const sb = await requirePlataformaSupabase('${PERM_RH_FIXTURE}');`],
+    ['requireAdminAction', `await requireAdminAction('${PERM_RH_FIXTURE}'); const sb = await requireAdminSupabase('${PERM_RH_FIXTURE}');`],
   ])('gate %s sanciona o export', (_nome, gate) => {
     expect(varrerFonte(`'use server';
       export async function f(empresaId: string, id: string) {
@@ -298,7 +321,7 @@ describe('o predicado ainda vê a classe (fixtures — a allowlist real está qu
   it('escopoTenantDaLinha e tenantDb NÃO sancionam (escopam a escrita, não autorizam o chamador)', () => {
     const achados = varrerFonte(`'use server';
       export async function apagar(id: string) {
-        const sb = await requireAdminSupabase('content.manage');
+        const sb = await requireAdminSupabase('${PERM_RH_FIXTURE}');
         const { data: linha } = await sb.from('t').select('empresa_id').eq('id', id).maybeSingle();
         return escopoTenantDaLinha(tenantDb(linha.empresa_id).from('t').delete().eq('id', id), linha);
       }`);
@@ -308,7 +331,7 @@ describe('o predicado ainda vê a classe (fixtures — a allowlist real está qu
   it('a delegação de 1 nível continua valendo (gate no helper local)', () => {
     expect(varrerFonte(`'use server';
       async function _editar(id: string) {
-        const { sb } = await requireLinhaSupabase('t', id, 'content.manage', 'x');
+        const { sb } = await requireLinhaSupabase('t', id, '${PERM_RH_FIXTURE}', 'x');
         return sb;
       }
       export async function editar(id: string) { return _editar(id); }`)).toHaveLength(0);
@@ -332,7 +355,7 @@ describe('limite conhecido: o guard não valida o ARGUMENTO do gate', () => {
       export async function f(empresaId: string) {
         const ctx = { empresaId, isPlatformAdmin: false };
         await assertTenantAccessAction(ctx as any, empresaId);  // compara o pedido com o pedido
-        const sb = await requireAdminSupabase('content.manage');
+        const sb = await requireAdminSupabase('${PERM_RH_FIXTURE}');
         return sb.from('colaboradores').delete().eq('empresa_id', empresaId);
       }`;
     expect(analisarFonte('fixture.ts', inseguroMasSancionado).map(classificar).filter(Boolean)).toHaveLength(0);

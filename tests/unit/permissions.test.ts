@@ -51,15 +51,31 @@ describe('papel Admin Sócio', () => {
    * de cada permissão FORA de /admin e /admin-v2: nenhuma tela do RH usa as
    * cinco abaixo, e elas abriam operação da Vertho pelo action id.
    */
-  it('rh não opera: sem users.manage, settings.company.manage, knowledge_base.manage, exports.run, assessments.dispatch', () => {
-    for (const p of ['users.manage', 'settings.company.manage', 'knowledge_base.manage', 'exports.run', 'assessments.dispatch'] as const) {
+  it('rh não opera: sem users.manage, settings.company.manage, knowledge_base.manage, exports.run, assessments.dispatch, content.manage', () => {
+    for (const p of ['users.manage', 'settings.company.manage', 'knowledge_base.manage', 'exports.run', 'assessments.dispatch', 'content.manage'] as const) {
       expect(hasBasePermission('rh', p), p).toBe(false);
     }
   });
 
-  it('rh mantém o que a tela dele usa: content.manage (cenários do simulador de atendimento) e a leitura', () => {
-    for (const p of ['content.manage', 'users.view', 'reports.aggregate.view', 'reports.individual.view', 'journey.team.view'] as const) {
+  /**
+   * 03/10/2026 (decisão do dono): `content.manage` saiu do rh. Ela abria, pelo
+   * action id e dentro da empresa dele, gerar conteúdo e kits com IA paga,
+   * Cenários B, manuscrito, PPP e competências. A única tela do RH que a usava
+   * (`/dashboard/treino-atendimento`, abas Cenários e Competências) passou para
+   * `simulador.casos.manage`.
+   */
+  it('rh mantém o que a tela dele usa: simulador.casos.manage (casos do atendimento) e a leitura', () => {
+    for (const p of ['simulador.casos.manage', 'users.view', 'reports.aggregate.view', 'reports.individual.view', 'journey.team.view'] as const) {
       expect(hasBasePermission('rh', p), p).toBe(true);
+    }
+  });
+
+  it('rh sem content.manage; a plataforma (master) segue com as duas chaves; sócio e gestor sem a nova', () => {
+    expect(hasBasePermission('rh', 'content.manage')).toBe(false);
+    expect(hasBasePermission('platform_admin', 'content.manage')).toBe(true);
+    expect(hasBasePermission('platform_admin', 'simulador.casos.manage')).toBe(true);
+    for (const papel of ['socio', 'gestor', 'colaborador'] as const) {
+      expect(hasBasePermission(papel, 'simulador.casos.manage'), papel).toBe(false);
     }
   });
 });
