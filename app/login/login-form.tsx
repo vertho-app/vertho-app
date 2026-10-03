@@ -600,6 +600,22 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
             )}
           </form>
         )}
+
+        {/* R-46 (03/10/2026): a política diz que quem usa a plataforma declara
+            ciência dela, e nenhuma tela levava até ela. Fica fora do formulário
+            para aparecer em todos os estados da tela (link enviado, escolha da
+            organização, senha). */}
+        <p className="mt-8 text-xs">
+          <a
+            href="/privacidade"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+            style={{ color: fontColorSecondary || '#FFFFFF99' }}
+          >
+            {t('privacyLink')}
+          </a>
+        </p>
       </div>
 
       {showSignup && (

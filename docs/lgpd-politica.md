@@ -1,5 +1,13 @@
 # Política de Proteção de Dados — Vertho Mentor IA
 
+> ⛔ **OBSOLETO (03/10/2026). Não enviar a cliente, DPO ou jurídico.** Este texto é de abril de
+> 2026 e contradiz o código em pontos que importam: diz que a IA recebe "PII anonimizada" (várias
+> etapas recebem o nome, e as que mascaram trocam só o nome e os contatos da própria pessoa), que o
+> Bunny "não" guarda vídeo de colaborador (os vídeos personalizados têm o primeiro nome) e que as
+> mensagens do QStash vão "sem PII" (levam nome, telefone e link). A fonte atual é
+> **`docs/FLUXO-DE-DADOS-PESSOAIS.md`** (tabela por fluxo e por fornecedor), e o texto público é
+> `app/privacidade/page.tsx`. Mantido no repositório só como registro (R-113 da revisão de 02/10).
+
 **Versão**: 1.0 · **Vigência**: 2026-04-16 · **Próxima revisão**: 2026-10-16
 
 ## 1. Escopo

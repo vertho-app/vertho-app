@@ -550,6 +550,7 @@
     }
   },
   "Login": {
+    "privacyLink": "Privacidad y términos de uso",
     "defaultSubtitle": "Tu itinerario de desarrollo",
     "emailPrompt": "Introduce tu correo para acceder",
     "unifiedPrompt": "Entra con tu correo o WhatsApp para acceder",
@@ -623,6 +624,7 @@
     }
   },
   "DashboardShell": {
+    "privacyLink": "Privacidad y términos de uso",
     "nav": {
       "home": "Inicio",
       "prontidaoLideranca": "Mapeo de liderazgo",

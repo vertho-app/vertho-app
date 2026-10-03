@@ -550,6 +550,7 @@
     }
   },
   "Login": {
+    "privacyLink": "Privacidade e termos de uso",
     "defaultSubtitle": "Sua jornada de desenvolvimento",
     "emailPrompt": "Digite seu e-mail para acessar",
     "unifiedPrompt": "Entre com seu e-mail ou WhatsApp para acessar",
@@ -623,6 +624,7 @@
     }
   },
   "DashboardShell": {
+    "privacyLink": "Privacidade e termos de uso",
     "nav": {
       "home": "Início",
       "prontidaoLideranca": "Mapeamento de liderança",

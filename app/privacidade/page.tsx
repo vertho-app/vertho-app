@@ -9,9 +9,13 @@ import type { Metadata } from 'next';
  * subprocessador entra ou sai, a mudança aparece no mesmo diff.
  *
  * O conteúdo foi conferido contra o levantamento técnico em
- * `docs/FLUXO-DE-DADOS-PESSOAIS.md` (14/08/2026) — em particular os
- * subprocessadores e o fato de que nome e avaliação de desempenho trafegam para
- * provedores de IA.
+ * `docs/FLUXO-DE-DADOS-PESSOAIS.md` (14/08/2026, revisado em 03/10/2026): os
+ * subprocessadores, a voz, e quais fluxos de IA levam o nome da pessoa e quais
+ * levam só um identificador. A tabela por fluxo vive no doc; aqui fica a
+ * versão para o titular.
+ *
+ * Página só em pt-BR, sem i18n, de propósito: é o texto jurídico de referência.
+ * O link para cá nas telas (login e rodapé do painel) é traduzido.
  *
  * ⚠️ ATUALIZAR AQUI QUANDO MUDAR O CÓDIGO: a seção 6 lista fornecedores reais.
  * Trocar de provedor de IA, de e-mail ou de WhatsApp sem atualizar esta lista
@@ -28,7 +32,7 @@ const EMPRESA = {
   emailEncarregado: 'rodrigo@vertho.ai',
 };
 
-const ATUALIZACAO = '14 de agosto de 2026';
+const ATUALIZACAO = '3 de outubro de 2026';
 
 export const metadata: Metadata = {
   title: 'Termos de Uso e Política de Privacidade | Vertho',
@@ -175,7 +179,21 @@ export default function PoliticaPrivacidadePage() {
             ]}
           />
 
-          <h3 className="font-semibold text-slate-900 pt-2">3.4. Dados comerciais</h3>
+          <h3 className="font-semibold text-slate-900 pt-2">3.4. Voz</h3>
+          <p>Em algumas funcionalidades, a plataforma recebe gravações de voz do usuário:</p>
+          <Lista
+            itens={[
+              'respostas faladas no treino de atendimento, transcritas em texto por inteligência artificial;',
+              'mensagens de áudio enviadas ao assistente virtual da Vertho no WhatsApp, interpretadas por inteligência artificial para responder ao pedido.',
+            ]}
+          />
+          <p>
+            A plataforma também produz voz sintetizada que pode conter o primeiro nome do usuário,
+            como a saudação de vídeos personalizados e a devolutiva em áudio do perfil
+            comportamental.
+          </p>
+
+          <h3 className="font-semibold text-slate-900 pt-2">3.5. Dados comerciais</h3>
           <p>
             Nos canais comerciais da Vertho poderão ser tratados dados profissionais de representantes
             de empresas e instituições, como nome, cargo, empresa, e-mail profissional, telefone e
@@ -242,8 +260,16 @@ export default function PoliticaPrivacidadePage() {
           </p>
           <p>
             A Vertho procura limitar o envio de informações ao necessário para a execução da
-            funcionalidade correspondente.
+            funcionalidade correspondente. Na prática, isso funciona assim:
           </p>
+          <Lista
+            itens={[
+              'nas conversas da jornada de desenvolvimento, no Tira-Dúvidas, na arguição, nas avaliações de competências e na auditoria delas, no plano individual de desenvolvimento, na avaliação das práticas, no assistente virtual e no simulador de vendas, o nome do usuário é substituído por um identificador antes do envio ao provedor de inteligência artificial, e e-mail, telefone e CPF digitados nas respostas são retirados do texto. O nome volta ao texto apenas na plataforma, quando o resultado é exibido;',
+              'essa substituição alcança o nome e os contatos do próprio usuário. Nomes de outras pessoas citados livremente em uma resposta seguem como foram escritos;',
+              'algumas funcionalidades enviam o nome porque dependem dele: os relatórios destinados a gestores e à área de RH, o relatório e a devolutiva em áudio do perfil comportamental, o plano de desenvolvimento que orienta a trilha, e a saudação personalizada dos vídeos;',
+              'gravações de voz são enviadas como gravação, sem essa substituição: as respostas faladas do treino de atendimento são transcritas pela OpenAI, e os áudios enviados ao assistente no WhatsApp são interpretados pelo Google.',
+            ]}
+          />
           <p>
             Os resultados produzidos por inteligência artificial são instrumentos de apoio ao processo
             de desenvolvimento e devem ser interpretados dentro do contexto da metodologia e das
@@ -263,18 +289,35 @@ export default function PoliticaPrivacidadePage() {
           </p>
 
           <h3 className="font-semibold text-slate-900 pt-2">Infraestrutura e armazenamento</h3>
-          <Lista itens={['Supabase;', 'Vercel.']} />
+          <Lista
+            itens={[
+              'Supabase, banco de dados e armazenamento de arquivos;',
+              'Vercel, hospedagem da aplicação;',
+              'Hetzner, servidores que montam os vídeos personalizados (recebem o primeiro nome usado na saudação);',
+              'Trigger.dev, execução de tarefas em segundo plano, como avaliações e planos gerados em lote e a produção de vídeos (processa os mesmos dados dessas etapas);',
+              'Upstash, fila de mensagens e controle de limite de acessos (a fila transporta nome, telefone e link das mensagens enviadas em lote; o controle de limite usa o e-mail da sessão como chave);',
+              'Sentry, monitoramento de erros técnicos (e-mail, telefone, CPF e credenciais de acesso presentes em endereços são removidos antes do envio).',
+            ]}
+          />
 
           <h3 className="font-semibold text-slate-900 pt-2">
             Inteligência artificial e processamento de conteúdo
           </h3>
-          <Lista itens={['Anthropic;', 'OpenAI;', 'Google;', 'Voyage.']} />
+          <Lista
+            itens={[
+              'Anthropic;',
+              'OpenAI, inclusive a transcrição das respostas faladas do treino de atendimento;',
+              'Google, inclusive a interpretação de áudios enviados ao assistente no WhatsApp e a síntese de voz;',
+              'Voyage, busca semântica no acervo de conteúdo.',
+            ]}
+          />
 
           <h3 className="font-semibold text-slate-900 pt-2">Comunicação</h3>
           <Lista
             itens={[
               'Meta, por meio da infraestrutura do WhatsApp;',
               'Z-API, enquanto aplicável às integrações existentes;',
+              'WaSender, como alternativa de envio de WhatsApp;',
               'Amazon SES e Resend, para envio de e-mails;',
               'Twilio, para serviços de comunicação e autenticação por SMS;',
               'serviços de Web Push utilizados pelos navegadores.',
@@ -282,7 +325,12 @@ export default function PoliticaPrivacidadePage() {
           />
 
           <h3 className="font-semibold text-slate-900 pt-2">Vídeo e conteúdo audiovisual</h3>
-          <Lista itens={['Bunny Stream;', 'HeyGen.']} />
+          <Lista
+            itens={[
+              'Bunny Stream, hospedagem dos vídeos, inclusive os personalizados, que trazem o primeiro nome do usuário na saudação e no título;',
+              'HeyGen, geração de vídeos com avatar a partir de roteiros de conteúdo, sem dados do usuário.',
+            ]}
+          />
 
           <p>
             Esses fornecedores recebem apenas os dados relacionados às funcionalidades que executam e

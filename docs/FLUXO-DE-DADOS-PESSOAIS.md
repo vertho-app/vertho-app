@@ -1,18 +1,22 @@
-# Fluxo de dados pessoais — levantamento técnico
+# Fluxo de dados pessoais: levantamento técnico
 
 > **O que este documento é:** um mapa do que o sistema coleta, onde guarda e para quem envia,
-> levantado **no código e no banco** em 14/08/2026. Serve de insumo para quem for redigir a
-> política de privacidade e o contrato de tratamento de dados.
+> levantado **no código e no banco** em 14/08/2026 e **revisado no código em 03/10/2026**
+> (fase 2 da revisão de 02/10: máscara de PII, avaliação sem nome, subprocessadores e voz).
+> Serve de insumo para quem for redigir a política de privacidade e o contrato de tratamento
+> de dados. A política pública (`app/privacidade/page.tsx`) é conferida contra ele.
 >
 > **O que ele NÃO é:** não é a política de privacidade, não é análise jurídica e não classifica
 > nada como "dado sensível" no sentido legal. Essa leitura é de quem entende de direito digital.
 >
 > **Por que existe:** o modelo de política que circulou em 14/08 dizia *"Compartilhamos dados
-> apenas com a Meta Platforms"*. São **onze** destinos externos, e o mais relevante não é o
-> WhatsApp — é a IA, que recebe nome e avaliação de desempenho.
+> apenas com a Meta Platforms"*. São dezenove destinos externos fixos (mais quatro provedores
+> de IA selecionáveis, §2.3), e o mais relevante não é o WhatsApp: é a IA, que recebe avaliação
+> de desempenho.
 >
-> **Adendo de 22/09/2026:** incluídos os dois canais do Beto — suporte interno por WhatsApp com
-> Gemini e mentor autenticado no app com contexto normalizado da página atual.
+> **Regra de manutenção:** fluxo novo que manda dado de pessoa a um fornecedor entra na tabela
+> da §2 no mesmo commit, com a coluna "mascarado" preenchida. Linha "sim" só com teste que
+> prova a máscara no prompt (os testes de 03/10 estão citados em cada linha).
 
 ---
 
@@ -57,58 +61,130 @@ contato de escolas/empresas prospectadas).
 
 ## 2. 🔴 O que sai para a IA
 
-**Este é o item que o modelo de política omitia.** Em `actions/fase4.ts`, o prompt enviado ao
-modelo de linguagem é montado assim:
+### 2.1 Como funciona a máscara (desde 03/10/2026)
 
-```
-Empresa: {nome da empresa}
-Colaborador: {nome_completo} | Cargo: {cargo}
-Relatório de competências:
-{ ...JSON com a avaliação completa... }
-```
+`lib/pii-masker.ts` troca a identidade da pessoa por um identificador estável (`COLAB_1A2B`,
+derivado do id do colaborador) antes da chamada, e devolve o nome depois dela:
 
-Ou seja: **nome identificado + cargo + avaliação de desempenho** trafegam para um provedor de IA
-de terceiro. O mesmo padrão aparece em `lib/check-ia4-core.ts:141`.
+- **Ida** (`maskTextPII`): nome completo, nome composto ("Ana Beatriz", "Maria do Socorro"),
+  primeiro + último nome e o primeiro nome isolado viram o identificador, com fronteira de
+  palavra que entende acento ("Ana" não casa dentro de "Análise"). O e-mail cadastrado vira um
+  e-mail-identificador; qualquer outro e-mail, telefone ou CPF vira `[email]`, `[telefone]`,
+  `[cpf]`.
+- **Volta** (`unmaskPII`): o identificador vira o **primeiro nome** no texto que a pessoa ou o
+  RH leem (no simulador de vendas, o nome completo, que é o que o cenário sempre trouxe).
+- Os dois sentidos são mapas **separados**. Até 03/10 era um mapa só, e a máscara trocava o
+  nome completo pelo identificador e o identificador de volta pelo primeiro nome, no mesmo
+  passo: o texto ia à IA com o nome da pessoa (R-05 da revisão de 02/10).
 
-Provedores de IA em uso (`actions/ai-client.ts`, `lib/ai-batch.ts`):
+**Limites, ditos com todas as letras:**
 
-| Provedor | Papel |
-|---|---|
-| **Anthropic** (Claude) | padrão da maior parte do pipeline |
-| **OpenAI** | fallback de provedor e alguns checks |
-| **Google** (Gemini) | provedor alternativo |
-| **Voyage** | embeddings do acervo de conteúdo |
+1. Só o nome e os contatos da **própria pessoa**. Nome de terceiro citado na resposta ("conversei
+   com a Joana") segue como foi escrito: não há reconhecimento de nomes próprios.
+2. Primeiro nome que também é palavra comum ("Clara", "Rosa", "Vitória", "Will"...) só é
+   mascarado com inicial maiúscula, para "comunicação clara" não virar "comunicação COLAB_1A2B"
+   na evidência avaliada. A lista é explícita em `NOMES_QUE_SAO_PALAVRAS`.
+3. Voz não se mascara: áudio vai como áudio (§2.4).
+4. O identificador é um hash curto do id: serve para tirar o nome do texto, não é
+   pseudonimização no sentido jurídico (quem tem o banco refaz o de-para).
 
-### 2.1 Beto no WhatsApp e dentro do app (22/09/2026)
+### 2.2 Tabela por fluxo
 
-| Fluxo | Provedor | Dados enviados | Proteções relevantes |
-|---|---|---|---|
-| Beto no WhatsApp (todos os colaboradores desde 22/09/2026) | **Google (Gemini)** | Texto ou áudio recebido, histórico recente de até 24 h (inclusive mensagens automáticas da plataforma e respostas da equipe), nome, cargo e empresa resolvidos pelo banco | Só telefone resolvido para UMA empresa (a equipe `@vertho.ai`, na ACME); número sem empresa e tenant de demo não chegam à IA; links do histórico trocados por `[link]`; token de acesso nunca entra no prompt |
-| Beto dentro do app | **Anthropic (Claude)** | Mensagem, histórico, perfil/cargo/empresa, contexto de desenvolvimento disponível e descrição da página atual | Sessão resolvida no servidor; query/hash removidos; ids dinâmicos redigidos; URL externa e quebra de linha recusadas |
+"Mascarado: sim" quer dizer: nome e contatos da pessoa substituídos antes da chamada, provado
+por teste. Provedor de IA: o padrão é **Anthropic** (Claude), com fallback de provedor para
+**OpenAI** quando o Claude está sobrecarregado; várias tarefas têm o modelo configurável por
+empresa (§2.3), e aí o provedor é o do modelo escolhido.
 
-No WhatsApp, o áudio é obtido da Meta e enviado inline ao Gemini para entendimento e classificação.
-O magic link é criado separadamente pela aplicação e transportado apenas no template aprovado.
-Dentro do app, “página atual” significa a rota normalizada, não HTML, screenshot, campos visíveis
-nem conteúdo do navegador. Especificação operacional: `docs/BETO-CANAIS.md`.
+| Fluxo | Dado pessoal que vai | Provedor | Mascarado? | Onde / teste |
+|---|---|---|---|---|
+| Conversas da semana (Evidências, missão, cenário escrito) | falas da pessoa, falas anteriores da IA, compromisso | IA do pipeline | **sim** | `app/api/temporada/reflection` · `tests/unit/security/pii-rotas-jornada.test.ts` |
+| Extração de fim de conversa da semana | transcrição inteira | IA do pipeline | **sim** (resultado desmascarado antes de gravar) | idem |
+| Tira-Dúvidas: conversa | pergunta, histórico, plano de desenvolvimento | IA do pipeline | **sim** | `app/api/temporada/tira-duvidas` |
+| Tira-Dúvidas: busca no acervo | a pergunta da pessoa | **Voyage** (vetor da consulta) | **sim**; e `lib/rag.ts` tira e-mail, telefone e CPF de qualquer consulta | idem |
+| Conversa qualitativa (semana da acumulada) e a extração dela | falas, insights das semanas anteriores | IA do pipeline | **sim** | `app/api/temporada/evaluation` · mesmo teste |
+| Cenário B, arguição e extração da arguição | respostas, defesa oral | IA do pipeline | **sim** | `lib/season-engine/arguicao.ts` · `tests/unit/arguicao.test.ts` |
+| Avaliação acumulada (1ª IA e auditor) | evidências das semanas | IA do pipeline + auditor de outra família (configurável) | **sim** | `lib/season-engine/avaliacao-acumulada-core.ts` |
+| Fechamento: nota, redação final e auditor | respostas do cenário, evidências, acumulado gravado | IA do pipeline + auditor | **sim** (o acumulado gravado, que tem o nome, é remascarado) | `lib/season-engine/fechamento-core.ts` · `tests/unit/fechamento-core.test.ts` |
+| Regeração do fechamento pelo admin | idem + auditoria anterior | idem | **sim** | `app/admin/vertho/auditoria-sem14/actions.ts` |
+| IA4: nota das respostas do mapeamento (síncrono e lote) | respostas, cargo, perfil DISC | modelo da tarefa `ia4_avaliacao` (Batch API da Anthropic no lote) | **sim** | `lib/ia4-avaliacao.ts`, `trigger/gerar-ia4-batch.ts` · `tests/unit/avaliacao-sem-nome.test.ts` |
+| Auditoria da IA4 (síncrono e lote) | respostas, avaliação gravada | modelo da tarefa `ia4_check` | **sim** | `lib/check-ia4-core.ts` · idem |
+| Reavaliação da IA4 | respostas, avaliação anterior, auditoria | modelo da tarefa `ia4_avaliacao` | **sim** | `lib/ia4-reavaliacao.ts` · idem |
+| PDI: gerador e auditor (síncrono e lote) | respostas, parecer da IA4, plano, perfil | modelo da tarefa + auditor `pdi_check` | **sim** (o PDI grava com o primeiro nome) | `lib/relatorio-individual-prompt.ts`, `lib/relatorios/individual-core.ts` · idem |
+| Praticar: avaliação da evidência | texto da prática, cargo, perfil | IA do pipeline | **sim** | `actions/tutor-evidencia.ts` · `tests/unit/conversas-pii.test.ts` |
+| Beto no app | mensagem, histórico, perfil comportamental, plano, cargo | Anthropic | **sim** | `app/actions/beto.ts` · idem |
+| Beto no WhatsApp: texto | mensagem, histórico de 24 h, nome e cargo do cadastro, empresa | **Google** (Gemini) | **sim** (resposta desmascarada antes da checagem de conduta) | `lib/whatsapp/suporte-auto.ts` · `tests/unit/integrations/suporte-auto.test.ts` |
+| Beto no WhatsApp: áudio | **a voz da pessoa** | **Google** (Gemini) | **não** (voz não se mascara) | idem, §2.4 |
+| Simulador de vendas | nome do vendedor, falas, planejamento | modelo PACE configurado | **sim** (nome vira identificador em todas as etapas; falas já sem contato) | `lib/simulador-vendas/ai.ts` · `tests/unit/simulador-vendas-ai.test.ts` |
+| Simulador de liderança | falas | modelo configurado | nome não é enviado; falas sem e-mail, telefone e CPF | `lib/simulador-lideranca/service.ts` |
+| Treino de atendimento: texto | falas digitadas | modelo configurado | nome não é enviado; falas sem e-mail, telefone e CPF | `lib/recepcao/ai.ts` |
+| Treino de atendimento: voz | **a voz da pessoa** (transcrição) | **OpenAI** (Whisper) | **não** | `app/api/recepcao/voz/route.ts` |
+| Conversa de mapeamento (`/api/chat`) | falas da pessoa | IA do pipeline | nome não é enviado; **falas vão como digitadas** (sem tirar contato) | `app/api/chat/route.ts` |
+| Relatório do gestor | nomes da equipe, **nome e e-mail do gestor**, níveis | modelo da tarefa | **não, por desenho** (o relatório é sobre pessoas nomeadas) | `lib/relatorios/gestor-rh-core.ts` |
+| Relatório do RH | nomes, cargos, níveis | modelo da tarefa | **não, por desenho** | idem |
+| Plano de desenvolvimento (blueprint), síncrono e lote | nome, cargo, perfil, competências | modelo da tarefa | **não** (pendente: é a base do PDI, que já é mascarado) | `lib/blueprint/core.ts`, `trigger/gerar-blueprint-batch.ts` |
+| Relatório comportamental (DISC) e insights executivos | nome, perfil DISC | modelo da tarefa | **não** | `lib/prompts/behavioral-report-prompt.js`, `lib/prompts/insights-executivos-prompt.js` |
+| Devolutiva comportamental em áudio | primeiro nome no roteiro e na voz | modelo da tarefa + **Google** (TTS) | **não, por desenho** (a voz diz o nome) | `lib/relatorio-comportamental/devolutiva-audio.ts` |
+| Saudação nominal do vídeo | primeiro nome | **Google** (TTS, no servidor Hetzner) | **não, por desenho** | `worker-hetzner/personalizar.mjs` |
+| Fase 5 (evolução e reavaliação conversacional) | nome, cargo, respostas | modelo da tarefa | **não** | `actions/fase5/evolucao.ts`, `actions/fase5/reavaliacao.ts` |
+| Simulador de conversas (ferramenta do admin) | nome, cargo | modelo escolhido | **não** (ferramenta interna, gera respostas sintéticas) | `actions/simulador-conversas.ts` |
+
+### 2.3 Provedores de IA
+
+| Provedor | Papel | Onde |
+|---|---|---|
+| **Anthropic** (Claude) | padrão da maior parte do pipeline; Batch API nos lotes | `actions/ai-client.ts`, `lib/ai-batch.ts` |
+| **OpenAI** | fallback de provedor, auditores cross-família, Batch API do check, transcrição (Whisper) | idem, `app/api/recepcao/voz` |
+| **Google** (Gemini) | Beto no WhatsApp (texto e áudio), síntese de voz (vídeo, devolutiva, podcast) | `lib/whatsapp/suporte-auto.ts`, `lib/gemini-tts.ts`, `worker-hetzner/` |
+| **Voyage** | vetores do acervo de conteúdo e da pergunta do Tira-Dúvidas | `lib/embeddings.ts`, `lib/rag.ts` |
+| Moonshot (Kimi), xAI (Grok), Alibaba (Qwen), Meta (Muse) | **selecionáveis** por tarefa na configuração da empresa; o Grok está na escada de fallback | `lib/ai-provedores.ts`, `lib/ai-tasks.ts` |
+
+⚠️ A última linha é decisão pendente do dono (R-45): restringir as tarefas com dado pessoal às
+famílias declaradas na política, ou declarar estes provedores. Enquanto não decide, um tenant
+configurado para um deles manda o texto (mascarado nas linhas "sim" da §2.2) a um provedor que
+a política não cita.
 
 ⚠️ **Pergunta que o jurídico vai fazer e a engenharia precisa responder:** os contratos com esses
 provedores incluem cláusula de **não-treinamento** com os dados enviados? Isso depende do plano
 contratado em cada um e não é verificável no código.
 
+### 2.4 Voz
+
+| Origem | O que vai | Para quem |
+|---|---|---|
+| Resposta falada no treino de atendimento | gravação de até 60 s | **OpenAI** (Whisper), transcrição; o texto volta sem e-mail, telefone e CPF |
+| Áudio enviado ao Beto no WhatsApp | arquivo de áudio baixado da Meta | **Google** (Gemini), inline na chamada |
+| Voz sintetizada com o primeiro nome | texto "Olá, {nome}" e o roteiro da devolutiva | **Google** (TTS); o vídeo resultante fica no **Bunny** |
+
+### 2.5 Beto: os dois canais
+
+| Fluxo | Provedor | Dados enviados | Proteções relevantes |
+|---|---|---|---|
+| Beto no WhatsApp (todos os colaboradores desde 22/09/2026) | **Google (Gemini)** | Texto ou áudio recebido, histórico recente de até 24 h (inclusive mensagens automáticas da plataforma e respostas da equipe), identificador e cargo da pessoa, empresa | Só telefone resolvido para UMA empresa; número sem empresa e tenant de demo não chegam à IA; links do histórico trocados por `[link]`; token de acesso nunca entra no prompt; nome e contatos mascarados no texto (não no áudio) |
+| Beto dentro do app | **Anthropic (Claude)** | Mensagem, histórico, perfil/cargo/empresa, contexto de desenvolvimento disponível e descrição da página atual | Sessão resolvida no servidor; query/hash removidos; ids dinâmicos redigidos; URL externa e quebra de linha recusadas; nome e contatos mascarados |
+
+O magic link é criado separadamente pela aplicação e transportado apenas no template aprovado.
+Dentro do app, "página atual" significa a rota normalizada, não HTML, screenshot, campos visíveis
+nem conteúdo do navegador. Especificação operacional: `docs/BETO-CANAIS.md`.
+
 ---
 
-## 3. Onde os dados ficam
+## 3. Onde os dados ficam e quem os processa
 
-| Camada | Fornecedor | Observação |
+| Camada | Fornecedor | O que recebe |
 |---|---|---|
-| Banco de dados | **Supabase** (Postgres) | ⚠️ Região do projeto **a confirmar no painel** — não é legível pelo código |
-| Aplicação | **Vercel** | `vercel.json` **não declara região** ⇒ usa o default da conta |
+| Banco de dados e arquivos | **Supabase** (Postgres e Storage) | tudo; ⚠️ região do projeto **a confirmar no painel** (não é legível pelo código) |
+| Aplicação | **Vercel** | tudo que passa pelas rotas; `vercel.json` **não declara região** ⇒ default da conta |
 | Backups | **Supabase Storage**, bucket `backups` | `.json.gz` diário, rotação de 7 dias (`actions/backup.ts`) |
-| Vídeo | **Bunny Stream** | vídeos com nome da pessoa na narração/tela |
-| Avatar de vídeo | **HeyGen** | geração dos decks |
+| Render de vídeo | **Hetzner** (servidor provisionado sob demanda) | acesso ao banco pela `DATABASE_URL`; lê `nome_completo` de quem recebe vídeo personalizado e sintetiza a saudação (`worker-hetzner/worker.mjs`, `lib/video/ensure-render-worker.ts`) |
+| Tarefas em segundo plano | **Trigger.dev** | executa acumulada do piloto, IA4, PDI e blueprint em lote, geração de vídeo; processa os mesmos dados dessas etapas, e o progresso dos lotes leva o nome da pessoa no rótulo (`trigger/`) |
+| Fila de mensagens | **Upstash QStash** | envio em lote de WhatsApp: nome (dentro da mensagem), telefone e link de avaliação (`actions/whatsapp-lote.ts`) |
+| Limite de requisições | **Upstash Redis** | e-mail da sessão como chave do limite (ou o IP, sem sessão) (`lib/rate-limit.ts`) |
+| Monitoramento de erros | **Sentry** | dados técnicos de erro; e-mail, telefone, CPF e credenciais de URL (`t`, `token`, `token_hash`, `codigo`, `code`, `ticket`, `passe`, `key`, `secret`) removidos em `lib/sentry-scrub-pii.ts`; **nome em texto livre não é detectado** |
+| Vídeo | **Bunny Stream** | vídeos genéricos e personalizados; os personalizados têm o primeiro nome na saudação e no **título** (`worker-hetzner/worker.mjs`) |
+| Avatar de vídeo | **HeyGen** | roteiros de conteúdo dos decks genéricos, sem dado da pessoa |
 
 **Transferência internacional:** todos os fornecedores acima são estrangeiros. A confirmação de
-*em que país* cada dado repousa depende da configuração de região de Supabase e Vercel — é o
+*em que país* cada dado repousa depende da configuração de região de Supabase e Vercel: é o
 primeiro item a verificar no painel.
 
 ---
@@ -118,14 +194,16 @@ primeiro item a verificar no painel.
 | Fornecedor | Recebe | Onde no código |
 |---|---|---|
 | **Meta** (WhatsApp Cloud API) | telefone + conteúdo da mensagem | `lib/whatsapp/cloud-api.ts` |
-| **Z-API** (WhatsApp por QR) | idem — caminho legado, ainda ativo | `lib/whatsapp/providers/zapi.ts` |
-| **Resend** | e-mail + conteúdo | `lib/notifications/pilula-envio.ts` |
-| **Twilio** | telefone + código de acesso (SMS) | `lib/sms/providers/twilio.ts` — configurado, sem número |
+| **Z-API** (WhatsApp por QR) | idem; caminho legado, ainda ativo | `lib/whatsapp/providers/zapi.ts` |
+| **WaSender** | idem; alternativa de envio (failover) | `lib/whatsapp/providers/wasender.ts` |
+| **Amazon SES** e **Resend** | e-mail + conteúdo | `lib/email-provider.ts`, `lib/notifications/pilula-envio.ts` |
+| **Twilio** | telefone + código de acesso (SMS) | `lib/sms/providers/twilio.ts`; configurado, sem número |
 | **Web Push** (navegador) | endpoint do aparelho | `lib/notifications/push-core.ts` |
+| **Upstash QStash** | nome, telefone e link dos envios em lote | `actions/whatsapp-lote.ts` (§3) |
 
 O recebimento do WhatsApp também pode incluir mídia. A inbox guarda a cópia recebida no bucket
 privado `inbox-midia-recebida`; no Beto do WhatsApp, um áudio elegível pode ainda ser enviado ao
-Google para interpretação, conforme a §2.1.
+Google para interpretação, conforme a §2.4.
 
 ---
 
@@ -159,14 +237,23 @@ em 6 tenants. "Excluir os dados desta pessoa" não é uma operação única.
 
 ## 7. Lacunas que a engenharia precisa fechar
 
-1. **Região de Supabase e Vercel** — verificar no painel e declarar.
-2. **Cláusula de não-treinamento** nos contratos de IA — verificar plano de cada provedor.
-3. **Rotina de exclusão a pedido** — não existe.
-4. **Prazo de descarte** — não existe para nenhum dado além de chat abandonado e backup.
-5. **Registro de consentimento** — o cadastro é feito pelo contratante; não há registro de aceite
-   do titular no sistema.
-6. **Z-API ainda ativa** — a política precisa refletir os dois caminhos de WhatsApp enquanto a
+1. **Região de Supabase e Vercel**: verificar no painel e declarar.
+2. **Cláusula de não-treinamento** nos contratos de IA: verificar plano de cada provedor.
+3. **Rotina de exclusão a pedido**: não existe.
+4. **Prazo de descarte**: não existe para nenhum dado além de chat abandonado e backup.
+5. **Registro de consentimento**: o cadastro é feito pelo contratante; não há registro de aceite
+   do titular no sistema. Desde 03/10 o login e o rodapé do painel levam à política; os e-mails
+   e as mensagens de WhatsApp ainda não.
+6. **Z-API ainda ativa**: a política precisa refletir os dois caminhos de WhatsApp enquanto a
    migração não fecha.
+7. **Provedores de IA selecionáveis fora da política** (Kimi, Grok, Qwen, Muse): restringir ou
+   declarar, decisão do dono (R-45, §2.3).
+8. **Fluxos de IA ainda com nome** (§2.2, linhas "não" que não são "por desenho"): plano de
+   desenvolvimento (blueprint), relatório comportamental e insights, Fase 5 e o simulador de
+   conversas do admin. A conversa de mapeamento (`/api/chat`) não manda o nome, mas também não
+   tira o contato digitado.
+9. **Bucket público**: os relatórios do RH e os vídeos com saudação nominal ficam em buckets
+   públicos (R-74 da revisão de 02/10), fora deste lote.
 
 ---
 

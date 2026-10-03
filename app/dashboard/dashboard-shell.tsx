@@ -377,6 +377,21 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
       <main className={`flex-1 overflow-y-auto md:ml-20 ${isImmersiveContent ? 'pb-0' : 'pb-[calc(var(--nav-height)+72px)] md:pb-0'}`}>
         <PresentationNavigation />
         {children}
+        {/* Rodapé com a política (R-46, 03/10/2026): ela diz que quem usa a
+            plataforma declara ciência dela, e nenhuma tela levava até ela.
+            Fica de fora no conteúdo imersivo, que ocupa a tela inteira. */}
+        {!isImmersiveContent && (
+          <footer className="px-4 py-6 text-center text-[11px]">
+            <a
+              href="/privacidade"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/40 transition-colors hover:text-white/70 hover:underline"
+            >
+              {t('privacyLink')}
+            </a>
+          </footer>
+        )}
       </main>
 
       {/*

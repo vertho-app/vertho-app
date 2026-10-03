@@ -550,6 +550,7 @@
     }
   },
   "Login": {
+    "privacyLink": "Privacy and terms of use",
     "defaultSubtitle": "Your development journey",
     "emailPrompt": "Enter your email to sign in",
     "unifiedPrompt": "Sign in with your email or WhatsApp",
@@ -623,6 +624,7 @@
     }
   },
   "DashboardShell": {
+    "privacyLink": "Privacy and terms of use",
     "nav": {
       "home": "Home",
       "prontidaoLideranca": "Leadership mapping",
