@@ -1404,10 +1404,10 @@ em 14/09/2026). Toggle do módulo em Configurações → Programa.
 
 **PDF** (`lib/prontidao-lideranca/parecer-pdf.tsx`): parecer individual (capa, duas camadas com
 gaps ancorados, evidências literais de `respostas.avaliacao_ia`, auditoria da 2ª IA) e consolidado
-da equipe. View pura. 🔴 Vai para o bucket PRIVADO `relatorios-pdf` (`conteudos` é público —
-`storage.buckets.public = true`, medido 13/09 — e o Ranking de Adequação ainda grava lá), com path
-determinístico por (empresa, pessoa) e `upsert`: cada export sobrescreve o anterior; link assinado
-de 30 min.
+da equipe. View pura. 🔴 Vai para o bucket PRIVADO `relatorios-pdf` (`conteudos` é público,
+`storage.buckets.public = true`, medido 13/09; o Ranking de Adequação também saiu de lá em 03/10,
+ver §26.4), com path determinístico por (empresa, pessoa) e `upsert`: cada export sobrescreve o
+anterior; link assinado de 30 min.
 
 **Escrita é da plataforma.** `salvarConfigProntidaoAdmin` e `setModuloProntidaoAdmin` exigem
 `admin.access` — o papel `rh` tem `settings.company.manage` no role base, e por action id ligava o
@@ -2598,12 +2598,29 @@ o ano inteiro para o RH), e clicar filtra a tabela — número que não vira nom
 | Documento | Onde mora |
 |---|---|
 | Relatório de RH | linha em `relatorios` (`tipo='rh'`) → `/api/relatorios/pdf?id=` (a rota já autoriza `rh` do mesmo tenant) |
-| Perfil Organizacional | `conteudos/final/perfil-org/{empresaId}-{ts}.pdf` |
-| DNA Organizacional | `conteudos/final/dna/{empresaId}-{ts}.pdf` |
+| Perfil Organizacional | `relatorios-pdf/{empresaId}/perfil-org/{ts}.pdf` (privado) |
+| DNA Organizacional | `relatorios-pdf/{empresaId}/dna/{ts}.pdf` (privado) |
 
-🔴 O `search` do Storage é **substring**, não prefixo: filtrar por `startsWith` em código, senão
-arquivo de outra empresa cujo nome contenha o id entra na lista. E o mais recente vem do timestamp
-do NOME (ibipeba tem 11 perfis acumulados).
+🔴 **R-74 (03/10/2026): os relatórios organizacionais com dado de pessoa saíram do bucket
+público.** Perfil Organizacional (nome e DISC de cada pessoa), DNA, Ranking de Adequação e
+Adequação ao Cargo (PDF e o snapshot `.json` do ranking) iam para `conteudos`, que é PÚBLICO, e a
+central do RH abria pela URL pública permanente, debaixo de um "Leitura segura". Hoje a régua é
+uma só, em `lib/relatorios/relatorio-privado.ts`:
+
+- **Escritor** grava em `relatorios-pdf/{empresaId}/{perfil-org|dna|ranking-adequacao|adequacao-cargo}/{nome}`
+  e devolve o CAMINHO. Nenhum escritor chama `getPublicUrl`.
+- **Leitor** recebe `/api/relatorios/organizacional?ref={caminho}`: a rota confere a sessão, tira a
+  empresa do CAMINHO (nunca do browser), exige RH da própria empresa ou platform admin
+  (`podeLerRelatorio`) e só então redireciona para um link assinado de 5 minutos. O export do
+  ranking já autoriza na action e devolve o link assinado direto.
+- **Formato antigo** (`conteudos/final/{tipo}/{empresaId}-{nome}`, ou a URL pública dele) segue
+  legível até a migração, também por link assinado. A migração dos 132 objetos medidos em 03/10
+  é `scripts/_migrar-relatorios-privados.mjs` (fora do repo): copia, confere o download, só então
+  apaga o público. Não há linha de banco apontando para esses arquivos (varredura de 03/10).
+
+🔴 O `search` do Storage é **substring**, não prefixo: na pasta antiga filtrar por `startsWith`
+em código, senão arquivo de outra empresa cujo nome contenha o id entra na lista. E o mais recente
+vem do timestamp do NOME (ibipeba tem 11 perfis acumulados), somando os dois lugares.
 
 ### 26.5 Evolução só depois do fechamento
 

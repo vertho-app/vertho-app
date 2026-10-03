@@ -252,8 +252,11 @@ em 6 tenants. "Excluir os dados desta pessoa" não é uma operação única.
    desenvolvimento (blueprint), relatório comportamental e insights, Fase 5 e o simulador de
    conversas do admin. A conversa de mapeamento (`/api/chat`) não manda o nome, mas também não
    tira o contato digitado.
-9. **Bucket público**: os relatórios do RH e os vídeos com saudação nominal ficam em buckets
-   públicos (R-74 da revisão de 02/10), fora deste lote.
+9. **Bucket público**: desde 03/10 os relatórios organizacionais do RH (Perfil Organizacional,
+   DNA, Ranking e Adequação ao Cargo) nascem no bucket privado e abrem por link assinado depois
+   de conferir o acesso (R-74). Seguem pendentes: a migração dos arquivos antigos que ainda estão
+   no bucket público, e os vídeos com saudação nominal, o PDF personalizado por arquétipo e o
+   áudio com o nome da pessoa, que continuam em buckets públicos.
 
 ---
 
