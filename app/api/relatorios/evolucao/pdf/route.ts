@@ -8,6 +8,7 @@ import { resolverRecorteDeTurma } from '@/lib/relatorios/recorte-turma';
 import { resolverMarcaPdf, marcaVertho, nomeArquivoMarca } from '@/lib/pdf-marca';
 import { requireRole } from '@/lib/auth/request-context';
 import { resolverEmpresaDoRelatorio } from '@/lib/auth/empresa-do-relatorio';
+import { contentDispositionHeader } from '@/lib/http/content-disposition';
 
 /**
  * PDF executivo de evolução — o agregado do fim de jornada, pelo recorte que o
@@ -99,15 +100,21 @@ export async function GET(request: Request) {
       }) as any,
     );
 
+    // R-129 (03/10/2026): o nome ia cru no cabeçalho. Nome de turma ou de
+    // empresa com caractere fora do Latin-1 (o travessão das três turmas de
+    // Macaé, do Grupo Sinal) faz o `Headers` lançar "Cannot convert argument
+    // to a ByteString", e o RH recebia essa frase em JSON no lugar do PDF.
+    // `contentDispositionHeader` é a régua que a rota vizinha já usa.
     return new NextResponse(buffer as any, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `${contentDisposition}; filename="${filename}"`,
+        'Content-Disposition': contentDispositionHeader(filename, contentDisposition),
         'X-Evolucao-Medidos': String(data.cobertura.medidos),
       },
     });
   } catch (err: any) {
+    // O detalhe fica no log; a resposta não leva mensagem interna para a tela.
     console.error('[pdf-evolucao]', err);
-    return NextResponse.json({ error: err?.message || 'falha ao gerar o PDF' }, { status: 500 });
+    return NextResponse.json({ error: 'falha ao gerar o PDF' }, { status: 500 });
   }
 }

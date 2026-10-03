@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowLeft, ArrowRight, BarChart3, Brain, Building2, CalendarDays, Check, ChevronRight,
-  Download, Eye, FileChartColumn, FileText, Flag, Gauge, Layers, Lightbulb,
+  Download, Eye, FileChartColumn, FileText, Flag, Gauge, Layers, Lightbulb, Loader2,
   Route, Search, ShieldAlert, Sparkles, Target, TrendingUp, UserRound, UsersRound,
 } from 'lucide-react';
 import { PageContainer, PageHero } from '@/components/page-shell';
@@ -15,6 +15,7 @@ import type { EvolucaoAgregado } from '@/lib/relatorios/evolucao-center';
 import { TETO_N3 } from '@/lib/nivel-regua';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
+import { baixarPdf } from '@/lib/relatorios/baixar-pdf';
 
 type DashboardTab = 'overview' | 'evolution' | 'roles' | 'priorities' | 'documents';
 type DocumentSection = 'organization' | 'managers' | 'people';
@@ -65,6 +66,32 @@ function Panel({ children, className = '' }: { children: React.ReactNode; classN
   return (
     <div className={`rounded-[24px] border border-white/[0.08] ${className}`} style={{ background: 'linear-gradient(150deg, rgba(18,49,83,.92), rgba(7,24,42,.96))' }}>
       {children}
+    </div>
+  );
+}
+
+/**
+ * Botão de download de PDF. Era um link com `download` direto para a rota: se o
+ * PDF falhasse, o RH recebia um arquivo com JSON dentro ou a mensagem interna
+ * crua (R-129, 03/10/2026). Agora o pedido vai por fetch, só PDF vira arquivo,
+ * e a falha aparece aqui, em palavras do RH, com o botão pronto para tentar de novo.
+ */
+function BotaoBaixarPdf({ url, reserva, t, className, ariaLabel, children }: {
+  url: string; reserva: string; t: any; className: string; ariaLabel?: string; children: React.ReactNode;
+}) {
+  const [estado, setEstado] = useState<'livre' | 'baixando' | 'erro'>('livre');
+  async function baixar() {
+    if (estado === 'baixando') return;
+    setEstado('baixando');
+    const resultado = await baixarPdf(url, reserva);
+    setEstado(resultado.ok ? 'livre' : 'erro');
+  }
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      <button type="button" onClick={baixar} disabled={estado === 'baixando'} aria-busy={estado === 'baixando'} aria-label={ariaLabel} className={`${className} disabled:cursor-wait disabled:opacity-60`}>
+        {estado === 'baixando' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} {children}
+      </button>
+      {estado === 'erro' && <p role="alert" className="max-w-[260px] text-right text-[11px] leading-snug text-rose-300">{t('viewer.downloadError')}</p>}
     </div>
   );
 }
@@ -483,12 +510,14 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
             <p className="text-sm font-semibold text-white/85">{t('dashboard.evolution.exportTitle')}</p>
             <p className="mt-1 text-[12px] leading-relaxed text-white/45">{t('dashboard.evolution.exportHint')}</p>
           </div>
-          <a
-            href={`/api/relatorios/evolucao/pdf${scope.turmaId ? `?turma=${encodeURIComponent(scope.turmaId)}` : ''}`}
+          <BotaoBaixarPdf
+            url={`/api/relatorios/evolucao/pdf${scope.turmaId ? `?turma=${encodeURIComponent(scope.turmaId)}` : ''}`}
+            reserva="vertho-evolucao.pdf"
+            t={t}
             className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-4 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"
           >
-            <Download size={14} /> PDF
-          </a>
+            PDF
+          </BotaoBaixarPdf>
         </div>
 
         <div className="rounded-2xl border border-[var(--brand-400,#22d3ee)]/20 bg-[var(--brand-400,#22d3ee)]/[0.06] p-5">
@@ -1152,7 +1181,7 @@ function ReportReader({ document: report, t, onBack }: { document: RhReportDocum
       <div className="overflow-hidden rounded-[26px] border border-white/[0.09] bg-[#071829] shadow-[0_24px_80px_rgba(0,0,0,.28)]">
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-4 sm:px-6">
           <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">{t('viewer.eyebrow')}</p><h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={serifStyle}>{title}{report.recipient ? ` · ${report.recipient}` : ''}</h2></div>
-          <a href={report.downloadUrl || report.url} download aria-label={t('viewer.download')} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"><Download size={14} /> <span className="hidden sm:inline">{t('viewer.download')}</span></a>
+          <BotaoBaixarPdf url={report.downloadUrl || report.url} reserva={`vertho-${report.kind}.pdf`} t={t} ariaLabel={t('viewer.download')} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"><span className="hidden sm:inline">{t('viewer.download')}</span></BotaoBaixarPdf>
         </header>
         <div className="p-2 sm:p-4"><InAppPdfDocument src={report.url} title={`${title}${report.recipient ? ` — ${report.recipient}` : ''}`} loadingLabel={t('viewer.loading')} errorLabel={t('viewer.error')} retryLabel={t('viewer.retry')} /></div>
       </div>

@@ -986,7 +986,8 @@
       "loading": "Preparando informe",
       "back": "Volver a los informes",
       "error": "No se pudo abrir este informe.",
-      "retry": "Intentar de nuevo"
+      "retry": "Intentar de nuevo",
+      "downloadError": "No se pudo descargar el PDF ahora. Inténtelo de nuevo en unos instantes."
     },
     "emptyTitle": "No hay informes en esta sección",
     "emptySearchTitle": "No se encontraron resultados",

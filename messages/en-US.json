@@ -986,7 +986,8 @@
       "loading": "Preparing report",
       "back": "Back to reports",
       "error": "This report could not be opened.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "downloadError": "The PDF could not be downloaded right now. Please try again in a moment."
     },
     "emptyTitle": "No reports in this section",
     "emptySearchTitle": "No results found",

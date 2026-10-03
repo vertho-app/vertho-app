@@ -986,7 +986,8 @@
       "loading": "A preparar relatório",
       "back": "Voltar aos relatórios",
       "error": "Não foi possível abrir este relatório.",
-      "retry": "Tentar novamente"
+      "retry": "Tentar novamente",
+      "downloadError": "Não foi possível descarregar o PDF agora. Tente novamente dentro de alguns instantes."
     },
     "emptyTitle": "Nenhum relatório nesta secção",
     "emptySearchTitle": "Nenhum resultado encontrado",
