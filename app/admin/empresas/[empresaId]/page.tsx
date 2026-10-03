@@ -1224,7 +1224,11 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
 
               {showDanger && (
                 <div className="px-3 pb-3 border-t border-white/[0.06]">
-                  {/* Senha teste */}
+                  {/* Senha teste: só em empresa de demonstração (R-19). A senha vai
+                      para a conta GLOBAL da pessoa; num cliente real ela valeria
+                      no login de verdade. A action recusa também, isto só tira o
+                      convite da tela. */}
+                  {data?.empresa?.is_demo === true && (<>
                   <p className="text-[9px] font-bold uppercase tracking-widest mt-3 mb-2" style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(52,197,204,.7)' }}>{t('danger.testTools')}</p>
                   <button disabled={dangerLoading}
                     onClick={async () => {
@@ -1239,6 +1243,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                     {dangerLoading ? <Loader2 size={13} className="animate-spin" /> : <Settings size={13} />}
                     {t('danger.setTestPassword')}
                   </button>
+                  </>)}
 
                   <p className="text-[9px] font-bold uppercase tracking-widest mb-2" style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(239,68,68,.6)' }}>{t('danger.zone')}</p>
 

@@ -14,8 +14,9 @@ export async function loadEmpresaPipeline(empresaId) {
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const sb = await requireAdminSupabase();
 
+  // `is_demo` decide se a tela oferece a senha de teste (R-19).
   const { data: empresa, error } = await sb.from('empresas')
-    .select('id, nome, segmento, slug, ui_config, sys_config')
+    .select('id, nome, segmento, slug, ui_config, sys_config, is_demo')
     .eq('id', empresaId).single();
   if (error) return { success: false, error: error.message };
 
@@ -314,14 +315,47 @@ export async function limparMapeamentoCompetencias(empresaId, colaboradorId = nu
 // ── Setar senha "teste" para todos os colaboradores da empresa ─────────────
 // Útil para bypass do rate limit de magic links durante testes.
 // Cria o auth.user se não existir; senão atualiza a senha.
+//
+// 🔴 R-19 (revisão de 02/10/2026): o botão existia no pipeline de QUALQUER
+// empresa, e a senha vai para o `auth.users`, que é GLOBAL por e-mail. Num
+// cliente real ele punha "teste123" na conta de cada pessoa (e na mesma pessoa
+// em outras empresas), com a confirmação comum e sem rastro. O login de todo
+// tenant aceita senha. Agora, nesta ordem:
+//  1. só empresa de demonstração (`is_demo`); as demais recebem recusa clara;
+//  2. pula quem administra a plataforma (`platform_admins`);
+//  3. pula o e-mail que também é colaborador de empresa que NÃO é demo: a
+//     conta é a mesma, e a senha valeria lá;
+//  4. registra em `admin_audit_log`, inclusive a recusa.
+const ACAO_SENHA_TESTE = 'empresa.senha_teste';
+
 export async function definirSenhaTesteEmpresa(empresaId) {
-  await requireAdminAction('users.manage');
+  const ctx = await requireAdminAction('users.manage');
   const sb = await requireAdminSupabase();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+
+  const { data: empresaAlvo, error: empresaErr } = await sb.from('empresas')
+    .select('id, nome, slug, is_demo').eq('id', empresaId).maybeSingle();
+  if (empresaErr) return { success: false, error: `Não foi possível conferir a empresa: ${empresaErr.message}` };
+  if (!empresaAlvo) return { success: false, error: 'Empresa não encontrada' };
+  if (empresaAlvo.is_demo !== true) {
+    await logAdminAction({
+      adminEmail: ctx.email, acao: ACAO_SENHA_TESTE, empresaId, empresaSlug: empresaAlvo.slug,
+      alvo: empresaAlvo.nome, detalhes: { recusado: 'empresa_nao_demo' }, resultado: 'erro',
+    });
+    return {
+      success: false,
+      error: 'A senha de teste só vale para empresa de demonstração. Esta empresa não é de demonstração, e a senha iria para a conta real de cada pessoa.',
+    };
+  }
 
   const { data: colabs, error: colabErr } = await sb.from('colaboradores')
     .select('email').eq('empresa_id', empresaId);
   if (colabErr) return { success: false, error: colabErr.message };
   if (!colabs?.length) return { success: false, error: 'Nenhum colaborador na empresa' };
+
+  const emailsDaEmpresa = [...new Set(colabs.map(c => c.email?.trim().toLowerCase()).filter(Boolean))];
+  const protegidos = await emailsQueNaoPodemTerSenhaDeTeste(sb, empresaId, emailsDaEmpresa);
+  if ('erro' in protegidos) return { success: false, error: protegidos.erro };
 
   // Listar TODOS os auth.users (paginar de 1000 em 1000)
   const authUsersByEmail = new Map();
@@ -337,7 +371,8 @@ export async function definirSenhaTesteEmpresa(empresaId) {
   }
 
   let atualizados = 0, criados = 0, erros = 0;
-  const emailsUnicos = [...new Set(colabs.map(c => c.email?.toLowerCase()).filter(Boolean))];
+  const emailsUnicos = emailsDaEmpresa.filter((email) => !protegidos.emails.has(email));
+  const pulados = emailsDaEmpresa.length - emailsUnicos.length;
 
   for (const email of emailsUnicos) {
     const existing = authUsersByEmail.get(email);
@@ -364,10 +399,74 @@ export async function definirSenhaTesteEmpresa(empresaId) {
     }
   }
 
+  await logAdminAction({
+    adminEmail: ctx.email, acao: ACAO_SENHA_TESTE, empresaId, empresaSlug: empresaAlvo.slug,
+    alvo: `${emailsUnicos.length} conta(s)`,
+    detalhes: { atualizados, criados, erros, pulados_admin_plataforma: protegidos.admins, pulados_outra_empresa: protegidos.outraEmpresa },
+    resultado: erros ? 'parcial' : 'ok',
+  });
+
   return {
     success: true,
-    message: `Senha "teste" definida — ${atualizados} atualizados, ${criados} criados${erros ? `, ${erros} erros` : ''}`,
+    message: `Senha "teste" definida: ${atualizados} atualizados, ${criados} criados${erros ? `, ${erros} erros` : ''}`
+      + (pulados ? `; ${pulados} conta(s) pulada(s) por ser admin da plataforma ou ter cadastro em empresa real` : ''),
   };
+}
+
+/**
+ * E-mails da empresa de demonstração que NÃO recebem a senha de teste: quem
+ * administra a plataforma e quem também é colaborador de uma empresa que não é
+ * demo. A conta do `auth.users` é uma por e-mail; senha posta aqui vale lá.
+ *
+ * Falha de leitura RECUSA a operação inteira (devolve `erro`): concluir "ninguém
+ * a proteger" a partir de uma consulta que caiu é exatamente o defeito que o
+ * R-19 descreve. A busca por outras empresas pagina até a página curta, porque
+ * a decisão é pela AUSÊNCIA de linha e o PostgREST corta em 1.000 calado.
+ */
+async function emailsQueNaoPodemTerSenhaDeTeste(
+  sb: any,
+  empresaId: string,
+  emails: string[],
+): Promise<{ emails: Set<string>; admins: number; outraEmpresa: number } | { erro: string }> {
+  const protegidos = new Set<string>();
+
+  const { data: admins, error: adminsErr } = await sb.from('platform_admins').select('email');
+  if (adminsErr) return { erro: `Não foi possível conferir os admins da plataforma: ${adminsErr.message}` };
+  const deAdmin = new Set<string>(
+    (admins || []).map((a: any) => String(a.email || '').trim().toLowerCase()).filter(Boolean),
+  );
+  let qtdAdmins = 0;
+  for (const email of emails) if (deAdmin.has(email)) { protegidos.add(email); qtdAdmins++; }
+
+  const { data: empresas, error: empresasErr } = await sb.from('empresas').select('id, is_demo');
+  if (empresasErr) return { erro: `Não foi possível conferir as outras empresas: ${empresasErr.message}` };
+  const reais = (empresas || [])
+    .filter((e: any) => e.id !== empresaId && e.is_demo !== true)
+    .map((e: any) => e.id as string);
+
+  let qtdOutraEmpresa = 0;
+  const candidatos = emails.filter((e) => !protegidos.has(e));
+  if (reais.length && candidatos.length) {
+    for (let i = 0; i < candidatos.length; i += 100) {
+      const lote = candidatos.slice(i, i + 100);
+      for (let de = 0; ; de += 1000) {
+        const { data: vinculos, error: vincErr } = await sb.from('colaboradores')
+          .select('id, email')
+          .in('empresa_id', reais)
+          .in('email', lote)
+          .order('id')
+          .range(de, de + 999);
+        if (vincErr) return { erro: `Não foi possível conferir cadastros em outras empresas: ${vincErr.message}` };
+        for (const v of vinculos || []) {
+          const email = String(v.email || '').trim().toLowerCase();
+          if (email && !protegidos.has(email)) { protegidos.add(email); qtdOutraEmpresa++; }
+        }
+        if ((vinculos || []).length < 1000) break;
+      }
+    }
+  }
+
+  return { emails: protegidos, admins: qtdAdmins, outraEmpresa: qtdOutraEmpresa };
 }
 
 export async function limparMapeamento(empresaId, colaboradorId = null) {
