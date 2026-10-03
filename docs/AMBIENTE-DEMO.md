@@ -126,7 +126,8 @@ incompletos, cancelados ou sem espaço não substituem o pacote anterior.
   downloads e não precisam de segredos. As semanas vêm do plano congelado de
   Marina. Vídeo e podcast são cópias imutáveis das versões nominais dela
   (`videos_personalizados` das células de `escolas-videos-jornada.json` e
-  `final/audio-personalizado/<conteúdo>/<Marina>.mp3`); texto e case são os PDFs do
+  o áudio personalizado dela, `audio-personalizado/<conteúdo>/<Marina>.mp3`, que desde 03/10/2026
+  o reset leva para o bucket privado `relatorios-pdf`); texto e case são os PDFs do
   fixture. A cópia é necessária porque o reset recria a persona com UUID novo e move
   o áudio personalizado toda noite. As mídias da ACME são cópias imutáveis do
   material entregue a Bruna. Todas ficam em `conteudos/demo-offline/<escolas|acme>/<sha256>.<ext>`.

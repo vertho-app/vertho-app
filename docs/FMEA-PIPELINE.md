@@ -1989,8 +1989,8 @@ bloqueou o core do mesmo par; 13 das 15 pessoas do cargo (todo DISC ≠ D) ficar
 - O podcast **não** deve ser TTS on-demand no play: o TTS leva **~145-175s** e estourava
   o `maxDuration` da rota (120s → 0:00/timeout). É **pré-gerado** e servido do cache/URL.
 - **Personalizado com nome** (`"Olá, {nome}..."`) → o áudio precisa do nome no TTS, então
-  é **por colaborador**: pré-aquece o cache `final/audio-personalizado/{conteudo}/{colab}.mp3`
-  que `/api/conteudo/{id}/podcast` já lê. Base (sem nome) = fallback p/ admin.
+  é **por colaborador**: pré-aquece o cache `relatorios-pdf/{empresa}/audio-personalizado/{conteudo}/{colab}.mp3`
+  (bucket privado desde 03/10/2026) que `/api/conteudo/{id}/podcast` já lê. Base (sem nome) = fallback p/ admin.
 - Gerar via a rota `/api/internal/pregerar-podcast` (roda no **runtime da Vercel**).
   ⚠️ **`lamejs` (encoder MP3) NÃO roda no tsx** — por isso a geração de áudio precisa
   do runtime Next (Vercel/Trigger), não dá pra rodar o TTS+MP3 num script tsx.
@@ -2017,8 +2017,9 @@ Qualquer script que mexa em `temporada_plano` deve rodar a mesma normalização.
 - Conteúdo ativo? `select ativo, count(*) from micro_conteudos where ... group by ativo`.
 - Aparece na trilha? Inspecionar `conteudos_dia[].conteudo.formatos_disponiveis` do plano
   (não a tabela `micro_conteudos` — o plano é snapshot).
-- Áudio pré-gerado? Checar o arquivo no storage (`final/audio-personalizado/...` ou
-  `final/podcast-base/...`) + `HEAD` na URL pública (200 + `audio/mpeg`).
+- Áudio pré-gerado? Personalizado: `relatorios-pdf/{empresa}/audio-personalizado/...` (privado,
+  sem URL pública; o antigo `conteudos/final/audio-personalizado/...` até a migração). Base:
+  `final/podcast-base/...` + `HEAD` na URL pública (200 + `audio/mpeg`).
 - Erro da rota TTS? `mcp__vercel__get_runtime_logs` escopado ao `deploymentId`.
 
 ---

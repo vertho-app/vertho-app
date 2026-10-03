@@ -283,9 +283,14 @@ em 6 tenants. "Excluir os dados desta pessoa" não é uma operação única.
    tira o contato digitado.
 9. **Bucket público**: desde 03/10 os relatórios organizacionais do RH (Perfil Organizacional,
    DNA, Ranking e Adequação ao Cargo) nascem no bucket privado e abrem por link assinado depois
-   de conferir o acesso (R-74). Seguem pendentes: a migração dos arquivos antigos que ainda estão
-   no bucket público, e os vídeos com saudação nominal, o PDF personalizado por arquétipo e o
-   áudio com o nome da pessoa, que continuam em buckets públicos.
+   de conferir o acesso (R-74). Desde a continuação do R-74 (03/10), o podcast com o nome da
+   pessoa também nasce no bucket privado e só sai por link assinado de 1 hora
+   (`lib/conteudo/audio-personalizado.ts`). Seguem pendentes: a migração dos arquivos antigos que
+   ainda estão no bucket público (relatórios e os 288 áudios, `scripts/_migrar-*.mjs`, fora do
+   repo), a saudação nominal dos vídeos (`video-assets/greetings*`, que o render lê pela URL
+   pública) e as fotos de perfil (`avatars`). O PDF personalizado (`conteudos/final/perso/`) NÃO
+   tem dado de pessoa: é por conteúdo, empresa e arquétipo DISC, e uma amostra de 62 PDFs das 6
+   empresas não trouxe nome de ninguém (conferido em 03/10/2026).
 
 ---
 

@@ -201,7 +201,8 @@ o player da semana carrega vazio (0:00) e nada renderiza on-demand. Curar com
 > `scripts/_diag-narracao-kit.ts` (Ibipeba): 56/56 áudios de kit têm narração extraível
 > (2,9k–3,8k chars), inclusive os 29 com `url=null`/`ativo=false`. O player aponta para
 > `/api/conteudo/[id]/podcast` (week page), e a rota gera por TTS a partir do
-> `conteudo_inline` e cacheia em `final/audio-personalizado/{conteudoId}/{colabId}.mp3`.
+> `conteudo_inline` e cacheia em `relatorios-pdf/{empresa}/audio-personalizado/{conteudoId}/{colabId}.mp3`
+> (bucket privado desde 03/10/2026; antes, `conteudos/final/audio-personalizado/...`, público).
 > Mais: quando há colaborador com nome, a rota **sempre** monta a versão personalizada e
 > **ignora** o `url` — o MP3 base só é servido a quem não tem colaborador (admin). Ou seja,
 > `renderAudio=true` produz um artefato que a entrega quase nunca usa. Mantenha
@@ -276,7 +277,8 @@ Rodada de fechamento da semana 5 do Ibipeba (36 pessoas, 72 pílulas). Placar fi
 P2** nas sete camadas. O que aprendemos vale para qualquer semana.
 
 **8. `micro_conteudos.url`/`ativo` NÃO decidem se o áudio toca — quem decide é o cache.** A ordem real
-de `/api/conteudo/[id]/podcast` é: (1) cache `final/audio-personalizado/{conteudoId}/{colabId}.mp3`;
+de `/api/conteudo/[id]/podcast` é: (1) cache no bucket privado (`lib/conteudo/audio-personalizado.ts`; o formato
+antigo no público ainda é lido até a migração), entregue por link assinado;
 (2) TTS on-demand a partir do `conteudo_inline`, que grava esse mesmo cache; (3) `content.url` (MP3
 base, sem nome); (4) 404. Logo **cache quente = entrega instantânea com saudação, e o `url` nulo é
 irrelevante**. `ativo=false` também não barra: o áudio do kit chega por `overlayKitNaSemana`, que não

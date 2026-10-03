@@ -617,7 +617,7 @@ Sem kit do DISC da pessoa → **mantém o conteúdo antigo** e o desafio genéri
 | | O que personaliza | Chave de cache | Quando |
 |---|---|---|---|
 | **PDF** (texto/case) | **arquétipo DISC** + **PPP da escola** (camada anexada ao fim; núcleo intacto) | `final/perso/{contentId}/{empresaId}/{arquetipoSlug}.pdf` — **por arquétipo, não por pessoa** | lazy no 1º clique, ou pré-gerado por `prepararEntregasJornada` |
-| **Podcast** | **só a saudação nominal** — sem DISC, sem PPP | `final/audio-personalizado/{contentId}/{colabId}.mp3` — **por colaborador** | lazy (~2min a frio) ou pré-aquecido |
+| **Podcast** | **só a saudação nominal**, sem DISC e sem PPP | `relatorios-pdf/{empresaDaPessoa}/audio-personalizado/{contentId}/{colabId}.mp3` (bucket PRIVADO desde 03/10/2026; o antigo `conteudos/final/audio-personalizado/...` segue legível até a migração), **por colaborador**, entregue só por link assinado | lazy (~2min a frio) ou pré-aquecido |
 | **Vídeo** | **saudação nominal** (cena prepended; o deck segue reutilizável) | `videos_personalizados (cell_video_id, colaborador_id)` | **no fim do render da célula** |
 
 **Gates de saída não-personalizada:** formato ≠ texto/case, sem sessão, ou **sem DISC E sem PPP** →
