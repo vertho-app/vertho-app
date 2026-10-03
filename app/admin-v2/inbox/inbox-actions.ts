@@ -2,6 +2,7 @@
 
 import { checarAcessoPlataforma } from '@/lib/authz-plataforma';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { montarCaixaGlobal, resumoDaCaixa, type LinhaConversa } from '@/lib/inbox/caixa';
 import { decidirDono, filtroDeTelefone, variantesDoTelefone } from '@/lib/whatsapp/resolver-dono';
@@ -254,6 +255,9 @@ export async function associarTelefone(args: {
   empresaId: string;
 }): Promise<ResultadoAssociacao> {
   const email = await exigirPlataforma();
+  // Reassociar decide de quem é a conversa (e para quem vão as respostas): é
+  // operação de disparo, não leitura. R-63: o Admin Sócio passava aqui.
+  await requireAdminAction('assessments.dispatch');
   const sb = await requireAdminSupabase();
 
   const telefone = String(args.telefone || '').trim();
@@ -306,6 +310,8 @@ export async function associarTelefone(args: {
  */
 export async function reprocessarNaoIdentificadas(): Promise<{ resolvidas: number; mensagens: number; restantes: number }> {
   const email = await exigirPlataforma();
+  // Mesma régua de `associarTelefone` (R-63): grava o dono de mensagens.
+  await requireAdminAction('assessments.dispatch');
   const sb = await requireAdminSupabase();
 
   const { data, error } = await sb.from('whatsapp_conversas')

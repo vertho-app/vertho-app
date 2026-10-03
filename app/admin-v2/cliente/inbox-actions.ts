@@ -10,6 +10,7 @@ import { enviarTextoCloud, enviarMidiaCloud } from '@/lib/whatsapp/cloud-api';
 import { formasDoTelefone } from '@/lib/whatsapp/nono-digito';
 import { resolverNumeroParaEnvio } from '@/lib/whatsapp/numeros';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminAction } from '@/lib/auth/action-context';
 import { classificarMidia, BUCKET_ANEXOS, TTL_LINK_SEGUNDOS } from '@/lib/inbox/anexos';
 import type { Conversa, ThreadCompleta, ResultadoEnvio } from '@/lib/inbox/tipos';
 
@@ -32,6 +33,18 @@ async function exigirPlataforma() {
   if (!acesso.authorized) throw new Error('Acesso restrito à plataforma');
   return acesso.email!;
 }
+
+/**
+ * Responder (texto ou anexo) FALA COM O COLABORADOR pelo número da empresa:
+ * é disparo, não leitura. R-63 (revisão de 02/10/2026): o Admin Sócio, que pelo
+ * desenho do papel não dispara nada, passava aqui porque o gate era só "é da
+ * plataforma". As duas actions de resposta exigem, além disso, a permissão de
+ * disparo (`assessments.dispatch`) pelo gate de plataforma do projeto
+ * (`requireAdminAction`), que também exige estar em `platform_admins`: o
+ * fallback `ADMIN_EMAILS` lê a caixa, mas não responde.
+ * O gate fica escrito em cada action, e não num helper, para a auditoria de
+ * gates (`scripts/audit-admin-gates.mjs`) enxergar a permissão.
+ */
 
 /**
  * Conversas de uma empresa, mais recente primeiro.
@@ -272,6 +285,7 @@ export async function responderConversa(args: {
   dedupeKey?: string;
 }): Promise<ResultadoEnvio> {
   const email = await exigirPlataforma();
+  await requireAdminAction('assessments.dispatch');
   const texto = (args.texto || '').trim();
   if (!texto) return { ok: false, motivo: 'Mensagem vazia.' };
 
@@ -397,6 +411,7 @@ export async function responderComAnexo(args: {
   dedupeKey?: string;
 }): Promise<ResultadoEnvio> {
   const email = await exigirPlataforma();
+  await requireAdminAction('assessments.dispatch');
 
   const { empresaId, telefone } = args;
   const legenda = (args.legenda || '').trim();

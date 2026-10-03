@@ -35,9 +35,16 @@ import {
 } from '@/lib/demo/acme-prospect-config';
 import { prepararConviteGuiado } from '@/lib/demo/degustacao-convite';
 
+// 🔑 R-63 (revisão de 02/10/2026): resetar um ambiente de demonstração e gerar
+// acesso temporário (senha, link de uso único, sala, convite de degustação) são
+// ações de GESTÃO DE EMPRESA, e exigem `companies.manage`. Com o gate sem
+// permissão, o Admin Sócio (que pelo desenho do papel não faz ação destrutiva
+// nem geradora) fazia tudo isso. Só a leitura dos convidados segue aberta a
+// qualquer admin da plataforma.
+
 /** Reset sob demanda do tenant demo escolhido, com allowlist tipada e auditoria. */
 export async function resetarDemo(slug: DemoTenantSlug = 'acme-demo') {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('companies.manage');
   try {
     // O preflight é do ambiente que está sendo resetado. Ele valia só para o
     // ACME e, pior, lia sempre o ACME: o botão de outro ambiente recompunha
@@ -95,7 +102,7 @@ export async function listarConvidadosDemo(slug: DemoTenantSlug = 'acme-demo') {
 
 /** Rotaciona as credenciais temporárias do prospect sem registrar a senha no audit log. */
 export async function prepararAcessosTemporariosDemo(slug: DemoTenantSlug = 'acme-demo') {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('companies.manage');
   const r = await prepararAcessosDemo(slug);
   await logAdminAction({
     adminEmail: ctx.email,
@@ -109,7 +116,7 @@ export async function prepararAcessosTemporariosDemo(slug: DemoTenantSlug = 'acm
 
 /** Gera links de uso único; tokens nunca entram no log de auditoria. */
 export async function gerarMagicLinksTemporariosDemo(slug: DemoTenantSlug) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('companies.manage');
   const r = await gerarMagicLinksDemo(slug);
   await logAdminAction({
     adminEmail: ctx.email,
@@ -129,7 +136,7 @@ export async function gerarMagicLinksTemporariosDemo(slug: DemoTenantSlug) {
  * um slug livre aqui mintaria sessão num tenant que não é sala de apresentação.
  */
 export async function prepararSalaApresentacaoDemo(slug: string = DEMO_PRESENTATION_TENANT_SLUG) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('companies.manage');
   if (!isDemoPresentationTenant(slug)) {
     return { success: false as const, error: 'Ambiente de apresentação inválido' };
   }
@@ -153,7 +160,7 @@ export async function prepararExperienciaProspectAcme(
   input: AcmeProspectExperienceInput,
   slug: DemoProspectTenantSlug = 'acme-demo',
 ) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('companies.manage');
   // `use server` = endpoint HTTP: o slug é escolhido pelo CLIENTE. A allowlist
   // tipada é o que impede "crie um convidado no tenant que você quiser", e o
   // `hasOwnProperty` é deliberado — com `in`, "constructor" passaria.
@@ -258,7 +265,7 @@ export async function prepararExperienciaProspectAcme(
  * auditoria.
  */
 export async function gerarConviteDegustacao(slug: DemoProspectTenantSlug, sessionId: string) {
-  const ctx = await requireAdminAction();
+  const ctx = await requireAdminAction('companies.manage');
   if (!Object.prototype.hasOwnProperty.call(DEMO_PROSPECT_TENANTS, slug)) {
     return { success: false as const, error: 'Ambiente de demonstração inválido.' };
   }

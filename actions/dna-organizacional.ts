@@ -5,7 +5,7 @@
  * Agrega (lib/dna-organizacional/aggregate) → narrativa IA (segment-aware) →
  * PDF premium (lib/dna-organizacional-pdf) → Storage → URL pública.
  */
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requirePlataformaSupabase } from '@/lib/admin-supabase';
 import { aggregateDna } from '@/lib/dna-organizacional/aggregate';
 import { gerarNarrativaDna } from '@/lib/dna-organizacional/narrative';
 import { renderDnaPDF } from '@/lib/dna-organizacional-pdf';
@@ -20,7 +20,11 @@ export async function gerarDnaOrganizacional(
   empresaId: string,
 ): Promise<{ success: boolean; url?: string; avaliados?: number; error?: string }> {
   try {
-    const sb = await requireAdminSupabase('admin.access');
+    // R-63 (revisão de 02/10/2026): o gate era `admin.access`, que o Admin
+    // Sócio tem. O DNA chama IA (narrativa) e publica um PDF: é ação geradora,
+    // e exige `ai.audit.regenerate` pelo gate de plataforma (só
+    // `platform_admins`, a permissão vale para qualquer empresa pedida).
+    const sb = await requirePlataformaSupabase('ai.audit.regenerate');
     const { data: emp } = await sb
       .from('empresas').select('id, nome, segmento, sys_config').eq('id', empresaId).maybeSingle();
     if (!emp) return { success: false, error: 'Empresa não encontrada.' };

@@ -5,7 +5,7 @@
  * (lib/perfil-organizacional/aggregate) → PDF (lib/perfil-organizacional-pdf)
  * → Storage → URL. Sem IA — tudo calculado.
  */
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requirePlataformaSupabase } from '@/lib/admin-supabase';
 import { aggregatePerfilOrg } from '@/lib/perfil-organizacional/aggregate';
 import { renderPerfilOrgPDF } from '@/lib/perfil-organizacional-pdf';
 
@@ -18,7 +18,11 @@ export async function gerarPerfilOrganizacional(
   empresaId: string,
 ): Promise<{ success: boolean; url?: string; avaliados?: number; error?: string }> {
   try {
-    const sb = await requireAdminSupabase('admin.access');
+    // R-63 (revisão de 02/10/2026): o gate era `admin.access`, que o Admin
+    // Sócio tem. O Perfil não chama IA, mas gera e publica um PDF da empresa: é ação geradora,
+    // e exige `ai.audit.regenerate` pelo gate de plataforma (só
+    // `platform_admins`, a permissão vale para qualquer empresa pedida).
+    const sb = await requirePlataformaSupabase('ai.audit.regenerate');
     const { data: emp } = await sb.from('empresas').select('id, nome').eq('id', empresaId).maybeSingle();
     if (!emp) return { success: false, error: 'Empresa não encontrada.' };
 

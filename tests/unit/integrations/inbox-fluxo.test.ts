@@ -28,6 +28,15 @@ vi.mock('@/lib/authz-plataforma', () => ({
 vi.mock('@/lib/audit', () => ({
   logAdminAction: async (e: any) => { h.auditorias.push(e); },
 }));
+// Responder e reassociar exigem também a permissão de disparo (R-63). Este
+// arquivo mede o FLUXO com quem pode; o gate de permissão (o Sócio barrado) é
+// provado em `tests/unit/security/socio-permissao-dominio.test.ts`.
+vi.mock('@/lib/auth/action-context', () => ({
+  requireAdminAction: async () => {
+    if (!h.autorizado) throw new Error('FORBIDDEN: apenas platform admin');
+    return { email: 'equipe@vertho.ai', isPlatformAdmin: true };
+  },
+}));
 // `after()` (next/server) só existe dentro do escopo de uma request. O webhook
 // usa para o push da inbox — trabalho pós-resposta, que é o padrão do projeto.
 // Aqui ele roda na hora: o teste quer o EFEITO, não o adiamento.
