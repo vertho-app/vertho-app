@@ -338,7 +338,8 @@ export async function capturarLead(input: CapturarLeadInput): Promise<{ success:
   // Captura de lead do Radar PÚBLICO — que deixou de existir em 10/08/2026.
   // Fica gateada como o resto: o funil externo saiu, e o formulário só é
   // alcançável de dentro. A captura do CONARH é outra
-  // (`actions/lead-comercial.ts::capturarLeadComercial`) e segue aberta.
+  // (`actions/lead-comercial.ts::capturarLeadComercial`) e recusa no topo
+  // enquanto o bloco da campanha estiver off-line (R-104, 03/10/2026).
   await exigirAcessoPlataforma('radar.capturarLead');
   const email = input.email?.trim().toLowerCase();
   if (!email || !email.includes('@') || email.length > 200) return { success: false, error: 'E-mail inválido' };

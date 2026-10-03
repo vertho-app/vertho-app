@@ -6,6 +6,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { registrarEvento } from '@/lib/radar/eventos';
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
 import { classificarLeadConarh } from '@/lib/conarh/classificacao';
+import { assertBlocoOnline, type NomeBloco } from '@/lib/blocos-offline';
 
 /**
  * Captura de lead comercial do Radar Bett SEM escopo de escola/município
@@ -56,6 +57,22 @@ const CAMPANHAS: Record<string, string> = {
   conarh: 'conarh-2026',
 };
 const CAMPANHA_PADRAO = 'radarbett';
+
+/**
+ * Bloco do produto que cada campanha atende (`lib/blocos-offline.ts`).
+ *
+ * R-104 (revisão de 02/10/2026): esta action é pública (`'use server'`, sem
+ * login) e só tem dois consumidores, o formulário do CONARH e o do RadarBett.
+ * Os dois blocos saíram do ar em 31/08, as telas respondem 404, e a action
+ * continuava gravando lead e acionando o worker de envio para quem tivesse o
+ * action id. A recusa é por campanha, no topo, para que religar um bloco
+ * (tirar a entrada do registro) religue só a campanha dele. Campanha sem bloco
+ * aqui não é recusada: no registro, a ausência significa "ligado".
+ */
+const BLOCO_DA_CAMPANHA: Record<string, NomeBloco> = {
+  radarbett: 'radarbett',
+  conarh: 'conarh',
+};
 
 /**
  * A campanha define APENAS o scope_id (rótulo do funil), nunca o rate limit.
@@ -410,6 +427,14 @@ async function checkRateLimit(
 export async function capturarLeadComercial(
   input: CapturarLeadComercialInput,
 ): Promise<CapturarLeadComercialResult> {
+  // Bloco off-line recusa ANTES de qualquer leitura ou escrita (R-104). A
+  // campanha que vale é a mesma que decide o `scope_id` mais abaixo: pedida e
+  // conhecida, ou a padrão.
+  const campanhaPedida = String(input?.campanha || CAMPANHA_PADRAO).toLowerCase();
+  const campanha = Object.prototype.hasOwnProperty.call(CAMPANHAS, campanhaPedida) ? campanhaPedida : CAMPANHA_PADRAO;
+  const bloco = Object.prototype.hasOwnProperty.call(BLOCO_DA_CAMPANHA, campanha) ? BLOCO_DA_CAMPANHA[campanha] : null;
+  if (bloco) assertBlocoOnline(bloco);
+
   // Validações básicas
   if (!input?.nome?.trim() || input.nome.trim().length < 2) {
     return falha('Nome obrigatório.');
@@ -442,8 +467,9 @@ export async function capturarLeadComercial(
   const sb = createSupabaseAdmin();
   const { ipHash, userAgent, referer } = await getRequestFingerprint();
 
-  const pedida = (input.campanha || CAMPANHA_PADRAO).toLowerCase();
-  const scopeId = CAMPANHAS[pedida] || CAMPANHAS[CAMPANHA_PADRAO];
+  // A mesma campanha do gate do topo: `CAMPANHAS[pedida]` direto casaria
+  // propriedade herdada ("constructor") e gravaria uma função no scope_id.
+  const scopeId = CAMPANHAS[campanha];
 
   const rl = await checkRateLimit(ipHash, { email: emailNorm, telefone: telefoneNorm });
   if (!rl.ok) return falha(rl.reason || 'Limite de pedidos atingido.');

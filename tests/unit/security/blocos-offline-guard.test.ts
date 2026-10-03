@@ -42,7 +42,11 @@ const ACTIONS: Record<string, string[]> = {
     'actions/radarempresas/busca.ts', 'actions/radarempresas/listas.ts',
     'actions/radarempresas/scoring.ts',
   ],
-  radarbett: ['app/admin/radar/funnel-bett/actions.ts'],
+  // `actions/lead-comercial.ts` atende as DUAS campanhas (R-104, 03/10/2026): a
+  // entrada repetida faz o gate continuar exigido enquanto qualquer uma das duas
+  // estiver off-line.
+  radarbett: ['app/admin/radar/funnel-bett/actions.ts', 'actions/lead-comercial.ts'],
+  conarh: ['actions/lead-comercial.ts'],
 };
 
 const ROTAS_API_CONARH = [

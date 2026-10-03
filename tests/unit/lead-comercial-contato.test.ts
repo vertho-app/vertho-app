@@ -56,6 +56,12 @@ vi.mock('next/headers', () => ({
   headers: async () => ({ get: (k: string) => (k === 'x-forwarded-for' ? '200.1.2.3' : null) }),
 }));
 vi.mock('@/lib/radar/eventos', () => ({ registrarEvento: async () => {} }));
+// As duas campanhas desta action estão off-line desde 31/08 e ela recusa no
+// topo (R-104). Estes testes exercitam a régua de contato e de scope_id para o
+// dia em que um bloco for religado, então o gate é neutralizado AQUI; quem
+// afirma que a porta está fechada é `tests/unit/security/lead-comercial-offline.test.ts`
+// e o `blocos-offline-guard`, que não mockam nada.
+vi.mock('@/lib/blocos-offline', () => ({ assertBlocoOnline: () => {} }));
 
 const { capturarLeadComercial } = await import('@/actions/lead-comercial');
 
