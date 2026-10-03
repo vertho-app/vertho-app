@@ -69,11 +69,10 @@ const RATE = /\b(aiLimiter|copilotoLimiter|heavyLimiter|authLimiter|leadLimiter|
 const PUBLICAS_POR_DESIGN: Record<string, string> = {
   'app/api/auth/check-email/route.ts': 'pré-sessão: responde se o e-mail existe para escolher o fluxo de login',
   'app/api/auth/magic-link/route.ts': 'pré-sessão: emite o link de acesso',
-  'app/api/auth/magic-link-whatsapp/route.ts': 'pré-sessão: emite o link por WhatsApp',
   'app/api/auth/phone-magic-link/request/route.ts': 'pré-sessão: emite o link por telefone',
-  'app/api/auth/phone-otp/request/route.ts': 'pré-sessão: envia o código',
-  'app/api/auth/phone-otp/verify/route.ts': 'pré-sessão: troca o código por sessão',
   'app/api/auth/signup/route.ts': 'pré-sessão: cadastro em tenant com allow_open_signup',
+  // Saíram em 03/10/2026 (R-77, decisão 3: o login por WhatsApp fica como LINK):
+  // `magic-link-whatsapp` e `phone-otp/{request,verify}`, públicas e sem tela.
 
   // ── Só-GET (E10, 24/08) ────────────────────────────────────────────────
   // Até aqui a regra valia só para rotas MUTATIVAS: 21 das 55 são só-GET e não

@@ -268,8 +268,9 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
    * 🔑 Decisão do dono de 03/10/2026 (revisão de 02/10, decisão 3): fica o
    * LINK, e o código de 6 dígitos não volta. O passo de digitar o código, que
    * esta tela guardava inerte (nada o acendia), saiu junto: era a única chamada
-   * de `/api/auth/phone-otp/verify`. As rotas públicas do código seguem no
-   * repositório só até a limpeza das allowlists dos guards (R-77).
+   * de `/api/auth/phone-otp/verify`. As rotas públicas sem tela saíram em
+   * seguida (`phone-otp/request`, `phone-otp/verify` e `magic-link-whatsapp`,
+   * R-77): permitiam enumerar e-mails e disparar código e SMS pagos.
    */
   async function submitWhatsapp(digits: string) {
     if (digits.length < 10) {
