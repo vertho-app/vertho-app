@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { comRede, lerResposta } from '@/lib/simuladores/ler-resposta';
 import { EditorCenario } from './editor';
 import CompetenciasRecepcao from './competencias';
 import { rotuloClassificacao } from '@/lib/recepcao/schema';
@@ -82,27 +83,33 @@ export default function GestaoRecepcao({
       ...params,
       ...(admin ? { empresaId } : {}),
     });
-    const r = await fetchAuth(
-      `/api/recepcao/gestao?${q}`,
-      body
-        ? {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...(body as object),
-              ...(admin ? { empresaId } : {}),
-            }),
-          }
-        : { cache: 'no-store' },
+    // Leitura tolerante (R-97, 03/10/2026): o rascunho por IA leva até 90 s, e um
+    // 502/504 do gateway chega em HTML; `r.json()` cru mostrava "Unexpected
+    // token '<'" em inglês, e a queda de rede, "Failed to fetch".
+    const r = await comRede(
+      fetchAuth(
+        `/api/recepcao/gestao?${q}`,
+        body
+          ? {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...(body as object),
+                ...(admin ? { empresaId } : {}),
+              }),
+            }
+          : { cache: 'no-store' },
+      ),
+      t('networkError'),
     );
-    const d = await r.json();
-    if (!r.ok)
-      throw new Error(
-        d.campos?.length
-          ? d.campos.map((c) => `${c.campo}: ${c.erro}`).join('\n')
-          : d.error || 'Não foi possível carregar.',
-      );
-    return d;
+    return lerResposta(
+      r,
+      { semCorpo: t('unreadableResponse'), generica: t('genericError') },
+      (d) =>
+        Array.isArray(d.campos) && d.campos.length
+          ? d.campos.map((c: any) => `${c.campo}: ${c.erro}`).join('\n')
+          : null,
+    );
   }
   async function carregar(ticket = generation.current) {
     if (visao === 'competencias') return; // a aba tem o próprio componente

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { comRede, lerResposta } from '@/lib/simuladores/ler-resposta';
 import { RECEPCAO_SESSAO } from '@/lib/status';
 import styles from './treino.module.css';
 
@@ -54,6 +55,7 @@ export default function VozRecepcao({
     url.current = '';
     setAudio('');
   }, [ultima?.id]);
+  const mensagens = { semCorpo: t('unreadableResponse'), generica: t('genericError') };
   function endpoint(acao: string) {
     return `/api/recepcao/voz?${new URLSearchParams({
       acao,
@@ -69,8 +71,9 @@ export default function VozRecepcao({
     setBusy('ouvir');
     setErro('');
     try {
-      const r = await fetchAuth(endpoint('ouvir'), { method: 'POST' });
-      if (!r.ok) throw new Error((await r.json()).error);
+      const r = await comRede(fetchAuth(endpoint('ouvir'), { method: 'POST' }), t('networkError'));
+      // Sucesso é áudio; erro é JSON, ou HTML do gateway (R-97): lido sem quebrar.
+      if (!r.ok) await lerResposta(r, mensagens);
       const b = await r.blob();
       if (alive.current && ultimaAtual.current === mensagemId) {
         url.current = URL.createObjectURL(b);
@@ -132,9 +135,11 @@ export default function VozRecepcao({
     try {
       const form = new FormData();
       form.append('audio', gravacao, 'resposta');
-      const r = await fetchAuth(endpoint('transcrever'), { method: 'POST', body: form });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
+      const r = await comRede(
+        fetchAuth(endpoint('transcrever'), { method: 'POST', body: form }),
+        t('networkError'),
+      );
+      const d = await lerResposta<{ texto: string }>(r, mensagens);
       if (alive.current) {
         onTexto(d.texto);
         setGravacao(null);

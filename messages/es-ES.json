@@ -1,5 +1,7 @@
 {
   "SimuladorAtendimento": {
+    "csvLastBrasilia": "Última práctica (hora de Brasilia)",
+    "unreadableResponse": "El servidor no respondió como se esperaba. Inténtalo de nuevo: si el envío ya llegó, no se repetirá.",
     "genericError": "No se pudo completar. Inténtalo de nuevo.",
     "networkError": "Sin conexión con el servidor. Revisa tu conexión e inténtalo de nuevo.",
     "networkErrorReport": "La conexión se cayó durante la evaluación. Si el informe ya se estaba generando, sigue en el servidor, y esta pantalla vuelve a comprobar cada pocos segundos.",
@@ -257,6 +259,9 @@
     "programTargetMissing": "El cargo objetivo del programa ya no existe. Nadie puede practicar."
   },
   "SimuladorVendas": {
+    "startLimitReached": "Has empezado {limit} prácticas en la última hora. Para empezar otra, espera unos {minutes} min. Tus prácticas y el historial siguen disponibles.",
+    "csvDateBrasilia": "Fecha (hora de Brasilia)",
+    "csvLastBrasilia": "Última práctica (hora de Brasilia)",
     "eyebrow": "Simulador de ventas · metodología PACE",
     "title": "Practica la conversación.",
     "titleAccent": "Aprende con ella.",

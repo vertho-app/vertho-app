@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import { CODIGO_LIMITE_INICIOS_VENDAS, INICIOS_POR_HORA_VENDAS } from '@/lib/simulador-vendas/limite-inicios';
 
 /**
  * Rate limiter com duas camadas:
@@ -33,6 +34,12 @@ interface RateLimiterConfig {
    * limites de janela longa (hora), em que "tente em alguns segundos" é falso.
    */
   mensagem?: (retryAfterSec: number) => string;
+  /**
+   * Código estável no corpo do 429, com `limite` e `esperaSegundos`, para a tela
+   * mostrar a mensagem no idioma da pessoa. O texto de `mensagem` é pt-BR e
+   * fica como reserva para quem não reconhece o código (R-110, 03/10/2026).
+   */
+  codigo?: string;
 }
 
 interface BucketEntry {
@@ -97,7 +104,7 @@ function inMemoryCheck(config: RateLimiterConfig, key: string): Response | null 
 
   if (entry.timestamps.length >= config.maxRequests) {
     const retryAfter = Math.ceil((entry.timestamps[0] + config.windowMs - now) / 1000);
-    return build429(config.maxRequests, retryAfter, config.mensagem);
+    return build429(config.maxRequests, retryAfter, config.mensagem, config.codigo);
   }
 
   entry.timestamps.push(now);
@@ -110,10 +117,14 @@ function build429(
   limit: number,
   retryAfterSec: number,
   mensagem?: RateLimiterConfig['mensagem'],
+  codigo?: string,
 ): Response {
   const espera = Math.max(1, retryAfterSec);
   return NextResponse.json(
-    { error: mensagem ? mensagem(espera) : 'Rate limit excedido. Tente novamente em alguns segundos.' },
+    {
+      error: mensagem ? mensagem(espera) : 'Rate limit excedido. Tente novamente em alguns segundos.',
+      ...(codigo ? { codigo, limite: limit, esperaSegundos: espera } : {}),
+    },
     {
       status: 429,
       headers: {
@@ -145,7 +156,7 @@ export function createRateLimiter(config: RateLimiterConfig) {
         try {
           const { success, reset } = await upstash.limit(key);
           if (success) return null;
-          return build429(config.maxRequests, Math.ceil((reset - Date.now()) / 1000), config.mensagem);
+          return build429(config.maxRequests, Math.ceil((reset - Date.now()) / 1000), config.mensagem, config.codigo);
         } catch (err) {
           // Fail-open pro in-memory: Redis fora não pode derrubar o app,
           // mas ainda assim fica alguma proteção por instância.
@@ -184,10 +195,12 @@ export const copilotoLimiter = createRateLimiter({ maxRequests: 6, windowMs: 60_
  * de treinos no prazo, não de cenários descartados sem conversa. A chave é
  * por pessoa e empresa; a mensagem diz quanto falta.
  */
-export const INICIOS_POR_HORA_VENDAS = 6;
+export { INICIOS_POR_HORA_VENDAS, CODIGO_LIMITE_INICIOS_VENDAS };
+// O 429 leva o código: a tela traduz por ele (`startLimitReached`).
 export const simVendasInicioLimiter = createRateLimiter({
   maxRequests: INICIOS_POR_HORA_VENDAS,
   windowMs: 60 * 60_000,
+  codigo: CODIGO_LIMITE_INICIOS_VENDAS,
   mensagem: (segundos) =>
     `Você começou ${INICIOS_POR_HORA_VENDAS} treinos na última hora. Para começar outro, aguarde cerca de ${Math.max(1, Math.ceil(segundos / 60))} min. Seus treinos e o histórico continuam disponíveis.`,
 });

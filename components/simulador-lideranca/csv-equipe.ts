@@ -13,28 +13,10 @@
 import { EPISODIOS } from '@/lib/simulador-lideranca/episodios';
 import type { CompetenciaNaJornada } from '@/lib/simulador-lideranca/avaliacao';
 import type { LinhaPainel } from '@/lib/simulador-lideranca/equipe';
+import { dataHoraBrasilia } from '@/lib/simuladores/csv';
 
-const PARTES = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Sao_Paulo',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
-
-/** 'AAAA-MM-DD HH:mm' no horário de Brasília; vazio sem data. */
-export function dataHoraBrasilia(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const p = Object.fromEntries(PARTES.formatToParts(d).map((x) => [x.type, x.value]));
-  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
-}
-
-/** O dia de hoje em Brasília (nome do arquivo). */
-export const diaBrasilia = (agora: Date) => dataHoraBrasilia(agora.toISOString()).slice(0, 10);
+// A data no horário de Brasília é comum aos três simuladores desde 03/10/2026.
+export { dataHoraBrasilia, diaBrasilia } from '@/lib/simuladores/csv';
 
 export interface RotulosSituacao {
   /** Na tela, "Nível 3"; no CSV, o número (a coluna segue somável). */

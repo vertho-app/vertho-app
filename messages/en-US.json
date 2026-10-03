@@ -1,5 +1,7 @@
 {
   "SimuladorAtendimento": {
+    "csvLastBrasilia": "Last session (Brasília time)",
+    "unreadableResponse": "The server did not respond as expected. Please try again: if your request already went through, it will not be repeated.",
     "genericError": "Something went wrong. Please try again.",
     "networkError": "Can't reach the server. Check your connection and try again.",
     "networkErrorReport": "The connection dropped during the assessment. If the report was already being generated, it continues on the server, and this screen checks again every few seconds.",
@@ -257,6 +259,9 @@
     "programTargetMissing": "The program's target job title no longer exists. Nobody can train."
   },
   "SimuladorVendas": {
+    "startLimitReached": "You started {limit} sessions in the last hour. To start another one, wait about {minutes} min. Your sessions and history are still available.",
+    "csvDateBrasilia": "Date (Brasília time)",
+    "csvLastBrasilia": "Last session (Brasília time)",
     "eyebrow": "Sales simulator · PACE methodology",
     "title": "Practice the conversation.",
     "titleAccent": "Learn from it.",

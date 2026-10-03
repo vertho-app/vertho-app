@@ -7,10 +7,33 @@
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import type { EvolucaoCompetencia } from '@/lib/simuladores/evolucao';
-import { montarCsv } from '@/lib/simuladores/csv';
+import { dataHoraBrasilia, montarCsv } from '@/lib/simuladores/csv';
 import styles from './treino.module.css';
 
 const BOM = String.fromCharCode(0xfeff);
+
+/**
+ * Linhas do CSV da equipe. A data do último treino sai no horário de Brasília
+ * (R-97, 03/10/2026): cortar o ISO em UTC jogava o treino das 21h para o dia
+ * seguinte. O cabeçalho vem pronto da tela, já traduzido.
+ */
+export function linhasCsvEquipe(
+  visao: Pick<VisaoEquipe, 'pessoas' | 'competencias'>,
+  cabecalho: string[],
+  nome: (codigo: string) => string,
+): unknown[][] {
+  return [
+    [...cabecalho, ...visao.competencias.map((c) => nome(c.codigo))],
+    ...visao.pessoas.map((p) => [
+      p.nome,
+      p.cargo || '',
+      p.iniciadas,
+      p.concluidas,
+      dataHoraBrasilia(p.ultimo),
+      ...p.competencias.map((c) => c.nivelAlcancado ?? ''),
+    ]),
+  ];
+}
 
 export interface VisaoEquipe {
   pessoas: Array<{
@@ -37,24 +60,13 @@ export default function EquipeVisao({ visao, dias }: { visao: VisaoEquipe; dias:
   const pessoas = visao.pessoas.filter((p) => !termo || p.nome.toLocaleLowerCase(locale).includes(termo));
   const treinaram = visao.pessoas.filter((p) => p.iniciadas > 0).length;
   function exportar() {
-    const csv = montarCsv([
-      [
-        t('teamPerson'),
-        t('teamJobTitle'),
-        t('teamSessions'),
-        t('teamDone'),
-        t('teamLast'),
-        ...visao.competencias.map((c) => nome(c.codigo)),
-      ],
-      ...visao.pessoas.map((p) => [
-        p.nome,
-        p.cargo || '',
-        p.iniciadas,
-        p.concluidas,
-        p.ultimo ? p.ultimo.slice(0, 10) : '',
-        ...p.competencias.map((c) => c.nivelAlcancado ?? ''),
-      ]),
-    ]);
+    const csv = montarCsv(
+      linhasCsvEquipe(
+        visao,
+        [t('teamPerson'), t('teamJobTitle'), t('teamSessions'), t('teamDone'), t('csvLastBrasilia')],
+        nome,
+      ),
+    );
     const url = URL.createObjectURL(new Blob([BOM, csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;

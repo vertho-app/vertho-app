@@ -19,8 +19,11 @@ vi.mock('@/lib/simulador-vendas/service', () => ({
   consultarHistorico: vi.fn(),
 }));
 vi.mock('@/lib/execucao-contexto', () => ({ comContexto: (_c: unknown, fn: () => unknown) => fn() }));
+import { readFileSync } from 'node:fs';
+import { createTranslator } from 'next-intl';
 import { POST } from '@/app/api/simulador-vendas/route';
-import { INICIOS_POR_HORA_VENDAS } from '@/lib/rate-limit';
+import { CODIGO_LIMITE_INICIOS_VENDAS, INICIOS_POR_HORA_VENDAS } from '@/lib/rate-limit';
+import { lerResposta } from '@/lib/simuladores/ler-resposta';
 
 let n = 0;
 const uuid = () => `20000000-0000-4000-8000-${String(++n).padStart(12, '0')}`;
@@ -49,6 +52,32 @@ describe('V-8: teto de inícios por hora no simulador de vendas', () => {
       /^Você começou 6 treinos na última hora\. Para começar outro, aguarde cerca de 60 min\./,
     );
     expect(mocks.executar).toHaveBeenCalledTimes(INICIOS_POR_HORA_VENDAS);
+  });
+
+  it('R-110: o 429 leva código, limite e espera, e a tela traduz a mensagem nos quatro idiomas', async () => {
+    for (let i = 0; i < INICIOS_POR_HORA_VENDAS; i++) await iniciar();
+    const corpo = await (await iniciar()).json();
+    expect(corpo).toMatchObject({ codigo: CODIGO_LIMITE_INICIOS_VENDAS, limite: INICIOS_POR_HORA_VENDAS });
+    expect(corpo.esperaSegundos).toBeGreaterThan(55 * 60);
+
+    // O caminho da tela: o leitor comum com o tradutor do vendas.
+    const minutos = Math.ceil(corpo.esperaSegundos / 60);
+    for (const locale of ['pt-BR', 'pt-PT', 'es-ES', 'en-US']) {
+      const mensagens = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8'));
+      const t = createTranslator({ locale, messages: mensagens, namespace: 'SimuladorVendas' });
+      const resposta = new Response(JSON.stringify(corpo), { status: 429 });
+      const erro = await lerResposta(resposta, { semCorpo: 'x', generica: 'y' }, (c, status) =>
+        status === 429 && c.codigo === CODIGO_LIMITE_INICIOS_VENDAS
+          ? t('startLimitReached', { limit: c.limite, minutes: Math.ceil(c.esperaSegundos / 60) })
+          : null,
+      ).catch((e: Error) => e.message);
+      expect(erro, locale).toContain(String(INICIOS_POR_HORA_VENDAS));
+      expect(erro, locale).toContain(String(minutos));
+      if (locale !== 'pt-BR') expect(erro, locale).not.toBe(corpo.error);
+    }
+    // E a tela de fato passa o tradutor ao leitor.
+    const fonte = readFileSync('components/simulador-vendas/treino.tsx', 'utf8');
+    expect(fonte).toMatch(/corpo\.codigo === CODIGO_LIMITE_INICIOS_VENDAS[\s\S]{0,80}t\('startLimitReached'/);
   });
 
   it('o teto é só de início: conversar e encerrar seguem', async () => {

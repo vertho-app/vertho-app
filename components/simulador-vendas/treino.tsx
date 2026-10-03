@@ -33,7 +33,8 @@ import Gestao from './gestao';
 import Configuracao from './configuracao';
 import Processamento from './processamento';
 import Ditado from './ditado';
-import { lerResposta } from './ler-resposta';
+import { lerResposta } from '@/lib/simuladores/ler-resposta';
+import { CODIGO_LIMITE_INICIOS_VENDAS, INICIOS_POR_HORA_VENDAS } from '@/lib/simulador-vendas/limite-inicios';
 import styles from './treino.module.css';
 
 type Dados = {
@@ -110,10 +111,22 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     // Resposta sem JSON (504 do gateway em HTML) vira mensagem traduzida. A
     // chave idempotente do envio (`pending`) só é limpa no sucesso: tentar de
     // novo reaproveita o mesmo requestId, e o servidor não duplica o envio.
-    return lerResposta(response, {
-      semCorpo: t('unreadableResponse'),
-      generica: t('genericError'),
-    });
+    return lerResposta(
+      response,
+      {
+        semCorpo: t('unreadableResponse'),
+        generica: t('genericError'),
+      },
+      // O teto de inícios por hora responde com código: a mensagem sai no
+      // idioma da pessoa, não no pt-BR do servidor (R-110, 03/10/2026).
+      (corpo, status) =>
+        status === 429 && corpo.codigo === CODIGO_LIMITE_INICIOS_VENDAS
+          ? t('startLimitReached', {
+              limit: Number(corpo.limite) || INICIOS_POR_HORA_VENDAS,
+              minutes: Math.max(1, Math.ceil(Number(corpo.esperaSegundos) / 60) || 1),
+            })
+          : null,
+    );
   }
   function params(id = empresaId, sessaoId?: string) {
     const q = new URLSearchParams();

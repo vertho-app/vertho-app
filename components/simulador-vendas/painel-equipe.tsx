@@ -12,9 +12,32 @@ import {
   MIN_RESPONDENTES_COMENTARIOS,
   type PainelVendas,
 } from '@/lib/simulador-vendas/painel';
-import { montarCsv } from '@/lib/simuladores/csv';
+import { dataHoraBrasilia, montarCsv } from '@/lib/simuladores/csv';
 
 const BOM = String.fromCharCode(0xfeff);
+
+/**
+ * Linhas do CSV da equipe. A data do último treino sai no horário de Brasília
+ * (R-97, 03/10/2026): cortar o ISO em UTC jogava o treino das 21h para o dia
+ * seguinte. O cabeçalho e os nomes das competências vêm traduzidos da tela.
+ */
+export function linhasCsvEquipe(
+  dados: Pick<PainelVendas, 'pessoas' | 'competencias'>,
+  cabecalho: string[],
+  competencia: (codigo: string) => string,
+): unknown[][] {
+  return [
+    [...cabecalho, ...dados.competencias.map((c) => competencia(c.codigo))],
+    ...dados.pessoas.map((p) => [
+      p.nome,
+      p.cargo || '',
+      p.treinos,
+      p.concluidos,
+      dataHoraBrasilia(p.ultimo),
+      ...p.competencias.map((c) => c.nivelAlcancado ?? ''),
+    ]),
+  ];
+}
 
 export default function PainelEquipe({ empresaId }: { empresaId: string }) {
   const t = useTranslations('SimuladorVendas'),
@@ -60,24 +83,19 @@ export default function PainelEquipe({ empresaId }: { empresaId: string }) {
         });
   function exportar() {
     if (!dados) return;
-    const csv = montarCsv([
-      [
-        t('participant'),
-        t('teamJobTitle'),
-        t('teamTrainings'),
-        t('teamCompletedShort'),
-        t('teamLastTraining'),
-        ...dados.competencias.map((c) => t(`matrix_${c.codigo}`)),
-      ],
-      ...dados.pessoas.map((p) => [
-        p.nome,
-        p.cargo || '',
-        p.treinos,
-        p.concluidos,
-        p.ultimo ? p.ultimo.slice(0, 10) : '',
-        ...p.competencias.map((c) => c.nivelAlcancado ?? ''),
-      ]),
-    ]);
+    const csv = montarCsv(
+      linhasCsvEquipe(
+        dados,
+        [
+          t('participant'),
+          t('teamJobTitle'),
+          t('teamTrainings'),
+          t('teamCompletedShort'),
+          t('csvLastBrasilia'),
+        ],
+        (codigo) => t(`matrix_${codigo}`),
+      ),
+    );
     const url = URL.createObjectURL(
       new Blob([BOM, csv], { type: 'text/csv;charset=utf-8' }),
     );

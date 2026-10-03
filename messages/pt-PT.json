@@ -1,5 +1,7 @@
 {
   "SimuladorAtendimento": {
+    "csvLastBrasilia": "Último treino (hora de Brasília)",
+    "unreadableResponse": "O servidor não respondeu como esperado. Tente novamente: se o envio já tiver chegado, não será repetido.",
     "genericError": "Não foi possível concluir. Tente novamente.",
     "networkError": "Sem ligação ao servidor. Verifique a internet e tente novamente.",
     "networkErrorReport": "A ligação caiu durante a avaliação. Se o relatório já estava a ser gerado, continua no servidor, e este ecrã verifica sozinho a cada poucos segundos.",
@@ -257,6 +259,9 @@
     "programTargetMissing": "A função-alvo do programa já não existe. Ninguém consegue treinar."
   },
   "SimuladorVendas": {
+    "startLimitReached": "Começou {limit} treinos na última hora. Para começar outro, aguarde cerca de {minutes} min. Os seus treinos e o histórico continuam disponíveis.",
+    "csvDateBrasilia": "Data (hora de Brasília)",
+    "csvLastBrasilia": "Último treino (hora de Brasília)",
     "eyebrow": "Simulador de vendas · metodologia PACE",
     "title": "Pratique a conversa.",
     "titleAccent": "Aprenda com ela.",

@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { RETENCAO_MESES, type Config } from '@/lib/simulador-vendas/schema';
 import styles from './treino.module.css';
-import { lerResposta } from './ler-resposta';
+import { lerResposta } from '@/lib/simuladores/ler-resposta';
 
 export function dataLocal(iso?: string | null): string {
   if (!iso) return '';

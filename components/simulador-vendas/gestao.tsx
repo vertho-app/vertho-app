@@ -6,9 +6,10 @@ import type { ResumoTreino } from '@/lib/simulador-vendas/historico';
 import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { montarCsv } from '@/lib/simulador-vendas/csv';
+import { dataHoraBrasilia } from '@/lib/simuladores/csv';
 import Relatorio from './relatorio';
 import PainelEquipe from './painel-equipe';
-import { lerResposta } from './ler-resposta';
+import { lerResposta } from '@/lib/simuladores/ler-resposta';
 import styles from './treino.module.css';
 
 type Pagina = { historico: ResumoTreino[]; proximoCursor: string | null };
@@ -129,7 +130,7 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
           'ID',
           t('participant'),
           t('adminTest'),
-          t('date'),
+          t('csvDateBrasilia'),
           t('level'),
           t('state'),
           'PL (1–4)',
@@ -145,7 +146,8 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
           r.id,
           r.nomeVendedor,
           t(r.testeAdmin ? 'yes' : 'no'),
-          r.criadoEm,
+          // Horário de Brasília, como nos CSVs de equipe (R-97): o ISO saía em UTC.
+          dataHoraBrasilia(r.criadoEm),
           r.nivel,
           t(`status_${r.status}`),
           r.PL,
