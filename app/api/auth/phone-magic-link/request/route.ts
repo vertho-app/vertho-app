@@ -5,7 +5,7 @@ import { validateWhatsApp } from '@/lib/phone';
 import { emailDeAcessoPorTelefone, isProxyEmail } from '@/lib/phone-otp';
 import { resolveAppLocale } from '@/lib/i18n';
 import { sendAccessLink } from '@/lib/notifications/access-link-service';
-import { authLimiter } from '@/lib/rate-limit';
+import { authLimiter, limitarPorDestino } from '@/lib/rate-limit';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +32,13 @@ export async function POST(req: NextRequest) {
 
     const slug = getTenantSlug(req);
     if (!slug) return NextResponse.json({ ok: true });
+
+    // Teto por telefone (R-79): o limite por IP não segurava uma rajada de
+    // templates pagos para o WhatsApp de uma pessoa vinda de IPs variados.
+    // Antes da consulta ao cadastro, para valer igual para número cadastrado e
+    // não cadastrado.
+    const limiteDoDestino = await limitarPorDestino(req, 'telefone', e164);
+    if (limiteDoDestino) return limiteDoDestino;
 
     const sb = createSupabaseAdmin();
     const { data: empresa } = await sb

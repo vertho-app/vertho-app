@@ -9,6 +9,7 @@ import { locales } from '@/i18n/routing';
 import SignupModal from './signup-modal';
 import AvisoNavegadorEmbutido from '@/components/auth/aviso-navegador-embutido';
 import { ehCaminhoLocal } from '@/lib/auth/caminho-local';
+import { chaveDoErroDoPedido } from '@/lib/auth/login-respostas';
 
 // O painel da equipe Vertho não é um tenant: ele vive no endereço genérico
 // (`app.vertho.ai`), e é o `next` pedido — não o cadastro — que faz a sessão
@@ -82,6 +83,14 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
       window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
     }
   }, []);
+
+  // Erro de uma porta de link: pelo código, no idioma da tela; sem código
+  // conhecido, o texto que a rota mandou.
+  function erroDoPedido(data: any): string {
+    const chave = chaveDoErroDoPedido(data);
+    if (chave) return t(chave);
+    return data?.error || t('errors.sendLink');
+  }
 
   function handleLocaleChange(nextLocale: string) {
     document.cookie = `${localeCookieName}=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
@@ -235,7 +244,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
       });
       const data = await res.json();
       if (data?.error) {
-        setErrorMsg(data.error);
+        setErrorMsg(erroDoPedido(data));
         setStatus('error');
       } else if (data?.success) {
         setStatus('sent');
@@ -288,7 +297,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
       });
       const data = await res.json();
       if (!res.ok || data?.error) {
-        setErrorMsg(data?.error || t('errors.sendLink'));
+        setErrorMsg(erroDoPedido(data));
         setStatus('error');
         return;
       }

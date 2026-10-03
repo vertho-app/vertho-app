@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { CODIGO_LIMITE_INICIOS_VENDAS, INICIOS_POR_HORA_VENDAS } from '@/lib/simulador-vendas/limite-inicios';
+import { CODIGO_LIMITE_DESTINO } from '@/lib/auth/login-respostas';
 
 /**
  * Rate limiter com duas camadas:
@@ -35,6 +36,13 @@ interface RateLimiterConfig {
    */
   mensagem?: (retryAfterSec: number) => string;
   /**
+   * Nome do contador. Dois limiters com o mesmo número e a mesma janela
+   * dividiam o prefixo no Redis, e no fallback em memória TODOS dividem o mesmo
+   * Map pela chave: um limiter de hora e outro de dia sobre a mesma chave
+   * apagariam o histórico um do outro. Com escopo, cada um conta sozinho.
+   */
+  escopo?: string;
+  /**
    * Código estável no corpo do 429, com `limite` e `esperaSegundos`, para a tela
    * mostrar a mensagem no idioma da pessoa. O texto de `mensagem` é pt-BR e
    * fica como reserva para quem não reconhece o código (R-110, 03/10/2026).
@@ -56,7 +64,7 @@ function getUpstashLimiter(config: RateLimiterConfig): Ratelimit | null {
   if (!url || !token) return null;
 
   // Prefixo por config: limiters diferentes nunca dividem contador no Redis.
-  const prefix = `vertho-rl:${config.maxRequests}r${config.windowMs}ms`;
+  const prefix = `vertho-rl:${config.escopo ? `${config.escopo}:` : ''}${config.maxRequests}r${config.windowMs}ms`;
   const cached = upstashLimiters.get(prefix);
   if (cached) return cached;
 
@@ -88,11 +96,12 @@ function cleanup(windowMs: number) {
   }
 }
 
-function inMemoryCheck(config: RateLimiterConfig, key: string): Response | null {
+function inMemoryCheck(config: RateLimiterConfig, chave: string): Response | null {
   cleanup(config.windowMs);
 
   const now = Date.now();
   const cutoff = now - config.windowMs;
+  const key = config.escopo ? `${config.escopo}:${chave}` : chave;
 
   let entry = buckets.get(key);
   if (!entry) {
@@ -218,3 +227,73 @@ export const readLimiter = createRateLimiter({ maxRequests: 60, windowMs: 60_000
  * sem elas, é por-instância (teto grosseiro).
  */
 export const authLimiter = createRateLimiter({ maxRequests: 8, windowMs: 60_000 });
+
+// ── Teto por DESTINATÁRIO nas portas de login (R-79, 03/10/2026) ────────────
+//
+// O `authLimiter` conta por IP. Com IPs variados (qualquer rede de celular),
+// dava para disparar templates pagos repetidos no WhatsApp de uma pessoa, e
+// links em série no e-mail dela, sem esbarrar em nada. O teto aqui conta por
+// QUEM RECEBE: o mesmo e-mail ou o mesmo telefone, venha o pedido de onde vier.
+//
+// Os números vêm do uso real (links por e-mail, 60 dias até 03/10/2026): o
+// máximo foi 6 pedidos numa hora (uma vez) e 7 num dia (uma vez); 426 das 430
+// horas com pedido tiveram até 3. Cinco por hora e dez por dia cobrem quem não
+// recebeu e pediu de novo, e cortam a rajada.
+//
+// ⚠️ O teto vale para QUALQUER destino, cadastrado ou não, e é checado ANTES
+// da consulta ao cadastro. Assim o 429 não diz se o e-mail ou o número existe,
+// e as respostas genéricas de anti-enumeração continuam genéricas.
+//
+// O efeito colateral aceito: quem esgota o teto de alguém tranca o pedido de
+// link dessa pessoa até a janela andar. O último link que chegou a ela
+// continua valendo (1 hora), então o atacante gasta os pedidos entregando à
+// vítima exatamente o que ela precisa para entrar.
+export const LINKS_POR_DESTINO_HORA = 5;
+export const LINKS_POR_DESTINO_DIA = 10;
+
+const mensagemDoDestino = (segundos: number) => {
+  const minutos = Math.max(1, Math.ceil(segundos / 60));
+  const espera = minutos >= 90 ? `cerca de ${Math.round(minutos / 60)} h` : `cerca de ${minutos} min`;
+  return `Já pedimos muitos links para este contato. Use o último que chegou ou tente de novo em ${espera}.`;
+};
+
+const destinoPorHora = createRateLimiter({
+  maxRequests: LINKS_POR_DESTINO_HORA,
+  windowMs: 60 * 60_000,
+  escopo: 'login-destino-hora',
+  codigo: CODIGO_LIMITE_DESTINO,
+  mensagem: mensagemDoDestino,
+});
+const destinoPorDia = createRateLimiter({
+  maxRequests: LINKS_POR_DESTINO_DIA,
+  windowMs: 24 * 60 * 60_000,
+  escopo: 'login-destino-dia',
+  codigo: CODIGO_LIMITE_DESTINO,
+  mensagem: mensagemDoDestino,
+});
+
+/**
+ * Chave do destinatário: o valor normalizado, em hash. O Redis da Upstash é um
+ * terceiro, e a chave fica lá a janela inteira; e-mail e telefone em claro
+ * seriam dado pessoal guardado só para contar.
+ */
+export async function chaveDoDestino(canal: 'email' | 'telefone', valor: string): Promise<string> {
+  const normal = canal === 'email' ? valor.trim().toLowerCase() : valor.replace(/\D/g, '');
+  const bytes = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${canal}:${normal}`));
+  const hex = Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
+  return `${canal}:${hex.slice(0, 40)}`;
+}
+
+/**
+ * 429 se este destinatário já pediu links demais (hora ou dia); `null` se pode
+ * seguir. Destino vazio não conta (a validação da rota responde antes).
+ */
+export async function limitarPorDestino(
+  req: Request,
+  canal: 'email' | 'telefone',
+  valor: string | null | undefined,
+): Promise<Response | null> {
+  if (!valor || !String(valor).trim()) return null;
+  const chave = await chaveDoDestino(canal, String(valor));
+  return (await destinoPorHora.check(req, chave)) ?? (await destinoPorDia.check(req, chave));
+}

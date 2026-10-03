@@ -43,7 +43,7 @@ const sb = criarSupabaseMock({
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/tenant-resolver', () => ({ getTenantSlug: () => slugDoHost }));
-vi.mock('@/lib/rate-limit', () => ({ authLimiter: { check: async () => null } }));
+vi.mock('@/lib/rate-limit', () => ({ authLimiter: { check: async () => null }, limitarPorDestino: async () => null }));
 
 const URL_ROTA = 'http://localhost:3000/api/auth/check-email';
 

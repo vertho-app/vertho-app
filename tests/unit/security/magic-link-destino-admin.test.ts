@@ -52,7 +52,7 @@ client.auth = {
 };
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => client }));
-vi.mock('@/lib/rate-limit', () => ({ authLimiter: { check: async () => null } }));
+vi.mock('@/lib/rate-limit', () => ({ authLimiter: { check: async () => null }, limitarPorDestino: async () => null }));
 
 /** Captura o que a rota mandou enviar — é aí que mora a resposta. */
 const enviado: any[] = [];

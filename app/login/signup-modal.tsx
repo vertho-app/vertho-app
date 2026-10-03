@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
+import { chaveDoErroDoPedido } from '@/lib/auth/login-respostas';
 
 type Branding = {
   tenantName: string;
@@ -29,6 +30,7 @@ export default function SignupModal({
   onSuccess: () => void;
 }) {
   const t = useTranslations('Login.signup');
+  const tLogin = useTranslations('Login');
   const locale = useLocale();
   const [nome, setNome] = useState('');
   const [cargo, setCargo] = useState('');
@@ -119,7 +121,8 @@ export default function SignupModal({
       });
       const data = await res.json();
       if (!res.ok || data?.error) {
-        setErrorMsg(data?.error || t('errors.create'));
+        const chave = chaveDoErroDoPedido(data);
+        setErrorMsg(chave ? tLogin(chave) : data?.error || t('errors.create'));
         setStatus('error');
         return;
       }

@@ -3,7 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { validateWhatsApp } from '@/lib/phone';
 import { resolveAppLocale } from '@/lib/i18n';
-import { authLimiter } from '@/lib/rate-limit';
+import { authLimiter, limitarPorDestino } from '@/lib/rate-limit';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 import { sendAccessLink } from '@/lib/notifications/access-link-service';
 
@@ -46,6 +46,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: phoneCheck.error }, { status: 400 });
     }
     const telefoneE164 = phoneCheck.e164;
+
+    // Teto por destinatário (R-79): o cadastro manda link para o e-mail E
+    // para o WhatsApp informados. Sem teto por telefone, e-mails inventados em
+    // série disparavam boas-vindas pagas para o número de uma pessoa só.
+    const limiteDoEmail = await limitarPorDestino(req, 'email', email);
+    if (limiteDoEmail) return limiteDoEmail;
+    const limiteDoTelefone = await limitarPorDestino(req, 'telefone', telefoneE164);
+    if (limiteDoTelefone) return limiteDoTelefone;
 
     const slug = getTenantSlug(req);
     if (!slug) {

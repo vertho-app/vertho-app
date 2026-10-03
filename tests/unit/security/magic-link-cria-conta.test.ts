@@ -51,7 +51,7 @@ client.auth = {
 };
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => client }));
-vi.mock('@/lib/rate-limit', () => ({ authLimiter: { check: async () => null } }));
+vi.mock('@/lib/rate-limit', () => ({ authLimiter: { check: async () => null }, limitarPorDestino: async () => null }));
 
 const enviado: any[] = [];
 vi.mock('@/lib/notifications/access-link-service', () => ({

@@ -596,7 +596,8 @@
       "invalidWhatsapp": "Digite seu WhatsApp com DDD.",
       "sendCode": "Não foi possível enviar o código.",
       "invalidCodeLength": "Digite o código de 6 dígitos.",
-      "invalidCode": "Código inválido."
+      "invalidCode": "Código inválido.",
+      "tooManyLinks": "Já pedimos muitos links para este contato. Use o último que chegou ou tente de novo mais tarde."
     },
     "signup": {
       "eyebrow": "{tenantName} · cadastro",

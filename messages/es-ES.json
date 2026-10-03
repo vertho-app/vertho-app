@@ -596,7 +596,8 @@
       "invalidWhatsapp": "Introduce tu WhatsApp con prefijo.",
       "sendCode": "No fue posible enviar el código.",
       "invalidCodeLength": "Introduce el código de 6 dígitos.",
-      "invalidCode": "Código inválido."
+      "invalidCode": "Código inválido.",
+      "tooManyLinks": "Ya pedimos muchos enlaces para este contacto. Usa el último que recibiste o inténtalo de nuevo más tarde."
     },
     "signup": {
       "eyebrow": "{tenantName} · registro",

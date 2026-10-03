@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
-import { authLimiter } from '@/lib/rate-limit';
+import { authLimiter, limitarPorDestino } from '@/lib/rate-limit';
 import { resolveAppLocale } from '@/lib/i18n';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 import { sendAccessLink, recipientFromLookup } from '@/lib/notifications/access-link-service';
@@ -20,6 +20,14 @@ export async function POST(req: NextRequest) {
     if (!email) return NextResponse.json({ error: 'Email obrigatório' }, { status: 400 });
 
     const trimmed = email.trim().toLowerCase();
+
+    // Teto por destinatário (R-79): o limite acima é por IP, e com IPs
+    // variados nada segurava uma rajada de links para o mesmo e-mail. Vem
+    // ANTES da consulta ao cadastro para valer igual para quem existe e quem
+    // não existe (o 429 não pode virar enumeração).
+    const limiteDoDestino = await limitarPorDestino(req, 'email', trimmed);
+    if (limiteDoDestino) return limiteDoDestino;
+
     const sb = createSupabaseAdmin();
 
     // ── Elegibilidade + escopo de tenant ───────────────────────────────────

@@ -596,7 +596,8 @@
       "invalidWhatsapp": "Enter your WhatsApp number with area code.",
       "sendCode": "Could not send the code.",
       "invalidCodeLength": "Enter the 6-digit code.",
-      "invalidCode": "Invalid code."
+      "invalidCode": "Invalid code.",
+      "tooManyLinks": "Too many links have been requested for this contact. Use the latest one you received or try again later."
     },
     "signup": {
       "eyebrow": "{tenantName} · sign up",
