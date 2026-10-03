@@ -328,18 +328,21 @@ usar os fluxos individuais, mas fica fora de indicadores, rankings e relatórios
 agregados.
 
 As etapas 2–4 reutilizam um passe assinado da sala de apresentação vinculado ao
-roteiro. Os quatro acessos expiram às **04h BRT de D+2**, considerando `D` como o
-dia civil em que o roteiro foi criado. Cada visão cria uma sessão real em seu
+roteiro. Os quatro acessos expiram às **04h BRT de D+10**, considerando `D` como o
+dia civil em que o roteiro foi criado (`DEGUSTACAO_DIAS_DE_VALIDADE = 10` e
+`acmeProspectExpiresAt` em `lib/demo/acme-prospect-config.ts`; era D+2 até
+03/09/2026, ver "Prazo, retenção e o que sobrevive ao reset"). Cada visão cria uma sessão real em seu
 hostname isolado; elas não compartilham a sessão nem as respostas do convidado
 da etapa 1. A sala de apresentação avulsa, sem prospect vinculado, mantém a
 janela de 4 horas.
 
 O magic link da etapa 1 continua sendo de uso único e também segue a expiração
 de OTP configurada no provedor; depois de consumido, a sessão permanece no mesmo
-navegador até D+2. O reset das 04h primeiro remove somente convidados vencidos.
-Enquanto houver algum roteiro ativo, a recomposição integral do ACME é adiada
-para preservar colaborador, respostas e progresso. Vários passes coexistem sem
-compartilhar respostas ou perfil.
+navegador até D+10. O reset das 04h primeiro tira o acesso dos convidados
+vencidos e depois recompõe o ambiente, toda noite: o adiamento por roteiro ativo
+saiu em 03/09/2026, porque o convidado passou a atravessar o reset com
+colaborador, respostas e progresso (`app/api/cron/route.ts`, case `reset_demo`).
+Vários passes coexistem sem compartilhar respostas ou perfil.
 
 Cada roteiro bem-sucedido cria uma linha em `demo_prospect_sessions`. O painel
 mostra o primeiro acesso pessoal, a conclusão do DISC e a primeira entrada nas
@@ -496,12 +499,13 @@ o fez (depois, a seção pessoal já sobe sozinha e volta a ser o assunto, porqu
 é o que o carimbo mede.
 
 A recomendada é **parâmetro** de `carregarPaginaDaDegustacao`, hoje sempre no
-padrão `VISAO_RECOMENDADA_PADRAO` (gestor). Fazer variar por convite depende de
+padrão `VISAO_RECOMENDADA_PADRAO`, que é o **RH** desde `0927e995` ("orientar
+degustação pelo RH"; antes era o gestor). Fazer variar por convite depende de
 uma coluna no passaporte, que é decisão do dono e está pendente junto com o
 evento que mediria "abriu a jornada / abriu um relatório / explorou um conteúdo".
-⚠️ O teste da ordenação usa **RH** de propósito: com o padrão gestor, a
-recomendada já nasceria em primeiro pela cópia do ambiente e a ordenação passaria
-despercebida.
+⚠️ O teste da ordenação (`tests/unit/degustacao-pagina.test.ts`) pede **gestor**
+de propósito: com o padrão RH, a recomendada já nasceria em primeiro pela cópia
+do ambiente e a ordenação passaria despercebida.
 
 **Régua de conteúdo** (`lib/demo/degustacao-orientacao.ts`, puro): a casa de cada
 papel é conferida contra o `homePath` da sala por teste, porque divergir ali faz
@@ -717,7 +721,10 @@ interna.
 ### Pausar o reset de um ambiente (com data de fim)
 
 O reset noturno (07:00 UTC, 04h BRT) percorre **todos** os ambientes de
-`DEMO_TENANT_PROFILES` e só é adiado por **passaporte** no prazo D+2. Convidado
+`DEMO_TENANT_PROFILES` e só deixa de recompor um ambiente pela pausa abaixo. (Até
+03/09/2026 também era adiado por **passaporte** no prazo, então D+2; o adiamento
+saiu quando o convidado passou a atravessar o reset, ver "Prazo, retenção e o que
+sobrevive ao reset".) Convidado
 nomeado do perfil (o Alpheu, no Grupo Sinal) não tem esse prazo: sem mais nada,
 o DISC, as respostas e a análise dele somem na madrugada e o seed o recria
 zerado — o que quebra qualquer experiência que dure mais de um dia.
@@ -739,7 +746,7 @@ o botão é o dono do ambiente — recusar sem caminho de saída na tela seria b
 
 ⚠️ **Pausa é janela, não estado.** Vigente em 02/09/2026: `gruposinal` até
 **07/09**, porque o Alpheu é convidado NOMEADO do perfil e o adiamento
-automático só cobre passaporte no prazo D+2 — sem ela, o DISC e as respostas
+automático só cobria passaporte no prazo D+2 (regra daquela data); sem ela, o DISC e as respostas
 dele viram nada às 04h. A do `escolas-acme` já saiu: com o golden congelado, o
 reset reconstrói o conteúdo a partir do fixture, sem IA, e a pausa perdeu o
 motivo. Guard: `tests/unit/demo-reset-pausa.test.ts` recusa pausa a mais de 30
@@ -848,7 +855,7 @@ mediana** e 153,6s no p90 (60 dias de `ia_usage_log`, `claude-sonnet-5`). Segura
 uma demonstração por dois minutos não é espera, é desistência — então quem
 espera é o roteiro, e a análise amadurece enquanto a pessoa percorre as visões
 02–04. Sem o check dual (`ia4_check`, +19,4s e +US$ 0,045): a segunda IA existe
-para auditar nota que vira PDI, e esta morre com o passaporte em D+2. Custo:
+para auditar nota que vira PDI, e esta morre com o passaporte (10 dias). Custo:
 ~US$ 0,12 por convidado.
 
 Enquanto nada foi avaliado, a tela de conclusão diz **"Respostas registradas"**,
@@ -865,7 +872,7 @@ selecionado**, não só os passaportes:
 
 | Origem | Quem é | Marcas | Prazo |
 |---|---|---|---|
-| `passaporte` | veio da Degustação individual (linha em `demo_prospect_sessions`) | as 5 | D+2, às 04h BRT |
+| `passaporte` | veio da Degustação individual (linha em `demo_prospect_sessions`) | as 5 | D+10, às 04h BRT (`DEGUSTACAO_DIAS_DE_VALIDADE`) |
 | `cadastro` | colaborador do tenant fora do elenco fixo: o convidado nomeado do seed (Alpheu, no `gruposinal`) ou alguém cadastrado à mão | acesso e DISC | não expira |
 
 A régua de "convidado" é o **e-mail**: fica de fora o elenco do seed

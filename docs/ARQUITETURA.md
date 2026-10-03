@@ -835,7 +835,10 @@ assessment. A regra é uma função pura em `lib/access-gates/preferencias-apren
 248 pessoas, **46% tinham empate no topo** entre os 4 formatos que o motor lê (vídeo, áudio, texto, caso), e o empate
 se resolvia por ordem fixa (vídeo primeiro). Agora a pessoa ordena os 7 formatos (setas de subir/descer, como o ranking
 do DISC) na etapa do DISC e na tela avulsa. Grava `pref_*` de 7 (favorito) a 1 (último), sem empate
-(`prefsDeOrdem`/`colunasDePreferencias` em `lib/access-gates/preferencias-aprendizagem.ts`, que **recusa empate no servidor**).
+(`prefsDeOrdem`/`colunasDePreferencias` em `lib/access-gates/preferencias-aprendizagem.ts`). ⚠️ **O servidor só recusa empate
+na tela avulsa** (`salvarPreferenciasAprendizagem` passa por `colunasDePreferencias`). Na etapa do DISC,
+`salvarPerfilComportamental` (`mapeamento-actions.ts`) grava o `learnPrefs` que o navegador manda, sem validar: ali o "sem
+empate" é garantido só pela tela (conferido em 03/10/2026, revisão de 02/10, R-131).
 O motor só compara (`max`/`sort`), então não mudou. Quem respondeu em estrelas (1-5) **mantém o que tem, sem refazer**; a
 média do admin (`calcularRanking`) normaliza as duas escalas pessoa a pessoa. A tela parte embaralhada e só libera o botão
 depois que a pessoa mexe. "Vídeo longo" saiu da tela e `pref_video_longo` é zerada ao salvar.

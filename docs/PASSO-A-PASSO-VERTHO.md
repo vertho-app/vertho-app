@@ -2,8 +2,10 @@
 
 Processo completo do zero até o Evolution Report, intercalando as atividades do **Admin/RH** (preparação + acompanhamento) e do **Colaborador** (jornada de 14 semanas).
 
-> **Este documento descreve o modo default (Regular DUO, 14 semanas).** Os outros três modos reusam o mesmo motor e estão nos "fluxos alternativos" no fim: **Onboarding** (10 semanas), **Piloto** (2 semanas) e **Personalizado** (1-4 semanas, configurável). O modo é resolvido por colaborador e **carimbado na trilha** na geração.
-> Atualizado em 27/07/2026.
+> ⚠️ **03/10/2026 (revisão de 02/10, R-131): o padrão NÃO é mais o Regular DUO.** Empresa sem programa gravado nasce na **Jornada** de 7 semanas (6 de conteúdo + fechamento; `PROGRAMA_MODO_PADRAO` em `lib/season-engine/programa-config.ts`), e a escolha oferece só **Jornada**, **Onboarding** e **Personalizado** (a Jornada com 1 a 6 semanas por competência, até 2 competências em sequência; `docs/MODO-PILOTO.md`). Regular DUO, Regular single e Piloto saíram da escolha e o motor segue lendo as trilhas carimbadas neles. O mapa da Jornada é `docs/PIPELINE-TRILHA.md`.
+>
+> **Este documento descreve o Regular DUO (14 semanas), hoje legado**: as fases de preparação (cadastro, IA1 a IA4, PDI) valem para todos os modos; as semanas descritas aqui valem só para trilhas DUO. Onde ele contradiz o código atual, vale o código; os pontos já corrigidos estão marcados com a data. O modo é resolvido por colaborador e **carimbado na trilha** na geração.
+> Atualizado em 27/07/2026; correções pontuais em 03/10/2026.
 
 ---
 
@@ -100,7 +102,8 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 ### 7. Rodar IA2 — Gabarito
 **Admin** · Fase 1 · **IA2 — Gabarito**
-- Gera `descricao` enriquecida de cada competência do Top 5
+- Gera o **perfil ideal comportamental** (gabarito CIS/DISC) de cada cargo e grava em `cargos_empresa.gabarito` (com `raciocinio_ia2` e `confianca_media_ia2`)
+- Lê a **Top 10** do cargo (`top10_cargos`), não o Top 5, junto com PPP e valores (`carregarContextoIA2` em `lib/ia2-gabarito.ts`; corrigido aqui em 03/10/2026, o texto antigo dizia "descrição enriquecida de cada competência do Top 5")
 
 ### 8. Rodar IA3 — Cenários + Check
 **Admin** · Fase 1 · **IA3 — Cenários + Check**
@@ -139,14 +142,14 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 ### 12. Competências Foco
 **Admin** · Fase 2 · **Competências Foco**
 - Sistema calcula a competência **âncora** de cada colab (menor fit × maior gap)
-- No default **Regular DUO**, uma 2ª competência é resolvida (`sys_config.competencias_regular_duo` ou top-2 do cargo via `top10_cargos`, âncora em 1º)
+- No **Regular DUO** (legado; não é mais o padrão desde 03/10/2026), uma 2ª competência é resolvida (`sys_config.competencias_regular_duo` ou top-2 do cargo via `top10_cargos`, âncora em 1º)
 - Salvo em `trilhas.competencia_foco` (âncora, compat) + `trilhas.competencias_foco TEXT[]` (as 2 comps)
 
 ### 13. Assessment inicial de descritores
 **Admin** · `/admin/assessment-descritores?empresa={id}`
 - Grid colab × descritor da competência foco
-- Admin/RH entra nota 1-4 (granularidade 0.1) para cada descritor
-- Se deixar vazio, o motor usa default 1.5 (gap moderado)
+- O admin da Vertho entra nota 1-4 (granularidade 0.1) para cada descritor
+- **Sem avaliação, a trilha NÃO é gerada**: a geração recusa com `sem_assessment` ("Rode a rodada de mapeamento antes de gerar a temporada"), porque o antigo default 1.5 enviesava a seleção de descritores (`lib/season-engine/trilha-core.ts`). Corrigido aqui em 03/10/2026; o texto antigo dizia que o motor usava 1.5
 
 ### 14. Gerar PDI individual (opcional)
 **Admin** · Fase 2 · **Relatórios · Gerar PDI**
@@ -224,7 +227,7 @@ mesmo em `/admin/fit?tab=prontidao` → Prévia da leitura.
 **Admin** · `/admin/empresas/{id}` → **Fase 3 · Temporadas · Gerar Temporadas**
 - Roda lote para todos os colabs da empresa
 - Para cada colab:
-  0. **Resolve o modo do programa** (`resolverModoColab`): `colaboradores.programa_modo` (override individual, Configurações → Equipe) → `sys_config.programa_modo` (default da empresa) → Regular DUO. O rótulo resolvido é **carimbado** em `trilhas.programa_modo` — o runtime da trilha lê do carimbo (trocar o default depois não afeta trilha em andamento). Modo `piloto` desvia pro fluxo próprio (ver "Fluxo alternativo: Modo Piloto" abaixo)
+  0. **Resolve o modo do programa** (`resolverModoDaTurma`, `lib/turmas/config-efetiva.ts`): participação na turma → turma → `colaboradores.programa_modo` (override individual legado, Configurações → Equipe) → `sys_config.programa_modo` (default da empresa) → **Jornada** (`PROGRAMA_MODO_PADRAO`, desde 03/10/2026; antes era o Regular DUO). O rótulo resolvido é **carimbado** em `trilhas.programa_modo`: o runtime da trilha lê do carimbo (trocar o default depois não afeta trilha em andamento). Modo `piloto` desvia pro fluxo próprio (ver "Fluxo alternativo: Modo Piloto" abaixo)
   1. Busca as competências da trilha (passo 12) — 2 no default DUO, 1 no `regular_single`
   2. Busca descritores cadastrados (passo 13) — assessment por competência
   3. **Seleção de descritores nos 9 slots** (sem 1-3, 5-7, 9-11), por gap decrescente, 2 semanas se nota<=1.5:

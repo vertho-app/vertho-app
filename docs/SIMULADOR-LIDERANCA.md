@@ -96,4 +96,4 @@ Revisão de fluxo, UX e código (relatório e plano fora do repositório, em `au
 | L-13 | Copy de processamento e da sugestão; link do Mapeamento por papel; "Devolutiva que a pessoa recebeu"; rótulos distintos e CSV em Brasília. |
 | L-14 | pt-PT localizado; demonstração com os turnos do fluxo real. |
 
-Ficou de fora: o item comum C-1 (evidência descartada no resumo, `components/simuladores/relatorio-competencias.tsx`) segue em outra frente. O texto da história (CONTEXTO, EPISODIOS) e o que a IA escreve seguem em pt-BR em todos os idiomas.
+O item comum C-1 (evidência descartada no resumo, `components/simuladores/relatorio-competencias.tsx`) ficou de fora desta rodada e foi resolvido em 27/09/2026 (`c8fa41e3`): competência sem nível porque a citação caiu diz "Evidência descartada", e não "sem oportunidade". O texto da história (CONTEXTO, EPISODIOS) e o que a IA escreve seguem em pt-BR em todos os idiomas.

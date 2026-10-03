@@ -127,12 +127,21 @@ admin regerar (mantidos os guards de `spec_version` e avaliação-vazia).
 
 ## Como ativar
 
-O modo resolve por **precedência de geração** (fonte única: `resolverModoColab`):
+O modo resolve por **precedência de geração**. A fonte é `resolverModoDaTurma`
+(`lib/turmas/config-efetiva.ts`), chamada por `lib/season-engine/trilha-core.ts` com a config
+efetiva da turma; `resolverModoColab` é o caso sem turma e dá o mesmo resultado. A ordem
+(conferida em 03/10/2026, R-131; antes esta lista não tinha turma):
 
-1. `colaboradores.programa_modo` (override individual — Configurações → Equipe, select por pessoa)
-2. `empresas.sys_config.programa_modo` (default do tenant — Configurações → Programa)
-3. ausente → Jornada (`PROGRAMA_MODO_PADRAO`, desde 03/10/2026; antes era o Regular DUO). A
+1. `turma_membros.config_override.programa_modo` (exceção da participação)
+2. `turmas.sys_config.programa_modo` (a turma da pessoa, no admin-v2)
+3. `colaboradores.programa_modo` (override individual legado, Configurações → Equipe)
+4. `empresas.sys_config.programa_modo` (default do tenant, Configurações → Programa)
+5. ausente → Jornada (`PROGRAMA_MODO_PADRAO`, desde 03/10/2026; antes era o Regular DUO). A
    trilha legada SEM carimbo segue no DUO (`getProgramaConfigLegado`): ela nasceu nele.
+
+Exceção: a 2ª competência de um Personalizado em andamento entra como `custom` sem passar por
+essa ordem, porque o encadeamento entrega a config congelada da trilha que concluiu
+(`configPersonalizado` em `trilha-core.ts`, vindo de `encadear-jornada.ts`).
 
 Desde 03/10/2026 só `jornada`, `onboarding` e `custom` aceitam gravação nova. `piloto`,
 `regular_duo`, `regular_single` (e a grafia antiga `regular`) seguem lidos; a tela mostra o valor
@@ -141,7 +150,8 @@ o que mudou).
 
 O rótulo resolvido é **carimbado** em `trilhas.programa_modo` na geração; o runtime
 (reflexão/fechamento/acumulada/report) lê **do carimbo** — trocar o modo da empresa não
-afeta trilha em andamento. Rótulos: `regular_duo` | `regular_single` | `onboarding` | `piloto`.
+afeta trilha em andamento. Rótulos (`ProgramaModoLabel`): `jornada` | `regular_duo` |
+`regular_single` | `onboarding` | `piloto` | `custom`.
 Migrations: **153** (COMMENT sys_config) e **154** (colunas + COMMENTs).
 
 Fluxo de conversão (histórico, enquanto o Piloto era oferecido): colaborador marcado `piloto` →
