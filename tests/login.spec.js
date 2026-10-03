@@ -8,8 +8,16 @@ test.describe('Login', () => {
     await expect(page.locator('button[type="submit"]')).toBeVisible();
   });
 
-  test('toggle entre Magic Link e senha', async ({ page }) => {
+  // R-78 (03/10/2026): ninguém do cliente tem como definir senha, então o
+  // endereço genérico não oferece "Entrar com senha" sem `?senha=1`.
+  test('sem ?senha=1 o endereço genérico não oferece senha', async ({ page }) => {
     await page.goto('/login');
+    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.getByText('Entrar com senha')).toHaveCount(0);
+  });
+
+  test('toggle entre Magic Link e senha', async ({ page }) => {
+    await page.goto('/login?senha=1');
     await expect(page.locator('input[type="password"]')).not.toBeVisible();
     await page.getByText('Entrar com senha').click();
     await expect(page.locator('input[type="password"]')).toBeVisible();
@@ -22,7 +30,7 @@ test.describe('Login', () => {
     const pass = process.env.SMOKE_PASS;
     if (!email || !pass) { test.skip(); return; }
 
-    await page.goto('/login');
+    await page.goto('/login?senha=1');
     await page.getByText('Entrar com senha').click();
     await page.locator('input[type="email"]').fill(email);
     await page.locator('input[type="password"]').fill(pass);

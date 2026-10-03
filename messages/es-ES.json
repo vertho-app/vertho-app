@@ -602,7 +602,9 @@
       "invalidCodeLength": "Introduce el código de 6 dígitos.",
       "invalidCode": "Código inválido.",
       "tooManyLinks": "Ya pedimos muchos enlaces para este contacto. Usa el último que recibiste o inténtalo de nuevo más tarde.",
-      "whatsappNeedsOrganization": "Desde esta dirección no podemos saber tu organización por el número. Entra con tu correo o por el enlace de acceso que envió tu organización."
+      "whatsappNeedsOrganization": "Desde esta dirección no podemos saber tu organización por el número. Entra con tu correo o por el enlace de acceso que envió tu organización.",
+      "wrongPassword": "Correo o contraseña incorrectos.",
+      "passwordLogin": "No fue posible entrar con contraseña ahora. Inténtalo de nuevo o entra por el enlace de acceso."
     },
     "signup": {
       "eyebrow": "{tenantName} · registro",
@@ -678,7 +680,9 @@
       "pdf": "PDF",
       "content": "Contenido"
     },
-    "missingCollaborator": "Colaborador no encontrado.",
+    "missingCollaborator": "No encontramos tu registro en esta organización.",
+    "missingCollaboratorBody": "Entraste, pero tu cuenta no está vinculada a una persona aquí. Si participas por más de una organización, sal y vuelve a entrar por el enlace de acceso, eligiendo la organización. Si sigue así, habla con recursos humanos.",
+    "missingCollaboratorAction": "Salir y volver a entrar",
     "fallbackFirstName": "ti",
     "fallbackPhaseTitle": "Diagnóstico",
     "phaseDescriptions": {

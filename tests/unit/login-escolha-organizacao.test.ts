@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
 import { mockPOST } from '../helpers/mock-request';
+import { ehDestinoDoPainel } from '@/lib/auth/login-senha';
 
 /**
  * A tela "em qual organização você quer entrar?" e o que a resposta PÚBLICA
@@ -147,12 +148,14 @@ describe('a porta do painel × a régua que escolhe o host', () => {
     const destino = layout.match(/redirect\('\/login\?redirect=([^']+)'\)/)?.[1];
     expect(destino, 'o /admin deixou de mandar para o login com destino').toBeTruthy();
 
-    // O literal é remontado com `new RegExp` (corpo + flags), e não avaliado: o
-    // que se quer daqui é a RÉGUA, não executar o arquivo.
+    // Desde 03/10/2026 (R-78) a régua da tela mora em `lib/auth/login-senha`,
+    // porque a oferta de senha também depende dela: a tela importa de lá, e o
+    // teste executa a MESMA função.
     const login = ler('app/login/login-form.tsx');
-    const daTela = login.match(/const ehDestinoDoPainel = \(path: string\) => \/(.+?)\/([gimsuy]*)\.test\(path\)/);
-    expect(daTela, 'a régua do painel na tela mudou de forma').toBeTruthy();
-    expect(new RegExp(daTela![1], daTela![2]).test(destino!)).toBe(true);
+    expect(login, 'a tela deixou de usar a régua compartilhada').toMatch(
+      /import \{[^}]*\behDestinoDoPainel\b[^}]*\} from '@\/lib\/auth\/login-senha'/,
+    );
+    expect(ehDestinoDoPainel(destino!)).toBe(true);
 
     const magic = ler('app/api/auth/magic-link/route.ts');
     const doServidor = magic.match(/const destinoEhPainelPlataforma = \/(.+?)\/([gimsuy]*)\.test\(nextPath\)/);

@@ -1645,7 +1645,7 @@ npm run test:unit                       # vitest (guards de seguranca, isolament
 $env:SMOKE_EMAIL="x"; $env:SMOKE_PASS="y"; npm test    # Playwright (login por senha)
 npm run test:ui
 ```
-Auth nos E2E: o `/login` tem "Entrar com senha" (Supabase email+senha); os specs logam com `SMOKE_EMAIL`/`SMOKE_PASS` (helper `tests/helpers/auth.js`).
+Auth nos E2E: os specs abrem `/login?senha=1`, que mostra "Entrar com senha" (Supabase email+senha), e logam com `SMOKE_EMAIL`/`SMOKE_PASS` (helper `tests/helpers/auth.js`). Desde 03/10/2026 (R-78) a opção de senha só aparece em tenant de demonstração, no pedido do painel (`?redirect=/admin...`) e com `?senha=1`; a regra vive em `lib/auth/login-senha.ts`.
 
 ### Diagnostico E2E (2026-05-27)
 Tres niveis, todos **read-only / sem custo** (nao clicam acoes de IA, envio, exclusao):

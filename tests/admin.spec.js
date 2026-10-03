@@ -6,7 +6,8 @@ test.describe('Admin (requer credenciais admin)', () => {
     const pass = process.env.SMOKE_PASS;
     if (!email || !pass) { test.skip(); return; }
 
-    await page.goto('/login');
+    // `?senha=1`: o endereço genérico só oferece senha com ele (R-78).
+    await page.goto('/login?senha=1');
     await page.getByText('Entrar com senha').click();
     await page.locator('input[type="email"]').fill(email);
     await page.locator('input[type="password"]').fill(pass);

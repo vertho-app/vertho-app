@@ -13,7 +13,9 @@ async function login(page) {
     return false;
   }
 
-  await page.goto('/login');
+  // `?senha=1`: desde 03/10/2026 (R-78) o endereço genérico só oferece senha
+  // com este parâmetro (ou no pedido do painel, ou em tenant de demonstração).
+  await page.goto('/login?senha=1');
   await page.getByText('Entrar com senha').click();
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(pass);

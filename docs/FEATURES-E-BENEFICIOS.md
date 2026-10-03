@@ -31,7 +31,7 @@ A plataforma está em **4 idiomas** (português do Brasil, português de Portuga
 
 | Feature | O que é | Benefício |
 |---|---|---|
-| **Login sem senha** | Magic Link por e-mail, com senha tradicional opcional (Supabase Auth) | "Acesso direto pelo link. Sem mais um login pra esquecer." |
+| **Login sem senha** | Link de acesso por e-mail (Supabase Auth), de uso único e válido por 1 hora. Não há senha para o cliente: entrar com senha existe só nos ambientes de demonstração e no painel da equipe Vertho | "Acesso direto pelo link. Sem mais um login pra esquecer." |
 | **Login por WhatsApp** *(ago/2026)* | Colaborador **sem e-mail** recebe pelo WhatsApp oficial (template aprovado da Meta) um **link de acesso de uso único**, que abre no navegador do aparelho e já entra logado. Não há código para digitar | Alcança quem não tem ou não usa e-mail corporativo: operação, chão de fábrica, recém-formados. Ninguém fica de fora, e quem vive no celular entra pelo próprio WhatsApp. |
 | **Plataforma em 4 idiomas** | pt-BR, pt-PT, es-ES e en-US; idioma definido por empresa e ajustável por colaborador (next-intl) | A mesma plataforma atende Brasil, Portugal, mercados hispânicos e de língua inglesa, sem versão paralela. |
 | **Dashboard personalizado** | Hero, próximo passo, acesso rápido e KPIs pessoais | Foco no que importa hoje, sem se perder em menus. |

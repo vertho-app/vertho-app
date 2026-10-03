@@ -21,13 +21,15 @@ export interface Tenant {
   nome: string;
   slug: string;
   ui_config: any;
+  /** Tenant de demonstração. O login oferece senha só nele (R-78). */
+  is_demo?: boolean | null;
 }
 
 const fetchTenant = cache(async (key: string): Promise<Tenant | null> => {
   const sb = createSupabaseAdmin();
   const { data, error } = await sb
     .from('empresas')
-    .select('id, nome, slug, ui_config')
+    .select('id, nome, slug, ui_config, is_demo')
     .eq('slug', key)
     .single();
   if (error || !data) return null;

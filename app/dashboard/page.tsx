@@ -129,8 +129,27 @@ export default function DashboardHomePage() {
   // `colaboradores`. O E2E lê este marcador para acusar a causa em vez de
   // colecionar sintomas — de 01/09 a 09/09 o piloto reportou cinco falhas de
   // locator que eram uma só, a conta de smoke apagada pelo reset noturno.
+  //
+  // R-78 (03/10/2026): a tela dizia só "Colaborador não encontrado.", sem
+  // saída. O caso que mais cai aqui é a sessão que nasceu no endereço genérico
+  // de quem está em duas organizações (o `findColabByEmail` é fail-closed na
+  // ambiguidade); a saída é sair e pedir o link de novo, que pergunta a
+  // organização. Sair também serve à conta que não tem cadastro nenhum.
   if (!data?.colaborador) return (
-    <div data-dashboard="sem-colaborador" className="p-6 text-center text-gray-400">{t('missingCollaborator')}</div>
+    <div data-dashboard="sem-colaborador" className="mx-auto max-w-md p-6 text-center">
+      <p className="text-base font-semibold text-white">{t('missingCollaborator')}</p>
+      <p className="mt-2 text-sm leading-relaxed text-gray-400">{t('missingCollaboratorBody')}</p>
+      <button
+        type="button"
+        onClick={async () => {
+          await supabase.auth.signOut().catch(() => {});
+          router.replace('/login');
+        }}
+        className="mt-5 rounded-lg border border-white/15 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white hover:bg-white/[0.12]"
+      >
+        {t('missingCollaboratorAction')}
+      </button>
+    </div>
   );
 
   const { colaborador } = data;

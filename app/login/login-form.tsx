@@ -10,19 +10,20 @@ import SignupModal from './signup-modal';
 import AvisoNavegadorEmbutido from '@/components/auth/aviso-navegador-embutido';
 import { ehCaminhoLocal } from '@/lib/auth/caminho-local';
 import { chaveDoErroDoPedido, confirmacaoDoEnvio, type ConfirmacaoDoEnvio } from '@/lib/auth/login-respostas';
-
 // O painel da equipe Vertho não é um tenant: ele vive no endereço genérico
-// (`app.vertho.ai`), e é o `next` pedido — não o cadastro — que faz a sessão
+// (`app.vertho.ai`), e é o `next` pedido, não o cadastro, que faz a sessão
 // nascer lá (ver o bloco "O DESTINO PEDIDO MANDA NO HOST" em
 // `api/auth/magic-link`). A porta é abrir `/admin`, que manda para
-// `/login?redirect=/admin/dashboard`.
-const ehDestinoDoPainel = (path: string) => /^\/admin(-v2)?(\/|$|\?)/.test(path);
+// `/login?redirect=/admin/dashboard`. A régua mora em `login-senha` porque a
+// oferta de senha também depende dela.
+import { chaveDoErroDeSenha, ehDestinoDoPainel } from '@/lib/auth/login-senha';
 
 export default function LoginForm({
   branding,
   embutido = false,
   ios = false,
   comOrganizacao = false,
+  senhaDisponivel = false,
 }: {
   branding: any;
   embutido?: boolean;
@@ -33,6 +34,11 @@ export default function LoginForm({
    * genérico ele diz "existe" para qualquer um.
    */
   comOrganizacao?: boolean;
+  /**
+   * Oferece "Entrar com senha"? Só em tenant de demonstração, no pedido do
+   * painel e com `?senha=1` (R-78): fora disso ninguém tem como definir senha.
+   */
+  senhaDisponivel?: boolean;
 }) {
   const t = useTranslations('Login');
   const common = useTranslations('Common');
@@ -164,7 +170,8 @@ export default function LoginForm({
     if (mode === 'password' && password) {
       const { error } = await supabase.auth.signInWithPassword({ email: trimmed, password });
       if (error) {
-        setErrorMsg(error.message);
+        // A mensagem do Supabase vem em inglês ("Invalid login credentials").
+        setErrorMsg(t(chaveDoErroDeSenha(error)));
         setStatus('error');
       }
       // Se sucesso, o onAuthStateChange redireciona
@@ -547,12 +554,14 @@ export default function LoginForm({
               {status === 'loading' ? t('checking') : mode === 'password' ? t('enterWithPassword') : common('actions.enter')}
             </button>
 
-            <div className="mt-3 flex flex-col items-center gap-1.5">
-              <button type="button" onClick={() => { setMode(mode === 'login' ? 'password' : 'login'); setStatus('idle'); setErrorMsg(''); }}
-                className="text-xs hover:underline" style={{ color: accentColor }}>
-                {mode === 'login' ? t('enterWithPassword') : t('enterWithMagicLink')}
-              </button>
-            </div>
+            {senhaDisponivel ? (
+              <div className="mt-3 flex flex-col items-center gap-1.5">
+                <button type="button" onClick={() => { setMode(mode === 'login' ? 'password' : 'login'); setStatus('idle'); setErrorMsg(''); }}
+                  className="text-xs hover:underline" style={{ color: accentColor }}>
+                  {mode === 'login' ? t('enterWithPassword') : t('enterWithMagicLink')}
+                </button>
+              </div>
+            ) : null}
 
             {status === 'error' && errorMsg && (
               <p className="text-danger text-sm mt-3">{errorMsg}</p>

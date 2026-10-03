@@ -4,9 +4,16 @@ import { resolveTenant, getTenantSlug } from '@/lib/tenant-resolver';
 import { getTranslations } from 'next-intl/server';
 import LoginForm from './login-form';
 import { ehNavegadorEmbutido, ehIos } from '@/lib/auth/navegador-embutido';
+import { senhaDisponivelNoLogin } from '@/lib/auth/login-senha';
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ redirect?: string | string[]; senha?: string | string[] }>;
+}) {
   await connection();
+  const params = (await searchParams) ?? {};
+  const umValor = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
 
   const h = await headers();
   const t = await getTranslations('Login');
@@ -39,6 +46,13 @@ export default async function LoginPage() {
       embutido={ehNavegadorEmbutido(ua)}
       ios={ehIos(ua)}
       comOrganizacao={!!tenant}
+      // Senha só onde ela existe (R-78): decidido no servidor para o botão não
+      // piscar. Ver `lib/auth/login-senha.ts`.
+      senhaDisponivel={senhaDisponivelNoLogin({
+        tenantDemo: tenant?.is_demo === true,
+        redirect: umValor(params.redirect),
+        senha: umValor(params.senha),
+      })}
     />
   );
 }

@@ -602,7 +602,9 @@
       "invalidCodeLength": "Enter the 6-digit code.",
       "invalidCode": "Invalid code.",
       "tooManyLinks": "Too many links have been requested for this contact. Use the latest one you received or try again later.",
-      "whatsappNeedsOrganization": "From this address we cannot tell your organization from the number. Sign in with your email or through the access link your organization sent."
+      "whatsappNeedsOrganization": "From this address we cannot tell your organization from the number. Sign in with your email or through the access link your organization sent.",
+      "wrongPassword": "Incorrect email or password.",
+      "passwordLogin": "Could not sign in with a password right now. Try again or use the access link."
     },
     "signup": {
       "eyebrow": "{tenantName} · sign up",
@@ -678,7 +680,9 @@
       "pdf": "PDF",
       "content": "Content"
     },
-    "missingCollaborator": "Team member not found.",
+    "missingCollaborator": "We could not find your registration in this organization.",
+    "missingCollaboratorBody": "You are signed in, but your account is not linked to a person here. If you take part through more than one organization, sign out and sign in again with the access link, choosing the organization. If this persists, talk to HR.",
+    "missingCollaboratorAction": "Sign out and sign in again",
     "fallbackFirstName": "you",
     "fallbackPhaseTitle": "Diagnosis",
     "phaseDescriptions": {
