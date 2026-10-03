@@ -9,6 +9,7 @@
 // depender de QUANDO o cron rodou — irreprodutível, e o erro só apareceria na
 // forma de gente recebendo aviso de coisa velha.
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { decidirAvisos, CORTE_ISO, type CandidatoPlano } from '@/lib/notifications/avisar-plano-pronto';
 
 const c = (id: string, geradoEm: string, telefone: string | null = '5511999999999'): CandidatoPlano =>
@@ -78,7 +79,7 @@ describe('o corte publicado', () => {
 
   it('entrada vazia não quebra', () => {
     const r = decidirAvisos([], new Set());
-    expect(r).toEqual({ enviar: [], antigos: 0, repetidos: 0, semTelefone: 0 });
+    expect(r).toEqual({ enviar: [], antigos: 0, repetidos: 0, semTelefone: 0, reprovados: 0 });
   });
 
   it('🔴 corte alternativo SEM escopo é recusado — reanúncio não pode vazar para outro tenant', async () => {
@@ -89,5 +90,24 @@ describe('o corte publicado', () => {
     await expect(
       avisarPlanosProntos({ corteIso: '2026-08-01T00:00:00.000Z' }),
     ).rejects.toThrow(/apenasSlug/);
+  });
+});
+
+describe('PDI reprovado pela 2ª IA não é anunciado (R-60)', () => {
+  it('veredito fail fica de fora e é contado no balde próprio; warn e pass seguem', () => {
+    const r = decidirAvisos([
+      { ...c('reprovado', '2026-10-05T10:00:00.000Z'), auditoriaStatus: 'fail' },
+      { ...c('alerta', '2026-10-05T10:00:00.000Z'), auditoriaStatus: 'warn' },
+      { ...c('aprovado', '2026-10-05T10:00:00.000Z'), auditoriaStatus: 'pass' },
+      c('sem-auditoria', '2026-10-05T10:00:00.000Z'),
+    ], new Set(), CORTE);
+    expect(r.enviar.map((x) => x.colaboradorId)).toEqual(['alerta', 'aprovado', 'sem-auditoria']);
+    expect(r.reprovados).toBe(1);
+  });
+
+  it('a leitura do cron traz o veredito do PDI (guard de fonte)', () => {
+    const f = readFileSync('lib/notifications/avisar-plano-pronto.ts', 'utf8');
+    expect(f).toMatch(/auditoria_status:conteudo->auditoria->>status/);
+    expect(f).toMatch(/auditoriaStatus: r\.auditoria_status/);
   });
 });

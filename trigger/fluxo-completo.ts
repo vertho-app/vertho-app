@@ -19,8 +19,10 @@ import { TASK_FLUXO, type ParamsFluxo, type ProgressoFluxo } from '@/lib/pipelin
  * cancelamento, continuação, simulação) está em `lib/pipeline-fluxo/executor.ts`, testado sem rede.
  *
  * Os lotes (IA4, blueprint, PDI) são as MESMAS tasks dos botões manuais, disparadas por `enfileirarLote`; esta task só
- * espera por elas com `wait.for` (checkpoint do Trigger: a espera não conta como compute). Não envia nada a pessoas:
- * enviar PDI e iniciar a cadência continuam decisão do dono.
+ * espera por elas com `wait.for` (checkpoint do Trigger: a espera não conta como compute). Esta task não envia nada a
+ * pessoas, mas o que ela gera chega a elas: o PDI novo é anunciado depois pelo cron `avisar_planos` (menos o
+ * reprovado pela 2ª IA, que fica retido, R-60), e avaliação sem o check da 2ª IA segura o PDI na fila (R-59).
+ * Iniciar a cadência continua decisão do dono.
  *
  * Orçamento: ~45 min de COMPUTE por execução (auditoria, trilha, relatórios). Se acabar, a task se re-agenda com o
  * mesmo `jobId` e a fila é recalculada lá — por isso a continuação é idempotente.

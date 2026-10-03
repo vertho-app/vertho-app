@@ -712,3 +712,38 @@ describe('prepararLoteTemplate', () => {
     });
   });
 });
+
+/**
+ * R-87 (revisão de 02/10/2026): em tenant com perfil EXTERNO (OPQ32, Hogan) o DISC
+ * nativo é bloqueado e o Diagnóstico não exige `perfil_dominante`. O convite de
+ * perfil chamava todo mundo para uma tela que recusa, e o de competências excluía
+ * a empresa inteira por "perfil não concluído".
+ */
+describe('perfil externo nos convites de entrada (R-87)', () => {
+  const EXTERNO = { ...EMPRESA, sys_config: { perfil_externo_fonte: 'opq32' } };
+
+  it('o convite para o mapeamento comportamental nativo não sai em tenant com perfil externo', async () => {
+    const sb = mock({ empresa: EXTERNO });
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'avaliacao_pendente', colabs: [professor({ perfil_dominante: null })],
+    });
+    expect(lote.alvos).toHaveLength(0);
+    expect(lote.excluidos[0].motivo).toMatch(/perfil externo/);
+  });
+
+  it('o convite de competências alcança quem não tem DISC nativo, como o gate do Diagnóstico', async () => {
+    const sb = mock({ empresa: EXTERNO });
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'avaliacao_competencias', colabs: [professor({ perfil_dominante: null })],
+    });
+    expect(lote.alvos).toHaveLength(1);
+  });
+
+  it('sem fonte externa, nada muda: o convite de competências segue exigindo o Perfil', async () => {
+    const sb = mock();
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'avaliacao_competencias', colabs: [professor({ perfil_dominante: null })],
+    });
+    expect(lote.alvos).toHaveLength(0);
+  });
+});

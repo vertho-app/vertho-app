@@ -6,6 +6,7 @@ import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 import { storageSlug } from '@/lib/storage-slug';
 import { totalDoMapeamento } from '@/lib/demo/convidado-demo';
 import { colaboradorEmDegustacao } from '@/lib/demo/degustacao-mapeamento';
+import { pdiRetidoPelaAuditoria } from '@/lib/relatorios/pdi-retido';
 
 /**
  * Carrega o PDI ativo do colaborador.
@@ -59,6 +60,12 @@ export async function loadPDI() {
 
   const conteudo = typeof rel.conteudo === 'string' ? JSON.parse(rel.conteudo) : rel.conteudo;
 
+  // Reprovado pela 2ª IA: retido até ser regerado (R-60). A pessoa vê "em
+  // preparação", que é o estado verdadeiro dela: o plano vai ser refeito.
+  if (pdiRetidoPelaAuditoria(conteudo, rel.gerado_em)) {
+    return { colaborador: colab, pdiAtivo: false, concluiuAvaliacao: true, respondidas: 0, totalAvaliacao: 0, degustacao: false };
+  }
+
   return {
     colaborador: colab,
     pdiAtivo: true,
@@ -93,6 +100,8 @@ export async function baixarMeuPdiPdf() {
       .limit(1)
       .maybeSingle();
     if (!rel) return { error: 'PDI não encontrado' };
+    // O PDF segue a tela: reprovado pela 2ª IA não sai (R-60).
+    if (pdiRetidoPelaAuditoria(rel.conteudo, rel.gerado_em)) return { error: 'PDI não encontrado' };
 
     const slug = storageSlug(colab.nome_completo, 'pdi');
     // Resolvido antes do `if (!path)` porque o nome do arquivo também é marca —

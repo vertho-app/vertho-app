@@ -88,12 +88,15 @@ export async function gerarRelatoriosIndividuaisLote(
     if ('error' in fila) return { success: false, error: fila.error };
     if (fila.semAvaliacao) return { success: false, error: 'Nenhuma avaliação encontrada' };
 
-    const { pendentes, incompletos } = fila;
+    const { pendentes, incompletos, aguardandoCheck } = fila;
+    // Quem tem avaliação completa mas sem o check da 2ª IA fica de fora e é DITO (R-59):
+    // o caminho é rodar o check da IA4 e voltar aqui.
+    const semCheck = aguardandoCheck ? ` · ${aguardandoCheck} aguardando o check da 2ª IA (rode o check da IA4)` : '';
     if (!pendentes.length) {
       return {
         success: true,
-        message: incompletos
-          ? `Nenhum relatório pendente com avaliação completa (${incompletos} com avaliação incompleta)`
+        message: incompletos || aguardandoCheck
+          ? `Nenhum relatório pendente com avaliação completa e auditada (${incompletos} com avaliação incompleta${semCheck})`
           : 'Todos os relatórios já foram gerados',
       };
     }
@@ -101,7 +104,7 @@ export async function gerarRelatoriosIndividuaisLote(
     return {
       success: true,
       data: pendentes,
-      message: `${pendentes.length} relatórios pendentes${incompletos ? ` · ${incompletos} com avaliação incompleta ignorados` : ''}`,
+      message: `${pendentes.length} relatórios pendentes${incompletos ? ` · ${incompletos} com avaliação incompleta ignorados` : ''}${semCheck}`,
     };
   } catch (err: any) {
     return { success: false, error: err.message };

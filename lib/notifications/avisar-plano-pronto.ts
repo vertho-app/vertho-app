@@ -54,30 +54,37 @@ export interface CandidatoPlano {
   nome: string;
   telefone: string | null;
   geradoEm: string;
+  /** Veredito da 2ª IA sobre o PDI (`conteudo.auditoria.status`: pass, warn, fail). */
+  auditoriaStatus?: string | null;
 }
 
 /**
  * Quem deve ser avisado, decidido em CÓDIGO PURO (testável sem banco).
  *
- * As três exclusões são diferentes e por isso contadas separadamente: passado
- * (corte), já avisado (idempotência) e sem telefone (lacuna de cadastro, que não
- * é sucesso nem falha de envio).
+ * As exclusões são diferentes e por isso contadas separadamente: passado
+ * (corte), REPROVADO pela 2ª IA, já avisado (idempotência) e sem telefone
+ * (lacuna de cadastro, que não é sucesso nem falha de envio).
+ *
+ * 🔴 PDI reprovado pela auditoria não é anunciado (R-60, 03/10/2026): até então
+ * o veredito ficava só no admin, e a mensagem chamava a pessoa para ler um plano
+ * que a 2ª IA tinha reprovado. Regerado e aprovado, ele volta a ser elegível.
  */
 export function decidirAvisos(
   candidatos: CandidatoPlano[],
   jaAvisados: Set<string>,
   corteIso: string = CORTE_ISO,
-): { enviar: CandidatoPlano[]; antigos: number; repetidos: number; semTelefone: number } {
-  let antigos = 0, repetidos = 0, semTelefone = 0;
+): { enviar: CandidatoPlano[]; antigos: number; repetidos: number; semTelefone: number; reprovados: number } {
+  let antigos = 0, repetidos = 0, semTelefone = 0, reprovados = 0;
   const enviar: CandidatoPlano[] = [];
 
   for (const c of candidatos || []) {
     if (!c.geradoEm || c.geradoEm <= corteIso) { antigos++; continue; }
+    if (c.auditoriaStatus === 'fail') { reprovados++; continue; }
     if (jaAvisados.has(c.colaboradorId)) { repetidos++; continue; }
     if (!c.telefone) { semTelefone++; continue; }
     enviar.push(c);
   }
-  return { enviar, antigos, repetidos, semTelefone };
+  return { enviar, antigos, repetidos, semTelefone, reprovados };
 }
 
 /**
@@ -110,7 +117,7 @@ export async function avisarPlanosProntos(opts: {
     throw new Error('corteIso exige apenasSlug: reanúncio em massa sem escopo alcançaria outros tenants.');
   }
   const sb = createSupabaseAdmin();
-  const resumo = { elegiveis: 0, enviados: 0, falhas: 0, antigos: 0, repetidos: 0, semTelefone: 0 };
+  const resumo = { elegiveis: 0, enviados: 0, falhas: 0, antigos: 0, repetidos: 0, semTelefone: 0, reprovados: 0 };
 
   let q = sb.from('empresas')
     .select('id, slug, nome, is_demo').or('is_demo.is.null,is_demo.eq.false');
@@ -125,7 +132,7 @@ export async function avisarPlanosProntos(opts: {
     // Só o que nasceu depois do corte já filtra no banco — o `decidirAvisos`
     // refaz a checagem porque a régua tem que valer mesmo se a query mudar.
     const { data: rels, error: eR } = await sb.from('relatorios')
-      .select('colaborador_id, gerado_em')
+      .select('colaborador_id, gerado_em, auditoria_status:conteudo->auditoria->>status')
       .eq('empresa_id', emp.id).eq('tipo', 'individual')
       .gt('gerado_em', corte)
       .not('colaborador_id', 'is', null);
@@ -150,6 +157,7 @@ export async function avisarPlanosProntos(opts: {
         nome: (c?.nome_completo || 'Colaborador').split(' ')[0],
         telefone: c?.whatsapp || c?.telefone || null,
         geradoEm: r.gerado_em,
+        auditoriaStatus: r.auditoria_status ?? null,
       };
     });
 
@@ -157,6 +165,7 @@ export async function avisarPlanosProntos(opts: {
     resumo.antigos += d.antigos;
     resumo.repetidos += d.repetidos;
     resumo.semTelefone += d.semTelefone;
+    resumo.reprovados += d.reprovados;
     resumo.elegiveis += d.enviar.length;
 
     const baseUrl = tenantUrl(emp.slug);

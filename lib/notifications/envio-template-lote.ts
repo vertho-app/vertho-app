@@ -77,6 +77,12 @@ export interface ContextoEnvio {
   empresaId: string;
   empresaNome: string;
   empresaSlug: string;
+  /**
+   * Fonte EXTERNA de perfil da empresa (OPQ32, Hogan…), ou null. Nela o DISC
+   * nativo é bloqueado e o Diagnóstico não exige `perfil_dominante`
+   * (`lib/access-gates`): os convites de entrada seguem a mesma régua (R-87).
+   */
+  perfilExternoFonte: string | null;
   /** `cargos_empresa.top5_workshop` por cargo (minúsculo) — régua da tela do assessment. */
   top5PorCargo: Map<string, string[]>;
   /** Progresso individual que define os públicos dos templates de avaliação. */
@@ -201,11 +207,17 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
   votacao_pendente: (c, ctx) => resolverVotacao(c, ctx),
   avaliacao_pendente: (c, ctx) => {
     // O convite é para o mapeamento comportamental, disponível antes dos cenários.
+    // Com perfil EXTERNO o DISC nativo é bloqueado: o convite levaria todos a uma
+    // tela que recusa (R-87). O perfil dessas pessoas vem da fonte externa.
+    if (ctx.perfilExternoFonte) return { excluir: 'empresa usa perfil externo: o mapeamento comportamental nativo não se aplica' };
     if (c.perfil_dominante) return { excluir: 'perfil comportamental já concluído' };
     return { args: base(c, ctx) };
   },
   avaliacao_competencias: (c, ctx) => {
-    if (!c.perfil_dominante) return { excluir: 'perfil comportamental ainda não concluído' };
+    // A mesma régua do gate do Diagnóstico (`gateDiagnosticoDaPessoa`): com perfil
+    // EXTERNO ele não exige `perfil_dominante`, que ali nunca existe. Exigir aqui
+    // excluía a empresa inteira do convite (R-87).
+    if (!c.perfil_dominante && !ctx.perfilExternoFonte) return { excluir: 'perfil comportamental ainda não concluído' };
     const progresso = ctx.avaliacaoPorColab.get(c.id);
     if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
     if (progresso.respondidas > 0) return { excluir: 'avaliação já iniciada' };
@@ -921,7 +933,7 @@ export async function prepararLoteTemplate(
   if (!montar || !resolver) throw new Error(`template "${template}" não é disparável por esta tela`);
 
   const { data: empresa, error: eE } = await sb.from('empresas')
-    .select('id, nome, slug, is_demo').eq('id', empresaId).maybeSingle();
+    .select('id, nome, slug, is_demo, sys_config').eq('id', empresaId).maybeSingle();
   if (eE) throw new Error(`empresas: ${eE.message}`);
   if (!empresa) throw new Error('empresa não encontrada');
   if (empresa.is_demo) throw new Error('tenant de demonstração não envia comunicação real');
@@ -933,6 +945,7 @@ export async function prepararLoteTemplate(
     empresaId,
     empresaNome: empresa.nome,
     empresaSlug: empresa.slug,
+    perfilExternoFonte: (empresa.sys_config as any)?.perfil_externo_fonte || null,
     top5PorCargo: new Map((cargos || []).map((c: any) => [String(c.nome || '').toLowerCase(), (c.top5_workshop || []) as string[]])),
     avaliacaoPorColab: TEMPLATES_AVALIACAO_MANUAL.has(template)
       ? await carregarProgressoAvaliacao(sb, empresaId, colabs)

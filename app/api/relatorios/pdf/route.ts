@@ -11,6 +11,7 @@ import { tipoRelatorioForaDoAr } from '@/lib/relatorios/tipos-pulso';
 import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 import { storageSlug } from '@/lib/storage-slug';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
+import { pdiRetidoPelaAuditoria } from '@/lib/relatorios/pdi-retido';
 import React from 'react';
 
 // O fallback regenera o PDF com renderToBuffer (CPU-bound) quando o
@@ -62,6 +63,11 @@ export async function GET(request) {
     if (rel.tipo === 'individual' && rel.colaborador_id) {
       const colabGuard = await assertColabAccess(auth, rel.colaborador_id);
       if (colabGuard) return colabGuard;
+      // A PRÓPRIA pessoa não baixa o PDI que a 2ª IA reprovou (R-60): a tela dela
+      // mostra "em preparação", e o id na URL não pode ser a porta dos fundos.
+      if (auth.colaborador?.id === rel.colaborador_id && !auth.isPlatformAdmin && pdiRetidoPelaAuditoria(rel.conteudo, rel.gerado_em)) {
+        return NextResponse.json({ error: 'PDI em preparação' }, { status: 404 });
+      }
     } else if (rel.tipo === 'gestor') {
       // `colaborador_id` do relatório do gestor é o PRÓPRIO gestor
       // (`lib/relatorios/gestor-rh-core.ts`); nulo nunca casa com ninguém.
