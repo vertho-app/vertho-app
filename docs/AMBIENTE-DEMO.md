@@ -576,6 +576,7 @@ de cada resposta, no momento de maior valor, e a mensagem do WhatsApp já cita o
 | Painel da cena (some fora do caminho da cena, recolhe, dispensa) | `app/dashboard/cena-degustacao.tsx`, montado em `app/dashboard/layout.tsx` |
 | Contato de dentro da sala (a rota do início exige a origem do convidado, e a sala é outra origem) | `app/auth/degustacao/contato-sala/route.ts` |
 | Contato do início com os desafios vistos e o "outro" | `app/auth/degustacao/contato/route.ts` + `lib/demo/degustacao-contato.ts` |
+| Gravação de tela | `app/degustacao/gravacao-da-degustacao.tsx`, `lib/demo/degustacao-gravacao*.ts` |
 
 **Banco.** Só a CHECK de `experience_version` (mig 273: `A`, `B`, `C`). Nenhuma coluna nova. O desafio
 escolhido primeiro fica em `relevant_exploration_target` como `dor-<chave>`, e o clique de contato em
@@ -596,13 +597,32 @@ que `'C'` era recusada (`acme-prospect-experience.test.ts`) foi atualizado de pr
 nos 5 convites B o primeiro clique foi sempre o primeiro item, então com ordem fixa o clique mede
 posição e não prioridade.
 
-**Verificação.** 21 mutações de código derrubaram cada uma o teste nomeado
+**Gravação (Sentry Replay, plano free de 50 por mês).** O init do Sentry NÃO liga replay
+(`sentry.client.config.js`, com guard estático): o mesmo código atende clientes reais e a cota
+acabaria no primeiro dia. Só o início da C e a sala com um desafio escolhido ligam a gravação,
+carregando o integrador da CDN do Sentry (`lazyLoadIntegration`) para não pesar o bundle de todas as
+telas. O mapeamento (DISC) fica de fora. A etiqueta de busca é `demo_chave:<hash>`: `sha256("degustacao:"
++ código do convite)`, 12 hex, igual no navegador e no painel (`etiquetaDaGravacao`); o código do
+convite, o nome e o e-mail NUNCA vão como tag. Campos de texto mascarados, conteúdo de demonstração
+visível. Cada host abre outra sessão de gravação (estimativa de 2 a 4 por lead). Limites conhecidos:
+o ticket (`sala`) e o código de volta passam pelas navegações que a gravação registra, e a redação
+(`redigirUrlDaGravacao`) cobre o que passa pelo gancho (breadcrumbs e spans), não a lista de URLs
+do resumo da gravação; e texto que o lead digita num chat e que reaparece em tela não é mascarado
+(a persona é fictícia, mas a fala dele não). A página avisa que registra telas e cliques.
+
+**Verificação.** 21 mutações de código e 6 de gravação derrubaram cada uma o teste nomeado
 (base verde). Os pontos do painel descrevem a tela REAL: confira-os no ambiente de demonstração ao
 mexer nas telas citadas (`degustacao-desafios.ts`), porque nada no build acusa um ponto que a tela
-deixou de sustentar.
+deixou de sustentar. 🔴 `Medido 03/10/2026`, com o passaporte C de QA em produção (ACME e Escolas):
+dos pontos escritos a partir do código e da memória, dois NÃO apareciam nas telas ("a jornada chega
+pelo WhatsApp" no engajamento e "ao abrir uma pessoa o gestor lê a jornada" na home do gestor) e
+foram trocados pelo que cada tela mostra. Passaporte de QA da C: nome começando em `QA`, empresa
+`TESTE INTERNO` (ficam fora da coorte); criado por script server-side quando o painel não está
+logado.
 
 **Fora da fatia 1** (pedem DDL ou decisão): página de resumo, "encaminhar para quem decide", a
-pergunta "foi fácil de entender?", tabela de eventos por passo e a gravação de tela (Sentry Replay), que entra em commit próprio
+pergunta "foi fácil de entender?", tabela de eventos por passo e o link "ver gravação" no painel
+(hoje o painel mostra a etiqueta para buscar no Sentry).
 
 ### Simuladores por papel e simulador de liderança (17/09/2026)
 

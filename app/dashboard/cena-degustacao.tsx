@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { ArrowRight, ChevronDown, ChevronUp, MessageCircle, X } from 'lucide-react';
 import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beacon';
+import GravacaoDaDegustacao from '@/app/degustacao/gravacao-da-degustacao';
 import {
   CODIGO_CURTO_PATTERN,
   DEMO_PRESENTATION_RETURN_PARAM,
@@ -106,9 +107,16 @@ export default function CenaDaDegustacao({ tenantSlug, minhaCasa, cenas }: {
   }, []);
 
   const cena = chave ? cenas.find((item) => item.chave === chave) ?? null : null;
-  if (!cena || !codigo || dispensada) return null;
-  if (!naCasaDoPapel(pathname, cena.caminhoBase)) return null;
-  if (!Object.entries(cena.consulta).every(([nome, valor]) => parametros.get(nome) === valor)) return null;
+  // A gravação acompanha a pessoa pela sala INTEIRA (não só na tela da cena) e só
+  // existe para quem chegou por um desafio da versão C. Fica fora do painel
+  // para não depender de a pessoa estar na tela dele.
+  const gravacao = <GravacaoDaDegustacao codigo={chave ? codigo : null} onde="sala" />;
+  const mostrarPainel = Boolean(cena && codigo) && !dispensada
+    && naCasaDoPapel(pathname, cena!.caminhoBase)
+    && Object.entries(cena!.consulta).every(([nome, valor]) => parametros.get(nome) === valor);
+  // Fragmento nos DOIS ramos: a gravação é sempre o primeiro filho e não
+  // desmonta ao entrar e sair da tela da cena (desmontar reiniciaria o efeito).
+  if (!mostrarPainel || !cena || !codigo) return <>{gravacao}</>;
 
   const inicio = linkDaPaginaDeBoasVindas(tenantSlug, codigo);
 
@@ -122,6 +130,8 @@ export default function CenaDaDegustacao({ tenantSlug, minhaCasa, cenas }: {
   }
 
   return (
+    <>
+    {gravacao}
     <div data-degustacao="cena" data-desafio={cena.chave} className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5">
       <DemoExplorationBeacon alvo={alvoDoDesafio(cena.chave)} />
       <div className="flex items-start gap-3">
@@ -206,5 +216,6 @@ export default function CenaDaDegustacao({ tenantSlug, minhaCasa, cenas }: {
         ) : null}
       </div>
     </div>
+    </>
   );
 }

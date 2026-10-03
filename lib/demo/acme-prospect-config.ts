@@ -173,6 +173,8 @@ export type AcmeProspectProgress = {
   contatoClicadoEm?: string | null;
   exploracaoRelevanteEm?: string | null;
   exploracaoAlvo?: string | null;
+  /** Só na C: a etiqueta para achar a gravação do lead no Sentry (`demo_chave`). */
+  gravacaoEtiqueta?: string | null;
   telemetryVersion?: string | null;
   testeInterno?: boolean;
   personalAccessedAt: string | null;
@@ -221,6 +223,8 @@ export type DemoGuestProgress = {
   contatoClicadoEm?: string | null;
   exploracaoRelevanteEm?: string | null;
   exploracaoAlvo?: string | null;
+  /** Só na C: a etiqueta para achar a gravação do lead no Sentry (`demo_chave`). */
+  gravacaoEtiqueta?: string | null;
   telemetryVersion?: string | null;
   testeInterno?: boolean;
   personalAccessedAt: string | null;

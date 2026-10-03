@@ -3,6 +3,7 @@ import 'server-only';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import { isEmailDeConvidadoDemo } from '@/lib/demo/convidado-demo';
+import { etiquetaDaGravacao } from '@/lib/demo/degustacao-gravacao-servidor';
 import {
   ACME_PROSPECT_AUTH_MARKER,
   ACME_PROSPECT_AUTH_PREFIX,
@@ -324,6 +325,7 @@ export async function listDemoProspectProgress(slug: string, client?: any): Prom
     contatoClicadoEm: row.contact_clicked_at ?? null,
     exploracaoRelevanteEm: row.relevant_exploration_at ?? null,
     exploracaoAlvo: row.relevant_exploration_target ?? null,
+    gravacaoEtiqueta: row.experience_version === 'C' ? etiquetaDaGravacao(slug, row.session_id) : null,
     telemetryVersion: row.telemetry_version ?? null,
     testeInterno: row.is_internal_test === true,
     personalAccessedAt: row.personal_accessed_at,
@@ -444,6 +446,7 @@ export async function listDemoGuestProgress(
     contatoClicadoEm: row.contatoClicadoEm,
     exploracaoRelevanteEm: row.exploracaoRelevanteEm,
     exploracaoAlvo: row.exploracaoAlvo,
+    gravacaoEtiqueta: row.gravacaoEtiqueta ?? null,
     telemetryVersion: row.telemetryVersion,
     testeInterno: row.testeInterno,
     personalAccessedAt: row.personalAccessedAt,
