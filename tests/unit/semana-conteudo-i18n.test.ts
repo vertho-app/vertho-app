@@ -25,21 +25,22 @@ describe('tela da semana: formatos e avisos do vídeo em 4 idiomas', () => {
 
   it('os dois avisos do vídeo saíram do código', () => {
     expect(pagina).toContain("t('content.withYourName')");
-    expect(pagina).toContain("t('content.preparingVideo')");
+    expect(pagina).toContain("t('formats.videoPreparing')");
     expect(pagina).not.toContain('com seu nome</p>');
     expect(pagina).not.toContain('Estamos preparando seu vídeo personalizado');
   });
 
   it.each(LOCALES)('%s: rótulos de todos os formatos e os dois avisos, sem travessão', (locale) => {
-    const content = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8')).SeasonWeek.content;
+    const semana = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8')).SeasonWeek;
+    const content = semana.content;
     for (const formato of FORMATOS) {
       expect(typeof content.formats?.[formato], `${locale}: formats.${formato}`).toBe('string');
       expect(content.formats[formato].length).toBeGreaterThan(1);
     }
-    for (const chave of ['withYourName', 'preparingVideo']) {
-      expect(typeof content[chave], `${locale}: ${chave}`).toBe('string');
-      expect(content[chave]).not.toMatch(/[\u2013\u2014\u2015]/);
-    }
+    expect(typeof content.withYourName, `${locale}: content.withYourName`).toBe('string');
+    expect(content.withYourName).not.toMatch(/[\u2013\u2014\u2015]/);
+    expect(typeof semana.formats?.videoPreparing, `${locale}: formats.videoPreparing`).toBe('string');
+    expect(semana.formats.videoPreparing).not.toMatch(/[\u2013\u2014\u2015]/);
     // o rótulo não é a chave crua (era o defeito)
     expect(content.formats.video).not.toBe('video');
     expect(content.formats.texto).not.toBe('texto');
