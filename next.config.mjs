@@ -1,18 +1,8 @@
 import { withSentryConfig } from '@sentry/nextjs';
 import createNextIntlPlugin from 'next-intl/plugin';
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { rewritesDaMidiaOffline } from './lib/demo/offline/midia-rewrites.mjs';
 
-const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 const withNextIntl = createNextIntlPlugin();
-
-// Build number = short SHA do commit deployado (muda a cada deploy)
-let sha = '0000000';
-try {
-  sha = (process.env.VERCEL_GIT_COMMIT_SHA || execSync('git rev-parse HEAD').toString().trim()).slice(0, 7);
-} catch {}
-const buildNum = sha;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -23,12 +13,6 @@ const nextConfig = {
   // gate de build — o código legado tem warnings demais pra bloquear deploy.
   eslint: { ignoreDuringBuilds: true },
 
-  env: {
-    NEXT_PUBLIC_APP_VERSION: pkg.version,
-    NEXT_PUBLIC_BUILD_NUM: buildNum,
-    NEXT_PUBLIC_GIT_SHA: sha,
-    NEXT_PUBLIC_BUILD_DATE: new Date().toISOString().slice(0, 10),
-  },
   // Garante que os PNGs usados via fs.readFileSync em server components/API
   // routes sejam incluídos no bundle serverless na Vercel.
   outputFileTracingIncludes: {
