@@ -336,8 +336,6 @@ nextjs-app/
 │       │   ├── missao/route.ts        # set_modo + compromisso
 │       │   ├── evaluation/route.ts    # Sem 14 wizard + triangulacao
 │       │   └── concluida/pdf/route.ts # PDF Evolution Report
-│       ├── gestor/
-│       │   └── plenaria/pdf/route.ts  # PDF Plenaria equipe
 │       ├── webhooks/
 │       │   ├── bunny/route.ts
 │       │   ├── qstash/route.ts
@@ -394,12 +392,8 @@ nextjs-app/
 │   ├── page-shell.tsx            # PageContainer, PageHero, GlassCard, SectionHeader
 │   ├── admin/preferencias-ranking.tsx  # só no /admin: média da PREFERÊNCIA de formato (escala 1 a 5), não nota de competência
 │   ├── video-modal.tsx           # Bunny iframe + postMessage tracking
-│   ├── dashboard/
-│   │   ├── RHView.tsx
-│   │   └── ManagerView.tsx
 │   └── pdf/
 │       ├── styles.ts             # NotoSans, paleta, helpers
-│       ├── RelatorioTemplate.tsx
 │       ├── RelatorioIndividual.tsx
 │       ├── RelatorioGestor.tsx
 │       ├── RelatorioRH.tsx
@@ -453,7 +447,6 @@ nextjs-app/
 │   ├── rag-ingest.ts             # Parser PDF/DOCX -> chunks -> embedding
 │   ├── rag-seed.ts               # 6 docs seed (regua, modos missao, privacidade...)
 │   ├── temporada-concluida-pdf.ts  # PDF Evolution Report individual
-│   ├── plenaria-equipe-pdf.ts    # PDF Plenaria consolidado do time
 │   ├── disc-arquetipos.ts
 │   ├── avatar-presets.ts
 │   ├── preferencias-config.ts
@@ -1136,9 +1129,8 @@ Arquitetura, fronteira dos canais, proteções e arquivos: `docs/BETO-CANAIS.md`
 Dispatch de formularios e relatorios. Status: 🔑 RESEND_API_KEY.
 
 ### 6.3 PDF — @react-pdf/renderer + pdfjs-dist
-Geracao server-side. Fonte NotoSans. PDFs: Individual, Gestor, RH, Comportamental, **Evolution Report**, **Plenaria**.
+Geracao server-side. Fonte NotoSans. PDFs: Individual, Gestor, RH, Comportamental, **Evolution Report**.
 - `lib/temporada-concluida-pdf.ts` — PDF Evolution Report individual
-- `lib/plenaria-equipe-pdf.ts` — PDF Plenaria consolidado do time
 Status: ✅
 
 ### 6.4 Scraping — Jina AI + Firecrawl
@@ -1190,7 +1182,7 @@ Tabelas: empresas, colaboradores, platform_admins
 > `/dashboard/evolucao` (que lê `evolucao` e `evolucao_descritores`, ambas em 0),
 > `actions/cenario-b.ts`, `actions/evolucao-granular.ts`, o cron de sessões
 > abandonadas em `cron-jobs.ts` e os componentes `ManagerView.tsx` / `RHView.tsx`
-> — estes dois já sem nenhum importador.
+> (estes dois já não tinham importador e foram removidos em 04/10/2026).
 >
 > ⚠️ **Não confundir com `/dashboard/assessment`, que está VIVO.** A raiz do
 > assessment é outro caminho: grava em `respostas` (393 linhas, escrita hoje) via
@@ -1445,7 +1437,7 @@ Vertho; a tela "Prontidão para o próximo cargo" (só estilo) segue oculta.
 2. Lista liderados com delta + status (confirmada/parcial/estagnacao) — **nao existe mais veredito de regressao** desde 01/09/2026: queda de nota entre duas conversas descreve a variacao do instrumento, nao alguem que desaprendeu, e cai em `estagnacao`. Regua unica: `lib/season-engine/convergencia.ts`
 3. Filtros + ordenacao
 4. Click-through: modal com detalhe + PDF individual
-5. Plenaria PDF: /api/gestor/plenaria/pdf (consolidado do time)
+(O PDF de plenária da equipe, que nenhuma tela chamava, foi removido em 04/10/2026.)
 
 Tabelas: trilhas, colaboradores, temporada_semana_progresso
 ```
@@ -2755,6 +2747,12 @@ consumidores em caminho vivo** (`actions/fase2.ts`, `whatsapp-lote.ts`,
 para `fase4_envios` (75 linhas, ativa) e isto é resíduo, ou existe um caminho de
 escrita quebrado. É o único caso da lista em que "zero" pode significar bug.
 
+⚠️ **Atualização de 04/10/2026:** o caminho de escrita quebrado era o `dispararEmails`
+(`actions/fase2.ts`): ele gravava o envio e mandava um link para `/avaliacao/{token}`, rota que
+nunca existiu em `app/`, e nenhuma tela o chamava. Foi removido. Sobraram o `verStatusEnvios`
+(só lê) e o `dispararLinksCIS` (`actions/whatsapp-lote.ts`), que depende de linhas `pendente`
+que nada mais cria e também não tem chamador de tela.
+
 ### 27.3 Tabelas sem tela e sem código
 
 Zero linhas **e** zero consumidores no repositório — sobras da migração do GAS e
@@ -2774,6 +2772,11 @@ decisão do dono** (zona 🔴 do `CLAUDE.md`: DDL).
 `phase-transition` (288), `empty-state` (157), `RHView` (117) e `ManagerView`
 (109), ambos da cadeia morta do chat, `RelatorioTemplate` (48) e `version-badge`
 (28).
+
+⚠️ **Atualização de 04/10/2026:** `RHView`, `ManagerView` e `RelatorioTemplate` foram removidos
+(sem importador, confirmado por busca). `RelatorioComportamental` voltou a ter chamador
+(`lib/relatorio-comportamental/relatorio-core.ts`); `phase-transition`, `empty-state` e
+`version-badge` seguem sem importador.
 
 E 5 rotas de API sem chamador no código, **das quais 2 são falso-positivo por
 construção**: `/api/webhooks/zapi/disconnected` é chamada de fora pela Z-API, e

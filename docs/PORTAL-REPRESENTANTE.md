@@ -59,7 +59,7 @@ Demonstração"** no portal. Decisões:
 (`isTenantDemo`/`gateEnvioDemo`) bloqueia **todo disparo real** em tenant demo:
 
 - Dispatchers em lote: `dispararMensagemCustomizada`, `enviarMagicLinksWhatsApp`,
-  `dispararEmails`, `enviarConvitesPulso`, `enviarLinksPerfil`.
+  `enviarConvitesPulso`, `enviarLinksPerfil`.
 - Caminho de access-link (central): `sendAccessLink` recebe `empresaId` e bloqueia
   — cobre o **auto-cadastro aberto** (`allow_open_signup`, o vetor de envio a
   contato REAL durante a demo) + todos os magic-links de login.

@@ -105,8 +105,7 @@ sai de `carimboCampo`, enum fechado), `pilula`/`missao` no e-mail da cadência,
 o kind do texto.
 
 **Ainda fora da medição** (verificado 06/08 — enviam e-mail sem passar por
-`pilula-envio`/`access-link-service`): `actions/fase2.ts` (diagnóstico),
-`actions/fase5/relatorios-envios.ts`, `actions/pulse/envio.ts` (o e-mail; o
+`pilula-envio`/`access-link-service`): `actions/fase5/relatorios-envios.ts`, `actions/pulse/envio.ts` (o e-mail; o
 WhatsApp já é medido), `app/api/radar/lead-pdf/route.ts`,
 `app/api/conarh/artefato/route.ts` e `app/admin/whatsapp/actions.ts`.
 

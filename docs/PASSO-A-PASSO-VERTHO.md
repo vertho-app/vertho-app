@@ -406,12 +406,9 @@ mesmo em `/admin/fit?tab=prontidao` → Prévia da leitura.
 - Botão **"Equipe"** na top bar (visível para gestor/RH)
 
 ### 26. Plenária PDF (Relatório RH)
-**Gestor/RH** · `/api/gestor/plenaria/pdf`
-
-- PDF consolidado do time inteiro
-- Gerado por `lib/plenaria-equipe-pdf.ts`
-- `resumo_executivo` sempre objeto, `perfil_disc` sempre `forca_coletiva/risco_coletivo`
-- Visão agregada: quem evoluiu, quem estagnou, padrões por competência
+**Removida em 04/10/2026.** A rota `/api/gestor/plenaria/pdf` e o gerador `lib/plenaria-equipe-pdf.ts`
+não tinham nenhuma tela que os chamasse. A visão agregada do time segue na tela de evolução da equipe
+(`/dashboard/gestor/equipe-evolucao`) e na plenária de evolução gerada pelo admin.
 
 ### 27. Evolution Report da empresa (Admin)
 **Admin** · `/admin/evolucao?empresa={id}`
