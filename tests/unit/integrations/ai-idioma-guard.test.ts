@@ -21,14 +21,6 @@ import { SAIDAS_AO_CLIENTE } from '@/lib/ai-saida-sem-travessao';
 const EXCECOES: Record<string, string> = {
   suporte_whatsapp:
     'Beto no WhatsApp: a resposta do modelo passa por `verificarResposta` (linguagem imprópria e links, em português) e todo texto de contenção é fixo em pt-BR (CVV 188). Em outro idioma a conduta ficaria cega. Decisão do dono.',
-  sem13_qualitativa:
-    'Rota de avaliação (`app/api/temporada/evaluation/route.ts`) é do lote e-cenb: o idioma da pessoa entra lá, com o resto do fechamento.',
-  arguicao_turno:
-    'A arguição é aberta pela rota de avaliação (lote e-cenb): o idioma entra pelo contexto da arguição quando a rota o passar.',
-  sem14_redacao:
-    'A redação final do fechamento (`lib/season-engine/fechamento-scorer.ts`) é do lote e-cenb: o núcleo é puro e recebe o idioma de quem chama.',
-  cenarios_b_integrador:
-    'O integrador sai no lote e-cenb (decisão do dono, 04/10/2026).',
 };
 
 /**
@@ -136,8 +128,7 @@ describe('toda tarefa que escreve ao cliente passa o idioma de quem lê', () => 
   });
 
   it('toda exceção diz o motivo', () => {
-    // Exceção velha pode sobrar sem derrubar nada: o lote e-cenb tira `cenarios_b_integrador` do registro, e a
-    // entrada dele deixa de valer. O que o guard cobra é o motivo escrito, não que a lista esteja sempre limpa.
+    // Exceção velha pode sobrar sem derrubar nada. O que o guard cobra é o motivo escrito, não que a lista esteja sempre limpa.
     for (const [tarefa, motivo] of Object.entries(EXCECOES)) {
       expect(motivo.length, tarefa).toBeGreaterThan(30);
     }
