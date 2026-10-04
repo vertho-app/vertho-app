@@ -9,6 +9,10 @@ import { buildInsightsExecutivosPrompt } from '@/lib/prompts/insights-executivos
 import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 import { CACHE_MAX_AGE_MS, isFreshReportCache } from '@/lib/relatorio-comportamental/relatorio-core';
 import { isAudioArtifactReady } from '@/lib/relatorio-comportamental/audio-cache';
+import {
+  CODIGO_NAO_AUTENTICADO, CODIGO_PESSOA_NAO_ENCONTRADA, CODIGO_SEM_PDF_PROPRIO, CODIGO_FALHA_NO_PDF,
+  type CodigoErroDoGestor,
+} from '@/lib/gestor/codigos-de-erro';
 
 const INSIGHTS_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 
@@ -134,20 +138,24 @@ export async function loadPerfilCISGestor(colaboradorId: string) {
  * Contraste com `getPerfilExternoPdfUrl` (dashboard do gestor), que recebe
  * `colabId` do cliente e por isso precisa de gate de posse explícito.
  */
-export async function getMeuPerfilExternoPdfUrl(): Promise<{ url?: string; error?: string }> {
+export async function getMeuPerfilExternoPdfUrl(): Promise<{ url?: string; codigo?: CodigoErroDoGestor }> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { error: 'Não autenticado' };
+  if (!email) return { codigo: CODIGO_NAO_AUTENTICADO };
 
   const colab: any = await findColabByEmail(email, 'id, perfil_externo_pdf_path');
-  if (!colab) return { error: 'Colaborador não encontrado' };
-  if (!colab.perfil_externo_pdf_path) return { error: 'Seu relatório ainda não foi carregado pela empresa' };
+  if (!colab) return { codigo: CODIGO_PESSOA_NAO_ENCONTRADA };
+  if (!colab.perfil_externo_pdf_path) return { codigo: CODIGO_SEM_PDF_PROPRIO };
 
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.storage
     .from('perfis-externos')
     .createSignedUrl(colab.perfil_externo_pdf_path, 60 * 10); // 10 min
-  if (error || !data?.signedUrl) return { error: error?.message || 'Falha gerando o link do PDF' };
+  // Código estável para a tela traduzir (R-67); o motivo do fornecedor (em inglês) vai para o log.
+  if (error || !data?.signedUrl) {
+    console.error('[perfil] link do PDF do perfil externo falhou:', error?.message);
+    return { codigo: CODIGO_FALHA_NO_PDF };
+  }
   return { url: data.signedUrl };
 }
 

@@ -81,14 +81,14 @@ describe('salvarCheckpointGestor — posse antes de escrever', () => {
   it('gestor do tenant A NÃO grava na trilha do tenant B (o achado)', async () => {
     sessao = gestorA;
     const r: any = await salvarCheckpointGestor({ trilhaId: 'tr-B', ...ok });
-    expect(r.error).toMatch(/não encontrada/i);
+    expect(r.codigo).toBe('jornada-nao-encontrada');
     expect(upsertMock).not.toHaveBeenCalled();
   });
 
   it('RH do tenant B também não alcança a trilha do tenant A', async () => {
     sessao = rhB;
     const r: any = await salvarCheckpointGestor({ trilhaId: 'tr-A', ...ok });
-    expect(r.error).toMatch(/não encontrada/i);
+    expect(r.codigo).toBe('jornada-nao-encontrada');
     expect(upsertMock).not.toHaveBeenCalled();
   });
 
@@ -97,7 +97,7 @@ describe('salvarCheckpointGestor — posse antes de escrever', () => {
     const inexistente: any = await salvarCheckpointGestor({ trilhaId: 'tr-ZZZ', ...ok });
     const deOutro: any = await salvarCheckpointGestor({ trilhaId: 'tr-B', ...ok });
     // distinguir as duas transformaria o endpoint num verificador de uuid alheio
-    expect(inexistente.error).toBe(deOutro.error);
+    expect(inexistente.codigo).toBe(deOutro.codigo);
   });
 
   it('gestor grava na trilha do PRÓPRIO liderado (régua `gestor_email`)', async () => {
@@ -114,7 +114,7 @@ describe('salvarCheckpointGestor — posse antes de escrever', () => {
   it('outro gestor do mesmo tenant é barrado (régua igual à da listagem)', async () => {
     sessao = gestorAOutraArea;
     const r: any = await salvarCheckpointGestor({ trilhaId: 'tr-A', ...ok });
-    expect(r.error).toMatch(/fora do seu escopo/i);
+    expect(r.codigo).toBe('fora-do-escopo');
     expect(upsertMock).not.toHaveBeenCalled();
   });
 
@@ -127,7 +127,7 @@ describe('salvarCheckpointGestor — posse antes de escrever', () => {
     expect(dentro.ok).toBe(true);
     upsertMock.mockClear();
     const fora: any = await salvarCheckpointGestor({ trilhaId: 'tr-B', ...ok });
-    expect(fora.error).toMatch(/não encontrada/i);   // o tenant continua fechado
+    expect(fora.codigo).toBe('jornada-nao-encontrada');   // o tenant continua fechado
     expect(upsertMock).not.toHaveBeenCalled();
   });
 
@@ -146,8 +146,8 @@ describe('salvarCheckpointGestor — posse antes de escrever', () => {
 
   it('semana e avaliação continuam validadas antes de qualquer query', async () => {
     sessao = gestorA;
-    expect((await salvarCheckpointGestor({ trilhaId: 'tr-A', semana: 7, avaliacao: 'evoluindo' } as any)).error).toMatch(/semana/i);
-    expect((await salvarCheckpointGestor({ trilhaId: 'tr-A', semana: 5, avaliacao: 'inventada' } as any)).error).toMatch(/avalia/i);
+    expect((await salvarCheckpointGestor({ trilhaId: 'tr-A', semana: 7, avaliacao: 'evoluindo' } as any) as any).codigo).toBe('semana-invalida');
+    expect((await salvarCheckpointGestor({ trilhaId: 'tr-A', semana: 5, avaliacao: 'inventada' } as any) as any).codigo).toBe('avaliacao-invalida');
     expect(upsertMock).not.toHaveBeenCalled();
   });
 });

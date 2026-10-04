@@ -66,8 +66,17 @@ describe('a tela DIZ quem finalizou', () => {
   });
 
   it('o painel do gestor também nomeia o estado terminal', () => {
-    expect(GESTOR).toContain('Jornada concluída');
-    expect(GESTOR).toContain("['finalizados', 'Finalizaram'");
+    // R-67: o texto vem do catálogo (ManagerEngagement), nos 4 idiomas; a tela lê as chaves.
+    expect(GESTOR).toContain("t('person.completedBadge')");
+    expect(GESTOR).toContain("['finalizados', t('list.finished')");
+    const ptBR = JSON.parse(readFileSync('messages/pt-BR.json', 'utf8')).ManagerEngagement;
+    expect(ptBR.person.completedBadge).toBe('Jornada concluída');
+    expect(ptBR.list.finished).toBe('Finalizaram');
+    for (const locale of ['pt-PT', 'es-ES', 'en-US']) {
+      const m = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8')).ManagerEngagement;
+      expect(m.person.completedBadge.length, `${locale}: completedBadge`).toBeGreaterThan(3);
+      expect(m.list.finished.length, `${locale}: finished`).toBeGreaterThan(3);
+    }
   });
 
   it('"Em movimento" não engorda com quem já terminou', () => {

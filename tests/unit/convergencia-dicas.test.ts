@@ -3,6 +3,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONVERGENCIA } from '@/lib/season-engine/convergencia';
 import { DICA_VEREDITO } from '@/lib/season-engine/convergencia-dicas';
+import { numerosDasDicas } from '@/lib/gestor/veredito-dicas';
+import { createTranslator } from 'next-intl';
 import { semComentarios } from '../helpers/fonte';
 
 /**
@@ -33,14 +35,40 @@ describe('descrição dos vereditos', () => {
     for (const veredito of vereditos) expect(DICA_VEREDITO[veredito]?.length ?? 0).toBeGreaterThan(20);
   });
 
-  it.each([
-    ['app/dashboard/gestor/equipe-evolucao/page.tsx'],
-  ])('%s lê as três frases da fonte única', (arquivo) => {
-    const fonte = semComentarios(readFileSync(path.join(RAIZ, arquivo), 'utf8'));
-    expect(fonte).toContain('convergencia-dicas');
-    for (const chave of ['CONFIRMADA', 'PARCIAL', 'ESTAVEL']) {
-      expect(fonte, `${arquivo} sem DICA_VEREDITO[CONVERGENCIA.${chave}]`).toContain(`DICA_VEREDITO[CONVERGENCIA.${chave}]`);
+  /**
+   * R-67 (04/10/2026): a tela Evolução da equipe fala nos 4 idiomas, então a frase vem do
+   * catálogo (`ManagerEvolution.verdictHints`) com os números dos cortes da régua
+   * (`numerosDasDicas`). A fonte única passa a valer ASSIM: em pt-BR o catálogo, com os
+   * números preenchidos, escreve EXATAMENTE `DICA_VEREDITO`, e nos outros idiomas os mesmos
+   * números entram pelo `Intl` do idioma.
+   */
+  const CHAVE_DO_VEREDITO: Record<string, 'confirmed' | 'partial' | 'stable'> = {
+    [CONVERGENCIA.CONFIRMADA]: 'confirmed', [CONVERGENCIA.PARCIAL]: 'partial', [CONVERGENCIA.ESTAVEL]: 'stable',
+  };
+  const frase = (locale: string, chave: string) => createTranslator({
+    locale, messages: JSON.parse(readFileSync(path.join(RAIZ, 'messages', `${locale}.json`), 'utf8')), namespace: 'ManagerEvolution',
+  })(`verdictHints.${chave}` as any, numerosDasDicas(locale) as any);
+
+  it('a tela lê as três frases do catálogo e os números da régua, sem copiá-los', () => {
+    const fonte = semComentarios(readFileSync(path.join(RAIZ, 'app/dashboard/gestor/equipe-evolucao/page.tsx'), 'utf8'));
+    expect(fonte).toContain('numerosDasDicas(');
+    for (const chave of ['confirmed', 'partial', 'stable']) {
+      expect(fonte, `sem verdictHints.${chave}`).toContain(`verdictHints.${chave}`);
     }
+    // Corte ou frase escritos à mão na tela divergiriam da régua na próxima calibragem.
+    expect(fonte).not.toMatch(/CORTE_(CONFIRMADA|PARCIAL)|Avanço de|Progress of|Avance de/);
+  });
+
+  it.each(Object.values(CONVERGENCIA))('pt-BR: o catálogo escreve a frase de %s igual à fonte única', (veredito) => {
+    expect(frase('pt-BR', CHAVE_DO_VEREDITO[veredito])).toBe(DICA_VEREDITO[veredito]);
+  });
+
+  it('os outros idiomas usam os mesmos cortes, com o separador decimal do idioma', () => {
+    expect(numerosDasDicas('pt-BR')).toEqual({ min: '0,5', from: '0,2', to: '0,4', max: '0,1' });
+    expect(numerosDasDicas('en-US')).toEqual({ min: '0.5', from: '0.2', to: '0.4', max: '0.1' });
+    expect(frase('en-US', 'partial')).toContain('0.2 to 0.4');
+    expect(frase('es-ES', 'partial')).toContain('0,2 a 0,4');
+    expect(frase('pt-PT', 'confirmed')).toContain('0,5 ou mais');
   });
 
   it('🔴 nenhuma frase é copiada à mão em outro arquivo', () => {

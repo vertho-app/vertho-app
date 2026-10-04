@@ -5902,7 +5902,7 @@
       "ofTotal": "of {total}",
       "weekCount": "{count} in week {week}"
     },
-    "pendingCount": "{count} pending",
+    "pendingCount": "{count, plural, one {# pending} other {# pending}}",
     "emptyAction": "No one stalled this week. When someone falls behind on the journey, they show up here, with how long and on which week.",
     "modal": {
       "eyebrow": "Week {week} checkpoint · evaluation",
@@ -5991,6 +5991,242 @@
       "openPdf": "Open the mapping PDF",
       "openPdfFor": "Open the mapping PDF for {name}",
       "pdfError": "Could not open the PDF"
+    }
+  },
+  "ManagerErrors": {
+    "notAuthenticated": "Your session has expired. Sign in again to continue.",
+    "noPermission": "You do not have access to this information.",
+    "personInvalid": "We do not recognize this person. Go back to the list and try again.",
+    "personNotFound": "We could not find this person.",
+    "outOfScope": "This person is not on your team.",
+    "noCompany": "We could not find the company linked to your access. Talk to Vertho.",
+    "noPdf": "The mapping PDF for this person has not been uploaded yet.",
+    "noOwnPdf": "Your report has not been uploaded by the company yet.",
+    "pdfFailed": "We could not open the PDF right now. Try again in a moment.",
+    "journeyNotFound": "We could not find this journey.",
+    "invalidWeek": "This is not a checkpoint week of the journey.",
+    "invalidEvaluation": "Invalid evaluation.",
+    "loadFailed": "We could not load this right now. Try again in a moment.",
+    "saveFailed": "We could not save. Try again.",
+    "generic": "Something went wrong. Try again."
+  },
+  "ManagerAlerts": {
+    "checkpoint_atrasado": "{count, plural, one {# checkpoint pending for more than 7 days} other {# checkpoints pending for more than 7 days}}",
+    "sem_perfil_externo": "{role, select, hr {{count, plural, one {# employee does not have {source} loaded yet} other {# employees do not have {source} loaded yet}}} other {{count, plural, one {# direct report does not have {source} loaded yet} other {# direct reports do not have {source} loaded yet}}}}",
+    "sem_perfil": "{role, select, hr {{count, plural, one {# employee without a behavioral profile mapped} other {# employees without a behavioral profile mapped}}} other {{count, plural, one {# direct report without a behavioral profile mapped} other {# direct reports without a behavioral profile mapped}}}}",
+    "sem_mapeamento": "{role, select, hr {{count, plural, one {# employee without competency mapping} other {# employees without competency mapping}}} other {{count, plural, one {# direct report without competency mapping} other {# direct reports without competency mapping}}}}",
+    "estagnado": "{role, select, hr {{count, plural, one {# employee stalled for 3 weeks or more (no checkpoint answered)} other {# employees stalled for 3 weeks or more (no checkpoint answered)}}} other {{count, plural, one {# direct report stalled for 3 weeks or more (no checkpoint answered)} other {# direct reports stalled for 3 weeks or more (no checkpoint answered)}}}}"
+  },
+  "ManagerEvolution": {
+    "title": "Team evolution",
+    "subtitle": "Consolidated view of the development of {scope, select, rh {employees} other {direct reports}}.",
+    "noneClosed": {
+      "title": "No journey has ended yet",
+      "body": "The before and after comparison shows up here when the first journey ends.",
+      "inProgress": "{count, plural, one {Right now, # is in progress.} other {Right now, # are in progress.}}"
+    },
+    "cards": {
+      "withJourney": "With a journey",
+      "withoutJourney": "{count} without a journey",
+      "inProgress": "In progress",
+      "confirmed": "Confirmed",
+      "partial": "Partial",
+      "stable": "Stable"
+    },
+    "verdictHints": {
+      "confirmed": "Progress of {min} or more between the start and the close.",
+      "partial": "Progress of {from} to {to} between the start and the close.",
+      "stable": "Progress of up to {max}: held the starting level."
+    },
+    "status": {
+      "inProgress": "In progress",
+      "confirmed": "Growth confirmed",
+      "partial": "Partial growth",
+      "stable": "Stable",
+      "noJourney": "No journey",
+      "archived": "Archived",
+      "unmeasured": "Not measured"
+    },
+    "filterAll": "All",
+    "empty": "{scope, select, rh {No employee found.} other {No direct report found.}}",
+    "row": {
+      "journeyOf": "{competency} · Journey {number}",
+      "noActiveJourney": "no active journey",
+      "levelChange": "{competency}: {from} → {to}"
+    },
+    "detail": {
+      "aria": "{scope, select, rh {Employee detail} other {Direct report detail}}",
+      "eyebrow": "Team evolution",
+      "pdf": "PDF",
+      "pdfError": "We could not generate the PDF. Try again.",
+      "close": "Close",
+      "context": "Context",
+      "competency": "Competency: <strong>{name}</strong> · Journey {number}",
+      "overall": "Overall reading",
+      "byDescriptor": "Descriptor by descriptor",
+      "levelUp": "Moved up a level",
+      "progress": "Progress",
+      "nextStep": "Follow-up recommendation"
+    }
+  },
+  "ManagerEngagement": {
+    "scope": {
+      "company": "Company view",
+      "manager": "Manager view"
+    },
+    "title": "Team engagement",
+    "subtitle": "See who is moving and where a conversation can help the journey keep going.",
+    "period": {
+      "label": "Period",
+      "current": "Current step of each person",
+      "week": "Week {week}"
+    },
+    "role": {
+      "label": "Role",
+      "all": "All roles"
+    },
+    "loading": "Organizing the journey signals…",
+    "loadError": "We could not load engagement",
+    "noOneInRole": {
+      "title": "No one in “{role}” in the cadence",
+      "body": "This role has no people in your selection. Other roles may have.",
+      "bodyWeek": "This role has no people in your selection in week {week}. Other roles may have.",
+      "showAll": "See all roles"
+    },
+    "notStarted": {
+      "title": "The team journey has not started yet",
+      "body": "Signals show up after the first cadence send. Until then, there is no movement to follow."
+    },
+    "funnel": {
+      "eyebrowWeek": "Week {week}",
+      "eyebrowCurrent": "Current step of each person",
+      "title": "From first access to delivery",
+      "descriptionWeek": "The four milestones in week {week}. They show presence in the journey, not a grade or a performance review.",
+      "descriptionCurrent": "The four milestones at the step each person is on today. They show presence in the journey, not a grade or a performance review.",
+      "inCadence": "In the cadence",
+      "inCadenceRole": "people in {role}",
+      "inCadenceAll": "people in your selection",
+      "accessed": "Accessed content",
+      "accessedDetail": "opened at least one format",
+      "consumed": "Consumed",
+      "consumedDetail": "video or podcast finished, or material opened",
+      "delivered": "Delivered evidence",
+      "deliveredDetail": "finished the practice"
+    },
+    "quickRead": {
+      "aria": "Quick read",
+      "suggested": "Suggested follow-up",
+      "breakdown": "{pending} with a pending step · {noDelivery} not delivered · {noSignal} without a signal",
+      "askTitle": "Used Tira-Dúvidas",
+      "askDetail": "Tira-Dúvidas opened"
+    },
+    "list": {
+      "byCoordination": "By coordination",
+      "byPerson": "Person by person",
+      "title": "Where to support the next step",
+      "all": "All",
+      "follow": "Follow up",
+      "moving": "Moving",
+      "finished": "Finished",
+      "search": "Search person",
+      "showing": "Showing {shown} of {total} {total, plural, one {person} other {people}}{hasRole, select, yes { in {role}} other {}}{hasCoordination, select, yes { in {coordinations, plural, one {# coordination} other {# coordinations}}} other {}}.",
+      "noMatch": "No one matches the selected filters.",
+      "noCoordination": "No coordinator set",
+      "peopleCount": "{count, plural, one {# person} other {# people}}",
+      "toFollow": "{count} to follow up"
+    },
+    "person": {
+      "noRole": "Role not provided",
+      "stageColumn": "Individual step",
+      "signalsColumn": "Signals of the week",
+      "formatsColumn": "Formats opened",
+      "noFormats": "No format recorded",
+      "calendarTitle": "Group calendar: week {week}",
+      "noPosition": "Position unavailable",
+      "stage": {
+        "pending": "step pending",
+        "done": "step completed",
+        "inProgress": "in progress"
+      },
+      "weekStage": "Week {week} · {stage}",
+      "completedTitle": "Completed the last week of the plan",
+      "completedBadge": "Journey completed",
+      "completedBadgeTotal": "Journey completed · {total} of {total} weeks"
+    },
+    "status": {
+      "completed": {
+        "label": "Journey completed",
+        "detailTotal": "Completed all {total} weeks of the plan.",
+        "detail": "Completed the last week of the plan."
+      },
+      "noSignal": {
+        "label": "No signal recorded",
+        "detail": "Worth checking whether the person managed to start."
+      },
+      "pending": {
+        "label": "Step pending",
+        "detail": "The group calendar is on week {week}."
+      },
+      "delivered": {
+        "label": "Delivery completed",
+        "detail": "The evidence for the week has been sent."
+      },
+      "moving": {
+        "label": "Moving",
+        "detail": "Consumed the content; the delivery has not appeared yet."
+      },
+      "started": {
+        "label": "Started the journey",
+        "detail": "Already accessed content this week."
+      }
+    },
+    "signals": {
+      "accessed": "Accessed",
+      "consumed": "Consumed",
+      "ask": "Tira-Dúvidas",
+      "recorded": "{label}: recorded",
+      "notRecorded": "{label}: not recorded"
+    },
+    "formats": {
+      "video": "Video",
+      "audio": "Audio",
+      "texto": "Text",
+      "case": "Case"
+    },
+    "legend": {
+      "title": "What each signal means",
+      "accessed": "<strong>Accessed:</strong> opened the page or one of the available formats.",
+      "consumed": "<strong>Consumed:</strong> finished the video or the podcast. Reading material (text and case study) counts when opened: a PDF in another tab has no completion event.",
+      "evidence": "<strong>Evidence:</strong> the practice that closes the week. The sentence names the week and says whether it is pending or delivered. Whoever delivers moves on, so the row of someone pending never shows a delivery.",
+      "quality": "<strong>Reflection level:</strong> high, medium or low, classified by AI when the week closes. An application week does not get a level. The text is private to the person and does not appear here.",
+      "none": "<strong>Not recorded:</strong> only means the system did not receive that signal; it is not an evaluation of the person."
+    }
+  },
+  "EngagementSignals": {
+    "signalJourney": {
+      "defaultEyebrow": "Journey signals",
+      "ofTotal": "of {total}"
+    },
+    "delivery": {
+      "completed": "Journey completed",
+      "lastReflection": "last reflection",
+      "completedTitle": "The person closed the last week of the plan. The level is from the last classified reflection; the text is private.",
+      "deliveredWeek": "Evidence for week {week} delivered",
+      "delivered": "Evidence delivered",
+      "deliveredTitle": "Step closed: the evidence for this week has been recorded. The level is classified by AI; the text of the reflection is private.",
+      "noLevel": "application week, no level",
+      "pendingWeek": "Evidence for week {week} pending",
+      "pending": "Evidence pending",
+      "pendingTitle": "The evidence that closes this week has not been recorded yet."
+    },
+    "quality": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "title": "Reflection quality",
+      "delivered": "{count, plural, one {# person delivered} other {# people delivered}} · level of the reflection at each person's current step",
+      "none": "Not classified",
+      "note": "AI classifies the reflection when each content week closes: high brings a concrete example and personal learning; medium stays general; low is generic or very short. The text is private to the person and does not appear here."
     }
   },
   "AdminCompanySettings": {

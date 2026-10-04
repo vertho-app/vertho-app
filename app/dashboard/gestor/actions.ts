@@ -6,7 +6,12 @@ import { recortarElencoDemo } from '@/lib/demo/elenco-visivel';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
-import { registrarLeituraIndisponivel, MENSAGEM_INDISPONIVEL } from '@/lib/gestor/leitura-indisponivel';
+import { registrarLeituraIndisponivel } from '@/lib/gestor/leitura-indisponivel';
+import {
+  CODIGO_NAO_AUTENTICADO, CODIGO_SEM_PERMISSAO, CODIGO_PESSOA_INVALIDA, CODIGO_PESSOA_NAO_ENCONTRADA,
+  CODIGO_FORA_DO_ESCOPO, CODIGO_SEM_EMPRESA, CODIGO_SEM_PDF, CODIGO_FALHA_NO_PDF,
+  CODIGO_LEITURA_INDISPONIVEL, CODIGO_FALHA_AO_CARREGAR, type CodigoErroDoGestor,
+} from '@/lib/gestor/codigos-de-erro';
 import { PROGRESSO, TRILHA, TURMA_MEMBRO } from '@/lib/status';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
@@ -38,10 +43,16 @@ export type GestorKpi = {
   atividade_semana: { ativos: number; total: number };
 };
 
+/**
+ * Um sinal de atenção da home: o TIPO e a contagem, nunca a frase (R-67, 04/10/2026). A frase,
+ * com o plural e o "liderado"/"colaborador", é da tela (`ManagerAlerts`, nos 4 idiomas); a action
+ * devolvia o texto pronto em português. `fonte` é o rótulo da fonte externa de perfil (OPQ32 etc.)
+ * e só vem no alerta `sem_perfil` de empresa que usa uma.
+ */
 export type GestorAlerta = {
   tipo: 'checkpoint_atrasado' | 'sem_perfil' | 'sem_mapeamento' | 'estagnado';
   count: number;
-  mensagem: string;
+  fonte?: string | null;
 };
 
 export type CheckpointPendenteDetalhado = {
@@ -128,7 +139,8 @@ export type PerfilColab = {
 
 export type GestorHomeData = {
   ok: boolean;
-  error?: string;
+  /** Por que não leu: código estável, traduzido na tela (`ManagerErrors`). Nunca texto. */
+  codigo?: CodigoErroDoGestor;
   /**
    * A leitura que alimenta a tela falhou (R-139). Não é "sem liderados": a tela mostra
    * "indisponível" com "tentar de novo", e o que se leria como vazio fica sem afirmar.
@@ -159,17 +171,17 @@ export type GestorHomeData = {
  * mesma régua. Sem ele, qualquer gestor autenticado leria o PDF de qualquer
  * pessoa da base — PII pesada (relatório psicométrico nominal).
  */
-export async function getPerfilExternoPdfUrl(colabId: string): Promise<{ url?: string; error?: string }> {
+export async function getPerfilExternoPdfUrl(colabId: string): Promise<{ url?: string; codigo?: CodigoErroDoGestor }> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { error: 'Não autenticado' };
+  if (!email) return { codigo: CODIGO_NAO_AUTENTICADO };
   const ctx = await getUserContext(email);
-  if (!ctx?.colaborador) return { error: 'Não autenticado' };
+  if (!ctx?.colaborador) return { codigo: CODIGO_NAO_AUTENTICADO };
 
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  if (!isGestor && !isRH) return { error: 'Acesso restrito a gestor/RH' };
-  if (!colabId || typeof colabId !== 'string') return { error: 'Colaborador inválido' };
+  if (!isGestor && !isRH) return { codigo: CODIGO_SEM_PERMISSAO };
+  if (!colabId || typeof colabId !== 'string') return { codigo: CODIGO_PESSOA_INVALIDA };
 
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
@@ -179,22 +191,29 @@ export async function getPerfilExternoPdfUrl(colabId: string): Promise<{ url?: s
     .eq('id', colabId)
     .eq('empresa_id', empresaId) // tenant: nunca cruza empresa
     .maybeSingle();
-  if (colabErr) return { error: colabErr.message };
-  if (!colab) return { error: 'Colaborador não encontrado' };
+  // O motivo do Supabase (em inglês) vai para o log, nunca para a tela (R-67).
+  if (colabErr) {
+    console.error('[gestor] perfil externo: leitura da pessoa falhou:', colabErr.message);
+    return { codigo: CODIGO_FALHA_AO_CARREGAR };
+  }
+  if (!colab) return { codigo: CODIGO_PESSOA_NAO_ENCONTRADA };
 
   // Gate de POSSE (≠ gate de sessão): o alvo tem que estar no escopo de quem pede.
   const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
   const noEscopo = isRH
     ? true
     : !!meuEmail && (colab.gestor_email || '').toLowerCase().trim() === meuEmail;
-  if (!noEscopo) return { error: 'Colaborador fora do seu escopo' };
+  if (!noEscopo) return { codigo: CODIGO_FORA_DO_ESCOPO };
 
-  if (!colab.perfil_externo_pdf_path) return { error: 'Sem PDF carregado para este colaborador' };
+  if (!colab.perfil_externo_pdf_path) return { codigo: CODIGO_SEM_PDF };
 
   const { data, error } = await sb.storage
     .from('perfis-externos')
     .createSignedUrl(colab.perfil_externo_pdf_path, 60 * 10); // 10 min
-  if (error || !data?.signedUrl) return { error: error?.message || 'Falha gerando o link do PDF' };
+  if (error || !data?.signedUrl) {
+    console.error('[gestor] perfil externo: link do PDF falhou:', error?.message);
+    return { codigo: CODIGO_FALHA_NO_PDF };
+  }
   return { url: data.signedUrl };
 }
 
@@ -253,12 +272,12 @@ export async function resolverEscopoDoGestor(
 export async function getGestorHomeData(): Promise<GestorHomeData> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { ok: false, error: 'Não autenticado' };
+  if (!email) return { ok: false, codigo: CODIGO_NAO_AUTENTICADO };
   const ctx = await getUserContext(email);
-  if (!ctx?.colaborador) return { ok: false, error: 'Não autenticado' };
+  if (!ctx?.colaborador) return { ok: false, codigo: CODIGO_NAO_AUTENTICADO };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  if (!isGestor && !isRH) return { ok: false, error: 'Acesso restrito a gestor/RH' };
+  if (!isGestor && !isRH) return { ok: false, codigo: CODIGO_SEM_PERMISSAO };
 
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
@@ -313,7 +332,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   });
   // O escopo que não leu NÃO é "gestor sem liderados" (R-139): a home diria que ele não
   // tem equipe. Indisponível, com a saída de tentar de novo.
-  if (escopo.indisponivel) return { ok: false, indisponivel: true, error: MENSAGEM_INDISPONIVEL };
+  if (escopo.indisponivel) return { ok: false, indisponivel: true, codigo: CODIGO_LEITURA_INDISPONIVEL };
   const liderados = escopo.liderados;
   const liderId2obj = new Map(liderados.map((c: any) => [c.id, c]));
   const liderIds = escopo.liderIds;
@@ -346,7 +365,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // Sem checar, a falha virava "ninguém tem trilha": todo liderado aparecia como SEM TRILHA.
   if (errTrilhas) {
     await registrarLeituraIndisponivel(empresaId, 'home-gestor-trilhas', errTrilhas.message);
-    return { ok: false, indisponivel: true, error: MENSAGEM_INDISPONIVEL };
+    return { ok: false, indisponivel: true, codigo: CODIGO_LEITURA_INDISPONIVEL };
   }
   const trilhaPorColab = new Map<string, any>();
   for (const t of (trilhas || [])) {
@@ -389,7 +408,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // Sem checar, a falha virava "nenhum checkpoint pendente" e o card do gestor ficava em dia.
   if (errCps) {
     await registrarLeituraIndisponivel(empresaId, 'home-gestor-checkpoints', errCps.message);
-    return { ok: false, indisponivel: true, error: MENSAGEM_INDISPONIVEL };
+    return { ok: false, indisponivel: true, codigo: CODIGO_LEITURA_INDISPONIVEL };
   }
   const checkpoints = cps || [];
   const cpPendentes = checkpoints.filter((cp: any) => cp.status === 'pendente');
@@ -544,31 +563,25 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
 
   // ── 5. Alertas ──
   //
-  // "Liderado" é a palavra do GESTOR: ele tem uma equipe. O RH não lidera a
-  // empresa inteira — para ele são colaboradores. A mesma frase servindo os dois
-  // escopos soava errada em metade das telas, e é a única diferença entre elas.
-  const pessoa = (n: number) => (isRH ? (n === 1 ? 'colaborador' : 'colaboradores') : (n === 1 ? 'liderado' : 'liderados'));
+  // A action devolve o TIPO e a contagem; a frase é da tela (`ManagerAlerts`, nos 4 idiomas, com
+  // o plural do idioma). "Liderado" é a palavra do GESTOR: ele tem uma equipe. O RH não lidera a
+  // empresa inteira, para ele são colaboradores, e a tela escolhe pelo `scope` que esta mesma
+  // resposta já traz. Antes a action montava a frase em português, com o plural escrito à mão.
   const alertas: GestorAlerta[] = [];
   const cpAtrasados = cpPendentes.filter((cp: any) => {
     const dias = (Date.now() - new Date(cp.criado_em).getTime()) / (24 * 3600 * 1000);
     return dias > 7;
   });
   if (cpAtrasados.length > 0) {
-    alertas.push({
-      tipo: 'checkpoint_atrasado',
-      count: cpAtrasados.length,
-      mensagem: `${cpAtrasados.length} checkpoint${cpAtrasados.length === 1 ? '' : 's'} pendente${cpAtrasados.length === 1 ? '' : 's'} há mais de 7 dias`,
-    });
+    alertas.push({ tipo: 'checkpoint_atrasado', count: cpAtrasados.length });
   }
   const semPerfil = liderados.filter((c: any) => !temPerfil(c)).length;
   if (semPerfil > 0) {
-    const fonteLabel = fonteExterna === 'opq32' ? 'OPQ32' : fonteExterna || 'comportamental';
     alertas.push({
       tipo: 'sem_perfil',
       count: semPerfil,
-      mensagem: fonteExterna
-        ? `${semPerfil} ${pessoa(semPerfil)} ${semPerfil === 1 ? 'ainda não tem' : 'ainda não têm'} ${fonteLabel} carregado`
-        : `${semPerfil} ${pessoa(semPerfil)} sem perfil comportamental mapeado`,
+      // Só quando a empresa tem fonte externa (OPQ32 etc.): sem ela o alerta é do DISC próprio.
+      fonte: fonteExterna ? (fonteExterna === 'opq32' ? 'OPQ32' : String(fonteExterna)) : null,
     });
   }
   // Etapa SEGUINTE do funil: tem perfil, falta o mapeamento de competências —
@@ -580,11 +593,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // outra; somar os dois contaria a mesma pessoa duas vezes.
   const semMapeamento = liderados.filter((c: any) => motivoSemTrilha(c) === 'sem_mapeamento').length;
   if (semMapeamento > 0) {
-    alertas.push({
-      tipo: 'sem_mapeamento',
-      count: semMapeamento,
-      mensagem: `${semMapeamento} ${pessoa(semMapeamento)} sem mapeamento de competências`,
-    });
+    alertas.push({ tipo: 'sem_mapeamento', count: semMapeamento });
   }
   // Estagnado: trilha ativa criada há >21 dias mas sem evolution_report e sem checkpoint respondido
   const estagnados = ativas.filter((t: any) => {
@@ -595,11 +604,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     return tcps.length === 0;
   });
   if (estagnados.length > 0) {
-    alertas.push({
-      tipo: 'estagnado',
-      count: estagnados.length,
-      mensagem: `${estagnados.length} ${pessoa(estagnados.length)} estagnado${estagnados.length === 1 ? '' : 's'} há 3+ semanas (sem checkpoint respondido)`,
-    });
+    alertas.push({ tipo: 'estagnado', count: estagnados.length });
   }
 
   // ── 6. Checkpoints pendentes detalhados ──
@@ -813,7 +818,8 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
 /** O que a tela de engajamento do time devolve. */
 export type EngajamentoDoTime = {
   ok: boolean;
-  error?: string;
+  /** Por que não leu: código estável, traduzido na tela (`ManagerErrors`). Nunca texto. */
+  codigo?: CodigoErroDoGestor;
   /** A leitura do escopo falhou (R-139): "indisponível", e não um time vazio. */
   indisponivel?: boolean;
   scope?: 'gestor' | 'rh';
@@ -847,16 +853,16 @@ export async function getEngajamentoDoTime(
 ): Promise<EngajamentoDoTime> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { ok: false, error: 'Não autenticado' };
+  if (!email) return { ok: false, codigo: CODIGO_NAO_AUTENTICADO };
   const ctx = await getUserContext(email);
-  if (!ctx?.colaborador) return { ok: false, error: 'Não autenticado' };
+  if (!ctx?.colaborador) return { ok: false, codigo: CODIGO_NAO_AUTENTICADO };
 
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  if (!isGestor && !isRH) return { ok: false, error: 'Acesso restrito a gestor/RH' };
+  if (!isGestor && !isRH) return { ok: false, codigo: CODIGO_SEM_PERMISSAO };
 
   const empresaId = ctx.colaborador.empresa_id;
-  if (!empresaId) return { ok: false, error: 'Colaborador sem empresa' };
+  if (!empresaId) return { ok: false, codigo: CODIGO_SEM_EMPRESA };
 
   // `tenantDb` no lugar do service-role: esta action só precisa ler dentro do
   // próprio tenant, e o cliente com empresa_id embutido dá exatamente isso.
@@ -875,7 +881,7 @@ export async function getEngajamentoDoTime(
 
   // O RH olha o tenant inteiro (`recorte` nulo) e não depende do escopo; o gestor sim: sem
   // ele o recorte seria uma lista vazia, lida como "seu time não tem ninguém" (R-139).
-  if (!isRH && escopo.indisponivel) return { ok: false, indisponivel: true, error: MENSAGEM_INDISPONIVEL };
+  if (!isRH && escopo.indisponivel) return { ok: false, indisponivel: true, codigo: CODIGO_LEITURA_INDISPONIVEL };
   const { rollUpEngajamento } = await import('@/lib/engajamento/roll-up');
   const recorte = isRH ? null : escopo.liderIds;
   const rollup: any = await rollUpEngajamento(empresaId, semana ?? null, recorte, cargo ?? null);

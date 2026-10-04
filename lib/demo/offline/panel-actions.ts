@@ -20,8 +20,9 @@ export async function getEvolucaoEngajamentoRh(area?: string | null) {
 }
 export async function listarEquipeEvolucao() { return demo.panels.team; }
 export async function loadLideradoConcluida(key: string) {
-  if (!demo.panels.team.rows.some(row => row.colabEmail === key)) return { error: 'Pessoa fora desta equipe.' };
-  return demo.panels.details[key] || { error: 'Esta jornada ainda não está concluída.' };
+  // Mesmo contrato da action online (R-67): `codigo`, nunca texto.
+  if (!demo.panels.team.rows.some(row => row.colabEmail === key)) return { ok: false as const, codigo: 'fora-do-escopo' };
+  return demo.panels.details[key] || { ok: false as const, codigo: 'jornada-nao-encontrada' };
 }
 export async function listarCargosComRanking() {
   return { cargos: Object.keys(demo.panels.rankings).sort((a,b) => a.localeCompare(b)) };

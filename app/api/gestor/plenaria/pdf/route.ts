@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
 
     const r = await listarEquipeEvolucao();
     // Leitura que falhou é 503 (tentar de novo), não 403 (R-139): a pessoa tem permissão.
-    if (r.error) return NextResponse.json({ error: r.error }, { status: (r as any).indisponivel ? 503 : 403 });
+    // R-67: a action devolve um `codigo` (nunca texto); a rota repassa o código, sem frase em português.
+    if (!r.ok) return NextResponse.json({ codigo: (r as any).codigo }, { status: (r as any).indisponivel ? 503 : 403 });
 
     // Cabeçalho pela SESSÃO, não pelo e-mail (22/09/2026). O mesmo e-mail existe
     // em várias empresas nesta base, e a leitura antiga (`colaboradores` só por

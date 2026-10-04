@@ -97,14 +97,14 @@ beforeEach(() => { sessao = null; signedUrlMock.mockClear(); });
 describe('getPerfilExternoPdfUrl — gate de POSSE', () => {
   it('sem sessão → não autenticado, e nunca assina URL', async () => {
     const r = await getPerfilExternoPdfUrl('c1');
-    expect(r.error).toMatch(/autenticado/i);
+    expect(r.codigo).toBe('nao-autenticado');
     expect(signedUrlMock).not.toHaveBeenCalled();
   });
 
   it('colaborador comum não passa nem do gate de papel', async () => {
     sessao = colab;
     const r = await getPerfilExternoPdfUrl('c1');
-    expect(r.error).toMatch(/restrito/i);
+    expect(r.codigo).toBe('sem-permissao');
     expect(signedUrlMock).not.toHaveBeenCalled();
   });
 
@@ -118,7 +118,7 @@ describe('getPerfilExternoPdfUrl — gate de POSSE', () => {
     sessao = gestor;
     const r = await getPerfilExternoPdfUrl('c2');
     expect(r.url).toBeUndefined();
-    expect(r.error).toMatch(/escopo/i);
+    expect(r.codigo).toBe('fora-do-escopo');
     expect(signedUrlMock).not.toHaveBeenCalled();
   });
 
@@ -126,7 +126,7 @@ describe('getPerfilExternoPdfUrl — gate de POSSE', () => {
     sessao = gestor;
     const r = await getPerfilExternoPdfUrl('c3');
     expect(r.url).toBeUndefined();
-    expect(r.error).toMatch(/não encontrado/i);
+    expect(r.codigo).toBe('pessoa-nao-encontrada');
     expect(signedUrlMock).not.toHaveBeenCalled();
   });
 
@@ -134,26 +134,26 @@ describe('getPerfilExternoPdfUrl — gate de POSSE', () => {
     sessao = papelExtinto;
     const r = await getPerfilExternoPdfUrl('c2');
     expect(r.url).toBeUndefined();
-    expect(r.error).toMatch(/acesso restrito/i);
+    expect(r.codigo).toBe('sem-permissao');
     expect(signedUrlMock).not.toHaveBeenCalled();
   });
 
   it('RH alcança a empresa toda — mas só a dele', async () => {
     sessao = rh;
     expect((await getPerfilExternoPdfUrl('c2')).url).toBe('https://signed/emp-A/c2.pdf');
-    expect((await getPerfilExternoPdfUrl('c3')).error).toMatch(/não encontrado/i);
+    expect((await getPerfilExternoPdfUrl('c3')).codigo).toBe('pessoa-nao-encontrada');
   });
 
   it('sem PDF carregado → erro claro, sem assinar nada', async () => {
     sessao = gestor;
     const r = await getPerfilExternoPdfUrl('c4');
-    expect(r.error).toMatch(/sem pdf/i);
+    expect(r.codigo).toBe('sem-pdf');
     expect(signedUrlMock).not.toHaveBeenCalled();
   });
 
   it('colabId vazio é rejeitado antes de qualquer query', async () => {
     sessao = gestor;
-    expect((await getPerfilExternoPdfUrl('')).error).toMatch(/inválido/i);
+    expect((await getPerfilExternoPdfUrl('')).codigo).toBe('pessoa-invalida');
   });
 });
 
@@ -171,7 +171,7 @@ describe('getMeuPerfilExternoPdfUrl — identidade só da sessão', () => {
   it('sem sessão → não autenticado, sem assinar', async () => {
     sessao = null;
     const r = await getMeuPerfilExternoPdfUrl();
-    expect(r.error).toMatch(/autenticado/i);
+    expect(r.codigo).toBe('nao-autenticado');
     expect(signedUrlMock).not.toHaveBeenCalled();
   });
 
@@ -185,7 +185,7 @@ describe('getMeuPerfilExternoPdfUrl — identidade só da sessão', () => {
     sessao = { email: 'sem-pdf@x.com', role: 'colaborador', colaborador: { id: 'c4' } };
     const r = await getMeuPerfilExternoPdfUrl();
     expect(r.url).toBeUndefined();
-    expect(r.error).toMatch(/ainda não foi carregado/i);
+    expect(r.codigo).toBe('sem-pdf-proprio');
     expect(signedUrlMock).not.toHaveBeenCalled();
   });
 });

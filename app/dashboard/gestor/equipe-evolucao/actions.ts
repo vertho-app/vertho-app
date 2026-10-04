@@ -10,7 +10,12 @@ import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competen
 import { isTenantDemo } from '@/lib/demo/envio-guard';
 import { recortarElencoDemo } from '@/lib/demo/elenco-visivel';
 import { ordenarPorNome } from '@/lib/gestor/ordenar-por-nome';
-import { registrarLeituraIndisponivel, MENSAGEM_INDISPONIVEL } from '@/lib/gestor/leitura-indisponivel';
+import { registrarLeituraIndisponivel } from '@/lib/gestor/leitura-indisponivel';
+import {
+  CODIGO_NAO_AUTENTICADO, CODIGO_SEM_PERMISSAO, CODIGO_PESSOA_NAO_ENCONTRADA, CODIGO_FORA_DO_ESCOPO,
+  CODIGO_LEITURA_INDISPONIVEL, CODIGO_FALHA_AO_CARREGAR, CODIGO_FALHA_AO_SALVAR, CODIGO_JORNADA_NAO_ENCONTRADA,
+  CODIGO_SEMANA_INVALIDA, CODIGO_AVALIACAO_INVALIDA,
+} from '@/lib/gestor/codigos-de-erro';
 
 /**
  * Lista os liderados do gestor com temporada (em andamento ou concluída)
@@ -20,12 +25,12 @@ import { registrarLeituraIndisponivel, MENSAGEM_INDISPONIVEL } from '@/lib/gesto
 export async function listarEquipeEvolucao() {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { error: 'Não autenticado' };
+  if (!email) return { ok: false as const, codigo: CODIGO_NAO_AUTENTICADO };
   const ctx = await getUserContext(email);
-  if (!ctx?.colaborador) return { error: 'Não autenticado' };
+  if (!ctx?.colaborador) return { ok: false as const, codigo: CODIGO_NAO_AUTENTICADO };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  if (!isGestor && !isRH) return { error: 'Acesso restrito a gestor/RH' };
+  if (!isGestor && !isRH) return { ok: false as const, codigo: CODIGO_SEM_PERMISSAO };
 
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
@@ -49,7 +54,7 @@ export async function listarEquipeEvolucao() {
   // (R-139). Indisponível, com a saída de tentar de novo.
   if (errColabs) {
     await registrarLeituraIndisponivel(empresaId, 'evolucao-da-equipe-pessoas', errColabs.message);
-    return { error: MENSAGEM_INDISPONIVEL, indisponivel: true };
+    return { ok: false as const, codigo: CODIGO_LEITURA_INDISPONIVEL, indisponivel: true as const };
   }
   let colabs = colabsLidos;
   // Segunda trava, em CÓDIGO: o banco filtra por padrão, a igualdade decide.
@@ -69,7 +74,7 @@ export async function listarEquipeEvolucao() {
   // Sem checar, todo liderado virava "sem trilha" e o resumo dizia que ninguém tem jornada.
   if (errTrilhasEquipe) {
     await registrarLeituraIndisponivel(empresaId, 'evolucao-da-equipe-trilhas', errTrilhasEquipe.message);
-    return { error: MENSAGEM_INDISPONIVEL, indisponivel: true };
+    return { ok: false as const, codigo: CODIGO_LEITURA_INDISPONIVEL, indisponivel: true as const };
   }
   const trilhaPorColab = {};
   for (const t of (trilhas || [])) {
@@ -149,12 +154,12 @@ export async function listarEquipeEvolucao() {
 export async function listarCheckpointsPendentes() {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { error: 'Não autenticado' };
+  if (!email) return { ok: false as const, codigo: CODIGO_NAO_AUTENTICADO };
   const ctx = await getUserContext(email);
-  if (!ctx?.colaborador) return { error: 'Não autenticado' };
+  if (!ctx?.colaborador) return { ok: false as const, codigo: CODIGO_NAO_AUTENTICADO };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  if (!isGestor && !isRH) return { error: 'Acesso restrito' };
+  if (!isGestor && !isRH) return { ok: false as const, codigo: CODIGO_SEM_PERMISSAO };
 
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
@@ -174,7 +179,7 @@ export async function listarCheckpointsPendentes() {
   const { data: colabsCp, error: errColabsCp } = await colabQ;
   if (errColabsCp) {
     await registrarLeituraIndisponivel(empresaId, 'checkpoints-pessoas', errColabsCp.message);
-    return { ok: false, error: MENSAGEM_INDISPONIVEL, indisponivel: true, rows: [] };
+    return { ok: false, codigo: CODIGO_LEITURA_INDISPONIVEL, indisponivel: true, rows: [] };
   }
   let colabs = colabsCp;
   if (isGestor) colabs = (colabs || []).filter((c: any) => mesmoEmail(c.gestor_email, meuEmailCp));
@@ -191,7 +196,10 @@ export async function listarCheckpointsPendentes() {
     .eq('status', 'ativa');
   // Sem checar, falha de banco vira "nenhum checkpoint pendente" — o card do
   // gestor fica vazio e ninguem descobre que a consulta nao respondeu.
-  if (errTrilhas) return { ok: false, error: errTrilhas.message, rows: [] };
+  if (errTrilhas) {
+    console.error('[gestor] checkpoints: leitura das trilhas falhou:', errTrilhas.message);
+    return { ok: false, codigo: CODIGO_FALHA_AO_CARREGAR, rows: [] };
+  }
   if (!trilhas?.length) return { ok: true, rows: [] };
 
   const semanasPorTrilha = new Map<string, number[]>(
@@ -203,7 +211,10 @@ export async function listarCheckpointsPendentes() {
     .select('trilha_id, semana, status')
     .in('trilha_id', trilhas.map(t => t.id))
     .in('semana', semanasDeInteresse);
-  if (errProgs) return { ok: false, error: errProgs.message, rows: [] };
+  if (errProgs) {
+    console.error('[gestor] checkpoints: leitura do progresso falhou:', errProgs.message);
+    return { ok: false, codigo: CODIGO_FALHA_AO_CARREGAR, rows: [] };
+  }
 
   // E checkpoints existentes
   const { data: checkpoints, error: errCheckpoints } = await sb.from('checkpoints_gestor')
@@ -212,7 +223,7 @@ export async function listarCheckpointsPendentes() {
   // Sem checar, o checkpoint já validado voltava como pendente e o gestor o avaliava de novo.
   if (errCheckpoints) {
     await registrarLeituraIndisponivel(empresaId, 'checkpoints-registrados', errCheckpoints.message);
-    return { ok: false, error: MENSAGEM_INDISPONIVEL, indisponivel: true, rows: [] };
+    return { ok: false, codigo: CODIGO_LEITURA_INDISPONIVEL, indisponivel: true, rows: [] };
   }
   const cpMap = {};
   (checkpoints || []).forEach(c => { cpMap[`${c.trilha_id}_${c.semana}`] = c; });
@@ -246,25 +257,28 @@ export async function listarCheckpointsPendentes() {
 export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, observacao }) {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { error: 'Não autenticado' };
+  if (!email) return { ok: false as const, codigo: CODIGO_NAO_AUTENTICADO };
   const ctx = await getUserContext(email);
-  if (!ctx?.colaborador) return { error: 'Não autenticado' };
-  if (ctx.role !== 'gestor' && ctx.role !== 'rh' && !ctx.isPlatformAdmin) return { error: 'Acesso restrito' };
-  if (!['evoluindo', 'estagnado', 'regredindo'].includes(avaliacao)) return { error: 'Avaliação inválida' };
+  if (!ctx?.colaborador) return { ok: false as const, codigo: CODIGO_NAO_AUTENTICADO };
+  if (ctx.role !== 'gestor' && ctx.role !== 'rh' && !ctx.isPlatformAdmin) return { ok: false as const, codigo: CODIGO_SEM_PERMISSAO };
+  if (!['evoluindo', 'estagnado', 'regredindo'].includes(avaliacao)) return { ok: false as const, codigo: CODIGO_AVALIACAO_INVALIDA };
 
   const sb = createSupabaseAdmin();
   const { data: trilha, error: errTrilha } = await sb.from('trilhas')
     .select('id, empresa_id, colaborador_id, programa_modo, programa_config').eq('id', trilhaId).maybeSingle();
   // "Nao encontrada" e "a consulta falhou" levam a mensagens diferentes: sem
   // isto, um erro de banco viraria "Trilha nao encontrada" para o gestor.
-  if (errTrilha) return { error: `Falha ao carregar a jornada: ${errTrilha.message}` };
-  if (!trilha) return { error: 'Jornada não encontrada' };
+  if (errTrilha) {
+    console.error('[gestor] checkpoint: leitura da jornada falhou:', errTrilha.message);
+    return { ok: false as const, codigo: CODIGO_FALHA_AO_CARREGAR };
+  }
+  if (!trilha) return { ok: false as const, codigo: CODIGO_JORNADA_NAO_ENCONTRADA };
   // A validacao da semana vem do PROGRAMA DESTA trilha, e nao de `[5, 10]`:
   // com o literal, um checkpoint legitimo de jornada (semanas 3 e 5) seria
   // recusado como "semana invalida".
   const semanasValidas = getProgramaConfigDaTrilha(trilha as any).semanasCheckpoint;
   if (!semanasValidas.includes(Number(semana))) {
-    return { error: `Semana inválida (esperado ${semanasValidas.join(' ou ')})` };
+    return { ok: false as const, codigo: CODIGO_SEMANA_INVALIDA, semanasEsperadas: semanasValidas };
   }
 
   // ── Posse ────────────────────────────────────────────────────────────────
@@ -281,7 +295,7 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
   // outro tenant: distinguir as duas transforma o endpoint num verificador de
   // existência de uuid alheio.
   if (!ctx.isPlatformAdmin && trilha.empresa_id !== ctx.colaborador.empresa_id) {
-    return { error: 'Jornada não encontrada' };
+    return { ok: false as const, codigo: CODIGO_JORNADA_NAO_ENCONTRADA };
   }
 
   // Escopo DENTRO do tenant: a MESMA régua da listagem que leva até aqui e de
@@ -294,7 +308,7 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
       .eq('empresa_id', trilha.empresa_id)
       .maybeSingle();
     if (!alvo || !mesmoEmail(alvo.gestor_email, ctx.colaborador.email)) {
-      return { error: 'Colaborador fora do seu escopo' };
+      return { ok: false as const, codigo: CODIGO_FORA_DO_ESCOPO };
     }
   }
 
@@ -315,7 +329,10 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
   // estava lá, e o `await` do delete nem checava `error`.
   const { error } = await sb.from('checkpoints_gestor')
     .upsert(payload, { onConflict: 'trilha_id,semana' });
-  if (error) return { error: error.message };
+  if (error) {
+    console.error('[gestor] checkpoint: gravação falhou:', error.message);
+    return { ok: false as const, codigo: CODIGO_FALHA_AO_SALVAR };
+  }
   return { ok: true };
 }
 
@@ -326,12 +343,12 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
 export async function loadLideradoConcluida(colabEmail) {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { error: 'Não autenticado' };
+  if (!email) return { ok: false as const, codigo: CODIGO_NAO_AUTENTICADO };
   const ctx = await getUserContext(email);
-  if (!ctx?.colaborador) return { error: 'Não autenticado' };
+  if (!ctx?.colaborador) return { ok: false as const, codigo: CODIGO_NAO_AUTENTICADO };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  if (!isGestor && !isRH) return { error: 'Acesso restrito' };
+  if (!isGestor && !isRH) return { ok: false as const, codigo: CODIGO_SEM_PERMISSAO };
 
   // ⚠️ Este pré-check era a QUARTA régua do mesmo arquivo, e a pior delas: a
   // listagem já resolvia por `gestor_email` (corrigido em 32abf31e) e AQUI o
@@ -349,8 +366,15 @@ export async function loadLideradoConcluida(colabEmail) {
   // "onde a régua diverge" e deixar uma cópia da régua velha no caminho do
   // clique é o mesmo que não ter corrigido.
   const alvo = await findColabByEmail(colabEmail, 'id, empresa_id, area_depto, gestor_email') as any;
-  if (!alvo) return { error: 'Colab não encontrado' };
-  if (!canViewColabJourney(ctx, alvo)) return { error: 'Sem permissão para ver este colaborador' };
+  if (!alvo) return { ok: false as const, codigo: CODIGO_PESSOA_NAO_ENCONTRADA };
+  if (!canViewColabJourney(ctx, alvo)) return { ok: false as const, codigo: CODIGO_FORA_DO_ESCOPO };
 
-  return loadTemporadaConcluida(colabEmail);
+  // `loadTemporadaConcluida` é a leitura da PESSOA (e devolve texto em português para a tela
+  // dela). Aqui a tela é a do gestor: o texto vai para o log e a resposta leva só o código.
+  const r: any = await loadTemporadaConcluida(colabEmail);
+  if (r?.error) {
+    console.error('[gestor] detalhe do liderado: leitura da jornada concluída falhou:', r.error);
+    return { ok: false as const, codigo: CODIGO_FALHA_AO_CARREGAR };
+  }
+  return r;
 }

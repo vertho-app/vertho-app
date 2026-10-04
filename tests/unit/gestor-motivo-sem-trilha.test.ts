@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { createTranslator } from 'next-intl';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 /**
@@ -126,10 +128,19 @@ describe('motivo de estar sem trilha', () => {
     }
   });
 
-  it('o alerta de mapeamento fala "mapeamento de competências", nunca "avaliação"', async () => {
+  it('o alerta de mapeamento fala "mapeamento de competências", nunca "avaliação" (a frase é do catálogo, R-67)', async () => {
     const r: any = await getGestorHomeData();
     const a = (r.alertas || []).find((x: any) => x.tipo === 'sem_mapeamento');
-    expect(a?.mensagem).toContain('mapeamento de competências');
-    expect(a?.mensagem).not.toMatch(/avalia/i);
+    // A action devolve o TIPO e a contagem, nunca a frase em português.
+    expect(a).toEqual({ tipo: 'sem_mapeamento', count: expect.any(Number) });
+    expect(a).not.toHaveProperty('mensagem');
+    const frase = (locale: string, role: string) => createTranslator({
+      locale, messages: JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8')), namespace: 'ManagerAlerts',
+    })('sem_mapeamento', { count: a.count, role });
+    expect(frase('pt-BR', 'manager')).toContain('mapeamento de competências');
+    expect(frase('pt-BR', 'manager')).not.toMatch(/avalia/i);
+    // "liderado" é a palavra do gestor; o RH lê "colaborador".
+    expect(frase('pt-BR', 'manager')).toMatch(/liderado/);
+    expect(frase('pt-BR', 'hr')).toMatch(/colaborador/);
   });
 });

@@ -1,6 +1,12 @@
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
-/** O que a tela diz quando a leitura que a alimenta falhou: não é "vazio", é "tente de novo". */
+/**
+ * O que a tela dizia quando a leitura que a alimenta falhou: não é "vazio", é "tente de novo".
+ *
+ * @deprecated R-67 (04/10/2026): a action devolve `codigo: CODIGO_LEITURA_INDISPONIVEL`
+ * (`lib/gestor/codigos-de-erro.ts`) e a tela traduz (`ManagerDashboard.unavailable`, nos 4
+ * idiomas). Nenhuma action do gestor manda mais este texto; fica só para quem ainda o importa.
+ */
 export const MENSAGEM_INDISPONIVEL = 'Não foi possível carregar os dados agora. Tente de novo em instantes.';
 
 /**

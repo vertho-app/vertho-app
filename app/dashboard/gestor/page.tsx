@@ -6,7 +6,8 @@ import { PROGRESSO } from '@/lib/status';
 import { useLocale, useTranslations } from 'next-intl';
 import { FILTROS_STATUS, FILTROS_ACAO, aplicarFiltro, type FiltroEquipe } from '@/lib/gestor/filtro-equipe';
 import { textoDosNiveis } from '@/lib/gestor/niveis-da-equipe';
-import { formatarValorAvanco } from '@/lib/season-engine/convergencia';
+import { formatarValorAvancoNoIdioma } from '@/lib/avanco-no-idioma';
+import { textoDoErroDoGestor } from '@/lib/gestor/codigos-de-erro';
 import { nivelMaisFrequente } from '@/lib/nivel-frequente';
 import { rotuloNivel } from '@/lib/nivel-regua';
 import {
@@ -20,12 +21,19 @@ import LeituraIndisponivel from '@/components/gestor/leitura-indisponivel';
 import { getGestorHomeData, type GestorHomeData, type CheckpointPendenteDetalhado } from './actions';
 import { salvarCheckpointGestor } from './equipe-evolucao/actions';
 
-export default function GestorHomePage() {
+/**
+ * `dadosIniciais` é a semente da renderização no servidor, para o teste montar a home JÁ carregada nos 4
+ * idiomas (o `useEffect` que busca os dados não roda em `renderToStaticMarkup`). Em produção ninguém a
+ * passa: a rota renderiza `<GestorHomePage />` e a tela começa em "carregando".
+ */
+export default function GestorHomePage({ dadosIniciais }: { dadosIniciais?: GestorHomeData } = {}) {
   const t = useTranslations('ManagerDashboard');
+  const tErro = useTranslations('ManagerErrors');
+  const tAlerta = useTranslations('ManagerAlerts');
   const locale = useLocale();
   const router = useRouter();
-  const [data, setData] = useState<GestorHomeData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<GestorHomeData | null>(dadosIniciais ?? null);
+  const [loading, setLoading] = useState(!dadosIniciais);
   const [reportReaderOpen, setReportReaderOpen] = useState(false);
   // O filtro da tabela vive AQUI porque os cards de ação o comandam: clicar em
   // "30 atrasados" tem que virar a lista dos 30, senão o número não vira nome.
@@ -90,7 +98,8 @@ export default function GestorHomePage() {
     return (
       <PageContainer>
         <GlassCard>
-          <p className="text-red-400">{data?.error || t('loadError')}</p>
+          {/* O texto vem do CÓDIGO da action, no idioma da tela (R-67); sem código, a frase genérica. */}
+          <p className="text-red-400">{data?.codigo ? textoDoErroDoGestor(tErro, data) : t('loadError')}</p>
         </GlassCard>
       </PageContainer>
     );
@@ -215,7 +224,11 @@ export default function GestorHomePage() {
             {alertas.map((a) => (
               <li key={a.tipo} className="flex items-start gap-2 text-[12px] text-amber-100/85">
                 <span className="text-amber-400 mt-0.5">·</span>
-                <span>{a.mensagem}</span>
+                {/* A action manda o tipo e a contagem; a frase, com o plural do idioma e
+                    "liderado" (gestor) ou "colaborador" (RH), é do catálogo. */}
+                <span>{a.tipo === 'sem_perfil' && a.fonte
+                  ? tAlerta('sem_perfil_externo', { count: a.count, role: data.scope === 'rh' ? 'hr' : 'manager', source: a.fonte })
+                  : tAlerta(a.tipo, { count: a.count, role: data.scope === 'rh' ? 'hr' : 'manager' })}</span>
               </li>
             ))}
           </ul>
@@ -234,7 +247,7 @@ export default function GestorHomePage() {
           <h2 className="text-white text-base font-bold flex items-center gap-2">
             <ClipboardCheck size={16} className="text-brand-400" /> {t('titles.weeklyAction')}
           </h2>
-          {cps.length > 0 && <span className="text-[11px] text-white/50">{t('pendingCount', { count: cps.length, plural: cps.length === 1 ? '' : 's' })}</span>}
+          {cps.length > 0 && <span className="text-[11px] text-white/50">{t('pendingCount', { count: cps.length })}</span>}
         </div>
 
         {cps.length === 0 ? (
@@ -611,6 +624,7 @@ function EquipeSection({ equipe, fonteExterna, filtro, setFiltro, onVoltarAcoes 
   onVoltarAcoes: () => void;
 }) {
   const t = useTranslations('ManagerDashboard');
+  const locale = useLocale();
   const router = useRouter();
   const filtrados = aplicarFiltro(equipe, filtro);
   // Filtro vindo de um card de ação não tem chip próprio — sem este, a lista
@@ -722,10 +736,10 @@ function EquipeSection({ equipe, fonteExterna, filtro, setFiltro, onVoltarAcoes 
               {textoDosNiveis(e.niveis) && (
                 <span className="hidden sm:inline text-[10px] font-mono text-white/55 tabular-nums">{textoDosNiveis(e.niveis)}</span>
               )}
-              {formatarValorAvanco(e.avanco) && (
+              {formatarValorAvancoNoIdioma(e.avanco, locale) && (
                 <span className="text-[10px] font-mono font-bold tabular-nums"
                   style={{ color: e.avanco > 0 ? '#34D399' : '#9ae2e6' }}>
-                  {formatarValorAvanco(e.avanco)}
+                  {formatarValorAvancoNoIdioma(e.avanco, locale)}
                 </span>
               )}
               {e.status !== 'sem_trilha' && <ChevronRight size={15} className="text-brand-300/55" />}

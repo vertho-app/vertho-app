@@ -55,7 +55,8 @@ it('atende as ações compartilhadas e o PDF da evolução localmente, preservan
   expect((await actions.getEngajamentoRh()).colaboradores.length).toBe(19);
   const row = data.panels.team.rows.find(r => data.panels.details[r.colabEmail]);
   expect((await actions.loadLideradoConcluida(row.colabEmail)).colab.nome).toBe(row.colab);
-  expect(await actions.loadLideradoConcluida('fora-da-equipe')).toHaveProperty('error');
+  // Mesmo contrato da action online (R-67): um código estável, nunca texto.
+  expect(await actions.loadLideradoConcluida('fora-da-equipe')).toMatchObject({ ok: false, codigo: 'fora-do-escopo' });
   const { installLocalTransport } = await import('@/lib/demo/offline/runtime');
   installLocalTransport();
   expect((await browser.fetch(`/api/temporada/concluida/pdf?email=${row.colabEmail}`)).status).toBe(200);

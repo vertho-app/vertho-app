@@ -8,9 +8,13 @@ import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beaco
  * Os sinais vêm do mesmo núcleo de /admin/engajamento. Esta visão reduz a
  * densidade operacional para responder à pergunta do gestor: quem está em
  * movimento e quem merece uma conversa nesta semana?
+ *
+ * Todo texto da tela vem do catálogo (`ManagerEngagement`, nos 4 idiomas; R-67,
+ * 04/10/2026). Nome de pessoa, cargo e função (coordenador) são dado do banco e
+ * não se traduzem.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   Award,
@@ -36,18 +40,22 @@ import { SignalJourney } from '@/components/engajamento/signal-journey';
 import { EntregaDaEtapa, QualidadeEvidenciaResumo } from '@/components/engajamento/qualidade-evidencia';
 import { getEngajamentoDoTime } from '../actions';
 import LeituraIndisponivel from '@/components/gestor/leitura-indisponivel';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { engagementBlocker, hasEngagementSignal } from '@/lib/engajamento/prioridades';
+import { textoDoErroDoGestor } from '@/lib/gestor/codigos-de-erro';
 
 type Foco = 'todos' | 'atencao' | 'movimento' | 'finalizados';
 
+/** O tradutor do namespace desta tela (o `useTranslations` devolve este formato). */
+type Tradutor = ReturnType<typeof useTranslations>;
+
 const NENHUMA_PESSOA: any[] = [];
 
-const FORMATOS: Record<string, { label: string; Icon: LucideIcon; classe: string }> = {
-  video: { label: 'Vídeo', Icon: Video, classe: 'border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-200' },
-  audio: { label: 'Áudio', Icon: Headphones, classe: 'border-violet-300/20 bg-violet-300/[0.08] text-violet-200' },
-  texto: { label: 'Texto', Icon: FileText, classe: 'border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-200' },
-  case: { label: 'Caso', Icon: BookOpen, classe: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200' },
+const FORMATOS: Record<string, { Icon: LucideIcon; classe: string }> = {
+  video: { Icon: Video, classe: 'border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-200' },
+  audio: { Icon: Headphones, classe: 'border-violet-300/20 bg-violet-300/[0.08] text-violet-200' },
+  texto: { Icon: FileText, classe: 'border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-200' },
+  case: { Icon: BookOpen, classe: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200' },
 };
 
 const temSinal = hasEngagementSignal;
@@ -66,6 +74,7 @@ function pedeAcompanhamento(pessoa: any): boolean {
 }
 
 function EtapaJornada({ pessoa }: { pessoa: any }) {
+  const t = useTranslations('ManagerEngagement');
   // O estado terminal vem antes de "Posição indisponível" e de "pendente": o
   // relógio da turma segue andando depois do fim do plano, e quem terminou não
   // pode voltar a aparecer como atrasado.
@@ -73,11 +82,11 @@ function EtapaJornada({ pessoa }: { pessoa: any }) {
     const total = Number(pessoa.totalSemanasJornada);
     return (
       <span
-        title="Concluiu a última semana do plano"
+        title={t('person.completedTitle')}
         className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-fuchsia-300/35 bg-fuchsia-300/[0.14] px-2.5 py-1 text-[10px] font-semibold tabular-nums text-fuchsia-100"
       >
         <Award size={11} aria-hidden="true" />
-        Jornada concluída{Number.isFinite(total) && total > 0 ? ` · ${total} de ${total} semanas` : ''}
+        {Number.isFinite(total) && total > 0 ? t('person.completedBadgeTotal', { total }) : t('person.completedBadge')}
       </span>
     );
   }
@@ -85,70 +94,70 @@ function EtapaJornada({ pessoa }: { pessoa: any }) {
   if (pessoa.semanaAcessivel == null) {
     return (
       <span className="inline-flex rounded-full border border-white/[0.07] bg-white/[0.025] px-2 py-1 text-[10px] font-semibold text-white/28">
-        Posição indisponível
+        {t('person.noPosition')}
       </span>
     );
   }
 
   const meta = pessoa.jornadaAtrasada
-    ? { label: 'etapa pendente', dot: 'bg-amber-400', classe: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200' }
+    ? { label: t('person.stage.pending'), dot: 'bg-amber-400', classe: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200' }
     : pessoa.semanaAcessivelConcluida
-      ? { label: 'etapa concluída', dot: 'bg-violet-400', classe: 'border-violet-300/25 bg-violet-300/[0.09] text-violet-200' }
-      : { label: 'em curso', dot: 'bg-brand-400', classe: 'border-brand-300/20 bg-brand-300/[0.08] text-brand-200' };
+      ? { label: t('person.stage.done'), dot: 'bg-violet-400', classe: 'border-violet-300/25 bg-violet-300/[0.09] text-violet-200' }
+      : { label: t('person.stage.inProgress'), dot: 'bg-brand-400', classe: 'border-brand-300/20 bg-brand-300/[0.08] text-brand-200' };
 
   return (
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-semibold tabular-nums ${meta.classe}`}
-      title={`Calendário da turma: semana ${pessoa.semanaAberta ?? pessoa.semanaCalendario}`}
+      title={t('person.calendarTitle', { week: pessoa.semanaAberta ?? pessoa.semanaCalendario })}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden="true" />
-      Semana {pessoa.semanaAcessivel} · {meta.label}
+      {t('person.weekStage', { week: pessoa.semanaAcessivel, stage: meta.label })}
     </span>
   );
 }
 
-function statusDaPessoa(pessoa: any): { label: string; detail: string; classe: string } {
+function statusDaPessoa(pessoa: any, t: Tradutor): { label: string; detail: string; classe: string } {
   if (finalizouJornada(pessoa)) {
     const total = Number(pessoa.totalSemanasJornada);
     return {
-      label: 'Jornada concluída',
+      label: t('status.completed.label'),
       detail: Number.isFinite(total) && total > 0
-        ? `Concluiu as ${total} semanas do plano.`
-        : 'Concluiu a última semana do plano.',
+        ? t('status.completed.detailTotal', { total })
+        : t('status.completed.detail'),
       classe: 'border-fuchsia-300/35 bg-fuchsia-300/[0.14] text-fuchsia-100',
     };
   }
   if (!temSinal(pessoa)) {
     return {
-      label: 'Sem sinal registrado',
-      detail: 'Vale checar se a pessoa conseguiu começar.',
+      label: t('status.noSignal.label'),
+      detail: t('status.noSignal.detail'),
       classe: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200',
     };
   }
   if (pessoa.jornadaAtrasada) {
     return {
-      label: 'Etapa pendente',
-      detail: `O calendário da turma está na semana ${pessoa.semanaAberta ?? pessoa.semanaCalendario}.`,
+      label: t('status.pending.label'),
+      detail: t('status.pending.detail', { week: pessoa.semanaAberta ?? pessoa.semanaCalendario }),
       classe: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200',
     };
   }
   if (pessoa.enviouEvidencia) {
     return {
-      label: 'Entrega concluída',
-      detail: 'A evidência da semana já foi enviada.',
+      label: t('status.delivered.label'),
+      detail: t('status.delivered.detail'),
       classe: 'border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-200',
     };
   }
   if (pessoa.consumiu) {
     return {
-      label: 'Em movimento',
-      detail: 'Consumiu o conteúdo; a entrega ainda não apareceu.',
+      label: t('status.moving.label'),
+      detail: t('status.moving.detail'),
       classe: 'border-brand-300/20 bg-brand-300/[0.08] text-brand-200',
     };
   }
   return {
-    label: 'Começou a jornada',
-    detail: 'Já acessou conteúdo nesta semana.',
+    label: t('status.started.label'),
+    detail: t('status.started.detail'),
     classe: 'border-brand-300/20 bg-brand-300/[0.08] text-brand-200',
   };
 }
@@ -164,8 +173,9 @@ function SignalPoint({
   ativo: boolean;
   classe: string;
 }) {
+  const t = useTranslations('ManagerEngagement');
   return (
-    <div className="min-w-0 text-center" title={`${label}: ${ativo ? 'registrado' : 'sem registro'}`}>
+    <div className="min-w-0 text-center" title={t(ativo ? 'signals.recorded' : 'signals.notRecorded', { label })}>
       <span className={`mx-auto grid h-8 w-8 place-items-center rounded-full border ${ativo ? classe : 'border-white/[0.07] bg-white/[0.025] text-white/22'}`}>
         <Icon size={13} aria-hidden="true" />
       </span>
@@ -183,32 +193,36 @@ function SignalPoint({
  * abaixo, com a semana nomeada (`EntregaDaEtapa`).
  */
 function SinaisDaPessoa({ pessoa }: { pessoa: any }) {
+  const t = useTranslations('ManagerEngagement');
   const acessou = Boolean(pessoa.abriuLink || pessoa.formatosAbertos?.length);
   return (
     <div className="relative grid grid-cols-3 gap-2 before:absolute before:left-[16.6%] before:right-[16.6%] before:top-4 before:h-px before:bg-white/[0.07]">
       <div className="relative z-10">
-        <SignalPoint icon={Eye} label="Acessou" ativo={acessou} classe="border-brand-300/25 bg-brand-300/10 text-brand-200" />
+        <SignalPoint icon={Eye} label={t('signals.accessed')} ativo={acessou} classe="border-brand-300/25 bg-brand-300/10 text-brand-200" />
       </div>
       <div className="relative z-10">
-        <SignalPoint icon={PlayCircle} label="Consumiu" ativo={Boolean(pessoa.consumiu)} classe="border-emerald-300/25 bg-emerald-300/10 text-emerald-200" />
+        <SignalPoint icon={PlayCircle} label={t('signals.consumed')} ativo={Boolean(pessoa.consumiu)} classe="border-emerald-300/25 bg-emerald-300/10 text-emerald-200" />
       </div>
       <div className="relative z-10">
-        <SignalPoint icon={MessageCircle} label="Tira-Dúvidas" ativo={Boolean(pessoa.conversouTutor)} classe="border-violet-300/25 bg-violet-300/10 text-violet-200" />
+        <SignalPoint icon={MessageCircle} label={t('signals.ask')} ativo={Boolean(pessoa.conversouTutor)} classe="border-violet-300/25 bg-violet-300/10 text-violet-200" />
       </div>
     </div>
   );
 }
 
 function FormatosAbertos({ formatos }: { formatos?: string[] }) {
-  if (!formatos?.length) return <span className="text-[10px] text-white/25">Nenhum formato registrado</span>;
+  const t = useTranslations('ManagerEngagement');
+  if (!formatos?.length) return <span className="text-[10px] text-white/25">{t('person.noFormats')}</span>;
   return (
     <span className="flex flex-wrap gap-1">
       {formatos.map((formato) => {
-        const meta = FORMATOS[formato] || FORMATOS.texto;
+        // Formato que a tela não conhece cai em "texto", como antes.
+        const chave = Object.prototype.hasOwnProperty.call(FORMATOS, formato) ? formato : 'texto';
+        const meta = FORMATOS[chave];
         const Icon = meta.Icon;
         return (
           <span key={formato} className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-bold ${meta.classe}`}>
-            <Icon size={10} aria-hidden="true" /> {meta.label}
+            <Icon size={10} aria-hidden="true" /> {t(`formats.${chave}`)}
           </span>
         );
       })}
@@ -226,6 +240,7 @@ function FormatosAbertos({ formatos }: { formatos?: string[] }) {
  * telas não divergirem).
  */
 function CoordenacaoBloco({ grupo }: { grupo: { nome: string; pessoas: any[]; atencao: number } }) {
+  const t = useTranslations('ManagerEngagement');
   const temAtencao = grupo.atencao > 0;
   return (
     <details className={`group rounded-[16px] border transition-colors ${
@@ -235,8 +250,8 @@ function CoordenacaoBloco({ grupo }: { grupo: { nome: string; pessoas: any[]; at
         <div className="min-w-0">
           <p className="truncate text-[13px] font-bold text-white">{grupo.nome}</p>
           <p className="mt-0.5 text-[10px] text-white/40">
-            {grupo.pessoas.length} {grupo.pessoas.length === 1 ? 'pessoa' : 'pessoas'}
-            {temAtencao && <> · <span className="text-amber-200">{grupo.atencao} para acompanhar</span></>}
+            {t('list.peopleCount', { count: grupo.pessoas.length })}
+            {temAtencao && <> · <span className="text-amber-200">{t('list.toFollow', { count: grupo.atencao })}</span></>}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
@@ -253,10 +268,11 @@ function CoordenacaoBloco({ grupo }: { grupo: { nome: string; pessoas: any[]; at
   );
 }
 
-function PessoaRow({ pessoa }: { pessoa: any }) {
+export function PessoaRow({ pessoa }: { pessoa: any }) {
+  const t = useTranslations('ManagerEngagement');
   const atencao = pedeAcompanhamento(pessoa);
   const finalizada = finalizouJornada(pessoa);
-  const status = statusDaPessoa(pessoa);
+  const status = statusDaPessoa(pessoa, t);
 
   return (
     <article className={`rounded-[16px] border p-4 transition-colors ${
@@ -277,26 +293,26 @@ function PessoaRow({ pessoa }: { pessoa: any }) {
             />
             <p className={`truncate text-[13px] font-semibold ${atencao ? 'text-amber-100' : 'text-white'}`}>{pessoa.nome}</p>
           </div>
-          <p className="ml-3.5 mt-0.5 truncate text-[10px] text-white/35">{pessoa.cargo || 'Cargo não informado'}</p>
+          <p className="ml-3.5 mt-0.5 truncate text-[10px] text-white/35">{pessoa.cargo || t('person.noRole')}</p>
           <span className={`ml-3.5 mt-2 inline-flex rounded-full border px-2 py-1 text-[9px] font-bold ${status.classe}`}>
             {status.label}
           </span>
         </div>
 
         <div>
-          <p className="mb-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/28">Etapa individual</p>
+          <p className="mb-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/28">{t('person.stageColumn')}</p>
           <EtapaJornada pessoa={pessoa} />
           <p className="mt-2 text-[9px] leading-relaxed text-white/30">{status.detail}</p>
         </div>
 
         <div>
-          <p className="mb-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/28 md:text-center">Sinais da semana</p>
+          <p className="mb-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/28 md:text-center">{t('person.signalsColumn')}</p>
           <SinaisDaPessoa pessoa={pessoa} />
           <div className="mt-2 text-center"><EntregaDaEtapa pessoa={pessoa} /></div>
         </div>
 
         <div>
-          <p className="mb-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/28">Formatos acessados</p>
+          <p className="mb-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/28">{t('person.formatsColumn')}</p>
           <FormatosAbertos formatos={pessoa.formatosAbertos} />
         </div>
       </div>
@@ -304,10 +320,18 @@ function PessoaRow({ pessoa }: { pessoa: any }) {
   );
 }
 
-export default function EngajamentoDoTimePage() {
-  const [dados, setDados] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+/**
+ * `dadosIniciais` é a semente da renderização no servidor, para o teste montar a tela JÁ carregada
+ * nos 4 idiomas (o `useEffect` que busca os dados não roda em `renderToStaticMarkup`). Em produção
+ * ninguém a passa: `engajamento/page.tsx` renderiza `<TeamEngagement />` e a tela começa em "carregando".
+ */
+export default function EngajamentoDoTimePage({ dadosIniciais }: { dadosIniciais?: any } = {}) {
+  const [dados, setDados] = useState<any>(dadosIniciais ?? null);
+  const [loading, setLoading] = useState(!dadosIniciais);
+  const t = useTranslations('ManagerEngagement');
   const tg = useTranslations('ManagerDashboard');
+  const tErro = useTranslations('ManagerErrors');
+  const locale = useLocale();
   const [erro, setErro] = useState('');
   // A leitura falhou (R-139): não é "time sem ninguém", e a tela oferece tentar de novo.
   const [indisponivel, setIndisponivel] = useState(false);
@@ -325,8 +349,8 @@ export default function EngajamentoDoTimePage() {
    * desfazer o recorte. Preservar a última lista não-vazia mantém as duas saídas
    * visíveis; filtro que zera é um estado do qual sempre se volta.
    */
-  const [cargosDisponiveis, setCargosDisponiveis] = useState<string[]>([]);
-  const [semanasDisponiveis, setSemanasDisponiveis] = useState<number[]>([]);
+  const [cargosDisponiveis, setCargosDisponiveis] = useState<string[]>(dadosIniciais?.cargos ?? []);
+  const [semanasDisponiveis, setSemanasDisponiveis] = useState<number[]>((dadosIniciais?.semanas ?? []).length > 1 ? dadosIniciais.semanas : []);
 
   useEffect(() => {
     let vivo = true;
@@ -335,7 +359,8 @@ export default function EngajamentoDoTimePage() {
       getEngajamentoDoTime(semana, cargo || null)
         .then((resultado: any) => {
           if (!vivo) return;
-          if (!resultado?.ok) { setErro(resultado?.error || 'Não foi possível carregar o engajamento'); setIndisponivel(!!resultado?.indisponivel); }
+          // O erro chega como CÓDIGO e é traduzido aqui (R-67); sem código, a frase da própria tela.
+          if (!resultado?.ok) { setErro(resultado?.codigo ? textoDoErroDoGestor(tErro, resultado) : t('loadError')); setIndisponivel(!!resultado?.indisponivel); }
           else { setDados(resultado); setErro(''); setIndisponivel(false); }
         })
         .finally(() => { if (vivo) setLoading(false); });
@@ -364,10 +389,11 @@ export default function EngajamentoDoTimePage() {
   const etapasPendentes = pessoas.filter((pessoa) => pessoa.jornadaAtrasada).length;
   const semSinal = pessoas.filter((pessoa) => !temSinal(pessoa)).length;
   const semEvidencia = pessoas.filter((pessoa) => !pessoa.enviouEvidencia).length;
-  const scopeLabel = dados?.scope === 'rh' ? 'Visão da empresa' : 'Visão do gestor';
+  const scopeLabel = dados?.scope === 'rh' ? t('scope.company') : t('scope.manager');
 
   const pessoasVisiveis = useMemo(() => {
-    const termo = busca.trim().toLocaleLowerCase('pt-BR');
+    // A busca e a ordem alfabética seguem o idioma da tela, não o pt-BR fixo.
+    const termo = busca.trim().toLocaleLowerCase(locale);
     return pessoas
       .filter((pessoa) => {
         if (foco === 'todos') return true;
@@ -375,9 +401,9 @@ export default function EngajamentoDoTimePage() {
         if (foco === 'finalizados') return finalizouJornada(pessoa);
         return !pedeAcompanhamento(pessoa) && !finalizouJornada(pessoa);
       })
-      .filter((pessoa) => !termo || `${pessoa.nome} ${pessoa.cargo || ''}`.toLocaleLowerCase('pt-BR').includes(termo))
-      .sort((a, b) => Number(pedeAcompanhamento(b)) - Number(pedeAcompanhamento(a)) || a.nome.localeCompare(b.nome));
-  }, [busca, foco, pessoas]);
+      .filter((pessoa) => !termo || `${pessoa.nome} ${pessoa.cargo || ''}`.toLocaleLowerCase(locale).includes(termo))
+      .sort((a, b) => Number(pedeAcompanhamento(b)) - Number(pedeAcompanhamento(a)) || a.nome.localeCompare(b.nome, locale));
+  }, [busca, foco, pessoas, locale]);
 
   // Agrupa a lista JÁ FILTRADA: o que o diretor lê no bloco é exatamente o que
   // os chips e a busca deixaram passar, e não uma segunda contagem paralela.
@@ -389,7 +415,7 @@ export default function EngajamentoDoTimePage() {
       // quando a leitura do vínculo falhou. Os dois viram o mesmo balde, mas o
       // rótulo não afirma que a pessoa está sem coordenador.
       const chave = pessoa.coordenadorEmail || '__sem__';
-      const nome = pessoa.coordenadorNome || 'Sem coordenador definido';
+      const nome = pessoa.coordenadorNome || t('list.noCoordination');
       if (!grupos.has(chave)) grupos.set(chave, { nome, pessoas: [] });
       grupos.get(chave)!.pessoas.push(pessoa);
     }
@@ -397,8 +423,8 @@ export default function EngajamentoDoTimePage() {
       .map((g) => ({ ...g, atencao: g.pessoas.filter(pedeAcompanhamento).length }))
       // Quem tem mais gente parada primeiro: a ordem da lista é a ordem das
       // conversas que o diretor precisa ter.
-      .sort((a, b) => b.atencao - a.atencao || b.pessoas.length - a.pessoas.length || a.nome.localeCompare(b.nome));
-  }, [dados?.scope, pessoasVisiveis]);
+      .sort((a, b) => b.atencao - a.atencao || b.pessoas.length - a.pessoas.length || a.nome.localeCompare(b.nome, locale));
+  }, [dados?.scope, pessoasVisiveis, t, locale]);
 
   const mostrarAtencao = () => {
     setFoco('atencao');
@@ -417,24 +443,24 @@ export default function EngajamentoDoTimePage() {
             className="mt-1 text-[30px] leading-none text-white sm:text-[36px]"
             style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
           >
-            Engajamento do time
+            {t('title')}
           </h1>
           <p className="mt-2 max-w-xl text-[11px] leading-relaxed text-white/42">
-            Veja quem está em movimento e onde uma conversa pode ajudar a jornada a continuar.
+            {t('subtitle')}
           </p>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-3">
           {semanasDisponiveis.length > 1 && (
             <label className="flex items-center gap-2 text-[10px] font-semibold text-white/40">
-              Período
+              {t('period.label')}
               <select
                 value={semana ?? ''}
                 onChange={(event) => setSemana(event.target.value ? Number(event.target.value) : null)}
                 className="min-h-9 rounded-[10px] border border-white/[0.1] bg-[#081a2f] px-3 text-[10px] font-bold text-white/70 outline-none focus:border-brand-300/35"
               >
-                <option value="">Etapa atual de cada pessoa</option>
-                {semanasDisponiveis.map((item: number) => <option key={item} value={item}>Semana {item}</option>)}
+                <option value="">{t('period.current')}</option>
+                {semanasDisponiveis.map((item: number) => <option key={item} value={item}>{t('period.week', { week: item })}</option>)}
               </select>
             </label>
           )}
@@ -450,13 +476,13 @@ export default function EngajamentoDoTimePage() {
               debaixo do chevron e os dois se sobrepõem. */}
           {cargosDisponiveis.length > 1 && (
             <label className="flex items-center gap-2 text-[10px] font-semibold text-white/40">
-              Função
+              {t('role.label')}
               <select
                 value={cargo}
                 onChange={(event) => setCargo(event.target.value)}
                 className="min-h-9 max-w-[220px] rounded-[10px] border border-white/[0.1] bg-[#081a2f] py-1 pl-3 pr-7 text-[10px] font-bold text-white/70 outline-none focus:border-brand-300/35"
               >
-                <option value="">Todas as funções</option>
+                <option value="">{t('role.all')}</option>
                 {cargosDisponiveis.map((item: string) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
@@ -467,7 +493,7 @@ export default function EngajamentoDoTimePage() {
       {loading && !dados && (
         <GlassCard>
           <div className="flex items-center gap-2 text-sm text-white/45">
-            <Loader2 size={16} className="animate-spin" aria-hidden="true" /> Organizando os sinais da jornada…
+            <Loader2 size={16} className="animate-spin" aria-hidden="true" /> {t('loading')}
           </div>
         </GlassCard>
       )}
@@ -487,16 +513,16 @@ export default function EngajamentoDoTimePage() {
       {!loading && !erro && total === 0 && cargo && (
         <GlassCard className="border-dashed text-center" padding="p-9">
           <Users size={22} className="mx-auto text-brand-300/45" aria-hidden="true" />
-          <p className="mt-3 text-[13px] font-bold text-white/70">Ninguém em “{cargo}” na cadência</p>
+          <p className="mt-3 text-[13px] font-bold text-white/70">{t('noOneInRole.title', { role: cargo })}</p>
           <p className="mx-auto mt-1 max-w-lg text-[10px] leading-relaxed text-white/35">
-            Esta função não tem pessoas no seu recorte{semana ? ` na semana ${semana}` : ''}. Outras funções podem ter.
+            {semana ? t('noOneInRole.bodyWeek', { week: semana }) : t('noOneInRole.body')}
           </p>
           <button
             type="button"
             onClick={() => setCargo('')}
             className="mt-4 inline-flex min-h-9 items-center rounded-full border border-brand-300/25 bg-brand-300/[0.08] px-4 text-[10px] font-bold text-brand-200 transition-colors hover:bg-brand-300/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-300"
           >
-            Ver todas as funções
+            {t('noOneInRole.showAll')}
           </button>
         </GlassCard>
       )}
@@ -504,9 +530,9 @@ export default function EngajamentoDoTimePage() {
       {!loading && !erro && total === 0 && !cargo && (
         <GlassCard className="border-dashed text-center" padding="p-9">
           <Users size={22} className="mx-auto text-brand-300/45" aria-hidden="true" />
-          <p className="mt-3 text-[13px] font-bold text-white/70">A jornada do time ainda não começou</p>
+          <p className="mt-3 text-[13px] font-bold text-white/70">{t('notStarted.title')}</p>
           <p className="mx-auto mt-1 max-w-lg text-[10px] leading-relaxed text-white/35">
-            Os sinais aparecem após o primeiro envio da cadência. Até lá, não há movimento para acompanhar.
+            {t('notStarted.body')}
           </p>
         </GlassCard>
       )}
@@ -518,25 +544,25 @@ export default function EngajamentoDoTimePage() {
               sugerido" logo abaixo, com o mesmo número. Dois gatilhos idênticos
               na mesma tela fazem o leitor procurar a diferença que não existe. */}
           <SignalJourney
-            eyebrow={semana ? `Semana ${semana}` : 'Etapa atual de cada pessoa'}
-            title="Do primeiro acesso à entrega"
+            eyebrow={semana ? t('funnel.eyebrowWeek', { week: semana }) : t('funnel.eyebrowCurrent')}
+            title={t('funnel.title')}
             description={semana
-              ? `Os quatro marcos na semana ${semana}. Eles mostram presença na jornada, não nota nem avaliação de desempenho.`
-              : 'Os quatro marcos na etapa em que cada pessoa está hoje. Eles mostram presença na jornada, não nota nem avaliação de desempenho.'}
+              ? t('funnel.descriptionWeek', { week: semana })
+              : t('funnel.descriptionCurrent')}
             total={total}
             steps={[
               // O detalhe nomeia a função escolhida: os quatro marcos passam a
               // contar só ela, e quem lê o número precisa ver isso no número.
-              { label: 'Na cadência', value: total, detail: cargo ? `pessoas em ${cargo}` : 'pessoas do seu recorte', icon: Users, tone: 'cyan' },
-              { label: 'Acessaram conteúdo', value: resumo.abriramAlgumFormato || 0, detail: 'abriram ao menos um formato', icon: LayoutGrid, tone: 'teal' },
-              { label: 'Consumiram', value: resumo.consumiram || 0, detail: 'vídeo ou podcast concluído, ou material aberto', icon: CheckCircle2, tone: 'emerald' },
-              { label: 'Entregaram evidência', value: resumo.enviaramEvidencia || 0, detail: 'finalizaram a prática', icon: ClipboardCheck, tone: 'amber' },
+              { label: t('funnel.inCadence'), value: total, detail: cargo ? t('funnel.inCadenceRole', { role: cargo }) : t('funnel.inCadenceAll'), icon: Users, tone: 'cyan' },
+              { label: t('funnel.accessed'), value: resumo.abriramAlgumFormato || 0, detail: t('funnel.accessedDetail'), icon: LayoutGrid, tone: 'teal' },
+              { label: t('funnel.consumed'), value: resumo.consumiram || 0, detail: t('funnel.consumedDetail'), icon: CheckCircle2, tone: 'emerald' },
+              { label: t('funnel.delivered'), value: resumo.enviaramEvidencia || 0, detail: t('funnel.deliveredDetail'), icon: ClipboardCheck, tone: 'amber' },
             ]}
           />
 
           <QualidadeEvidenciaResumo contagem={resumo.qualidadeEvidencias} />
 
-          <section aria-label="Leitura rápida" className="grid gap-3 sm:grid-cols-[minmax(0,1.5fr)_minmax(220px,0.5fr)]">
+          <section aria-label={t('quickRead.aria')} className="grid gap-3 sm:grid-cols-[minmax(0,1.5fr)_minmax(220px,0.5fr)]">
             <button
               type="button"
               onClick={mostrarAtencao}
@@ -546,9 +572,9 @@ export default function EngajamentoDoTimePage() {
                 <AlertTriangle size={17} aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[10px] font-bold text-amber-100">Acompanhamento sugerido</span>
+                <span className="block text-[10px] font-bold text-amber-100">{t('quickRead.suggested')}</span>
                 <span className="mt-0.5 block text-[9px] leading-relaxed text-amber-100/55">
-                  {etapasPendentes} com etapa pendente · {semEvidencia} sem entregar · {semSinal} sem sinal
+                  {t('quickRead.breakdown', { pending: etapasPendentes, noDelivery: semEvidencia, noSignal: semSinal })}
                 </span>
               </span>
               <span className="font-mono text-2xl font-semibold tabular-nums text-amber-100">{emAtencao}</span>
@@ -559,8 +585,8 @@ export default function EngajamentoDoTimePage() {
                 <MessageCircle size={17} aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[10px] font-bold text-white/65">Usaram o Tira-Dúvidas</span>
-                <span className="mt-0.5 block text-[9px] text-white/30">Tira-Dúvidas aberto</span>
+                <span className="block text-[10px] font-bold text-white/65">{t('quickRead.askTitle')}</span>
+                <span className="mt-0.5 block text-[9px] text-white/30">{t('quickRead.askDetail')}</span>
               </span>
               <span className="font-mono text-2xl font-semibold tabular-nums text-violet-200">{resumo.conversaramTutor || 0}</span>
             </div>
@@ -570,24 +596,24 @@ export default function EngajamentoDoTimePage() {
             <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">
-                  {dados?.scope === 'rh' ? 'Por coordenação' : 'Pessoa a pessoa'}
+                  {dados?.scope === 'rh' ? t('list.byCoordination') : t('list.byPerson')}
                 </p>
                 <h2
                   id="time-title"
                   className="mt-1 text-[23px] leading-tight text-white"
                   style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
                 >
-                  Onde apoiar o próximo passo
+                  {t('list.title')}
                 </h2>
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-1 rounded-full border border-white/[0.07] bg-black/10 p-1">
                   {([
-                    ['todos', 'Todos', pessoas.length],
-                    ['atencao', 'Acompanhar', emAtencao],
-                    ['movimento', 'Em movimento', pessoas.length - emAtencao - finalizaram],
-                    ...(finalizaram > 0 ? [['finalizados', 'Finalizaram', finalizaram] as const] : []),
+                    ['todos', t('list.all'), pessoas.length],
+                    ['atencao', t('list.follow'), emAtencao],
+                    ['movimento', t('list.moving'), pessoas.length - emAtencao - finalizaram],
+                    ...(finalizaram > 0 ? [['finalizados', t('list.finished'), finalizaram] as const] : []),
                   ] as const).map(([valor, label, quantidade]) => (
                     <button
                       key={valor}
@@ -608,11 +634,11 @@ export default function EngajamentoDoTimePage() {
                 </div>
                 <label className="flex min-h-9 items-center gap-2 rounded-full border border-white/[0.08] bg-black/10 px-3 focus-within:border-brand-300/30">
                   <Search size={12} className="text-white/30" aria-hidden="true" />
-                  <span className="sr-only">Buscar pessoa</span>
+                  <span className="sr-only">{t('list.search')}</span>
                   <input
                     value={busca}
                     onChange={(event) => setBusca(event.target.value)}
-                    placeholder="Buscar pessoa"
+                    placeholder={t('list.search')}
                     className="w-full bg-transparent text-[10px] text-white outline-none placeholder:text-white/25 sm:w-32"
                   />
                 </label>
@@ -620,9 +646,14 @@ export default function EngajamentoDoTimePage() {
             </div>
 
             <p className="mb-3 text-[9px] text-white/25">
-              Mostrando {pessoasVisiveis.length} de {pessoas.length} pessoas
-              {cargo && ` em ${cargo}`}
-              {dados?.scope === 'rh' && porCoordenador.length > 0 && ` em ${porCoordenador.length} ${porCoordenador.length === 1 ? 'coordenação' : 'coordenações'}`}.
+              {t('list.showing', {
+                shown: pessoasVisiveis.length,
+                total: pessoas.length,
+                hasRole: cargo ? 'yes' : 'no',
+                role: cargo,
+                hasCoordination: dados?.scope === 'rh' && porCoordenador.length > 0 ? 'yes' : 'no',
+                coordinations: porCoordenador.length,
+              })}
             </p>
             {dados?.scope === 'rh' ? (
               <div className="space-y-2">
@@ -635,22 +666,22 @@ export default function EngajamentoDoTimePage() {
             )}
             {!pessoasVisiveis.length && (
               <div className="rounded-[16px] border border-dashed border-white/10 bg-white/[0.02] px-5 py-9 text-center text-[11px] text-white/35">
-                Nenhuma pessoa corresponde aos filtros selecionados.
+                {t('list.noMatch')}
               </div>
             )}
           </section>
 
           <details className="group rounded-[16px] border border-white/[0.07] bg-black/10 px-4 py-3">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[10px] font-semibold text-white/42 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-300 [&::-webkit-details-marker]:hidden">
-              Entenda o que cada sinal significa
+              {t('legend.title')}
               <ChevronDown size={13} className="transition-transform group-open:rotate-180" aria-hidden="true" />
             </summary>
             <div className="mt-3 grid gap-3 border-t border-white/[0.06] pt-3 text-[10px] leading-relaxed text-white/32 sm:grid-cols-2">
-              <p><strong className="text-white/55">Acessou:</strong> abriu a página ou um dos formatos disponíveis.</p>
-              <p><strong className="text-white/55">Consumiu:</strong> concluiu o vídeo ou o podcast. Material de leitura (texto e estudo de caso) conta ao ser aberto: PDF em outra aba não tem evento de conclusão.</p>
-              <p><strong className="text-white/55">Evidência:</strong> a prática que fecha a semana. A frase nomeia a semana e diz se está pendente ou entregue — quem entrega avança, então a linha de quem está pendente nunca mostra entrega.</p>
-              {resumo.qualidadeEvidencias && <p><strong className="text-white/55">Nível da reflexão:</strong> alta, média ou baixa, classificado pela IA ao fechar a semana. Semana de missão não recebe nível. O texto é privado da pessoa e não aparece aqui.</p>}
-              <p><strong className="text-white/55">Sem registro:</strong> significa apenas que o sistema não recebeu aquele sinal; não é uma avaliação da pessoa.</p>
+              <p>{t.rich('legend.accessed', LEGENDA)}</p>
+              <p>{t.rich('legend.consumed', LEGENDA)}</p>
+              <p>{t.rich('legend.evidence', LEGENDA)}</p>
+              {resumo.qualidadeEvidencias && <p>{t.rich('legend.quality', LEGENDA)}</p>}
+              <p>{t.rich('legend.none', LEGENDA)}</p>
             </div>
           </details>
         </div>
@@ -658,3 +689,6 @@ export default function EngajamentoDoTimePage() {
     </PageContainer>
   );
 }
+
+/** O destaque do nome do sinal na legenda: o `<strong>` do catálogo ganha a cor da tela. */
+const LEGENDA = { strong: (chunks: ReactNode) => <strong className="text-white/55">{chunks}</strong> };

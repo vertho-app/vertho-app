@@ -9,11 +9,14 @@ import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
 import LeituraIndisponivel from '@/components/gestor/leitura-indisponivel';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import { CONVERGENCIA, rotuloConvergencia, formatarAvanco, formatarValorAvanco, exibeAntesDepois } from '@/lib/season-engine/convergencia';
+import { CONVERGENCIA, exibeAntesDepois } from '@/lib/season-engine/convergencia';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
-import { DICA_VEREDITO } from '@/lib/season-engine/convergencia-dicas';
+import { formatarAvancoNoIdioma, formatarValorAvancoNoIdioma } from '@/lib/avanco-no-idioma';
+import { numerosDasDicas } from '@/lib/gestor/veredito-dicas';
+import { textoDoErroDoGestor } from '@/lib/gestor/codigos-de-erro';
+import { rotuloNivel } from '@/lib/nivel-regua';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { ordenarPorNome } from '@/lib/gestor/ordenar-por-nome';
 
@@ -26,41 +29,52 @@ import { ordenarPorNome } from '@/lib/gestor/ordenar-por-nome';
 // projeto, então esses cards saíam SEM o tom que classifica o status, e as duas
 // que funcionavam só funcionavam de carona em outra tela que as citava.
 //
-// ⚠️ E o rótulo dos três VEREDITOS sai de `rotuloConvergencia`, nunca escrito
-// aqui. O valor gravado é vocabulário de engenharia (`estagnacao`) e o que a
-// pessoa lê é outro ("Estável"): esta tela dizia "Estagnação" enquanto o PDF do
-// mesmo relatório dizia "Estável", que é a divergência que o arquivo da régua
-// existe para impedir. Os demais status (em andamento, sem trilha, arquivada)
-// não são veredito de convergência e seguem locais.
+// ⚠️ E o rótulo dos três VEREDITOS é o MESMO vocabulário da régua, só que agora nos 4
+// idiomas (R-67, 04/10/2026): o texto vem do catálogo (`ManagerEvolution.status`), e um
+// teste confere que, em pt-BR, ele é igual a `rotuloConvergencia`. O valor gravado é
+// vocabulário de engenharia (`estagnacao`) e o que a pessoa lê é outro ("Estável"): esta
+// tela dizia "Estagnação" enquanto o PDF do mesmo relatório dizia "Estável", que é a
+// divergência que o arquivo da régua existe para impedir. Os demais status (em andamento,
+// sem trilha, arquivada) não são veredito de convergência e seguem locais.
 const STATUS_CFG = {
-  em_andamento:        { icon: Clock,      label: 'Em andamento',                                borda: 'border-cyan-500/20',    fundo: 'bg-cyan-500/[0.03]',    tinta: 'text-cyan-300' },
-  evolucao_confirmada: { icon: TrendingUp, label: rotuloConvergencia(CONVERGENCIA.CONFIRMADA), ...COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA] },
-  evolucao_parcial:    { icon: TrendingUp, label: rotuloConvergencia(CONVERGENCIA.PARCIAL),    ...COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL] },
-  estagnacao:          { icon: Minus,      label: rotuloConvergencia(CONVERGENCIA.ESTAVEL),      borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-300' },
-  sem_trilha:          { icon: X,          label: 'Sem jornada',           borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
-  arquivada:           { icon: X,          label: 'Arquivada',            borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
+  em_andamento:        { icon: Clock,      chave: 'inProgress', borda: 'border-cyan-500/20',    fundo: 'bg-cyan-500/[0.03]',    tinta: 'text-cyan-300' },
+  evolucao_confirmada: { icon: TrendingUp, chave: 'confirmed',  ...COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA] },
+  evolucao_parcial:    { icon: TrendingUp, chave: 'partial',    ...COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL] },
+  estagnacao:          { icon: Minus,      chave: 'stable',     borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-300' },
+  sem_trilha:          { icon: X,          chave: 'noJourney',  borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
+  arquivada:           { icon: X,          chave: 'archived',   borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
 };
 
-export default function EquipeEvolucaoPage() {
+/**
+ * `dadosIniciais` ({ rows, resumo, escopo, detalhe }) é a semente da renderização no servidor, para o teste montar
+ * a tela JÁ carregada nos 4 idiomas (o `useEffect` que busca os dados não roda em `renderToStaticMarkup`).
+ * Em produção ninguém a passa: a rota renderiza `<EquipeEvolucaoPage />` e a tela começa em "carregando".
+ */
+export default function EquipeEvolucaoPage({ dadosIniciais }: { dadosIniciais?: { rows: any[]; resumo: any; escopo?: string; detalhe?: any } } = {}) {
   const sb = getSupabase();
   const tg = useTranslations('ManagerDashboard');
+  const t = useTranslations('ManagerEvolution');
+  const tErro = useTranslations('ManagerErrors');
+  const locale = useLocale();
+  const numeros = numerosDasDicas(locale);
   // A leitura falhou (R-139): não é "sem jornada encerrada", e a tela oferece tentar de novo.
   const [indisponivel, setIndisponivel] = useState(false);
-  const [rows, setRows] = useState([]);
-  const [resumo, setResumo] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<any[]>(dadosIniciais?.rows ?? []);
+  const [resumo, setResumo] = useState<any>(dadosIniciais?.resumo ?? null);
+  const [loading, setLoading] = useState(!dadosIniciais);
   const [error, setError] = useState('');
   const [filtro, setFiltro] = useState('todos');
-  const [detalhe, setDetalhe] = useState(null);
+  const [detalhe, setDetalhe] = useState<any>(dadosIniciais?.detalhe ?? null);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
-  const [escopo, setEscopo] = useState('gestor');
+  const [escopo, setEscopo] = useState(dadosIniciais?.escopo ?? 'gestor');
 
   async function carregar() {
     setLoading(true);
     const [r] = await Promise.all([
       listarEquipeEvolucao(),
     ]);
-    if (r.error) { setError(r.error); setIndisponivel(!!(r as any).indisponivel); }
+    // O erro chega como CÓDIGO e é traduzido aqui, no idioma da tela (R-67).
+    if (!r.ok) { setError(textoDoErroDoGestor(tErro, r)); setIndisponivel(!!(r as any).indisponivel); }
     else { setRows(r.rows); setResumo(r.resumo); setEscopo(r.escopo || 'gestor'); setError(''); setIndisponivel(false); }
     setLoading(false);
   }
@@ -74,7 +88,7 @@ export default function EquipeEvolucaoPage() {
     setDetalhe({ colabEmail });
     const r = await loadLideradoConcluida(colabEmail);
     setLoadingDetalhe(false);
-    if (r.error) { alert(r.error); setDetalhe(null); return; }
+    if (!r.ok && r.codigo) { alert(textoDoErroDoGestor(tErro, r)); setDetalhe(null); return; }
     setDetalhe({ ...r, colabEmail });
   }
 
@@ -110,10 +124,10 @@ export default function EquipeEvolucaoPage() {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <Users size={20} className="text-brand-400" />
-          <h1 className="text-2xl font-bold text-white">Evolução da equipe</h1>
+          <h1 className="text-2xl font-bold text-white">{t('title')}</h1>
         </div>
         <p className="text-sm text-gray-400">
-          Visão consolidada do desenvolvimento {escopo === 'rh' ? 'dos colaboradores' : 'dos liderados'}.
+          {t('subtitle', { scope: escopo === 'rh' ? 'rh' : 'manager' })}
         </p>
       </div>
 
@@ -125,11 +139,11 @@ export default function EquipeEvolucaoPage() {
       {resumo && resumo.encerradas === 0 && (
         <GlassCard className="text-center" padding="p-6">
           <Clock size={24} className="text-brand-400/70 mx-auto mb-3" />
-          <p className="text-sm font-semibold text-white mb-1">Nenhuma jornada encerrada ainda</p>
+          <p className="text-sm font-semibold text-white mb-1">{t('noneClosed.title')}</p>
           <p className="text-[12px] text-gray-400 leading-relaxed max-w-[460px] mx-auto">
-            A comparação antes × depois aparece aqui quando a primeira jornada chegar ao fim.
+            {t('noneClosed.body')}
             {resumo.emAndamento > 0
-              ? ` Hoje ${resumo.emAndamento} ${resumo.emAndamento === 1 ? 'está' : 'estão'} em andamento.`
+              ? ` ${t('noneClosed.inProgress', { count: resumo.emAndamento })}`
               : ''}
           </p>
         </GlassCard>
@@ -141,19 +155,21 @@ export default function EquipeEvolucaoPage() {
               esta tela mede evolução, que só existe onde há jornada. Sete
               liderados com quatro fora da trilha viravam "Total 7", sem dizer
               que quatro deles não tinham o que evoluir. */}
-          <Card label="Com jornada" valor={resumo.total - resumo.semTrilha} cor="text-white"
-            detalhe={resumo.semTrilha > 0 ? `${resumo.semTrilha} sem jornada` : null} />
-          <Card label="Em andamento" valor={resumo.emAndamento} cor="text-brand-300" />
+          <Card label={t('cards.withJourney')} valor={resumo.total - resumo.semTrilha} cor="text-white"
+            detalhe={resumo.semTrilha > 0 ? t('cards.withoutJourney', { count: resumo.semTrilha }) : null} />
+          <Card label={t('cards.inProgress')} valor={resumo.emAndamento} cor="text-brand-300" />
           {/* 17/09/2026: cada veredito diz o que significa, com a MESMA frase do
-              relatório de evolução (`convergencia-dicas`), e pinta com a paleta
-              única: "Parciais" ainda saía em âmbar, contra a decisão de 16/09
-              (parcial verde claro, confirmada verde mais escuro). */}
-          <Card label="Confirmadas" valor={resumo.evolucaoConfirmada} cor={COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA].tinta}
-            detalhe={DICA_VEREDITO[CONVERGENCIA.CONFIRMADA]} />
-          <Card label="Parciais" valor={resumo.evolucaoParcial} cor={COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL].tinta}
-            detalhe={DICA_VEREDITO[CONVERGENCIA.PARCIAL]} />
-          <Card label="Estável" valor={resumo.estagnacao} cor={COR_VEREDITO_TELA[CONVERGENCIA.ESTAVEL].tinta}
-            detalhe={DICA_VEREDITO[CONVERGENCIA.ESTAVEL]} />
+              relatório de evolução, e pinta com a paleta única: "Parciais" ainda
+              saía em âmbar, contra a decisão de 16/09 (parcial verde claro,
+              confirmada verde mais escuro). R-67 (04/10/2026): a frase vem do
+              catálogo, nos 4 idiomas, e os números dela dos cortes da régua
+              (`numerosDasDicas`); em pt-BR um teste a confere com `DICA_VEREDITO`. */}
+          <Card label={t('cards.confirmed')} valor={resumo.evolucaoConfirmada} cor={COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA].tinta}
+            detalhe={t('verdictHints.confirmed', numeros)} />
+          <Card label={t('cards.partial')} valor={resumo.evolucaoParcial} cor={COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL].tinta}
+            detalhe={t('verdictHints.partial', numeros)} />
+          <Card label={t('cards.stable')} valor={resumo.estagnacao} cor={COR_VEREDITO_TELA[CONVERGENCIA.ESTAVEL].tinta}
+            detalhe={t('verdictHints.stable', numeros)} />
         </div>
       )}
 
@@ -169,9 +185,9 @@ export default function EquipeEvolucaoPage() {
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <select value={filtro} onChange={e => setFiltro(e.target.value)}
           className="bg-white/5 border border-white/10 rounded px-2 py-1.5 text-xs text-white">
-          <option value="todos" className="bg-[#0d1426]">Todos</option>
+          <option value="todos" className="bg-[#0d1426]">{t('filterAll')}</option>
           {Object.entries(STATUS_CFG).map(([k, c]) => (
-            <option key={k} value={k} className="bg-[#0d1426]">{c.label}</option>
+            <option key={k} value={k} className="bg-[#0d1426]">{t(`status.${c.chave}`)}</option>
           ))}
         </select>
       </div>
@@ -181,7 +197,7 @@ export default function EquipeEvolucaoPage() {
         <Center><Loader2 size={28} className="animate-spin text-brand-400" /></Center>
       ) : (resumo && resumo.encerradas === 0) ? null : filtrados.length === 0 ? (
         <p className="text-center py-12 text-sm text-gray-500">
-          {escopo === 'rh' ? 'Nenhum colaborador encontrado.' : 'Nenhum liderado encontrado.'}
+          {t('empty', { scope: escopo === 'rh' ? 'rh' : 'manager' })}
         </p>
       ) : (
         <div className="space-y-2">
@@ -202,12 +218,12 @@ export default function EquipeEvolucaoPage() {
                       <span className="text-[10px] text-gray-400">· {r.cargo}</span>
                     </div>
                     <p className="text-[11px] text-gray-400 truncate">
-                      {r.competencia ? <>{r.competencia} · Jornada {r.temporada}</> : 'sem jornada ativa'}
+                      {r.competencia ? t('row.journeyOf', { competency: r.competencia, number: r.temporada }) : t('row.noActiveJourney')}
                       {r.avancoMedio != null && (
                         <>
                           {' · '}
                           <span className={`${cfg.tinta} font-bold`}>
-                            {formatarValorAvanco(r.avancoMedio)}
+                            {formatarValorAvancoNoIdioma(r.avancoMedio, locale)}
                           </span>
                         </>
                       )}
@@ -215,10 +231,10 @@ export default function EquipeEvolucaoPage() {
                     {/* Subiu de nível em alguma competência: parabéns na linha (16/09/2026). */}
                     {(r.competencias || []).filter((c) => c.subiuDeNivel).map((c, i) => (
                       <p key={i} className="text-[10px] font-bold text-amber-300 mt-0.5 inline-flex items-center gap-1 mr-3">
-                        <PartyPopper size={11} aria-hidden="true" /> {c.competencia}: Nível {c.nivelInicial} → Nível {c.nivelFinal}
+                        <PartyPopper size={11} aria-hidden="true" /> {t('row.levelChange', { competency: c.competencia, from: rotuloNivel(c.nivelInicial, { idioma: locale }), to: rotuloNivel(c.nivelFinal, { idioma: locale }) })}
                       </p>
                     ))}
-                    <p className={`text-[10px] uppercase tracking-widest ${cfg.tinta} mt-0.5`}>{cfg.label}</p>
+                    <p className={`text-[10px] uppercase tracking-widest ${cfg.tinta} mt-0.5`}>{t(`status.${cfg.chave}`)}</p>
                   </div>
                   {canOpen && <ChevronRight size={14} className="text-gray-500" />}
                 </div>
@@ -229,7 +245,7 @@ export default function EquipeEvolucaoPage() {
       )}
 
       {detalhe && (
-        <DetalheModal data={detalhe} loading={loadingDetalhe} onClose={() => setDetalhe(null)} sb={sb} />
+        <DetalheModal data={detalhe} loading={loadingDetalhe} onClose={() => setDetalhe(null)} sb={sb} escopo={escopo} />
       )}
     </PageContainer>
   );
@@ -249,7 +265,10 @@ function Card({ label, valor, cor, detalhe = null }) {
   );
 }
 
-function DetalheModal({ data, loading, onClose, sb }) {
+function DetalheModal({ data, loading, onClose, sb, escopo }) {
+  const t = useTranslations('ManagerEvolution');
+  const locale = useLocale();
+  const scope = escopo === 'rh' ? 'rh' : 'manager';
   const report = data?.evolutionReport;
   const descritores = report?.descritores || [];
 
@@ -258,7 +277,7 @@ function DetalheModal({ data, loading, onClose, sb }) {
     const res = await fetch(`/api/temporada/concluida/pdf?email=${encodeURIComponent(data.colabEmail)}`, {
       headers: { Authorization: `Bearer ${session?.access_token}` },
     });
-    if (!res.ok) { alert('Erro ao gerar PDF'); return; }
+    if (!res.ok) { alert(t('detail.pdfError')); return; }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -277,7 +296,7 @@ function DetalheModal({ data, loading, onClose, sb }) {
       className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-start justify-center p-2 md:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label="Detalhe do liderado"
+      aria-label={t('detail.aria', { scope })}
       onClick={onClose}
     >
       {/* Quem ROLA é o painel: com o scroll no backdrop, o cabeçalho sticky
@@ -286,19 +305,19 @@ function DetalheModal({ data, loading, onClose, sb }) {
       <div className="max-h-full w-full max-w-3xl overflow-y-auto overscroll-contain rounded-[24px] border border-white/[0.1] bg-[#071829] shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between gap-4 p-4 md:px-6 border-b border-white/[0.08] bg-[#071829] rounded-t-[24px]">
           <div className="min-w-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300">Evolução da equipe</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300">{t('detail.eyebrow')}</p>
             <h2 className="mt-0.5 truncate text-xl text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
-              {data?.colab?.nome || 'Detalhe do liderado'}
+              {data?.colab?.nome || t('detail.aria', { scope })}
             </h2>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {data?.colab && (
               <button onClick={baixarPdf}
                 className="flex items-center gap-1.5 rounded-full border border-brand-400/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-brand-300 transition-colors hover:bg-brand-400/10">
-                <Download size={11} /> PDF
+                <Download size={11} /> {t('detail.pdf')}
               </button>
             )}
-            <button onClick={onClose} aria-label="Fechar" className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white"><X size={18} /></button>
+            <button onClick={onClose} aria-label={t('detail.close')} className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white"><X size={18} /></button>
           </div>
         </div>
         {loading || !data?.colab ? (
@@ -306,18 +325,23 @@ function DetalheModal({ data, loading, onClose, sb }) {
         ) : (
           <div className="p-5 space-y-4 text-sm">
             <section>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500">Contexto</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500">{t('detail.context')}</p>
               <p className="text-white">{data.colab.cargo}</p>
-              <p className="text-xs text-gray-400">Competência: <span className="text-brand-300">{data.trilha.competencia}</span> · Temporada {data.trilha.numeroTemporada}</p>
+              <p className="text-xs text-gray-400">{t.rich('detail.competency', {
+                // O nome da competência é dado do banco: não se traduz, só se destaca como antes.
+                name: data.trilha.competencia,
+                number: data.trilha.numeroTemporada,
+                strong: (chunks) => <span className="text-brand-300">{chunks}</span>,
+              })}</p>
             </section>
             {report?.insight_geral && (
               <section>
-                <p className="text-[10px] uppercase tracking-widest text-brand-400 mb-1">Insight geral</p>
+                <p className="text-[10px] uppercase tracking-widest text-brand-400 mb-1">{t('detail.overall')}</p>
                 <p className="text-xs text-gray-200 italic border-l-2 border-brand-500/40 pl-3">{report.insight_geral}</p>
               </section>
             )}
             <section>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Descritor a descritor</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">{t('detail.byDescriptor')}</p>
               <div className="space-y-1.5">
                 {agruparPorCompetencia(descritores).map((grupo, g) => (
                   <div key={g} className="space-y-1.5">
@@ -327,14 +351,14 @@ function DetalheModal({ data, loading, onClose, sb }) {
                           <p className="text-xs font-bold text-brand-300">{grupo.competencia}</p>
                           {grupo.nivelFinal != null && (grupo.subiuDeNivel ? (
                             <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-amber-300">
-                              Nível {grupo.nivelInicial} → Nível {grupo.nivelFinal} <PartyPopper size={12} aria-hidden="true" /> Subiu de nível
+                              {rotuloNivel(grupo.nivelInicial, { idioma: locale })} → {rotuloNivel(grupo.nivelFinal, { idioma: locale })} <PartyPopper size={12} aria-hidden="true" /> {t('detail.levelUp')}
                             </p>
                           ) : (
-                            <p className="mt-0.5 text-[11px] text-gray-400">Nível {grupo.nivelFinal}</p>
+                            <p className="mt-0.5 text-[11px] text-gray-400">{rotuloNivel(grupo.nivelFinal, { idioma: locale })}</p>
                           ))}
                         </div>
-                        {formatarValorAvanco(grupo.avancoMedio) && (
-                          <span className="text-[11px] text-gray-400">Avanço <b className="text-brand-300">{formatarValorAvanco(grupo.avancoMedio)}</b></span>
+                        {formatarValorAvancoNoIdioma(grupo.avancoMedio, locale) && (
+                          <span className="text-[11px] text-gray-400">{t('detail.progress')} <b className="text-brand-300">{formatarValorAvancoNoIdioma(grupo.avancoMedio, locale)}</b></span>
                         )}
                       </div>
                     )}
@@ -347,7 +371,7 @@ function DetalheModal({ data, loading, onClose, sb }) {
                             <span className={`${cfg.tinta} font-bold shrink-0`}>
                               {/* Avanço com piso em zero, sem o par de notas: a régua
                                   não afirma queda, então a tela também não. */}
-                              {formatarAvanco(d.nota_pre, d.nota_pos)} · {cfg.label}
+                              {formatarAvancoNoIdioma(d.nota_pre, d.nota_pos, locale)} · {t(`status.${cfg.chave}`)}
                             </span>
                           </div>
                           {/* Relato só quando a conversa sustenta: ver `exibeAntesDepois`. */}
@@ -361,7 +385,7 @@ function DetalheModal({ data, loading, onClose, sb }) {
             </section>
             {report?.proximo_passo && (
               <section>
-                <p className="text-[10px] uppercase tracking-widest text-emerald-400 mb-1">Recomendação de acompanhamento</p>
+                <p className="text-[10px] uppercase tracking-widest text-emerald-400 mb-1">{t('detail.nextStep')}</p>
                 <p className="text-xs text-gray-200">{report.proximo_passo}</p>
               </section>
             )}

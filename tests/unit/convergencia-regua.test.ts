@@ -172,10 +172,17 @@ describe('as telas de evolução não inventam vocabulário', () => {
   const ADMIN = readFileSync('app/admin/evolucao/page.tsx', 'utf8');
   const GESTOR = readFileSync('app/dashboard/gestor/equipe-evolucao/page.tsx', 'utf8');
 
-  it('o painel do gestor lê o rótulo da régua em vez de escrevê-lo', () => {
-    expect(GESTOR).toContain("from '@/lib/season-engine/convergencia'");
-    expect(GESTOR).toContain('rotuloConvergencia(CONVERGENCIA.ESTAVEL)');
+  it('o painel do gestor lê o rótulo do catálogo, que em pt-BR é o da régua (R-67: 4 idiomas)', () => {
+    // O rótulo passou a vir do catálogo (`ManagerEvolution.status`), nos 4 idiomas. A divergência
+    // que este teste impede (a tela escrever "Estagnação" enquanto o PDF diz "Estável") continua
+    // impedida pelo catálogo: em pt-BR ele É o `rotuloConvergencia`.
+    const ptBR = JSON.parse(readFileSync('messages/pt-BR.json', 'utf8')).ManagerEvolution.status;
+    expect(ptBR.confirmed).toBe(rotuloConvergencia(CONVERGENCIA.CONFIRMADA));
+    expect(ptBR.partial).toBe(rotuloConvergencia(CONVERGENCIA.PARCIAL));
+    expect(ptBR.stable).toBe(rotuloConvergencia(CONVERGENCIA.ESTAVEL));
+    expect(GESTOR).toContain("t(`status.${cfg.chave}`)");
     expect(GESTOR).not.toContain("label: 'Estagnação'");
+    expect(GESTOR).not.toMatch(/label: '(Evolução|Estável|Em andamento)/);
   });
 
   it('o rótulo de "estável" no pt-BR é o mesmo da régua', () => {

@@ -5902,7 +5902,7 @@
       "ofTotal": "de {total}",
       "weekCount": "{count} en la semana {week}"
     },
-    "pendingCount": "{count} pendiente{plural}",
+    "pendingCount": "{count, plural, one {# pendiente} other {# pendientes}}",
     "emptyAction": "Nadie se detuvo esta semana. Cuando alguien se quede atrás en el recorrido, aparecerá aquí, con cuánto tiempo lleva y en qué semana.",
     "modal": {
       "eyebrow": "Checkpoint semana {week} · evaluación",
@@ -5991,6 +5991,242 @@
       "openPdf": "Abrir el PDF del mapeo",
       "openPdfFor": "Abrir el PDF del mapeo de {name}",
       "pdfError": "No se pudo abrir el PDF"
+    }
+  },
+  "ManagerErrors": {
+    "notAuthenticated": "Tu sesión ha caducado. Vuelve a entrar para continuar.",
+    "noPermission": "No tienes acceso a esta información.",
+    "personInvalid": "No reconocemos a esta persona. Vuelve a la lista e inténtalo de nuevo.",
+    "personNotFound": "No encontramos a esta persona.",
+    "outOfScope": "Esta persona no está en tu equipo.",
+    "noCompany": "No encontramos la empresa vinculada a tu acceso. Habla con Vertho.",
+    "noPdf": "El PDF del mapeo de esta persona aún no se ha cargado.",
+    "noOwnPdf": "Tu informe aún no ha sido cargado por la empresa.",
+    "pdfFailed": "No se pudo abrir el PDF ahora. Inténtalo de nuevo en unos instantes.",
+    "journeyNotFound": "No encontramos este recorrido.",
+    "invalidWeek": "Esta no es una semana de checkpoint del recorrido.",
+    "invalidEvaluation": "Evaluación no válida.",
+    "loadFailed": "No se pudo cargar ahora. Inténtalo de nuevo en unos instantes.",
+    "saveFailed": "No se pudo guardar. Inténtalo de nuevo.",
+    "generic": "Algo salió mal. Inténtalo de nuevo."
+  },
+  "ManagerAlerts": {
+    "checkpoint_atrasado": "{count, plural, one {# checkpoint pendiente desde hace más de 7 días} other {# checkpoints pendientes desde hace más de 7 días}}",
+    "sem_perfil_externo": "{role, select, hr {{count, plural, one {# colaborador aún no tiene {source} cargado} other {# colaboradores aún no tienen {source} cargado}}} other {{count, plural, one {# liderado aún no tiene {source} cargado} other {# liderados aún no tienen {source} cargado}}}}",
+    "sem_perfil": "{role, select, hr {{count, plural, one {# colaborador sin perfil conductual mapeado} other {# colaboradores sin perfil conductual mapeado}}} other {{count, plural, one {# liderado sin perfil conductual mapeado} other {# liderados sin perfil conductual mapeado}}}}",
+    "sem_mapeamento": "{role, select, hr {{count, plural, one {# colaborador sin mapeo de competencias} other {# colaboradores sin mapeo de competencias}}} other {{count, plural, one {# liderado sin mapeo de competencias} other {# liderados sin mapeo de competencias}}}}",
+    "estagnado": "{role, select, hr {{count, plural, one {# colaborador estancado desde hace 3 semanas o más (sin checkpoint respondido)} other {# colaboradores estancados desde hace 3 semanas o más (sin checkpoint respondido)}}} other {{count, plural, one {# liderado estancado desde hace 3 semanas o más (sin checkpoint respondido)} other {# liderados estancados desde hace 3 semanas o más (sin checkpoint respondido)}}}}"
+  },
+  "ManagerEvolution": {
+    "title": "Evolución del equipo",
+    "subtitle": "Visión consolidada del desarrollo {scope, select, rh {de los colaboradores} other {de los liderados}}.",
+    "noneClosed": {
+      "title": "Aún no ha terminado ningún recorrido",
+      "body": "La comparación antes × después aparecerá aquí cuando termine el primer recorrido.",
+      "inProgress": "{count, plural, one {Ahora mismo # está en curso.} other {Ahora mismo # están en curso.}}"
+    },
+    "cards": {
+      "withJourney": "Con recorrido",
+      "withoutJourney": "{count} sin recorrido",
+      "inProgress": "En curso",
+      "confirmed": "Confirmadas",
+      "partial": "Parciales",
+      "stable": "Estable"
+    },
+    "verdictHints": {
+      "confirmed": "Avance de {min} o más entre el inicio y el cierre.",
+      "partial": "Avance de {from} a {to} entre el inicio y el cierre.",
+      "stable": "Avance de hasta {max}: mantuvo el nivel de partida."
+    },
+    "status": {
+      "inProgress": "En curso",
+      "confirmed": "Evolución confirmada",
+      "partial": "Evolución parcial",
+      "stable": "Estable",
+      "noJourney": "Sin recorrido",
+      "archived": "Archivada",
+      "unmeasured": "Sin medición"
+    },
+    "filterAll": "Todos",
+    "empty": "{scope, select, rh {No se encontró ningún colaborador.} other {No se encontró ningún liderado.}}",
+    "row": {
+      "journeyOf": "{competency} · Recorrido {number}",
+      "noActiveJourney": "sin recorrido activo",
+      "levelChange": "{competency}: {from} → {to}"
+    },
+    "detail": {
+      "aria": "{scope, select, rh {Detalle del colaborador} other {Detalle del liderado}}",
+      "eyebrow": "Evolución del equipo",
+      "pdf": "PDF",
+      "pdfError": "No se pudo generar el PDF. Inténtalo de nuevo.",
+      "close": "Cerrar",
+      "context": "Contexto",
+      "competency": "Competencia: <strong>{name}</strong> · Recorrido {number}",
+      "overall": "Lectura general",
+      "byDescriptor": "Descriptor a descriptor",
+      "levelUp": "Subió de nivel",
+      "progress": "Avance",
+      "nextStep": "Recomendación de seguimiento"
+    }
+  },
+  "ManagerEngagement": {
+    "scope": {
+      "company": "Vista de la empresa",
+      "manager": "Vista del gestor"
+    },
+    "title": "Compromiso del equipo",
+    "subtitle": "Mira quién está en movimiento y dónde una conversación puede ayudar a que el recorrido continúe.",
+    "period": {
+      "label": "Periodo",
+      "current": "Etapa actual de cada persona",
+      "week": "Semana {week}"
+    },
+    "role": {
+      "label": "Función",
+      "all": "Todas las funciones"
+    },
+    "loading": "Organizando las señales del recorrido…",
+    "loadError": "No se pudo cargar el compromiso del equipo",
+    "noOneInRole": {
+      "title": "Nadie en «{role}» en la cadencia",
+      "body": "Esta función no tiene personas en tu selección. Otras funciones pueden tenerlas.",
+      "bodyWeek": "Esta función no tiene personas en tu selección en la semana {week}. Otras funciones pueden tenerlas.",
+      "showAll": "Ver todas las funciones"
+    },
+    "notStarted": {
+      "title": "El recorrido del equipo aún no ha empezado",
+      "body": "Las señales aparecen tras el primer envío de la cadencia. Hasta entonces, no hay movimiento que seguir."
+    },
+    "funnel": {
+      "eyebrowWeek": "Semana {week}",
+      "eyebrowCurrent": "Etapa actual de cada persona",
+      "title": "Del primer acceso a la entrega",
+      "descriptionWeek": "Los cuatro hitos en la semana {week}. Muestran presencia en el recorrido, no una nota ni una evaluación de desempeño.",
+      "descriptionCurrent": "Los cuatro hitos en la etapa en la que está hoy cada persona. Muestran presencia en el recorrido, no una nota ni una evaluación de desempeño.",
+      "inCadence": "En la cadencia",
+      "inCadenceRole": "personas en {role}",
+      "inCadenceAll": "personas de tu selección",
+      "accessed": "Accedieron al contenido",
+      "accessedDetail": "abrieron al menos un formato",
+      "consumed": "Consumieron",
+      "consumedDetail": "vídeo o pódcast completado, o material abierto",
+      "delivered": "Entregaron evidencia",
+      "deliveredDetail": "terminaron la práctica"
+    },
+    "quickRead": {
+      "aria": "Lectura rápida",
+      "suggested": "Seguimiento sugerido",
+      "breakdown": "{pending} con etapa pendiente · {noDelivery} sin entregar · {noSignal} sin señal",
+      "askTitle": "Usaron el Tira-Dúvidas",
+      "askDetail": "Tira-Dúvidas abierto"
+    },
+    "list": {
+      "byCoordination": "Por coordinación",
+      "byPerson": "Persona por persona",
+      "title": "Dónde apoyar el siguiente paso",
+      "all": "Todos",
+      "follow": "Seguir",
+      "moving": "En movimiento",
+      "finished": "Terminaron",
+      "search": "Buscar persona",
+      "showing": "Mostrando {shown} de {total} {total, plural, one {persona} other {personas}}{hasRole, select, yes { en {role}} other {}}{hasCoordination, select, yes { en {coordinations, plural, one {# coordinación} other {# coordinaciones}}} other {}}.",
+      "noMatch": "Ninguna persona coincide con los filtros seleccionados.",
+      "noCoordination": "Sin coordinador definido",
+      "peopleCount": "{count, plural, one {# persona} other {# personas}}",
+      "toFollow": "{count} para seguir"
+    },
+    "person": {
+      "noRole": "Cargo no informado",
+      "stageColumn": "Etapa individual",
+      "signalsColumn": "Señales de la semana",
+      "formatsColumn": "Formatos abiertos",
+      "noFormats": "Ningún formato registrado",
+      "calendarTitle": "Calendario del grupo: semana {week}",
+      "noPosition": "Posición no disponible",
+      "stage": {
+        "pending": "etapa pendiente",
+        "done": "etapa completada",
+        "inProgress": "en curso"
+      },
+      "weekStage": "Semana {week} · {stage}",
+      "completedTitle": "Completó la última semana del plan",
+      "completedBadge": "Recorrido completado",
+      "completedBadgeTotal": "Recorrido completado · {total} de {total} semanas"
+    },
+    "status": {
+      "completed": {
+        "label": "Recorrido completado",
+        "detailTotal": "Completó las {total} semanas del plan.",
+        "detail": "Completó la última semana del plan."
+      },
+      "noSignal": {
+        "label": "Sin señal registrada",
+        "detail": "Conviene comprobar si la persona pudo empezar."
+      },
+      "pending": {
+        "label": "Etapa pendiente",
+        "detail": "El calendario del grupo está en la semana {week}."
+      },
+      "delivered": {
+        "label": "Entrega completada",
+        "detail": "La evidencia de la semana ya se envió."
+      },
+      "moving": {
+        "label": "En movimiento",
+        "detail": "Consumió el contenido; la entrega aún no aparece."
+      },
+      "started": {
+        "label": "Empezó el recorrido",
+        "detail": "Ya accedió al contenido esta semana."
+      }
+    },
+    "signals": {
+      "accessed": "Accedió",
+      "consumed": "Consumió",
+      "ask": "Tira-Dúvidas",
+      "recorded": "{label}: registrado",
+      "notRecorded": "{label}: sin registro"
+    },
+    "formats": {
+      "video": "Vídeo",
+      "audio": "Audio",
+      "texto": "Texto",
+      "case": "Caso"
+    },
+    "legend": {
+      "title": "Entiende qué significa cada señal",
+      "accessed": "<strong>Accedió:</strong> abrió la página o uno de los formatos disponibles.",
+      "consumed": "<strong>Consumió:</strong> completó el vídeo o el pódcast. El material de lectura (texto y caso de estudio) cuenta al abrirse: un PDF en otra pestaña no genera un evento de finalización.",
+      "evidence": "<strong>Evidencia:</strong> la práctica que cierra la semana. La frase nombra la semana e indica si está pendiente o entregada. Quien entrega avanza, así que la línea de quien está pendiente nunca muestra entrega.",
+      "quality": "<strong>Nivel de la reflexión:</strong> alto, medio o bajo, clasificado por la IA al cerrar la semana. La semana de aplicación no recibe nivel. El texto es privado de la persona y no aparece aquí.",
+      "none": "<strong>Sin registro:</strong> significa solo que el sistema no recibió esa señal; no es una evaluación de la persona."
+    }
+  },
+  "EngagementSignals": {
+    "signalJourney": {
+      "defaultEyebrow": "Señales del recorrido",
+      "ofTotal": "de {total}"
+    },
+    "delivery": {
+      "completed": "Recorrido completado",
+      "lastReflection": "última reflexión",
+      "completedTitle": "La persona cerró la última semana del plan. El nivel es el de la última reflexión clasificada; el texto es privado.",
+      "deliveredWeek": "Evidencia de la semana {week} entregada",
+      "delivered": "Evidencia entregada",
+      "deliveredTitle": "Etapa cerrada: la evidencia de esta semana ya se registró. El nivel lo clasifica la IA; el texto de la reflexión es privado.",
+      "noLevel": "semana de aplicación, sin nivel",
+      "pendingWeek": "Evidencia de la semana {week} pendiente",
+      "pending": "Evidencia pendiente",
+      "pendingTitle": "La evidencia que cierra esta semana aún no se ha registrado."
+    },
+    "quality": {
+      "high": "Alta",
+      "medium": "Media",
+      "low": "Baja",
+      "title": "Calidad de las reflexiones",
+      "delivered": "{count, plural, one {# persona entregó} other {# personas entregaron}} · nivel de la reflexión en la etapa actual de cada una",
+      "none": "Sin clasificar",
+      "note": "La IA clasifica la reflexión al cerrar cada semana de contenido: alta aporta un ejemplo concreto y un aprendizaje propio; media se queda en lo general; baja es genérica o muy corta. El texto es privado de la persona y no aparece aquí."
     }
   },
   "AdminCompanySettings": {

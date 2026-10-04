@@ -18,7 +18,7 @@ const render = vi.fn(async (_p: any) => Buffer.from('%PDF'));
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/auth/request-context', () => ({ requireRole: vi.fn(async () => auth) }));
 vi.mock('@/app/dashboard/gestor/equipe-evolucao/actions', () => ({
-  listarEquipeEvolucao: vi.fn(async () => ({ resumo: { total: 1 }, rows: [] })),
+  listarEquipeEvolucao: vi.fn(async () => ({ ok: true, resumo: { total: 1 }, rows: [] })),
 }));
 vi.mock('@/lib/plenaria-equipe-pdf', () => ({ renderPlenariaEquipePDF: (p: any) => render(p) }));
 

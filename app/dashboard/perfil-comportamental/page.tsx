@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { textoDoErroDoGestor } from '@/lib/gestor/codigos-de-erro';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, AlertCircle, Download, Zap, Users, Anchor, ListChecks, Sparkles, Volume2, Send, FileText, ArrowLeft } from 'lucide-react';
 import { loadPerfilCIS, loadPerfilCISGestor, gerarInsightsExecutivos, getMeuPerfilExternoPdfUrl } from './perfil-comportamental-actions';
@@ -399,6 +400,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
 
 export default function PerfilComportamentalPage() {
   const t = useTranslations('BehavioralProfile');
+  const tErro = useTranslations('ManagerErrors');
   const searchParams = useSearchParams();
   const colaboradorAlvo = searchParams.get('colaborador');
   // A presença do ID já implica consulta de terceiro. O modo de segurança não
@@ -483,11 +485,12 @@ export default function PerfilComportamentalPage() {
     // Abre a aba ANTES do await: popup criado depois da resposta assíncrona
     // perde o gesto do usuário e é bloqueado pelo navegador.
     const aba = window.open('', '_blank');
-    const r = colaboradorAlvo
+    const r: any = colaboradorAlvo
       ? await getPerfilExternoPdfUrlGestor(colaboradorAlvo)
       : await getMeuPerfilExternoPdfUrl();
     setAbrindoPdfExterno(false);
-    if (r.error || !r.url) { aba?.close(); flash(r.error || t('external.pdfError')); return; }
+    // A action do gestor devolve um CÓDIGO (R-67), traduzido aqui no idioma da tela.
+    if (r.codigo || r.error || !r.url) { aba?.close(); flash(r.codigo ? textoDoErroDoGestor(tErro, r) : (r.error || t('external.pdfError'))); return; }
     if (aba) aba.location.href = r.url;
     else window.open(r.url, '_blank');
   }
