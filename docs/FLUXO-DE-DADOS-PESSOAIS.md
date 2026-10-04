@@ -205,7 +205,7 @@ nem conteúdo do navegador. Especificação operacional: `docs/BETO-CANAIS.md`.
 | Backups | **Supabase Storage**, bucket `backups` | `.json.gz` diário, rotação de 7 dias (`actions/backup.ts`) |
 | Render de vídeo | **Hetzner** (servidor provisionado sob demanda) | acesso ao banco pela `DATABASE_URL`; lê `nome_completo` de quem recebe vídeo personalizado e sintetiza a saudação (`worker-hetzner/worker.mjs`, `lib/video/ensure-render-worker.ts`) |
 | Tarefas em segundo plano | **Trigger.dev** | executa acumulada do piloto, IA4, PDI e blueprint em lote, geração de vídeo; processa os mesmos dados dessas etapas, e o progresso dos lotes leva o nome da pessoa no rótulo (`trigger/`) |
-| Fila de mensagens | **Upstash QStash** | envio em lote de WhatsApp: nome (dentro da mensagem), telefone e link de avaliação (`actions/whatsapp-lote.ts`) |
+| Fila de mensagens | **Upstash QStash** | envio em lote de WhatsApp: nome (dentro da mensagem), telefone e link de acesso ou de conteúdo (`lib/qstash-publish.ts`) |
 | Limite de requisições | **Upstash Redis** | e-mail da sessão como chave do limite (ou o IP, sem sessão) (`lib/rate-limit.ts`) |
 | Monitoramento de erros | **Sentry** | dados técnicos de erro; e-mail, telefone, CPF e credenciais de URL (`t`, `token`, `token_hash`, `codigo`, `code`, `ticket`, `passe`, `key`, `secret`) removidos em `lib/sentry-scrub-pii.ts`; **nome em texto livre não é detectado** |
 | Vídeo | **Bunny Stream** | vídeos genéricos e personalizados; os personalizados têm o primeiro nome na saudação e no **título** (`worker-hetzner/worker.mjs`) |
@@ -227,7 +227,7 @@ primeiro item a verificar no painel.
 | **Amazon SES** e **Resend** | e-mail + conteúdo | `lib/email-provider.ts`, `lib/notifications/pilula-envio.ts` |
 | **Twilio** | telefone + código de acesso (SMS) | `lib/sms/providers/twilio.ts`; configurado, sem número |
 | **Web Push** (navegador) | endpoint do aparelho | `lib/notifications/push-core.ts` |
-| **Upstash QStash** | nome, telefone e link dos envios em lote | `actions/whatsapp-lote.ts` (§3) |
+| **Upstash QStash** | nome, telefone e link dos envios em lote | `lib/qstash-publish.ts` (§3) |
 
 O recebimento do WhatsApp também pode incluir mídia. A inbox guarda a cópia recebida no bucket
 privado `inbox-midia-recebida`; no Beto do WhatsApp, um áudio elegível pode ainda ser enviado ao

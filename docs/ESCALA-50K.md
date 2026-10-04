@@ -12,7 +12,7 @@ conteúdo **não** escala com o nº de usuários — o gargalo é a camada **por
 ## Gargalos (por pessoa)
 
 ### #1 — WhatsApp (entrega em massa) · 🔴 DURO, pendente
-`actions/whatsapp-lote.ts` enfileira no QStash com `DELAY_BETWEEN_MS=2000` → **0,5 msg/s por número**. 50k × ~2 msg/semana = **~55h de envio/semana** num número. E o **Z-API é não-oficial** → 50k/dia = ban quase certo.
+`actions/whatsapp-lote.ts` (removido em 04/10/2026, sem chamador; hoje os lotes saem por `lib/qstash-publish.ts`, com a cadência de `lib/whatsapp/cadencia.ts`) enfileirava no QStash com `DELAY_BETWEEN_MS=2000` → **0,5 msg/s por número**. 50k × ~2 msg/semana = **~55h de envio/semana** num número. E o **Z-API é não-oficial** → 50k/dia = ban quase certo.
 **Saída:** WhatsApp **Cloud API oficial** (Meta, ~80 msg/s escalável; 50k em ~10 min) + **templates aprovados** (outbound fora da janela de 24h). É envio transacional — vai direto na Cloud API, separado do **atendimento humano**, que tem tela própria (`docs/INBOX-WHATSAPP.md`).
 
 > ⚠️ Corrigido em 14/08/2026: esta linha citava o **Chatwoot** como destino do atendimento humano. O

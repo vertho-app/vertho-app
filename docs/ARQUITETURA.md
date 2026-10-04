@@ -377,7 +377,6 @@ nextjs-app/
 │   ├── video-tracking.ts         # Registro views
 │   ├── gerar-video.ts            # NOVO: Gerador de video do Modulo-Base (resolucao lazy por celula, secao 23)
 │   ├── whatsapp.ts               # Z-API
-│   ├── whatsapp-lote.ts          # QStash lote
 │   ├── automacao-envios.ts       # PDF + WhatsApp lote
 │   ├── relatorios.ts             # Geracao relatorios (c/ grounding RAG)
 │   ├── relatorios-load.ts        # Load relatorios
@@ -2749,9 +2748,11 @@ escrita quebrado. É o único caso da lista em que "zero" pode significar bug.
 
 ⚠️ **Atualização de 04/10/2026:** o caminho de escrita quebrado era o `dispararEmails`
 (`actions/fase2.ts`): ele gravava o envio e mandava um link para `/avaliacao/{token}`, rota que
-nunca existiu em `app/`, e nenhuma tela o chamava. Foi removido. Sobraram o `verStatusEnvios`
-(só lê) e o `dispararLinksCIS` (`actions/whatsapp-lote.ts`), que depende de linhas `pendente`
-que nada mais cria e também não tem chamador de tela.
+nunca existiu em `app/`, e nenhuma tela o chamava. Foi removido. Na mesma rodada saíram o
+`dispararLinksCIS` e o `dispararRelatoriosLote` (`actions/whatsapp-lote.ts`, sem chamador de tela;
+os links `/avaliacao/{token}` e `/relatorio/{id}` apontavam para rotas que não existem) e o
+`loadWhatsappStatus` (um contador de pendentes que nenhuma tela lia). Sobra o `verStatusEnvios`,
+que só lê.
 
 ### 27.3 Tabelas sem tela e sem código
 
@@ -2776,13 +2777,21 @@ decisão do dono** (zona 🔴 do `CLAUDE.md`: DDL).
 ⚠️ **Atualização de 04/10/2026:** `RHView`, `ManagerView` e `RelatorioTemplate` foram removidos
 (sem importador, confirmado por busca). `RelatorioComportamental` voltou a ter chamador
 (`lib/relatorio-comportamental/relatorio-core.ts`); `phase-transition`, `empty-state` e
-`version-badge` seguem sem importador.
+`version-badge` também saíram (sem importador). Com o `version-badge` saíram do `next.config.mjs`
+as quatro envs que só ele lia: `NEXT_PUBLIC_APP_VERSION`, `NEXT_PUBLIC_BUILD_NUM`,
+`NEXT_PUBLIC_GIT_SHA` e `NEXT_PUBLIC_BUILD_DATE`.
 
 E 5 rotas de API sem chamador no código, **das quais 2 são falso-positivo por
 construção**: `/api/webhooks/zapi/disconnected` é chamada de fora pela Z-API, e
 `/api/sales/materials/[id]/download` pode ser alcançada por `href` montado em
 runtime. As outras três: `/api/cenarios`, `/api/internal/pregerar-podcast` e
 `/api/copiloto/clientes/[accountId]/conversas`.
+
+⚠️ **Atualização de 04/10/2026:** `/api/cenarios` segue no repositório de propósito. Não tem chamador
+no código, mas é rota de API e pode ter chamador externo que o repositório não mostra (o projeto nasceu
+de um legado em Apps Script). `/api/internal/pregerar-podcast` é chamada por
+`scripts/_prewarm-podcast-dia.ts` e `/api/copiloto/clientes/[accountId]/conversas` por
+`app/copiloto/clients-workspace.tsx`.
 
 ---
 
