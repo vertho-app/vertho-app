@@ -1,20 +1,6 @@
 // Validação e persistência compartilhadas pelos modos imediato e lote.
 export const VERSAO_AUDITOR_B = 2;
 
-/**
- * Heurística de semelhança entre dois textos de cenário: a fração das palavras
- * substantivas de `texto` (mais de 3 letras, fora as de ligação) que também estão
- * em `referencia`. 0 a 1. Fonte única do B por célula e do integrador do Onboarding.
- */
-export function sobreposicaoDeTexto(texto: string, referencia: string): number {
-  const stopwords = new Set(['de','da','do','das','dos','em','na','no','nas','nos','um','uma','o','a','os','as','que','e','para','com','por','se','ao','ou','mais','não','como','mas','sua','seu','seus','suas','este','esta','esse','essa']);
-  const extractWords = (t: string) => (t || '').toLowerCase().replace(/[^a-záàâãéèêíóòôõúç\s]/g, '').split(/\s+/).filter(w => w.length > 3 && !stopwords.has(w));
-  const wordsA = new Set(extractWords(referencia));
-  const wordsB = extractWords(texto || '');
-  const overlap = wordsB.filter(w => wordsA.has(w)).length;
-  return wordsB.length > 0 ? overlap / wordsB.length : 0;
-}
-
 export function validarCenarioB(cenarioData: any, cenA: any): string[] {
   if (!cenarioData?.titulo || !cenarioData?.descricao) return ['Cenário sem título ou descrição'];
   const errors: string[] = [];
@@ -23,7 +9,12 @@ export function validarCenarioB(cenarioData: any, cenA: any): string[] {
   if (Array.isArray(cenarioData.stakeholders_centrais) && cenarioData.stakeholders_centrais.length > 2) errors.push('Max 2 stakeholders');
 
   // Heurística de semelhança: overlap de palavras substantivas entre A e B
-  const overlapPct = sobreposicaoDeTexto(cenarioData.descricao || '', cenA.descricao);
+  const stopwords = new Set(['de','da','do','das','dos','em','na','no','nas','nos','um','uma','o','a','os','as','que','e','para','com','por','se','ao','ou','mais','não','como','mas','sua','seu','seus','suas','este','esta','esse','essa']);
+  const extractWords = (t: string) => (t || '').toLowerCase().replace(/[^a-záàâãéèêíóòôõúç\s]/g, '').split(/\s+/).filter(w => w.length > 3 && !stopwords.has(w));
+  const wordsA = new Set(extractWords(cenA.descricao));
+  const wordsB = extractWords(cenarioData.descricao || '');
+  const overlap = wordsB.filter(w => wordsA.has(w)).length;
+  const overlapPct = wordsB.length > 0 ? overlap / wordsB.length : 0;
   if (overlapPct > 0.6) errors.push(`Semelhança excessiva com Cenário A (${Math.round(overlapPct * 100)}% overlap)`);
 
   return errors;

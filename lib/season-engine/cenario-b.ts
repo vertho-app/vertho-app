@@ -21,11 +21,6 @@
  *   o integrador que também a cobre); depois o mais recente.
  * - Sem elegível: devolve `null` e registra degradação CRÍTICA. Servir o B de
  *   outra competência não é degradar, é avaliar a coisa errada.
- * - O integrador do ONBOARDING (`alternativas.cobertura_exata`, 04/10/2026) é de
- *   cobertura EXATA: só serve a trilha cujas competências sejam as que ele declara,
- *   nem mais nem menos. Os de Ibipeba cobrem "pelo menos"; este não pode servir uma
- *   trilha de uma competência só (o fechamento pontuaria 1 competência contra um
- *   caso de 5), nem mascarar a célula do B por competência no lote.
  *
  * Por que casar pelo NOME e não por id: `competencias` tem uma linha por
  * descritor (em Macaé, "Gerenciamento de Conflitos" tem 9), e a trilha guarda a
@@ -39,9 +34,6 @@
  */
 import { normalizarComp } from '@/lib/workshop-competencias';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
-import { perguntasDoCenarioB, type PerguntaDoCenarioB } from './perguntas-cenario-b';
-
-export { perguntasDoCenarioB, type PerguntaDoCenarioB };
 
 export interface CenarioBRow {
   id: string;
@@ -56,8 +48,6 @@ export interface CenarioBRow {
 export interface CandidatoCenarioB extends CenarioBRow {
   /** Competências (normalizadas) que este B cobre. */
   cobertas: string[];
-  /** Integrador de cobertura exata (Onboarding): só serve ao conjunto idêntico. */
-  exato?: boolean;
 }
 
 export type MotivoCenarioB = 'ok' | 'sem-competencia-na-trilha' | 'sem-elegivel';
@@ -69,10 +59,13 @@ export interface EscolhaCenarioB {
   candidatos: number;
 }
 
+const PERGUNTAS = ['p1', 'p2', 'p3', 'p4'];
+
 /** B sem texto ou sem nenhuma pergunta não serve ao fechamento, seja de qual competência for. */
 export function cenarioBUsavel(row: Pick<CenarioBRow, 'descricao' | 'alternativas'>): boolean {
   if (!String(row?.descricao || '').trim()) return false;
-  return perguntasDoCenarioB(row?.alternativas).length > 0;
+  const alt = row?.alternativas && typeof row.alternativas === 'object' ? row.alternativas : {};
+  return PERGUNTAS.some((k) => String(alt[k] || '').trim().length > 0);
 }
 
 /** Competências (normalizadas) cobertas por um B: a da âncora + as integradas. */
@@ -98,10 +91,7 @@ export function escolherEntreCandidatos(candidatos: CandidatoCenarioB[], alvo: s
   const alvoNorm = [...new Set(alvo.map(normalizarComp).filter(Boolean))];
   if (!alvoNorm.length) return null;
   const cargoNorm = normalizarComp(cargo);
-  const elegiveis = candidatos.filter((c) => (c.exato
-    // Integrador de cobertura exata: o conjunto da trilha é idêntico ao dele.
-    ? c.cobertas.length === alvoNorm.length && alvoNorm.every((a) => c.cobertas.includes(a))
-    : alvoNorm.every((a) => c.cobertas.includes(a))));
+  const elegiveis = candidatos.filter((c) => alvoNorm.every((a) => c.cobertas.includes(a)));
   const fora = (c: CandidatoCenarioB) => c.cobertas.filter((x) => !alvoNorm.includes(x)).length;
   const doCargo = (c: CandidatoCenarioB) => (normalizarComp(c.cargo) === cargoNorm && cargoNorm !== 'todos' ? 0 : 1);
   elegiveis.sort((a, b) =>
@@ -155,12 +145,10 @@ export async function escolherCenarioB(
 
   if (!alvo.length) return { cenario: null, motivo: 'sem-competencia-na-trilha', candidatos: usaveis.length };
 
-  const candidatos: CandidatoCenarioB[] = usaveis.map((r) => ({
-    ...r, cobertas: competenciasCobertas(r, nomePorId), exato: ehIntegradorExato(r.alternativas),
-  }));
+  const candidatos: CandidatoCenarioB[] = usaveis.map((r) => ({ ...r, cobertas: competenciasCobertas(r, nomePorId) }));
   const escolhido = escolherEntreCandidatos(candidatos, alvo, cargo);
   if (escolhido) {
-    const { cobertas: _cobertas, exato: _exato, ...cenario } = escolhido;
+    const { cobertas: _cobertas, ...cenario } = escolhido;
     return { cenario, motivo: 'ok', candidatos: candidatos.length };
   }
 
@@ -187,15 +175,6 @@ export async function escolherCenarioB(
 export function ehIntegrador(alternativas: any): boolean {
   const integradas = alternativas?.competencias_integradas;
   return Array.isArray(integradas) && integradas.filter((c) => normalizarComp(c)).length > 1;
-}
-
-/**
- * Integrador de cobertura EXATA (o do Onboarding, 04/10/2026): declara
- * `alternativas.cobertura_exata`. Só serve a trilha com o MESMO conjunto de
- * competências, e não conta como B das células que cobre.
- */
-export function ehIntegradorExato(alternativas: any): boolean {
-  return ehIntegrador(alternativas) && alternativas?.cobertura_exata === true;
 }
 
 export interface CenarioALote {
@@ -249,9 +228,6 @@ export function celulasSemCenarioB(
   const idsCobertos = new Set<string>();
   const nomesCobertosPorCargo = new Map<string, Set<string>>();
   for (const b of cenariosB || []) {
-    // O integrador do Onboarding só serve à trilha inteira: com ele na estante a
-    // célula de cada competência continua sem o seu B (reavaliação e Jornada leem o da célula).
-    if (ehIntegradorExato(b?.alternativas)) continue;
     if (b?.competencia_id && b?.cargo) idsCobertos.add(`${b.competencia_id}::${b.cargo}`);
     const cargo = normalizarComp(b?.cargo);
     const nomes = nomesCobertosPorCargo.get(cargo) ?? new Set<string>();

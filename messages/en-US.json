@@ -2281,7 +2281,7 @@
       "startWeek": "Error starting week {week}"
     },
     "alerts": {
-      "allQuestions": "All {total} questions need to be answered with at least {min} characters.",
+      "allQuestions": "All 4 questions need to be answered with at least {min} characters.",
       "error": "Error: {error}",
       "sendFailure": "Failed to send"
     },
@@ -3111,16 +3111,13 @@
       "rechecking": "Rechecking...",
       "regenerating": "Regenerating...",
       "regenerated": "Regenerated. {message}",
-      "integratorRegenerated": "Integrating scenario regenerated, with {questions} questions.",
       "regeneratedCheckError": "Regenerated. Check error: {error}",
       "noneToRegenerate": "No scenery to regenerate",
       "processing": "Processing {count} scenarios...",
       "error": "Error: {error}"
     },
     "confirm": {
-      "regenerateBatch": "Regenerate + recheck {count} scenarios (review + caveats)?",
-      "regenerateIntegrator": "Regenerate the integrating B scenario?",
-      "regenerateIntegratorScope": "Expensive AI operation. The current text is replaced only after the new one passes validation. Anyone who has already opened the final evaluation keeps the scenario they saw."
+      "regenerateBatch": "Regenerate + recheck {count} scenarios (review + caveats)?"
     },
     "stats": {
       "scenariosB": "B Scenarios",
@@ -3132,7 +3129,6 @@
     },
     "actions": {
       "regenerateReviewBatch": "Regenerate + Recheck review/reservations ({count})",
-      "regenerateIntegrator": "Regenerate (integrating)",
       "validate": "Validate",
       "regenerateAndRecheck": "Regenerate + Recheck",
       "recheckOnly": "Just Recheck",
@@ -3157,7 +3153,6 @@
       "vsScenarioA": "vs Scenario A",
       "triangulationRisks": "Triangulation risks",
       "noCoverage": "No coverage",
-      "integrator": "Integrating · {count} competencies",
       "points": "{value} pts"
     },
     "status": {
@@ -4500,7 +4495,6 @@
       "kits-jornada": "Generate Journey Kits",
       "temporadas-ver": "View Seasons",
       "cenarios-b": "B+Check Scenarios",
-      "cenario-b-integrador": "Integrating B Scenario (Onboarding)",
       "vertho-evidencias": "Weekly Evidence",
       "vertho-acumulada": "Accumulated Assessment",
       "vertho-sem14": "Week 14 Audit",
@@ -4594,12 +4588,6 @@
       "generatingReport": "[{current}/{total}] Generating report...",
       "reportsDone": "Reports: {ok} generated{errors}",
       "noPendingReports": "No pending reports",
-      "integratorNone": "No one is in Onboarding at this company: there is no integrating B scenario to generate.",
-      "integratorAllDone": "{count} integrating scenario(s) already exist: nothing to generate.",
-      "integratorQueue": "{count} integrating scenario(s) to generate, one per role and set of competencies.",
-      "integratorGenerating": "[{current}/{total}] {role}: {competencies}",
-      "integratorDone": "{role}: integrating scenario generated, with {questions} questions.",
-      "integratorSummary": "Integrating scenarios: {ok} generated, {errors} with errors.",
       "confirms": {
         "simular-disc": "Simulate Behavioral Mapping will POPULATE every collaborator that does not yet have a profile with random data.\n\nSimulated profiles can be identified later (source=\"simulado\"), but this blocks the real mapping until they are manually cleared.\n\nUse this only in test/demo environments. Confirm?",
         "simular": "Simulate Answers will GENERATE fake AI answers for every pending scenario of every collaborator.\n\nThis pollutes the real diagnosis and consumes AI credits. Use only in test/demo.\n\nConfirm?",

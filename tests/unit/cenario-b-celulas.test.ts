@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { celulasSemCenarioB, ehIntegrador, ehIntegradorExato, perguntasDoCenarioB, cenarioBUsavel } from '@/lib/season-engine/cenario-b';
+import { celulasSemCenarioB, ehIntegrador } from '@/lib/season-engine/cenario-b';
 import { ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
 
 // O lote da Fase 5 gerava um B por cenário A; numa rede há um A por PPP e a
@@ -80,49 +80,5 @@ describe('ehIntegrador', () => {
     expect(ehIntegrador({ competencias_integradas: ['A', '  '] })).toBe(false);
     expect(ehIntegrador({})).toBe(false);
     expect(ehIntegrador(null)).toBe(false);
-  });
-});
-
-describe('ehIntegradorExato', () => {
-  it('só o integrador que declara cobertura exata (o do Onboarding); o de Ibipeba cobre "pelo menos"', () => {
-    expect(ehIntegradorExato({ competencias_integradas: ['A', 'B'], cobertura_exata: true })).toBe(true);
-    expect(ehIntegradorExato({ competencias_integradas: ['A', 'B'] })).toBe(false);
-    expect(ehIntegradorExato({ competencias_integradas: ['A'], cobertura_exata: true })).toBe(false);
-    expect(ehIntegradorExato({ cobertura_exata: true })).toBe(false);
-    expect(ehIntegradorExato(null)).toBe(false);
-  });
-});
-
-describe('perguntasDoCenarioB: TODAS as perguntas, não só p1 a p4 (R-21, 04/10/2026)', () => {
-  it('o B por célula tem as 4 de sempre, com os rótulos de sempre', () => {
-    const r = perguntasDoCenarioB({ p1: 'a?', p2: 'b?', p3: 'c?', p4: 'd?', faceta_avaliada: 'x' });
-    expect(r.map((p) => [p.chave, p.dimensao, p.texto])).toEqual([
-      ['p1', 'SITUAÇÃO', 'a?'], ['p2', 'AÇÃO', 'b?'], ['p3', 'RACIOCÍNIO', 'c?'], ['p4', 'AUTOSSENSIBILIDADE', 'd?'],
-    ]);
-  });
-
-  it('o integrador tem a 5ª (e mais), com a competência como dimensão', () => {
-    const alt = {
-      p1: 'a?', p2: 'b?', p3: 'c?', p4: 'd?', p5: 'e?',
-      competencia_por_pergunta: { p1: 'Comunicação', p2: 'Planejamento', p3: 'Liderança', p4: 'Tempo', p5: 'Resiliência' },
-    };
-    const r = perguntasDoCenarioB(alt);
-    expect(r).toHaveLength(5);
-    expect(r[4]).toEqual({ chave: 'p5', dimensao: 'Resiliência', texto: 'e?' });
-  });
-
-  it('a ordem é numérica (p10 depois de p2) e chave vazia ou que não é pergunta fica fora', () => {
-    const r = perguntasDoCenarioB({ p10: 'j?', p2: 'b?', p1: 'a?', p3: '   ', p0: 'zero', pergunta: 'x', objetivo_diagnostico: { p1: 'y' } });
-    expect(r.map((p) => p.chave)).toEqual(['p1', 'p2', 'p10']);
-  });
-
-  it('sem mapa de competências, a pergunta além da 4ª leva um rótulo neutro (P5), e alternativas inválidas dão lista vazia', () => {
-    expect(perguntasDoCenarioB({ p5: 'e?' })[0].dimensao).toBe('P5');
-    for (const invalida of [null, undefined, 'texto', [], 7]) expect(perguntasDoCenarioB(invalida)).toEqual([]);
-  });
-
-  it('cenarioBUsavel conta a 5ª pergunta: B só com p5 ainda é usável, B sem pergunta nenhuma não', () => {
-    expect(cenarioBUsavel({ descricao: 'texto', alternativas: { p5: 'e?' } })).toBe(true);
-    expect(cenarioBUsavel({ descricao: 'texto', alternativas: { competencias_integradas: ['A', 'B'] } })).toBe(false);
   });
 });

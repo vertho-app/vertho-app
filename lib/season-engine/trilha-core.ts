@@ -4,7 +4,6 @@ import { buildSeason } from '@/lib/season-engine/build-season';
 import { blueprintToTrilhaInputs, type BlueprintTrilhaInputs } from '@/lib/blueprint/to-descriptors';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import { chaveMapeamento } from '@/lib/mapeamento-competencias';
-import { competenciasDoOnboardingDoCargo } from './onboarding-competencias';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { getProgramaConfigByModo, normalizarModoPrograma, semanasDeMapeamentoDoPrograma, type ProgramaConfig, type ProgramaModoLabel, type SequenciaPersonalizado } from '@/lib/season-engine/programa-config';
 import { carregarContextoTurma } from '@/lib/turmas';
@@ -384,9 +383,38 @@ export async function resolverCompetenciasDoOnboarding(
   | { competencias: string[]; assessments: AssessmentPorCompetencia[]; mapeamentoConcluidoEm: string | null }
   | { error: string; codigo: string }
 > {
-  const doCargo = await competenciasDoOnboardingDoCargo(tdb, colab.cargo, cfg, n);
-  if ('error' in doCargo) return doCargo;
-  const { competencias } = doCargo;
+  const unicas = (lista: unknown[]): string[] => {
+    const vistas = new Set<string>();
+    const out: string[] = [];
+    for (const c of lista) {
+      const chave = chaveMapeamento(c);
+      if (!chave || vistas.has(chave)) continue;
+      vistas.add(chave);
+      out.push(String(c).trim());
+    }
+    return out;
+  };
+
+  const { data: cargoRow, error: errCargo } = await tdb.from('cargos_empresa')
+    .select('top5_workshop').eq('nome', colab.cargo || '').maybeSingle();
+  if (errCargo) return { error: `Falha ao ler o Top 5 do cargo: ${errCargo.message}`, codigo: 'onboarding_top5_leitura' };
+
+  const doOverride = unicas(Array.isArray(cfg?.competencias_onboarding) ? cfg!.competencias_onboarding : []);
+  const doTop5 = unicas(Array.isArray(cargoRow?.top5_workshop) ? cargoRow.top5_workshop : []);
+  const competencias = unicas([...doOverride, ...doTop5]).slice(0, n);
+
+  if (competencias.length === 0) {
+    return {
+      error: `Modo Onboarding precisa de ${n} competências. Defina o Top 5 do cargo "${colab.cargo || 'sem cargo'}" ou configure sys_config.competencias_onboarding.`,
+      codigo: 'onboarding_sem_competencias',
+    };
+  }
+  if (competencias.length < n) {
+    return {
+      error: `O Onboarding cobre ${n} competências em sequência e o cargo "${colab.cargo || 'sem cargo'}" tem ${competencias.length} (${competencias.join(', ')}). Complete o Top 5 do cargo ou defina sys_config.competencias_onboarding. Nada foi gerado.`,
+      codigo: 'onboarding_competencias_insuficientes',
+    };
+  }
 
   const { data: linhas, error: errAssess } = await tdb.from('descriptor_assessments')
     .select('competencia, descritor, nota, assessment_date')

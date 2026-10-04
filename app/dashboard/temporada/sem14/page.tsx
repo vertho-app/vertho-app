@@ -18,22 +18,6 @@ import { nivelDaNotaOuNull } from '@/lib/nivel-da-nota-ou-nulo';
 const MIN_CHARS = 20;
 const MIN_CHARS_ARG = 3; // arguição é conversa — respostas curtas são válidas
 
-/**
- * Passos da tela que NÃO são pergunta. Ficam longe do intervalo das perguntas
- * (1 a N): o integrador do Onboarding tem uma pergunta por competência (5), e com
- * 6, 7 e 8 fixos uma sexta pergunta cairia em "avaliação concluída". Quem compara
- * com `>= STEP_FIM` continua lendo "concluída, arguição ou pontuação".
- */
-const STEP_FIM = 90;
-const STEP_ARGUICAO = 91;
-const STEP_PONTUACAO = 92;
-
-/** As respostas já gravadas, uma por pergunta (as que faltam vazias). */
-function respostasDoTranscript(perguntas, transcript) {
-  const feitas = (transcript || []).filter(m => m.role === 'user').map(m => m.content);
-  return (perguntas || []).map((_, i) => feitas[i] ?? '');
-}
-
 /** Remove o bloco [META] das falas da IA (só a mensagem visível fica). */
 const stripMetaCli = (s) => String(s || '').replace(/\[META\][\s\S]*?\[\/META\]/g, '').trim();
 
@@ -115,9 +99,8 @@ export default function Sem14Page() {
   const [competencia, setCompetencia] = useState('');
   const [cenario, setCenario] = useState('');
   const [perguntas, setPerguntas] = useState([]);
-  const [respostas, setRespostas] = useState([]);
-  const [step, setStep] = useState(-1); // -1 = loading, 0 = cenário, 1..N = pergunta, STEP_FIM = finalizada, STEP_ARGUICAO = arguição (chat), STEP_PONTUACAO = pontuação (gerando / retomar)
-  const totalPerguntas = perguntas.length;
+  const [respostas, setRespostas] = useState(['', '', '', '']);
+  const [step, setStep] = useState(-1); // -1 = loading, 0 = cenário, 1..4 = pergunta, 6 = finalizada, 7 = arguição (chat), 8 = pontuação (gerando / retomar)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [avaliacao, setAvaliacao] = useState(null);
@@ -138,7 +121,7 @@ export default function Sem14Page() {
   const [relatorio, setRelatorio] = useState(null);
   const [tentativaRelatorio, setTentativaRelatorio] = useState(0);
 
-  // Arguição (defesa oral): modo CHAT turn-by-turn após as perguntas.
+  // Arguição (defesa oral) — modo CHAT turn-by-turn após as 4 perguntas.
   const [argMsgs, setArgMsgs] = useState([]); // { role: 'assistant'|'user', content }
   const [argInput, setArgInput] = useState('');
   const [argTurno, setArgTurno] = useState(0);
@@ -189,22 +172,22 @@ export default function Sem14Page() {
           resumo_avaliacao: fb.resumo_avaliacao,
           spec_version: fb.spec_version,
         });
-        setStep(STEP_FIM);
+        setStep(6);
         return;
       }
 
       // Tudo respondido (e a arguição, se houve, concluída) sem nota: a
       // pontuação está rodando, falhou ou nunca foi pedida. 🔴 Antes este caso
-      // caía no formulário das respostas (o ramo `fb.cenario && fb.perguntas`
+      // caía no formulário das 4 respostas (o ramo `fb.cenario && fb.perguntas`
       // abaixo), e reenviar dali duplicava falas e pagava o scorer de novo.
       const respostasFeitas = (fb.transcript_completo || []).filter(m => m.role === 'user').length;
       const nPerguntas = Array.isArray(fb.perguntas) ? fb.perguntas.length : 0;
       if (fb.cenario && nPerguntas > 0 && respostasFeitas >= nPerguntas && !(fb.arguicao && !fb.arguicao.concluida)) {
         setCenario(fb.cenario);
         setPerguntas(fb.perguntas);
-        setStep(STEP_PONTUACAO);
+        setStep(8);
         const estado = await acompanharFechamento(r.trilha.id, semCB);
-        if (estado === 'avaliado') setStep(STEP_FIM);
+        if (estado === 'avaliado') setStep(6);
         return;
       }
 
@@ -213,10 +196,11 @@ export default function Sem14Page() {
       if (fb.arguicao && !fb.arguicao.concluida && prog?.status !== PROGRESSO.CONCLUIDO) {
         setCenario(fb.cenario || '');
         setPerguntas(fb.perguntas || []);
-        setRespostas(respostasDoTranscript(fb.perguntas, fb.transcript_completo));
+        const respostasExistentes = (fb.transcript_completo || []).filter(m => m.role === 'user').map(m => m.content);
+        setRespostas(prev => { const next = [...prev]; respostasExistentes.forEach((r, i) => { if (i < 4) next[i] = r; }); return next; });
         setArgMsgs(argMsgsFromHistorico(fb.arguicao.historico));
         setArgTurno(fb.arguicao.turno || 1);
-        setStep(STEP_ARGUICAO);
+        setStep(7);
         return;
       }
 
@@ -225,8 +209,13 @@ export default function Sem14Page() {
         setCenario(fb.cenario);
         setPerguntas(fb.perguntas);
         // recupera respostas parciais se existirem no transcript
-        setRespostas(respostasDoTranscript(fb.perguntas, fb.transcript_completo));
-        setRespostasSalvas(Math.min(respostasFeitas, fb.perguntas.length));
+        const respostasExistentes = (fb.transcript_completo || []).filter(m => m.role === 'user').map(m => m.content);
+        setRespostas(prev => {
+          const next = [...prev];
+          respostasExistentes.forEach((r, i) => { if (i < 4) next[i] = r; });
+          return next;
+        });
+        setRespostasSalvas(Math.min(respostasExistentes.length, 4));
         setStep(0);
       } else {
         await doInit(r.trilha.id, semCB);
@@ -260,7 +249,6 @@ export default function Sem14Page() {
     setPreparandoFalhou(false);
     setCenario(data.cenario || '');
     setPerguntas(data.perguntas || []);
-    setRespostas((data.perguntas || []).map(() => ''));
     setStep(0);
   }
 
@@ -352,7 +340,7 @@ export default function Sem14Page() {
 
   // Ao chegar no resultado (carregado já concluído ou recém-pontuado), confere o relatório.
   useEffect(() => {
-    if (step === STEP_FIM && trilhaId) acompanharRelatorio(trilhaId, semCenarioB);
+    if (step === 6 && trilhaId) acompanharRelatorio(trilhaId, semCenarioB);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, trilhaId, tentativaRelatorio]);
 
@@ -378,7 +366,7 @@ export default function Sem14Page() {
 
   // Auto-scroll do chat da arguição ao chegar mensagem nova / IA "pensando".
   useEffect(() => {
-    if (step === STEP_ARGUICAO) argEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (step === 7) argEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [argMsgs, argBusy, step]);
 
   function setResposta(i, val) {
@@ -387,12 +375,12 @@ export default function Sem14Page() {
 
   async function finalizar() {
     if (respostas.some(r => r.trim().length < MIN_CHARS)) {
-      alert(t('alerts.allQuestions', { min: MIN_CHARS, total: totalPerguntas }));
+      alert(t('alerts.allQuestions', { min: MIN_CHARS }));
       return;
     }
     setBusy(true);
-    // Envia as respostas em sequência (pedagogicamente correto: o backend
-    // espera uma mensagem por pergunta antes do scorer). Reusa o fluxo send existente.
+    // Envia as 4 respostas em sequência (pedagogicamente correto — o backend
+    // espera 4 mensagens antes do scorer). Reusa o fluxo send existente.
     for (let i = respostasSalvas; i < respostas.length; i++) {
       const r = await fetchAuth('/api/temporada/evaluation', {
         method: 'POST',
@@ -412,17 +400,17 @@ export default function Sem14Page() {
           setArgMsgs([{ role: 'assistant', content: stripMetaCli(data.message) }]);
           setArgTurno(data.turno || 1);
           setBusy(false);
-          setStep(STEP_ARGUICAO);
+          setStep(7);
           return;
         }
         // Arguição desligada: a pontuação foi disparada no servidor.
         setRespostasSalvas(respostas.length);
         setBusy(false);
-        setStep(STEP_PONTUACAO);
+        setStep(8);
         if (data.finalizando || data.fechamento === 'avaliado') {
           setFechamento('processando');
           const estado = await acompanharFechamento(trilhaId, semCenarioB);
-          if (estado === 'avaliado') setStep(STEP_FIM);
+          if (estado === 'avaliado') setStep(6);
         } else {
           setFechamento('erro');
         }
@@ -523,15 +511,15 @@ export default function Sem14Page() {
             <p className="text-xs text-gray-400">{cargo}</p>
           </div>
           <p className="text-xs font-bold text-brand-400">
-            {step <= 0 ? '0%' : (step >= STEP_FIM) ? '100%' : `${Math.round(((step - 1) / totalPerguntas) * 100)}%`}
+            {step <= 0 ? '0%' : (step >= 6) ? '100%' : `${Math.round(((step - 1) / 4) * 100)}%`}
           </p>
         </div>
         <div className="mt-3 h-1.5 rounded-full bg-white/5 overflow-hidden">
           <div className="h-full bg-gradient-to-r from-brand-500 to-emerald-500 transition-all"
-            style={{ width: (step >= STEP_FIM) ? '100%' : step > 0 ? `${((step - 1) / totalPerguntas) * 100}%` : '0%' }} />
+            style={{ width: (step >= 6) ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
         </div>
         <p className="text-[10px] text-gray-500 mt-2">
-          {step === STEP_ARGUICAO ? t('arguicao.badge') : step === STEP_FIM ? t('progress.done') : step === STEP_PONTUACAO ? t('fechamento.eyebrow') : cenarioBEspelhado ? t('progress.finalCompetency', { competency: competencia }) : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
+          {step === 7 ? t('arguicao.badge') : step === 6 ? t('progress.done') : step === 8 ? t('fechamento.eyebrow') : cenarioBEspelhado ? t('progress.finalCompetency', { competency: competencia }) : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
         </p>
       </div>
 
@@ -549,15 +537,15 @@ export default function Sem14Page() {
         </div>
       )}
 
-      {/* STEPS 1..N: Perguntas */}
-      {step >= 1 && step <= totalPerguntas && perguntas[step - 1] && (
+      {/* STEPS 1..4 — Perguntas */}
+      {step >= 1 && step <= 4 && perguntas[step - 1] && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs uppercase tracking-widest text-brand-400 font-bold">
-              {t('question.counter', { current: step, total: totalPerguntas })}
+              {t('question.counter', { current: step, total: 4 })}
             </p>
             <div className="flex gap-1">
-              {perguntas.map((_, k) => k + 1).map(i => (
+              {[1, 2, 3, 4].map(i => (
                 <div key={i} className={`h-1 w-12 rounded-full transition-all ${
                   i <= step ? 'bg-brand-400' : 'bg-white/10'
                 }`} />
@@ -596,7 +584,7 @@ export default function Sem14Page() {
               className="flex-1 py-3 rounded-xl border border-white/10 hover:border-white/30 text-sm text-gray-300 disabled:opacity-50">
               {t('question.previous')}
             </button>
-            {step < totalPerguntas ? (
+            {step < 4 ? (
               <button onClick={() => {
                 if (respostas[step - 1].trim().length < MIN_CHARS) { alert(t('question.minAlert', { min: MIN_CHARS })); return; }
                 micRef.current?.stop(); setStep(step + 1);
@@ -614,8 +602,8 @@ export default function Sem14Page() {
         </div>
       )}
 
-      {/* STEP_ARGUICAO: Arguição (defesa oral, chat turn-by-turn) */}
-      {step === STEP_ARGUICAO && (
+      {/* STEP 7 — Arguição (defesa oral, chat turn-by-turn) */}
+      {step === 7 && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
           <div className="flex items-center gap-2 mb-1">
             <Mic size={16} className="text-brand-400" />
@@ -650,7 +638,7 @@ export default function Sem14Page() {
 
           {argConcluida ? (
             <PainelFechamento estado={fechamento} t={t}
-              onVerResultado={() => setStep(STEP_FIM)} onGerar={gerarAvaliacaoFinal} />
+              onVerResultado={() => setStep(6)} onGerar={gerarAvaliacaoFinal} />
           ) : (
             <>
               <div className="flex items-start justify-between gap-2 mb-2">
@@ -673,17 +661,17 @@ export default function Sem14Page() {
         </div>
       )}
 
-      {/* STEP_PONTUACAO: pontuação gerando, ou retomada quando não saiu */}
-      {step === STEP_PONTUACAO && (
+      {/* STEP 8: pontuação gerando, ou retomada quando não saiu */}
+      {step === 8 && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
           <p className="text-xs uppercase tracking-widest text-brand-400 font-bold mb-3">{t('fechamento.eyebrow')}</p>
           <PainelFechamento estado={fechamento} t={t}
-            onVerResultado={() => setStep(STEP_FIM)} onGerar={gerarAvaliacaoFinal} />
+            onVerResultado={() => setStep(6)} onGerar={gerarAvaliacaoFinal} />
         </div>
       )}
 
-      {/* STEP_FIM: Concluída */}
-      {step === STEP_FIM && avaliacao && (
+      {/* STEP 6 — Concluída */}
+      {step === 6 && avaliacao && (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-5">
           <div className="flex items-center gap-2 mb-4">
             <CheckCircle2 size={20} className="text-emerald-400" />

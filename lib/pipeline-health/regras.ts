@@ -359,32 +359,17 @@ export interface LacunaCenarioB {
 
 export const CENARIO_B_CRITICO_DIAS = 14;
 
-/**
- * O que falta, no padrão do health: a célula de UMA competência se resolve no lote
- * da Fase 5, mas a trilha que fecha em várias de uma vez (o Onboarding) precisa do
- * Cenário B INTEGRADOR, que o lote não gera (R-21, 04/10/2026). Mandar o admin ao
- * lote por um alarme de Onboarding o faria rodar o botão errado e o alarme seguir
- * aceso. A ação diz os dois caminhos quando a amostra tem as duas lacunas.
- */
-export function acaoDoCenarioBHorizonte(lacunas: LacunaCenarioB[]): string {
-  const integrador = lacunas.some((l) => l.competencias.length > 1);
-  const celula = lacunas.some((l) => l.competencias.length <= 1);
-  const passos: string[] = [];
-  if (celula || !integrador) passos.push('Gerar o Cenário B da célula no lote da Fase 5 (com check)');
-  if (integrador) passos.push('Gerar o Cenário B integrador do Onboarding (pipeline da empresa, Reavaliação, "Cenário B integrador")');
-  return `${passos.join('; ')} e ler o texto antes da semana abrir.`;
-}
-
 export function checarCenarioBHorizonte(
   lacunas: LacunaCenarioB[],
   criticoAteDias: number = CENARIO_B_CRITICO_DIAS,
 ): Achado[] {
   const rotulo = (l: LacunaCenarioB) =>
-    `${l.diasAte <= 0 ? 'já aberta' : `${l.diasAte}d`} · sem${l.semana} · ${l.cargo} · ${l.competencias.join(' + ')}${l.competencias.length > 1 ? ' (integrador)' : ''} · ${l.pessoas}p`;
+    `${l.diasAte <= 0 ? 'já aberta' : `${l.diasAte}d`} · sem${l.semana} · ${l.cargo} · ${l.competencias.join(' + ')} · ${l.pessoas}p`;
   const ordenar = (a: LacunaCenarioB, b: LacunaCenarioB) => a.diasAte - b.diasAte || b.pessoas - a.pessoas;
   const urgentes = lacunas.filter((l) => l.diasAte <= criticoAteDias).sort(ordenar);
   const futuras = lacunas.filter((l) => l.diasAte > criticoAteDias).sort(ordenar);
   const pessoas = (ls: LacunaCenarioB[]) => ls.reduce((s, l) => s + l.pessoas, 0);
+  const acao = 'Gerar o Cenário B da célula no lote da Fase 5 (com check) e ler o texto antes da semana abrir.';
 
   return [
     achado(
@@ -392,14 +377,14 @@ export function checarCenarioBHorizonte(
       `Fechamento a ${criticoAteDias} dias ou menos sem Cenário B da competência`,
       pessoas(urgentes),
       'Quem concluir as semanas de conteúdo vai parar na porta da avaliação final (erro 424) até o B existir.',
-      { amostra: urgentes.map(rotulo), acao: acaoDoCenarioBHorizonte(urgentes) },
+      { amostra: urgentes.map(rotulo), acao },
     ),
     achado(
       'cenario-b-horizonte-proximo', 'aviso',
       'Fechamento futuro sem Cenário B da competência (ainda há folga)',
       pessoas(futuras),
       'Ainda dá tempo, mas o B precisa entrar na fila de geração agora.',
-      { amostra: futuras.map(rotulo), acao: acaoDoCenarioBHorizonte(futuras) },
+      { amostra: futuras.map(rotulo), acao },
     ),
   ].filter(Boolean) as Achado[];
 }

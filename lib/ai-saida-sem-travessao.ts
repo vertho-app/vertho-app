@@ -186,9 +186,6 @@ export const SAIDAS_AO_CLIENTE: Readonly<Record<string, FormaDaSaida>> = {
   devolutiva_comportamental: 'texto',
   // Documentos e mensagens em JSON
   sem14_redacao: 'json',
-  // O cenário e as perguntas do fechamento do Onboarding são lidos pela pessoa. O nome
-  // da competência que o JSON devolve em cada pergunta é eco da entrada e passa intacto.
-  cenarios_b_integrador: 'json',
   pdi_individual: 'json',
   relatorio_gestor: 'json',
   relatorio_rh: 'json',

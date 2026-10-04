@@ -34,7 +34,6 @@ import {
   rodarIA4, rodarIA4Uma, listarPendentesIA4, listarPendentesCheck, checarUmaAvaliacao,
   montarTrilhasLote, salvarCompetenciaFoco, loadCompetenciasFoco,
   gerarCenariosBLote, gerarRelatoriosEvolucaoLote, gerarPlenariaEvolucao, gerarRelatorioRHManual, gerarRelatorioPlenaria, enviarLinksPerfil, gerarDossieGestor, checkCenarios,
-  listarAlvosCenarioBIntegrador, gerarCenarioBIntegrador,
 } from './actions';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -159,9 +158,6 @@ const PHASE_CONFIG = [
   { num: 4, icon: TrendingUp, color: '#A78BFA', groups: [
     { label: 'Reavaliação', actions: [
       { key: 'cenarios-b', label: 'Cenários B + Check', icon: Zap, ai: 'dual' },
-      // R-21 (04/10/2026): o fechamento do Onboarding precisa de UM B que cubra as 5
-      // competências, e o lote acima gera um por competência. Uma geração por cargo.
-      { key: 'cenario-b-integrador', label: 'Cenário B integrador (Onboarding)', icon: Layers, ai: true },
     ]},
     { label: 'Auditoria Vertho (interna)', actions: [
       { key: 'vertho-evidencias', label: 'Evidências Semanais',  icon: Sparkles,      hrefFn: (id: string) => `/admin/vertho/evidencias?empresa=${id}` },
@@ -429,33 +425,6 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         addLog(`📦 ${r.total} cenário(s) B no lote — pode fechar a aba e acompanhar ao voltar.`, 'info');
         watchJob(r.jobId, 'Cenários B + Check');
         setPendingAction(null); return;
-      }
-      if (actionKey === 'cenario-b-integrador') {
-        // Uma geração por request (um cargo de cada vez), como as Temporadas (F-E4): é
-        // uma chamada de IA de cerca de um minuto, e a action tem o teto de 300 s da rota.
-        // Sem retry cego: uma tentativa que falha já mostra o motivo, e repetir é pagar de novo.
-        const fila: any = await listarAlvosCenarioBIntegrador(empresaId);
-        if (!fila?.success) { addLog(`❌ ${fila?.error || t('feedback.unknownError')}`, 'error'); setPendingAction(null); return; }
-        for (const aviso of fila.avisos || []) addLog(`⚠ ${aviso}`, 'error');
-        if (!fila.alvos.length) { addLog(t('feedback.integratorNone'), 'info'); setPendingAction(null); return; }
-        const pendentesInt = fila.alvos.filter((a: any) => !a.jaTem);
-        if (!pendentesInt.length) { addLog(`✅ ${t('feedback.integratorAllDone', { count: fila.alvos.length })}`, 'success'); setPendingAction(null); return; }
-        addLog(`📋 ${t('feedback.integratorQueue', { count: pendentesInt.length })}`, 'info');
-        let okInt = 0, errosInt = 0;
-        for (let i = 0; i < pendentesInt.length; i++) {
-          if (cancelRef.current) { addLog(`⏹ ${label} cancelado`, 'info'); break; }
-          const a = pendentesInt[i];
-          addLog(`⏳ ${t('feedback.integratorGenerating', { current: i + 1, total: pendentesInt.length, role: a.cargo, competencies: a.competencias.join(' + ') })}`, 'info');
-          try {
-            const r: any = await gerarCenarioBIntegrador(empresaId, { cargo: a.cargo, competencias: a.competencias }, { model: aiConfig?.model });
-            if (r?.success) { okInt++; addLog(`✅ ${t('feedback.integratorDone', { role: a.cargo, questions: r.perguntas })}`, 'success'); }
-            else { errosInt++; addLog(`❌ ${a.cargo}: ${r?.error || t('feedback.unknownError')}`, 'error'); }
-          } catch (e: any) {
-            errosInt++; addLog(`❌ ${a.cargo}: ${e?.message || t('feedback.unknownError')}`, 'error');
-          }
-        }
-        addLog(`🎉 ${t('feedback.integratorSummary', { ok: okInt, errors: errosInt })}`, errosInt === 0 ? 'success' : 'info');
-        loadData(); setPendingAction(null); return;
       }
       if (actionKey === 'blueprint') {
         // 🔴 C1b (auditoria 22/08): o blueprint NÃO tem mais caminho síncrono.
