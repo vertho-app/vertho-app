@@ -8,6 +8,8 @@
 > Streaming: automático quando `maxTokens > 8192`.
 > Geração em lote: `lib/ai-batch.ts` — Batch API da Anthropic **e** da OpenAI (−50%).
 >
+> **Saída ao cliente sem travessão (R-57, 04/10/2026):** `lib/ai-saida-sem-travessao.ts` guarda o sanitizador e o registro `SAIDAS_AO_CLIENTE` (`taskKey` para texto ou json). Para as tarefas do registro o wrapper acrescenta a regra de pontuação ao system e passa a resposta pelo sanitizador (inclusive no fallback de provedor); o lote não passa por aqui. Ficam FORA, de propósito, as tarefas que ecoam nome ou citação e depois comparam com a fonte (`sem14_scorer`, IA4, arguição de avaliação, simuladores); o texto do scorer que a pessoa lê é limpo na LEITURA (`resumoSemTravessao`). Tarefa nova que escreve para o cliente entra no registro, e exemplo de prompt com o caractere é barrado por `tests/unit/prompts-exemplos-sem-travessao.test.ts`.
+>
 > **Modelos por tarefa (estado em 25/08):** o fallback global continua `claude-sonnet-4-6`; `ia4_avaliacao`, `pdi_individual`, `relatorio_gestor` e `relatorio_rh` estão pinned em **Claude Sonnet 5**; `conteudo_video` usa **Claude Opus 5**; e os auditores `ia3_check`, `ia4_check`, `cenarios_b_check`, `acumulada_check`, `sem14_check`, `pulse_audit`, `modulo_base_auditor` e `pdi_check` estão pinned em **GPT 5.6 Terra**. Override explícito por task continua prevalecendo.
 >
 > **Regeneração nunca destrói a campeã (23/07):** nos cenários A e B, "regenerar com feedback" gera a candidata em memória, audita e **só aplica se a nota for ≥ a atual** (`travaRegeneracao`). O prompt de regeneração tem regras anti-inflação — o gerador tende a responder crítica **adicionando** conteúdo.
