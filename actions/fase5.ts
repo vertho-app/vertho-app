@@ -8,6 +8,8 @@ export {
   loadCenariosB,
   checkCenariosBLote,
   regenerarERecheckarCenariosBLote,
+  listarAlvosCenarioBIntegrador,
+  gerarCenarioBIntegrador,
 } from './fase5/cenarios-b';
 
 export {

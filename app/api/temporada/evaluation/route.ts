@@ -17,7 +17,7 @@ import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha, qualita
 import { TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating';
 import { semanasDeDesenvolvimentoDoPlano } from '@/lib/season-engine/duracao-trilha';
 import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, fechamentoSeguro } from '@/lib/season-engine/fechamento-conversa';
-import { escolherCenarioB } from '@/lib/season-engine/cenario-b';
+import { escolherCenarioB, perguntasDoCenarioB } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { PROGRESSO } from '@/lib/status';
 import { comContexto } from '@/lib/execucao-contexto';
@@ -344,15 +344,8 @@ export async function POST(request) {
       return NextResponse.json({ message: respostaIA, turnIA: proximoTurnIA, finished, history: historico });
     }
 
-    // Semana do cenário B (regular=14): cenário + 4 perguntas → pontuação
+    // Semana do cenário B (regular=14): cenário + perguntas (4; uma por competência no integrador) → pontuação
     if (Number(semana) === semCenarioB) {
-      const DIMENSOES = [
-        { key: 'p1', label: 'SITUAÇÃO' },
-        { key: 'p2', label: 'AÇÃO' },
-        { key: 'p3', label: 'RACIOCÍNIO' },
-        { key: 'p4', label: 'AUTOSSENSIBILIDADE' },
-      ];
-
       // PII masking compartilhado por arguição (chat) e scorer (pontuação).
       const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
       const piiArg = { map: piiMap, nomeMasked: colabMasked?.nome };
@@ -481,8 +474,9 @@ export async function POST(request) {
           }
           cenario = `## ${cenB.titulo || 'Cenário final'}\n\n${cenB.descricao}`;
           cenario_b_id = cenB.id;
-          const alt = cenB.alternativas || {};
-          perguntas = DIMENSOES.map(d => ({ dimensao: d.label, texto: alt[d.key] || '' })).filter(p => p.texto);
+          // Todas as perguntas do B, não só p1..p4: o integrador do Onboarding tem uma
+          // por competência (5) e a dimensão de cada uma é o nome da competência.
+          perguntas = perguntasDoCenarioB(cenB.alternativas).map(({ dimensao, texto }) => ({ dimensao, texto }));
           if (perguntas.length === 0) {
             return NextResponse.json({
               error: 'Cenário B encontrado mas sem perguntas (alternativas.p1..p4 ausentes). Regere o cenário B.',

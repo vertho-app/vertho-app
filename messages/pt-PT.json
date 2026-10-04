@@ -1696,7 +1696,7 @@
       "startWeek": "Erro ao iniciar semana {week}"
     },
     "alerts": {
-      "allQuestions": "Todas as 4 perguntas precisam de ser respondidas com pelo menos {min} caracteres.",
+      "allQuestions": "Todas as {total} perguntas precisam de ser respondidas com pelo menos {min} caracteres.",
       "error": "Erro: {error}",
       "sendFailure": "Falha ao enviar"
     },
@@ -2516,13 +2516,16 @@
       "rechecking": "A rechecar...",
       "regenerating": "A regenerar...",
       "regenerated": "Regenerado. {message}",
+      "integratorRegenerated": "Integrador regenerado, com {questions} perguntas.",
       "regeneratedCheckError": "Regenerado. Erro check: {error}",
       "noneToRegenerate": "Nenhum cenário para regenerar",
       "processing": "A processar {count} cenários...",
       "error": "Erro: {error}"
     },
     "confirm": {
-      "regenerateBatch": "Regenerar + rechecar {count} cenários (revisar + ressalvas)?"
+      "regenerateBatch": "Regenerar + rechecar {count} cenários (revisar + ressalvas)?",
+      "regenerateIntegrator": "Gerar de novo o Cenário B integrador?",
+      "regenerateIntegratorScope": "Operação cara de IA. O texto atual só é substituído depois de o novo passar na validação. Quem já abriu o fechamento mantém o cenário que viu."
     },
     "stats": {
       "scenariosB": "Cenários B",
@@ -2534,6 +2537,7 @@
     },
     "actions": {
       "regenerateReviewBatch": "Regenerar + Rechecar revisar/ressalvas ({count})",
+      "regenerateIntegrator": "Gerar de novo (integrador)",
       "validate": "Validar",
       "regenerateAndRecheck": "Regenerar + Rechecar",
       "recheckOnly": "Só Rechecar",
@@ -2558,6 +2562,7 @@
       "vsScenarioA": "vs Cenário A",
       "triangulationRisks": "Riscos triangulação",
       "noCoverage": "Sem cobertura",
+      "integrator": "Integrador · {count} competências",
       "points": "{value}pts"
     },
     "status": {
@@ -3899,6 +3904,7 @@
       "kits-jornada": "Gerar Kits da Jornada",
       "temporadas-ver": "Ver Temporadas",
       "cenarios-b": "Cenários B + Check",
+      "cenario-b-integrador": "Cenário B integrador (Onboarding)",
       "vertho-evidencias": "Evidências Semanais",
       "vertho-acumulada": "Avaliação Acumulada",
       "vertho-sem14": "Auditoria Sem 14",
@@ -3992,6 +3998,12 @@
       "generatingReport": "[{current}/{total}] A gerar relatório...",
       "reportsDone": "Relatórios: {ok} gerados{errors}",
       "noPendingReports": "Nenhum relatório pendente",
+      "integratorNone": "Nenhuma pessoa em Onboarding nesta empresa: não há Cenário B integrador a gerar.",
+      "integratorAllDone": "{count} integrador(es) já existem: nada a gerar.",
+      "integratorQueue": "{count} integrador(es) a gerar, um por cargo e conjunto de competências.",
+      "integratorGenerating": "[{current}/{total}] {role}: {competencies}",
+      "integratorDone": "{role}: integrador gerado, com {questions} perguntas.",
+      "integratorSummary": "Integradores: {ok} gerado(s), {errors} com erro.",
       "confirms": {
         "simular-disc": "Simular Mapeamento Comportamental vai PREENCHER todos os colaboradores que ainda não têm perfil com dados aleatórios.\n\nOs perfis simulados podem ser identificados depois (origem=\"simulado\"), mas isto bloqueia o mapeamento real até serem limpos manualmente.\n\nEsta ação só deve ser usada em ambientes de teste/demo. Confirma?",
         "simular": "Simular Respostas vai GERAR respostas falsas (com IA) para todos os cenários pendentes de todos os colaboradores.\n\nIsto polui o diagnóstico real e consome créditos de IA. Use só em ambiente de teste/demo.\n\nConfirma?",

@@ -26,6 +26,7 @@ import { buildArguicaoSystemPrompt } from '@/lib/season-engine/arguicao';
 import { SISTEMA_SUPORTE } from '@/lib/whatsapp/suporte-auto';
 import { buildBehavioralReportPrompt } from '@/lib/prompts/behavioral-report-prompt';
 import { CASOS_SCORER } from './fechamento/fixtures-golden-fechamento';
+import { buildCenarioBIntegradorPrompts } from '@/lib/cenario-b-integrador';
 
 const TRAVESSAO = /[\u2013\u2014\u2015]/;
 const EXEMPLO = /"[^"\n]*"|“[^”\n]*”|\[[^\]\n]*\]/g;
@@ -79,6 +80,15 @@ const PROMPTS: Array<[string, () => unknown[]]> = [
     nomeColab: 'Paulo', cargo: 'Coordenador', competencia: 'Gestão', perfilDominante: 'D', cenario: 'Cenário.', respostaCenario: 'Resposta.',
     descritores: [{ descritor: 'Escuta ativa' }], isPiloto: false,
   }, 4, t))],
+  ['Cenário B integrador do Onboarding (R-21)', () => [buildCenarioBIntegradorPrompts({
+    empresa: { nome: 'Acme', segmento: 'Varejo' }, cargoNome: 'Analista', cargoDetalhe: { descricao: 'Analisa pedidos' },
+    valores: ['Respeito'], contextoPPP: '', gabCIS: null,
+    competencias: [
+      { nome: 'Comunicação', cod_comp: 'C00', descricao: 'Clareza', descritores: [{ cod_desc: 'C00_D1', nome_curto: 'Escuta', n1_gap: 'a', n3_meta: 'b' }] },
+      { nome: 'Planejamento', cod_comp: 'C01', descricao: 'Ordem', descritores: [{ cod_desc: 'C01_D1', nome_curto: 'Prazo', n1_gap: 'a', n3_meta: 'b' }] },
+    ],
+    cenariosA: [{ competencia: 'Comunicação', titulo: 'Caso', descricao: 'Texto do caso.' }],
+  }, 'Faltam perguntas para: Planejamento')]],
   ['Beto no WhatsApp', () => [SISTEMA_SUPORTE]],
   ['devolutiva do fechamento (scorer e redação)', () => [
     ...CASOS_SCORER.map((c) => promptEvolutionScenarioScore(c.params as any)),

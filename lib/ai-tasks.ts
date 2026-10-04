@@ -78,6 +78,11 @@ export const AI_TASKS = [
   // ── Fase 5 — Reavaliação ─────────────────────────────────
   { key: 'cenarios_b', label: 'Geração de Cenários B', fase: 'Fase 5' },
   { key: 'cenarios_b_check', label: 'Cenários B — Validação (check dual)', fase: 'Fase 5' },
+  // 04/10/2026 (R-21): o B do fechamento do Onboarding, que cobre as 5 competências de
+  // uma vez. O B por célula (`cenarios_b`) não serve a ele; prompt próprio em
+  // `lib/cenario-b-integrador.ts`. Sem auditor 2ª IA: o `cenarios_b_check` avalia uma
+  // competência só, então não há par Dual-IA para esta task.
+  { key: 'cenarios_b_integrador', label: 'Cenário B integrador (Onboarding)', fase: 'Fase 5' },
   { key: 'cenarios_lote_check', label: 'Cenários — Relatório de auditoria em lote', fase: 'Fase 5' },
   { key: 'evolucao_fusao', label: 'Evolução (fusão 3 fontes)', fase: 'Fase 5' },
 
@@ -271,6 +276,12 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   ia3_check:           'gpt-5.6-terra',
   ia4_check:           'gpt-5.6-terra',
   cenarios_b_check:    'gpt-5.6-terra',
+  // Cenário B integrador do Onboarding (04/10/2026). INCUMBENTE explícito, o mesmo
+  // do B por célula (`ia-cost-catalog`: `cenarios-b` roda no Sonnet 4.6). Nenhum
+  // modelo foi comparado nesta tarefa: o bake-off do IA3 (Sonnet 5.5 contra Sonnet 5,
+  // 01/10/2026) mediu o cenário A de UMA competência, e um caso que integra cinco é
+  // outra tarefa. Trocar é decisão de bake-off, não de default.
+  cenarios_b_integrador: 'claude-sonnet-4-6',
   // 27/08: as duas entram por TROCA de modelo, e as duas eram invisiveis antes
   // — nao estavam em DEFAULT_TASK_MODELS, entao caiam no FALLBACK_GLOBAL
   // (sonnet-4-6) sem ninguem ter decidido isso.
@@ -381,6 +392,9 @@ export const PINNED_TASKS = new Set([
   'ia3_check',
   'ia4_check',
   'cenarios_b_check',
+  // O incumbente do integrador é decisão, não herança do `modelo_padrao` do tenant
+  // (que rebaixaria ou trocaria o modelo de um instrumento de fechamento sem ninguém decidir).
+  'cenarios_b_integrador',
   'pulse_audit',
   'blueprint_audit',
   // As 4 de saída longa acima. Pinadas porque, SEM isto, a troca para Sonnet 5

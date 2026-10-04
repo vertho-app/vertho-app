@@ -133,6 +133,14 @@ describe('prontidão: Personalizado (uma competência por trilha)', () => {
     expect(r.pronto).toBe(false);
   });
 
+  it('o integrador do ONBOARDING (cobertura exata das 5) não serve a trilha de uma competência', async () => {
+    cenariosB = [B('b-int', null as any, { competencias_integradas: TOP5, cobertura_exata: true, p5: 'P5' })];
+    montar();
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    expect(r.bloqueadores.join(' ')).toContain('Cenário B da competência');
+  });
+
   it('falha de leitura do B não vira "pronto": é bloqueador com a causa', async () => {
     h.sbRaw.falharEm({ tabela: 'banco_cenarios', op: 'select', mensagem: 'timeout no pool' });
     const r = await prontidao();
@@ -169,6 +177,22 @@ describe('prontidão: Onboarding (fecha nas 5 competências)', () => {
     const r = await prontidao();
     expect(r.bloqueadores).toEqual([]);
     expect(r.pronto).toBe(true);
+  });
+
+  it('o integrador GERADO pelo Onboarding (sem âncora, cobertura exata, 5 perguntas): pronto', async () => {
+    cenariosB = [B('b-gerado', null as any, { competencias_integradas: TOP5, cobertura_exata: true, p5: 'P5' })];
+    montar();
+    const r = await prontidao();
+    expect(r.bloqueadores).toEqual([]);
+    expect(r.pronto).toBe(true);
+  });
+
+  it('sem integrador, o bloqueador manda ao botão que o gera (não ao lote por célula)', async () => {
+    const r = await prontidao();
+    const msg = r.bloqueadores.join(' ');
+    expect(msg).toContain('Cenário B integrador que cubra as 5 competências');
+    expect(msg).toContain('"Cenário B integrador (Onboarding)"');
+    expect(msg).not.toContain('Cadastre-o');
   });
 
   it('integrador que cobre só 4 das 5: não serve', async () => {

@@ -92,7 +92,7 @@ vi.mock('@/lib/trigger-region', () => ({ regionOpts: {} }));
 
 import { salvarNotaAssessment, deletarNotaAssessment } from '@/actions/assessment-descritores';
 import { _montarTrilhasLote_legacy } from '@/actions/fase4';
-import { gerarCenariosBLote } from '@/actions/fase5/cenarios-b';
+import { gerarCenariosBLote, listarAlvosCenarioBIntegrador, gerarCenarioBIntegrador } from '@/actions/fase5/cenarios-b';
 import { salvarCompetencia, excluirCompetencia, importarCompetenciasCSV, copiarBaseParaEmpresa } from '@/app/admin/competencias/actions';
 import { excluirPPP } from '@/app/admin/ppp/actions';
 import { salvarConfig, salvarLocaleEmpresa, atualizarProgramaModo, atualizarRole } from '@/app/admin/empresas/[empresaId]/configuracoes/actions';
@@ -135,6 +135,20 @@ describe('RH cross-tenant é barrado (Grupo A)', () => {
 
   it('enqueueCenariosBBatch — não enfileira cenários de outro tenant', async () => {
     const r = await enqueueCenariosBBatch(OUTRO_TENANT);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(FORBIDDEN);
+  });
+
+  // R-21 (04/10/2026): o cargo e as competências do integrador vêm do CLIENTE, e a
+  // geração gasta IA. O gate de tenant barra ANTES de ler o Onboarding da empresa.
+  it('listarAlvosCenarioBIntegrador: não lista o Onboarding de outro tenant', async () => {
+    const r: any = await listarAlvosCenarioBIntegrador(OUTRO_TENANT);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(FORBIDDEN);
+  });
+
+  it('gerarCenarioBIntegrador: não gera (nem paga IA) para outro tenant, nem substitui o integrador dele', async () => {
+    const r: any = await gerarCenarioBIntegrador(OUTRO_TENANT, { cargo: 'Analista', competencias: ['A', 'B'] }, {}, { substituir: true });
     expect(r.success).toBe(false);
     expect(r.error).toMatch(FORBIDDEN);
   });

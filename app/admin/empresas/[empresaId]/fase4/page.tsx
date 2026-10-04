@@ -11,8 +11,9 @@ import {
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { loadCenariosB } from '@/actions/fase5';
-import { checkCenarioBUm, regenerarCenarioB, regenerarERecheckarCenariosBLote } from '../actions';
+import { checkCenarioBUm, regenerarCenarioB, regenerarERecheckarCenariosBLote, gerarCenarioBIntegrador } from '../actions';
 import { MODELOS_DECLARADOS } from '@/lib/ai-tasks';
+import { perguntasDoCenarioB } from '@/lib/season-engine/perguntas-cenario-b';
 
 const CHECK_DIM_MAX: Record<string, number> = {
   // Check B 8 dimensões
@@ -86,6 +87,27 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
     const r1: any = await regenerarCenarioB(id, { model: genModel, checkModel } as any);
     flash(r1.success ? (r1.message || t('messages.regenerated', { message: '' })) : t('messages.error', { error: r1.error }));
     setActionId(null);
+    refresh();
+  }
+
+  /**
+   * O integrador do Onboarding não passa pelo regenerar do B por célula (que reescreveria
+   * `alternativas` e apagaria a integração): tem o seu, que gera de novo as mesmas
+   * competências e só troca o texto depois de validado. Quem já abriu o fechamento
+   * guarda o cenário que viu.
+   */
+  async function handleRegenerarIntegrador(c) {
+    const ok = await confirmDialog({
+      title: t('confirm.regenerateIntegrator'),
+      severity: 'danger',
+      scopeNote: t('confirm.regenerateIntegratorScope'),
+    });
+    if (!ok) return;
+    setActionId(c.id);
+    flash(t('messages.regenerating'));
+    const r: any = await gerarCenarioBIntegrador(empresaId, { cargo: c.cargo, competencias: c.alternativas?.competencias_integradas || [] }, { model: genModel }, { substituir: true });
+    setActionId(null);
+    flash(r?.success ? t('messages.integratorRegenerated', { questions: r.perguntas }) : t('messages.error', { error: r?.error || '' }));
     refresh();
   }
 
@@ -216,6 +238,8 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                   const dilema = alt.dilema_etico || alt.dilema_etico_embutido;
                   const faceta = alt.faceta_avaliada;
                   const refAval = alt.referencia_avaliacao;
+                  // Integrador do Onboarding: cobre N competências, tem uma pergunta por competência e não tem auditor.
+                  const integrador = alt.cobertura_exata === true && Array.isArray(alt.competencias_integradas);
 
                   return (
                     <div key={c.id} className={`rounded-xl border overflow-hidden ${
@@ -230,7 +254,9 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                           {c.status_check === 'aprovado_com_ressalvas' && <CheckCircle size={14} className="text-cyan-400 shrink-0" />}
                           {c.status_check === 'revisar' && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
                           <span className="text-xs font-bold text-white">{c.titulo || t('fallbackScenarioTitle')}</span>
-                          {c.competencia_nome && <span className="text-[10px] text-purple-400">{c.competencia_nome}</span>}
+                          {integrador
+                            ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-400/15 text-purple-300">{t('details.integrator', { count: alt.competencias_integradas.length })}</span>
+                            : c.competencia_nome && <span className="text-[10px] text-purple-400">{c.competencia_nome}</span>}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {c.nota_check != null && (
@@ -248,13 +274,14 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
                         <div className="px-4 pb-4 border-t border-white/[0.04]">
                           <p className="text-xs text-gray-300 leading-relaxed mt-3 mb-4">{c.descricao}</p>
 
-                          {/* Perguntas P1-P4 */}
+                          {/* Perguntas: P1 a P4 no B por célula; uma por competência no integrador */}
                           <div className="space-y-2 mb-4">
-                            {[alt.p1, alt.p2, alt.p3, alt.p4].map((p, i) => p && (
-                              <div key={i} className="p-3 rounded-lg" style={{ background: '#091D35' }}>
-                                <p className="text-xs font-bold text-white">P{i + 1}: {p}</p>
-                                {alt.objetivo_diagnostico?.[`p${i+1}`] && (
-                                  <p className="text-[9px] text-purple-300/60 mt-1">{'\uD83C\uDFAF'} {alt.objetivo_diagnostico[`p${i+1}`]}</p>
+                            {perguntasDoCenarioB(alt).map((p, i) => (
+                              <div key={p.chave} className="p-3 rounded-lg" style={{ background: '#091D35' }}>
+                                {integrador && <p className="text-[9px] font-bold text-purple-300 uppercase tracking-widest mb-0.5">{p.dimensao}</p>}
+                                <p className="text-xs font-bold text-white">P{i + 1}: {p.texto}</p>
+                                {alt.objetivo_diagnostico?.[p.chave] && (
+                                  <p className="text-[9px] text-purple-300/60 mt-1">{'\uD83C\uDFAF'} {alt.objetivo_diagnostico[p.chave]}</p>
                                 )}
                               </div>
                             ))}
@@ -389,7 +416,14 @@ export default function Fase4Page({ params }: { params: Promise<{ empresaId: str
 
                           {/* Ações */}
                           <div className="flex items-center gap-2 pt-3 mt-3 border-t border-white/[0.04]">
-                            {c.nota_check == null && (
+                            {integrador && (
+                              <button disabled={actionId === c.id} onClick={() => handleRegenerarIntegrador(c)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-amber-400 border border-amber-400/30 hover:bg-amber-400/10 transition-all disabled:opacity-50">
+                                {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                                {t('actions.regenerateIntegrator')}
+                              </button>
+                            )}
+                            {!integrador && c.nota_check == null && (
                               <button disabled={actionId === c.id} onClick={() => handleRechecar(c.id)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 transition-all disabled:opacity-50">
                                 {actionId === c.id ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}

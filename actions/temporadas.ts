@@ -294,7 +294,7 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
           }
           if (escolha.cenario) continue;
           bloqueadores.push(comps.length > 1
-            ? `Fechamento sem Cenário B que cubra as ${comps.length} competências do programa (${comps.join(', ')}): o lote de Cenários B gera um por competência, e o fechamento do Onboarding precisa de um B integrador que cubra todas. Cadastre-o antes da semana do fechamento`
+            ? `Fechamento sem Cenário B integrador que cubra as ${comps.length} competências do programa (${comps.join(', ')}): o lote de Cenários B gera um por competência e não serve ao Onboarding, que fecha nas ${comps.length} de uma vez. Gere o integrador em "Cenário B integrador (Onboarding)", na fase de Reavaliação do pipeline da empresa, antes do fechamento`
             : `Fechamento sem Cenário B da competência "${comps[0]}" pro cargo "${cargoB}": gere na Fase 5 (Cenários B em lote). O B de outra competência não serve, o fechamento avaliaria a coisa errada`);
         }
       }

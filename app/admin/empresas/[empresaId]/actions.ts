@@ -760,7 +760,7 @@ import { rodarIA4 as _ia4, rodarIA4Uma as _ia4Uma, listarPendentesIA4 as _listar
 import { listarPendentesCheck as _listarCheck } from '@/actions/check-ia4';
 import { rechecarResposta as _recheckUma } from '@/actions/fase3';
 import { montarTrilhasLote as _trilhas, criarEstruturaFase4 as _estrutura, iniciarFase4ParaTodos as _iniciar, triggerSegundaFase4 as _trigSeg, triggerQuintaFase4 as _trigQui, getStatusFase4 as _statusF4, salvarCompetenciaFoco as _salvarFoco, loadCompetenciasFoco as _loadFoco } from '@/actions/fase4';
-import { gerarCenariosBLote as _cenB, checkCenariosBLote as _checkCenB, checkCenarioBUm as _checkCenBUm, regenerarCenarioB as _regenCenB, regenerarERecheckarCenariosBLote as _regenLote, iniciarReavaliacaoLote as _reav, gerarRelatoriosEvolucaoLote as _evolucao, gerarPlenariaEvolucao as _plenaria, gerarRelatorioRHManual as _rhManual, gerarRelatorioPlenaria as _rhPlen, enviarLinksPerfil as _links, gerarDossieGestor as _dossie, checkCenarios as _checkCen } from '@/actions/fase5';
+import { gerarCenariosBLote as _cenB, checkCenariosBLote as _checkCenB, checkCenarioBUm as _checkCenBUm, regenerarCenarioB as _regenCenB, regenerarERecheckarCenariosBLote as _regenLote, listarAlvosCenarioBIntegrador as _listarAlvosInt, gerarCenarioBIntegrador as _gerarInt, iniciarReavaliacaoLote as _reav, gerarRelatoriosEvolucaoLote as _evolucao, gerarPlenariaEvolucao as _plenaria, gerarRelatorioRHManual as _rhManual, gerarRelatorioPlenaria as _rhPlen, enviarLinksPerfil as _links, gerarDossieGestor as _dossie, checkCenarios as _checkCen } from '@/actions/fase5';
 import { dispararLinksCIS as _dispCIS, dispararRelatoriosLote as _dispLote } from '@/actions/whatsapp-lote';
 
 export async function rodarIA1(e, c) { await requireAdminAction('ai.audit.regenerate'); return _ia1(e, c); }
@@ -802,6 +802,8 @@ export async function checkCenariosBLote(e, c) { await requireAdminAction('ai.au
 export async function checkCenarioBUm(cenarioId, modelo) { await requireAdminAction('ai.audit.regenerate'); return _checkCenBUm(cenarioId, modelo); }
 export async function regenerarCenarioB(cenarioId, aiConfig) { await requireAdminAction('ai.audit.regenerate'); return _regenCenB(cenarioId, aiConfig); }
 export async function regenerarERecheckarCenariosBLote(empresaId, aiConfig) { await requireAdminAction('ai.audit.regenerate'); return _regenLote(empresaId, aiConfig); }
+export async function listarAlvosCenarioBIntegrador(empresaId) { await requireAdminAction('ai.audit.regenerate'); return _listarAlvosInt(empresaId); }
+export async function gerarCenarioBIntegrador(empresaId, alvo, aiConfig?, opcoes?) { await requireAdminAction('ai.audit.regenerate'); return _gerarInt(empresaId, alvo, aiConfig, opcoes); }
 export async function iniciarReavaliacaoLote(e, c) { await requireAdminAction('ai.audit.regenerate'); return _reav(e, c); }
 export async function gerarRelatoriosEvolucaoLote(e, c) { await requireAdminAction('ai.audit.regenerate'); return _evolucao(e, c); }
 export async function gerarPlenariaEvolucao(e, c) { await requireAdminAction('ai.audit.regenerate'); return _plenaria(e, c); }

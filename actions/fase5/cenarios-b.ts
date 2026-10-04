@@ -10,7 +10,9 @@ import { getModelForTask, DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
 import { travaRegeneracao, montarContextoIA3 } from '@/lib/ia3-cenarios';
 import { TEMP, type Fase5Config } from './_shared';
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
-import { celulasSemCenarioB, ehIntegrador, aReferenciaDaCelula } from '@/lib/season-engine/cenario-b';
+import { celulasSemCenarioB, ehIntegrador, ehIntegradorExato, aReferenciaDaCelula } from '@/lib/season-engine/cenario-b';
+import { listarAlvosDoIntegrador, gerarCenarioBIntegradorCore } from '@/lib/cenario-b-integrador';
+import { normalizarComp } from '@/lib/workshop-competencias';
 import { ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
 import { buildCenarioBPrompts, buildCheckCenarioBUser, SYSTEM_CHECK_CENARIO_B, type ContextoCenarioB } from '@/lib/cenarios-b-prompt';
 
@@ -222,6 +224,12 @@ export async function checkCenarioBUm(cenarioId: string, modelo: string | null =
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
 
     if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional não tem check)' };
+
+    // O auditor do B recebe UMA competência e o A dela. O integrador do Onboarding
+    // não tem âncora: auditá-lo por aqui cairia em "competência não encontrada".
+    if (ehIntegradorExato((cen as any).alternativas)) {
+      return { success: false, integrador: true, error: 'Cenário B integrador do Onboarding: não há auditoria por IA para ele (o auditor do B avalia uma competência só). Leia o texto antes da semana de fechamento abrir.' };
+    }
     const tdb = tenantDb(cen.empresa_id);
 
     // A mesma lente do gerador (contexto do A) e o mesmo A de referência do lote.
@@ -363,6 +371,71 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// 1d. CENÁRIO B INTEGRADOR (Onboarding)
+// O lote gera um B por célula (cargo x competência); o Onboarding fecha nas 5
+// competências de uma vez e precisa de UM B que cubra todas (R-21). Núcleo e prompt
+// em lib/cenario-b-integrador.ts. A tela lista os alvos e chama UMA geração por
+// request (como as Temporadas, F-E4): um cargo por vez, com o resultado à vista.
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Os (cargo x competências) que o Onboarding da empresa vai fechar, e se cada um já tem integrador. */
+export async function listarAlvosCenarioBIntegrador(empresaId: string) {
+  try {
+    if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
+    const sbRaw = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'listarAlvosCenarioBIntegrador');
+    const r = await listarAlvosDoIntegrador(sbRaw, empresaId);
+    // `in`, e não `.ok`: com `strict: false` a união por booleano não estreita.
+    if ('erro' in r) return { success: false as const, error: r.erro };
+    return { success: true as const, alvos: r.alvos, avisos: r.avisos, pessoasOnboarding: r.pessoasOnboarding };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || String(err) };
+  }
+}
+
+/**
+ * Gera o integrador de UM alvo. O cargo e as competências vêm do CLIENTE, então o
+ * servidor só gera para um par que a própria empresa resolveria para o Onboarding
+ * (a lista acima, recalculada aqui): um pedido avulso não paga IA por um conjunto
+ * que nenhuma trilha usa. `substituir` refaz um integrador existente (o texto novo
+ * só entra depois de validado).
+ */
+export async function gerarCenarioBIntegrador(
+  empresaId: string,
+  alvo: { cargo: string; competencias: string[] },
+  aiConfig: Fase5Config = {},
+  opcoes: { substituir?: boolean } = {},
+) {
+  try {
+    if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
+    const sbRaw = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'gerarCenarioBIntegrador');
+    const cargo = String(alvo?.cargo || '').trim();
+    const pedidas = Array.isArray(alvo?.competencias) ? alvo.competencias.map((c) => String(c ?? '')) : [];
+    const chave = (c: string, comps: string[]) => `${normalizarComp(c)}#${[...new Set(comps.map(normalizarComp).filter(Boolean))].sort().join('|')}`;
+
+    const lista = await listarAlvosDoIntegrador(sbRaw, empresaId);
+    if ('erro' in lista) return { success: false as const, error: lista.erro };
+    const real = lista.alvos.find((a) => chave(a.cargo, a.competencias) === chave(cargo, pedidas));
+    if (!real) {
+      return { success: false as const, motivo: 'alvo-desconhecido', error: 'Este cargo e conjunto de competências não correspondem a nenhum Onboarding da empresa. Atualize a lista e tente de novo.' };
+    }
+
+    // Só o modelo vem do cliente; o resto da config do picker (modo, checkModel) não é da geração.
+    const r = await gerarCenarioBIntegradorCore(sbRaw, {
+      empresaId, cargo: real.cargo, competencias: real.competencias,
+      aiConfig: aiConfig?.model ? { model: aiConfig.model } : {},
+      substituir: opcoes?.substituir === true,
+    });
+    if ('erro' in r) return { success: false as const, motivo: r.motivo, error: r.erro, erros: r.erros };
+    return {
+      success: true as const, status: r.status, cenarioId: r.cenarioId, titulo: r.titulo,
+      perguntas: r.perguntas, cargo: real.cargo, competencias: real.competencias,
+    };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || String(err) };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // 9. CARREGAR CENÁRIOS B (para tela de visualização)
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -416,8 +489,16 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 
     if (!cenarios?.length) return { success: false, error: 'Nenhum cenário B encontrado. Gere cenários B primeiro.' };
 
-    const pendentes = cenarios.filter(c => c.nota_check == null);
-    if (!pendentes.length) return { success: true, message: `Todos os ${cenarios.length} cenários B já foram checados` };
+    // O integrador do Onboarding não tem auditor (ver `checkCenarioBUm`): ficaria
+    // para sempre "pendente" e contaria como erro a cada rodada.
+    const semAuditor = cenarios.filter(c => ehIntegradorExato(c.alternativas)).length;
+    const pendentes = cenarios.filter(c => c.nota_check == null && !ehIntegradorExato(c.alternativas));
+    if (!pendentes.length) {
+      const sufixo = semAuditor ? ` (${semAuditor} integrador(es) do Onboarding sem auditoria por IA)` : '';
+      return { success: true, message: cenarios.length === semAuditor
+        ? `Nenhum cenário B por célula para checar${sufixo}`
+        : `Todos os ${cenarios.length - semAuditor} cenários B já foram checados${sufixo}` };
+    }
 
     const modelo = aiConfig?.checkModel || aiConfig?.model || await getModelForTask(empresaId, 'cenarios_b_check');
 
@@ -448,7 +529,7 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     const ok = resultados.filter(r => r === 'ok').length;
     const erros = resultados.filter(r => r === 'erro').length;
 
-    return { success: true, message: `Check cenários B: ${ok} checados${erros ? `, ${erros} erros` : ''} (${cenarios.length - pendentes.length} já checados antes)` };
+    return { success: true, message: `Check cenários B: ${ok} checados${erros ? `, ${erros} erros` : ''} (${cenarios.length - pendentes.length - semAuditor} já checados antes${semAuditor ? `; ${semAuditor} integrador(es) do Onboarding sem auditoria por IA` : ''})` };
   } catch (err) {
     return { success: false, error: err.message };
   }
