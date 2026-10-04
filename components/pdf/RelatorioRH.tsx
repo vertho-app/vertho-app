@@ -279,7 +279,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
                       <View style={{ marginTop: 8, borderTopWidth: 0.5, borderTopColor: 'rgba(0,0,0,0.10)', paddingTop: 6 }}>
                         <Text style={{ fontFamily: 'NotoSans', fontSize: 7.5, fontWeight: 700, color: '#0D9488', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>{'Formação recomendada'}</Text>
                         <Text style={{ ...s.text, fontWeight: 600 }}>{tr.titulo}{tr.prioridade ? ` [${tr.prioridade}]` : ''}</Text>
-                        <Text style={s.trainMeta}>{'Público'}: {tr.publico} | Formato: {tr.formato} | Carga: {tr.carga_horaria} | Custo: {tr.custo || tr.custo_relativo}</Text>
+                        <Text style={s.trainMeta}>{'Público'}: {tr.publico} | Formato: {tr.formato} | Custo: {tr.custo || tr.custo_relativo}</Text>
                       </View>
                     ); })()}
                   </View>
@@ -300,7 +300,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
                     <Text style={s.trainHeaderText}>{i + 1}. {t.titulo} [{t.prioridade}]</Text>
                   </View>
                   <View style={{ ...s.trainContent, backgroundColor: pc.contentBg }}>
-                    <Text style={s.trainMeta}>{'P\u00fablico'}: {t.publico} | Formato: {t.formato} | Carga: {t.carga_horaria} | Custo: {t.custo || t.custo_relativo}</Text>
+                    <Text style={s.trainMeta}>{'P\u00fablico'}: {t.publico} | Formato: {t.formato} | Custo: {t.custo || t.custo_relativo}</Text>
                     {t.justificativa && <Text style={s.text}>{t.justificativa}</Text>}
                   </View>
                 </View>

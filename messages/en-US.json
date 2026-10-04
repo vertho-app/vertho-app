@@ -514,7 +514,7 @@
     "planningGroup2": "Diagnosis and flow",
     "planningGroup3": "Proposal and objections",
     "planningGroupProgress": "{n} of {total}",
-    "howItWorks": "How it works · about 20 to 30 minutes",
+    "howItWorks": "How it works",
     "howItWorksPlan": "Plan: {total} short questions before the conversation (answer at least {min}).",
     "howItWorksChat": "Conversation with the client, from first contact to next step.",
     "howItWorksSurvey": "One-minute experience survey.",

@@ -1077,7 +1077,7 @@ function PrioritiesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
                   <div className="mt-5 rounded-2xl border border-[var(--brand-400,#22d3ee)]/15 bg-[var(--brand-400,#22d3ee)]/[0.05] p-4">
                     <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--brand-300,#67e8f9)]"><Lightbulb size={13} /> {t('dashboard.priorities.training')}</p>
                     <p className="mt-2 text-sm font-semibold text-white/80">{item.training.title}</p>
-                    <p className="mt-1 text-[10px] text-white/38">{[item.training.audience, item.training.format, item.training.workload].filter(Boolean).join(' · ')}</p>
+                    <p className="mt-1 text-[10px] text-white/38">{[item.training.audience, item.training.format].filter(Boolean).join(' · ')}</p>
                   </div>
                 )}
               </div>

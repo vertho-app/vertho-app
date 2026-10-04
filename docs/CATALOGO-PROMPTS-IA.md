@@ -1365,15 +1365,15 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
   1. Níveis NUMÉRICOS (1-4)
   2. DISC é hipótese contextual, não diagnóstico fechado
   3. Conecte tudo ao impacto organizacional real
-  4. Treinamentos específicos e priorizados (com carga horária, custo, formato, `entra_se_orcamento_curto`)
+  4. Treinamentos específicos e priorizados (com custo, formato, `entra_se_orcamento_curto`; sem carga horária desde 03/10/2026, R-116: a IA inventava o número e o prompt agora o proíbe)
   5. Cada risco identificado deve vir com ação concreta
   6. Para cada cargo: UMA competência foco mais alavancadora (com justificativa quanti+quali e horizonte)
   7. Não invente causalidade que os dados não sustentam
   8. Seja estratégico mas pé no chão
-  9. Máximo 3 ações por horizonte
+  9. Máximo 3 ações por horizonte, com janela fixa (curto = próximas 2 semanas, médio = 1 a 2 meses, longo = próximo semestre: as mesmas que o PDF e o painel imprimem; R-116)
   10. Evitar linguagem genérica que serviria para qualquer empresa
 
-- **Output**: JSON `{ resumo_executivo:{leitura_geral, principal_forca_organizacional, principal_risco_organizacional}, indicadores:{total_avaliados, total_avaliacoes, media_geral, pct_nivel_1..4}, visao_por_cargo[{cargo, media_nivel, principais_forcas, principais_riscos, leitura}], competencias_criticas[{competencia, criticidade, justificativa, impacto_organizacional}], competencia_foco_por_cargo[{cargo, competencia_recomendada, justificativa, expectativa_impacto, horizonte_sugerido}], treinamentos_sugeridos[{titulo, competencia, publico, custo, prioridade, carga_horaria, formato, justificativa, entra_se_orcamento_curto}], perfil_disc_organizacional:{descricao, forca_coletiva, risco_coletivo}, decisoes_chave[{colaborador, situacao, acao, criterio_reavaliacao}], plano_acao:{curto_prazo, medio_prazo, longo_prazo}, mensagem_final, alertas_metodologicos }`.
+- **Output**: JSON `{ resumo_executivo:{leitura_geral, principal_forca_organizacional, principal_risco_organizacional}, indicadores:{total_avaliados, total_avaliacoes, media_geral, pct_nivel_1..4}, visao_por_cargo[{cargo, media_nivel, principais_forcas, principais_riscos, leitura}], competencias_criticas[{competencia, criticidade, justificativa, impacto_organizacional}], competencia_foco_por_cargo[{cargo, competencia_recomendada, justificativa, expectativa_impacto, horizonte_sugerido}], treinamentos_sugeridos[{titulo, competencia, publico, custo, prioridade, formato, justificativa, entra_se_orcamento_curto}], perfil_disc_organizacional:{descricao, forca_coletiva, risco_coletivo}, decisoes_chave[{colaborador, situacao, acao, criterio_reavaliacao}], plano_acao:{curto_prazo, medio_prazo, longo_prazo}, mensagem_final, alertas_metodologicos }`.
 - **Inputs user**: Empresa, indicadores gerais (total avaliados, média, distribuição N1-N4), DISC organizacional, grounding block, dados por cargo, registros individuais (nome, cargo, competência, nível).
 - **Consumido por**: `relatorios` tipo='rh' + PDF.
 

@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { mapComLimite } from '@/lib/concurrency';
 import { tenantEmailFrom, tenantUrl } from '@/lib/domain';
 import { emailConfigurationError, sendEmail } from '@/lib/email-provider';
+import { rodapePrivacidadeHtml } from '@/lib/notifications/rodape-privacidade';
 import { callAI, type AIConfig } from '../ai-client';
 import { extractJSON } from '../utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
@@ -253,7 +254,8 @@ export async function enviarLinksPerfil(empresaId: string) {
           from: tenantEmailFrom(empresa.slug, 'Vertho Mentor'),
           to: colab.email,
           subject: `[${empresa.nome}] Seu Perfil de Evolução`,
-          html: `<p>Olá ${colab.nome_completo}!</p><p>Seu perfil está disponível.</p><p><a href="${tenantUrl(empresa.slug, '/dashboard/evolucao')}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;">Acessar Perfil</a></p>`,
+          html: `<p>Olá ${colab.nome_completo}!</p><p>Seu perfil está disponível.</p><p><a href="${tenantUrl(empresa.slug, '/dashboard/evolucao')}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;">Acessar Perfil</a></p>
+${rodapePrivacidadeHtml(tenantUrl(empresa.slug))}`,
         });
         return result.ok;
       } catch { return false; }

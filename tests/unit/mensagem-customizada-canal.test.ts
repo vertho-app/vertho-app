@@ -47,6 +47,10 @@ describe('dispararMensagemCustomizada: só e-mail', () => {
     const r: any = await dispararMensagemCustomizada('emp-1', 'Olá {{nome}}, da {{empresa}}', 'email', {}, 'Aviso');
     expect(r.success).toBe(true);
     expect(sendEmail).toHaveBeenCalledTimes(1);
-    expect(sendEmail.mock.calls[0][0]).toMatchObject({ to: 'ana@escola.test', subject: 'Aviso', html: 'Olá Ana, da Escola Teste' });
+    const enviado = sendEmail.mock.calls[0][0];
+    expect(enviado).toMatchObject({ to: 'ana@escola.test', subject: 'Aviso' });
+    // O texto do admin sai inteiro; o rodapé com a política (R-46) vem depois dele.
+    expect(enviado.html.startsWith('Olá Ana, da Escola Teste<p ')).toBe(true);
+    expect(enviado.html).toContain('<a href="https://escolateste.vertho.ai/privacidade"');
   });
 });

@@ -570,7 +570,7 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                           }`}>{s(t.prioridade)}</span>
                           {t.custo && <span className="text-[9px] text-gray-500">{s(t.custo)}</span>}
                         </div>
-                        <p className="text-[10px] text-gray-400">{s(t.publico)} · {s(t.formato)} · {s(t.carga_horaria)}</p>
+                        <p className="text-[10px] text-gray-400">{s(t.publico)} · {s(t.formato)}</p>
                         {t.justificativa && <p className="text-[10px] text-gray-500 mt-0.5">{s(t.justificativa)}</p>}
                       </div>
                     ))}

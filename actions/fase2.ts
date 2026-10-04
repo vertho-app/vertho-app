@@ -2,6 +2,7 @@
 
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import { emailConfigurationError, sendEmail } from '@/lib/email-provider';
+import { rodapePrivacidadeHtml } from '@/lib/notifications/rodape-privacidade';
 import crypto from 'crypto';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
@@ -125,7 +126,8 @@ export async function dispararEmails(empresaId: string) {
             html: `<p>Olá${colab.nome_completo ? ` ${colab.nome_completo.split(' ')[0]}` : ''}!</p>
 <p>Você foi convidado(a) para participar da avaliação de competências da <strong>${empresa.nome}</strong>.</p>
 <p><a href="${link}" style="background:#0D9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:bold;">Iniciar Avaliação</a></p>
-<p style="color:#666;font-size:12px;">Ou acesse: ${link}</p>`,
+<p style="color:#666;font-size:12px;">Ou acesse: ${link}</p>
+${rodapePrivacidadeHtml(tenantUrl(empresa.slug))}`,
           });
           if (emailRes.ok) {
             emailEntregue = true;

@@ -1,5 +1,6 @@
 import { APP_URL } from '@/lib/domain';
 import { AppLocale } from '@/i18n/routing';
+import { rodapePrivacidadeHtml } from '@/lib/notifications/rodape-privacidade';
 
 function escapeHtml(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -106,6 +107,7 @@ function baseEmailHtml({ eyebrow, title, greeting, body, link, footer }: {
       <p style="font-size:12px;color:#64748b;">${c.fallback}</p>
       <p style="font-size:11px;color:#64748b;word-break:break-all;background:#f8fafc;padding:8px;border-radius:6px;">${escapeHtml(link)}</p>
       ${footer ? `<p style="margin-top:24px;color:#94a3b8;font-size:12px;">${footer}</p>` : ''}
+      ${rodapePrivacidadeHtml(APP_URL, locale)}
     </td></tr>
   </table>
 </body></html>`;

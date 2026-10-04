@@ -74,9 +74,11 @@ export interface LinhaPessoa extends PessoaPainel {
   competencias: EvolucaoCompetencia[];
 }
 /**
- * A partir de quanto tempo sem atividade um treino aberto é "parado". Uma
- * conversa leva de 15 a 30 minutos; três dias sem gravação é abandono de fato,
- * não pausa para o almoço. Escolha da rodada de 27/09/2026, sem medição.
+ * A partir de quanto tempo sem atividade um treino aberto é "parado". Três dias
+ * sem gravação é abandono de fato, não pausa para o almoço. Escolha da rodada de
+ * 27/09/2026, sem medição: a duração de uma conversa nunca foi medida (em
+ * 03/10/2026 as 43 sessões do banco eram todas do tenant de demonstração;
+ * R-117), então este limite não se apoia nela.
  */
 export const PARADO_APOS_MS = 3 * 24 * 60 * 60 * 1000;
 export interface PainelVendas {

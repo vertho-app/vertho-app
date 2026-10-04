@@ -72,7 +72,6 @@ export type RhCriticalCompetency = {
     title: string;
     audience: string | null;
     format: string | null;
-    workload: string | null;
   } | null;
 };
 
@@ -312,7 +311,8 @@ export function normalizeRhReportInsight(value: unknown): RhReportInsight | null
           title: asText(training.titulo) || '—',
           audience: asText(training.publico),
           format: asText(training.formato),
-          workload: asText(training.carga_horaria),
+          // Sem carga horária (R-116): o número saía da IA sem base nenhuma, e
+          // relatório já gravado ainda o traz. O campo não se lê mais.
         } : null,
       };
     }),

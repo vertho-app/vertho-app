@@ -147,7 +147,8 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
               {PRODUCT_PACKAGES.map((p) => <option key={p} value={p}>{PRODUCT_PACKAGE_LABELS[p]}</option>)}
             </select>
           </Field>
-          <Field label="Escopo incluído" error={fieldErrors.included_scope}>
+          <Field label="Escopo incluído" error={fieldErrors.included_scope}
+            hint="Aparece na proposta que o cliente lê, uma linha por item incluído.">
             <textarea value={values.included_scope} onChange={(e) => set('included_scope', e.target.value)}
               rows={3} placeholder="O que está incluído nesta proposta" className={INPUT_CLS} />
           </Field>
@@ -198,7 +199,10 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
             </Field>
           </div>
 
-          <Field label="Observações comerciais" error={fieldErrors.commercial_notes}>
+          {/* R-114: o texto vai ao cliente (tela da proposta e PDF) exatamente como foi
+              escrito, sem edição. O campo parecia anotação interna. */}
+          <Field label="Observações comerciais" error={fieldErrors.commercial_notes}
+            hint="Aparece na proposta que o cliente lê (tela e PDF), do jeito que você escrever. Anotação interna não vai aqui.">
             <textarea value={values.commercial_notes} onChange={(e) => set('commercial_notes', e.target.value)}
               rows={2} className={INPUT_CLS} />
           </Field>

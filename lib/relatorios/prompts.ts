@@ -164,7 +164,6 @@ FORMATO OBRIGATÓRIO:
       "publico": "público-alvo",
       "custo": "baixo|medio|alto",
       "prioridade": "alta|media|baixa",
-      "carga_horaria": "texto curto",
       "formato": "presencial|online|misto|mentoria|pratica",
       "justificativa": "por que este treinamento ajuda",
       "entra_se_orcamento_curto": true
@@ -189,6 +188,8 @@ FORMATO OBRIGATÓRIO:
 
 REGRAS:
 - máximo 3 ações por horizonte
+- horizontes com janela FIXA, a mesma que o relatório imprime ao lado de cada um: curto_prazo = próximas 2 semanas; medio_prazo = 1 a 2 meses; longo_prazo = próximo semestre. O campo horizonte_sugerido (curto|medio|longo) usa as mesmas janelas. Não coloque em curto_prazo o que não cabe em 2 semanas
+- NÃO informe carga horária, duração nem número de encontros dos treinamentos: a plataforma não tem esse dado e qualquer número seria inventado
 - níveis sempre numéricos
 - DISC sempre como hipótese
 - cada treinamento com prioridade e justificativa

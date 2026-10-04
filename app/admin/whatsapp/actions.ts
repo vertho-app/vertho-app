@@ -6,6 +6,7 @@ import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { logAdminAction } from '@/lib/audit';
 import { EMAIL_FROM_DEFAULT, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 import { emailConfigurationError, sendEmail, type SendEmailInput } from '@/lib/email-provider';
+import { rodapePrivacidadeHtml } from '@/lib/notifications/rodape-privacidade';
 import { publicarTemplateCloudCis } from '@/lib/qstash-publish';
 import { lerParametroAcesso, montarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
 import { aplicarTetoLote, atrasosDoLote, duracaoEstimada } from '@/lib/whatsapp/cadencia';
@@ -250,7 +251,10 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 
       if (emailConfigError) { erroDetalhe = emailConfigError; erros++; continue; }
       try {
-        const htmlMsg = msg.replace(/\n/g, '<br>').replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/_([^_]+)_/g, '<em>$1</em>');
+        // R-46: o texto do disparo é livre (o admin escreve); o rodapé com a política
+        // é fixo e sai de qualquer jeito, no host do tenant.
+        const htmlMsg = msg.replace(/\n/g, '<br>').replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/_([^_]+)_/g, '<em>$1</em>')
+          + rodapePrivacidadeHtml(`https://${empresa.slug}.${domain}`);
 
         // PDF do relatório (já resolvido no topo do loop; colabs sem PDF
         // nem chegam aqui).

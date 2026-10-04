@@ -14,6 +14,7 @@
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import { emailConfigurationError, emailProviderName, sendEmail } from '@/lib/email-provider';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
+import { rodapePrivacidadeHtml } from '@/lib/notifications/rodape-privacidade';
 import { APLICACAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
 // O helper vive em `lib/descritor-humano.ts` (puro, sem imports) porque tela,
 // PDF e envio precisam do MESMO texto — duplicar a régua faria as três divergirem
@@ -93,7 +94,8 @@ export function emailPilula(nome: string, e: any, opts: PilulaOpts): { subject: 
 <p>Seu <strong>${labelFormato(opts.formato)}</strong> de hoje: <strong>${tema}</strong>.</p>
 <p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Acessar minha pílula →</a></p>
 <p style="color:#666;font-size:14px">Os conteúdos e o desafio da semana ficam na plataforma.</p>
-<p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
+<p style="color:#666;font-size:14px">— Equipe Vertho</p>
+${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }
 
@@ -123,7 +125,8 @@ export function emailEvidencia(
 <p>O registro de evidências desta semana está <strong>pendente</strong>.</p>
 <p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Registrar minha evidência →</a></p>
 <p style="color:#666;font-size:14px">As evidências registradas são usadas para ajustar as próximas semanas da sua trilha.</p>
-<p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
+<p style="color:#666;font-size:14px">— Equipe Vertho</p>
+${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }
 
@@ -158,7 +161,8 @@ export function emailAvaliacaoFinal(
 <p>As semanas de conteúdo da sua trilha foram concluídas, ${estado}</p>
 <p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a avaliação final</a></p>
 <p style="color:#666;font-size:14px">O Relatório de Evolução é gerado quando a avaliação final é concluída.</p>
-<p style="color:#666;font-size:14px">Equipe Vertho</p></div>`;
+<p style="color:#666;font-size:14px">Equipe Vertho</p>
+${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }
 
@@ -271,7 +275,8 @@ ${resumo}
 <p>E este vídeo explica como a semana funciona:</p>
 <p style="margin:16px 0"><a href="${video}"><img src="${thumb}" alt="Vídeo explicativo da semana" width="480" style="width:100%;max-width:480px;border-radius:8px;display:block" /></a></p>
 <p style="color:#666;font-size:14px">Na quinta a Mentora IA vai querer saber como foi. Boa prática!</p>
-<p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
+<p style="color:#666;font-size:14px">— Equipe Vertho</p>
+${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }
 
@@ -336,7 +341,8 @@ export function emailPilulaPendente(
 <p>Tema: <strong>${tema}</strong>.</p>
 <p>Esta semana continua <strong>pendente</strong>: ela somente é concluída na <strong>conversa de evidências</strong> — abrir o conteúdo não conclui a semana.</p>
 <p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a semana ${opts.semana} →</a></p>
-<p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
+<p style="color:#666;font-size:14px">— Equipe Vertho</p>
+${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }
 
@@ -352,6 +358,7 @@ export function emailSemanaPendente(
 <p>Sua trilha está na <strong>semana ${opts.semana}</strong>, e a <strong>semana ${opts.semanaPendente}</strong> continua pendente.</p>
 <p>Ela somente é concluída na <strong>conversa de evidências</strong> — abrir o conteúdo não conclui a semana. A explicação em vídeo está na página da semana.</p>
 <p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a semana ${opts.semanaPendente} →</a></p>
-<p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
+<p style="color:#666;font-size:14px">— Equipe Vertho</p>
+${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }

@@ -84,8 +84,9 @@ try {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(origin);
   await page.getByRole('button', { name: 'Iniciar treino', exact: true }).waitFor();
-  // V-13 (27/09/2026): antes de começar, as etapas e o tempo aproximado.
-  await page.getByText('Como funciona · cerca de 20 a 30 minutos', { exact: true }).waitFor();
+  // V-13 (27/09/2026): antes de começar, as etapas. O tempo aproximado saiu em
+  // 03/10/2026 (R-117): nenhuma sessão real mediu a duração.
+  await page.getByText('Como funciona', { exact: true }).waitFor();
   for (const etapa of [
     'Plano: 6 perguntas curtas antes da conversa (responda pelo menos 4).',
     'Conversa com o cliente, do primeiro contato ao próximo passo.',
