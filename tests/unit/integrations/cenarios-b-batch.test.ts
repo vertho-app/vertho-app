@@ -117,3 +117,31 @@ describe('cenários B em Batch API', () => {
     expect(m.createChk).not.toHaveBeenCalled();
   });
 });
+
+describe('disparo duplicado do mesmo job (sem disparos simultâneos, 04/10/2026)', () => {
+  const runDe = (id: string) => (gerarCenariosBBatchTask as any).run({ jobId: 'j1', empresaId: 'e1' }, { ctx: { attempt: { number: 1 }, run: { id, maxAttempts: 3 } } });
+
+  it('job em curso por OUTRA run: a 2ª execução sai sem pagar lote nenhum nem mexer no job', async () => {
+    job.status = 'running';
+    job.params = { ...job.params, runId: 'run-que-ja-assumiu' };
+    const r = await runDe('run-duplicada');
+    expect(r).toMatchObject({ ok: true, duplicada: true, runDoLote: 'run-que-ja-assumiu' });
+    expect(m.createGen).not.toHaveBeenCalled();
+    expect(m.createChk).not.toHaveBeenCalled();
+    expect(sb.escritas.filter(e => e.tabela === 'ia_jobs')).toHaveLength(0);
+  });
+
+  it('a retentativa da MESMA run (mesmo runId) segue normalmente: é como o lote retoma de onde parou', async () => {
+    job.status = 'running';
+    job.params = { ...job.params, runId: 'run1' };
+    await runDe('run1');
+    expect(m.createGen).toHaveBeenCalledTimes(1);
+    expect(estadoJob().status).toBe('done');
+  });
+
+  it('job ainda na fila (sem runId): a primeira run assume e grava o próprio runId', async () => {
+    await runDe('run-primeira');
+    expect(estadoJob().params.runId).toBe('run-primeira');
+    expect(m.createGen).toHaveBeenCalledTimes(1);
+  });
+});

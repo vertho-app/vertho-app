@@ -5,6 +5,16 @@ import { celulasSemCenarioB, aReferenciaDaCelula } from '@/lib/season-engine/cen
 import { ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
 import type { ContextoCenarioB } from '@/lib/cenarios-b-prompt';
 
+/**
+ * A fase de `ia_jobs` da geração de Cenários B. O lote em segundo plano e a geração
+ * imediata do admin dividem a MESMA reserva (`reservarFaseDoLote`): rodar um enquanto o
+ * outro gera pagaria a mesma IA duas vezes para as mesmas células.
+ */
+export const FASE_CENARIOS_B = 'cenarios-b';
+
+/** O aviso do segundo disparo (não é erro: a geração em curso segue e vai gravar os B). */
+export const AVISO_JA_GERANDO_CENARIOS_B = 'Os Cenários B desta empresa já estão sendo gerados (um lote em segundo plano ou outra geração aberta). Aguarde terminar antes de gerar de novo: o segundo disparo pagaria a mesma IA duas vezes.';
+
 export interface ItemCenarioB {
   cenarioAId: string;
   competenciaId: string;

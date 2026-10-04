@@ -21,7 +21,8 @@ import type { gerarIA4BatchTask } from '@/trigger/gerar-ia4-batch';
 import type { gerarBlueprintBatchTask } from '@/trigger/gerar-blueprint-batch';
 import type { gerarRelatoriosBatchTask } from '@/trigger/gerar-relatorios-batch';
 import { gerarRelatoriosIndividuaisLote } from '@/actions/relatorios';
-import { listarFilaCenariosB } from '@/lib/cenarios-b-lote';
+import { listarFilaCenariosB, FASE_CENARIOS_B, AVISO_JA_GERANDO_CENARIOS_B } from '@/lib/cenarios-b-lote';
+import { reservarFaseDoLote } from '@/lib/ia-jobs';
 import { getModelForTask } from '@/lib/ai-tasks';
 import type { gerarCenariosBBatchTask } from '@/trigger/gerar-cenarios-b-batch';
 
@@ -31,30 +32,56 @@ export async function enqueueCenariosBBatch(empresaId: string, aiConfig: AIConfi
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
     await requireEmpresaSupabase(empresaId, 'content.manage', 'enqueueCenariosBBatch');
     const tdb = tenantDb(empresaId);
-    const { data: dup, error: erroAtivo } = await tdb.from('ia_jobs').select('id')
-      .eq('fase', 'cenarios-b').in('status', ['queued', 'running']).limit(1).maybeSingle();
-    if (erroAtivo) throw new Error(`Não foi possível verificar lotes ativos: ${erroAtivo.message}`);
-    if (dup) return { success: false as const, error: 'Já existe um lote de cenários B em andamento. Aguarde ou cancele antes de disparar outro.' };
     const model = aiConfig.model || await getModelForTask(empresaId, 'cenarios_b');
     const checkModel = aiConfig.checkModel || await getModelForTask(empresaId, 'cenarios_b_check');
     if (!model.startsWith('claude') || !checkModel.startsWith('gpt')) return { success: false as const, error: 'Lote requer geração Claude e validação GPT' };
-    const items = await listarFilaCenariosB(empresaId);
-    if (!items.length) return { success: true as const, jobId: null, total: 0, message: 'Todos os cenários B já foram gerados e checados.' };
-    const { data: job, error } = await tdb.from('ia_jobs').insert({
-      fase: 'cenarios-b', params: { aiConfig: { ...aiConfig, model, checkModel }, items },
-      status: 'queued', progress: { done: 0, total: items.length * 2, current: 'na fila', resultados: [] },
-    }).select('id').single();
-    if (error || !job) throw new Error(error?.message || 'Falha ao criar lote');
+
+    // SEM DISPAROS SIMULTÂNEOS: reserva a fase (um lote por empresa, também contra a geração
+    // imediata do admin) ANTES de montar a fila. Ler "há lote ativo?" e só depois inserir deixava
+    // dois cliques passarem juntos; a reserva insere e arbitra (`reservarFaseDoLote`).
+    const reserva = await reservarFaseDoLote(tdb, {
+      fase: FASE_CENARIOS_B, status: 'queued',
+      params: { modo: 'lote' },
+      progress: { done: 0, total: 0, current: 'preparando a fila', resultados: [] },
+    });
+    if ('erro' in reserva) return { success: false as const, error: reserva.erro };
+    if ('jaGerando' in reserva) return { success: false as const, jaGerando: true as const, error: AVISO_JA_GERANDO_CENARIOS_B };
+    const jobId = reserva.jobId;
+
+    // O que falhar daqui até o dispatch fecha a reserva: ela não pode segurar a fase.
+    const encerrar = async (status: 'error' | 'done', erro: string | null) => {
+      const { error: erroJob } = await tdb.from('ia_jobs').update({ status, error: erro }).eq('id', jobId);
+      if (erroJob) console.error('[enqueueCenariosBBatch] falha ao encerrar a reserva:', erroJob.message);
+    };
+    let items: Awaited<ReturnType<typeof listarFilaCenariosB>>;
     try {
-      // A própria task grava runId: atualizar params aqui poderia apagar checkpoints
-      // de uma execução que começou antes da resposta do dispatch.
-      await tasks.trigger<typeof gerarCenariosBBatchTask>('gerar-cenarios-b-batch', { jobId: job.id, empresaId }, regionOpts());
+      items = await listarFilaCenariosB(empresaId);
     } catch (err: any) {
-      const { error: erroJob } = await tdb.from('ia_jobs').update({ status: 'error', error: `dispatch: ${err.message}` }).eq('id', job.id);
-      if (erroJob) console.error('[enqueueCenariosBBatch] falha ao marcar erro:', erroJob.message);
+      await encerrar('error', `fila: ${err?.message || err}`);
       throw err;
     }
-    return { success: true as const, jobId: job.id, total: items.length };
+    if (!items.length) {
+      await encerrar('done', null);
+      return { success: true as const, jobId: null, total: 0, message: 'Todos os cenários B já foram gerados e checados.' };
+    }
+    const { error: erroFila } = await tdb.from('ia_jobs').update({
+      params: { modo: 'lote', aiConfig: { ...aiConfig, model, checkModel }, items },
+      progress: { done: 0, total: items.length * 2, current: 'na fila', resultados: [] },
+    }).eq('id', jobId);
+    if (erroFila) {
+      await encerrar('error', `fila: ${erroFila.message}`);
+      throw new Error(`Falha ao gravar a fila do lote: ${erroFila.message}`);
+    }
+    try {
+      // A própria task grava runId: atualizar params aqui poderia apagar checkpoints
+      // de uma execução que começou antes da resposta do dispatch. A `idempotencyKey` impede
+      // que um disparo repetido deste mesmo job (retentativa da chamada) abra uma 2ª execução.
+      await tasks.trigger<typeof gerarCenariosBBatchTask>('gerar-cenarios-b-batch', { jobId, empresaId }, { ...regionOpts(), idempotencyKey: `${FASE_CENARIOS_B}:${empresaId}:${jobId}` });
+    } catch (err: any) {
+      await encerrar('error', `dispatch: ${err.message}`);
+      throw err;
+    }
+    return { success: true as const, jobId, total: items.length };
   } catch (err: any) {
     return { success: false as const, error: err?.message || 'Erro ao enfileirar cenários B' };
   }

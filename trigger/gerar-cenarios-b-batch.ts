@@ -24,6 +24,12 @@ export const gerarCenariosBBatchTask = task({
     const { data: job, error } = await tdb.from('ia_jobs').select('*').eq('id', payload.jobId).single();
     if (error || !job || job.fase !== 'cenarios-b') throw new Error('Job de cenários B não encontrado nesta empresa');
     if (job.status === 'done' || job.status === 'cancelled') return { ok: true, reentrante: true };
+    // Sem disparos simultâneos: se OUTRA execução já assumiu este job (`params.runId` de uma run
+    // diferente e o job em curso), esta é um disparo duplicado e não paga lote nenhum. A retentativa
+    // da MESMA run mantém o `runId`, então segue normalmente (é como o lote retoma de onde parou).
+    if (job.status === 'running' && job.params?.runId && job.params.runId !== ctx.run.id) {
+      return { ok: true, duplicada: true, runDoLote: job.params.runId };
+    }
     const params = { ...job.params, runId: ctx.run.id };
     const salvarParams = async (novos: Record<string, unknown>) => {
       Object.assign(params, novos);

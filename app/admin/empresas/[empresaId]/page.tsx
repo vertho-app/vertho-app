@@ -419,8 +419,9 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       }
       if (actionKey === 'cenarios-b' && aiConfig?.modo === 'lote') {
         addLog('📦 Cenários B + Check em lote (Batch API −50%, assíncrono).', 'info');
-        const r = await enqueueCenariosBBatch(empresaId, aiConfig);
-        if (!r.success) { addLog(`❌ ${r.error}`, 'error'); setPendingAction(null); return; }
+        const r: any = await enqueueCenariosBBatch(empresaId, aiConfig);
+        // "Já está gerando" é aviso (a geração em curso segue), não falha.
+        if (!r.success) { addLog(`${r.jaGerando ? '⚠' : '❌'} ${r.error}`, r.jaGerando ? 'info' : 'error'); setPendingAction(null); return; }
         if (!r.jobId) { addLog(r.message || 'Nada na fila', 'info'); setPendingAction(null); return; }
         addLog(`📦 ${r.total} cenário(s) B no lote — pode fechar a aba e acompanhar ao voltar.`, 'info');
         watchJob(r.jobId, 'Cenários B + Check');
@@ -763,6 +764,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       if (!fn) { addLog(t('feedback.actionNotFound', { action: actionKey }), 'error'); setPendingAction(null); return; }
       const result = await fn(empresaId, aiConfig || undefined);
       if (result?.success) { addLog(`✅ ${result.message || t('feedback.completed', { label })}`, 'success'); loadData(); if (actionKey === 'ia1' || actionKey === 'ia2') refreshTop10(); }
+      else if (result?.jaGerando) addLog(`⚠ ${result.error}`, 'info');
       else addLog(`❌ ${result?.error || t('feedback.unknownError')}`, 'error');
     } catch (e: any) { addLog(`❌ ${e.message}`, 'error'); }
     setPendingAction(null);

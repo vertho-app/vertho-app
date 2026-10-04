@@ -13,6 +13,8 @@ import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 import { celulasSemCenarioB, ehIntegrador, aReferenciaDaCelula } from '@/lib/season-engine/cenario-b';
 import { ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
 import { buildCenarioBPrompts, buildCheckCenarioBUser, SYSTEM_CHECK_CENARIO_B, type ContextoCenarioB } from '@/lib/cenarios-b-prompt';
+import { reservarFaseDoLote } from '@/lib/ia-jobs';
+import { FASE_CENARIOS_B, AVISO_JA_GERANDO_CENARIOS_B } from '@/lib/cenarios-b-lote';
 
 // ── Contexto e prompts do Cenário B ───────────────────────────────────────────
 // Os prompts (gerador e auditor) vivem em lib/cenarios-b-prompt.ts e usam o MESMO
@@ -110,6 +112,37 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
   const sbRaw = await requireEmpresaSupabase(empresaId, 'content.manage', 'gerarCenariosBLote');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
+
+  // SEM DISPAROS SIMULTÂNEOS: a geração do B por célula não roda duas vezes ao mesmo
+  // tempo na mesma empresa (nem aqui nem contra o lote em segundo plano). Reserva a fase
+  // ANTES de ler qualquer coisa: o segundo disparo recebe o aviso e não paga IA, e quem
+  // ganha lê as células já com o que o outro acabou de gravar.
+  const reserva = await reservarFaseDoLote(tdb, {
+    fase: FASE_CENARIOS_B, status: 'running',
+    params: { modo: 'imediato' },
+    progress: { done: 0, total: 0, current: 'gerando (modo imediato)', resultados: [] },
+  });
+  if ('erro' in reserva) return { success: false, error: reserva.erro };
+  if ('jaGerando' in reserva) return { success: false, jaGerando: true, error: AVISO_JA_GERANDO_CENARIOS_B };
+
+  let resultado: any = { success: false, error: 'geração interrompida antes de terminar' };
+  try {
+    resultado = await gerarCenariosBLoteReservado(sbRaw, tdb, empresaId, aiConfig);
+    return resultado;
+  } finally {
+    // Fecha a reserva (o `finally` roda também quando a geração lança). Se nem isto gravar, a
+    // linha segue `running` até a lease vencer (15 min): o aviso do próximo disparo é o rastro.
+    const { error: errFecha } = await tdb.from('ia_jobs').update({
+      status: resultado?.success ? 'done' : 'error',
+      error: resultado?.success ? null : String(resultado?.error || 'falhou').slice(0, 500),
+      progress: { done: 1, total: 1, current: resultado?.success ? 'concluído' : 'falhou', message: resultado?.message ?? null },
+    }).eq('id', reserva.jobId);
+    if (errFecha) console.error(`[cenarios-b] reserva ${reserva.jobId} não fechada: ${errFecha.message}`);
+  }
+}
+
+/** O corpo da geração imediata, já sob a reserva da fase. */
+async function gerarCenariosBLoteReservado(sbRaw: any, tdb: ReturnType<typeof tenantDb>, empresaId: string, aiConfig: Fase5Config) {
   try {
     // Cenários A existentes: banco_cenarios é misto, mas filtramos por
     // empresa explicitamente, então tdb está OK (deduz pelo tenantId).

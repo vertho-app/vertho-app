@@ -121,3 +121,80 @@ export async function registrarFalhaDaTentativa(
     error: `tentativa ${atual}/${max} falhou (vai retentar): ${msg}`.slice(0, 500),
   });
 }
+
+/**
+ * ── RESERVA EXCLUSIVA de uma fase por empresa ("já está gerando") ──
+ *
+ * O guard de duplicata dos lotes (`jaTemLoteAtivo`, `enqueueCenariosBBatch`) LÊ os
+ * jobs ativos e só depois INSERE o seu: entre as duas leituras cabe outro clique, e os
+ * dois passam. Para uma geração paga isso é pagar duas vezes pela mesma coisa (04/10/2026,
+ * Cenários B: o índice único da mig 261 impede a SEGUNDA linha, mas não a segunda
+ * chamada de IA). Sem migration (uma constraint única parcial em `ia_jobs` seria a
+ * garantia completa, e é decisão do dono), o desenho fica em duas pontas:
+ *
+ *  1. INSERE a reserva (um `ia_jobs` `queued`/`running` da fase);
+ *  2. LÊ os jobs ativos da fase DEPOIS de inserir e arbitra: vence o mais antigo
+ *     (`created_at`, depois `id`). Quem perde apaga a própria linha e recebe
+ *     `{ jaGerando }`, nunca um erro calado.
+ *
+ * Como cada chamada lê DEPOIS de gravar a sua, pelo menos uma enxerga a outra; na
+ * corrida (duas inserções quase juntas) as duas veem as duas e decidem igual. A janela
+ * que resta é a de uma inserção que NASCEU antes mas só confirmou depois da leitura do
+ * vencedor (milissegundos, mesma tabela, sem contenção): é a diferença para a constraint.
+ *
+ * Reserva morta não prende a fase para sempre: o job de outra execução que não dá sinal
+ * (`updated_at`) há mais que a sua lease não conta (e é marcado `error`). A lease é
+ * curta para a geração imediata (`params.modo === 'imediato'`, uma action de no máximo
+ * 300 s) e longa para o lote (a task grava o progresso a cada minuto).
+ */
+export const LEASE_RESERVA_IMEDIATA_MS = 15 * 60_000;
+export const LEASE_RESERVA_LOTE_MS = 2 * 3600_000;
+
+const leaseDaReserva = (params: any) => (params?.modo === 'imediato' ? LEASE_RESERVA_IMEDIATA_MS : LEASE_RESERVA_LOTE_MS);
+
+export type ResultadoDaReserva = { jobId: string } | { jaGerando: string } | { erro: string };
+
+export async function reservarFaseDoLote(
+  tdb: any,
+  a: { fase: string; status: 'queued' | 'running'; params: Record<string, unknown>; progress: Record<string, unknown>; agoraMs?: number },
+): Promise<ResultadoDaReserva> {
+  const { data: job, error } = await tdb.from('ia_jobs')
+    .insert({ fase: a.fase, params: a.params, status: a.status, progress: a.progress })
+    .select('id').single();
+  if (error || !job) return { erro: error?.message || 'Falha ao reservar a geração' };
+
+  /** Solta a reserva que não vai ser usada: apaga a linha (nunca rodou) e, se não der, cancela. */
+  const soltar = async () => {
+    const { error: errDel } = await tdb.from('ia_jobs').delete().eq('id', job.id);
+    if (!errDel) return;
+    const { error: errCancel } = await tdb.from('ia_jobs').update({ status: 'cancelled', error: 'reserva duplicada, descartada' }).eq('id', job.id);
+    if (errCancel) console.error(`[ia-jobs] reserva ${job.id} NÃO foi solta (${errDel.message}; ${errCancel.message}): ela segura a fase até a lease vencer`);
+  };
+
+  const { data: ativos, error: errAtivos } = await tdb.from('ia_jobs')
+    .select('id, created_at, updated_at, params')
+    .eq('fase', a.fase).in('status', ['queued', 'running'])
+    .order('created_at', { ascending: true }).order('id', { ascending: true });
+  if (errAtivos) {
+    await soltar();
+    return { erro: `Não foi possível verificar as gerações ativas: ${errAtivos.message}` };
+  }
+
+  const agora = a.agoraMs ?? Date.now();
+  const vivos: any[] = [];
+  for (const j of (ativos || []) as any[]) {
+    const sinalMs = Date.parse(j.updated_at || j.created_at || '');
+    const morto = j.id !== job.id && Number.isFinite(sinalMs) && agora - sinalMs > leaseDaReserva(j.params);
+    if (!morto) { vivos.push(j); continue; }
+    // Sem sinal além da lease: a execução morreu. Marca o fim para ela não voltar a aparecer.
+    const { error: errMorto } = await tdb.from('ia_jobs')
+      .update({ status: 'error', error: 'reserva expirada: sem sinal da execução além da lease' })
+      .eq('id', j.id).in('status', ['queued', 'running']);
+    if (errMorto) console.warn(`[ia-jobs] reserva expirada ${j.id} não marcada: ${errMorto.message}`);
+  }
+
+  const dono = vivos[0];
+  if (!dono || dono.id === job.id) return { jobId: job.id };
+  await soltar();
+  return { jaGerando: dono.id };
+}
