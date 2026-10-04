@@ -181,7 +181,7 @@ export function promptSocratic({ nomeColab, cargo, perfilDominante, competencia,
 - Máximo 50 palavras. UMA pergunta.`,
     4: `ESTE É O TURN 4 — TRANSIÇÃO OBRIGATÓRIA PARA O SEGUNDO FOCO.
 - Reconheça em 1 frase curta o que ${nomeColab} acabou de dizer. NÃO resuma o primeiro foco.
-- Transicione EXPLICITAMENTE: "Agora, sobre o outro foco da semana — ${lista[1]?.competencia || ''}…"
+- Transicione EXPLICITAMENTE: "Agora, sobre o outro foco da semana: ${lista[1]?.competencia || ''}…"
 - SEGUNDA tarefa: ${(lista[1]?.desafio_texto || '').slice(0, 140)}
 - Faça UMA pergunta aberta sobre o que aconteceu com ela.
 - Máximo 60 palavras.`,
@@ -202,10 +202,10 @@ como leitura — não como pergunta.
 Encerre com esta estrutura EXATA (bullets):
 
 ${multi
-  ? lista.map((d) => `✅ **Desafio (${d.competencia})**: [realizado | parcial | não realizado — baseado no relato]`).join('\n')
-  : `✅ **Desafio**: [realizado | parcial | não realizado — baseado no relato]`}
+  ? lista.map((d) => `✅ **Desafio (${d.competencia})**: [realizado | parcial | não realizado, conforme o relato]`).join('\n')
+  : `✅ **Desafio**: [realizado | parcial | não realizado, conforme o relato]`}
 📝 **Insight**: [1 frase capturando o principal aprendizado que ${nomeColab} demonstrou ao longo da conversa]
-🎯 **Compromisso**: [1 ação concreta e específica pra próxima semana, baseada no que emergiu na conversa — não invente, extraia do que foi dito]
+🎯 **Compromisso**: [1 ação concreta e específica pra próxima semana, baseada no que emergiu na conversa; não invente, extraia do que foi dito]
 
 - Finalize com 1 frase breve de reconhecimento genuíno (sem elogio vazio).
 - Máximo 100 palavras totais.

@@ -96,7 +96,7 @@ Investigue (uma pergunta por vez — escolha o ângulo mais relevante agora):
 
 SE a resposta vier vaga ou teórica: peça exemplo concreto antes de seguir.
 "Acho que evoluí" NÃO é evidência — peça o que aconteceu de fato.
-SE ${nomeColab} superestimar: confronte com elegância — "Como você mostraria isso na prática pra alguém que não te conhece?"
+SE ${nomeColab} superestimar: confronte com elegância: "Como você mostraria isso na prática pra alguém que não te conhece?"
 SE ${nomeColab} se subestimar: ajude a nomear algo que ELE relatou.
 Ancore nos descritores: ${descList}.
 1 pergunta aberta. Máximo 70 palavras.`;
@@ -143,7 +143,7 @@ Ancore no que ${nomeColab} disse.
 
   if (turnIA === 11) {
     return `TURN 11 — MAIOR AVANÇO.
-Pergunte: "Qual você diria que foi o seu MAIOR avanço nessa competência — aquele que, se sumisse tudo o resto, você ainda levaria pro trabalho?"
+Pergunte: "Qual você diria que foi o seu MAIOR avanço nessa competência: aquele que, se sumisse tudo o resto, você ainda levaria pro trabalho?"
 SE ${nomeColab} se subestimar: ajude a nomear comportamentos observáveis que ele mesmo relatou.
 SE superestimar: confronte pedindo evidência concreta.
 1 pergunta aberta. Máximo 70 palavras.`;
@@ -325,8 +325,8 @@ EXTRAIA o JSON abaixo, preenchendo com base EXCLUSIVA na conversa:
   "evolucao_percebida": [
 ${descritores.map(d => `    {
       "descritor": "${d.descritor}",
-      "antes": "como a pessoa se percebia antes — baseado no que disse",
-      "depois": "como a pessoa se percebe hoje — baseado no que relatou",
+      "antes": "como a pessoa se percebia antes, com base no que disse",
+      "depois": "como a pessoa se percebe hoje, com base no que relatou",
       "nivel_percebido": 1.0-4.0,
       "forca_evidencia": "fraca|moderada|forte",
       "confianca": 0.0-1.0,

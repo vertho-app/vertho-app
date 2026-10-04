@@ -26,6 +26,7 @@ import { cookies } from 'next/headers';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
 import { localeCookieName, resolveAppLocale } from '@/lib/i18n';
 import { withLanguageInstruction } from '@/lib/ai-language';
+import { formaDaSaidaAoCliente, sanitizarSaidaDaTarefa } from '@/lib/ai-saida-sem-travessao';
 import { costFromTokens, openAIWebSearchToolCost } from '@/lib/ia-cost-catalog';
 // Predicados PUROS vivem em lib/. ⚠️ Este comentário dizia que o arquivo é
 // `'use server'` e que todo export precisa ser async — deixou de valer em 24/08
@@ -252,11 +253,14 @@ export async function callAI(
   const model = await modeloNaReguaDePrivacidade(aiConfig?.model || DEFAULT_MODEL, {
     taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAI',
   });
+  // R-57: a resposta das tarefas que escrevem para o cliente sai sem travessão
+  // (registro em `lib/ai-saida-sem-travessao.ts`). Tarefa fora do registro passa intacta.
+  const saida = (texto: string) => sanitizarSaidaDaTarefa(options.taskKey, texto, [user, options.cachedUserPrefix]);
   if (options.responses) {
-    return withAIRetry(() => callResponses(system, [{ role: 'user', content: user }], model, maxTokens, options), model, options.maxRetries ?? 0);
+    return saida(await withAIRetry(() => callResponses(system, [{ role: 'user', content: user }], model, maxTokens, options), model, options.maxRetries ?? 0));
   }
   const locale = await resolveAILocale(options.locale);
-  const localizedSystem = withLanguageInstruction(system, locale);
+  const localizedSystem = withLanguageInstruction(system, locale, { semTravessao: formaDaSaidaAoCliente(options.taskKey) !== null });
 
   // Providers sem prompt caching (Gemini/OpenAI) recebem o prefixo concatenado.
   const combinedUser = options.cachedUserPrefix ? `${options.cachedUserPrefix}\n\n${user}` : user;
@@ -271,7 +275,7 @@ export async function callAI(
   };
 
   try {
-    return await withGeminiRolloutFallback(model, dispatch, 'callAI', options.semRetentativa === true);
+    return saida(await withGeminiRolloutFallback(model, dispatch, 'callAI', options.semRetentativa === true));
   } catch (err: any) {
     // CAP DE CONTA: falha limpa e etiquetada, sem fallback (F-E5). Cair para outro
     // provedor aqui gastaria em outra conta sem ninguém pedir e esconderia a causa.
@@ -299,7 +303,7 @@ export async function callAI(
         }
         console.warn(`[callAI] ${model} sobrecarregado após retries — fallback p/ ${alvo}`);
         try {
-          return await withAIRetry(() => dispatch(alvo), alvo, 2);
+          return saida(await withAIRetry(() => dispatch(alvo), alvo, 2));
         } catch (e2: any) {
           console.error(`[callAI] fallback ${alvo} também falhou:`, e2?.message ?? e2);
         }
@@ -332,11 +336,14 @@ export async function callAIChat(
   const model = await modeloNaReguaDePrivacidade(aiConfig?.model || DEFAULT_MODEL, {
     taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAIChat',
   });
+  // R-57: o mesmo registro do gêmeo `callAI` (os dois caminhos, sempre). No chat a
+  // entrada de dados é o histórico; o eco só importa para JSON, e as conversas são texto.
+  const saida = (texto: string) => sanitizarSaidaDaTarefa(options.taskKey, texto);
   if (options.responses) {
-    return withAIRetry(() => callResponses(system, messages, model, maxTokens, options), model, options.maxRetries ?? 0);
+    return saida(await withAIRetry(() => callResponses(system, messages, model, maxTokens, options), model, options.maxRetries ?? 0));
   }
   const locale = await resolveAILocale(options.locale);
-  const localizedSystem = withLanguageInstruction(system, locale);
+  const localizedSystem = withLanguageInstruction(system, locale, { semTravessao: formaDaSaidaAoCliente(options.taskKey) !== null });
 
   // Gemini/OpenAI não têm caching por breakpoint: os sufixos voláteis
   // (systemSuffix e userSuffix) são concatenados ao system. Claude recebe os
@@ -349,7 +356,7 @@ export async function callAIChat(
   };
 
   try {
-    return await withGeminiRolloutFallback(model, dispatch, 'callAIChat', options.semRetentativa === true);
+    return saida(await withGeminiRolloutFallback(model, dispatch, 'callAIChat', options.semRetentativa === true));
   } catch (err: any) {
     // Mesmo tratamento do gêmeo `callAI`: o knob global aterrissaria na família
     // do parceiro Dual-IA. Este ramo ficou para trás na primeira correção e o
@@ -363,7 +370,7 @@ export async function callAIChat(
         }
         console.warn(`[callAIChat] ${model} sobrecarregado após retries — fallback p/ ${alvo}`);
         try {
-          return await withAIRetry(() => dispatch(alvo), alvo, 2);
+          return saida(await withAIRetry(() => dispatch(alvo), alvo, 2));
         } catch (e2: any) {
           console.error(`[callAIChat] fallback ${alvo} também falhou:`, e2?.message ?? e2);
         }

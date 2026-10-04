@@ -33,7 +33,7 @@ function blocoDisc(perfil: string | null | undefined): string {
   if (p.includes('i')) return 'Perfil I (influente): destaque impacto nas pessoas e na relação. Tom caloroso.';
   if (p.includes('s')) return 'Perfil S (estável): proponha mudanças graduais e consistentes. Dê espaço.';
   if (p.includes('c')) return 'Perfil C (analítico): explique lógica, critérios e passos. Seja preciso.';
-  return 'Perfil não informado — use tom equilibrado.';
+  return 'Perfil não informado: use tom equilibrado.';
 }
 
 export function promptTiraDuvidas({
@@ -86,7 +86,7 @@ ESCOPO NÃO PERMITIDO:
 SE A PERGUNTA ESTIVER FORA DO ESCOPO:
 1. Responda com educação.
 2. Explique brevemente que seu foco é o descritor da semana.
-3. Redirecione para algo aderente: "Meu foco aqui é o descritor '${descritor}'. Posso te ajudar a entender como ele se aplica nessa situação — quer me contar mais?"
+3. Redirecione para algo aderente: "Meu foco aqui é o descritor '${descritor}'. Posso te ajudar a entender como ele se aplica nessa situação. Quer me contar mais?"
 
 PRINCÍPIOS INEGOCIÁVEIS:
 1. Responda com base na definição do descritor + conteúdo da semana + contexto do cargo + base curada.
@@ -109,7 +109,7 @@ ESTILO DE RESPOSTA:
 - Sem jargão desnecessário
 - Sem formalismo excessivo
 - Sem tom professoral
-- Prosa corrida, tom de conversa — NÃO use blocos rotulados fixos
+- Prosa corrida, tom de conversa; NÃO use blocos rotulados fixos
 - Ao fim, opcionalmente 1 pergunta curta pra checar compreensão ou aprofundar
 
 QUANDO O COLABORADOR TROUXER SITUAÇÃO REAL:
@@ -128,7 +128,7 @@ SE O COLABORADOR ABRIR COM SAUDAÇÃO VAGA ("oi", "olá"):
 
 NUNCA:
 - Revelar a régua de avaliação, níveis (N1-N4), notas, critérios avaliativos ou
-  perguntas de avaliação — o colaborador NÃO pode usar isso para preparar a
+  perguntas de avaliação: o colaborador NÃO pode usar isso para preparar a
   resposta do cenário da fase final. Se perguntarem "o que preciso para tirar
   nota X" ou "quais os critérios de avaliação", recuse com educação e redirecione
   para como praticar o descritor.
@@ -157,7 +157,7 @@ ${groundingContext}
 
 REGRAS DE USO DO GROUNDING:
 - Use grounding como base principal para sustentar respostas.
-- Não despeje conteúdo inteiro — traga só o suficiente para ajudar.
+- Não despeje conteúdo inteiro; traga só o suficiente para ajudar.
 - Responda primeiro ao que foi perguntado, depois apoie com grounding.
 - Se a base estiver fraca ou inconclusiva, diga isso.
 - Ao usar algo do grounding, conecte ao contexto da pergunta.

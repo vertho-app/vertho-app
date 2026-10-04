@@ -57,7 +57,7 @@ dela. NÃO faça pergunta, NÃO peça confirmação, NÃO proponha continuar.
   const roteiro: Record<number, string> = {
     1: `TURN 1 — O QUE FOI FEITO DE FATO.
 - Reconheça que ${nomeColab} executou a missão.
-- Peça 1 detalhe aberto do QUE ACONTECEU — "Me conta o que aconteceu no momento em que você [ação mencionada]?"
+- Peça 1 detalhe aberto do QUE ACONTECEU: "Me conta o que aconteceu no momento em que você [ação mencionada]?"
 - NÃO suponha nenhum detalhe que o colab ainda não disse.
 - NÃO elogie genericamente.
 - Máximo 80 palavras. 1 pergunta aberta.`,
@@ -169,7 +169,7 @@ SE O RELATO VIER "BONITO", MAS SEM PRÁTICA:
 REGRAS DE PERGUNTAS:
 - Abertas e neutras.
 - Use: "Como você...?", "O que te levou a...?", "De que forma...?", "Em que momento...?"
-- PROIBIDO: "X — ou Y?", sim/não, resposta embutida, indutivas.
+- PROIBIDO: "X ou Y?", sim/não, resposta embutida, indutivas.
 - Máximo 1 pergunta por turn.
 
 CONTEXTO:

@@ -18,6 +18,13 @@
  * contra o novo: só o `system` dos 5 casos do scorer mudou, 1 linha trocada e 2
  * acrescentadas, iguais nos 5). Qualquer outra mudança no prompt do scorer volta
  * a quebrar este teste, que é o que ele existe para fazer.
+ *
+ * 🔴 ATUALIZADO de novo em 04/10/2026 (R-57): o golden do SCORER foi gerado outra
+ * vez porque `regrasDaDevolutiva` ganhou UM parágrafo no fim, a regra de pontuação
+ * ("não use travessão"). Conferido com um diff: em cada um dos 5 casos o `system`
+ * novo é o antigo mais esse parágrafo, uma vez, e nada mais; o `user` e o golden do
+ * auditor seguem byte a byte. A nota não depende dessa linha: ela fala só do texto
+ * que a pessoa lê.
  */
 import { describe, expect, it, vi } from 'vitest';
 
@@ -65,5 +72,24 @@ describe('R-37: o texto da pessoa tem as proibições do fecho em todos os modos
     // as proibições ficam no bloco da devolutiva, antes do fecho
     expect(system.indexOf('PROIBIDO em qualquer texto')).toBeGreaterThan(system.indexOf('DEVOLUTIVA (resumo_avaliacao):'));
     expect(system.indexOf('PROIBIDO em qualquer texto')).toBeLessThan(system.indexOf('FECHO (mensagem_final)'));
+  });
+});
+
+/**
+ * R-57: a devolutiva do scorer proíbe travessão, como a redação final já proibia. O
+ * parágrafo mora em `regrasDaDevolutiva` (fonte única dos dois escritores) e não tem
+ * o caractere que proíbe.
+ */
+describe('R-57: a regra de pontuação da devolutiva', () => {
+  const REGRA = 'PONTUAÇÃO (devolutiva, fecho e próximos passos): não use travessão. Use vírgula, dois pontos ou ponto final.';
+
+  it.each(CASOS_SCORER.map((c) => [c.nome, c] as const))('%s: o system do scorer leva a regra uma vez, no fim do bloco da devolutiva', (_nome, caso) => {
+    const { system } = promptEvolutionScenarioScore(caso.params as any);
+    expect(system.split(REGRA)).toHaveLength(2);
+    expect(system.indexOf(REGRA)).toBeGreaterThan(system.indexOf('PRÓXIMOS PASSOS (proximos_passos):'));
+  });
+
+  it('a regra não traz o caractere que proíbe', () => {
+    expect(REGRA).not.toMatch(/[–—―]/);
   });
 });

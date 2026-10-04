@@ -110,7 +110,9 @@ FECHO (mensagem_final) — a ÚLTIMA coisa que ${nomeColab} lê no relatório:
 PRÓXIMOS PASSOS (proximos_passos):
 - 0 a 3 ações que ${nomeColab} pode começar na semana que vem, cada uma numa frase, começando por verbo.
 - Cada passo nasce de algo que ${nomeColab} DEMONSTROU aqui e continua o movimento que já começou. Sem tarefa genérica de curso ("leia sobre", "faça um treinamento").
-- Se o material não sustentar nenhum passo concreto, devolva **lista vazia**. Não complete para chegar a três.`;
+- Se o material não sustentar nenhum passo concreto, devolva **lista vazia**. Não complete para chegar a três.
+
+PONTUAÇÃO (devolutiva, fecho e próximos passos): não use travessão. Use vírgula, dois pontos ou ponto final.`;
 }
 
 interface PromptEvolutionScenarioScoreParams {

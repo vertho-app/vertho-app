@@ -85,8 +85,8 @@ REGRAS PARA O SPRINT DE 30 DIAS:
 - Se houver conteúdos recomendados, conectá-los ao gap em "estudo_recomendado" — NÃO inflar o sprint.
 
 LINGUAGEM DE SAÚDE E SOBRECARGA (regra rígida):
-- NÃO usar linguagem clínica nem diagnóstico de saúde. Ex.: NÃO escrever "Estresse e burnout — identificação e prevenção".
-- Tratar como desenvolvimento profissional. Ex.: "Sinais de sobrecarga no trabalho — como reconhecer limites e buscar apoio".
+- NÃO usar linguagem clínica nem diagnóstico de saúde. Ex.: NÃO escrever "Estresse e burnout: identificação e prevenção".
+- Tratar como desenvolvimento profissional. Ex.: "Sinais de sobrecarga no trabalho: como reconhecer limites e buscar apoio".
 - Foco em reconhecer limites, renegociar prioridades e buscar apoio — nunca diagnóstico ou tratamento.
 
 REGRAS PARA COMPETÊNCIAS NÍVEL 3 OU 4:
@@ -100,17 +100,17 @@ FORMATO OBRIGATÓRIO:
 {
   "acolhimento": "2-3 frases de abertura reconhecendo a jornada",
   "resumo_geral": {
-    "leitura": "3-5 linhas de visão geral com tom empático, falando das RESPOSTAS e não da rotina — ex.: 'Nas suas respostas, você propôs que a personagem priorizasse os registros e levasse dados à coordenação; o que não apareceu foi um pedido com prazo.' NUNCA 'você levou...', 'você organiza...'",
+    "leitura": "3-5 linhas de visão geral com tom empático, falando das RESPOSTAS e não da rotina. Ex.: 'Nas suas respostas, você propôs que a personagem priorizasse os registros e levasse dados à coordenação; o que não apareceu foi um pedido com prazo.' NUNCA 'você levou...', 'você organiza...'",
     "principais_forcas": ["0 a 2 forças que as RESPOSTAS mostram; VAZIO se não houver"],
     "principal_ponto_de_atencao": "texto curto"
   },
   "perfil_comportamental": {
-    "descricao": "Fale DIRETO com a pessoa, em 2ª pessoa e tom de conversa — ex.: 'Elizângela, seu perfil combina...'. NUNCA em 3ª pessoa ('O perfil de Elizângela...'). O perfil descreve PREFERÊNCIAS e TENDÊNCIAS, não capacidade nem dificuldade: escreva como hipótese a conferir ('costuma render mais quando...', 'tende a preferir...'), NUNCA como fato observado sobre a pessoa ('tem dificuldade com...', 'sente desconforto ao...', 'raramente consegue...'). 2-3 parágrafos, SEM scores numéricos.",
-    "pontos_forca": ["tendências que costumam ajudar — 0 a 3 itens, só o que o perfil sustenta"],
-    "pontos_atencao": ["tendências que podem pedir atenção, em linguagem de PREFERÊNCIA e não de déficit — 0 a 3 itens, e VAZIO se o perfil não sustentar. NÃO preencha por cota."]
+    "descricao": "Fale DIRETO com a pessoa, em 2ª pessoa e tom de conversa. Ex.: 'Elizângela, seu perfil combina...'. NUNCA em 3ª pessoa ('O perfil de Elizângela...'). O perfil descreve PREFERÊNCIAS e TENDÊNCIAS, não capacidade nem dificuldade: escreva como hipótese a conferir ('costuma render mais quando...', 'tende a preferir...'), NUNCA como fato observado sobre a pessoa ('tem dificuldade com...', 'sente desconforto ao...', 'raramente consegue...'). 2-3 parágrafos, SEM scores numéricos.",
+    "pontos_forca": ["tendências que costumam ajudar (0 a 3 itens, só o que o perfil sustenta)"],
+    "pontos_atencao": ["tendências que podem pedir atenção, em linguagem de PREFERÊNCIA e não de déficit (0 a 3 itens, e VAZIO se o perfil não sustentar. NÃO preencha por cota.)"]
   },
   "resumo_desempenho": [
-    {"competencia": "nome", "nivel": 1, "nota_decimal": 1.0, "leitura": "1 frase sobre a RESPOSTA, começando por 'Nas respostas' — ex.: 'Nas respostas, você priorizou os registros e propôs um prazo; não apareceu o pedido de apoio.' NUNCA um traço sem sujeito ('Organiza e prioriza...', 'Reconhece...')"}
+    {"competencia": "nome", "nivel": 1, "nota_decimal": 1.0, "leitura": "1 frase sobre a RESPOSTA, começando por 'Nas respostas'. Ex.: 'Nas respostas, você priorizou os registros e propôs um prazo; não apareceu o pedido de apoio.' NUNCA um traço sem sujeito ('Organiza e prioriza...', 'Reconhece...')"}
   ],
   "competencias": [
     {
@@ -123,7 +123,7 @@ FORMATO OBRIGATÓRIO:
       "melhorar": ["1 a 3 pontos, cada um ligado a algo que FALTOU nas respostas"],
       "feedback": "Parágrafo que parte do que a pessoa respondeu (cite 1 ou 2 trechos curtos entre aspas) e diz o que faltou para o próximo nível. Descreve a RESPOSTA, não o dia a dia dela.",
       "sprint": {
-        "foco_30_dias": "1 frase — o movimento central dos 30 dias",
+        "foco_30_dias": "1 frase com o movimento central dos 30 dias",
         "acao_principal": "1 ação concreta e realista",
         "acao_apoio": "1 ação de apoio",
         "evidencia_esperada": "1 evidência observável",

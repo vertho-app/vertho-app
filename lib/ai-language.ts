@@ -10,8 +10,17 @@ Esta regra é de REDAÇÃO: não altera critérios, notas, níveis, conclusões,
 Preserve citações literais, respostas da pessoa e a identidade dos personagens. A concordância com outros substantivos continua normal: "a equipe está preparada" e "a pessoa participante" não informam o gênero de quem recebe o texto.
 Antes de responder, revise todas as referências à pessoa participante e reformule as que presumem gênero, preservando o sentido, a intensidade, a negação e o tempo verbal. Preserve o formato de saída e as chaves JSON exigidas.`;
 
-export function withLanguageInstruction(system: string, locale: AppLocale): string {
-  return `${system}
+/**
+ * Regra de pontuação das tarefas cujo texto chega ao cliente (R-57). Só entra no
+ * system das tarefas do registro `SAIDAS_AO_CLIENTE` (`lib/ai-saida-sem-travessao.ts`);
+ * as demais seguem byte a byte como antes. É a primeira camada: o sanitizador da
+ * resposta é a segunda, porque o exemplo do prompt e o hábito do modelo vencem a prosa.
+ */
+export const REGRA_PONTUACAO_DA_SAIDA = `═══ PONTUAÇÃO ═══
+Não use travessão (nem o longo nem o médio) no texto que você escreve: para uma pausa, use vírgula, dois-pontos ou ponto final. Hífen e intervalos como "3 a 5" continuam normais. Citações literais da pessoa ficam exatamente como ela escreveu.`;
+
+export function withLanguageInstruction(system: string, locale: AppLocale, opcoes: { semTravessao?: boolean } = {}): string {
+  const base = `${system}
 
 ═══ IDIOMA DA EXPERIÊNCIA ═══
 Use ${localeLanguageName(locale)} em todo texto destinado ao usuário final.
@@ -19,4 +28,7 @@ Mantenha nomes de campos JSON, enums técnicos, códigos e identificadores exata
 Se o prompt exigir JSON, retorne JSON válido e traduza apenas os valores textuais voltados ao usuário.
 
 ${REDACAO_SEM_GENERO}`;
+  return opcoes.semTravessao ? `${base}
+
+${REGRA_PONTUACAO_DA_SAIDA}` : base;
 }

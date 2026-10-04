@@ -133,7 +133,7 @@ O QUE A CONVERSA NÃO DEVE FAZER:
 REGRAS DE PERGUNTAS:
 - Abertas e neutras.
 - Use: "Como você...?", "O que te levou a...?", "De que forma...?", "Em que medida...?"
-- PROIBIDO: "X — ou Y?", sim/não, resposta embutida, indutivas.
+- PROIBIDO: "X ou Y?", sim/não, resposta embutida, indutivas.
 - Máximo 1 pergunta por turn.
 
 SE A RESPOSTA VIER VAGA:

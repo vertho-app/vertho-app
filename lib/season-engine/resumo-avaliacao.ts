@@ -20,6 +20,7 @@
  */
 
 import { resumoSemTratamentoDeGenero, semTratamentoDeGenero } from '@/lib/redacao-sem-genero';
+import { resumoSemTravessao, tirarTravessao } from '@/lib/ai-saida-sem-travessao';
 
 export interface ResumoAvaliacao {
   /** O texto que a pessoa lê. Sempre presente quando a função devolve algo. */
@@ -45,7 +46,10 @@ function texto(valor: unknown): string | null {
 }
 
 export function normalizarResumoAvaliacao(valor: unknown): ResumoAvaliacao | null {
-  valor = resumoSemTratamentoDeGenero(valor);
+  // R-57: o scorer fica fora do filtro do wrapper (ele ecoa o nome do descritor e o
+  // código o casa por nome), então o texto que a pessoa lê é limpo aqui, na leitura:
+  // vale para o que já está gravado e para o que for gerado depois.
+  valor = resumoSemTravessao(resumoSemTratamentoDeGenero(valor));
   const comoTexto = texto(valor);
   if (comoTexto) return { mensagem: comoTexto, avanco: null, atencao: null, evidencias: [], mensagemFinal: null, proximosPassos: [] };
 
@@ -99,9 +103,9 @@ export function fechoDoRelatorio(evolutionReport: unknown): FechoDoRelatorio {
   if (!evolutionReport || typeof evolutionReport !== 'object') return { mensagemFinal: null, proximosPassos: [] };
   const er = evolutionReport as Record<string, unknown>;
   const resumo = normalizarResumoAvaliacao(er.resumo_avaliacao);
-  const passoAntigo = texto(semTratamentoDeGenero(er.proximo_passo));
+  const passoAntigo = texto(tirarTravessao(semTratamentoDeGenero(er.proximo_passo) as string));
   return {
-    mensagemFinal: resumo?.mensagemFinal ?? texto(semTratamentoDeGenero(er.insight_geral)),
+    mensagemFinal: resumo?.mensagemFinal ?? texto(tirarTravessao(semTratamentoDeGenero(er.insight_geral) as string)),
     proximosPassos: resumo?.proximosPassos.length ? resumo.proximosPassos : (passoAntigo ? [passoAntigo] : []),
   };
 }

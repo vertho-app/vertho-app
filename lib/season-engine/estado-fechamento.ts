@@ -1,5 +1,6 @@
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { resumoSemTratamentoDeGenero } from '@/lib/redacao-sem-genero';
+import { resumoSemTravessao } from '@/lib/ai-saida-sem-travessao';
 
 /**
  * Em que ponto está o FECHAMENTO (semana do Cenário B) de uma trilha.
@@ -134,7 +135,7 @@ export function resumoDaAvaliacao(feedback: any) {
     nota_media_pre: fb.nota_media_pre,
     nota_media_pos: fb.nota_media_pos,
     delta_medio: fb.delta_medio,
-    resumo_avaliacao: resumoSemTratamentoDeGenero(fb.resumo_avaliacao),
+    resumo_avaliacao: resumoSemTravessao(resumoSemTratamentoDeGenero(fb.resumo_avaliacao)),
     spec_version: fb.spec_version,
   };
 }

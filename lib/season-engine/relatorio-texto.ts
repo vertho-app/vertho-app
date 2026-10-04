@@ -1,5 +1,6 @@
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { resumoSemTratamentoDeGenero, semTratamentoDeGenero } from '@/lib/redacao-sem-genero';
+import { resumoSemTravessao, tirarTravessao } from '@/lib/ai-saida-sem-travessao';
 
 /**
  * Texto que entra no relatório da temporada (PDF e tela) do jeito que a pessoa
@@ -118,7 +119,11 @@ export function vocabularioProibidoNoResumo(resumo: any): string[] {
  */
 export function textosDoRelatorio(dados: any): any {
   if (!dados) return dados;
-  const t = <T,>(x: T): T => semTratamentoDeGenero(semCodigoDaMatriz(semAbreviacaoColab(x)));
+  // `tirarTravessao` por último: `semCodigoDaMatriz` precisa ver o "<código> <travessão>" antes (R-57).
+  const t = <T,>(x: T): T => {
+    const lido = semTratamentoDeGenero(semCodigoDaMatriz(semAbreviacaoColab(x)));
+    return typeof lido === 'string' ? (tirarTravessao(lido) as unknown as T) : lido;
+  };
   /**
    * O resumo do fechamento com TODOS os campos que a pessoa lê já legíveis.
    *
@@ -131,7 +136,7 @@ export function textosDoRelatorio(dados: any): any {
     if (!r) return r;
     if (typeof r === 'string') return t(r);
     return {
-      ...resumoSemTratamentoDeGenero(r),
+      ...resumoSemTravessao(resumoSemTratamentoDeGenero(r)),
       mensagem_geral: t(r.mensagem_geral),
       mensagem_final: t(r.mensagem_final),
       proximos_passos: Array.isArray(r.proximos_passos) ? r.proximos_passos.map((p: any) => t(p)) : r.proximos_passos,
