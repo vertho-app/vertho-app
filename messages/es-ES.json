@@ -6203,57 +6203,6 @@
       "none": "<strong>Sin registro:</strong> significa solo que el sistema no recibió esa señal; no es una evaluación de la persona."
     }
   },
-  "EngagementWorkspace": {
-    "signalJourney": {
-      "eyebrow": "Flujo de señales",
-      "title": "Conozca cómo funciona Vertho.ai",
-      "descriptionWeek": "Señales registradas en esta semana: acceder, consumir y convertir el contenido en evidencia.",
-      "descriptionCurrent": "La etapa actual de cada persona: acceder, consumir y convertir el contenido en evidencia.",
-      "steps": {
-        "cadence": {
-          "label": "En la cadencia",
-          "detail": "personas incluidas en esta selección"
-        },
-        "accessed": {
-          "label": "Accedieron al contenido",
-          "detail": "abrieron al menos un formato"
-        },
-        "consumed": {
-          "label": "Consumieron",
-          "detail": "vídeo o pódcast completado, o material abierto"
-        },
-        "evidence": {
-          "label": "Entregaron evidencia",
-          "detail": "completaron la práctica de la semana"
-        }
-      },
-      "follow": "{count} para seguimiento",
-      "ofTotal": "de {total}"
-    },
-    "quality": {
-      "title": "Calidad de las reflexiones",
-      "delivered": "{count, plural, one {# persona entregó} other {# personas entregaron}} · nivel de la reflexión en la etapa actual de cada una",
-      "noClassification": "Sin clasificar",
-      "note": "La IA clasifica la reflexión al cerrar cada semana de contenido: alta aporta un ejemplo concreto y aprendizaje propio; media se queda en lo general; baja es genérica o demasiado corta. El texto es privado de la persona y no aparece aquí.",
-      "levels": {
-        "alta": "Alta",
-        "media": "Media",
-        "baixa": "Baja"
-      },
-      "stage": {
-        "done": "Recorrido completado",
-        "doneWithLevel": "Recorrido completado · última reflexión <b>{level}</b>",
-        "doneTitle": "La persona cerró la última semana del plan. El nivel es el de la última reflexión clasificada; el texto es privado.",
-        "delivered": "Evidencia entregada",
-        "deliveredWeek": "Evidencia de la semana {week} entregada",
-        "deliveredTitle": "Etapa cerrada: la evidencia de esta semana ya se ha registrado. El nivel lo clasifica la IA; el texto de la reflexión es privado.",
-        "noLevel": "semana de aplicación, sin nivel",
-        "pending": "Evidencia pendiente",
-        "pendingWeek": "Evidencia de la semana {week} pendiente",
-        "pendingTitle": "La evidencia que cierra esta semana aún no se ha registrado."
-      }
-    }
-  },
   "RankingAdequacao": {
     "title": "Ranking de adecuación al cargo",
     "subtitle": "Cómo se posicionan las personas de un cargo frente al perfil ideal. Filtra y ordena para visualizar.",

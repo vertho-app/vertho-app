@@ -6203,57 +6203,6 @@
       "none": "<strong>Not recorded:</strong> only means the system did not receive that signal; it is not an evaluation of the person."
     }
   },
-  "EngagementWorkspace": {
-    "signalJourney": {
-      "eyebrow": "Signal flow",
-      "title": "See how Vertho.ai works",
-      "descriptionWeek": "Signals recorded this week: access, consume, and turn the content into evidence.",
-      "descriptionCurrent": "Each person's current stage: access, consume, and turn the content into evidence.",
-      "steps": {
-        "cadence": {
-          "label": "In the cadence",
-          "detail": "people included in this selection"
-        },
-        "accessed": {
-          "label": "Accessed content",
-          "detail": "opened at least one format"
-        },
-        "consumed": {
-          "label": "Consumed",
-          "detail": "video or podcast completed, or material opened"
-        },
-        "evidence": {
-          "label": "Delivered evidence",
-          "detail": "completed the week's practice"
-        }
-      },
-      "follow": "{count} to follow up",
-      "ofTotal": "of {total}"
-    },
-    "quality": {
-      "title": "Reflection quality",
-      "delivered": "{count, plural, one {# person delivered} other {# people delivered}} · reflection level at each person's current stage",
-      "noClassification": "Not classified",
-      "note": "AI rates the reflection when each content week closes: high brings a concrete example and personal learning; medium stays general; low is generic or too short. The text is private to the person and does not appear here.",
-      "levels": {
-        "alta": "High",
-        "media": "Medium",
-        "baixa": "Low"
-      },
-      "stage": {
-        "done": "Journey completed",
-        "doneWithLevel": "Journey completed · last reflection <b>{level}</b>",
-        "doneTitle": "The person closed the last week of the plan. The level is that of the last rated reflection; the text is private.",
-        "delivered": "Evidence delivered",
-        "deliveredWeek": "Week {week} evidence delivered",
-        "deliveredTitle": "Stage closed: this week's evidence has already been recorded. The level is rated by AI; the reflection text is private.",
-        "noLevel": "application week, no level",
-        "pending": "Evidence pending",
-        "pendingWeek": "Week {week} evidence pending",
-        "pendingTitle": "The evidence that closes this week has not been recorded yet."
-      }
-    }
-  },
   "RankingAdequacao": {
     "title": "Job Fit Ranking",
     "subtitle": "How the people in a role stand against the ideal profile. Filter and sort to explore.",
