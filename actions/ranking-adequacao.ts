@@ -8,6 +8,7 @@
  * Acesso exclusivo ao papel RH (indivíduos nomeados = alto risco). Escopo: empresa do RH.
  */
 import { getUserContext } from '@/lib/authz';
+import { blocoEstaOffline } from '@/lib/blocos-offline';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import {
@@ -47,10 +48,37 @@ async function snapshotsDaEmpresa(sb: any, empresaId: string) {
   return { artefatos, falhou: erros.length > 0 && artefatos.length === 0 };
 }
 
+// ── Vagas da Seleção (lote 5b, 04/10/2026) ───────────────────────────────────
+// O ranking do RH listava também as VAGAS (eh_vaga=true), que só existem na Seleção. A Seleção
+// está OFF-LINE (`lib/blocos-offline.ts`, desde 31/08/2026; 2 vagas, ambas em projetomacae), então
+// o cliente via, no produto "Ranking de Adequação", cargos de um bloco que não existe para ele.
+// A regra é a do registro, não um `false` fixo: religar a Seleção (tirar a entrada de
+// `BLOCOS_OFFLINE`) devolve as vagas à lista sem mexer aqui, e nenhum dado é apagado.
+// O gate vale nos DOIS lugares que o registro exige: a lista (tela) e a leitura/export por nome
+// de cargo (action), porque `'use server'` é endpoint e esconder a lista não fecha a leitura.
+const vagasDaSelecaoVisiveis = () => !blocoEstaOffline('selecao');
+
+const RANKING_NAO_GERADO = 'Ranking ainda não disponível para este cargo (relatório não gerado).';
+
+/**
+ * O cargo pedido é uma VAGA da Seleção que está escondida? Só pergunta ao banco quando o bloco
+ * está off-line. Falha de leitura é falha FECHADA (não serve o ranking sem saber o que ele é).
+ */
+async function vagaEscondida(sb: any, empresaId: string, cargo: string): Promise<'sim' | 'nao' | 'erro'> {
+  if (vagasDaSelecaoVisiveis()) return 'nao';
+  const { data, error } = await sb.from('cargos_empresa')
+    .select('eh_vaga').eq('empresa_id', empresaId).eq('nome', cargo).eq('eh_vaga', true).limit(1);
+  if (error) {
+    console.error('[ranking-adequacao] leitura do cargo:', error.message);
+    return 'erro';
+  }
+  return (data || []).length > 0 ? 'sim' : 'nao';
+}
+
 // ── Núcleo compartilhado (RH self-service E preview de admin) ────────────────
 async function _listarCargos(sb: any, empresaId: string, incluirVagas = false): Promise<string[]> {
-  // incluirVagas: a tela de ranking do RH mostra também as VAGAS (eh_vaga=true) — numa
-  // empresa de seleção (só vagas) a tela viveria vazia senão. O cadastro segue separado.
+  // incluirVagas: a tela de ranking do RH mostra também as VAGAS (eh_vaga=true) quando a Seleção
+  // está no ar (numa empresa de seleção, só vagas, a tela viveria vazia). O cadastro segue separado.
   let cq = sb.from('cargos_empresa').select('nome, gabarito').eq('empresa_id', empresaId);
   if (!incluirVagas) cq = cq.eq('eh_vaga', false);
   const { data: cargos } = await cq;
@@ -63,7 +91,7 @@ async function _listarCargos(sb: any, empresaId: string, incluirVagas = false): 
 /** Cargos da empresa que TÊM snapshot de ranking (relatório gerado) — RH. */
 export async function listarCargosComRanking(): Promise<{ cargos: string[]; erro?: string }> {
   const g = await ctxRh(); if ('erro' in g) return { cargos: [], erro: g.erro };
-  return { cargos: await _listarCargos(createSupabaseAdmin(), g.empresaId, true) };
+  return { cargos: await _listarCargos(createSupabaseAdmin(), g.empresaId, vagasDaSelecaoVisiveis()) };
 }
 /** Idem — PREVIEW de admin (empresa vem da rota, gated p/ platform_admin). */
 export async function listarCargosComRankingAdmin(empresaId: string): Promise<{ cargos: string[]; erro?: string }> {
@@ -120,7 +148,7 @@ function _eixoDivergencia(pesos: { bloco: string; pct: number }[], elegiveisBloc
 async function _getRanking(sb: any, empresaId: string, cargo: string): Promise<any> {
   const { snap, falhou } = await ultimoSnapshot(sb, empresaId, cargo);
   if (!snap?.data && falhou) return { success: false, error: LEITURA_INDISPONIVEL };
-  if (!snap?.data) return { success: false, semSnapshot: true, error: 'Ranking ainda não disponível para este cargo (relatório não gerado).' };
+  if (!snap?.data) return { success: false, semSnapshot: true, error: RANKING_NAO_GERADO };
   const data = snap.data;
   const temTracos = data.pessoas?.[0] && Array.isArray(data.pessoas[0].tracos);
 
@@ -155,7 +183,7 @@ async function _getRanking(sb: any, empresaId: string, cargo: string): Promise<a
 async function _exportarPDF(sb: any, empresaId: string, cargo: string): Promise<{ success: true; url: string } | { success: false; error: string }> {
   const { snap, falhou } = await ultimoSnapshot(sb, empresaId, cargo);
   if (!snap?.data && falhou) return { success: false, error: LEITURA_INDISPONIVEL };
-  if (!snap?.data) return { success: false, error: 'Ranking ainda não disponível para este cargo (relatório não gerado).' };
+  if (!snap?.data) return { success: false, error: RANKING_NAO_GERADO };
   const data = snap.data;
   const pesos: { bloco: string; pct: number }[] = data.perfilIdeal?.pesos || [];
 
@@ -196,7 +224,12 @@ async function _exportarPDF(sb: any, empresaId: string, cargo: string): Promise<
 /** RH — exporta o PDF do ranking (empresa da sessão). */
 export async function exportarRankingPDF(cargo: string) {
   const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
-  return _exportarPDF(createSupabaseAdmin(), g.empresaId, cargo);
+  const sb = createSupabaseAdmin();
+  // Vaga da Seleção off-line: mesma resposta de "ranking não gerado", sem confirmar que a vaga existe.
+  const vaga = await vagaEscondida(sb, g.empresaId, cargo);
+  if (vaga === 'erro') return { success: false as const, error: LEITURA_INDISPONIVEL };
+  if (vaga === 'sim') return { success: false as const, error: RANKING_NAO_GERADO };
+  return _exportarPDF(sb, g.empresaId, cargo);
 }
 /** ADMIN — exporta o PDF do ranking (empresa da rota, gated p/ platform_admin). */
 export async function exportarRankingPDFAdmin(empresaId: string, cargo: string) {
@@ -207,7 +240,11 @@ export async function exportarRankingPDFAdmin(empresaId: string, cargo: string) 
 /** RH self-service (empresa da sessão). */
 export async function getRankingAdequacao(cargo: string): Promise<any> {
   const g = await ctxRh(); if ('erro' in g) return { success: false, error: g.erro };
-  return _getRanking(createSupabaseAdmin(), g.empresaId, cargo);
+  const sb = createSupabaseAdmin();
+  const vaga = await vagaEscondida(sb, g.empresaId, cargo);
+  if (vaga === 'erro') return { success: false, error: LEITURA_INDISPONIVEL };
+  if (vaga === 'sim') return { success: false, semSnapshot: true, error: RANKING_NAO_GERADO };
+  return _getRanking(sb, g.empresaId, cargo);
 }
 /** PREVIEW de admin (empresa da rota, gated p/ platform_admin). */
 export async function getRankingAdequacaoAdmin(empresaId: string, cargo: string): Promise<any> {
