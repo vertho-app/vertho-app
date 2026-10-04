@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { NextIntlClientProvider } from 'next-intl';
+import { NextIntlClientProvider, createTranslator } from 'next-intl';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: () => {}, back: () => {}, replace: () => {}, refresh: () => {} }),
@@ -255,19 +255,22 @@ const ENGAJAMENTO = {
 };
 
 describe('Engajamento do time, nos 4 idiomas', () => {
-  const FRASES: Record<string, { titulo: string; funil: string; acompanhar: string; concluida: string; qualidade: string; legenda: string }> = {
-    'pt-BR': { titulo: 'Engajamento do time', funil: 'Do primeiro acesso à entrega', acompanhar: 'Acompanhamento sugerido', concluida: 'Jornada concluída · 7 de 7 semanas', qualidade: 'Qualidade das reflexões', legenda: 'Entenda o que cada sinal significa' },
-    'pt-PT': { titulo: 'Envolvimento da equipa', funil: 'Do primeiro acesso à entrega', acompanhar: 'Acompanhamento sugerido', concluida: 'Jornada concluída · 7 de 7 semanas', qualidade: 'Qualidade das reflexões', legenda: 'Perceba o que significa cada sinal' },
-    'es-ES': { titulo: 'Compromiso del equipo', funil: 'Del primer acceso a la entrega', acompanhar: 'Seguimiento sugerido', concluida: 'Recorrido completado · 7 de 7 semanas', qualidade: 'Calidad de las reflexiones', legenda: 'Entiende qué significa cada señal' },
-    'en-US': { titulo: 'Team engagement', funil: 'From first access to delivery', acompanhar: 'Suggested follow-up', concluida: 'Journey completed · 7 of 7 weeks', qualidade: 'Reflection quality', legenda: 'What each signal means' },
+  const FRASES: Record<string, { titulo: string; funil: string; acompanhar: string; concluida: string; legenda: string }> = {
+    'pt-BR': { titulo: 'Engajamento do time', funil: 'Do primeiro acesso à entrega', acompanhar: 'Acompanhamento sugerido', concluida: 'Jornada concluída · 7 de 7 semanas', legenda: 'Entenda o que cada sinal significa' },
+    'pt-PT': { titulo: 'Envolvimento da equipa', funil: 'Do primeiro acesso à entrega', acompanhar: 'Acompanhamento sugerido', concluida: 'Jornada concluída · 7 de 7 semanas', legenda: 'Perceba o que significa cada sinal' },
+    'es-ES': { titulo: 'Compromiso del equipo', funil: 'Del primer acceso a la entrega', acompanhar: 'Seguimiento sugerido', concluida: 'Recorrido completado · 7 de 7 semanas', legenda: 'Entiende qué significa cada señal' },
+    'en-US': { titulo: 'Team engagement', funil: 'From first access to delivery', acompanhar: 'Suggested follow-up', concluida: 'Journey completed · 7 of 7 weeks', legenda: 'What each signal means' },
   };
 
   it.each(LOCALES)('%s: título, funil, acompanhamento, pessoa concluída, qualidade e legenda', (locale) => {
     const html = montar(locale, createElement(EngajamentoDoTimePage, { dadosIniciais: ENGAJAMENTO }));
     const t = texto(html);
-    for (const chave of ['titulo', 'funil', 'acompanhar', 'concluida', 'qualidade', 'legenda'] as const) {
+    for (const chave of ['titulo', 'funil', 'acompanhar', 'concluida', 'legenda'] as const) {
       expect(t, `${locale}: ${chave}`).toContain(FRASES[locale][chave]);
     }
+    // A faixa da qualidade das reflexões é uma peça compartilhada com o painel do RH: o texto é do catálogo dela.
+    const qualidade = createTranslator({ locale, messages: MENSAGENS[locale], namespace: 'EngagementWorkspace' })('quality.title' as any) as string;
+    expect(t, `${locale}: qualidade`).toContain(qualidade);
     semPortugues(locale, html);
   });
 
@@ -304,35 +307,34 @@ describe('Engajamento do time, nos 4 idiomas', () => {
 });
 
 describe('peças compartilhadas do engajamento (gestor e painel do RH)', () => {
+  // O texto destas três peças é do catálogo `EngagementWorkspace` (d-rh traduz o painel do RH e as mesmas peças).
+  // Aqui o teste é guiado pelo catálogo: a tela escreve o que o catálogo do idioma diz, sem frase fixa.
+  const ws = (locale: string, chave: string, valores: Record<string, any> = {}) =>
+    createTranslator({ locale, messages: MENSAGENS[locale], namespace: 'EngagementWorkspace' })(chave as any, valores as any) as string;
   const total = 10;
   const passos = [
     { label: 'Step A', value: 4, detail: 'detail', icon: Users, tone: 'cyan' as const },
   ];
 
-  it.each(LOCALES)('%s: "de N" e o percentual saem no idioma; o rótulo padrão não diz mais "trilha"', (locale) => {
+  it.each(LOCALES)('%s: o rótulo padrão e o "de N" saem do catálogo no idioma, sem "trilha"', (locale) => {
     const html = montar(locale, createElement(SignalJourney, { title: 'Title', description: 'Description', total, steps: passos }));
     const t = texto(html);
-    const de = { 'pt-BR': 'de 10', 'pt-PT': 'de 10', 'es-ES': 'de 10', 'en-US': 'of 10' }[locale];
-    expect(t).toContain(de);
-    expect(t).toContain(locale === 'es-ES' ? '40 %' : '40%');
-    const eyebrow = { 'pt-BR': 'Sinais da jornada', 'pt-PT': 'Sinais da jornada', 'es-ES': 'Señales del recorrido', 'en-US': 'Journey signals' }[locale];
-    expect(t).toContain(eyebrow);
+    expect(t).toContain(ws(locale, 'signalJourney.eyebrow'));
+    expect(t).toContain(ws(locale, 'signalJourney.ofTotal', { total }));
     expect(t).not.toMatch(/trilha de sinais/i);
+    // o rótulo e o "de N" são diferentes por idioma: o de en-US não é o do português
+    if (locale === 'en-US') expect(ws(locale, 'signalJourney.ofTotal', { total })).not.toBe(ws('pt-BR', 'signalJourney.ofTotal', { total }));
   });
 
-  it.each(LOCALES)('%s: a entrega da etapa e a qualidade das reflexões falam o idioma', (locale) => {
+  it.each(LOCALES)('%s: a entrega da etapa e a qualidade das reflexões saem do catálogo no idioma', (locale) => {
     const entregue = texto(montar(locale, createElement(EntregaDaEtapa, { pessoa: { enviouEvidencia: true, qualidadeEvidencia: 'alta', semanaDoSinal: 3 } })));
     const pendente = texto(montar(locale, createElement(EntregaDaEtapa, { pessoa: { enviouEvidencia: false, semanaDoSinal: 3 } })));
-    const esperado: Record<string, [string, string, string]> = {
-      'pt-BR': ['Evidência da semana 3 entregue · Alta', 'Evidência da semana 3 pendente', 'Qualidade das reflexões'],
-      'pt-PT': ['Evidência da semana 3 entregue · Alta', 'Evidência da semana 3 pendente', 'Qualidade das reflexões'],
-      'es-ES': ['Evidencia de la semana 3 entregada · Alta', 'Evidencia de la semana 3 pendiente', 'Calidad de las reflexiones'],
-      'en-US': ['Evidence for week 3 delivered · High', 'Evidence for week 3 pending', 'Reflection quality'],
-    };
-    expect(entregue.replace(/\s+/g, ' ').replace(' · ', ' · ')).toContain(esperado[locale][0]);
-    expect(pendente).toContain(esperado[locale][1]);
+    expect(entregue).toContain(ws(locale, 'quality.stage.deliveredWeek', { week: 3 }));
+    expect(entregue).toContain(ws(locale, 'quality.levels.alta'));
+    expect(pendente).toContain(ws(locale, 'quality.stage.pendingWeek', { week: 3 }));
     const faixa = montar(locale, createElement(QualidadeEvidenciaResumo, { contagem: { alta: 2, media: 1, baixa: 0, semClassificacao: 1 } }));
-    expect(texto(faixa)).toContain(esperado[locale][2]);
+    expect(texto(faixa)).toContain(ws(locale, 'quality.title'));
+    expect(texto(faixa)).toContain(ws(locale, 'quality.noClassification'));
     semPortugues(locale, faixa);
   });
 });

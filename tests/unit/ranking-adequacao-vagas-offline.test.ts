@@ -117,17 +117,17 @@ describe('Ranking de Adequação: vagas da Seleção com o bloco off-line', () =
     const r = await getRankingAdequacao('Analista de Treinamento');
     expect(r.success).toBe(false);
     expect(r.semSnapshot).toBe(true);
-    expect(r.error).toMatch(/Ranking ainda não disponível/);
+    expect(r.codigo).toBe('ranking-nao-gerado');
     expect(downloads()).toHaveLength(0);
     // a resposta é a mesma de um cargo sem relatório: não confirma que a vaga existe
     const inexistente = await getRankingAdequacao('Cargo que não existe');
-    expect(r.error).toBe(inexistente.error);
+    expect(r.codigo).toBe(inexistente.codigo);
   });
 
   it('🔴 exportar o PDF de uma vaga não grava nada nem assina link', async () => {
     const r: any = await exportarRankingPDF('Coordenador de TI');
     expect(r.success).toBe(false);
-    expect(r.error).toMatch(/Ranking ainda não disponível/);
+    expect(r.codigo).toBe('ranking-nao-gerado');
     expect(downloads()).toHaveLength(0);
     expect(uploads()).toHaveLength(0);
     expect(assinaturas()).toHaveLength(0);
@@ -146,7 +146,7 @@ describe('Ranking de Adequação: vagas da Seleção com o bloco off-line', () =
     sb.falharEm({ tabela: 'cargos_empresa', op: 'select', mensagem: 'timeout' });
     const lido = await getRankingAdequacao('Analista de Treinamento');
     expect(lido.success).toBe(false);
-    expect(lido.error).toMatch(/Não foi possível ler/);
+    expect(lido.codigo).toBe('leitura-indisponivel');
     expect(downloads()).toHaveLength(0);
     const pdf: any = await exportarRankingPDF('Analista de Treinamento');
     expect(pdf.success).toBe(false);

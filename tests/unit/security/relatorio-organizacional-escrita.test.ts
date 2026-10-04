@@ -241,6 +241,6 @@ describe('ranking de adequação: export e leitura do snapshot (R-74)', () => {
     const r = await getRankingAdequacao('Professor');
     expect(r.success).toBe(false);
     expect(r.semSnapshot).toBeUndefined();
-    expect(r.error).toMatch(/Não foi possível ler/);
+    expect(r.codigo).toBe('leitura-indisponivel');
   });
 });

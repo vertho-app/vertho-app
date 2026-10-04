@@ -21,36 +21,37 @@ import {
 import { PageContainer, PageHero } from '@/components/page-shell';
 import { intensidadeQualitativa } from '@/lib/disc-arquetipos';
 
+// R-67 (04/10/2026): o rótulo de cada competência comportamental, de cada letra do DISC e de cada estilo de
+// liderança vem do catálogo (`BehavioralTraits`, 4 idiomas), pela chave da coluna ou da letra.
 const COMP_GROUPS = {
   D: [
-    { label: 'Ousadia', key: 'comp_ousadia' },
-    { label: 'Comando', key: 'comp_comando' },
-    { label: 'Objetividade', key: 'comp_objetividade' },
-    { label: 'Assertividade', key: 'comp_assertividade' },
+    { key: 'comp_ousadia' },
+    { key: 'comp_comando' },
+    { key: 'comp_objetividade' },
+    { key: 'comp_assertividade' },
   ],
   I: [
-    { label: 'Persuasão', key: 'comp_persuasao' },
-    { label: 'Extroversão', key: 'comp_extroversao' },
-    { label: 'Entusiasmo', key: 'comp_entusiasmo' },
-    { label: 'Sociabilidade', key: 'comp_sociabilidade' },
+    { key: 'comp_persuasao' },
+    { key: 'comp_extroversao' },
+    { key: 'comp_entusiasmo' },
+    { key: 'comp_sociabilidade' },
   ],
   S: [
-    { label: 'Empatia', key: 'comp_empatia' },
-    { label: 'Paciência', key: 'comp_paciencia' },
-    { label: 'Persistência', key: 'comp_persistencia' },
-    { label: 'Planejamento', key: 'comp_planejamento' },
+    { key: 'comp_empatia' },
+    { key: 'comp_paciencia' },
+    { key: 'comp_persistencia' },
+    { key: 'comp_planejamento' },
   ],
   C: [
-    { label: 'Organização', key: 'comp_organizacao' },
-    { label: 'Detalhismo', key: 'comp_detalhismo' },
-    { label: 'Prudência', key: 'comp_prudencia' },
-    { label: 'Concentração', key: 'comp_concentracao' },
+    { key: 'comp_organizacao' },
+    { key: 'comp_detalhismo' },
+    { key: 'comp_prudencia' },
+    { key: 'comp_concentracao' },
   ],
 };
 
 // Paleta sem vermelho: D=amarelo, I=cinza, S=verde, C=azul
 const DISC_COLORS = { D: '#EAB308', I: '#94A3B8', S: '#10B981', C: '#3B82F6' };
-const DISC_LABELS = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' };
 
 function Bar({ label, value, max, color }) {
   return (
@@ -250,7 +251,6 @@ function AnaliseNarrativa({ data, t }) {
 
 // ── Resumo Executivo ─────────────────────────────────────────────────────
 const DISC_ICONS = { D: Zap, I: Users, S: Anchor, C: ListChecks };
-const DISC_LABELS_FULL = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' };
 
 function inferLetraDominante(perfil) {
   return String(perfil || '').trim().toUpperCase()[0] || 'D';
@@ -271,6 +271,7 @@ function InsightText({ text }) {
 }
 
 function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCached, canGenerateInsights = true, t }) {
+  const tt = useTranslations('BehavioralTraits');
   const router = useRouter();
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsLocal, setInsightsLocal] = useState(insights);
@@ -315,7 +316,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
             <span className="text-brand-400 font-bold text-base">{arquetipo?.nome || t('fallbackProfessional')}</span>
             <span className="h-1 w-1 rounded-full bg-gray-600" />
             <span className="text-gray-400 font-bold text-xs tracking-widest uppercase">
-              {t('dominantProfile', { profile: DISC_LABELS_FULL[letraDominante] || t('profileFallback') })}
+              {t('dominantProfile', { profile: ['D', 'I', 'S', 'C'].includes(letraDominante) ? tt(`disc.${letraDominante}`) : t('profileFallback') })}
             </span>
           </div>
           {arquetipo?.desc && (
@@ -359,7 +360,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
                   <Icon size={18} className="text-brand-400 shrink-0" />
                   <div className="flex flex-col min-w-0">
                     <span className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter truncate">
-                      {DISC_LABELS_FULL[letra]}
+                      {tt(`disc.${letra}`)}
                     </span>
                     <span className="text-xs font-bold text-white">
                       {intensidadeQualitativa(valor)} {letra}
@@ -401,6 +402,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
 export default function PerfilComportamentalPage() {
   const t = useTranslations('BehavioralProfile');
   const tErro = useTranslations('ManagerErrors');
+  const tt = useTranslations('BehavioralTraits');
   const searchParams = useSearchParams();
   const colaboradorAlvo = searchParams.get('colaborador');
   // A presença do ID já implica consulta de terceiro. O modo de segurança não
@@ -640,15 +642,15 @@ export default function PerfilComportamentalPage() {
   // Montar estruturas a partir das colunas planas
   const disc = { D: c.d_natural || 0, I: c.i_natural || 0, S: c.s_natural || 0, C: c.c_natural || 0 };
   const lead = [
-    { label: 'Executivo', value: c.lid_executivo || 0, color: DISC_COLORS.D },
-    { label: 'Motivador', value: c.lid_motivador || 0, color: DISC_COLORS.I },
-    { label: 'Metódico', value: c.lid_metodico || 0, color: DISC_COLORS.S },
-    { label: 'Sistemático', value: c.lid_sistematico || 0, color: DISC_COLORS.C },
+    { label: tt('leadership.executive'), value: c.lid_executivo || 0, color: DISC_COLORS.D },
+    { label: tt('leadership.motivator'), value: c.lid_motivador || 0, color: DISC_COLORS.I },
+    { label: tt('leadership.methodical'), value: c.lid_metodico || 0, color: DISC_COLORS.S },
+    { label: tt('leadership.systematic'), value: c.lid_sistematico || 0, color: DISC_COLORS.C },
   ];
 
   // Flatten das 16 competências para forças/desenvolvimento
   const allComps = Object.entries(COMP_GROUPS).flatMap(([dim, arr]) =>
-    arr.map(({ label, key }) => ({ name: label, value: c[key] || 0, dim }))
+    arr.map(({ key }) => ({ name: tt(`competencies.${key}`), value: c[key] || 0, dim }))
   );
   const sortedComps = [...allComps].sort((a, b) => b.value - a.value);
   const strengths = sortedComps.slice(0, 3);
@@ -777,8 +779,8 @@ export default function PerfilComportamentalPage() {
 
       {/* ── DISC Natural ── */}
       <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-        <p className="text-xs font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">Perfil comportamental natural</p>
-        {[['Dominância', disc.D, DISC_COLORS.D], ['Influência', disc.I, DISC_COLORS.I], ['Estabilidade', disc.S, DISC_COLORS.S], ['Conformidade', disc.C, DISC_COLORS.C]].map(([l, v, col]) => (
+        <p className="text-xs font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">{tt('naturalProfile')}</p>
+        {[[tt('disc.D'), disc.D, DISC_COLORS.D], [tt('disc.I'), disc.I, DISC_COLORS.I], [tt('disc.S'), disc.S, DISC_COLORS.S], [tt('disc.C'), disc.C, DISC_COLORS.C]].map(([l, v, col]) => (
           <Bar key={l} label={l} value={v} max={100} color={col} />
         ))}
       </div>
@@ -804,10 +806,10 @@ export default function PerfilComportamentalPage() {
       {Object.entries(COMP_GROUPS).map(([dim, comps]) => (
         <div key={dim} className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
           <p className="text-xs font-extrabold uppercase tracking-[2px] mb-4" style={{ color: DISC_COLORS[dim] }}>
-            {t('sections.competencies')} — {DISC_LABELS[dim]}
+            {t('sections.competencies')} · {tt(`disc.${dim}`)}
           </p>
-          {comps.map(({ label, key }) => (
-            <Bar key={key} label={label} value={c[key] || 0} max={100} color={DISC_COLORS[dim]} />
+          {comps.map(({ key }) => (
+            <Bar key={key} label={tt(`competencies.${key}`)} value={c[key] || 0} max={100} color={DISC_COLORS[dim]} />
           ))}
         </div>
       ))}

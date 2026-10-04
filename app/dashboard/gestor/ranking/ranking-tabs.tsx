@@ -17,18 +17,21 @@
  */
 import { useState } from 'react';
 import { ListOrdered, TrendingUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import RankingAdequacaoView from '@/components/ranking-adequacao-view';
 import ProntidaoCargoView from '@/components/prontidao-cargo-view';
 import { listarCargosComRanking, getRankingAdequacao, exportarRankingPDF } from '@/actions/ranking-adequacao';
 import { listarCargosParaProntidao, compararCargos } from '@/actions/prontidao-cargo';
 import { PRONTIDAO_VISIVEL } from '@/lib/adequacao-cargo/prontidao-flag';
 
+// O texto de cada aba vem do catálogo (`RankingAdequacao.tabs`, 4 idiomas; R-67).
 const ABAS = [
-  { id: 'ranking' as const, rotulo: 'Ranking por cargo', Icone: ListOrdered },
-  { id: 'prontidao' as const, rotulo: 'Prontidão para o próximo cargo', Icone: TrendingUp },
+  { id: 'ranking' as const, chave: 'ranking' as const, Icone: ListOrdered },
+  { id: 'prontidao' as const, chave: 'readiness' as const, Icone: TrendingUp },
 ];
 
 export default function RankingTabs() {
+  const t = useTranslations('RankingAdequacao');
   const [aba, setAba] = useState<'ranking' | 'prontidao'>('ranking');
 
   // Prontidão oculta (ver `prontidao-flag.ts`): a página volta ao layout sem
@@ -46,8 +49,8 @@ export default function RankingTabs() {
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label="Leituras de adequação">
-        {ABAS.map(({ id, rotulo, Icone }) => {
+      <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label={t('tabs.aria')}>
+        {ABAS.map(({ id, chave, Icone }) => {
           const ativa = aba === id;
           return (
             <button
@@ -62,7 +65,7 @@ export default function RankingTabs() {
                   : 'border-white/10 text-slate-300 hover:bg-white/5'
               }`}
             >
-              <Icone size={14} /> {rotulo}
+              <Icone size={14} /> {t(`tabs.${chave}`)}
             </button>
           );
         })}

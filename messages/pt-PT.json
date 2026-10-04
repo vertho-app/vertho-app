@@ -6006,6 +6006,7 @@
     "journeyNotFound": "Não encontrámos esta jornada.",
     "invalidWeek": "Esta não é uma semana de checkpoint da jornada.",
     "invalidEvaluation": "Avaliação inválida.",
+    "rankingNotGenerated": "O ranking deste cargo ainda não está disponível.",
     "loadFailed": "Não foi possível carregar agora. Tente novamente dentro de instantes.",
     "saveFailed": "Não foi possível guardar. Tente novamente.",
     "generic": "Algo correu mal. Tente novamente."
@@ -6202,31 +6203,153 @@
       "none": "<strong>Sem registo:</strong> significa apenas que o sistema não recebeu esse sinal; não é uma avaliação da pessoa."
     }
   },
-  "EngagementSignals": {
+  "EngagementWorkspace": {
     "signalJourney": {
-      "defaultEyebrow": "Sinais da jornada",
+      "eyebrow": "Fluxo de sinais",
+      "title": "Conheça como a Vertho.ai funciona",
+      "descriptionWeek": "Sinais registados nesta semana: aceder, consumir e transformar o conteúdo em evidência.",
+      "descriptionCurrent": "A etapa atual de cada pessoa: aceder, consumir e transformar o conteúdo em evidência.",
+      "steps": {
+        "cadence": {
+          "label": "Na cadência",
+          "detail": "pessoas incluídas neste recorte"
+        },
+        "accessed": {
+          "label": "Acederam ao conteúdo",
+          "detail": "abriram pelo menos um formato"
+        },
+        "consumed": {
+          "label": "Consumiram",
+          "detail": "vídeo ou podcast concluído, ou material aberto"
+        },
+        "evidence": {
+          "label": "Entregaram evidência",
+          "detail": "concluíram a prática da semana"
+        }
+      },
+      "follow": "{count} para acompanhar",
       "ofTotal": "de {total}"
     },
-    "delivery": {
-      "completed": "Jornada concluída",
-      "lastReflection": "última reflexão",
-      "completedTitle": "A pessoa fechou a última semana do plano. O nível é o da última reflexão classificada; o texto é privado.",
-      "deliveredWeek": "Evidência da semana {week} entregue",
-      "delivered": "Evidência entregue",
-      "deliveredTitle": "Etapa fechada: a evidência desta semana já foi registada. O nível é classificado pela IA; o texto da reflexão é privado.",
-      "noLevel": "semana de aplicação, sem nível",
-      "pendingWeek": "Evidência da semana {week} pendente",
-      "pending": "Evidência pendente",
-      "pendingTitle": "A evidência que fecha esta semana ainda não foi registada."
-    },
     "quality": {
-      "high": "Alta",
-      "medium": "Média",
-      "low": "Baixa",
       "title": "Qualidade das reflexões",
       "delivered": "{count, plural, one {# pessoa entregou} other {# pessoas entregaram}} · nível da reflexão na etapa atual de cada uma",
-      "none": "Sem classificação",
-      "note": "A IA classifica a reflexão ao fechar cada semana de conteúdo: alta traz exemplo concreto e aprendizagem própria; média fica no geral; baixa é genérica ou muito curta. O texto é privado da pessoa e não aparece aqui."
+      "noClassification": "Sem classificação",
+      "note": "A IA classifica a reflexão ao fechar cada semana de conteúdo: alta traz um exemplo concreto e aprendizagem própria; média fica no geral; baixa é genérica ou demasiado curta. O texto é privado da pessoa e não aparece aqui.",
+      "levels": {
+        "alta": "Alta",
+        "media": "Média",
+        "baixa": "Baixa"
+      },
+      "stage": {
+        "done": "Jornada concluída",
+        "doneWithLevel": "Jornada concluída · última reflexão <b>{level}</b>",
+        "doneTitle": "A pessoa fechou a última semana do plano. O nível é o da última reflexão classificada; o texto é privado.",
+        "delivered": "Evidência entregue",
+        "deliveredWeek": "Evidência da semana {week} entregue",
+        "deliveredTitle": "Etapa fechada: a evidência desta semana já foi registada. O nível é classificado pela IA; o texto da reflexão é privado.",
+        "noLevel": "semana de aplicação, sem nível",
+        "pending": "Evidência pendente",
+        "pendingWeek": "Evidência da semana {week} pendente",
+        "pendingTitle": "A evidência que fecha esta semana ainda não foi registada."
+      }
+    }
+  },
+  "RankingAdequacao": {
+    "title": "Ranking de Adequação ao Cargo",
+    "subtitle": "Como as pessoas de um cargo se posicionam face ao perfil ideal. Filtre e ordene para visualizar.",
+    "listing": "A carregar cargos…",
+    "noRoles": "Ainda não há nenhum cargo com ranking gerado.",
+    "listError": "Não foi possível carregar os rankings disponíveis.",
+    "status": {
+      "recommended": "Recomendado",
+      "withReservations": "Com ressalvas",
+      "belowCut": "Abaixo do corte"
+    },
+    "blocks": {
+      "competency": "Competência",
+      "leadership": "Liderança",
+      "behavioral": "Mapeamento Comportamental",
+      "mapping": "Mapeamento"
+    },
+    "pdf": {
+      "aria": "PDF do ranking de {role}",
+      "back": "Voltar ao ranking",
+      "reader": "Leitor de relatório",
+      "readerTitle": "Ranking de adequação · {role}",
+      "documentTitle": "Ranking de adequação ao cargo: {role}",
+      "loading": "A carregar o relatório…",
+      "openError": "Não foi possível abrir este PDF dentro do ecrã.",
+      "retry": "Tentar novamente",
+      "generating": "A gerar…",
+      "view": "Visualizar PDF"
+    },
+    "decisionSupport": "<b>Apoio à decisão.</b> Filtrar e ordenar reorganiza a visualização: não classifica nem exclui ninguém. A decisão final cabe ao gestor ou aos RH.",
+    "snapshot": "Ranking de <b>{date}</b> (retrato da geração).",
+    "axis": "Eixo do cargo: <b>{axis}</b>{hasWeight, select, yes { (peso {weight})} other {}}.",
+    "legendNote": "aderência abaixo de {min}; não é requisito essencial por cumprir",
+    "divergence": "Neste grupo, <b>{axis}</b> (o bloco de maior peso do cargo) quase não diferencia as pessoas (dispersão {spread}). A ordem segue a <b>aderência</b> (o resultado do cargo); quem de facto separa aqui é <b>{real}</b>: é nela que a leitura se deve concentrar (mostrada ao lado de cada pessoa e usada como desempate).",
+    "filters": {
+      "status": "Estado",
+      "all": "Todos",
+      "onlyRecommended": "Só recomendados",
+      "onlyReservations": "Só com ressalvas",
+      "minAdherence": "Aderência mín. {value}",
+      "sortBy": "Ordenar por",
+      "sortAdherence": "Aderência",
+      "sortSeparates": "{block} (separa)",
+      "sortAxis": "{block} (eixo)"
+    },
+    "count": "{shown} de {total} no ranking",
+    "row": {
+      "borderline": "limítrofe ±{delta}",
+      "borderlineTitle": "Sensível à margem de medida (±SEM)",
+      "deadAxisTitle": "Bloco de maior peso do cargo, mas não diferencia este grupo",
+      "notAvailable": "n/d",
+      "develop": "A desenvolver: {items}",
+      "adherence": "aderência",
+      "noneMatch": "Nenhuma pessoa com os filtros atuais."
+    },
+    "gate": {
+      "title": "Fora do ranking por requisito essencial ({count})",
+      "body": "Não cumprem um requisito essencial do cargo. A aderência não se aplica: o requisito por cumprir é o que decide."
+    },
+    "tabs": {
+      "aria": "Leituras de adequação",
+      "ranking": "Ranking por cargo",
+      "readiness": "Prontidão para o próximo cargo"
+    }
+  },
+  "BehavioralTraits": {
+    "naturalProfile": "Perfil comportamental natural",
+    "disc": {
+      "D": "Dominância",
+      "I": "Influência",
+      "S": "Estabilidade",
+      "C": "Conformidade"
+    },
+    "leadership": {
+      "executive": "Executivo",
+      "motivator": "Motivador",
+      "methodical": "Metódico",
+      "systematic": "Sistemático"
+    },
+    "competencies": {
+      "comp_ousadia": "Ousadia",
+      "comp_comando": "Comando",
+      "comp_objetividade": "Objetividade",
+      "comp_assertividade": "Assertividade",
+      "comp_persuasao": "Persuasão",
+      "comp_extroversao": "Extroversão",
+      "comp_entusiasmo": "Entusiasmo",
+      "comp_sociabilidade": "Sociabilidade",
+      "comp_empatia": "Empatia",
+      "comp_paciencia": "Paciência",
+      "comp_persistencia": "Persistência",
+      "comp_planejamento": "Planeamento",
+      "comp_organizacao": "Organização",
+      "comp_detalhismo": "Detalhismo",
+      "comp_prudencia": "Prudência",
+      "comp_concentracao": "Concentração"
     }
   },
   "AdminCompanySettings": {

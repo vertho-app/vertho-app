@@ -33,18 +33,25 @@ describe('vocabulário do Ranking de Adequação', () => {
     expect(d).not.toMatch(PROIBIDO);
   });
 
+  // R-67 (04/10/2026): o texto da TELA mora no catálogo `RankingAdequacao` (4 idiomas); o PDF segue com o texto no arquivo.
+  const catalogo = (loc: string) => JSON.parse(readFileSync(`messages/${loc}.json`, 'utf8')).RankingAdequacao;
+
   it('o aviso "apoio à decisão" não manda a decisão para um psicólogo, na tela nem no PDF', () => {
-    for (const arquivo of ARQUIVOS.slice(0, 2)) {
-      const texto = readFileSync(arquivo, 'utf8');
-      expect(texto, arquivo).toContain('A decisão final cabe ao gestor ou ao RH.');
-      expect(texto, arquivo).not.toContain('psicólogo');
-    }
+    expect(catalogo('pt-BR').decisionSupport).toContain('A decisão final cabe ao gestor ou ao RH.');
+    expect(readFileSync('components/ranking-adequacao-view.tsx', 'utf8')).toContain("t.rich('decisionSupport'");
+    expect(readFileSync('lib/adequacao-cargo/ranking-pdf.tsx', 'utf8')).toContain('A decisão final cabe ao gestor ou ao RH.');
+    for (const arquivo of ARQUIVOS.slice(0, 2)) expect(readFileSync(arquivo, 'utf8'), arquivo).not.toContain('psicólogo');
   });
 
   it('a tela e o PDF dizem a mesma coisa sobre quem fica fora do ranking', () => {
-    const tela = readFileSync('components/ranking-adequacao-view.tsx', 'utf8');
     const pdf = readFileSync('lib/adequacao-cargo/ranking-pdf.tsx', 'utf8');
-    expect(tela).toContain('Fora do ranking por requisito essencial');
+    expect(catalogo('pt-BR').gate.title).toContain('Fora do ranking por requisito essencial');
+    expect(readFileSync('components/ranking-adequacao-view.tsx', 'utf8')).toContain("t('gate.title'");
     expect(pdf).toContain('Fora do ranking por requisito essencial');
+  });
+
+  it.each(['pt-BR', 'pt-PT', 'es-ES', 'en-US'])('%s: o catálogo da tela também não fala em candidato, vaga, elegível, eliminatório nem entrevista', (loc) => {
+    const folhas = (o: any, p = ''): string[] => typeof o === 'string' ? [`${p}: ${o}`] : Object.entries(o).flatMap(([k, v]) => folhas(v, p ? `${p}.${k}` : k));
+    expect(folhas(catalogo(loc)).filter((l) => PROIBIDO.test(l))).toEqual([]);
   });
 });

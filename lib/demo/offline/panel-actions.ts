@@ -28,9 +28,9 @@ export async function listarCargosComRanking() {
   return { cargos: Object.keys(demo.panels.rankings).sort((a,b) => a.localeCompare(b)) };
 }
 export async function getRankingAdequacao(cargo: string) {
-  return demo.panels.rankings[cargo] || { success: false, error: 'Cargo sem ranking no pacote de demonstração.' };
+  return demo.panels.rankings[cargo] || { success: false, codigo: 'ranking-nao-gerado' };
 }
 export async function exportarRankingPDF(cargo: string) {
   const path = demo.panels.rankings[cargo]?.pdfPath;
-  return path ? { success: true, url: ENVIRONMENT.base + path } : { success: false, error: 'PDF não incluído neste pacote.' };
+  return path ? { success: true, url: ENVIRONMENT.base + path } : { success: false, codigo: 'falha-no-pdf' };
 }

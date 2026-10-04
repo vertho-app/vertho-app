@@ -35,6 +35,8 @@ export const CODIGO_JORNADA_NAO_ENCONTRADA = 'jornada-nao-encontrada';
 export const CODIGO_SEMANA_INVALIDA = 'semana-invalida';
 /** Avaliação fora do conjunto aceito. */
 export const CODIGO_AVALIACAO_INVALIDA = 'avaliacao-invalida';
+/** O ranking de adequação do cargo ainda não foi gerado (ou o cargo é uma vaga escondida: a mesma resposta). */
+export const CODIGO_RANKING_NAO_GERADO = 'ranking-nao-gerado';
 /** A leitura que alimenta a tela falhou (R-139): não é "vazio", é "tente de novo". */
 export const CODIGO_LEITURA_INDISPONIVEL = 'leitura-indisponivel';
 /** Outra falha de leitura. O motivo vai para o log. */
@@ -58,6 +60,7 @@ const CHAVE_POR_CODIGO = {
   [CODIGO_LEITURA_INDISPONIVEL]: 'loadFailed',
   [CODIGO_FALHA_AO_CARREGAR]: 'loadFailed',
   [CODIGO_FALHA_AO_SALVAR]: 'saveFailed',
+  [CODIGO_RANKING_NAO_GERADO]: 'rankingNotGenerated',
 } as const;
 
 export type CodigoErroDoGestor = keyof typeof CHAVE_POR_CODIGO;

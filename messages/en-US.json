@@ -6006,6 +6006,7 @@
     "journeyNotFound": "We could not find this journey.",
     "invalidWeek": "This is not a checkpoint week of the journey.",
     "invalidEvaluation": "Invalid evaluation.",
+    "rankingNotGenerated": "The ranking for this role is not available yet.",
     "loadFailed": "We could not load this right now. Try again in a moment.",
     "saveFailed": "We could not save. Try again.",
     "generic": "Something went wrong. Try again."
@@ -6202,31 +6203,153 @@
       "none": "<strong>Not recorded:</strong> only means the system did not receive that signal; it is not an evaluation of the person."
     }
   },
-  "EngagementSignals": {
+  "EngagementWorkspace": {
     "signalJourney": {
-      "defaultEyebrow": "Journey signals",
+      "eyebrow": "Signal flow",
+      "title": "See how Vertho.ai works",
+      "descriptionWeek": "Signals recorded this week: access, consume, and turn the content into evidence.",
+      "descriptionCurrent": "Each person's current stage: access, consume, and turn the content into evidence.",
+      "steps": {
+        "cadence": {
+          "label": "In the cadence",
+          "detail": "people included in this selection"
+        },
+        "accessed": {
+          "label": "Accessed content",
+          "detail": "opened at least one format"
+        },
+        "consumed": {
+          "label": "Consumed",
+          "detail": "video or podcast completed, or material opened"
+        },
+        "evidence": {
+          "label": "Delivered evidence",
+          "detail": "completed the week's practice"
+        }
+      },
+      "follow": "{count} to follow up",
       "ofTotal": "of {total}"
     },
-    "delivery": {
-      "completed": "Journey completed",
-      "lastReflection": "last reflection",
-      "completedTitle": "The person closed the last week of the plan. The level is from the last classified reflection; the text is private.",
-      "deliveredWeek": "Evidence for week {week} delivered",
-      "delivered": "Evidence delivered",
-      "deliveredTitle": "Step closed: the evidence for this week has been recorded. The level is classified by AI; the text of the reflection is private.",
-      "noLevel": "application week, no level",
-      "pendingWeek": "Evidence for week {week} pending",
-      "pending": "Evidence pending",
-      "pendingTitle": "The evidence that closes this week has not been recorded yet."
-    },
     "quality": {
-      "high": "High",
-      "medium": "Medium",
-      "low": "Low",
       "title": "Reflection quality",
-      "delivered": "{count, plural, one {# person delivered} other {# people delivered}} · level of the reflection at each person's current step",
-      "none": "Not classified",
-      "note": "AI classifies the reflection when each content week closes: high brings a concrete example and personal learning; medium stays general; low is generic or very short. The text is private to the person and does not appear here."
+      "delivered": "{count, plural, one {# person delivered} other {# people delivered}} · reflection level at each person's current stage",
+      "noClassification": "Not classified",
+      "note": "AI rates the reflection when each content week closes: high brings a concrete example and personal learning; medium stays general; low is generic or too short. The text is private to the person and does not appear here.",
+      "levels": {
+        "alta": "High",
+        "media": "Medium",
+        "baixa": "Low"
+      },
+      "stage": {
+        "done": "Journey completed",
+        "doneWithLevel": "Journey completed · last reflection <b>{level}</b>",
+        "doneTitle": "The person closed the last week of the plan. The level is that of the last rated reflection; the text is private.",
+        "delivered": "Evidence delivered",
+        "deliveredWeek": "Week {week} evidence delivered",
+        "deliveredTitle": "Stage closed: this week's evidence has already been recorded. The level is rated by AI; the reflection text is private.",
+        "noLevel": "application week, no level",
+        "pending": "Evidence pending",
+        "pendingWeek": "Week {week} evidence pending",
+        "pendingTitle": "The evidence that closes this week has not been recorded yet."
+      }
+    }
+  },
+  "RankingAdequacao": {
+    "title": "Job Fit Ranking",
+    "subtitle": "How the people in a role stand against the ideal profile. Filter and sort to explore.",
+    "listing": "Loading roles…",
+    "noRoles": "No role has a ranking yet.",
+    "listError": "We could not load the available rankings.",
+    "status": {
+      "recommended": "Recommended",
+      "withReservations": "With reservations",
+      "belowCut": "Below the cutoff"
+    },
+    "blocks": {
+      "competency": "Competency",
+      "leadership": "Leadership",
+      "behavioral": "Behavioral mapping",
+      "mapping": "Mapping"
+    },
+    "pdf": {
+      "aria": "Ranking PDF for {role}",
+      "back": "Back to the ranking",
+      "reader": "Report viewer",
+      "readerTitle": "Job fit ranking · {role}",
+      "documentTitle": "Job fit ranking for the role: {role}",
+      "loading": "Loading report…",
+      "openError": "We could not open this PDF inside the screen.",
+      "retry": "Try again",
+      "generating": "Generating…",
+      "view": "View PDF"
+    },
+    "decisionSupport": "<b>Decision support.</b> Filtering and sorting only rearranges the view: it does not classify or exclude anyone. The final decision belongs to the manager or to HR.",
+    "snapshot": "Ranking from <b>{date}</b> (snapshot at generation).",
+    "axis": "Role axis: <b>{axis}</b>{hasWeight, select, yes { (weight {weight})} other {}}.",
+    "legendNote": "fit below {min}; not an essential requirement left unmet",
+    "divergence": "In this group, <b>{axis}</b> (the heaviest block of the role) barely tells people apart (spread {spread}). The order follows <b>fit</b> (the role result); what actually separates people here is <b>{real}</b>: that is where the reading should focus (shown next to each person and used as a tiebreaker).",
+    "filters": {
+      "status": "Status",
+      "all": "All",
+      "onlyRecommended": "Recommended only",
+      "onlyReservations": "With reservations only",
+      "minAdherence": "Min. fit {value}",
+      "sortBy": "Sort by",
+      "sortAdherence": "Fit",
+      "sortSeparates": "{block} (separates)",
+      "sortAxis": "{block} (axis)"
+    },
+    "count": "{shown} of {total} in the ranking",
+    "row": {
+      "borderline": "borderline ±{delta}",
+      "borderlineTitle": "Sensitive to the measurement margin (±SEM)",
+      "deadAxisTitle": "Heaviest block of the role, but it does not tell this group apart",
+      "notAvailable": "n/a",
+      "develop": "To develop: {items}",
+      "adherence": "fit",
+      "noneMatch": "No one matches the current filters."
+    },
+    "gate": {
+      "title": "Outside the ranking because of an essential requirement ({count})",
+      "body": "They do not meet an essential requirement of the role. Fit does not apply: the unmet requirement is what decides."
+    },
+    "tabs": {
+      "aria": "Fit readings",
+      "ranking": "Ranking by role",
+      "readiness": "Readiness for the next role"
+    }
+  },
+  "BehavioralTraits": {
+    "naturalProfile": "Natural behavioral profile",
+    "disc": {
+      "D": "Dominance",
+      "I": "Influence",
+      "S": "Steadiness",
+      "C": "Compliance"
+    },
+    "leadership": {
+      "executive": "Executive",
+      "motivator": "Motivator",
+      "methodical": "Methodical",
+      "systematic": "Systematic"
+    },
+    "competencies": {
+      "comp_ousadia": "Boldness",
+      "comp_comando": "Command",
+      "comp_objetividade": "Objectivity",
+      "comp_assertividade": "Assertiveness",
+      "comp_persuasao": "Persuasion",
+      "comp_extroversao": "Extroversion",
+      "comp_entusiasmo": "Enthusiasm",
+      "comp_sociabilidade": "Sociability",
+      "comp_empatia": "Empathy",
+      "comp_paciencia": "Patience",
+      "comp_persistencia": "Persistence",
+      "comp_planejamento": "Planning",
+      "comp_organizacao": "Organization",
+      "comp_detalhismo": "Attention to detail",
+      "comp_prudencia": "Prudence",
+      "comp_concentracao": "Focus"
     }
   },
   "AdminCompanySettings": {

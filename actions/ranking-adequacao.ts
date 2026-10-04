@@ -8,6 +8,10 @@
  * Acesso exclusivo ao papel RH (indivíduos nomeados = alto risco). Escopo: empresa do RH.
  */
 import { getUserContext } from '@/lib/authz';
+import {
+  CODIGO_NAO_AUTENTICADO, CODIGO_SEM_PERMISSAO, CODIGO_SEM_EMPRESA, CODIGO_RANKING_NAO_GERADO,
+  CODIGO_LEITURA_INDISPONIVEL, CODIGO_FALHA_NO_PDF, type CodigoErroDoGestor,
+} from '@/lib/gestor/codigos-de-erro';
 import { blocoEstaOffline } from '@/lib/blocos-offline';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
@@ -25,14 +29,14 @@ const BLOCOS = ['Competência', 'Liderança', 'DISC', 'Mapeamento'] as const;
 const BLOCO_PESSOA: Record<string, 'competencia' | 'lideranca' | 'discScore' | 'mapeamento'> = { 'Competência': 'competencia', 'Liderança': 'lideranca', 'DISC': 'discScore', 'Mapeamento': 'mapeamento' };
 const sd = (a: number[]) => { if (a.length < 2) return 0; const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / a.length); };
 
-async function ctxRh() {
+async function ctxRh(): Promise<{ empresaId: string; ctx: any } | { codigo: CodigoErroDoGestor }> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { erro: 'Não autenticado.' as const };
+  if (!email) return { codigo: CODIGO_NAO_AUTENTICADO };
   const ctx = await getUserContext(email);
-  if (ctx?.role !== 'rh') return { erro: 'Acesso exclusivo do RH.' as const };
+  if (ctx?.role !== 'rh') return { codigo: CODIGO_SEM_PERMISSAO };
   const empresaId = ctx.empresaId;
-  if (!empresaId) return { erro: 'RH sem empresa vinculada.' as const };
+  if (!empresaId) return { codigo: CODIGO_SEM_EMPRESA };
   return { empresaId, ctx };
 }
 
@@ -58,7 +62,8 @@ async function snapshotsDaEmpresa(sb: any, empresaId: string) {
 // de cargo (action), porque `'use server'` é endpoint e esconder a lista não fecha a leitura.
 const vagasDaSelecaoVisiveis = () => !blocoEstaOffline('selecao');
 
-const RANKING_NAO_GERADO = 'Ranking ainda não disponível para este cargo (relatório não gerado).';
+// R-67 (04/10/2026): a action devolve o CÓDIGO (traduzido na tela, nos 4 idiomas), nunca a frase.
+const RANKING_NAO_GERADO = CODIGO_RANKING_NAO_GERADO;
 
 /**
  * O cargo pedido é uma VAGA da Seleção que está escondida? Só pergunta ao banco quando o bloco
@@ -89,17 +94,17 @@ async function _listarCargos(sb: any, empresaId: string, incluirVagas = false): 
 }
 
 /** Cargos da empresa que TÊM snapshot de ranking (relatório gerado) — RH. */
-export async function listarCargosComRanking(): Promise<{ cargos: string[]; erro?: string }> {
-  const g = await ctxRh(); if ('erro' in g) return { cargos: [], erro: g.erro };
+export async function listarCargosComRanking(): Promise<{ cargos: string[]; codigo?: CodigoErroDoGestor }> {
+  const g = await ctxRh(); if ('codigo' in g) return { cargos: [], codigo: g.codigo };
   return { cargos: await _listarCargos(createSupabaseAdmin(), g.empresaId, vagasDaSelecaoVisiveis()) };
 }
 /** Idem — PREVIEW de admin (empresa vem da rota, gated p/ platform_admin). */
-export async function listarCargosComRankingAdmin(empresaId: string): Promise<{ cargos: string[]; erro?: string }> {
+export async function listarCargosComRankingAdmin(empresaId: string): Promise<{ cargos: string[]; codigo?: CodigoErroDoGestor }> {
   const sb = await requireAdminSupabase('admin.access');
   return { cargos: await _listarCargos(sb, empresaId) };
 }
 
-const LEITURA_INDISPONIVEL = 'Não foi possível ler o ranking agora. Tente novamente em instantes.';
+const LEITURA_INDISPONIVEL = CODIGO_LEITURA_INDISPONIVEL;
 
 async function ultimoSnapshot(sb: any, empresaId: string, cargo: string): Promise<{ snap: any | null; falhou: boolean }> {
   const { artefatos, falhou } = await snapshotsDaEmpresa(sb, empresaId);
@@ -147,8 +152,8 @@ function _eixoDivergencia(pesos: { bloco: string; pct: number }[], elegiveisBloc
 
 async function _getRanking(sb: any, empresaId: string, cargo: string): Promise<any> {
   const { snap, falhou } = await ultimoSnapshot(sb, empresaId, cargo);
-  if (!snap?.data && falhou) return { success: false, error: LEITURA_INDISPONIVEL };
-  if (!snap?.data) return { success: false, semSnapshot: true, error: RANKING_NAO_GERADO };
+  if (!snap?.data && falhou) return { success: false, codigo: LEITURA_INDISPONIVEL };
+  if (!snap?.data) return { success: false, semSnapshot: true, codigo: RANKING_NAO_GERADO };
   const data = snap.data;
   const temTracos = data.pessoas?.[0] && Array.isArray(data.pessoas[0].tracos);
 
@@ -180,10 +185,10 @@ async function _getRanking(sb: any, empresaId: string, cargo: string): Promise<a
 }
 
 // ── EXPORT PDF (VIEW pura do snapshot; passa pessoas COMPLETAS ao template) ────
-async function _exportarPDF(sb: any, empresaId: string, cargo: string): Promise<{ success: true; url: string } | { success: false; error: string }> {
+async function _exportarPDF(sb: any, empresaId: string, cargo: string): Promise<{ success: true; url: string } | { success: false; codigo: CodigoErroDoGestor }> {
   const { snap, falhou } = await ultimoSnapshot(sb, empresaId, cargo);
-  if (!snap?.data && falhou) return { success: false, error: LEITURA_INDISPONIVEL };
-  if (!snap?.data) return { success: false, error: RANKING_NAO_GERADO };
+  if (!snap?.data && falhou) return { success: false, codigo: LEITURA_INDISPONIVEL };
+  if (!snap?.data) return { success: false, codigo: RANKING_NAO_GERADO };
   const data = snap.data;
   const pesos: { bloco: string; pct: number }[] = data.perfilIdeal?.pesos || [];
 
@@ -215,20 +220,26 @@ async function _exportarPDF(sb: any, empresaId: string, cargo: string): Promise<
   // sessão. Agora vai para o bucket PRIVADO, e o link (curto) é a única porta.
   // Quem chega aqui já passou pelo gate (RH da sessão ou admin da empresa).
   const up = await salvarRelatorio(sb.storage, empresaId, 'ranking-adequacao', `${rotuloCargo(cargo)}-${snap.__ts || Date.now()}.pdf`, buffer, 'application/pdf');
-  if ('erro' in up) return { success: false, error: `Falha ao salvar PDF: ${up.erro}` };
+  if ('erro' in up) {
+    console.error('[ranking-adequacao] salvar PDF falhou:', up.erro);
+    return { success: false, codigo: CODIGO_FALHA_NO_PDF };
+  }
   const assinado = await assinarRelatorio(sb.storage, { bucket: BUCKET_RELATORIOS, caminho: up.caminho });
-  if ('erro' in assinado) return { success: false, error: 'Falha ao gerar link do PDF.' };
+  if ('erro' in assinado) {
+    console.error('[ranking-adequacao] link do PDF falhou:', assinado.erro);
+    return { success: false, codigo: CODIGO_FALHA_NO_PDF };
+  }
   return { success: true, url: assinado.url };
 }
 
 /** RH — exporta o PDF do ranking (empresa da sessão). */
 export async function exportarRankingPDF(cargo: string) {
-  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
+  const g = await ctxRh(); if ('codigo' in g) return { success: false as const, codigo: g.codigo };
   const sb = createSupabaseAdmin();
   // Vaga da Seleção off-line: mesma resposta de "ranking não gerado", sem confirmar que a vaga existe.
   const vaga = await vagaEscondida(sb, g.empresaId, cargo);
-  if (vaga === 'erro') return { success: false as const, error: LEITURA_INDISPONIVEL };
-  if (vaga === 'sim') return { success: false as const, error: RANKING_NAO_GERADO };
+  if (vaga === 'erro') return { success: false as const, codigo: LEITURA_INDISPONIVEL };
+  if (vaga === 'sim') return { success: false as const, codigo: RANKING_NAO_GERADO };
   return _exportarPDF(sb, g.empresaId, cargo);
 }
 /** ADMIN — exporta o PDF do ranking (empresa da rota, gated p/ platform_admin). */
@@ -239,11 +250,11 @@ export async function exportarRankingPDFAdmin(empresaId: string, cargo: string) 
 
 /** RH self-service (empresa da sessão). */
 export async function getRankingAdequacao(cargo: string): Promise<any> {
-  const g = await ctxRh(); if ('erro' in g) return { success: false, error: g.erro };
+  const g = await ctxRh(); if ('codigo' in g) return { success: false, codigo: g.codigo };
   const sb = createSupabaseAdmin();
   const vaga = await vagaEscondida(sb, g.empresaId, cargo);
-  if (vaga === 'erro') return { success: false, error: LEITURA_INDISPONIVEL };
-  if (vaga === 'sim') return { success: false, semSnapshot: true, error: RANKING_NAO_GERADO };
+  if (vaga === 'erro') return { success: false, codigo: LEITURA_INDISPONIVEL };
+  if (vaga === 'sim') return { success: false, semSnapshot: true, codigo: RANKING_NAO_GERADO };
   return _getRanking(sb, g.empresaId, cargo);
 }
 /** PREVIEW de admin (empresa da rota, gated p/ platform_admin). */

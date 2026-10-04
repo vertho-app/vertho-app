@@ -19,11 +19,15 @@ const TELAS = [
   'app/dashboard/gestor/engajamento/team-engagement.tsx',
   'components/engajamento/signal-journey.tsx',
   'components/engajamento/qualidade-evidencia.tsx',
+  'components/ranking-adequacao-view.tsx',
+  'app/dashboard/gestor/ranking/ranking-tabs.tsx',
+  'app/dashboard/perfil-comportamental/page.tsx',
 ];
 
 const ACOES = [
   'app/dashboard/gestor/actions.ts',
   'app/dashboard/gestor/equipe-evolucao/actions.ts',
+  'actions/ranking-adequacao.ts',
 ];
 
 const ACENTO = /[àáâãçéêíóôõúüÀÁÂÃÇÉÊÍÓÔÕÚ]/;

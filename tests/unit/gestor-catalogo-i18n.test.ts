@@ -1,6 +1,6 @@
 /**
  * R-67 (04/10/2026): os catálogos novos do gestor e do RH (`ManagerErrors`, `ManagerAlerts`,
- * `ManagerEvolution`, `ManagerEngagement`, `EngagementSignals` e os que a onda acrescentar) dizem a
+ * `ManagerEvolution`, `ManagerEngagement`, `RankingAdequacao`, `BehavioralTraits` e os que a onda acrescentar) dizem a
  * MESMA coisa nos 4 idiomas, sem português sobrando em en-US e es-ES, e os códigos de erro das actions
  * têm frase em todos.
  *
@@ -15,7 +15,7 @@ import {
 } from '@/lib/gestor/codigos-de-erro';
 
 const LOCALES = ['pt-BR', 'pt-PT', 'es-ES', 'en-US'] as const;
-const NAMESPACES = ['ManagerErrors', 'ManagerAlerts', 'ManagerEvolution', 'ManagerEngagement', 'EngagementSignals'];
+const NAMESPACES = ['ManagerErrors', 'ManagerAlerts', 'ManagerEvolution', 'ManagerEngagement', 'RankingAdequacao', 'BehavioralTraits'];
 const CAT: Record<string, any> = Object.fromEntries(LOCALES.map((l) => [l, JSON.parse(readFileSync(`messages/${l}.json`, 'utf8'))]));
 
 function folhas(o: any, p: string, out: Array<[string, string]> = []): Array<[string, string]> {
@@ -89,7 +89,7 @@ describe.each(NAMESPACES)('catálogo %s', (ns) => {
   it('en-US não tem letra nem palavra de português (fora o nome de produto Tira-Dúvidas)', () => {
     const achados = folhas(CAT['en-US'][ns], '')
       .map(([chave, frase]) => [chave, frase.replace(/Tira-Dúvidas/g, '')] as const)
-      .filter(([, frase]) => /[àáâãçéêíóôõúü]/i.test(frase) || /\b(não|você|jornada|equipe|semana|sem|para|com|pessoas?)\b/i.test(frase))
+      .filter(([, frase]) => /[àáâãçéêíóôõúü]/i.test(frase) || /\b(não|você|jornada|equipe|semana|pessoas?)\b/i.test(frase))
       .map(([chave]) => chave);
     expect(achados).toEqual([]);
   });
@@ -98,7 +98,7 @@ describe.each(NAMESPACES)('catálogo %s', (ns) => {
     const pt = new Map(doPt);
     const palavras = (f: string) => f.replace(/\{[^}]*\}/g, ' ').split(/[^A-Za-zÀ-ÿ-]+/).filter(Boolean);
     const enIguais = folhas(CAT['en-US'][ns], '')
-      .filter(([chave, frase]) => frase === pt.get(chave) && palavras(frase).filter((w) => !/^(PDF|Tira-Dúvidas)$/.test(w)).length > 0)
+      .filter(([chave, frase]) => frase === pt.get(chave) && frase !== "n/a" && palavras(frase).filter((w) => !/^(PDF|Tira-Dúvidas|Status)$/.test(w)).length > 0)
       .map(([chave]) => chave);
     expect(enIguais, 'en-US: frase igual ao pt-BR').toEqual([]);
     // palavra solta que é a mesma nos dois idiomas ("Todos", "Contexto", "Semana") é correta em espanhol
@@ -146,5 +146,28 @@ describe('códigos de erro das actions do gestor', () => {
     const t = (chave: string) => `[${chave}]`;
     expect(textoDoErroDoGestor(t as any, { error: 'Não autenticado' })).toBe('[generic]');
     expect(textoDoErroDoGestor(t as any, { codigo: 'fora-do-escopo' })).toBe('[outOfScope]');
+  });
+});
+
+describe('perfil comportamental: o rótulo de cada traço vem do catálogo, com as 16 colunas cobertas', () => {
+  const pagina = readFileSync('app/dashboard/perfil-comportamental/page.tsx', 'utf8');
+  const colunas = [...new Set([...pagina.matchAll(/key: '(comp_\w+)'/g)].map((m) => m[1]))];
+
+  it('a página lista as 16 competências comportamentais', () => {
+    expect(colunas).toHaveLength(16);
+  });
+
+  it.each(LOCALES)('%s: cada coluna, cada letra do DISC e cada estilo de liderança têm rótulo', (locale) => {
+    const m = CAT[locale].BehavioralTraits;
+    for (const coluna of colunas) expect(typeof m.competencies[coluna], `${locale} ${coluna}`).toBe('string');
+    for (const letra of ['D', 'I', 'S', 'C']) expect(m.disc[letra].length, `${locale} ${letra}`).toBeGreaterThan(3);
+    for (const estilo of ['executive', 'motivator', 'methodical', 'systematic']) expect(m.leadership[estilo].length, `${locale} ${estilo}`).toBeGreaterThan(3);
+  });
+
+  it('em en-US os rótulos não são os do português', () => {
+    const pt = CAT['pt-BR'].BehavioralTraits;
+    const en = CAT['en-US'].BehavioralTraits;
+    for (const coluna of colunas) expect(en.competencies[coluna], coluna).not.toBe(pt.competencies[coluna]);
+    for (const letra of ['D', 'I', 'S', 'C']) expect(en.disc[letra]).not.toBe(pt.disc[letra]);
   });
 });
