@@ -24,6 +24,7 @@ export type PermissionKey =
   | 'content.manage'
   | 'simulador.casos.manage'
   | 'simulador.casos.view'
+  | 'simulador.sessoes.manage'
   | 'knowledge_base.manage'
   | 'ai.audit.regenerate'
   | 'ai.costs.view'
@@ -81,6 +82,13 @@ export const PERMISSIONS: PermissionDefinition[] = [
   // continuam escritos só pela plataforma (`isPlatformAdmin`, nos consumidores).
   { key: 'simulador.casos.view', domain: 'Simuladores', label: 'Ver casos do simulador de atendimento', description: 'Ler a biblioteca de casos e a de competências do treino de atendimento, sem criar, editar, publicar nem arquivar.', risk: 'low' },
   { key: 'simulador.casos.manage', domain: 'Simuladores', label: 'Gerenciar casos do simulador de atendimento', description: 'Criar, editar, publicar e rascunhar com IA os casos da própria empresa no treino de atendimento; ler a biblioteca de competências.', risk: 'medium' },
+  // R-96 (04/10/2026): encerrar, SEM devolutiva e SEM chamada de IA, o treino de
+  // uma pessoa que ficou preso em andamento (vendas e atendimento). É operação
+  // da Vertho sobre o dado de um cliente, por isso nasce exclusiva do master:
+  // o Sócio lê a lista, não opera, e o RH não chega (`requireAdminAction` exige
+  // platform admin antes de olhar a permissão). Os papéis só têm o que está
+  // listado em `BASE_ROLE_PERMISSIONS`; `platform_admin` recebe todas.
+  { key: 'simulador.sessoes.manage', domain: 'Simuladores', label: 'Encerrar treinos parados dos simuladores', description: 'Encerrar sem devolutiva, com motivo registrado e sem chamada de IA, o treino em andamento de uma pessoa nos simuladores de vendas e de atendimento, para liberar um novo treino.', risk: 'medium' },
   { key: 'knowledge_base.manage', domain: 'Conteúdo', label: 'Gerenciar knowledge base', description: 'Editar base RAG por tenant.', risk: 'high' },
   { key: 'ai.audit.regenerate', domain: 'IA', label: 'Regenerar auditorias IA', description: 'Reprocessar avaliações, checks e scorings com IA.', risk: 'critical' },
   { key: 'ai.costs.view', domain: 'IA', label: 'Ver custos de IA', description: 'Acessar ledger, projeções de custo e catálogo de chamadas.', risk: 'high' },

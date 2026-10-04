@@ -618,6 +618,28 @@ export const ORCAMENTO_AVALIADOR_MS = 270_000;
 export const MINIMO_TENTATIVA_MS = 120_000;
 export const primeiraTentativaMs = (c: Cenario) => (c.matriz ? 180_000 : 100_000);
 
+/**
+ * Encerramento administrativo SEM relatório (R-96, 04/10/2026): a equipe da
+ * Vertho libera quem ficou com o atendimento preso em andamento porque a
+ * avaliação não fechava. É só uma troca de estado: nada aqui chama IA e não há
+ * custo. Com resposta da pessoa a conversa continua no histórico dela
+ * (`interrompida`); sem nenhuma, a sessão vira `descartada`, que é o que o
+ * serviço já faz com a sessão vazia quando a pessoa inicia outro atendimento.
+ */
+export function encerrarSemRelatorio(s: Estado): Estado {
+  exigir(
+    s.status === RECEPCAO_SESSAO.EM_ANDAMENTO ||
+      s.status === RECEPCAO_SESSAO.AGUARDANDO_AVALIACAO,
+    'Este atendimento já foi encerrado',
+  );
+  const n = clone(s);
+  const comConversa = s.respostas > 0;
+  n.status = comConversa ? RECEPCAO_SESSAO.INTERROMPIDA : RECEPCAO_SESSAO.DESCARTADA;
+  n.motivoFim = comConversa ? 'encerrada_pelo_suporte' : 'descartada_sem_resposta';
+  n.revisao += 1;
+  return n;
+}
+
 export async function encerrar(
   s: Estado,
   gerarTexto: Gerar,
@@ -625,6 +647,9 @@ export async function encerrar(
   agora: () => number = Date.now,
 ): Promise<Estado> {
   if (s.status === RECEPCAO_SESSAO.CONCLUIDA) return clone(s);
+  // Sem esta trava, "Encerrar e avaliar" sobre um atendimento que a equipe
+  // encerrou pagaria uma avaliação de IA sobre uma sessão já fechada.
+  exigir(s.status !== RECEPCAO_SESSAO.INTERROMPIDA, 'Este atendimento foi encerrado sem relatório');
   exigir(s.respostas > 0, 'Atendimento sem respostas não gera nota');
   // Papéis de chat (user/assistant) confundiam a avaliação: assistant aqui é
   // a paciente, não a atendente. O contrato do avaliador usa nomes do domínio.

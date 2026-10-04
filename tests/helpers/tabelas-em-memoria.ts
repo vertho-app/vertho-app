@@ -83,6 +83,9 @@ export function filtrar(linhas: any[], cadeia: Chamada[]) {
           return atual() !== null && String(atual()) >= String(v);
         case 'lt':
           return atual() !== null && String(atual()) < String(v);
+        case 'like':
+          // `like` faltava aqui e caía no `default: true`: o filtro era IGNORADO em silêncio (R-96).
+          return atual() !== null && comoLike(String(v)).test(String(atual()));
         case 'not':
           if (v === 'like') return !comoLike(extra).test(String(atual() ?? ''));
           if (v === 'is') return atual() !== extra;

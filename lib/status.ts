@@ -229,6 +229,13 @@ export const RECEPCAO_SESSAO = {
    * com custo) aponta para a sessão sem cascata.
    */
   DESCARTADA: 'descartada',
+  /**
+   * Atendimento COM resposta da pessoa, encerrado pela equipe da Vertho SEM
+   * relatório e sem chamada de IA (R-96, 04/10/2026), porque a avaliação não
+   * fechava. A conversa fica no histórico de quem treinou. Diferente de
+   * DESCARTADA, que é só para sessão sem nenhuma resposta e some da tela.
+   */
+  INTERROMPIDA: 'interrompida',
 } as const;
 export type RecepcaoSessaoStatus = (typeof RECEPCAO_SESSAO)[keyof typeof RECEPCAO_SESSAO];
 

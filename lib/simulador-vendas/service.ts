@@ -304,7 +304,7 @@ export async function executar(c: Contexto, original: Comando) {
   )
     throw new SimuladorError(
       409,
-      'Este treino já tem conversa. Conclua para receber a devolutiva.',
+      'Este treino já tem conversa. Conclua para receber a devolutiva. Se a devolutiva não for gerada, fale com o suporte.',
     );
   if (cmd.acao !== 'iniciar' && cmd.revisao !== row.revisao)
     throw new SimuladorError(

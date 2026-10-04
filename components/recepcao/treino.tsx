@@ -474,7 +474,10 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       dominio,
     );
   const travado = !!ocupado || vozOcupada || sessao?.processando;
-  const emConversa = sessao && !relatorio;
+  // Encerrado pela equipe sem relatório (R-96): a conversa fica à vista, sem campo
+  // de resposta nem "Encerrar e avaliar" (que pagaria uma avaliação sobre sessão fechada).
+  const encerradaPelaEquipe = sessao?.status === RECEPCAO_SESSAO.INTERROMPIDA;
+  const emConversa = sessao && !relatorio && !encerradaPelaEquipe;
   // A versão publicada do atendimento na tela; `null` com sessão = o caso saiu do catálogo.
   const registroNaTela = registroDaSessao(dados?.cenarios, sessao);
   const casoRetirado = !!sessao && !registroNaTela;
@@ -1146,6 +1149,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                         )}
                         <div ref={fim} />
                       </div>
+                      {encerradaPelaEquipe && (
+                        <p className={styles.notice} role="status">
+                          {t('closedBySupport')}
+                        </p>
+                      )}
                       {emConversa && (
                         <div className={styles.composer}>
                           {sessao.status === RECEPCAO_SESSAO.EM_ANDAMENTO && (
@@ -1319,7 +1327,9 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                         ]
                           .filter(Boolean)
                           .join(' · ')
-                      : t('resume')}
+                      : item.status === RECEPCAO_SESSAO.INTERROMPIDA
+                        ? t('closedNoReport')
+                        : t('resume')}
                   </strong>
                 </button>
               );

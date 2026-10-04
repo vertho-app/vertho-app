@@ -1,5 +1,6 @@
 import type { Comando, Estado, Etapa, Saidas } from './schema';
 import { VENDAS_SESSAO } from '@/lib/status';
+import { HORAS_SEM_ATIVIDADE } from '@/lib/simuladores/treinos-parados-regras';
 import { MAX_TURNOS, FASES, usaGerenteBruto } from './schema';
 import {
   pontuarRelatorio,
@@ -361,7 +362,9 @@ export async function executarCore(
     } catch {
       throw new SimuladorError(
         409,
-        'O registro deste treino precisa de revisão pelo suporte. Nenhuma nova avaliação foi cobrada. Entre em contato com o suporte para liberar um novo treino; a conversa foi preservada no histórico.',
+        // R-96 (04/10/2026): o suporte tem a ferramenta "Encerrar sem devolutiva", que só
+        // vale depois de HORAS_SEM_ATIVIDADE sem atividade. A frase diz isso, sem prometer prazo.
+        `O registro deste treino precisa de revisão pelo suporte. Nenhuma nova avaliação foi cobrada. Entre em contato com o suporte: depois de ${HORAS_SEM_ATIVIDADE} horas sem atividade neste treino, a equipe pode encerrá-lo, sem devolutiva, para você abrir outro. A conversa fica preservada no histórico.`,
       );
     }
     const bruto = await gerar(

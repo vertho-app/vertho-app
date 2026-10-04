@@ -117,6 +117,8 @@
     "historyLegacy": "previous scale",
     "historyAttention": "attention",
     "resume": "Resume practice",
+    "closedNoReport": "Ended without a report",
+    "closedBySupport": "The team closed this session without a report. The conversation stays in your history, and you can start a new session whenever you like.",
     "yourReply": "Your reply #{n}",
     "personLine": "{name}, message #{n}",
     "teamReply": "Agent reply #{n}",
@@ -1216,6 +1218,7 @@
         "salesChannel": "Sales Channel",
         "receptionTraining": "Customer service simulator",
         "leadershipTraining": "Leadership simulator",
+        "stalledTrainings": "Stalled sessions",
         "salesTraining": "Sales simulator"
       },
       "subs": {
@@ -1264,6 +1267,7 @@
         "auditsSub": "Week 13 · Week 14",
         "salesChannelSub": "Representatives & proposals",
         "receptionPractice": "Medical reception",
+        "stalledTrainingsSub": "Simulators with no activity",
         "leadershipPractice": "Five connected encounters",
         "salesPractice": "PACE negotiation"
       },
@@ -3483,6 +3487,70 @@
       "callFailed": "Call failed"
     }
   },
+  "AdminStalledTrainings": {
+    "title": "Stalled sessions",
+    "refresh": "Refresh",
+    "intro": "Sales and customer service sessions still in progress, with no activity for more than {hours} hours. Closing without feedback frees the person to open another session, does not call AI, and costs nothing.",
+    "readOnly": "You can view the list. Closing a session requires the permission to manage simulator sessions.",
+    "scope": {
+      "all": "All companies",
+      "company": "Selected company"
+    },
+    "count": "{count, plural, one {# session} other {# sessions}}",
+    "loadError": "Could not load the list. Try again.",
+    "empty": "No sessions stalled for more than {hours} hours.",
+    "truncated": "The list shows the {limit} oldest sessions. Close some and refresh to see the rest.",
+    "personRemoved": "Record removed",
+    "table": {
+      "simulator": "Simulator",
+      "person": "Person",
+      "lastActivity": "Last activity",
+      "status": "Status",
+      "conversation": "Conversation",
+      "action": "Action"
+    },
+    "simulators": {
+      "vendas": "Sales",
+      "atendimento": "Customer service"
+    },
+    "status": {
+      "em_andamento": "In progress",
+      "aguardando_avaliacao": "Awaiting evaluation"
+    },
+    "conversation": {
+      "yes": "With conversation",
+      "no": "No conversation"
+    },
+    "close": {
+      "open": "Close without feedback",
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "E.g.: the evaluation failed three times and the person asked support for help",
+      "reasonHelp": "At least {min} characters, recorded in the audit log. {count} of {max}.",
+      "effectWithConversation": "The conversation stays in the person's history, with no feedback and no score. No AI is called and nothing is charged. After that, the person can open another session.",
+      "effectWithoutConversation": "This session has no conversation: it is discarded. No AI is called and nothing is charged.",
+      "cancel": "Cancel",
+      "submit": "Close without feedback",
+      "confirmTitle": "Close this session without feedback?",
+      "confirmWithConversation": "{person}'s session will be closed without feedback and without a score. The conversation stays in their history.",
+      "confirmWithoutConversation": "{person}'s session will be discarded. It has no conversation."
+    },
+    "result": {
+      "done": "Session closed without feedback.",
+      "auditFailed": "The session was closed, but the audit record was not saved. Let the technical team know."
+    },
+    "errors": {
+      "motivo_obrigatorio": "Enter the reason, between {min} and {max} characters.",
+      "entrada_invalida": "Invalid request. Refresh the list and try again.",
+      "nao_encontrada": "Session not found in this company. Refresh the list.",
+      "nao_elegivel": "This session cannot be closed now: it was already closed or it is an admin test. Refresh the list.",
+      "recente": "This session had activity in the last {hours} hours and cannot be closed.",
+      "em_processamento": "A submission is being processed in this session. Try again in a few minutes.",
+      "mudou": "The session changed while it was being closed. Refresh the list and try again.",
+      "falha": "Could not close the session. Try again.",
+      "erro": "Could not close the session. Try again.",
+      "generic": "Could not complete. Try again."
+    }
+  },
   "AdminTrash": {
     "title": "Recycle Bin",
     "records": "{count, plural, one {# registro} other {# registros}}",
@@ -5455,6 +5523,7 @@
       "dados_limpar_mapeamento_comportamental": "Data: behavioral mapping cleanup",
       "lixeira_restaurar": "Trash: restore",
       "lixeira_esvaziar": "Trash: empty",
+      "simulador_sessao_encerrar_sem_devolutiva": "Simulators: session closed without feedback",
       "empresa_senha_teste": "Company: test password",
       "whatsapp_broadcast": "WhatsApp/Email — batch message",
       "whatsapp_magic_links": "WhatsApp — access magic links",

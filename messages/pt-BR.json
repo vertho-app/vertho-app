@@ -117,6 +117,8 @@
     "historyLegacy": "escala anterior",
     "historyAttention": "atenção",
     "resume": "Retomar treino",
+    "closedNoReport": "Encerrado sem relatório",
+    "closedBySupport": "Este atendimento foi encerrado pela equipe, sem relatório. A conversa continua no seu histórico, e você pode iniciar um novo atendimento quando quiser.",
     "yourReply": "Sua {n}ª resposta",
     "personLine": "{n}ª fala de {name}",
     "teamReply": "{n}ª resposta de quem atende",
@@ -1216,6 +1218,7 @@
         "salesChannel": "Canal Comercial",
         "receptionTraining": "Simulador de atendimento",
         "leadershipTraining": "Simulador de liderança",
+        "stalledTrainings": "Treinos parados",
         "salesTraining": "Simulador de vendas"
       },
       "subs": {
@@ -1264,6 +1267,7 @@
         "auditsSub": "Semana 13 · Semana 14",
         "salesChannelSub": "Representantes e propostas",
         "receptionPractice": "Recepção médica",
+        "stalledTrainingsSub": "Simuladores sem atividade",
         "leadershipPractice": "Cinco encontros conectados",
         "salesPractice": "Negociação PACE"
       },
@@ -3483,6 +3487,70 @@
       "callFailed": "Falha na chamada"
     }
   },
+  "AdminStalledTrainings": {
+    "title": "Treinos parados",
+    "refresh": "Atualizar",
+    "intro": "Treinos de vendas e de atendimento em andamento, sem atividade há mais de {hours} horas. Encerrar sem devolutiva libera a pessoa para abrir outro treino, não chama IA e não gera custo.",
+    "readOnly": "Você pode consultar a lista. Encerrar um treino exige a permissão de gerenciar os treinos dos simuladores.",
+    "scope": {
+      "all": "Todas as empresas",
+      "company": "Empresa selecionada"
+    },
+    "count": "{count, plural, one {# treino} other {# treinos}}",
+    "loadError": "Não foi possível carregar a lista. Tente novamente.",
+    "empty": "Nenhum treino parado há mais de {hours} horas.",
+    "truncated": "A lista mostra os {limit} treinos mais antigos. Encerre alguns e atualize para ver os demais.",
+    "personRemoved": "Cadastro removido",
+    "table": {
+      "simulator": "Simulador",
+      "person": "Pessoa",
+      "lastActivity": "Última atividade",
+      "status": "Estado",
+      "conversation": "Conversa",
+      "action": "Ação"
+    },
+    "simulators": {
+      "vendas": "Vendas",
+      "atendimento": "Atendimento"
+    },
+    "status": {
+      "em_andamento": "Em andamento",
+      "aguardando_avaliacao": "Aguardando avaliação"
+    },
+    "conversation": {
+      "yes": "Com conversa",
+      "no": "Sem conversa"
+    },
+    "close": {
+      "open": "Encerrar sem devolutiva",
+      "reasonLabel": "Motivo (obrigatório)",
+      "reasonPlaceholder": "Ex.: a avaliação falhou três vezes e a pessoa pediu ajuda ao suporte",
+      "reasonHelp": "Mínimo de {min} caracteres, registrado na auditoria. {count} de {max}.",
+      "effectWithConversation": "A conversa continua no histórico da pessoa, sem devolutiva e sem nota. Nenhuma IA é chamada e nada é cobrado. Depois disso a pessoa pode abrir outro treino.",
+      "effectWithoutConversation": "Este treino não tem conversa: ele é descartado. Nenhuma IA é chamada e nada é cobrado.",
+      "cancel": "Cancelar",
+      "submit": "Encerrar sem devolutiva",
+      "confirmTitle": "Encerrar este treino sem devolutiva?",
+      "confirmWithConversation": "O treino de {person} será encerrado sem devolutiva e sem nota. A conversa continua no histórico dela.",
+      "confirmWithoutConversation": "O treino de {person} será descartado. Ele não tem conversa."
+    },
+    "result": {
+      "done": "Treino encerrado sem devolutiva.",
+      "auditFailed": "O treino foi encerrado, mas o registro de auditoria não foi gravado. Avise a equipe técnica."
+    },
+    "errors": {
+      "motivo_obrigatorio": "Informe o motivo do encerramento, com {min} a {max} caracteres.",
+      "entrada_invalida": "Pedido de encerramento inválido. Atualize a lista e tente de novo.",
+      "nao_encontrada": "Treino não encontrado nesta empresa. Atualize a lista.",
+      "nao_elegivel": "Este treino não pode ser encerrado agora: já foi encerrado ou é um teste de administrador. Atualize a lista.",
+      "recente": "Este treino teve atividade nas últimas {hours} horas e não pode ser encerrado.",
+      "em_processamento": "Há um envio em processamento neste treino. Tente de novo em alguns minutos.",
+      "mudou": "O treino mudou durante o encerramento. Atualize a lista e tente de novo.",
+      "falha": "Não foi possível encerrar o treino. Tente novamente.",
+      "erro": "Não foi possível encerrar o treino. Tente novamente.",
+      "generic": "Não foi possível concluir. Tente novamente."
+    }
+  },
   "AdminTrash": {
     "title": "Lixeira",
     "records": "{count, plural, one {# registro} other {# registros}}",
@@ -5455,6 +5523,7 @@
       "dados_limpar_mapeamento_comportamental": "Dados: limpeza do mapeamento comportamental",
       "lixeira_restaurar": "Lixeira: restauração",
       "lixeira_esvaziar": "Lixeira: esvaziamento",
+      "simulador_sessao_encerrar_sem_devolutiva": "Simuladores: treino encerrado sem devolutiva",
       "empresa_senha_teste": "Empresa: senha de teste",
       "whatsapp_broadcast": "WhatsApp/Email — mensagem em lote",
       "whatsapp_magic_links": "WhatsApp — magic-links de acesso",

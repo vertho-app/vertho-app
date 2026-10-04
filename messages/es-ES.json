@@ -117,6 +117,8 @@
     "historyLegacy": "escala anterior",
     "historyAttention": "atención",
     "resume": "Retomar práctica",
+    "closedNoReport": "Finalizado sin informe",
+    "closedBySupport": "El equipo finalizó esta atención sin informe. La conversación sigue en tu historial y puedes iniciar una nueva atención cuando quieras.",
     "yourReply": "Tu respuesta n.º {n}",
     "personLine": "Mensaje n.º {n} de {name}",
     "teamReply": "Respuesta n.º {n} de quien atiende",
@@ -1216,6 +1218,7 @@
         "salesChannel": "Canal Comercial",
         "receptionTraining": "Simulador de atención",
         "leadershipTraining": "Simulador de liderazgo",
+        "stalledTrainings": "Prácticas detenidas",
         "salesTraining": "Simulador de ventas"
       },
       "subs": {
@@ -1264,6 +1267,7 @@
         "auditsSub": "Semana 13 · Semana 14",
         "salesChannelSub": "Representantes y propuestas",
         "receptionPractice": "Recepción médica",
+        "stalledTrainingsSub": "Simuladores sin actividad",
         "leadershipPractice": "Cinco encuentros conectados",
         "salesPractice": "Negociación PACE"
       },
@@ -3483,6 +3487,70 @@
       "callFailed": "Fallo en la llamada"
     }
   },
+  "AdminStalledTrainings": {
+    "title": "Prácticas detenidas",
+    "refresh": "Actualizar",
+    "intro": "Prácticas de ventas y de atención en curso, sin actividad desde hace más de {hours} horas. Finalizar sin devolución libera a la persona para abrir otra práctica, no llama a la IA y no genera coste.",
+    "readOnly": "Puedes consultar la lista. Finalizar una práctica requiere el permiso de gestionar las prácticas de los simuladores.",
+    "scope": {
+      "all": "Todas las empresas",
+      "company": "Empresa seleccionada"
+    },
+    "count": "{count, plural, one {# práctica} other {# prácticas}}",
+    "loadError": "No se pudo cargar la lista. Inténtalo de nuevo.",
+    "empty": "Ninguna práctica detenida desde hace más de {hours} horas.",
+    "truncated": "La lista muestra las {limit} prácticas más antiguas. Finaliza algunas y actualiza para ver el resto.",
+    "personRemoved": "Registro eliminado",
+    "table": {
+      "simulator": "Simulador",
+      "person": "Persona",
+      "lastActivity": "Última actividad",
+      "status": "Estado",
+      "conversation": "Conversación",
+      "action": "Acción"
+    },
+    "simulators": {
+      "vendas": "Ventas",
+      "atendimento": "Atención"
+    },
+    "status": {
+      "em_andamento": "En curso",
+      "aguardando_avaliacao": "Pendiente de evaluación"
+    },
+    "conversation": {
+      "yes": "Con conversación",
+      "no": "Sin conversación"
+    },
+    "close": {
+      "open": "Finalizar sin devolución",
+      "reasonLabel": "Motivo (obligatorio)",
+      "reasonPlaceholder": "Ej.: la evaluación falló tres veces y la persona pidió ayuda al soporte",
+      "reasonHelp": "Mínimo {min} caracteres, queda registrado en la auditoría. {count} de {max}.",
+      "effectWithConversation": "La conversación sigue en el historial de la persona, sin devolución y sin nota. No se llama a la IA y no se cobra nada. Después, la persona puede abrir otra práctica.",
+      "effectWithoutConversation": "Esta práctica no tiene conversación: se descarta. No se llama a la IA y no se cobra nada.",
+      "cancel": "Cancelar",
+      "submit": "Finalizar sin devolución",
+      "confirmTitle": "¿Finalizar esta práctica sin devolución?",
+      "confirmWithConversation": "La práctica de {person} se finalizará sin devolución y sin nota. La conversación sigue en su historial.",
+      "confirmWithoutConversation": "La práctica de {person} se descartará. No tiene conversación."
+    },
+    "result": {
+      "done": "Práctica finalizada sin devolución.",
+      "auditFailed": "La práctica se finalizó, pero el registro de auditoría no se guardó. Avisa al equipo técnico."
+    },
+    "errors": {
+      "motivo_obrigatorio": "Indica el motivo, con entre {min} y {max} caracteres.",
+      "entrada_invalida": "Solicitud no válida. Actualiza la lista e inténtalo de nuevo.",
+      "nao_encontrada": "Práctica no encontrada en esta empresa. Actualiza la lista.",
+      "nao_elegivel": "Esta práctica no se puede finalizar ahora: ya se finalizó o es una prueba de administrador. Actualiza la lista.",
+      "recente": "Esta práctica tuvo actividad en las últimas {hours} horas y no se puede finalizar.",
+      "em_processamento": "Hay un envío en proceso en esta práctica. Inténtalo de nuevo en unos minutos.",
+      "mudou": "La práctica cambió durante la finalización. Actualiza la lista e inténtalo de nuevo.",
+      "falha": "No se pudo finalizar la práctica. Inténtalo de nuevo.",
+      "erro": "No se pudo finalizar la práctica. Inténtalo de nuevo.",
+      "generic": "No se pudo completar. Inténtalo de nuevo."
+    }
+  },
   "AdminTrash": {
     "title": "Papelera",
     "records": "{count, plural, one {# registro} other {# registros}}",
@@ -5455,6 +5523,7 @@
       "dados_limpar_mapeamento_comportamental": "Datos: limpieza del mapeo conductual",
       "lixeira_restaurar": "Papelera: restauración",
       "lixeira_esvaziar": "Papelera: vaciado",
+      "simulador_sessao_encerrar_sem_devolutiva": "Simuladores: práctica finalizada sin devolución",
       "empresa_senha_teste": "Empresa: contraseña de prueba",
       "whatsapp_broadcast": "WhatsApp/Email — mensaje en lote",
       "whatsapp_magic_links": "WhatsApp — magic links de acceso",

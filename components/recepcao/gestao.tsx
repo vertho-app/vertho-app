@@ -461,7 +461,9 @@ export default function GestaoRecepcao({
                     <td data-rotulo={t('teamResult')}>
                       {/* Pelo status, como o histórico de quem treina: concluído sem média
                           geral (regra de cobertura) não é "Em andamento" (27/09/2026). */}
-                      {s.status !== RECEPCAO_SESSAO.CONCLUIDA
+                      {s.status === RECEPCAO_SESSAO.INTERROMPIDA
+                        ? t('closedNoReport')
+                        : s.status !== RECEPCAO_SESSAO.CONCLUIDA
                         ? t('teamInProgress')
                         : s.nota === null
                           ? t('noScore')

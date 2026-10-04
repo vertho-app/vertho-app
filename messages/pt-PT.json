@@ -117,6 +117,8 @@
     "historyLegacy": "escala anterior",
     "historyAttention": "atenção",
     "resume": "Retomar treino",
+    "closedNoReport": "Terminado sem relatório",
+    "closedBySupport": "Este atendimento foi terminado pela equipa, sem relatório. A conversa continua no seu histórico, e pode iniciar um novo atendimento quando quiser.",
     "yourReply": "A sua {n}.ª resposta",
     "personLine": "{n}.ª fala de {name}",
     "teamReply": "{n}.ª resposta de quem atende",
@@ -1216,6 +1218,7 @@
         "salesChannel": "Canal Comercial",
         "receptionTraining": "Simulador de atendimento",
         "leadershipTraining": "Simulador de liderança",
+        "stalledTrainings": "Treinos parados",
         "salesTraining": "Simulador de vendas"
       },
       "subs": {
@@ -1264,6 +1267,7 @@
         "auditsSub": "Semana 13 · Semana 14",
         "salesChannelSub": "Representantes e propostas",
         "receptionPractice": "Receção médica",
+        "stalledTrainingsSub": "Simuladores sem atividade",
         "leadershipPractice": "Cinco encontros ligados",
         "salesPractice": "Negociação PACE"
       },
@@ -3483,6 +3487,70 @@
       "callFailed": "Falha na chamada"
     }
   },
+  "AdminStalledTrainings": {
+    "title": "Treinos parados",
+    "refresh": "Atualizar",
+    "intro": "Treinos de vendas e de atendimento em curso, sem atividade há mais de {hours} horas. Terminar sem feedback liberta a pessoa para abrir outro treino, não chama IA e não gera custo.",
+    "readOnly": "Pode consultar a lista. Terminar um treino exige a permissão de gerir os treinos dos simuladores.",
+    "scope": {
+      "all": "Todas as empresas",
+      "company": "Empresa selecionada"
+    },
+    "count": "{count, plural, one {# treino} other {# treinos}}",
+    "loadError": "Não foi possível carregar a lista. Tente novamente.",
+    "empty": "Nenhum treino parado há mais de {hours} horas.",
+    "truncated": "A lista mostra os {limit} treinos mais antigos. Termine alguns e atualize para ver os restantes.",
+    "personRemoved": "Registo removido",
+    "table": {
+      "simulator": "Simulador",
+      "person": "Pessoa",
+      "lastActivity": "Última atividade",
+      "status": "Estado",
+      "conversation": "Conversa",
+      "action": "Ação"
+    },
+    "simulators": {
+      "vendas": "Vendas",
+      "atendimento": "Atendimento"
+    },
+    "status": {
+      "em_andamento": "Em curso",
+      "aguardando_avaliacao": "A aguardar avaliação"
+    },
+    "conversation": {
+      "yes": "Com conversa",
+      "no": "Sem conversa"
+    },
+    "close": {
+      "open": "Terminar sem feedback",
+      "reasonLabel": "Motivo (obrigatório)",
+      "reasonPlaceholder": "Ex.: a avaliação falhou três vezes e a pessoa pediu ajuda ao suporte",
+      "reasonHelp": "Mínimo de {min} caracteres, registado na auditoria. {count} de {max}.",
+      "effectWithConversation": "A conversa continua no histórico da pessoa, sem feedback e sem nota. Nenhuma IA é chamada e nada é cobrado. Depois disso a pessoa pode abrir outro treino.",
+      "effectWithoutConversation": "Este treino não tem conversa: é descartado. Nenhuma IA é chamada e nada é cobrado.",
+      "cancel": "Cancelar",
+      "submit": "Terminar sem feedback",
+      "confirmTitle": "Terminar este treino sem feedback?",
+      "confirmWithConversation": "O treino de {person} será terminado sem feedback e sem nota. A conversa continua no histórico dela.",
+      "confirmWithoutConversation": "O treino de {person} será descartado. Não tem conversa."
+    },
+    "result": {
+      "done": "Treino terminado sem feedback.",
+      "auditFailed": "O treino foi terminado, mas o registo de auditoria não foi gravado. Avise a equipa técnica."
+    },
+    "errors": {
+      "motivo_obrigatorio": "Indique o motivo, com {min} a {max} caracteres.",
+      "entrada_invalida": "Pedido inválido. Atualize a lista e tente de novo.",
+      "nao_encontrada": "Treino não encontrado nesta empresa. Atualize a lista.",
+      "nao_elegivel": "Este treino não pode ser terminado agora: já foi terminado ou é um teste de administrador. Atualize a lista.",
+      "recente": "Este treino teve atividade nas últimas {hours} horas e não pode ser terminado.",
+      "em_processamento": "Há um envio em processamento neste treino. Tente de novo dentro de alguns minutos.",
+      "mudou": "O treino mudou durante o encerramento. Atualize a lista e tente de novo.",
+      "falha": "Não foi possível terminar o treino. Tente novamente.",
+      "erro": "Não foi possível terminar o treino. Tente novamente.",
+      "generic": "Não foi possível concluir. Tente novamente."
+    }
+  },
   "AdminTrash": {
     "title": "Lixeira",
     "records": "{count, plural, one {# registo} other {# registos}}",
@@ -5455,6 +5523,7 @@
       "dados_limpar_mapeamento_comportamental": "Dados: limpeza do mapeamento comportamental",
       "lixeira_restaurar": "Lixo: restauro",
       "lixeira_esvaziar": "Lixo: esvaziamento",
+      "simulador_sessao_encerrar_sem_devolutiva": "Simuladores: treino terminado sem feedback",
       "empresa_senha_teste": "Empresa: palavra-passe de teste",
       "whatsapp_broadcast": "WhatsApp/Email — mensagem em lote",
       "whatsapp_magic_links": "WhatsApp — magic-links de acesso",

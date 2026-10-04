@@ -293,6 +293,12 @@ export async function executar(c: Ctx, cmd: z.infer<typeof comandoSchema>) {
       throw new RecepcaoError(409, 'Este treino já foi encerrado.');
   } else {
     if (s.status === RECEPCAO_SESSAO.CONCLUIDA) return { sessao: publico(row) };
+    // Encerrado pela equipe sem relatório (R-96): nenhuma avaliação nova, nem paga.
+    if (s.status === RECEPCAO_SESSAO.INTERROMPIDA)
+      throw new RecepcaoError(
+        409,
+        'Este atendimento foi encerrado pela equipe, sem relatório. A conversa continua no seu histórico; você pode iniciar um novo atendimento.',
+      );
     if (!s.respostas)
       throw new RecepcaoError(
         400,

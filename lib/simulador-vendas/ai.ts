@@ -322,7 +322,7 @@ export function gerador(
         throw new SimuladorError(
           502,
           etapa === 'gerente'
-            ? 'Não foi possível validar o relatório. A conversa foi preservada; tente novamente.'
+            ? 'Não foi possível validar o relatório. A conversa foi preservada; tente novamente. Se o erro continuar, fale com o suporte.'
             : 'Não foi possível concluir esta resposta. Tente novamente para continuar o treino.',
         );
       }
