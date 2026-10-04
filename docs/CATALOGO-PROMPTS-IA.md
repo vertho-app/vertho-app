@@ -689,7 +689,11 @@
 - **Consumido por**: `banco_cenarios` com `tipo_cenario = 'cenario_b'`, `competencia_id` nulo (NULL não colide no índice único `uq_banco_cenarios_b_celula`, mig 261, e a reavaliação, que indexa o B por competência, não o serve no lugar do B simples), `alternativas.competencias_integradas` (a cobertura que `escolherCenarioB` lê), `alternativas.cobertura_exata` (só serve a trilha de EXATAMENTE essas competências e não conta como B das células), `alternativas.competencia_por_pergunta` e `alternativas.p1..pN` (só `p1..p4` existem como colunas). A rota `/api/temporada/evaluation` serve todas as perguntas (`perguntasDoCenarioB`) com a competência como dimensão; o scorer do fechamento pontua por descritor, agrupando a régua pela competência de cada um.
 
 ### 5.3 Reavaliação conversacional (sessão 8 turnos)
-> `ATIVO` · Prompt documentado como: `resumo_editorial`
+> `LEGADO` · Prompt documentado como: `resumo_editorial`
+
+> ⛔ **Removido em 04/10/2026 (Onda E):** `processarReavaliacao` não tinha chamador (nenhuma tela, rota, cron, task ou script) e
+> saiu com o prompt e a tarefa `reavaliacao_chat`. O texto abaixo fica
+> como registro do prompt; não há mais chamada no código.
 
 - **Arquivo**: `actions/fase5/reavaliacao.ts::buildReavSystemPrompt` + `processarReavaliacao`
 - **Modelo default**: Claude Sonnet 4.6
@@ -734,7 +738,10 @@
 - **Consumido por**: `reavaliacao_sessoes.historico`.
 
 ### 5.4 Extração qualitativa (após encerrar reavaliação)
-> `ATIVO` · Prompt documentado como: `resumo_editorial`
+> `LEGADO` · Prompt documentado como: `resumo_editorial`
+
+> ⛔ **Removido em 04/10/2026 (Onda E):** `extrairDadosReavaliacao` só era chamada por `processarReavaliacao` (5.3) e saiu com ela. O texto abaixo fica
+> como registro do prompt; não há mais chamada no código.
 
 - **Arquivo**: `actions/fase5/reavaliacao.ts::extrairDadosReavaliacao`
 - **Max tokens**: 8192
@@ -1974,7 +1981,11 @@ Cinco prompts migrados do simulador RNaves, sem alteração intencional do texto
 - **Consumido por**: `banco_cenarios`.
 
 ### 15.2 Evolução Granular (por descritor)
-> `ATIVO` · Prompt documentado como: `resumo_editorial`
+> `LEGADO` · Prompt documentado como: `resumo_editorial`
+
+> ⛔ **Removido em 04/10/2026 (Onda E):** `actions/evolucao-granular.ts` (`gerarEvolucaoDescritores` e `gerarConvergenciaCIS`) não tinha
+> chamador (nenhuma tela, rota, task ou script). A tabela `evolucao_descritores` ficou sem leitor. O texto abaixo fica
+> como registro do prompt; não há mais chamada no código.
 
 - **Arquivo**: `actions/evolucao-granular.ts::gerarEvolucaoDescritores`
 - **Max tokens**: 32768

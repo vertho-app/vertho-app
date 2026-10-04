@@ -144,7 +144,7 @@ simulado; não confundem entrega da instrução com obediência do modelo).
 | Insumo | Onde vive | Quem produz | Obrigatório? |
 |---|---|---|---|
 | Colaborador | `colaboradores` (`nome_completo`, `cargo`, `empresa_id`) | cadastro / import | **sim** |
-| **DISC** | `colaboradores`: `perfil_dominante`, `d/i/s/c_natural`, `lid_*` | `actions/simulador-disc.ts` (simulação demo), import externo — `actions/evolucao-granular.ts` só **lê** o DISC (projeção; o upsert dela é em `evolucao_descritores`) | **não** p/ blueprint (`lib/blueprint/core.ts:149`); **sim** p/ Kit |
+| **DISC** | `colaboradores`: `perfil_dominante`, `d/i/s/c_natural`, `lid_*` | `actions/simulador-disc.ts` (simulação demo), import externo. Nenhuma action de evolução escreve o DISC (`actions/evolucao-granular.ts`, que só o lia, foi removido em 04/10/2026) | **não** p/ blueprint (`lib/blueprint/core.ts:149`); **sim** p/ Kit |
 | Preferência de formato | `colaboradores.pref_*` (likert 1–5) | cadastro | não (default vídeo) |
 | **Foco do cargo** | `cargos_empresa.competencias_foco` (TEXT[], mig 174), fallback `competencia_foco` | tela de Cargos (⭐) | **sim** p/ blueprint |
 | **Assessment** | `descriptor_assessments` (`colaborador_id`, `competencia`, `descritor`, `nota` 1–4) | **IA4** (`actions/fase3.ts:320`, `origem:'ia4'`, clamp 1.0–4.0) ou nota manual (`actions/assessment-descritores.ts:77`) | **sim** |

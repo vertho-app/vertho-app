@@ -360,7 +360,6 @@ nextjs-app/
 │   ├── assessment-descritores.ts # CRUD assessment descritores
 │   ├── cenario-b.ts              # Cenario B
 │   ├── check-ia4.ts              # Validacao 4D x 25pts = 100
-│   ├── evolucao-granular.ts      # Delta por descritor
 │   ├── fit-v2.ts                 # Calculo Fit v2
 │   ├── trilhas-load.ts           # Carregar trilhas
 │   ├── competencias.ts           # CRUD por empresa
@@ -1179,7 +1178,7 @@ Tabelas: empresas, colaboradores, platform_admins
 > Isso explica a nota de `prompt_versions` (§ acima, "rota com 0 sessões") e
 > alcança mais coisa do que parece: `/dashboard/assessment/chat`,
 > `/dashboard/evolucao` (que lê `evolucao` e `evolucao_descritores`, ambas em 0),
-> `actions/cenario-b.ts`, `actions/evolucao-granular.ts`, o cron de sessões
+> `actions/cenario-b.ts`, `actions/evolucao-granular.ts` (removido em 04/10/2026), o cron de sessões
 > abandonadas em `cron-jobs.ts` e os componentes `ManagerView.tsx` / `RHView.tsx`
 > (estes dois já não tinham importador e foram removidos em 04/10/2026).
 >
@@ -2753,6 +2752,14 @@ nunca existiu em `app/`, e nenhuma tela o chamava. Foi removido. Na mesma rodada
 os links `/avaliacao/{token}` e `/relatorio/{id}` apontavam para rotas que não existem) e o
 `loadWhatsappStatus` (um contador de pendentes que nenhuma tela lia). Sobra o `verStatusEnvios`,
 que só lê.
+
+⚠️ **Atualização de 04/10/2026 (reavaliação e evolução granular):** saíram
+`actions/evolucao-granular.ts` (`gerarEvolucaoDescritores` e `gerarConvergenciaCIS`, sem chamador; a
+tabela `evolucao_descritores` ficou sem leitor no código) e `processarReavaliacao`, com o que só ele
+usava (`buildReavSystemPrompt`, `extrairDadosReavaliacao` e a tarefa `reavaliacao_chat`). A conversa de
+reavaliação da Fase 5 deixou de existir no código. O `iniciarReavaliacaoLote` segue no repositório, com
+wrapper no admin mas sem botão, criando `reavaliacao_sessoes` que nada mais conduz; essa tabela segue
+lida por `gerarEvolucaoFusao` e pelo painel do gestor.
 
 ### 27.3 Tabelas sem tela e sem código
 

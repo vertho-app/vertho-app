@@ -124,7 +124,7 @@ empresa (§2.3), e aí o provedor é o do modelo escolhido.
 | Relatório comportamental (DISC) e insights executivos | nome, perfil DISC | modelo da tarefa | **não** | `lib/prompts/behavioral-report-prompt.js`, `lib/prompts/insights-executivos-prompt.js` |
 | Devolutiva comportamental em áudio | primeiro nome no roteiro e na voz | modelo da tarefa + **Google** (TTS) | **não, por desenho** (a voz diz o nome) | `lib/relatorio-comportamental/devolutiva-audio.ts` |
 | Saudação nominal do vídeo | primeiro nome | **Google** (TTS, no servidor Hetzner) | **não, por desenho** | `worker-hetzner/personalizar.mjs` |
-| Fase 5 (evolução e reavaliação conversacional) | nome, cargo, respostas | modelo da tarefa | **não** | `actions/fase5/evolucao.ts`, `actions/fase5/reavaliacao.ts` |
+| Fase 5 (evolução) | nome, cargo, respostas | modelo da tarefa | **não** | `actions/fase5/evolucao.ts` |
 | Simulador de conversas (ferramenta do admin) | nome, cargo | modelo escolhido | **não** (ferramenta interna, gera respostas sintéticas) | `actions/simulador-conversas.ts` |
 
 ### 2.3 Provedores de IA
