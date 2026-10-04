@@ -21,11 +21,13 @@ import { relatorioDocumental } from '../fixtures/simulador-vendas-matriz';
 const MENSAGENS = JSON.parse(readFileSync('messages/pt-BR.json', 'utf8'));
 const html = (children: ReactElement) =>
   renderToStaticMarkup(
-    createElement(
-      NextIntlClientProvider,
-      { locale: 'pt-BR', messages: MENSAGENS, timeZone: 'America/Sao_Paulo' },
+    // `children` nas props, como os outros testes de tela: o tipo do provider o exige.
+    createElement(NextIntlClientProvider, {
+      locale: 'pt-BR',
+      messages: MENSAGENS,
+      timeZone: 'America/Sao_Paulo',
       children,
-    ),
+    }),
   );
 const ocorrencias = (texto: string, trecho: string) => texto.split(trecho).length - 1;
 
