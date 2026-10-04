@@ -5,6 +5,7 @@ import { requireUserAction } from '@/lib/auth/action-context';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
 import { calcularParticipacao } from '@/lib/season-engine/participacao';
 import { TRILHA } from '@/lib/status';
+import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 
 /**
  * Carrega dados pra tela "Temporada Concluída" do colaborador.
@@ -29,7 +30,7 @@ export async function loadTemporadaConcluida(email: string, trilhaId?: string) {
   if (!canViewColabJourney(ctx, colab)) return { error: 'Sem permissão' };
 
   let trilhaQuery = sb.from('trilhas')
-    .select('id, competencia_foco, competencias_foco, numero_temporada, status, evolution_report, descritores_selecionados, temporada_plano')
+    .select('id, competencia_foco, competencias_foco, numero_temporada, status, evolution_report, descritores_selecionados, temporada_plano, programa_modo, programa_config')
     .eq('colaborador_id', colab.id)
     .eq('empresa_id', colab.empresa_id);
   // Sem `trilhaId`: a temporada CONCLUÍDA mais recente, não a trilha mais
@@ -86,10 +87,12 @@ export async function loadTemporadaConcluida(email: string, trilhaId?: string) {
       sintese: p.feedback.sintese_bloco || null,
     }));
 
-  // Semana do cenário B = última semana com tipo:'avaliacao' no plano
+  // Semana do cenário B = última semana com tipo:'avaliacao' no plano. Plano sem
+  // avaliação (o Personalizado sem fechamento) não tem cenário B: não cai na
+  // semana 14, que uma trilha de 3 semanas não tem.
   const semsAval = plano.filter((s: any) => s?.tipo === 'avaliacao').map((s: any) => s.semana);
-  const semCenarioB = semsAval.length ? Math.max(...semsAval) : 14;
-  const progCenarioB = (progressos || []).find(p => p.semana === semCenarioB);
+  const semCenarioB = semsAval.length ? Math.max(...semsAval) : null;
+  const progCenarioB = semCenarioB == null ? undefined : (progressos || []).find(p => p.semana === semCenarioB);
   const sem14 = progCenarioB?.feedback ? {
     cenario: progCenarioB.feedback.cenario || null,
     resposta: progCenarioB.feedback.cenario_resposta || null,
@@ -111,7 +114,9 @@ export async function loadTemporadaConcluida(email: string, trilhaId?: string) {
         ? trilha.competencias_foco.join(' + ')
         : trilha.competencia_foco,
       numeroTemporada: trilha.numero_temporada,
-      totalSemanas: plano.length || 14,
+      // A duração do programa DESTA trilha (R-29): a mesma conta do certificado, do
+      // WhatsApp e do painel do gestor. Era `plano.length || 14`.
+      totalSemanas: duracaoDaTrilha(trilha),
     },
     evolutionReport: trilha.evolution_report,
     certificado: { elegivel: participacao.elegivel, pct: Math.round(participacao.pct * 100) },

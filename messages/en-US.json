@@ -688,11 +688,13 @@
     "fallbackFirstName": "you",
     "fallbackPhaseTitle": "Diagnosis",
     "phaseDescriptions": {
-      "1": "Answer the scenarios to map your current level.",
-      "2": "Your development path is being set up.",
-      "3": "Follow your 14-week season and evolve.",
-      "4": "Practice and record evidence of your progress.",
+      "1": "Complete the mapping to learn your behavioral profile.",
+      "2": "Answer the scenarios to map your current level.",
+      "3": "Your individual development plan is built from your results.",
+      "4": "Follow your {weeks}-week season and evolve.",
       "5": "Final stage of reevaluation and consolidation.",
+      "profileWaiting": "The behavioral profile will be released by HR after the skills vote is completed.",
+      "trailBuilding": "Your development path is being set up.",
       "fallback": "Continue your development journey."
     },
     "phaseLabels": {
@@ -1034,6 +1036,7 @@
       "externalProfile": "Your company uses its own behavioral mapping. You don't need to repeat it on Vertho.",
       "waitingProfile": "The behavioral profile will be released by HR after the skills vote is completed.",
       "profileFirst": "Complete your behavioral profile first: the competency mapping comes after it.",
+      "trailPending": "The season, with content, practice and reflection, starts once your path is set up.",
       "fallback": "Continue your development journey."
     },
     "header": {
@@ -1661,6 +1664,7 @@
     },
     "progress": {
       "done": "Assessment completed",
+      "finalCompetency": "Final assessment · {competency}",
       "weekCompetency": "Week {week} · {competency}"
     },
     "question": {
@@ -1758,7 +1762,7 @@
     },
     "qualitative": {
       "title": "Qualitative closing",
-      "description": "The time has come to look back. Let's talk about what changed in you in these 12 weeks, going through each descriptor."
+      "description": "The time has come to look back. Let's talk about what changed in you in these {weeks} weeks, going through each descriptor."
     },
     "finalScenario": {
       "title": "Final scenario",
@@ -1969,7 +1973,8 @@
     },
     "hero": {
       "eyebrow": "Season {number}",
-      "subtitle": "{weeks} weeks to <evolve>evolve</evolve> 1 skill to <level>next level</level>"
+      "subtitlePilot": "{weeks, plural, one {# week} other {# weeks}} to try the method on {count, plural, one {1 skill} other {# skills}}",
+      "subtitle": "{weeks, plural, one {# week} other {# weeks}} to <evolve>evolve</evolve> {count, plural, one {1 skill} other {# skills}} to <level>next level</level>"
     },
     "paused": "His season has been paused by the manager. You will be able to continue when it resumes.",
     "viewFullReport": "See full season report →",
@@ -3731,7 +3736,7 @@
       "archive": "Archive",
       "selectedDescriptors": "Selected descriptors",
       "descriptorMeta": "note {score} · gap {gap} · {weeks} without",
-      "planTitle": "14 week plan",
+      "planTitle": "{weeks} week plan",
       "fallbackSuffix": "(fallback)",
       "regenerateWeek": "Regenerate week {week}",
       "weekOneChallenge": "Challenge week 1"
@@ -5375,7 +5380,7 @@
       "title": "Program mode",
       "desc": "Journey = 7 weeks, one competency at a time (6 content weeks and the assessment). Onboarding = 10 spiral weeks covering up to 5 competencies (new graduates, supervised autonomy). Custom = a Journey with the length you choose.",
       "journey": "Journey (7 weeks)",
-      "journeyDesc": "6 content weeks + assessment · 1 competency · 1 task per week. DUO = 2 journeys back to back",
+      "journeyDesc": "6 content weeks + assessment · 1 competency at a time · 1 task per week. When one journey ends, the next competency's journey starts on its own",
       "onboarding": "Onboarding (10 weeks)",
       "onboardingDesc": "5 competencies · target level 2",
       "onboardingNote": "Onboarding mode is active. Configure <code>sys_config.competencias_onboarding</code> (array of 5 names) or run IA1 for the role; the engine uses the top 5 from <code>top10_cargos</code> as fallback.",
@@ -5385,9 +5390,9 @@
       "junior": "Junior (new graduate)",
       "pleno": "Mid-level (no explicit bias)",
       "senior": "Senior",
-      "careerHint": "In Onboarding mode, <b>junior</b> is the sensible default. Regular mode usually stays blank.",
+      "careerHint": "In Onboarding, <b>junior</b> is the sensible default. Other formats usually stay blank.",
       "blueprintTitle": "PDI ↔ track coherence (Development Blueprint)",
-      "blueprintDesc": "When enabled, the track (Regular DUO) is generated <b>from the employee's Development Blueprint</b> — the same competencies, descriptors, and goals as the PDI. Each week now shows the PDI action it supports. Requires a generated blueprint (button \"Generate Blueprint\"). Applies only to the next track generation.",
+      "blueprintDesc": "Applies only to the Regular DUO format, which is discontinued: when enabled, the track is generated <b>from the employee's Development Blueprint</b>, with the same competencies, descriptors, and goals as the PDI. Each week now shows the PDI action it supports. Requires a generated blueprint (button \"Generate Blueprint\"). Applies only to the next track generation. In the Journey and Custom formats the track already uses the blueprint when one exists, without depending on this setting.",
       "blueprintOn": "Blueprint-driven track (on)",
       "blueprintOff": "Default track (blueprint off)",
       "blueprintHint": "We recommend auditing the blueprint before enabling it in a pilot.",
@@ -5480,7 +5485,8 @@
     "cadence": {
       "title": "Phase 4 — Weekly cadence",
       "pillDay": "1st pill day",
-      "pill2Day": "2nd pill day (DUO)",
+      "pill2Day": "2nd pill day",
+      "note": "The 2nd pill is only sent in weeks with two contents: every content week of the Journey and Custom formats. Onboarding has one pill per week. The assessment week and the practice mission weeks have no new pill.",
       "evidenceDay": "Evidence day"
     },
     "sends": {

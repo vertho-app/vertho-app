@@ -875,7 +875,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               </select>
             </div>
           </div>
-          <p className="text-[11px] text-gray-500">A 2ª pílula só é enviada nas semanas DUO (2 descritores). Semanas de implementação (4, 8, 12) não têm pílula nova.</p>
+          <p className="text-[11px] text-gray-500">{t('cadence.note')}</p>
         </Panel>
       )}
 

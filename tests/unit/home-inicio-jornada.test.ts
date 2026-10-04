@@ -44,7 +44,8 @@ describe('a home usa a régua (guard de fonte)', () => {
   });
   it('a leitura da trilha da home traz data_inicio nos dois caminhos', () => {
     expect(readFileSync('lib/home/loaders.ts', 'utf8')).toMatch(/select\('competencia_foco, numero_temporada, status, temporada_plano, data_inicio'\)/);
-    expect(readFileSync('app/dashboard/home-actions.ts', 'utf8')).toMatch(/criado_em, data_inicio'\)/);
+    // Com o carimbo e o snapshot do programa depois (a duração da trilha, R-29).
+    expect(readFileSync('app/dashboard/home-actions.ts', 'utf8')).toMatch(/criado_em, data_inicio(, programa_modo, programa_config)?'\)/);
   });
 });
 

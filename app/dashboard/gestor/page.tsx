@@ -681,9 +681,12 @@ function EquipeSection({ equipe, fonteExterna, filtro, setFiltro, onVoltarAcoes 
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <StatusPill status={e.status} />
-              {e.semana != null && (
+              {/* `semana` e `totalSemanas` saem juntos do servidor (a mesma conta,
+                  `duracaoDaTrilha`): sem o total não há "X/N" nem barra a mostrar,
+                  e o número de outro programa (o antigo `|| 14`) não entra no lugar. */}
+              {e.semana != null && e.totalSemanas != null && (
                 <div className="hidden sm:block w-20">
-                  <div className="text-[9px] text-white/45 mb-0.5 text-right">{t('team.weekProgress', { week: e.semana, total: e.totalSemanas || 14 })}</div>
+                  <div className="text-[9px] text-white/45 mb-0.5 text-right">{t('team.weekProgress', { week: e.semana, total: e.totalSemanas })}</div>
                   <div className="h-1 rounded-full overflow-hidden bg-white/[0.06]">
                     {/* D1: o TETO da barra é o programa da pessoa. Com 14 fixo,
                         uma jornada de 7 semanas nunca passa de 50% — a barra diz
@@ -691,7 +694,7 @@ function EquipeSection({ equipe, fonteExterna, filtro, setFiltro, onVoltarAcoes 
                         só que escondido dentro da string de tradução
                         ("sem {week}/14"): a barra já estava certa e o texto ao
                         lado dela dizia "3/14" numa jornada de 7. */}
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, (e.semana / (e.totalSemanas || 14)) * 100)}%`, background: '#34c5cc' }} />
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, (e.semana / e.totalSemanas) * 100)}%`, background: '#34c5cc' }} />
                   </div>
                 </div>
               )}

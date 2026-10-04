@@ -688,11 +688,13 @@
     "fallbackFirstName": "você",
     "fallbackPhaseTitle": "Diagnóstico",
     "phaseDescriptions": {
-      "1": "Responda os cenários para mapear seu nível atual.",
-      "2": "Sua trilha de desenvolvimento está sendo montada.",
-      "3": "Siga sua temporada de 14 semanas e evolua.",
-      "4": "Pratique e registre evidências do seu progresso.",
+      "1": "Responda ao mapeamento para conhecer o seu perfil comportamental.",
+      "2": "Responda os cenários para mapear seu nível atual.",
+      "3": "Seu plano de desenvolvimento individual é montado a partir dos seus resultados.",
+      "4": "Siga sua temporada de {weeks} semanas e evolua.",
       "5": "Etapa final de reavaliação e consolidação.",
+      "profileWaiting": "O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.",
+      "trailBuilding": "Sua trilha de desenvolvimento está sendo montada.",
       "fallback": "Continue sua jornada de desenvolvimento."
     },
     "phaseLabels": {
@@ -1034,6 +1036,7 @@
       "externalProfile": "Sua empresa usa mapeamento comportamental próprio. Você não precisa refazer o mapeamento na Vertho.",
       "waitingProfile": "O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.",
       "profileFirst": "Faça o seu perfil comportamental antes: o mapeamento de competências vem depois dele.",
+      "trailPending": "A temporada, com conteúdo, prática e reflexão, começa quando a sua trilha estiver montada.",
       "fallback": "Continue sua jornada de desenvolvimento."
     },
     "header": {
@@ -1661,6 +1664,7 @@
     },
     "progress": {
       "done": "Avaliação concluída",
+      "finalCompetency": "Avaliação final · {competency}",
       "weekCompetency": "Semana {week} · {competency}"
     },
     "question": {
@@ -1758,7 +1762,7 @@
     },
     "qualitative": {
       "title": "Fechamento qualitativo",
-      "description": "Chegou a hora de olhar pra trás. Vamos conversar sobre o que mudou em você nessas 12 semanas, percorrendo cada descritor."
+      "description": "Chegou a hora de olhar pra trás. Vamos conversar sobre o que mudou em você nessas {weeks} semanas, percorrendo cada descritor."
     },
     "finalScenario": {
       "title": "Cenário final",
@@ -1969,7 +1973,8 @@
     },
     "hero": {
       "eyebrow": "Temporada {number}",
-      "subtitle": "{weeks} semanas para <evolve>evoluir</evolve> 1 competência ao <level>próximo nível</level>"
+      "subtitlePilot": "{weeks, plural, one {# semana} other {# semanas}} para experimentar o método em {count, plural, one {1 competência} other {# competências}}",
+      "subtitle": "{weeks, plural, one {# semana} other {# semanas}} para <evolve>evoluir</evolve> {count, plural, one {1 competência} other {# competências}} ao <level>próximo nível</level>"
     },
     "paused": "Sua temporada está pausada pelo gestor. Você poderá continuar quando for retomada.",
     "viewFullReport": "Ver relatório completo da temporada →",
@@ -3731,7 +3736,7 @@
       "archive": "Arquivar",
       "selectedDescriptors": "Descritores selecionados",
       "descriptorMeta": "nota {score} · gap {gap} · {weeks} sem",
-      "planTitle": "Plano de 14 semanas",
+      "planTitle": "Plano de {weeks} semanas",
       "fallbackSuffix": " (fallback)",
       "regenerateWeek": "Regerar semana {week}",
       "weekOneChallenge": "Desafio semana 1"
@@ -5375,7 +5380,7 @@
       "title": "Modo do programa",
       "desc": "Jornada = 7 semanas, uma competência por vez (6 de conteúdo e a avaliação). Onboarding = 10 semanas em espiral cobrindo até 5 competências (recém-formados, autonomia supervisionada). Personalizado = uma Jornada com a duração que você escolher.",
       "journey": "Jornada (7 semanas)",
-      "journeyDesc": "6 semanas de conteúdo + avaliação · 1 competência · 1 tarefa por semana. DUO = 2 jornadas em sequência",
+      "journeyDesc": "6 semanas de conteúdo + avaliação · 1 competência por vez · 1 tarefa por semana. Ao concluir, a jornada da competência seguinte começa sozinha",
       "onboarding": "Onboarding (10 semanas)",
       "onboardingDesc": "5 competências · nível-meta 2",
       "onboardingNote": "Modo Onboarding ativo. Configure <code>sys_config.competencias_onboarding</code> (array de 5 nomes) ou rode IA1 pro cargo; a engine usa o top 5 do <code>top10_cargos</code> como fallback.",
@@ -5385,9 +5390,9 @@
       "junior": "Junior (recém-formado)",
       "pleno": "Pleno (sem viés explícito)",
       "senior": "Senior",
-      "careerHint": "No Modo Onboarding o default sensato é <b>junior</b>. Modo Regular geralmente fica em branco.",
+      "careerHint": "No Onboarding o default sensato é <b>junior</b>. Nos demais formatos geralmente fica em branco.",
       "blueprintTitle": "Coerência PDI ↔ trilha (Development Blueprint)",
-      "blueprintDesc": "Quando ligado, a trilha (Regular DUO) é gerada <b>a partir do Development Blueprint</b> do colaborador — as mesmas competências, descritores e objetivos do PDI. Cada semana passa a exibir a ação do PDI que ela sustenta. Requer blueprint gerado (botão \"Gerar Blueprint\"). Vale só para a próxima geração de trilha.",
+      "blueprintDesc": "Vale só para o formato Regular DUO, descontinuado: ligado, a trilha é gerada <b>a partir do Development Blueprint</b> do colaborador, com as mesmas competências, descritores e objetivos do PDI. Cada semana passa a exibir a ação do PDI que ela sustenta. Requer blueprint gerado (botão \"Gerar Blueprint\"). Vale só para a próxima geração de trilha. Na Jornada e no Personalizado a trilha já usa o blueprint, quando ele existe, sem depender desta chave.",
       "blueprintOn": "Trilha dirigida pelo blueprint (ligado)",
       "blueprintOff": "Trilha padrão (blueprint desligado)",
       "blueprintHint": "Recomendado auditar o blueprint antes de ligar em um piloto.",
@@ -5480,7 +5485,8 @@
     "cadence": {
       "title": "Fase 4 — Cadência Semanal",
       "pillDay": "Dia da 1ª Pílula",
-      "pill2Day": "Dia da 2ª Pílula (DUO)",
+      "pill2Day": "Dia da 2ª Pílula",
+      "note": "A 2ª pílula só é enviada nas semanas com dois conteúdos: todas as semanas de conteúdo da Jornada e do Personalizado. O Onboarding tem uma pílula por semana. A semana de avaliação e as semanas de missão prática não têm pílula nova.",
       "evidenceDay": "Dia da Evidência"
     },
     "sends": {

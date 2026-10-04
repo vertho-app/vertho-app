@@ -15,6 +15,7 @@ import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-c
 import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
 import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha, qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating';
+import { semanasDeDesenvolvimentoDoPlano } from '@/lib/season-engine/duracao-trilha';
 import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, fechamentoSeguro } from '@/lib/season-engine/fechamento-conversa';
 import { escolherCenarioB } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
@@ -235,6 +236,9 @@ export async function POST(request) {
         descritores,
         insightsAnteriores: insightsAnterioresMask,
         turnIA: proximoTurnIA, totalTurns: TOTAL,
+        // As semanas que a conversa cita vêm do PLANO desta trilha (R-29): a
+        // Ibipeba tem 7 de desenvolvimento antes da qualitativa, não 12.
+        semanasDeDesenvolvimento: semanasDeDesenvolvimentoDoPlano(trilha.temporada_plano),
       });
       const messages = historicoMaskQ.map(m => ({ role: m.role, content: m.content }));
       if (proximoTurnIA === 1 && messages.length === 0) {

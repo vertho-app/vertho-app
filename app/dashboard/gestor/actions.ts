@@ -8,6 +8,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
 import { PROGRESSO, TRILHA, TURMA_MEMBRO } from '@/lib/status';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
+import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 import { estaAtrasada, semanasDeAtraso } from '@/lib/season-engine/atraso';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
 import {
@@ -303,12 +304,17 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   }
 
   // ── 2. Trilhas mais recentes por liderado ──
-  const { data: trilhas } = await sb.from('trilhas')
-    // D1: `programa_modo` entra para a duração sair do literal 14. É coluna de
-    // TEXTO — `temporada_plano` seria o jsonb inteiro de cada trilha do gestor.
-    .select('id, colaborador_id, competencia_foco, numero_temporada, status, evolution_report, criado_em, data_inicio, programa_modo')
+  const { data: trilhas, error: errTrilhas } = await sb.from('trilhas')
+    // D1: `programa_modo` e `programa_config` entram para a duração sair do
+    // literal 14. São colunas pequenas: `temporada_plano` seria o jsonb inteiro
+    // de cada trilha do gestor. O snapshot importa: a Ibipeba é `regular_duo` com
+    // 9 semanas, e só o rótulo diria 14 (e acusaria de atraso quem já concluiu tudo).
+    .select('id, colaborador_id, competencia_foco, numero_temporada, status, evolution_report, criado_em, data_inicio, programa_modo, programa_config')
     .in('colaborador_id', liderIds)
     .order('criado_em', { ascending: false });
+  // Leitura que falha NÃO vira "ninguém tem trilha": a equipe inteira apareceria
+  // "sem trilha" e o gestor cobraria o que já está andando.
+  if (errTrilhas) return { ok: false, error: `Não foi possível ler as trilhas da equipe agora: ${errTrilhas.message}` };
   const trilhaPorColab = new Map<string, any>();
   for (const t of (trilhas || [])) {
     if (!trilhaPorColab.has(t.colaborador_id)) trilhaPorColab.set(t.colaborador_id, t);
@@ -336,7 +342,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     const dias = Math.max(1, Math.floor((Date.now() - inicio) / (24 * 3600 * 1000)));
     // D1: o teto é o do PROGRAMA da pessoa (jornada 7, onboarding 10, piloto 3),
     // não o 14 do formato regular.
-    const semana = Math.min(getProgramaConfigDaTrilha(t).semanas, Math.ceil(dias / 7));
+    const semana = Math.min(duracaoDaTrilha(t), Math.ceil(dias / 7));
     porSemana.set(semana, (porSemana.get(semana) || 0) + 1);
   }
   const distribuicaoSemanas = [...porSemana.entries()]
@@ -475,7 +481,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     for (const t of emCurso) {
       const args = {
         dataInicio: t.data_inicio,
-        totalSemanas: getProgramaConfigDaTrilha(t).semanas,
+        totalSemanas: duracaoDaTrilha(t),
         semanasConcluidas: concluidasPorTrilha.get(t.id) || 0,
       };
       concluidasPorColab.set(t.colaborador_id, args.semanasConcluidas);
@@ -654,7 +660,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     let totalSemanas: number | null = null;
     if (t?.data_inicio && (t.status === 'ativa' || t.status === 'pausada')) {
       const dias = Math.max(1, Math.floor((Date.now() - new Date(t.data_inicio).getTime()) / (24 * 3600 * 1000)));
-      totalSemanas = getProgramaConfigDaTrilha(t).semanas;
+      totalSemanas = duracaoDaTrilha(t);
       semana = Math.min(totalSemanas, Math.ceil(dias / 7));
     }
     let delta: number | null = null;

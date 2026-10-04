@@ -17,6 +17,7 @@ import { ContentThumb } from '@/components/content-thumb';
 import { getRecommendedContentHref } from '@/lib/home/recommended-content-link';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { inicioDaJornadaAindaFuturo, formatarInicioDaJornada } from '@/lib/home/inicio-jornada';
+import { descricaoDaFase } from '@/lib/home/fase-descricao';
 
 const BUNNY_LIBRARY = 636615;
 
@@ -181,22 +182,17 @@ export default function DashboardHomePage() {
   const faseNum: number = kpis?.fase?.numero || 1;
   const faseTitulo = kpis?.fase?.titulo || t('fallbackPhaseTitle');
   // D1: o avanço DENTRO da fase 4 é sobre o total do programa da pessoa, não
-  // sobre 14 fixo — numa jornada de 7 semanas a barra travava na metade.
-  const totalSemanasTrilha = kpis?.pilula?.totalSemanas || 14;
-  const pct = kpis?.fase?.concluida ? 100 : Math.round(((faseNum - 1) / 5) * 100 + (kpis?.pilula?.semana ? (kpis.pilula.semana / totalSemanasTrilha) * 20 : 0));
+  // sobre 14 fixo: numa jornada de 7 semanas a barra travava na metade. O total
+  // vem do servidor (`duracaoDaTrilha`) junto da semana; sem ele não há avanço
+  // dentro da fase a mostrar, e a conta não inventa o de outro programa (R-29).
+  const totalSemanasTrilha: number | null = kpis?.pilula?.totalSemanas ?? null;
+  const avancoNaFase4 = kpis?.pilula?.semana && totalSemanasTrilha ? (kpis.pilula.semana / totalSemanasTrilha) * 20 : 0;
+  const pct = kpis?.fase?.concluida ? 100 : Math.round(((faseNum - 1) / 5) * 100 + avancoNaFase4);
   const competencia = data.competenciaFoco;
   // Trilha pronta, semana 1 ainda trancada (a trilha nasce na PRÓXIMA segunda):
   // o CTA diz quando começa, em vez de "Iniciar atividade de hoje" (R-86).
   const inicioFuturo = competencia ? inicioDaJornadaAindaFuturo(data?.temporada?.data_inicio) : null;
   const phaseTokens = PHASE_TOKENS[faseNum] ?? PHASE_TOKENS[2];
-
-  const faseDescricoes: Record<number, string> = {
-    1: t('phaseDescriptions.1'),
-    2: t('phaseDescriptions.2'),
-    3: t('phaseDescriptions.3'),
-    4: t('phaseDescriptions.4'),
-    5: t('phaseDescriptions.5'),
-  };
 
   // Empresa com fonte externa (OPQ32, Hogan...) NÃO usa DISC nativo:
   // o colaborador não precisa fazer o mapeamento na ferramenta — pula o CTA.
@@ -222,6 +218,19 @@ export default function DashboardHomePage() {
   const ctaTravado = (perfilComportamentalBloqueado && !(votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou))
     || mapeamentoCenariosBloqueado || avaliacaoSemCargoConfigurado;
   const ctaApagado = perfilComportamentalBloqueado || mapeamentoCenariosBloqueado || avaliacaoSemCargoConfigurado;
+  // A descrição acompanha a fase que o botão principal conduz. As cinco são
+  // Perfil, Avaliação, PDI, Temporada e Reavaliação (as mesmas de `phaseLabels`);
+  // os textos estavam deslocados uma posição desde que o Perfil entrou como fase
+  // 1, e a do PDI dizia "Siga sua temporada de 14 semanas" (R-27). A Temporada diz
+  // o total DESTA pessoa; antes de a trilha existir não há total a dizer.
+  const descricaoFase = descricaoDaFase({
+    faseNum,
+    perfilBloqueado: perfilComportamentalBloqueado,
+    semanasDaTemporada: kpis?.fase?.totalSemanas ?? kpis?.pilula?.totalSemanas ?? null,
+  });
+  const faseDescricao = descricaoFase.weeks
+    ? t(`phaseDescriptions.${descricaoFase.chave}`, { weeks: descricaoFase.weeks })
+    : t(`phaseDescriptions.${descricaoFase.chave}`);
   const phaseLabels = [
     data?.empresaPerfilExternoFonte === 'opq32' ? 'OPQ' : usaFonteExterna ? t('phaseLabels.externalProfile') : t('phaseLabels.disc'),
     t('phaseLabels.assessment'),
@@ -512,7 +521,7 @@ export default function DashboardHomePage() {
               </span>
             </div>
             <p className="text-sm text-white/65 mb-5 leading-relaxed">
-              {faseDescricoes[faseNum] || t('phaseDescriptions.fallback')}
+              {faseDescricao}
             </p>
             <button onClick={handleMainCTA}
               disabled={ctaTravado}

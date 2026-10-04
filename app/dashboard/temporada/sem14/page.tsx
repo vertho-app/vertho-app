@@ -103,6 +103,10 @@ export default function Sem14Page() {
   const [error, setError] = useState('');
   const [avaliacao, setAvaliacao] = useState(null);
   const [semCenarioB, setSemCenarioB] = useState(14); // derivado do plano
+  // O slot do fechamento herda o calendário de outra semana (a degustação: o
+  // slot 3 libera junto da 2). Rotulá-lo "Semana 3" nomeia uma semana que o
+  // programa de 2 não tem (R-30).
+  const [cenarioBEspelhado, setCenarioBEspelhado] = useState(false);
   const [preparando, setPreparando] = useState(false); // piloto: acumulada em Trigger.dev
   // Pontuação do fechamento (roda no servidor, fora do request): processando | pronto | erro | lento | avaliado
   const [fechamento, setFechamento] = useState(null);
@@ -141,6 +145,8 @@ export default function Sem14Page() {
       const semsAval = plano.filter(s => s?.tipo === 'avaliacao').map(s => s.semana);
       const semCB = semsAval.length ? Math.max(...semsAval) : 14;
       setSemCenarioB(semCB);
+      const slotCB = plano.find(s => s?.semana === semCB);
+      setCenarioBEspelhado(slotCB?.calendario_semana != null && slotCB.calendario_semana !== slotCB.semana);
 
       // Cenário B fora da sem 14 (piloto=3, onboarding=10): rebusca com o
       // transcript da semana certa — senão feedback vem vazio e o wizard
@@ -491,7 +497,7 @@ export default function Sem14Page() {
             style={{ width: (step >= 6) ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
         </div>
         <p className="text-[10px] text-gray-500 mt-2">
-          {step === 7 ? t('arguicao.badge') : step === 6 ? t('progress.done') : step === 8 ? t('fechamento.eyebrow') : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
+          {step === 7 ? t('arguicao.badge') : step === 6 ? t('progress.done') : step === 8 ? t('fechamento.eyebrow') : cenarioBEspelhado ? t('progress.finalCompetency', { competency: competencia }) : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
         </p>
       </div>
 

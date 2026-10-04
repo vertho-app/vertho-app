@@ -254,9 +254,24 @@ describe('getProgramaConfigDaTrilha (síncrona): o snapshot do Personalizado qua
     expect(cfg.semanasCheckpoint).toEqual([]);
   });
 
-  it('snapshot de OUTRO modo não é lido aqui (Ibipeba regular_duo segue pelo carimbo)', () => {
-    const snap = { ...PROGRAMA_REGULAR_DUO, semanas: 9 };
-    expect(getProgramaConfigDaTrilha({ programa_modo: 'regular_duo', programa_config: snap })).toBe(PROGRAMA_REGULAR_DUO);
+  /**
+   * R-101 (3): era o contrário ("snapshot de OUTRO modo não é lido aqui"), e é por
+   * isso que o painel do gestor e o resumo de WhatsApp diziam "sem X/14" para a
+   * Ibipeba, que é `regular_duo` com snapshot de 9 semanas (37 trilhas, medido em
+   * 03/10/2026) e acusava de atraso quem já tinha concluído tudo. O snapshot
+   * congelado na geração vale para QUALQUER rótulo, como já valia na versão
+   * assíncrona (`resolverConfigDaTrilha`).
+   */
+  it('o snapshot vale para QUALQUER rótulo (Ibipeba: regular_duo com 9 semanas)', () => {
+    const snap = JSON.parse(JSON.stringify({ ...PROGRAMA_REGULAR_DUO, semanas: 9, semanasAvaliacao: [8, 9], semanaCenarioB: 9, semanaAcumulada: 8 }));
+    const cfg = getProgramaConfigDaTrilha({ programa_modo: 'regular_duo', programa_config: snap });
+    expect(cfg.semanas).toBe(9);
+    expect(cfg.semanaCenarioB).toBe(9);
+    expect(cfg).not.toBe(PROGRAMA_REGULAR_DUO);
+  });
+
+  it('o carimbo sem snapshot segue devolvendo a constante (nada em andamento muda)', () => {
+    expect(getProgramaConfigDaTrilha({ programa_modo: 'regular_duo', programa_config: null })).toBe(PROGRAMA_REGULAR_DUO);
   });
 });
 

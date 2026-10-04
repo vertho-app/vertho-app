@@ -9,7 +9,8 @@ import { FASE_FORA_DA_DEGUSTACAO, PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
 import { totalDoMapeamento } from '@/lib/demo/convidado-demo';
 import { colaboradorEmDegustacao } from '@/lib/demo/degustacao-mapeamento';
-import { avaliacaoFinalConcluida, ehSemanaDeImplementacao, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { avaliacaoFinalConcluida, ehSemanaDeImplementacao } from '@/lib/season-engine/trilha-runtime';
+import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 import { estaAtrasada } from '@/lib/season-engine/atraso';
 import { semanaLiberadaEm, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
@@ -44,8 +45,10 @@ export const JORNADA_COLAB_COLS =
   'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, perfil_externo_dados, perfil_externo_pdf_path, created_at';
 
 /**
- * ⚠️ FALLBACK, não a duração. Quem responde "quantas semanas" é o PLANO da
- * trilha — `totalSemanasDoPlano(plano, TOTAL_SEMANAS_FALLBACK)`.
+ * Quem responde "quantas semanas" é `duracaoDaTrilha(trilha)` (o plano da
+ * trilha, ou o snapshot/carimbo dela quando o plano não veio no select): UMA
+ * conta para a home, o WhatsApp, o certificado e o painel do gestor (R-29).
+ * Não há literal de duração neste arquivo, de propósito.
  *
  * D1 (auditoria 22/08): este arquivo já documentava, duas linhas abaixo, que
  * `SEMANAS_IMPLEMENTACAO` era "fallback histórico" e delegava a
@@ -55,7 +58,6 @@ export const JORNADA_COLAB_COLS =
  * home, e o card "Próximo marco" anunciava pílulas de semanas que não existem
  * no plano dela.
  */
-const TOTAL_SEMANAS_FALLBACK = 14;
 // Fallback histórico: o formato de 14 semanas. Quem responde de verdade é o
 // plano da trilha (ver `ehSemanaDeImplementacao`).
 const SEMANAS_IMPLEMENTACAO = [4, 8, 12];
@@ -294,7 +296,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
   const trilha = shared?.trilha !== undefined
     ? shared.trilha
     : (await sb.from('trilhas')
-        .select('id, status, temporada_plano, competencia_foco, criado_em')
+        .select('id, status, temporada_plano, competencia_foco, criado_em, programa_modo, programa_config')
         .eq('colaborador_id', colab.id)
         .order('criado_em', { ascending: false })
         .limit(1)
@@ -342,7 +344,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
       .select('semana, status').eq('trilha_id', trilha.id).order('semana');
     progressoTrilha = progresso || [];
     const concluidas = (progresso || []).filter(p => p.status === PROGRESSO.CONCLUIDO).length;
-    semanaAtual = Math.min(totalSemanasDoPlano(trilha.temporada_plano, TOTAL_SEMANAS_FALLBACK), concluidas + 1);
+    semanaAtual = Math.min(duracaoDaTrilha(trilha), concluidas + 1);
   }
 
   const temporadaStatus = trilha?.status === TRILHA.CONCLUIDA ? 'completed'
@@ -353,7 +355,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     fase: 4,
     titulo: 'Temporada',
     descricao: temPlano
-      ? `Semana ${semanaAtual} de ${totalSemanasDoPlano(trilha.temporada_plano, TOTAL_SEMANAS_FALLBACK)} · ${trilha.competencia_foco || ''}`
+      ? `Semana ${semanaAtual} de ${duracaoDaTrilha(trilha)} · ${trilha.competencia_foco || ''}`
       : 'Aguardando geração da trilha personalizada',
     status: temporadaStatus,
     data: trilha?.criado_em || null,
@@ -361,7 +363,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     // semanas" escrito à mão — numa jornada de 7 ele contradizia a própria
     // linha acima. O número viaja com a fase.
     totalSemanas: temPlano
-      ? totalSemanasDoPlano(trilha.temporada_plano, TOTAL_SEMANAS_FALLBACK)
+      ? duracaoDaTrilha(trilha)
       : null,
   });
 
@@ -395,14 +397,14 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
     const trilha = shared?.trilha !== undefined
       ? shared.trilha
       : (await sb.from('trilhas')
-          .select('id, cursos, competencia_foco, temporada_plano, data_inicio')
+          .select('id, cursos, competencia_foco, temporada_plano, data_inicio, programa_modo, programa_config')
           .eq('colaborador_id', colab.id)
           .eq('empresa_id', colab.empresa_id)
           .order('criado_em', { ascending: false })
           .limit(1)
           .maybeSingle()).data;
 
-    const totalSemanas = totalSemanasDoPlano(trilha?.temporada_plano, TOTAL_SEMANAS_FALLBACK);
+    const totalSemanas = duracaoDaTrilha(trilha);
 
     // ── Qual é a semana da pessoa AGORA ─────────────────────────────────
     //
@@ -530,11 +532,11 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
       if (!jr?.error && fases.length) {
         const proxima = fases.find(f => f.status !== 'completed');
         if (proxima) {
-          faseAtual = { numero: proxima.fase, titulo: proxima.titulo, status: proxima.status };
+          faseAtual = { numero: proxima.fase, titulo: proxima.titulo, status: proxima.status, totalSemanas: proxima.totalSemanas ?? null };
         } else {
           // Tudo concluído
           const ultima = fases[fases.length - 1];
-          faseAtual = { numero: ultima.fase, titulo: ultima.titulo, status: 'completed', concluida: true };
+          faseAtual = { numero: ultima.fase, titulo: ultima.titulo, status: 'completed', concluida: true, totalSemanas: ultima.totalSemanas ?? null };
         }
       }
     } catch (e) {
@@ -813,7 +815,7 @@ export async function carregarPanoramaRH(
           .neq('role', 'rh')
           .or('perfil_dominante.not.is.null,perfil_externo_dados.not.is.null'), 'id'),
     recortar(tdb.from('trilhas')
-      .select('id, colaborador_id, data_inicio, temporada_plano')
+      .select('id, colaborador_id, data_inicio, temporada_plano, programa_modo, programa_config')
       .eq('status', TRILHA.ATIVA), 'colaborador_id'),
     // Jornadas ENCERRADAS: é o que libera a tela de evolução. O veredito
     // (confirmada · parcial · estagnação · regressão) nasce no fechamento, então
@@ -864,7 +866,7 @@ export async function carregarPanoramaRH(
   for (const t of trilhas) {
     const atrasada = estaAtrasada({
       dataInicio: t.data_inicio,
-      totalSemanas: totalSemanasDoPlano(t.temporada_plano, TOTAL_SEMANAS_FALLBACK),
+      totalSemanas: duracaoDaTrilha(t),
       semanasConcluidas: progressoPorTrilha.get(t.id) || 0,
     });
     // `null` (trilha sem data de início) não entra em nenhum dos dois: a soma

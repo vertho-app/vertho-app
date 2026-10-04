@@ -23,12 +23,12 @@
  *
  * ⚠️ A SEMANA É A DO CALENDÁRIO, como no painel do gestor
  * (`app/dashboard/gestor/actions.ts`: `ceil(dias/7)` limitado por
- * `getProgramaConfigDaTrilha`). Isso é deliberado: se o WhatsApp usasse uma régua
+ * `duracaoDaTrilha`). Isso é deliberado: se o WhatsApp usasse uma régua
  * e a tela outra, o gestor cobraria uma semana e veria outra ao abrir o painel —
  * a família de defeito que o F-I21 registra (três portas, três critérios).
  */
 import { PROGRESSO, TRILHA } from '@/lib/status';
-import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
+import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 
 /** Acima disto o grupo deixa de listar nomes e vira contagem. Ver o ⚠️ acima. */
 export const MAX_NOMES_POR_GRUPO = 8;
@@ -178,14 +178,16 @@ export function primeiroNome(nomeCompleto: string | null | undefined): string {
 
 /**
  * Em que semana do programa a pessoa está, pelo CALENDÁRIO da trilha dela.
- * Mesma conta do painel do gestor — ver o ⚠️ do topo.
+ * Mesma conta do painel do gestor, ver o ⚠️ do topo. O teto é a duração da
+ * trilha (`duracaoDaTrilha`): quem chama traz `programa_modo` e `programa_config`,
+ * senão a Ibipeba (9 semanas de snapshot sobre o rótulo `regular_duo`) lia 14.
  */
-export function semanaDaTrilha(trilha: { data_inicio?: string | null }): number | null {
+export function semanaDaTrilha(trilha: { data_inicio?: string | null; programa_modo?: string | null; programa_config?: unknown; temporada_plano?: unknown }): number | null {
   if (!trilha?.data_inicio) return null;
   const inicio = new Date(trilha.data_inicio).getTime();
   if (!Number.isFinite(inicio)) return null;
   const dias = Math.floor((Date.now() - inicio) / (24 * 3600 * 1000));
-  const total = getProgramaConfigDaTrilha(trilha as any).semanas;
+  const total = duracaoDaTrilha(trilha);
   return Math.max(1, Math.min(total, Math.ceil((dias + 1) / 7)));
 }
 

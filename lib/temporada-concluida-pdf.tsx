@@ -502,7 +502,12 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
   const grupos = agruparPorCompetencia(descritores);
   const comCompetencia = grupos.filter((g) => g.competencia);
   const contadores = contadoresDoPdf(evolutionReport?.resumo);
-  const totalSemanas = trilha?.totalSemanas || 14;
+  // A duração vem do carregamento (`duracaoDaTrilha`). Sem ela o documento não
+  // diz o número: o `|| 14` de antes imprimia o de outro programa (R-29).
+  const totalSemanas: number | null = trilha?.totalSemanas || null;
+  const dedicadas = totalSemanas
+    ? `${totalSemanas} ${totalSemanas === 1 ? 'semana dedicada' : 'semanas dedicadas'} a ${trilha?.competencia || ''}`
+    : `Semanas dedicadas a ${trilha?.competencia || ''}`;
   // "Vertho.ai" no rodapé (revisão de 17/09/2026), a marca como a pessoa a encontra.
   const rodape = marca.mostrarVertho ? 'Vertho.ai' : 'Relatório de temporada';
   const devolutiva = sem14?.resumo_avaliacao?.mensagem_geral;
@@ -520,7 +525,7 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
         titulo={['O que', 'Mudou']}
         nome={colab?.nome}
         cargo={colab?.cargo}
-        jornada={`${totalSemanas} semanas dedicadas a ${trilha?.competencia || ''}`}
+        jornada={dedicadas}
       />
 
       <Page size="A4" style={pageStyles.page} wrap>
@@ -534,7 +539,7 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
           <ReportSectionTitle>{`${primeiroNome(colab?.nome)}, veja o que mudou em você`}</ReportSectionTitle>
           {devolutiva
             ? <Text style={s.text}>{devolutiva}</Text>
-            : <Text style={s.intro}>{`${totalSemanas} semanas dedicadas a ${trilha?.competencia || ''}.`}</Text>}
+            : <Text style={s.intro}>{`${dedicadas}.`}</Text>}
         </View>
 
         {comCompetencia.length > 0 && (

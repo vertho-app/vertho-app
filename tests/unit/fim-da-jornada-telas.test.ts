@@ -142,6 +142,51 @@ describe('loadTemporadaConcluida sem `trilhaId` (R-16)', () => {
     expect(r.error).not.toBe('Nenhuma trilha encontrada');
     expect(r.error).toMatch(/Não foi possível carregar/);
   });
+
+  /**
+   * R-29: o "N semanas dedicadas" da conclusão era `plano.length || 14`. Agora é a
+   * duração do programa (`duracaoDaTrilha`), a mesma do certificado e do painel,
+   * e uma trilha SEM semana de avaliação não cai na semana 14.
+   */
+  describe('a duração do programa (R-29)', () => {
+    const SNAPSHOT_9 = {
+      modo: 'regular', semanas: 9, slotsConteudo: [1, 2, 3], semanasAvaliacao: [8, 9], semanasMissao: [4],
+      semanaCenarioB: 9, semanaAcumulada: 8,
+    };
+    const carregar = async (trilha: any, progressos: any[] = []) => {
+      h.sb = criarSupabaseMock({
+        resolver: (tabela) => (tabela === 'trilhas' ? { id: 't1', status: 'concluida', numero_temporada: 1, competencia_foco: 'Planejamento', evolution_report: { descritores: [] }, ...trilha } : null),
+        lista: (tabela) => (tabela === 'temporada_semana_progresso' ? progressos : []),
+      });
+      return await loadTemporadaConcluida('maria@escola.br') as any;
+    };
+    const plano = (n: number) => Array.from({ length: n }, (_, i) => ({ semana: i + 1, tipo: 'conteudo' }));
+
+    it('Jornada: 7', async () => {
+      const r = await carregar({ temporada_plano: PLANO_JORNADA, programa_modo: 'jornada', programa_config: null });
+      expect(r.trilha.totalSemanas).toBe(7);
+    });
+
+    it('🔴 Ibipeba (regular_duo com snapshot de 9): 9, e não os 14 do rótulo', async () => {
+      const r = await carregar({ temporada_plano: plano(9), programa_modo: 'regular_duo', programa_config: SNAPSHOT_9 });
+      expect(r.trilha.totalSemanas).toBe(9);
+    });
+
+    it('🔴 Personalizado de 3 semanas sem fechamento: 3, sem cenário B, e a semana 14 não é lida', async () => {
+      const semFechamento = JSON.parse(JSON.stringify({
+        modo: 'regular', semanas: 3, slotsConteudo: [1, 2, 3], semanasAvaliacao: [], semanasMissao: [],
+        semanaCenarioB: 0, semanaAcumulada: 0,
+      }));
+      // Uma linha de progresso na semana 14 (de outra trilha, de um dado sujo): o
+      // fallback antigo (`: 14`) a tomaria por cenário B e montaria a avaliação final.
+      const r = await carregar(
+        { temporada_plano: plano(3), programa_modo: 'custom', programa_config: semFechamento },
+        [{ semana: 14, tipo: 'avaliacao', feedback: { cenario: 'não é desta trilha', nota_media_pos: 3 } }],
+      );
+      expect(r.trilha.totalSemanas).toBe(3);
+      expect(r.sem14).toBeNull();
+    });
+  });
 });
 
 describe('loadTemporada traz a temporada ANTERIOR concluída (R-16)', () => {

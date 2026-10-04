@@ -331,6 +331,62 @@ describe('prepararLoteTemplate', () => {
     ]);
   });
 
+  /**
+   * R-29: o "são N semanas" do WhatsApp vinha do TAMANHO do plano; agora vem da
+   * duração do programa (`duracaoDaTrilha`, a mesma do certificado e do painel).
+   * O snapshot da Ibipeba (regular_duo com 9 semanas) é o caso que prova a fonte.
+   */
+  it.each([
+    ['Jornada', { programa_modo: 'jornada', programa_config: null }, 7, '7'],
+    ['Ibipeba (regular_duo com snapshot de 9)', { programa_modo: 'regular_duo', programa_config: { modo: 'regular', semanas: 9, slotsConteudo: [1, 2, 3], semanasAvaliacao: [8, 9], semanasMissao: [4], semanaCenarioB: 9, semanaAcumulada: 8 } }, 9, '9'],
+    ['DUO de 14', { programa_modo: 'regular_duo', programa_config: null }, 14, '14'],
+    ['Onboarding', { programa_modo: 'onboarding', programa_config: null }, 10, '10'],
+  ])('trilha liberada: %s diz a duração do PROGRAMA', async (_nome, carimbo, semanasDoPlano, esperado) => {
+    const sb = mock({
+      trilhas: [{
+        colaborador_id: 'c1', status: TRILHA.ATIVA,
+        competencia_foco: 'Gestão Escolar', competencias_foco: ['Gestão Escolar'],
+        temporada_plano: Array.from({ length: semanasDoPlano }, (_, i) => ({ semana: i + 1 })),
+        numero_temporada: 1, ...carimbo,
+      }],
+    });
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'trilha_liberada_v2', colabs: [professor()],
+    });
+    expect(lote.alvos[0].params[2]).toBe(esperado);
+  });
+
+  it('🔴 o programa de 9 do snapshot vence o tamanho do plano de 14 entradas (a duração não é o plano)', async () => {
+    const sb = mock({
+      trilhas: [{
+        colaborador_id: 'c1', status: TRILHA.ATIVA,
+        competencia_foco: 'Gestão Escolar', competencias_foco: ['Gestão Escolar'],
+        temporada_plano: Array.from({ length: 14 }, (_, i) => ({ semana: i + 1 })),
+        numero_temporada: 1, programa_modo: 'regular_duo',
+        programa_config: { modo: 'regular', semanas: 9, slotsConteudo: [1], semanasAvaliacao: [8, 9], semanasMissao: [], semanaCenarioB: 9, semanaAcumulada: 8 },
+      }],
+    });
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'trilha_liberada_v2', colabs: [professor()],
+    });
+    expect(lote.alvos[0].params[2]).toBe('9');
+  });
+
+  it('trilha sem plano continua sem duração: não se anuncia "são N semanas" de trilha que não foi montada', async () => {
+    const sb = mock({
+      trilhas: [{
+        colaborador_id: 'c1', status: TRILHA.ATIVA,
+        competencia_foco: 'Gestão Escolar', competencias_foco: ['Gestão Escolar'],
+        temporada_plano: [], numero_temporada: 1, programa_modo: 'jornada', programa_config: null,
+      }],
+    });
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'trilha_liberada_v2', colabs: [professor()],
+    });
+    expect(lote.alvos).toHaveLength(0);
+    expect(lote.excluidos[0]).toMatchObject({ motivo: 'trilha sem competência ou duração', quantidade: 1 });
+  });
+
   it('trilha liberada exclui quem já iniciou alguma atividade', async () => {
     const sb = mock({
       trilhas: [{

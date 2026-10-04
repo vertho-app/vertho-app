@@ -2059,7 +2059,9 @@ que o chamava em `/api/temporada/reflection`.
 | `f148e9b` | **Regular DUO — 2 competências em blocos paralelos vira o default global** |
 | `672db4ae` · `17439c2d` | Papel tutor e aviso ao tutor removidos (22/09/2026, nenhuma pessoa com o papel); migration 268 derruba `tutorados_ids` |
 
-### 17.11 Regular DUO (default global)
+### 17.11 Regular DUO (era o default global)
+
+> ⚠️ **Histórico desde 03/10/2026**: o default de quem não tem `programa_modo` é a Jornada de 7 semanas (`PROGRAMA_MODO_PADRAO`), e a tela de configuração não oferece mais o Regular DUO. Ele segue no motor para as trilhas já carimbadas e para a trilha sem carimbo (`getProgramaConfigLegado`). O texto abaixo descreve o desenho de `f148e9b`.
 
 > A partir de `f148e9b`, **toda empresa sem `programa_modo`** gera trilha cobrindo **2 competências em paralelo**, mantendo a profundidade do Regular (14 sem, nível-meta 3). Single-comp continua disponível como escape hatch (`programa_modo = 'regular_single'`) — rollback por cliente sem mexer em código.
 

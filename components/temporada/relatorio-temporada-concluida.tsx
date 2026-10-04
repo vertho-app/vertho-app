@@ -69,7 +69,7 @@ export default function RelatorioTemporadaConcluida({ data: dadosBrutos }: { dat
         </h1>
         <p className="text-sm text-gray-400">
           {t.rich('hero.subtitle', {
-            weeks: trilha.totalSemanas || 14,
+            weeks: trilha.totalSemanas,
             competency: trilha.competencia,
             strong: (chunks) => <span className="text-brand-400">{chunks}</span>,
           })}

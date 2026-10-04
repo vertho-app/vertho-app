@@ -34,6 +34,7 @@ import { aplicarTetoLote, criarPaceadorSincrono } from '@/lib/whatsapp/cadencia'
 import { tenantUrl } from '@/lib/domain';
 import { primeiraSemanaAcessivel } from '@/lib/season-engine/week-gating';
 import { ehSemanaDeImplementacao, semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 import { estadoDoFechamento, type EstadoFechamento } from '@/lib/season-engine/estado-fechamento';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
@@ -644,7 +645,7 @@ async function carregarTrilhasManuais(
   if (!colabIds.length) return new Map();
 
   const { data, error } = await sb.from('trilhas')
-    .select('id, colaborador_id, status, competencia_foco, competencias_foco, temporada_plano, numero_temporada')
+    .select('id, colaborador_id, status, competencia_foco, competencias_foco, temporada_plano, numero_temporada, programa_modo, programa_config')
     .eq('empresa_id', empresaId)
     .in('colaborador_id', colabIds)
     .order('numero_temporada', { ascending: false });
@@ -681,7 +682,12 @@ async function carregarTrilhasManuais(
     porColab.set(colaboradorId, {
       status: String(trilha.status || ''),
       competencia,
-      totalSemanas: Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano.length : 0,
+      // A duração do programa DESTA trilha (`duracaoDaTrilha`), a mesma que o
+      // certificado, o painel do gestor e a home usam. Era `temporada_plano.length`:
+      // o tamanho do plano, que não é a duração (R-29). Trilha sem plano continua
+      // sem duração, e o resolvedor a exclui: não se anuncia "são N semanas" de uma
+      // trilha que ainda não foi montada.
+      totalSemanas: Array.isArray(trilha.temporada_plano) && trilha.temporada_plano.length > 0 ? duracaoDaTrilha(trilha) : 0,
       iniciada: iniciadas.has(trilha.id),
     });
   }

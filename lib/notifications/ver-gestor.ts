@@ -197,7 +197,7 @@ export async function montarResumoDaEquipe(
 
   const ids = liderados.map((c: any) => c.id);
   const { data: trilhas, error: erroTrilhas } = await tdb.from('trilhas')
-    .select('id, colaborador_id, data_inicio, programa_modo, status')
+    .select('id, colaborador_id, data_inicio, programa_modo, programa_config, status')
     .in('colaborador_id', ids).eq('status', TRILHA.ATIVA);
   if (erroTrilhas) throw new Error(erroTrilhas.message);
 

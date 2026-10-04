@@ -19,7 +19,8 @@ import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competen
 // Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a
 // temporada. A constante mora em programa-config: a tela da semana trancada
 // serve o MESMO vídeo, e duas cópias do GUID divergiriam sem erro visível.
-import { JORNADA_VIDEO_ID, getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
+import { JORNADA_VIDEO_ID } from '@/lib/season-engine/programa-config';
+import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 const TIPO_LABEL_KEY = { conteudo: 'episode', aplicacao: 'practice', avaliacao: 'assessment' };
@@ -84,10 +85,10 @@ export default function TemporadaPage() {
   const semanas = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
   const progressoMap = Object.fromEntries((progresso || []).map((p: any) => [p.semana, p]));
   const concluidas = (progresso || []).filter((p: any) => p.status === 'concluido').length;
-  // O total sai do plano; sem plano, do PROGRAMA da trilha — nunca do literal
-  // 14. Uma jornada de 7 semanas com plano ausente exibia "2/14", uma barra que
-  // contradiz o relatório de evolução logo abaixo dela.
-  const totalSemanas = semanas.length || getProgramaConfigDaTrilha(trilha).semanas;
+  // O total sai do plano; sem plano, do PROGRAMA da trilha (`duracaoDaTrilha`),
+  // nunca do literal 14. Uma jornada de 7 semanas com plano ausente exibia
+  // "2/14", uma barra que contradiz o relatório de evolução logo abaixo dela.
+  const totalSemanas = semanas.length || duracaoDaTrilha(trilha);
   // Última semana de avaliação = onde fica o wizard cenário B (regular=14, onboarding=10).
   // Como a rota é única (/sem14), redireciono pra ela tanto faz o número da semana.
   const semanasAvaliacao = semanas.filter((s: any) => s.tipo === 'avaliacao').map((s: any) => s.semana);
@@ -97,6 +98,12 @@ export default function TemporadaPage() {
   // A jornada "vendida" são as semanas de CONTEÚDO (2) — o fechamento é etapa.
   const isPiloto = semanas.some((s: any) => s.calendario_semana != null);
   const semanasJornada = isPiloto ? semanas.filter((s: any) => s.tipo === 'conteudo').length : totalSemanas;
+  // Quantas competências ESTA trilha trabalha: o Onboarding tem 5 e o DUO 2, e o
+  // subtítulo dizia "1 competência" para todos. A degustação (piloto) não mede
+  // evolução, então o texto dela não promete "evoluir" (R-30).
+  const numCompetencias = Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length
+    ? trilha.competencias_foco.length
+    : 1;
   const tituloConsulta = data.viewerRole === 'rh'
     ? t('managerView.titleRh')
     : t('managerView.title');
@@ -125,8 +132,9 @@ export default function TemporadaPage() {
           // ✅ subtítulo com ênfase serif em "evoluir" e "próximo nível"
           subtitle={
             <span>
-              {t.rich('hero.subtitle', {
+              {t.rich(isPiloto ? 'hero.subtitlePilot' : 'hero.subtitle', {
                 weeks: semanasJornada,
+                count: numCompetencias,
                 evolve: (chunks) => <em style={{ ...serifStyle, color: 'var(--phase-accent)', fontSize: 'inherit' }}>{chunks}</em>,
                 level: (chunks) => <em style={{ ...serifStyle, color: 'var(--phase-accent)', fontSize: 'inherit' }}>{chunks}</em>,
               })}

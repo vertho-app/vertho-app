@@ -1,5 +1,11 @@
 /**
  * Semana 13 — conversa final de consolidação da temporada (12 turns).
+ *
+ * As semanas de desenvolvimento que a conversa cita ("nessas N semanas") vêm do
+ * PLANO da trilha (`semanasDeDesenvolvimentoDoPlano`): 12 no formato de 14, 7 no
+ * encerramento da Ibipeba. Eram 12 escritas à mão, inclusive na mensagem que a
+ * IA é instruída a enviar no turno 1 (R-29). Sem o número, vale 12, o
+ * comportamento de sempre.
  * Estrutura: abertura, retrospectiva, 3 evidências, microcaso (apresenta +
  * 2 follow-ups), integração dos descritores (2 ângulos), maior avanço,
  * síntese final sem plano 30d.
@@ -44,21 +50,25 @@ interface DescritorInfo {
   descritor: string;
 }
 
+/** O que a conversa diz quando o plano não informa as semanas de desenvolvimento. */
+const SEMANAS_DE_DESENVOLVIMENTO_PADRAO = 12;
+
 interface InstrucaoPorTurnParams {
   turnIA: number;
   nomeColab: string;
   competencia: string;
   descritores: DescritorInfo[];
+  semanas: number;
 }
 
-function instrucaoPorTurn({ turnIA, nomeColab, competencia, descritores }: InstrucaoPorTurnParams): string {
+function instrucaoPorTurn({ turnIA, nomeColab, competencia, descritores, semanas }: InstrucaoPorTurnParams): string {
   const descList = descritores.map(d => `"${d.descritor}"`).join(', ');
 
   if (turnIA === 1) {
     return `TURN 1 — ABERTURA.
 Envie EXATAMENTE esta mensagem (pode ajustar só o nome e a competência):
 
-"Chegamos à conversa final da sua trilha de ${competencia}. O objetivo aqui é olhar com clareza para a sua evolução nessas 12 semanas e identificar evidências reais do que mudou. Para começar: quando você compara o seu ponto de partida com o momento atual, o que mudou na forma como você vive essa competência no trabalho?"
+"Chegamos à conversa final da sua trilha de ${competencia}. O objetivo aqui é olhar com clareza para a sua evolução nessas ${semanas} semanas e identificar evidências reais do que mudou. Para começar: quando você compara o seu ponto de partida com o momento atual, o que mudou na forma como você vive essa competência no trabalho?"
 
 Máximo 80 palavras. NÃO adicione perguntas extras.`;
   }
@@ -164,6 +174,8 @@ interface PromptEvolutionQualitativeParams {
   insightsAnteriores: string[];
   turnIA: number;
   totalTurns?: number;
+  /** Semanas de desenvolvimento do plano, antes desta conversa (`semanasDeDesenvolvimentoDoPlano`). Ausente = 12. */
+  semanasDeDesenvolvimento?: number | null;
 }
 
 export function promptEvolutionQualitative({
@@ -175,13 +187,17 @@ export function promptEvolutionQualitative({
   insightsAnteriores,
   turnIA,
   totalTurns,
+  semanasDeDesenvolvimento,
 }: PromptEvolutionQualitativeParams) {
   const estilo = estiloPorPerfil(perfilDominante);
-  const instrucao = instrucaoPorTurn({ turnIA, nomeColab, competencia, descritores });
+  const semanas = semanasDeDesenvolvimento && semanasDeDesenvolvimento > 0
+    ? semanasDeDesenvolvimento
+    : SEMANAS_DE_DESENVOLVIMENTO_PADRAO;
+  const instrucao = instrucaoPorTurn({ turnIA, nomeColab, competencia, descritores, semanas });
 
   const system = `Você é o mentor de encerramento da trilha da competência "${competencia}".
 
-Sua tarefa é conduzir a conversa final da temporada após 12 semanas de desenvolvimento.
+Sua tarefa é conduzir a conversa final da temporada após ${semanas} semanas de desenvolvimento.
 
 ATENÇÃO:
 Você não é um auditor frio.
@@ -228,7 +244,7 @@ CONTEXTO:
 - Perfil DISC dominante: ${perfilDominante || '(não mapeado)'}
 - Competência: ${competencia}
 - Descritores: ${descritores.map(d => d.descritor).join(', ')}
-- Insights das sems 1-12: ${insightsAnteriores.slice(0, 5).map(i => `"${i}"`).join('; ') || '(sem registros)'}
+- Insights das sems 1-${semanas}: ${insightsAnteriores.slice(0, 5).map(i => `"${i}"`).join('; ') || '(sem registros)'}
 
 ADAPTAÇÃO POR DISC:
 - Tom: ${estilo.tom}
@@ -250,7 +266,7 @@ ESTILO:
   //
   // `fechamentoSuffix`: a instrução do ÚLTIMO turno, que a rota precisa saber
   // pedir de novo quando bate no teto sem fechar (`fechamento-conversa.ts`).
-  const fechamentoSuffix = instrucaoPorTurn({ turnIA: totalTurns ?? 12, nomeColab, competencia, descritores });
+  const fechamentoSuffix = instrucaoPorTurn({ turnIA: totalTurns ?? 12, nomeColab, competencia, descritores, semanas });
   return { system, systemSuffix: instrucao, instrucao, fechamentoSuffix };
 }
 

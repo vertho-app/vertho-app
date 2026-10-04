@@ -545,27 +545,71 @@ export function resolverModoColab(
 }
 
 /**
- * FONTE ÚNICA do RUNTIME (síncrona): config da trilha pelo CARIMBO
- * (trilhas.programa_modo, gravado na geração: congela as regras).
+ * A config que uma GERAÇÃO NOVA aplicaria, a partir da config EFETIVA da pessoa
+ * (empresa → turma → participação, com o override do colaborador no lugar dele:
+ * `resolverConfigEfetiva`). É a leitura de quem precisa DIZER o programa antes de
+ * haver trilha (o PDI, a prontidão): ausente ou desconhecido vira a Jornada, e o
+ * Personalizado deriva de `programa_custom`, como `getProgramaConfig`.
  *
- * - Personalizado: o snapshot `programa_config`, quando o chamador o
- *   selecionou (é ele que tem a duração escolhida; o rótulo sozinho não tem).
+ * Não substitui a leitura de uma trilha que existe: ela serve o carimbo
+ * (`getProgramaConfigDaTrilha`), que congela as regras.
+ */
+export function getProgramaConfigDaGeracao(
+  configEfetiva?: { programa_modo?: unknown; programa_custom?: unknown } | null,
+): ProgramaConfig {
+  return getProgramaConfig({
+    programa_modo: normalizarModoPrograma(configEfetiva?.programa_modo),
+    programa_custom: configEfetiva?.programa_custom,
+  });
+}
+
+/**
+ * Snapshot gravado antes de um campo existir: completa SÓ o que o snapshot
+ * ignora e que é lido sem ele. Hoje é `semanasCheckpoint` (as 37 trilhas da
+ * Ibipeba, carimbadas em 02/09 com 9 semanas, não têm a chave). Os checkpoints
+ * além do fim do plano não existem: a semana 10 de um programa de 9 não chega.
+ */
+function completarSnapshot(snapshot: ProgramaConfig, base: ProgramaConfig): ProgramaConfig {
+  const checkpoints = (snapshot.semanasCheckpoint ?? base.semanasCheckpoint ?? []).filter((n) => n <= snapshot.semanas);
+  return { ...snapshot, semanasCheckpoint: checkpoints };
+}
+
+/**
+ * FONTE ÚNICA do RUNTIME (síncrona): config da trilha pelo SNAPSHOT congelado
+ * (`trilhas.programa_config`, mig 182) ou, sem ele, pelo CARIMBO
+ * (`trilhas.programa_modo`, gravado na geração: congela as regras).
+ *
+ * - O snapshot vale para QUALQUER rótulo, quando o chamador o selecionou: é ele
+ *   que tem a duração real. A Ibipeba é `regular_duo` com snapshot de 9 semanas
+ *   (encerrada como projeto de 7, 02/09/2026); lendo só o rótulo, o painel do
+ *   gestor e o resumo de WhatsApp dizem "sem X/14" para um programa de 9 e
+ *   acusam de atraso quem já concluiu tudo (R-101).
+ * - Personalizado sem snapshot: o `programa_custom` da empresa, se o chamador o
+ *   passou; senão a Jornada. Nenhuma trilha gerada depois da mig 182 chega aqui
+ *   sem snapshot, então isto é só um último recurso.
  * - Trilha legada sem carimbo → `getProgramaConfigLegado` (comportamento
  *   pré-154, que é o DUO quando a empresa não diz outra coisa).
+ *
+ * Quer a DURAÇÃO? Use `duracaoDaTrilha` (duracao-trilha.ts): é a fonte única da
+ * conta, e esta função é o que ela lê quando a trilha não traz o plano.
  *
  * A versão assíncrona, que busca o snapshot quando ele não veio no select, é
  * `resolverConfigDaTrilha` (trilha-runtime).
  */
 export function getProgramaConfigDaTrilha(
   trilha?: { programa_modo?: string | null; programa_config?: unknown } | null,
-  sysConfig?: { programa_modo?: string } | null,
+  sysConfig?: { programa_modo?: string; programa_custom?: unknown } | null,
 ): ProgramaConfig {
-  if (trilha?.programa_modo === 'custom') {
-    const snapshot = parseConfigSnapshot(trilha.programa_config);
-    if (snapshot) return snapshot;
+  const modo = trilha?.programa_modo;
+  const snapshot = parseConfigSnapshot(trilha?.programa_config);
+  if (modo === 'custom') {
+    if (snapshot) return completarSnapshot(snapshot, PROGRAMA_JORNADA);
+    const inputs = parseProgramaCustom(sysConfig?.programa_custom);
+    if (inputs) return derivarConfigCustom(inputs);
+    return getProgramaConfigByModo(modo);
   }
-  if (trilha?.programa_modo) return getProgramaConfigByModo(trilha.programa_modo);
-  return getProgramaConfigLegado(sysConfig);
+  const base = modo ? getProgramaConfigByModo(modo) : getProgramaConfigLegado(sysConfig);
+  return snapshot ? completarSnapshot(snapshot, base) : base;
 }
 
 /**

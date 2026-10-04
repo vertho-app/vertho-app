@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
+import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 
 /**
- * D1 (auditoria 22/08) — a duração da trilha é do PLANO, não o literal 14.
+ * D1 (auditoria 22/08) e R-29 (revisão de 02/10/2026): a duração da trilha vem de
+ * UMA função (`duracaoDaTrilha`), não do literal 14 nem de uma conta por peça.
  *
  * Os 5 presets valem 14 (regular), 10 (onboarding), 14 (regular_duo), 3
  * (piloto) e 7 (jornada). Três telas ignoravam os dois helpers que já existiam
@@ -23,7 +25,8 @@ import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
  * semanas 13/14 do formato regular, `slice(0, 14)`) e falso negativo no dia em
  * que alguém escrever `const T = 7 * 2`. O que interessa é se o site DERIVA a
  * duração — então o guard exige a chamada do helper, que é o que a DoD do plano
- * pediu explicitamente.
+ * pediu explicitamente. (O que o literal PODE ser vigiado é o `|| 14` / `?? 14`
+ * de fallback, que é uma forma só e não tem uso legítimo: ver o último bloco.)
  */
 
 /**
@@ -40,13 +43,13 @@ import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 const SITES: Array<{ arquivo: string; helper: RegExp; minimo: number; oQueMostra: string }> = [
   {
     arquivo: 'lib/home/loaders.ts',
-    helper: /totalSemanasDoPlano\s*\(/g,
+    helper: /duracaoDaTrilha\s*\(/g,
     minimo: 5, // semana atual · "Semana X de N" · horizonte · fim · total da pílula
     oQueMostra: 'o "Semana X de N" da home, o horizonte do card "Próximo marco" e a barra da fase 4',
   },
   {
     arquivo: 'app/dashboard/gestor/actions.ts',
-    helper: /getProgramaConfigDaTrilha\s*\(/g,
+    helper: /duracaoDaTrilha\s*\(/g,
     minimo: 3, // distribuição por semana · semana do liderado · fim de trilha
     oQueMostra: 'a semana atual de cada liderado, a distribuição por semana e o alerta de fim de trilha',
   },
@@ -57,9 +60,30 @@ const SITES: Array<{ arquivo: string; helper: RegExp; minimo: number; oQueMostra
     // trilha inteira: numa jornada de 7 semanas ela lia "Semana 3 de 14" em
     // toda visita.
     arquivo: 'app/dashboard/temporada/semana/[week]/page.tsx',
-    helper: /totalSemanasDoPlano\s*\(/g,
+    helper: /(duracaoDaTrilha|ehUltimaSemanaDaTrilha)\s*\(/g,
+    minimo: 3, // cabeçalho · faixa de fim de trilha · "Próxima semana libera" (R-30)
+    oQueMostra: 'o "Semana X de N" do cabeçalho, a faixa de fim de trilha e a mensagem do fim da conversa',
+  },
+  {
+    // R-29: a peça que dizia "são N semanas" pelo TAMANHO do plano.
+    arquivo: 'lib/notifications/envio-template-lote.ts',
+    helper: /duracaoDaTrilha\s*\(/g,
     minimo: 1,
-    oQueMostra: 'o "Semana X de N" do cabeçalho da própria semana',
+    oQueMostra: 'o {{3}} de "trilha liberada" e "trilha concluída" no WhatsApp',
+  },
+  {
+    // R-29: a conclusão tinha `plano.length || 14`.
+    arquivo: 'actions/temporada-concluida.ts',
+    helper: /duracaoDaTrilha\s*\(/g,
+    minimo: 1,
+    oQueMostra: 'o "N semanas dedicadas" da tela e do PDF de conclusão',
+  },
+  {
+    // R-101: o resumo semanal ao gestor dizia "sem X/14" para um programa de 9.
+    arquivo: 'lib/notifications/resumo-gestor.ts',
+    helper: /duracaoDaTrilha\s*\(/g,
+    minimo: 1,
+    oQueMostra: 'a semana de cada liderado no resumo de WhatsApp ao gestor',
   },
   {
     // Barra de progresso do hub do gestor: o TETO era 14, então uma jornada de
@@ -79,31 +103,51 @@ const SITES: Array<{ arquivo: string; helper: RegExp; minimo: number; oQueMostra
   },
 ];
 
+/**
+ * Só o CÓDIGO: um comentário que cita `duracaoDaTrilha(trilha)` somava ao mínimo e
+ * deixava passar um site revertido para o literal (provado por mutação: trocar uma
+ * chamada de `lib/home/loaders.ts` por `14` seguia verde, porque o doc do arquivo
+ * citava a chamada).
+ */
+const semComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
 describe('D1 · a duração da trilha vem do plano/programa', () => {
   it.each(SITES)('$arquivo deriva a duração em TODOS os sites', ({ arquivo, helper, minimo, oQueMostra }) => {
-    const src = readFileSync(arquivo, 'utf-8');
+    const src = semComentarios(readFileSync(arquivo, 'utf-8'));
     const n = (src.match(helper) || []).length;
     expect(
       n,
       `${arquivo} tem ${n} derivação(ões) de duração, esperado ao menos ${minimo}. ` +
       `É esse helper que decide ${oQueMostra}. ` +
-      'Use totalSemanasDoPlano(trilha.temporada_plano, fallback) ou ' +
-      'getProgramaConfigDaTrilha(trilha).semanas — em CADA site, não em um só.',
+      'Use duracaoDaTrilha(trilha), a fonte única de duração, em CADA site, não em um só.',
     ).toBeGreaterThanOrEqual(minimo);
   });
 
   /**
-   * A sentinela do fallback: ele PODE existir (plano vazio precisa de um
-   * número), mas não pode voltar a ser a resposta. Se o nome sumir, é porque
-   * alguém trocou a derivação por um literal de novo.
+   * O fallback de duração não existe mais como constante: quando a fonte não
+   * responde, o site OMITE o número em vez de usar o de outro programa. O que
+   * este guard vigia é a forma antiga do bug (`|| 14` / `?? 14` e a constante
+   * `TOTAL_SEMANAS*`), em todo site que mostra ou conta duração.
    */
-  it('o 14 da home continua sendo FALLBACK declarado, não a duração', () => {
-    const src = readFileSync('lib/home/loaders.ts', 'utf-8');
-    expect(src).toMatch(/TOTAL_SEMANAS_FALLBACK/);
+  const SITES_SEM_LITERAL = [
+    'lib/home/loaders.ts',
+    'app/dashboard/page.tsx',
+    'app/dashboard/gestor/page.tsx',
+    'app/dashboard/gestor/actions.ts',
+    'actions/temporada-concluida.ts',
+    'lib/temporada-concluida-pdf.tsx',
+    'components/temporada/relatorio-temporada-concluida.tsx',
+    'lib/notifications/resumo-gestor.ts',
+    'lib/notifications/envio-template-lote.ts',
+  ];
+
+  it.each(SITES_SEM_LITERAL)('%s não tem `|| 14` nem `?? 14` de duração', (arquivo) => {
+    const src = semComentarios(readFileSync(arquivo, 'utf-8'));
     expect(
-      /const TOTAL_SEMANAS\s*=/.test(src),
-      'voltou a existir um TOTAL_SEMANAS sem "FALLBACK" no nome — é a forma antiga do bug',
+      /(\|\||\?\?)\s*14\b/.test(src),
+      `${arquivo} voltou a ter um fallback 14 de duração: use duracaoDaTrilha e omita o número quando ela não responder`,
     ).toBe(false);
+    expect(/const TOTAL_SEMANAS\w*\s*=/.test(src), `${arquivo} voltou a ter uma constante de duração`).toBe(false);
   });
 });
 
@@ -136,5 +180,6 @@ describe('D1 · os helpers respondem por programa, não por formato', () => {
     ['onboarding', 10],
   ])('programa %s tem %i semanas', (modo, esperado) => {
     expect(getProgramaConfigDaTrilha({ programa_modo: modo }).semanas).toBe(esperado);
+    expect(duracaoDaTrilha({ programa_modo: modo })).toBe(esperado);
   });
 });

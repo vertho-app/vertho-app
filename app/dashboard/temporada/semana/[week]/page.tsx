@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { formatarLiberacao, avaliarAcessoSemana, turnosIaNecessarios, respostasDaPessoa, respostasFaltantes, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
-import { totalSemanasDoPlano, semanaCenarioBDoPlano, ehSemanaQualitativa, qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { semanaCenarioBDoPlano, ehSemanaQualitativa, qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { duracaoDaTrilha, ehUltimaSemanaDaTrilha, semanasDeDesenvolvimentoDoPlano } from '@/lib/season-engine/duracao-trilha';
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle, Lock, Eye } from 'lucide-react';
 import BackButton from '@/components/back-button';
@@ -504,7 +505,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               pessoa passa a trilha inteira. O literal estava DENTRO da
               interpolação do i18n, que é por onde ele escapou da primeira
               varredura: procurar a string "de 14" não acha `total: 14`. */}
-          {t('header.weekOf', { week: semanaNum, total: totalSemanasDoPlano(data.trilha.temporada_plano, 14) })} · {isAplicacao ? t('type.practice') : isAvaliacao ? t('type.assessment') : t('type.episode')}
+          {t('header.weekOf', { week: semanaNum, total: duracaoDaTrilha(data.trilha) })} · {isAplicacao ? t('type.practice') : isAvaliacao ? t('type.assessment') : t('type.episode')}
         </div>
         <h1 className="text-2xl font-bold text-white">{descritoresLabel}</h1>
         {/* Semana de aplicação (4/8/12) funciona diferente das de conteúdo — não tem
@@ -583,8 +584,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               trilha · a próxima já está aberta · a próxima ainda vai abrir.
             */}
             {(() => {
-              const total = totalSemanasDoPlano(data.trilha.temporada_plano, 14);
-              if (semanaNum >= total) {
+              if (ehUltimaSemanaDaTrilha(data.trilha, semanaNum)) {
                 return <p className="mt-1 text-xs text-emerald-200/80">{t('progress.seasonDone')}</p>;
               }
               const proxima = semanaNum + 1;
@@ -980,7 +980,9 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
             <span className="text-xs uppercase text-purple-400 font-bold">{t('qualitative.title')}</span>
           </div>
           <p className="text-sm text-gray-300">
-            {t('qualitative.description')}
+            {/* As semanas de desenvolvimento DESTE plano: eram "12" escritas à
+                mão, e a Ibipeba (conversa na semana 8) tem 7 (R-29). */}
+            {t('qualitative.description', { weeks: semanasDeDesenvolvimentoDoPlano(data.trilha.temporada_plano) ?? Math.max(1, semanaNum - 1) })}
           </p>
         </GlassCard>
       )}
@@ -1151,7 +1153,11 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                 </div>
               ) : (
                 <div className="text-center text-emerald-400 text-xs py-2">
-                  {semanaNum >= 14
+                  {/* Fim do PLANO, não o número 14: numa jornada de 7 ou num
+                      Personalizado sem fechamento a trilha acaba antes, e a
+                      última conversa dizia "Próxima semana libera" para uma
+                      semana que não existe (R-30). */}
+                  {ehUltimaSemanaDaTrilha(data.trilha, semanaNum)
                     ? t('evidence.doneSeason')
                     : t('evidence.doneNextWeek', { date: formatarLiberacao(data.trilha.data_inicio, semanaNum + 1) })}
                 </div>

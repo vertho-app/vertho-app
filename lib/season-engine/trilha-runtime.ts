@@ -13,7 +13,7 @@
  * Qualquer mudança de regra de liberação/resolução acontece AQUI, uma vez.
  */
 
-import { getProgramaConfigByModo, getProgramaConfigLegado, type ProgramaConfig } from './programa-config';
+import { getProgramaConfigByModo, getProgramaConfigDaTrilha, getProgramaConfigLegado, type ProgramaConfig } from './programa-config';
 import { parseConfigSnapshot, parseProgramaCustom, derivarConfigCustom } from './programa-custom';
 import { avaliarAcessoSemana } from './week-gating';
 import { PROGRESSO } from '@/lib/status';
@@ -36,8 +36,10 @@ export async function resolverConfigDaTrilha(
   sb: any,
   trilha: Pick<TrilhaRuntime, 'programa_modo' | 'empresa_id'> & Partial<Pick<TrilhaRuntime, 'id' | 'programa_config'>>,
 ): Promise<ProgramaConfig> {
-  const snap = parseConfigSnapshot(trilha.programa_config);
-  if (snap) return snap;
+  // O snapshot vale para qualquer rótulo (a Ibipeba é `regular_duo` com 9
+  // semanas) e passa pela MESMA leitura da versão síncrona, para as duas não
+  // divergirem no que o snapshot deixou de gravar.
+  if (parseConfigSnapshot(trilha.programa_config)) return getProgramaConfigDaTrilha(trilha);
   if (trilha.programa_modo === 'custom') {
     // Caller não selecionou programa_config → busca pelo id (custa 1 query, SÓ
     // em trilha custom; os presets nunca entram aqui).

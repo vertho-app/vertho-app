@@ -228,8 +228,14 @@ npm run reset:demo     # reseta o tenant de demonstração acme-demo
   este resumo não repete os números de propósito, pela mesma razão dos ids de modelo de IA.
   - ⚠️ **O que roda em produção é a Jornada de 7 semanas** (6 de conteúdo + fechamento na 7),
     não o DUO de 14. `Medido: 12/09/2026` — **112 das 152** trilhas dos últimos 90 dias são
-    `jornada`. `PROGRAMA_REGULAR_DUO` (14) continua sendo o *default de quem não tem
-    `programa_modo`*, o que não é a mesma coisa que "o formato do produto".
+    `jornada`. Desde 03/10/2026 o default de quem não tem `programa_modo` TAMBÉM é a Jornada
+    (`PROGRAMA_MODO_PADRAO`); `PROGRAMA_REGULAR_DUO` (14) só serve a trilha SEM carimbo e a quem
+    já está gravado nele (a tela oferece Jornada, Onboarding e Personalizado).
+  - 🔑 **"Quantas semanas tem esta trilha?" se pergunta a UMA função**: `duracaoDaTrilha`
+    (`lib/season-engine/duracao-trilha.ts`), que lê o snapshot (`trilhas.programa_config`) ou o
+    carimbo, na ordem de `getProgramaConfigDaTrilha`. Não é o tamanho do `temporada_plano` nem um
+    `|| 14`: a Ibipeba é `regular_duo` com snapshot de 9, e cada peça que contava de um jeito
+    (certificado, WhatsApp, painel do gestor, conclusão) dizia um número (R-29).
   - A linha que estava aqui dizia "Regular DUO (default, 14 semanas), Onboarding (10), Piloto
     (2 semanas)" e **não citava a Jornada** — o modo que efetivamente serve os clientes. Custo
     medido: um mapa do produto inteiro foi desenhado em 03/09 com "14, 10 ou 2 semanas", e quem

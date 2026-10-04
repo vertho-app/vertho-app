@@ -60,7 +60,7 @@ export async function loadHomeData() {
       // `data_inicio` é o que `carregarHomeKpis` usa para saber em que semana a
       // pessoa está (via week-gating). Sem ela no shared, os cards de pílula,
       // evidência e próximo marco não têm janela e não aparecem.
-      .select('id, cursos, competencia_foco, numero_temporada, status, temporada_plano, criado_em, data_inicio')
+      .select('id, cursos, competencia_foco, numero_temporada, status, temporada_plano, criado_em, data_inicio, programa_modo, programa_config')
       .eq('colaborador_id', colab.id)
       .eq('empresa_id', colab.empresa_id)
       .order('criado_em', { ascending: false })

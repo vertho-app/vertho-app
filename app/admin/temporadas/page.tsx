@@ -367,9 +367,9 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar,
             </div>
           </div>
 
-          {/* Timeline 14 semanas */}
+          {/* Timeline do plano: tantas semanas quantas o plano desta trilha tem */}
           <div>
-            <div className="text-[10px] uppercase text-gray-500 mb-2">{tr('card.planTitle')}</div>
+            <div className="text-[10px] uppercase text-gray-500 mb-2">{tr('card.planTitle', { weeks: semanas.length })}</div>
             <div className="grid grid-cols-7 gap-2">
               {semanas.map(s => {
                 const Icon = s.tipo === 'aplicacao' ? Target : s.tipo === 'avaliacao' ? Sparkles : (FORMAT_ICON[s.conteudo?.formato_core] || BookOpen);

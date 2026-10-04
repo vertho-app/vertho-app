@@ -106,6 +106,9 @@ export default function JornadaPage() {
     if (fase?.fase === 4 && fase?.totalSemanas) {
       return t('phaseDescriptions.4', { weeks: fase.totalSemanas });
     }
+    // Sem trilha montada não há total a dizer. O texto da fase tem `{weeks}`, e
+    // `t()` sem o valor devolve a mensagem crua, com as chaves à mostra.
+    if (fase?.fase === 4) return t('phaseDescriptions.trailPending');
     if (perfilAntes(fase)) return t('phaseDescriptions.profileFirst');
     return t(`phaseDescriptions.${fase?.fase}`) || t('phaseDescriptions.fallback');
   }
