@@ -146,7 +146,7 @@ export default function ProntidaoCargoView({ listar, comparar, scopeKey = 'defau
           <ArrowRight size={16} className="mb-3 shrink-0 text-slate-500" aria-hidden />
 
           <label className="min-w-[210px] flex-1">
-            <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Candidatos a</span>
+            <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Rumo ao cargo</span>
             <select
               value={alvo}
               onChange={(e) => setAlvo(e.target.value)}

@@ -105,25 +105,23 @@ export const fonts = {
 };
 
 // ── Nível helpers ───────────────────────────────────────────────────────────
+// 🔴 Sem vermelho e sem rótulo avaliativo para o nível (R-38, 04/10/2026): o N1 saía em
+// vermelho ("Atenção"), e o N2 a N4 em "Em desenvolvimento", "Bom" e "Excelente". O nível
+// é o ponto de partida da pessoa: o rótulo é "Nível N" e a cor do N1 é a do N2.
 export function nivelColor(nivel: number) {
   if (nivel >= 4) return colors.nivelGreen;
   if (nivel >= 3) return colors.nivelCyan;
-  if (nivel >= 2) return colors.nivelAmber;
-  return colors.nivelRed;
+  return colors.nivelAmber;
 }
 
 export function nivelBgColor(nivel: number) {
   if (nivel >= 4) return '#D1FAE5';
   if (nivel >= 3) return '#CFFAFE';
-  if (nivel >= 2) return '#FEF3C7';
-  return '#FEE2E2';
+  return '#FEF3C7';
 }
 
 export function nivelLabel(nivel: number) {
-  if (nivel >= 4) return 'Excelente';
-  if (nivel >= 3) return 'Bom';
-  if (nivel >= 2) return 'Em desenvolvimento';
-  return 'Atenção';
+  return `Nível ${Math.min(4, Math.max(1, Math.round(nivel || 1)))}`;
 }
 
 export function starsText(nivel: number) {

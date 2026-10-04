@@ -16,9 +16,12 @@ import { TUTORIAIS_PLATAFORMA } from '@/lib/tutorial-videos';
 // Vídeo tutorial do PDI (Bunny) — abre na 1ª vez que a pessoa recebe o PDI.
 const PDI_VIDEO_ID = TUTORIAIS_PLATAFORMA.pdi.guid;
 
-const nivelColor = n => n >= 4 ? '#10B981' : n >= 3 ? '#06B6D4' : n >= 2 ? '#F59E0B' : '#EAB308';
-const nivelBg    = n => n >= 4 ? 'rgba(16,185,129,0.15)' : n >= 3 ? 'rgba(6,182,212,0.15)' : n >= 2 ? 'rgba(245,158,11,0.15)' : 'rgba(234,179,8,0.15)';
-const nivelLabel = (n, t) => n >= 4 ? t('level.excellent') : n >= 3 ? t('level.good') : n >= 2 ? t('level.developing') : t('level.attention');
+// O NÍVEL é o ponto de partida da pessoa, não um veredito sobre ela (R-38, 04/10/2026).
+// A tela pintava N1 de amarelo "atenção", N2 de laranja e dava a cada nível um rótulo
+// avaliativo ("Excelente", "Bom", "Em desenvolvimento", "Atenção"). Agora é uma cor só
+// para os quatro níveis, e o texto é "Nível N".
+const NIVEL_COR = '#06B6D4';
+const NIVEL_BG = 'rgba(6,182,212,0.15)';
 
 function SectionTitle({ children, icon: Icon, color = '#06B6D4' }: { children?: any; icon?: any; color?: string }) {
   return (
@@ -32,30 +35,28 @@ function SectionTitle({ children, icon: Icon, color = '#06B6D4' }: { children?: 
 function CompetencyBlock({ comp, idx, t }: { comp?: any; idx?: any; t: any }) {
   const [open, setOpen] = useState(idx === 0);
   const nivel = nivelOuNull(comp.nivel ?? comp.nivel_atual);
-  const nivelVisual = nivel ?? 1;
-  const color = nivel === null ? '#94A3B8' : nivelColor(nivel);
+  const color = nivel === null ? '#94A3B8' : NIVEL_COR;
   const isFlag = comp.flag || nivel === null || nivel <= 1;
 
   return (
     <div className="rounded-xl border overflow-hidden" style={{
       background: '#0F2A4A',
-      borderColor: isFlag ? 'rgba(234,179,8,0.3)' : 'rgba(255,255,255,0.06)',
+      borderColor: isFlag ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.06)',
     }}>
       {/* Header clicável */}
       <button onClick={() => setOpen(!open)}
         className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/[0.02] transition-colors">
         <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: nivel === null ? 'rgba(148,163,184,0.15)' : nivelBg(nivelVisual) }}>
+          style={{ background: nivel === null ? 'rgba(148,163,184,0.15)' : NIVEL_BG }}>
           <Target size={18} style={{ color }} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-bold text-white">{comp.nome}</p>
-            {isFlag && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded text-amber-400 bg-amber-400/10">{t('priority')}</span>}
+            {isFlag && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded text-brand-300 bg-brand-400/10">{t('priority')}</span>}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-xs font-bold" style={{ color }}>{nivel === null ? '—' : `N${nivel}`}</span>
-            {nivel !== null && <span className="text-[10px] text-gray-500">{nivelLabel(nivel, t)}</span>}
+            <span className="text-xs font-bold" style={{ color }}>{nivel === null ? '\u2014' : t('levelValue', { n: nivel })}</span>
           </div>
         </div>
         {open ? <ChevronUp size={18} className="text-gray-500 shrink-0" /> : <ChevronDown size={18} className="text-gray-500 shrink-0" />}
@@ -369,8 +370,7 @@ export default function PDIPage() {
                 <div key={i} className="flex items-center justify-between rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.02)' }}>
                   <span className="text-xs text-white font-semibold truncate">{rd.competencia || rd.nome}</span>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ color: n === null ? '#94A3B8' : nivelColor(n), background: n === null ? 'rgba(148,163,184,0.15)' : nivelBg(n) }}>{n === null ? '—' : `N${n}`}</span>
-                    {n !== null && <span className="text-[10px]" style={{ color: nivelColor(n) }}>{nivelLabel(n, t)}</span>}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ color: n === null ? '#94A3B8' : NIVEL_COR, background: n === null ? 'rgba(148,163,184,0.15)' : NIVEL_BG }}>{n === null ? '\u2014' : t('levelValue', { n })}</span>
                   </div>
                 </div>
               );

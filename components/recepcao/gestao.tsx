@@ -13,6 +13,7 @@ import { posicaoNaConversa } from './relatorio-matriz';
 import { casoEmBranco } from '@/lib/recepcao/caso-em-branco';
 import { useLocale, useTranslations } from 'next-intl';
 import EquipeVisao from './equipe-visao';
+import { nivelDaNota } from '@/lib/nivel-regua';
 
 // Desfechos com rótulo traduzido; um desfecho personalizado do caso aparece como está.
 const DESFECHOS_CONHECIDOS = ['remarcado', 'encaminhado', 'orientado', 'nao_resolvido', 'inconclusivo'];
@@ -39,7 +40,6 @@ export default function GestaoRecepcao({
   // e editor seguem em português, como ferramenta interna da Vertho.
   const t = useTranslations('SimuladorAtendimento');
   const locale = useLocale();
-  const numero = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
   const [dados, setDados] = useState<any>(null),
     [erro, setErro] = useState(''),
     [busy, setBusy] = useState(false);
@@ -414,7 +414,7 @@ export default function GestaoRecepcao({
                 <tr>
                   <th>{t('teamCase')}</th>
                   <th>{t('teamCaseSessions')}</th>
-                  <th>{t('teamAverage')}</th>
+                  <th>{t('teamLevel')}</th>
                   <th>{t('teamCritical')}</th>
                 </tr>
               </thead>
@@ -426,7 +426,7 @@ export default function GestaoRecepcao({
                       {admin && <small className={styles.cellNote}>{g.versao}</small>}
                     </td>
                     <td>{g.sessoes}</td>
-                    <td>{g.media === null ? '—' : t('scoreOf4Short', { score: numero(g.media) })}</td>
+                    <td>{g.media === null ? '\u2014' : t('levelShort', { n: nivelDaNota(g.media) })}</td>
                     <td>{g.criticas}</td>
                   </tr>
                 ))}
@@ -466,8 +466,8 @@ export default function GestaoRecepcao({
                         : s.status !== RECEPCAO_SESSAO.CONCLUIDA
                         ? t('teamInProgress')
                         : s.nota === null
-                          ? t('noScore')
-                          : t('scoreOf4Short', { score: numero(s.nota) })}
+                          ? t('teamNoLevel')
+                          : t('levelShort', { n: nivelDaNota(s.nota) })}
                       {s.critica ? ` · ${t('historyAttention')}` : ''}
                     </td>
                     <td>
@@ -565,8 +565,8 @@ export default function GestaoRecepcao({
                       . {h(rel.desfecho.justificativa)}
                     </p>
                     <p>
-                      <strong>{t('reviewScore')}</strong>{' '}
-                      {rel.nota === null ? t('noScore') : t('scoreOf4Short', { score: numero(rel.nota) })}
+                      <strong>{t('reviewLevel')}</strong>{' '}
+                      {rel.nota === null ? t('teamNoLevel') : t('levelShort', { n: nivelDaNota(rel.nota) })}
                     </p>
                     {rel.ocorrencias.length > 0 && (
                       <div className={styles.error}>

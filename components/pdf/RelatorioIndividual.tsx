@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts, tableStyles, pageStyles, nivelColor, nivelBgColor, nivelLabel } from './styles';
+import { colors, fonts, tableStyles, pageStyles } from './styles';
 import { PdfBackCover } from './PdfCover';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
@@ -56,27 +56,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 2, borderRadius: 2,
   },
   nivelTagText: { fontSize: 7, fontWeight: 700, color: colors.cyan },
-  // Status pills
-  statusPillAtencao: {
-    backgroundColor: '#FEE2E2', alignSelf: 'flex-start',
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 2,
-  },
-  statusPillAtencaoText: { fontSize: 7, fontWeight: 600, color: '#B91C1C' },
-  statusPillDev: {
-    backgroundColor: '#FEF9C3', alignSelf: 'flex-start',
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 2,
-  },
-  statusPillDevText: { fontSize: 7, fontWeight: 600, color: '#A16207' },
-  statusPillBom: {
-    backgroundColor: '#D1FAE5', alignSelf: 'flex-start',
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 2,
-  },
-  statusPillBomText: { fontSize: 7, fontWeight: 600, color: '#065F46' },
-  // Progress bar
-  progWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  progBar: { width: 60, height: 5, backgroundColor: '#E2E8F0', borderRadius: 2.5, overflow: 'hidden' },
-  progFill: { height: '100%' },
-  progLabel: { fontSize: 7, color: colors.gray500, fontWeight: 600 },
   // Trilha
   trilhaBox: {
     backgroundColor: colors.fezBemBg,
@@ -160,32 +139,17 @@ function PageFooter({ mostrarVertho = true }: { mostrarVertho?: boolean }) {
   );
 }
 
-// ── Status pill helper ──────────────────────────────────────────────────────
-function StatusPill({ nivel }: { nivel: number | null }) {
-  if (nivel === null) return (
-    <View style={s.statusPillAtencao}><Text style={s.statusPillAtencaoText}>Pendente</Text></View>
-  );
-  if (nivel <= 1) return (
-    <View style={s.statusPillAtencao}><Text style={s.statusPillAtencaoText}>Atenção</Text></View>
-  );
-  if (nivel === 2) return (
-    <View style={s.statusPillDev}><Text style={s.statusPillDevText}>Em Desenvolvimento</Text></View>
-  );
-  return <View style={s.statusPillBom}><Text style={s.statusPillBomText}>{nivelLabel(nivel)}</Text></View>;
-}
-
-function ProgressBar({ nivel }: { nivel: number | null }) {
-  if (nivel === null) return <Text style={s.progLabel}>—</Text>;
-  const pct = Math.min(100, Math.max(0, (nivel / 4) * 100));
-  const fillColor = nivel <= 1 ? '#EF4444' : nivel === 2 ? '#F59E0B' : nivel === 3 ? '#06B6D4' : '#10B981';
-  return (
-    <View style={s.progWrap}>
-      <View style={s.progBar}>
-        <View style={{ ...s.progFill, width: `${pct}%`, backgroundColor: fillColor }} />
-      </View>
-      <Text style={s.progLabel}>{Math.round(pct)}%</Text>
-    </View>
-  );
+// ── Nível da competência: quatro pontos, sem veredito ────────────────────────
+/**
+ * Os quatro níveis como pontos preenchidos até o nível da pessoa (R-38, 04/10/2026).
+ * Era uma pílula avaliativa ("Atenção" em vermelho no N1, "Em Desenvolvimento" no N2,
+ * "Bom", "Excelente") e uma barra de PORCENTAGEM (Nível 3 = 75%), vermelha no N1. O
+ * nível é o ponto de partida da pessoa: o papel diz "Nível N" e mostra os quatro
+ * degraus, na mesma cor para todos.
+ */
+function NivelPontos({ nivel }: { nivel: number | null }) {
+  if (nivel === null) return <Text style={s.nivelTagText}>{'\u2014'}</Text>;
+  return <LevelDots nivel={nivel} color={colors.navy} />;
 }
 
 export type TrilhaFasePdi = { fase: string; titulo: string; detalhe: string };
@@ -433,13 +397,12 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
         {/* Resumo de Desempenho — tabela premium navy */}
         {(c.resumo_desempenho || competencias)?.length > 0 && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Resumo de Desempenho</ReportSectionTitle>
+            <ReportSectionTitle>Ponto de partida por competência</ReportSectionTitle>
             <View style={s.table}>
               <View style={s.tableHead}>
                 <Text style={{ ...s.tableHeadCell, flex: 3 }}>Competência</Text>
-                <Text style={{ ...s.tableHeadCell, flex: 0.8, textAlign: 'center' }}>Nível</Text>
-                <Text style={{ ...s.tableHeadCell, flex: 1.4, textAlign: 'center' }}>Status</Text>
-                <Text style={{ ...s.tableHeadCell, flex: 1.4, textAlign: 'center' }}>Desempenho</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1.2, textAlign: 'center' }}>Nível</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1.6, textAlign: 'center' }}>Os quatro níveis</Text>
               </View>
               {(c.resumo_desempenho || competencias).map((comp: any, i: number) => {
                 const nivel = nivelOuNull(comp.nivel ?? comp.nivel_atual);
@@ -449,16 +412,13 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                     <Text style={{ ...s.tableCellComp, flex: 3 }}>
                       {comp.competencia || comp.nome}
                     </Text>
-                    <View style={{ flex: 0.8, alignItems: 'center' }}>
+                    <View style={{ flex: 1.2, alignItems: 'center' }}>
                       <View style={s.nivelTag}>
-                        <Text style={s.nivelTagText}>{nivel === null ? '—' : `N${nivel}`}</Text>
+                        <Text style={s.nivelTagText}>{nivel === null ? '\u2014' : `Nível ${nivel}`}</Text>
                       </View>
                     </View>
-                    <View style={{ flex: 1.4, alignItems: 'center' }}>
-                      <StatusPill nivel={nivel} />
-                    </View>
-                    <View style={{ flex: 1.4, alignItems: 'center' }}>
-                      <ProgressBar nivel={nivel} />
+                    <View style={{ flex: 1.6, alignItems: 'center' }}>
+                      <NivelPontos nivel={nivel} />
                     </View>
                   </View>
                 );

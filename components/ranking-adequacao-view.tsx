@@ -132,7 +132,7 @@ export default function RankingAdequacaoView({ listar, carregar, exportar, scope
       {!loading && !erro && data && data.elegiveis?.length > 0 && <DemoExplorationBeacon alvo="adequacao" />}
       <div className="mb-4">
         <h1 className="text-xl font-bold text-white">Ranking de Adequação ao Cargo</h1>
-        <p className="text-xs text-slate-400 mt-1">Como os candidatos de um cargo se posicionam frente ao perfil ideal. Filtre e ordene para visualizar.</p>
+        <p className="text-xs text-slate-400 mt-1">Como as pessoas de um cargo se posicionam frente ao perfil ideal. Filtre e ordene para visualizar.</p>
       </div>
 
       {erro && !data && <GlassCard><p className="text-sm text-amber-400 p-1">{erro}</p></GlassCard>}
@@ -185,19 +185,19 @@ export default function RankingAdequacaoView({ listar, carregar, exportar, scope
           <GlassCard>
             <div className="flex gap-2 items-start p-1">
               <Info size={15} className="text-cyan-400 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-slate-300"><b>Apoio à decisão.</b> Filtrar e ordenar reorganiza a visualização — não seleciona nem elimina candidatos. A escolha final cabe ao gestor ou psicólogo responsável.</p>
+              <p className="text-[11px] text-slate-300"><b>Apoio à decisão.</b> Filtrar e ordenar reorganiza a visualização: não classifica nem exclui ninguém. A decisão final cabe ao gestor ou ao RH.</p>
             </div>
           </GlassCard>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
             <span>Ranking de <b className="text-slate-300">{fmtData(data.dataISO)}</b> (foto da geração).</span>
             <span>Eixo do cargo: <b className="text-slate-300">{data.eixo.label}</b>{data.eixo.peso != null && ` (peso ${data.eixo.peso}%)`}.</span>
-            <span>🟢 Recomendado · 🟡 Com ressalvas · ⚪ Abaixo do corte{data.faixas ? ` (aderência < ${data.faixas.ressalvasMin}%; não é eliminação por gate)` : ''}</span>
+            <span>🟢 Recomendado · 🟡 Com ressalvas · ⚪ Abaixo do corte{data.faixas ? ` (aderência < ${data.faixas.ressalvasMin}%; não é requisito essencial não atendido)` : ''}</span>
           </div>
           {data.divergencia && (
             <div className="rounded-lg p-2.5 border border-amber-400/30 bg-amber-400/5 text-[11px] text-amber-200/90 flex gap-2">
               <ShieldAlert size={14} className="shrink-0 mt-0.5" />
-              <span>Neste grupo, <b>{data.divergencia.eixo}</b> (o bloco de maior peso do cargo) quase não diferencia os candidatos (dispersão {data.divergencia.sdEixo}). A ordem segue a <b>aderência</b> (o veredito do cargo); quem de fato separa aqui é <b>{data.divergencia.real}</b> — é nela que a entrevista deve focar (mostrada ao lado de cada candidato e usada como desempate).</span>
+              <span>Neste grupo, <b>{data.divergencia.eixo}</b> (o bloco de maior peso do cargo) quase não diferencia as pessoas (dispersão {data.divergencia.sdEixo}). A ordem segue a <b>aderência</b> (o resultado do cargo); quem de fato separa aqui é <b>{data.divergencia.real}</b>: é nela que a leitura deve se concentrar (mostrada ao lado de cada pessoa e usada como desempate).</span>
             </div>
           )}
 
@@ -218,7 +218,7 @@ export default function RankingAdequacaoView({ listar, carregar, exportar, scope
               <button onClick={() => setSort('aderencia')} className={`px-2 py-1 rounded border ${sort === 'aderencia' ? 'border-brand-400 text-brand-200' : 'border-white/10 text-slate-400'}`}>Aderência</button>
               <button onClick={() => setSort('eixo')} className={`px-2 py-1 rounded border ${sort === 'eixo' ? 'border-brand-400 text-brand-200' : 'border-white/10 text-slate-400'}`}>{sep} {data.divergencia ? '(separa)' : '(eixo)'}</button>
             </div>
-            <span className="text-slate-500 ml-auto">{visiveis.length} de {data.totais.elegiveis} elegíveis</span>
+            <span className="text-slate-500 ml-auto">{visiveis.length} de {data.totais.elegiveis} no ranking</span>
             {exportar && (
               <button onClick={exportarPDF} disabled={exportando} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-400/40 bg-brand-500/10 text-brand-200 hover:bg-brand-500/20 disabled:opacity-50">
                 {exportando ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
@@ -252,14 +252,14 @@ export default function RankingAdequacaoView({ listar, carregar, exportar, scope
                 </div>
               );
             })}
-            {visiveis.length === 0 && <p className="text-xs text-slate-500 py-4 text-center">Nenhum candidato com os filtros atuais.</p>}
+            {visiveis.length === 0 && <p className="text-xs text-slate-500 py-4 text-center">Nenhuma pessoa com os filtros atuais.</p>}
           </div>
 
           {data.anexoGate.length > 0 && (
             <GlassCard>
               <div className="p-1">
-                <div className="text-xs font-bold text-slate-300 mb-1">Não elegíveis por requisito eliminatório ({data.anexoGate.length})</div>
-                <p className="text-[10px] text-slate-500 mb-2">Bloqueados por um critério inegociável do cargo. Aderência não se aplica — o requisito não atendido é o que decide.</p>
+                <div className="text-xs font-bold text-slate-300 mb-1">Fora do ranking por requisito essencial ({data.anexoGate.length})</div>
+                <p className="text-[10px] text-slate-500 mb-2">Não atendem a um requisito essencial do cargo. A aderência não se aplica: o requisito não atendido é o que decide.</p>
                 <ul className="space-y-1">
                   {data.anexoGate.map((p: any) => (
                     <li key={p.id} className="text-[11px] text-slate-300 flex items-baseline gap-2">

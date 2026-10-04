@@ -16,7 +16,7 @@ import {
 } from '@/lib/simulador-vendas/schema';
 import type { SessaoPublica } from '@/lib/simulador-vendas/core';
 import type { ResumoTreino } from '@/lib/simulador-vendas/historico';
-import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
+import { nivelDaNotaPace } from '@/lib/simulador-vendas/nota';
 import {
   comporPlano,
   GRUPOS_PLANO,
@@ -762,7 +762,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                           </span>
                         ) : (
                           <span className={styles.historyScore}>
-                            {t('score')} {formatarNotaPace(h.nota, locale)}
+                            {nivelDaNotaPace(h.nota) != null ? t('evolutionLevel', { n: nivelDaNotaPace(h.nota) }) : '\u2014'}
                           </span>
                         )}
                       </span>

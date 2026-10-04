@@ -1,6 +1,6 @@
 'use client';
 import type { Saidas } from '@/lib/simulador-vendas/schema';
-import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
+import { nivelDaNotaPace } from '@/lib/simulador-vendas/nota';
 import { useLocale, useTranslations } from 'next-intl';
 import RelatorioCompetencias from '@/components/simuladores/relatorio-competencias';
 import { relatorioPacePublico } from '@/lib/simulador-vendas/escala';
@@ -67,8 +67,7 @@ export default function Relatorio({
         <h2 className="text-xl">{t(equipe ? 'reportTitleTeam' : 'reportTitle')}</h2>
         {!matriz && (
           <span className="text-3xl tabular-nums">
-            {formatarNotaPace(r.Media, locale)}
-            <small className="text-sm text-slate-400"> / 4</small>
+            {nivelDaNotaPace(r.Media) != null ? t('evolutionLevel', { n: nivelDaNotaPace(r.Media) }) : '\u2014'}
           </span>
         )}
       </div>
@@ -99,18 +98,9 @@ export default function Relatorio({
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold">{t(nome)}</h3>
                   <span className="tabular-nums text-brand-300">
-                    {formatarNotaPace(r[p], locale)}
+                    {nivelDaNotaPace(r[p]) != null ? t('evolutionLevel', { n: nivelDaNotaPace(r[p]) }) : '\u2014'}
                   </span>
                 </div>
-                {r[p] !== null && (
-                  <meter
-                    className="w-full my-2"
-                    min={1}
-                    max={4}
-                    value={r[p]!}
-                    aria-label={t('scoreLabel', { name: t(nome) })}
-                  />
-                )}
                 <p className="text-sm text-slate-300 leading-relaxed">
                   {r[detalhe]}
                 </p>

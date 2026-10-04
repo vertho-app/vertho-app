@@ -4,7 +4,9 @@
  * liderança). Até 18/09/2026 cada um tinha a sua, e as três divergiam: "N3",
  * "2,5 / 4 · N2" e "N2 · 2,5/4" para a mesma coisa. Aqui:
  *   - competência em foco primeiro (quem chama ordena; `foco` só marca);
- *   - nível por extenso ("Nível 3"), como no resto do produto;
+ *   - nível por extenso ("Nível 3"), como no resto do produto, e NUNCA a nota decimal
+ *     nem "X de 4" (R-35, 04/10/2026: a decisão do dono é que ninguém do cliente vê nota,
+ *     e a média geral virou "Nível geral"). `nota` segue nos dados para o admin da Vertho;
  *   - regra de cobertura dita em palavras quando a competência não tem nível;
  *   - comportamentos com citação, régua dos 4 níveis recolhida;
  *   - sem códigos, versões ou siglas internas.
@@ -12,7 +14,7 @@
  * dev server do Turbopack (memória de 06/09).
  */
 import { useState } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import styles from './relatorio-competencias.module.css';
 
 export interface EvidenciaRelatorio {
@@ -77,8 +79,6 @@ export default function RelatorioCompetencias({
   acento?: string;
 }) {
   const t = useTranslations('SimuladoresRelatorio');
-  const locale = useLocale();
-  const nota = (n: number) => n.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 2 });
   // Quais competências estão abertas, para a seta girar (por CLASSE: seletor
   // `[open]` em CSS module é o que quebra o dev do Turbopack). Outra devolutiva
   // (outro encontro, outro foco) volta ao estado inicial.
@@ -99,10 +99,9 @@ export default function RelatorioCompetencias({
       {media !== undefined && (
         <div className={styles.media}>
           <span className={styles.mediaRotulo}>{rotuloMedia || t('overall')}</span>
-          {media?.nota != null && media.nivel != null ? (
+          {media?.nivel != null ? (
             <>
               <strong className={styles.mediaNivel}>{t('level', { n: media.nivel })}</strong>
-              <span className={styles.mediaNota}>{t('score', { score: nota(media.nota) })}</span>
               <small className={styles.muted}>{t('overallHelp', { n: media.competencias })}</small>
             </>
           ) : (
@@ -130,10 +129,9 @@ export default function RelatorioCompetencias({
               <small className={styles.muted}>{t('coverage', { n: c.observados, total: c.total })}</small>
             </span>
             <span className={styles.resultado}>
-              {c.nivel != null && c.nota != null ? (
+              {c.nivel != null ? (
                 <>
                   <b>{t('level', { n: c.nivel })}</b>
-                  <small>{t('score', { score: nota(c.nota) })}</small>
                 </>
               ) : (
                 <b className={styles.semNivel}>

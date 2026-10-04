@@ -109,8 +109,6 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     running = useRef(false),
     generation = useRef(0);
   const fim = useRef<HTMLDivElement>(null);
-  const numero = (n: number) =>
-    n.toLocaleString(locale, { maximumFractionDigits: 2 });
 
   async function api(url: string, init?: RequestInit) {
     let res: Response;
@@ -796,7 +794,6 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                         ) : (
                           <>
                             <strong>{t('levelShort', { n: nivelDaNota(relatorio.nota) })}</strong>
-                            <small>{t('scoreOf4Short', { score: numero(relatorio.nota) })}</small>
                           </>
                         )}
                       </p>
@@ -815,10 +812,10 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   {!relatorio.competencias && (
                     <div className={styles.score}>
                       <strong>
-                        {relatorio.nota === null ? '—' : numero(relatorio.nota)}
+                        {relatorio.nota === null ? '\u2014' : t('levelShort', { n: nivelDaNota(relatorio.nota) })}
                       </strong>
                       <span>
-                        {t('scoreOf4', {
+                        {t('coverage', {
                           coverage: Math.round(
                             relatorio.coberturaPercentual,
                           ).toLocaleString(locale),
@@ -1316,10 +1313,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     {item.status === RECEPCAO_SESSAO.CONCLUIDA
                       ? [
                           item.nota === null
-                            ? t('noScore')
-                            : t('historyScore', {
-                                score: numero(item.nota),
-                              }),
+                            ? t('teamNoLevel')
+                            : t('levelShort', { n: nivelDaNota(item.nota) }),
                           item.escalaOriginal ? t('historyLegacy') : null,
                           item.situacao === 'atencao_critica'
                             ? t('historyAttention')

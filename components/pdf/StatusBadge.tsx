@@ -54,9 +54,9 @@ export default function StatusBadge({ nivel }: { nivel: number }) {
 
 export function FlagBadge() {
   return (
-    <View style={{ ...s.badge, backgroundColor: '#FEE2E2', marginBottom: 6 }}>
-      <Text style={{ fontSize: 7.5, fontWeight: 'bold', color: '#991B1B', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-        Atencao Prioritaria
+    <View style={{ ...s.badge, backgroundColor: '#FEF3C7', marginBottom: 6 }}>
+      <Text style={{ fontSize: 7.5, fontWeight: 'bold', color: '#92400E', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+        Prioridade
       </Text>
     </View>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { colors, fonts, nivelColor, nivelBgColor, nivelLabel } from './styles';
+import { colors, fonts } from './styles';
 import ChecklistBox from './ChecklistBox';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { nivelOuNull } from '@/lib/nivel-regua';
@@ -20,11 +20,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: 3,
   },
   badgeLevelText: { fontSize: 8, fontWeight: 700, color: colors.navy, letterSpacing: 0.5 },
-  badgeAtencao: {
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 3, marginLeft: 5,
-  },
-  badgeAtencaoText: { fontSize: 7.5, fontWeight: 700, color: colors.white, letterSpacing: 0.5 },
   badgeDev: {
     backgroundColor: colors.yellow,
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: 3, marginLeft: 5,
@@ -151,15 +146,14 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
         </View>
         <View style={s.headerRight}>
           <View style={s.badgeLevel}>
-            <Text style={s.badgeLevelText}>{nivel === null ? 'Pendente' : `N${nivel}`}</Text>
+            <Text style={s.badgeLevelText}>{nivel === null ? 'Pendente' : `Nível ${nivel}`}</Text>
           </View>
+          {/* "Prioridade", em âmbar, no lugar do selo vermelho "Atenção Prioritária" e do
+              "Em Desenvolvimento" do N2 (R-38): o nível já está no selo ao lado, e a cor
+              de alarme sobre o ponto de partida de alguém não cabe no papel que ela leva. */}
           {isFlag ? (
-            <View style={s.badgeAtencao}>
-              <Text style={s.badgeAtencaoText}>Atenção Prioritária</Text>
-            </View>
-          ) : nivel === 2 ? (
             <View style={s.badgeDev}>
-              <Text style={s.badgeDevText}>Em Desenvolvimento</Text>
+              <Text style={s.badgeDevText}>Prioridade</Text>
             </View>
           ) : null}
         </View>

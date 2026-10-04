@@ -47,7 +47,7 @@ const s = StyleSheet.create({
   card: { backgroundColor: CL.card, borderRadius: 10, borderWidth: 1, borderColor: CL.cardBorda, padding: 20, marginBottom: 0 },
   footer: { position: 'absolute', bottom: 24, left: 40, right: 40, fontSize: 6.5, color: T.mute, textAlign: 'center' },
 });
-const DISCLAIMER = 'Apoio à decisão. Este documento reorganiza e apresenta o resultado da avaliação — não seleciona nem elimina candidatos. A escolha final cabe ao gestor ou psicólogo responsável.';
+const DISCLAIMER = 'Apoio à decisão. Este documento reorganiza e apresenta o resultado da avaliação: não classifica nem exclui ninguém. A decisão final cabe ao gestor ou ao RH.';
 const fmtData = (iso?: string | null) => iso ? (() => { const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })() : '—';
 const fmtDataLonga = (iso?: string | null) => { if (!iso) return '—'; const M = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']; const [y, m, d] = iso.slice(0, 10).split('-'); return `${Number(d)} de ${M[Number(m) - 1]} de ${y}`; };
 // Aderência (número-herói) em 1 casa decimal, vírgula pt-BR.
@@ -193,7 +193,7 @@ function Capa({ empresaNome, cargo, dataISO, metricas, emin, faixas, elegiveis }
           const corPt = (st: string) => st === 'recomendado' ? T.off : st === 'recomendado_com_ressalvas' ? T.clay : T.mute;
           return (
             <View style={{ marginBottom: 24 }}>
-              <Text style={{ fontSize: 8.5, color: T.mute, marginBottom: 8 }}>Aderência dos <Text style={{ color: T.off, fontWeight: 600 }}>{elegiveis.length} candidatos elegíveis</Text> — {acima === elegiveis.length ? 'todos' : `${acima} de ${elegiveis.length}`} acima do corte de recomendação</Text>
+              <Text style={{ fontSize: 8.5, color: T.mute, marginBottom: 8 }}>Aderência dos <Text style={{ color: T.off, fontWeight: 600 }}>{elegiveis.length} pessoas no ranking</Text>, {acima === elegiveis.length ? 'todos' : `${acima} de ${elegiveis.length}`} acima do corte de recomendação</Text>
               <Svg width={W} height={BH}>
                 <Rect x={0} y={0} width={W} height={BH} rx={7} fill={T.clay} />
                 <Rect x={x(rec)} y={0} width={W - x(rec)} height={BH} rx={7} fill={T.verde} />
@@ -215,7 +215,7 @@ function Capa({ empresaNome, cargo, dataISO, metricas, emin, faixas, elegiveis }
             </View>
           ))}
         </View>
-        <Text style={{ fontSize: 7, color: T.mute, marginTop: 16, maxWidth: 420 }}><Text style={{ color: T.off }}>Apoio à decisão.</Text> Este documento reorganiza e apresenta o resultado da avaliação — não seleciona nem elimina candidatos. A escolha final cabe ao gestor ou psicólogo responsável.</Text>
+        <Text style={{ fontSize: 7, color: T.mute, marginTop: 16, maxWidth: 420 }}><Text style={{ color: T.off }}>Apoio à decisão.</Text> Este documento reorganiza e apresenta o resultado da avaliação: não classifica nem exclui ninguém. A decisão final cabe ao gestor ou ao RH.</Text>
       </View>
     </Page>
   );
@@ -238,15 +238,15 @@ function PaginaRanking({ elegiveis, sep, divergencia, cargo, emin, faixas }: any
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: T.clay }} /><Text style={{ fontSize: 7.5, color: T.mute }}>Com ressalvas</Text></View>
           </View>
         </View>
-        <Text style={{ fontSize: 8, color: T.mute, lineHeight: 1.4, marginBottom: 10, maxWidth: 440 }}>Cada candidato posicionado na régua de aderência ({emin} a 100) — a nota final que resume o encaixe do perfil no cargo. Quanto mais à direita, maior a adequação. A faixa mais clara ao redor do marcador é o intervalo provável da nota (margem de medida), que aparece só nos candidatos limítrofes.</Text>
+        <Text style={{ fontSize: 8, color: T.mute, lineHeight: 1.4, marginBottom: 10, maxWidth: 440 }}>Cada pessoa posicionada na régua de aderência ({emin} a 100): o resultado que resume o encaixe do perfil no cargo. Quanto mais à direita, maior a adequação. A faixa mais clara ao redor do marcador é o intervalo provável da nota (margem de medida), que aparece só nas pessoas limítrofes.</Text>
         {divergencia && (
           <View style={{ backgroundColor: 'rgba(224,161,86,0.10)', borderRadius: 6, padding: 8, marginBottom: 10 }}>
-            <Text style={{ fontSize: 7.5, color: T.clay, lineHeight: 1.4 }}>Neste grupo, {divergencia.eixo} (bloco de maior peso) quase não diferencia os candidatos (dispersão {divergencia.sdEixo}). A ordem segue a aderência; quem de fato separa é {divergencia.real} — é nela que a entrevista deve focar.</Text>
+            <Text style={{ fontSize: 7.5, color: T.clay, lineHeight: 1.4 }}>Neste grupo, {divergencia.eixo} (bloco de maior peso) quase não diferencia as pessoas (dispersão {divergencia.sdEixo}). A ordem segue a aderência; quem de fato separa é {divergencia.real}: é nela que a leitura deve se concentrar.</Text>
           </View>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: CL.linha, paddingBottom: 4, marginBottom: 5 }}>
           <Text style={{ width: 22, fontSize: 6.5, color: T.mute, letterSpacing: 0.5 }}></Text>
-          <Text style={{ flex: 1, fontSize: 6.5, color: T.mute, letterSpacing: 1, textTransform: 'uppercase' }}>Candidato</Text>
+          <Text style={{ flex: 1, fontSize: 6.5, color: T.mute, letterSpacing: 1, textTransform: 'uppercase' }}>Pessoa</Text>
           <View style={{ width: RW, flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ fontSize: 6.5, color: T.mute }}>{emin}</Text><Text style={{ fontSize: 6.5, color: T.teal }}>{fmtBeta(rec)} · recom.</Text><Text style={{ fontSize: 6.5, color: T.mute }}>100</Text></View>
           <Text style={{ width: 44, fontSize: 6.5, color: T.mute, textAlign: 'right', letterSpacing: 1 }}>FIT</Text>
         </View>
@@ -277,7 +277,7 @@ function PaginaGabarito({ perfilIdeal }: { perfilIdeal: AdequacaoCargo['perfilId
       <View style={s.card}>
         <Text style={s.eyebrow}>Critério do cargo</Text>
         <Text style={[s.h2, { marginTop: 4, marginBottom: 4 }]}>Gabarito do cargo</Text>
-        <Text style={{ fontSize: 8, color: T.mute, lineHeight: 1.4, marginBottom: 14, maxWidth: 400 }}>Como a adequação é calculada: o peso de cada bloco, os cortes que definem o rótulo, as faixas ideais de cada competência e os requisitos que eliminam.</Text>
+        <Text style={{ fontSize: 8, color: T.mute, lineHeight: 1.4, marginBottom: 14, maxWidth: 400 }}>Como a adequação é calculada: o peso de cada bloco, os cortes que definem o rótulo, as faixas ideais de cada competência e os requisitos essenciais.</Text>
 
         <Text style={{ fontSize: 8.5, fontWeight: 600, marginBottom: 5, color: T.navy }}>Pesos por bloco</Text>
         <View style={{ flexDirection: 'row', height: 26, borderRadius: 5, overflow: 'hidden', marginBottom: 16 }}>
@@ -296,7 +296,7 @@ function PaginaGabarito({ perfilIdeal }: { perfilIdeal: AdequacaoCargo['perfilId
                 <View key={i} style={{ backgroundColor: c, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3 }}><Text style={{ fontSize: 7.5, color: '#FFFFFF', fontWeight: 600 }}>{t}</Text></View>
               ))}
             </View>
-            <Text style={{ fontSize: 7, color: T.mute, lineHeight: 1.4 }}>A aderência é a média ponderada dos blocos. "Abaixo do corte" NÃO é eliminação por requisito — é nota de aderência insuficiente (não bloqueia, mas não recomenda). Eliminatórios são os gates abaixo.</Text>
+            <Text style={{ fontSize: 7, color: T.mute, lineHeight: 1.4 }}>A aderência é a média ponderada dos blocos. "Abaixo do corte" NÃO é requisito essencial não atendido: é aderência abaixo da faixa (não bloqueia, mas não recomenda). Os requisitos essenciais estão abaixo.</Text>
           </View>
         ) : <Text style={{ fontSize: 8, color: T.mute, marginBottom: 16 }}>Cortes não gravados neste snapshot. Regere o relatório para incluí-los.</Text>}
 
@@ -315,13 +315,13 @@ function PaginaGabarito({ perfilIdeal }: { perfilIdeal: AdequacaoCargo['perfilId
           </View>
         </View>
 
-        <Text style={{ fontSize: 8.5, fontWeight: 600, marginBottom: 5, color: T.vermelho }}>Requisitos eliminatórios (gates)</Text>
+        <Text style={{ fontSize: 8.5, fontWeight: 600, marginBottom: 5, color: T.vermelho }}>Requisitos essenciais</Text>
         {gates && gates.length > 0 ? gates.map((g, i) => (
           <View key={i} style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 2 }}>
             <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: T.vermelho, marginRight: 6, marginTop: 3 }} />
             <Text style={{ fontSize: 8, color: T.ink }}>{g.label}{g.tipo === 'trait' && g.piso != null ? ` — mínimo ${g.piso} (aderência ${g.minPct}%+)` : ` — aderência do bloco ${g.minPct}%+`}</Text>
           </View>
-        )) : <Text style={{ fontSize: 8, color: T.mute }}>Sem requisitos eliminatórios. O corte é só por aderência.</Text>}
+        )) : <Text style={{ fontSize: 8, color: T.mute }}>Sem requisitos essenciais. O corte é só por aderência.</Text>}
       </View>
       <Text style={s.footer} fixed>{DISCLAIMER}</Text>
     </Page>
@@ -334,7 +334,7 @@ function AnaliseIndividual({ elegiveis, narrativas, gates }: any) {
   return (
     <Page size="A4" style={s.pageLight} wrap>
       <Text style={s.eyebrow}>Análise individual</Text>
-      <Text style={[s.h2, { marginTop: 4, marginBottom: 4 }]}>Candidatos elegíveis</Text>
+      <Text style={[s.h2, { marginTop: 4, marginBottom: 4 }]}>Pessoas no ranking</Text>
       <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 8, lineHeight: 1.4, maxWidth: 470 }}>Cada barra mostra o valor bruto (0–100) do traço contra a faixa ideal (área destacada). Listamos até 5 traços que pedem atenção (fora do ideal), do que mais destoa ao menos; os demais estão dentro e aparecem no total ao final de cada pessoa.</Text>
       <Legenda />
       {elegiveis.map((p: PessoaAdequacao) => {
@@ -383,8 +383,8 @@ function PlanoDesenvolvimento({ elegiveis }: any) {
       <View style={s.card}>
         <Text style={s.eyebrow}>Desenvolvimento</Text>
         <Text style={[s.h2, { marginTop: 4, marginBottom: 10 }]}>Plano — gaps desenvolvíveis</Text>
-        <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 10 }}>Janela sugerida de 90 dias. Só traços desenvolvíveis (nunca requisito eliminatório).</Text>
-        {comGap.length === 0 && <Text style={{ fontSize: 8, color: T.mute }}>Nenhum candidato elegível com gap desenvolvível.</Text>}
+        <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 10 }}>Janela sugerida de 90 dias. Só traços desenvolvíveis (nunca requisito essencial).</Text>
+        {comGap.length === 0 && <Text style={{ fontSize: 8, color: T.mute }}>Nenhuma pessoa no ranking com gap desenvolvível.</Text>}
         {comGap.map((p: PessoaAdequacao) => (
           <View key={p.id || p.nome} style={{ marginBottom: 8, borderTopWidth: 0.5, borderTopColor: CL.linha, paddingTop: 6 }}>
             <Text style={{ fontSize: 9.5, fontWeight: 600, color: T.navy, marginBottom: 2 }}>{p.nome}</Text>
@@ -408,10 +408,10 @@ function AnexoNaoElegiveis({ anexo }: { anexo: PessoaAdequacao[] }) {
     <Page size="A4" style={s.pageLight}>
       <View style={s.card}>
         <Text style={[s.eyebrow, { color: T.vermelho }]}>Anexo</Text>
-        <Text style={[s.h2, { marginTop: 4, marginBottom: 4 }]}>Não elegíveis por requisito</Text>
+        <Text style={[s.h2, { marginTop: 4, marginBottom: 4 }]}>Fora do ranking por requisito essencial</Text>
         <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 10, lineHeight: 1.4, maxWidth: 440 }}>Bloqueados por um critério inegociável do cargo. Aderência não se aplica — o requisito não atendido é o que decide.</Text>
         {anexo.length === 0
-          ? <Text style={{ fontSize: 9, color: T.mute }}>Nenhum candidato bloqueado neste pool.</Text>
+          ? <Text style={{ fontSize: 9, color: T.mute }}>Ninguém ficou fora do ranking por requisito essencial.</Text>
           : anexo.map((p) => (
             <View key={p.id || p.nome} style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 4, borderTopWidth: 0.5, borderTopColor: CL.linha, paddingTop: 4 }}>
               <Text style={{ fontSize: 9, fontWeight: 600, color: T.navy, width: 160 }}>{p.nome}</Text>
@@ -445,11 +445,11 @@ export async function renderRankingAdequacaoPDF(p: RankingPDFInput): Promise<Buf
   // Métricas da capa (só as com contagem relevante).
   const cont = (st: string) => p.elegiveis.filter((x) => x.status === st).length;
   const metricas = [
-    { n: p.elegiveis.length, label: 'elegíveis', cor: T.cyan },
+    { n: p.elegiveis.length, label: 'no ranking', cor: T.cyan },
     { n: cont('recomendado'), label: 'recomendados', cor: T.verde },
     { n: cont('recomendado_com_ressalvas'), label: 'com ressalvas', cor: T.clay },
     ...(cont('abaixo_do_corte') > 0 ? [{ n: cont('abaixo_do_corte'), label: 'abaixo do corte', cor: T.mute }] : []),
-    { n: p.anexo.length, label: 'não elegíveis', cor: T.mute },
+    { n: p.anexo.length, label: 'fora do ranking', cor: T.mute },
   ];
   return renderToBuffer(
     <Document creationDate={p.dataISO ? new Date(p.dataISO) : undefined} producer="Vertho" creator="Vertho">

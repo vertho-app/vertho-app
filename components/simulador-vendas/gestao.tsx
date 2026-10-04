@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import type { ResumoTreino } from '@/lib/simulador-vendas/historico';
-import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
+import { nivelDaNotaPace } from '@/lib/simulador-vendas/nota';
+import { niveisParaCsv } from '@/lib/simulador-vendas/csv-niveis';
 import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { montarCsv } from '@/lib/simulador-vendas/csv';
 import { dataHoraBrasilia } from '@/lib/simuladores/csv';
@@ -133,12 +134,12 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
           t('csvDateBrasilia'),
           t('level'),
           t('state'),
-          'PL (1–4)',
-          'P (1–4)',
-          'A (1–4)',
-          'C (1–4)',
-          'E (1–4)',
-          t('average'),
+          `PL (${t('csvLevelUnit')})`,
+          `P (${t('csvLevelUnit')})`,
+          `A (${t('csvLevelUnit')})`,
+          `C (${t('csvLevelUnit')})`,
+          `E (${t('csvLevelUnit')})`,
+          t('csvLevelOverall'),
           t('summary'),
           t('version', { version: '' }),
         ],
@@ -150,12 +151,9 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
           dataHoraBrasilia(r.criadoEm),
           r.nivel,
           t(`status_${r.status}`),
-          r.PL,
-          r.P,
-          r.A,
-          r.C,
-          r.E,
-          r.Media,
+          // Nível (N1 a N4) em vez da nota decimal (R-35, 04/10/2026): o CSV que o RH e o
+          // gestor baixam não leva a nota. Vazio = sem evidência, nunca "1".
+          ...niveisParaCsv(r),
           r.Resumo,
           r.versaoRegua,
         ]),
@@ -218,7 +216,7 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
         <table className="w-full text-sm text-left">
           <thead>
             <tr className="text-slate-400 border-b border-white/10">
-              {['participant', 'date', 'state', 'score', 'report'].map((h) => (
+              {['participant', 'date', 'state', 'resultLevel', 'report'].map((h) => (
                 <th key={h} className="py-3 pr-4 font-medium">
                   {t(h)}
                 </th>
@@ -240,7 +238,7 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
                   {new Date(r.criadoEm).toLocaleDateString(locale)}
                 </td>
                 <td className="pr-4">{t(`status_${r.status}`)}</td>
-                <td className="pr-4">{formatarNotaPace(r.nota, locale)}</td>
+                <td className="pr-4">{nivelDaNotaPace(r.nota) != null ? t('evolutionLevel', { n: nivelDaNotaPace(r.nota) }) : '\u2014'}</td>
                 <td>
                   <button
                     disabled={ocupado || !r.temRelatorio}
