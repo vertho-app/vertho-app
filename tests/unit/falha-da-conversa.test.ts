@@ -216,7 +216,8 @@ describe('a página da semana usa a chamada que não trava', () => {
 
   it('o fim da temporada é o do plano, não a semana 14 (R-124)', () => {
     expect(fonte).not.toMatch(/semanaNum\s*>=\s*14/);
-    expect(fonte).toMatch(/semanaNum\s*>=\s*totalSemanasDoPlano\(/);
+    // A função única de duração (lote 9) decide o fim do plano; não há mais literal 14.
+    expect(fonte).toMatch(/ehUltimaSemanaDaTrilha\(data\.trilha,\s*semanaNum\)/);
   });
 
   it('o aviso de resposta não gravada e o Tira-Dúvidas que grava o consumo antes (R-140)', () => {
