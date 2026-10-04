@@ -200,10 +200,6 @@ describe('quem consome a marca', () => {
     const me = fonte('app/api/me/route.ts');
     expect(me).toContain('acessoLido.indisponivel ? ACESSO_ATUAL : acessoLido');
   });
-
-  it('a plenária devolve 503 (e não 403) para leitura que falhou', () => {
-    expect(fonte('app/api/gestor/plenaria/pdf/route.ts')).toContain('(r as any).indisponivel ? 503 : 403');
-  });
 });
 
 describe('LeituraIndisponivel: o que a tela mostra', () => {

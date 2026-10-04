@@ -51,7 +51,6 @@ const SUPERFICIES = [
   'app/dashboard/gestor/equipe-evolucao/page.tsx',
   'app/admin/evolucao/page.tsx',
   'app/dashboard/relatorios/relatorios-rh-view.tsx',
-  'lib/plenaria-equipe-pdf.ts',
 ];
 
 describe('toda superfície que pinta veredito lê a paleta única', () => {

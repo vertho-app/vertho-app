@@ -67,7 +67,6 @@
     "app/api/colaboradores/route.ts": 4,
     "app/api/conteudo/[id]/podcast/route.ts": 1,
     "app/api/content/search/route.ts": 1,
-    "app/api/gestor/plenaria/pdf/route.ts": 1,
     "app/api/radar/lead-pdf/route.ts": 1,
     "app/api/relatorios/pdf/route.ts": 1,
     "app/api/temporada/evaluation/route.ts": 1,
