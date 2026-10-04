@@ -95,10 +95,11 @@ describe('Equipe em evolução, visão de RH', () => {
 
   it('controle: em tenant de cliente a lista é a empresa inteira', async () => {
     isDemo = false;
+    // Em ordem ALFABÉTICA desde 04/10/2026 (R-111): a lista saía na ordem do banco.
     expect(await nomesDaEquipeEmEvolucao()).toEqual([
       'Bruna Costa',
-      'Lucianna Prospect',
       'Convidado do Sinal',
+      'Lucianna Prospect',
       'Pessoa Externa',
     ]);
   });

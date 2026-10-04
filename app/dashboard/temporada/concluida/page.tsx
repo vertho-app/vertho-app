@@ -11,6 +11,7 @@ import ReactMarkdown from 'react-markdown';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { nivelDaNota } from '@/lib/nivel-regua';
+import { nivelDaNotaOuNull } from '@/lib/nivel-da-nota-ou-nulo';
 import RelatorioTemporadaConcluida from '@/components/temporada/relatorio-temporada-concluida';
 
 export default function TemporadaConcluidaPage() {
@@ -112,8 +113,8 @@ export default function TemporadaConcluidaPage() {
               <GlassCard key={i} className="border-brand-500/15">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-bold text-white">{descritorParaHumano(d.descritor)}</p>
-                  {d.baseline != null && (
-                    <span className="text-xs text-brand-300 font-bold shrink-0">{Number(d.baseline).toFixed(1)}/4.0</span>
+                  {nivelDoBaseline(d) != null && (
+                    <span className="text-xs text-brand-300 font-bold shrink-0">{t('level', { n: nivelDoBaseline(d) })}</span>
                   )}
                 </div>
               </GlassCard>
@@ -182,8 +183,8 @@ export default function TemporadaConcluidaPage() {
               <GlassCard key={i} className="border-brand-500/15">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-bold text-white">{descritorParaHumano(d.descritor)}</p>
-                  {d.baseline != null && (
-                    <span className="text-xs text-brand-300 font-bold shrink-0">{Number(d.baseline).toFixed(1)}/4.0</span>
+                  {nivelDoBaseline(d) != null && (
+                    <span className="text-xs text-brand-300 font-bold shrink-0">{t('level', { n: nivelDoBaseline(d) })}</span>
                   )}
                 </div>
               </GlassCard>
@@ -244,9 +245,9 @@ export default function TemporadaConcluidaPage() {
                   <p className="text-sm text-gray-200">{sem14.resumo_avaliacao.mensagem_geral}</p>
                 </div>
               )}
-              {sem14.nota_media_pos != null && (
+              {nivelDaNotaOuNull(sem14.nota_media_pos) != null && (
                 <p className="text-xs text-gray-400 mt-3">
-                  {t('pilot.demoScore')} <span className="text-purple-300 font-bold">{Number(sem14.nota_media_pos).toFixed(1)}/4.0</span>
+                  {t('pilot.demoLevel')} <span className="text-purple-300 font-bold">{t('level', { n: nivelDaNotaOuNull(sem14.nota_media_pos) })}</span>
                 </p>
               )}
             </GlassCard>
@@ -377,6 +378,11 @@ function nivelDePartidaPorCompetencia(descritores: any[], competenciaDaTrilha: s
     competencia,
     nivel: nivelDaNota(notas.reduce((soma, n) => soma + n, 0) / notas.length),
   }));
+}
+
+/** O nível do diagnóstico (`baseline`) de um comportamento do relatório sem avanço. */
+function nivelDoBaseline(d: any): number | null {
+  return nivelDaNotaOuNull(d?.baseline);
 }
 
 function Center({ children }) {

@@ -1,20 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 /**
- * A tela de evolução da PESSOA. Ela passou a ler `trilhas.evolution_report` em
- * 01/09/2026, e o motivo de cada asserção aqui é um caso que o dado REAL de
- * produção produz:
+ * "Minha evolução" da PESSOA (R-08, 04/10/2026).
  *
- *  · a única trilha com relatório no banco é de PILOTO, e o relatório do piloto
- *    grava `baseline`/`nota_avaliacao` — não `nota_pre`/`nota_pos`. Lida pela
- *    régua regular, ela renderiza "0,00 → 0,00" para quem fez tudo certo;
+ * A tela antiga lia `trilhas.evolution_report` e desenhava o par de notas com
+ * duas casas, a queda em vermelho com sinal negativo, uma barra proporcional à
+ * nota e "Nota média X de 4.0". Decisão do dono: ninguém do cliente vê nota
+ * decimal, a evolução é só avanço, e "Minha evolução vai ao relatório da
+ * temporada". Agora a action só responde QUAL relatório abrir, e a página
+ * redireciona. O que estes testes travam:
+ *
+ *  · o relatório aberto é o da temporada concluída mais recente, com o `id` da
+ *    trilha (sem ele o PDF e o certificado pegavam a jornada seguinte, ainda aberta);
+ *  · o relatório do piloto também conta: a tela de destino sabe mostrá-lo como
+ *    ponto de partida, sem avanço;
  *  · o supabase-js RETORNA `{ error }`. Sem checar, uma falha de leitura vira
- *    "você ainda não concluiu nenhuma temporada" na tela de quem concluiu.
+ *    "você ainda não concluiu nenhuma temporada" na tela de quem concluiu;
+ *  · a resposta não carrega nota, média nem delta (nem para a tela ignorar).
  */
 
 const sb = criarSupabaseMock();
 let trilhasNoBanco: any[] = [];
+let erroProgramado: string | null = null;
+let filtros: Array<[string, unknown]> = [];
+let ordenacao: Array<[string, unknown]> = [];
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/tenant-db', () => ({
@@ -22,11 +33,14 @@ vi.mock('@/lib/tenant-db', () => ({
     from: () => {
       const chain: any = {
         select: () => chain,
-        eq: () => chain,
+        eq: (coluna: string, valor: unknown) => { filtros.push([coluna, valor]); return chain; },
         not: () => chain,
-        order: () => Promise.resolve(erroProgramado
-          ? { data: null, error: { message: erroProgramado } }
-          : { data: trilhasNoBanco, error: null }),
+        order: (coluna: string, opcoes: unknown) => {
+          ordenacao.push([coluna, opcoes]);
+          return Promise.resolve(erroProgramado
+            ? { data: null, error: { message: erroProgramado } }
+            : { data: trilhasNoBanco, error: null });
+        },
       };
       return chain;
     },
@@ -39,110 +53,109 @@ vi.mock('@/lib/auth/action-context', () => ({
   getAuthenticatedEmailFromAction: async () => 'pessoa@demo.com',
 }));
 
-let erroProgramado: string | null = null;
-
 const { loadEvolucao } = await import('@/app/dashboard/evolucao/evolucao-actions');
 
 const relatorioRegular = {
-  id: 'tr-1',
-  numero_temporada: 1,
-  competencia_foco: 'Planejamento e Organização',
-  status: 'concluida',
+  id: 'tr-regular',
+  numero_temporada: 2,
   evolution_generated_at: '2026-08-20T12:00:00Z',
   evolution_report: {
-    insight_geral: 'Sustentou o comportamento no fechamento.',
-    proximo_passo: 'Elevar a exigência no próximo ciclo.',
-    nota_media_pos: 3,
-    resumo: { confirmadas: 2, parciais: 0, estagnacoes: 0, regressoes: 0 },
     descritores: [
-      { competencia: 'Planejamento e Organização', descritor: 'Definição de metas', nota_pre: 2, nota_pos: 3, nivel_percebido: 3, convergencia: 'evolucao_confirmada' },
-      { competencia: 'Planejamento e Organização', descritor: 'Organização do plano', nota_pre: 2, nota_pos: 3, nivel_percebido: 3, convergencia: 'evolucao_confirmada' },
+      { competencia: 'Planejamento e Organização', descritor: 'Definição de metas', nota_pre: 2, nota_pos: 3, convergencia: 'evolucao_confirmada' },
     ],
   },
 };
-
 const relatorioPiloto = {
   id: 'tr-piloto',
   numero_temporada: 1,
-  competencia_foco: 'Comunicação',
-  status: 'concluida',
   evolution_generated_at: '2026-07-03T12:00:00Z',
   evolution_report: {
     modo: 'piloto',
-    nota_media_pos: 2.5,
-    descritores: [
-      { competencia: 'Comunicação', descritor: 'Clareza na devolutiva', baseline: 2, nota_avaliacao: 2.5 },
-      { competencia: 'Comunicação', descritor: 'Escuta ativa', baseline: 2.4, nota_avaliacao: 2.6 },
-    ],
+    descritores: [{ competencia: 'Comunicação', descritor: 'Clareza na devolutiva', baseline: 2, nota_avaliacao: 2.5 }],
   },
 };
 
-describe('loadEvolucao', () => {
+describe('loadEvolucao: qual relatório a "Minha evolução" abre', () => {
   beforeEach(() => {
     trilhasNoBanco = [];
     erroProgramado = null;
+    filtros = [];
+    ordenacao = [];
   });
 
-  it('calcula o delta por descritor a partir do relatório regular', async () => {
-    trilhasNoBanco = [relatorioRegular];
-    const r: any = await loadEvolucao();
-
-    expect(r.error).toBeUndefined();
-    expect(r.descritores).toHaveLength(2);
-    expect(r.descritores[0]).toMatchObject({ nota_pre: 2, nota_pos: 3, delta: 1, convergencia: 'evolucao_confirmada' });
-    expect(r.metricas.confirmadas).toBe(2);
-    expect(r.metricas.deltaMedia).toBe(1);
-  });
-
-  it('agrupa competência com a média de entrada e a de saída', async () => {
-    trilhasNoBanco = [relatorioRegular];
-    const r: any = await loadEvolucao();
-
-    expect(r.competencias).toHaveLength(1);
-    expect(r.competencias[0].inicial.nota_decimal).toBe(2);
-    expect(r.competencias[0].reavaliacao.nota_decimal).toBe(3);
-  });
-
-  it('NÃO transforma o relatório de piloto em evolução', async () => {
-    // Este é o caso que existe hoje em produção. Se o piloto entrasse pela
-    // régua regular, `nota_pre` viria de um campo ausente e a pessoa leria
-    // um delta de 0,00 sobre notas 0,00 — pior que não mostrar nada.
-    trilhasNoBanco = [relatorioPiloto];
-    const r: any = await loadEvolucao();
-
-    expect(r.descritores).toHaveLength(0);
-    expect(r.metricas.deltaMedia).toBe(0);
-    // A competência aparece como ponto de partida, com a nota REAL do baseline.
-    expect(r.competencias).toHaveLength(1);
-    expect(r.competencias[0].inicial.nota_decimal).toBe(2.2);
-    expect(r.competencias[0].reavaliacao).toBeNull();
-  });
-
-  it('separa piloto de regular quando a pessoa tem os dois', async () => {
+  it('abre a temporada concluída mais recente, pelo id da trilha', async () => {
+    // A ordem vem do banco (`evolution_generated_at` decrescente): a primeira é a mais recente.
     trilhasNoBanco = [relatorioRegular, relatorioPiloto];
     const r: any = await loadEvolucao();
 
-    expect(r.descritores).toHaveLength(2);
-    expect(r.descritores.every((d: any) => d.nota_pre > 0)).toBe(true);
-    expect(r.competencias).toHaveLength(2);
+    expect(r.error).toBeUndefined();
+    expect(r.trilhaId).toBe('tr-regular');
+    expect(r.totalTemporadas).toBe(2);
+    expect(ordenacao).toEqual([['evolution_generated_at', { ascending: false }]]);
   });
 
-  it('distingue falha de leitura de ausência de evolução', async () => {
+  it('só olha as trilhas CONCLUÍDAS da própria pessoa', async () => {
+    trilhasNoBanco = [relatorioRegular];
+    await loadEvolucao();
+
+    expect(filtros).toContainEqual(['colaborador_id', 'colab-1']);
+    expect(filtros).toContainEqual(['status', 'concluida']);
+  });
+
+  it('o relatório do piloto também é aberto (a tela de destino mostra o ponto de partida)', async () => {
+    trilhasNoBanco = [relatorioPiloto];
+    const r: any = await loadEvolucao();
+
+    expect(r.trilhaId).toBe('tr-piloto');
+  });
+
+  it('relatório de forma desconhecida (sem descritores) é ignorado, e o próximo é o aberto', async () => {
+    trilhasNoBanco = [
+      { id: 'tr-sem-forma', numero_temporada: 3, evolution_generated_at: '2026-09-01T12:00:00Z', evolution_report: { insight_geral: 'x' } },
+      relatorioRegular,
+    ];
+    const r: any = await loadEvolucao();
+
+    expect(r.trilhaId).toBe('tr-regular');
+    expect(r.totalTemporadas).toBe(1);
+  });
+
+  it('distingue falha de leitura de ausência de relatório', async () => {
     erroProgramado = 'timeout no pool';
     const r: any = await loadEvolucao();
 
     expect(r.error).toContain('timeout no pool');
-    // O que NÃO pode acontecer: devolver estrutura vazia como se a pessoa
+    // O que NÃO pode acontecer: devolver "nenhuma temporada" como se a pessoa
     // simplesmente não tivesse concluído nada.
-    expect(r.descritores).toBeUndefined();
+    expect(r.trilhaId).toBeUndefined();
   });
 
   it('devolve vazio de verdade quando não há temporada concluída', async () => {
-    trilhasNoBanco = [];
     const r: any = await loadEvolucao();
 
     expect(r.error).toBeUndefined();
-    expect(r.descritores).toHaveLength(0);
-    expect(r.competencias).toHaveLength(0);
+    expect(r.trilhaId).toBeNull();
+    expect(r.totalTemporadas).toBe(0);
+  });
+
+  it('a resposta não carrega nota, média nem delta', async () => {
+    trilhasNoBanco = [relatorioRegular, relatorioPiloto];
+    const r: any = await loadEvolucao();
+
+    expect(Object.keys(r).sort()).toEqual(['totalTemporadas', 'trilhaId']);
+    expect(JSON.stringify(r)).not.toMatch(/nota|media|delta|baseline/i);
+  });
+});
+
+describe('a página "Minha evolução" redireciona e não desenha nota (R-08)', () => {
+  const PAGINA = readFileSync('app/dashboard/evolucao/page.tsx', 'utf8');
+
+  it('vai ao relatório da temporada, com o id da trilha e a origem', () => {
+    expect(PAGINA).toContain('router.replace(`/dashboard/temporada/concluida?trilha=${encodeURIComponent(result.trilhaId)}&origem=temporada`)');
+  });
+
+  it('não formata nota, não calcula delta e não pinta queda', () => {
+    expect(PAGINA).not.toMatch(/toFixed|nota_|delta|E57373|red-\d00/);
+    expect(PAGINA).not.toContain('convergencia-cores');
   });
 });

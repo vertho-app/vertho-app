@@ -553,3 +553,87 @@ describe('fecho do relatório no papel e na tela', () => {
     expect(semPassos).not.toContain('Próximos passos');
   });
 });
+
+/**
+ * R-109 (04/10/2026): a conclusão do PILOTO e a do Personalizado sem fechamento
+ * mostravam nota absoluta ("2.0/4.0" por comportamento, "Nota da demonstração"),
+ * na tela e no PDF. A decisão do dono é que ninguém do cliente vê nota decimal:
+ * o que a pessoa lê é "Nível N". Nota ausente não vira N1 (o piloto sem avaliação
+ * não pode aparecer como lacuna).
+ */
+describe('conclusão do piloto: nível, nunca nota (R-109)', () => {
+  const marca = { logoBase64: null, mostrarVertho: true } as any;
+  const piloto = (extra: any = {}) => ({
+    colab: { nome: 'Pessoa Teste', cargo: 'Coordenação' },
+    trilha: { competencia: 'Comunicação', numeroTemporada: 1, totalSemanas: 3 },
+    evolutionReport: {
+      modo: 'piloto',
+      descritores: [
+        { competencia: 'Comunicação', descritor: 'Clareza na devolutiva', baseline: 2.4 },
+        { competencia: 'Comunicação', descritor: 'Escuta ativa', baseline: 3.6 },
+      ],
+    },
+    momentos: [],
+    missoes: [],
+    sem14: { resumo_avaliacao: { mensagem_geral: 'TEXTO-DA-DEVOLUTIVA' }, nota_media_pos: 2.0 },
+    ...extra,
+  });
+  const noPdf = (dados: any) => textos(TemporadaConcluidaPDF({ dados, marca })).join('\n');
+
+  it('PDF: o ponto de partida sai em nível, pela régua oficial (2,4 é N2; 3,6 é N4)', () => {
+    const t = noPdf(piloto());
+    expect(t).toContain('Nível 2');
+    expect(t).toContain('Nível 4');
+    expect(t).not.toMatch(/\/4,0|2,4|3,6/);
+  });
+
+  it('PDF: a demonstração da avaliação sai em nível, sem o rótulo "Nota"', () => {
+    const t = noPdf(piloto());
+    expect(t).toContain('Nível na demonstração: 2');
+    expect(t).not.toContain('Nota da demonstração');
+  });
+
+  it('PDF: sem nota na demonstração, a linha não aparece (e não vira Nível 1)', () => {
+    const t = noPdf(piloto({ sem14: { resumo_avaliacao: { mensagem_geral: 'TEXTO-DA-DEVOLUTIVA' }, nota_media_pos: null } }));
+    expect(t).not.toContain('Nível na demonstração');
+    expect(t).toContain('TEXTO-DA-DEVOLUTIVA');
+  });
+
+  it('PDF: comportamento sem baseline não ganha chip de nível', () => {
+    const dados = piloto();
+    dados.evolutionReport.descritores[1].baseline = null as any;
+    const t = noPdf(dados);
+    expect(t).toContain('Nível 2');
+    expect(t).not.toContain('Nível 4');
+    expect(t).not.toContain('Nível 1');
+  });
+
+  it.each([
+    ['app/dashboard/temporada/concluida/page.tsx', ['/4.0', "pilot.demoScore", 'toFixed(1)']],
+    ['app/dashboard/temporada/sem14/page.tsx', ['{avaliacao.nota_media_pos}', "done.demoScore"]],
+    ['lib/temporada-concluida-pdf.tsx', ['/4,0', 'Nota da demonstração']],
+  ])('%s não volta a mostrar a nota absoluta', (arquivo, proibidos) => {
+    const fonte = semComentarios(readFileSync(arquivo, 'utf8'));
+    for (const p of proibidos) expect(fonte, `"${p}" voltou em ${arquivo}`).not.toContain(p);
+  });
+
+  it.each(['pt-BR', 'pt-PT', 'en-US', 'es-ES'])('%s: a chave da nota da demonstração saiu e a do nível entrou', (loc) => {
+    const j = JSON.parse(readFileSync(`messages/${loc}.json`, 'utf8'));
+    expect(j.SeasonDone.pilot.demoScore).toBeUndefined();
+    expect(j.SeasonFinal.done.demoScore).toBeUndefined();
+    expect(j.SeasonDone.pilot.demoLevel).toBeTruthy();
+    expect(j.SeasonFinal.done.demoLevel).toBeTruthy();
+    expect(j.SeasonFinal.done.levelValue).toContain('{n}');
+  });
+});
+
+describe('nivelDaNotaOuNull', () => {
+  it('pela régua oficial e sem inventar nível para nota ausente', async () => {
+    const { nivelDaNotaOuNull } = await import('@/lib/nivel-da-nota-ou-nulo');
+    expect(nivelDaNotaOuNull(1.9)).toBe(1);
+    expect(nivelDaNotaOuNull('2.0')).toBe(2);
+    expect(nivelDaNotaOuNull(3.5)).toBe(3);
+    expect(nivelDaNotaOuNull(3.51)).toBe(4);
+    for (const ausente of [null, undefined, '', 'abc', NaN]) expect(nivelDaNotaOuNull(ausente)).toBeNull();
+  });
+});

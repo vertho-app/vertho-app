@@ -1,7 +1,7 @@
 import { tenantDb } from '@/lib/tenant-db';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { CONVERGENCIA, relatorioMedeEvolucao, rotuloConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
-import { nivelDaNota } from '@/lib/nivel-regua';
+import { nivelDaNota, type Nivel } from '@/lib/nivel-regua';
 import { fechoDoRelatorio } from '@/lib/season-engine/resumo-avaliacao';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
@@ -67,6 +67,13 @@ export type EvolucaoPessoa = {
   n: number;
   mediaPre: number;
   mediaPos: number;
+  /**
+   * Nível de partida e de chegada desta pessoa NESTA competência (o nível da
+   * média das notas; o de chegada nunca fica abaixo do de partida). É o que a
+   * tela e o PDF mostram no lugar das médias (R-32, 04/10/2026).
+   */
+  nivelPre: Nivel;
+  nivelPos: Nivel;
   delta: number;
   veredito: EvolucaoVeredito;
   vereditoRotulo: string;
@@ -136,6 +143,18 @@ const VAZIO: EvolucaoCentro = {
 function media(valores: number[]): number {
   if (!valores.length) return 0;
   return Number((valores.reduce((total, v) => total + v, 0) / valores.length).toFixed(2));
+}
+
+/**
+ * Pessoas em ORDEM ALFABÉTICA (nome, depois competência), nunca pelo avanço
+ * (R-32, 04/10/2026). A lista nominal da central do RH e do PDF executivo saía
+ * "ordenada pelo avanço": um ranking de pessoas nomeadas. A decisão do dono é que
+ * o RH vê nível de partida, de chegada e avanço por pessoa, em ordem alfabética.
+ * Mesma régua de `ordenarPorNome` (pt-BR, sem acento nem caixa). Não muta.
+ */
+function ordemAlfabetica(lista: EvolucaoPessoa[]): EvolucaoPessoa[] {
+  const cmp = (a: string, b: string) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' });
+  return [...lista].sort((a, b) => cmp(a.nome || '', b.nome || '') || cmp(a.competencia || '', b.competencia || ''));
 }
 
 function chaveDescritorCenario(valor: unknown): string {
@@ -302,6 +321,7 @@ export function agregarEvolucao(
       const mediaPre = media(linhas.map((l) => l.notaPre));
       const mediaPos = media(linhas.map((l) => l.notaPos));
       const veredito = vereditoDaPessoa(linhas);
+      const nivelPre = nivelDaNota(mediaPre);
 
       pessoas.push({
         colaboradorId: trilha.colaborador_id,
@@ -314,6 +334,9 @@ export function agregarEvolucao(
         n: linhas.length,
         mediaPre,
         mediaPos,
+        nivelPre,
+        // A régua não afirma regressão: o nível de chegada não fica abaixo do de partida.
+        nivelPos: Math.max(nivelPre, nivelDaNota(mediaPos)) as Nivel,
         delta: avancoEntreMedias(mediaPre, mediaPos),
         veredito,
         vereditoRotulo: rotuloConvergencia(veredito),
@@ -370,11 +393,10 @@ export function agregarEvolucao(
     (l) => l.competencia,
   );
 
-  const precisamApoio = pessoas
+  const precisamApoio = ordemAlfabetica(pessoas
     // Prioridade externa nasce só da comparação entre cenários. A qualidade
     // das evidências pode ser analisada internamente, mas não muda esta lista.
-    .filter((p) => p.delta === 0)
-    .sort((a, b) => a.delta - b.delta);
+    .filter((p) => p.delta === 0));
 
   const rotuloCargo = (cargo: string | null) => cargo?.trim() || 'Cargo não informado';
   const cargos = [...new Set(pessoas.map((p) => rotuloCargo(p.cargo)))]
@@ -400,11 +422,9 @@ export function agregarEvolucao(
       pessoasMedidas: idsDoCargo.size,
       porCompetencia: competenciasDoCargo,
       porDescritor: descritoresDoCargo,
-      pessoas: [...pessoasDoCargo].sort((a, b) => b.delta - a.delta),
+      pessoas: ordemAlfabetica(pessoasDoCargo),
       proximasAcoes: {
-        precisamApoio: pessoasDoCargo
-          .filter((p) => p.delta === 0)
-          .sort((a, b) => a.delta - b.delta),
+        precisamApoio: ordemAlfabetica(pessoasDoCargo.filter((p) => p.delta === 0)),
         proximoCiclo: [...competenciasDoCargo].reverse().slice(0, 3),
       },
     };
@@ -430,7 +450,7 @@ export function agregarEvolucao(
     porCompetencia,
     porDescritor,
     porCargo,
-    pessoas: pessoas.sort((a, b) => b.delta - a.delta),
+    pessoas: ordemAlfabetica(pessoas),
     proximasAcoes: {
       precisamApoio,
       // Jornada é de competência, não de descritor: o próximo ciclo escolhe
@@ -537,4 +557,40 @@ export async function carregarEvolucaoRH(
     (participantesRes.data || []) as ParticipanteEvolucao[],
     emJornada,
   );
+}
+
+/** Os campos que carregam NOTA decimal e que nenhuma tela do cliente exibe. */
+type CampoDeNota = 'mediaPre' | 'mediaPos' | 'notaPre' | 'notaPos';
+type SemNotas<T> = T extends Array<infer U>
+  ? Array<SemNotas<U>>
+  : T extends object
+    ? { [K in keyof T as K extends CampoDeNota ? never : K]: SemNotas<T[K]> }
+    : T;
+
+/**
+ * O painel de evolução como a TELA o recebe: sem nenhuma nota decimal (R-32,
+ * 04/10/2026). A central do RH é um Server Component que passa o painel ao
+ * componente de cliente, e tudo o que vai nessa fronteira chega ao navegador, mesmo
+ * quando a tela não desenha. O PDF executivo continua lendo o `EvolucaoCentro`
+ * inteiro (a leitura é no servidor e o radar usa as posições), então a projeção
+ * acontece só na fronteira da tela. Os níveis (`nivelPre`, `nivelPos`) e o avanço
+ * (`delta`, com piso zero) seguem.
+ */
+export type EvolucaoCentroTela = SemNotas<EvolucaoCentro>;
+export type EvolucaoAgregadoTela = SemNotas<EvolucaoAgregado>;
+export type EvolucaoPessoaTela = SemNotas<EvolucaoPessoa>;
+
+export function evolucaoParaTela(centro: EvolucaoCentro): EvolucaoCentroTela {
+  const limpar = (valor: unknown): unknown => {
+    if (Array.isArray(valor)) return valor.map(limpar);
+    if (valor && typeof valor === 'object') {
+      return Object.fromEntries(
+        Object.entries(valor as Record<string, unknown>)
+          .filter(([chave]) => !['mediaPre', 'mediaPos', 'notaPre', 'notaPos'].includes(chave))
+          .map(([chave, v]) => [chave, limpar(v)]),
+      );
+    }
+    return valor;
+  };
+  return limpar(centro) as EvolucaoCentroTela;
 }

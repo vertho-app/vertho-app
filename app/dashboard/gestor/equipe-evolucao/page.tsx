@@ -13,6 +13,7 @@ import { CONVERGENCIA, rotuloConvergencia, formatarAvanco, formatarValorAvanco, 
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import { DICA_VEREDITO } from '@/lib/season-engine/convergencia-dicas';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
+import { ordenarPorNome } from '@/lib/gestor/ordenar-por-nome';
 
 // 🔑 CLASSE DE COR É LITERAL, NUNCA MONTADA.
 //
@@ -45,7 +46,6 @@ export default function EquipeEvolucaoPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filtro, setFiltro] = useState('todos');
-  const [ordem, setOrdem] = useState('delta_desc');
   const [detalhe, setDetalhe] = useState(null);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
   const [escopo, setEscopo] = useState('gestor');
@@ -74,16 +74,12 @@ export default function EquipeEvolucaoPage() {
   }
 
   const filtrados = useMemo(() => {
-    let list = filtro === 'todos' ? rows : rows.filter(r => r.status === filtro);
-    list = [...list].sort((a, b) => {
-      // Ordena pelo avanço que a tela MOSTRA, não pelo delta cru (que leva quedas).
-      if (ordem === 'delta_desc') return (b.avancoMedio ?? -999) - (a.avancoMedio ?? -999);
-      if (ordem === 'delta_asc') return (a.avancoMedio ?? 999) - (b.avancoMedio ?? 999);
-      if (ordem === 'nome') return (a.colab || '').localeCompare(b.colab || '');
-      return 0;
-    });
-    return list;
-  }, [rows, filtro, ordem]);
+    const list = filtro === 'todos' ? rows : rows.filter(r => r.status === filtro);
+    // Ordem ALFABÉTICA, sem escolha (R-111, 04/10/2026). A tela abria em "Maior
+    // delta" e oferecia "Menor delta": um ranking de pessoas nomeadas pelo avanço.
+    // O avanço aparece em cada linha, mas nunca decide a posição de ninguém.
+    return ordenarPorNome(list);
+  }, [rows, filtro]);
 
   if (error) return <Center><p className="text-red-400">{error}</p></Center>;
 
@@ -164,12 +160,6 @@ export default function EquipeEvolucaoPage() {
           {Object.entries(STATUS_CFG).map(([k, c]) => (
             <option key={k} value={k} className="bg-[#0d1426]">{c.label}</option>
           ))}
-        </select>
-        <select value={ordem} onChange={e => setOrdem(e.target.value)}
-          className="bg-white/5 border border-white/10 rounded px-2 py-1.5 text-xs text-white">
-          <option value="delta_desc" className="bg-[#0d1426]">Maior delta</option>
-          <option value="delta_asc" className="bg-[#0d1426]">Menor delta</option>
-          <option value="nome" className="bg-[#0d1426]">Nome A-Z</option>
         </select>
       </div>
       )}

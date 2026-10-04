@@ -2,7 +2,7 @@ import 'server-only';
 
 import { tenantDb } from '@/lib/tenant-db';
 import { carregarPanoramaRH, carregarRelatoriosGerenciais } from '@/lib/home/loaders';
-import { carregarEvolucaoRH, type EvolucaoCentro } from '@/lib/relatorios/evolucao-center';
+import { carregarEvolucaoRH, evolucaoParaTela, type EvolucaoCentroTela } from '@/lib/relatorios/evolucao-center';
 import { aggregateDna, type DnaAggregate } from '@/lib/dna-organizacional/aggregate';
 import { criarDnaOrganizacionalAcmeDemo } from '@/lib/demo/acme-organization-report-fixture';
 import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
@@ -88,8 +88,11 @@ export type RhReportsCenter = {
     insight: RhReportInsight | null;
     descriptorAnalysis: RhDescriptorAnalysis | null;
     generatedAt: string | null;
-    /** Painel de evolução: T0 x T1 do fechamento. Nunca engajamento. */
-    evolucao: EvolucaoCentro;
+    /**
+     * Painel de evolução: T0 x T1 do fechamento. Nunca engajamento. SEM nota
+     * decimal (R-32): nível de partida e de chegada e avanço (ver `evolucaoParaTela`).
+     */
+    evolucao: EvolucaoCentroTela;
     insightUnavailable: boolean;
   };
   organization: RhReportDocument[];
@@ -297,7 +300,7 @@ export async function carregarCentralRelatoriosRH(
       descriptorAnalysis: descriptorResult.data,
       generatedAt: insightResult.data?.gerado_em || null,
       insightUnavailable: Boolean(insightResult.error),
-      evolucao,
+      evolucao: evolucaoParaTela(evolucao),
     },
     organization,
     managers: rows.filter((row: any) => row.tipo === 'gestor').map(asDocument),

@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { PROGRESSO } from '@/lib/status';
 import { useLocale, useTranslations } from 'next-intl';
 import { FILTROS_STATUS, FILTROS_ACAO, aplicarFiltro, type FiltroEquipe } from '@/lib/gestor/filtro-equipe';
+import { textoDosNiveis } from '@/lib/gestor/niveis-da-equipe';
+import { formatarValorAvanco } from '@/lib/season-engine/convergencia';
+import { nivelMaisFrequente } from '@/lib/nivel-frequente';
 import {
   Users, AlertTriangle, ChevronRight, Loader2, ArrowRight,
   Calendar, TrendingUp, Activity, ClipboardCheck, FileText,
@@ -378,11 +381,14 @@ function ManagerReportDashboard({
             <div className="grid gap-2 md:grid-cols-2">
               {insight.competencies.slice(0, 2).map((competency) => {
                 const total = competency.distribution.reduce((sum, item) => sum + item.people, 0);
+                // O nível em que mais gente está, da mesma distribuição que a barra desenha
+                // (R-32, 04/10/2026): era "2,3 / 4", uma média que nenhuma pessoa tem.
+                const nivelFrequente = nivelMaisFrequente(competency.distribution.map((item) => ({ level: item.level, peso: item.people })));
                 return (
                   <div key={competency.competency} className="rounded-[18px] border border-white/[0.07] bg-black/10 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-[12px] font-bold leading-snug text-white/80">{competency.competency}</p>
-                      <span className="shrink-0 font-mono text-[10px] text-brand-300">{competency.average != null ? competency.average.toFixed(1) : '—'} / 4</span>
+                      <span className="shrink-0 font-mono text-[10px] text-brand-300">{nivelFrequente != null ? t('reportDashboard.mostFrequentLevel', { level: `N${nivelFrequente}` }) : '\u2014'}</span>
                     </div>
                     <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-white/[0.05]">
                       {competency.distribution.map((item, index) => (
@@ -698,10 +704,17 @@ function EquipeSection({ equipe, fonteExterna, filtro, setFiltro, onVoltarAcoes 
                   </div>
                 </div>
               )}
-              {e.delta != null && (
+              {/* Nível de partida e de chegada + avanço com piso zero (R-18,
+                  04/10/2026). Era a diferença crua entre as médias, que saía
+                  negativa em vermelho e, no piloto, inventava avanço sobre uma
+                  média inicial 0. Nunca vermelho: a evolução é só avanço. */}
+              {textoDosNiveis(e.niveis) && (
+                <span className="hidden sm:inline text-[10px] font-mono text-white/55 tabular-nums">{textoDosNiveis(e.niveis)}</span>
+              )}
+              {formatarValorAvanco(e.avanco) && (
                 <span className="text-[10px] font-mono font-bold tabular-nums"
-                  style={{ color: e.delta > 0 ? '#34D399' : e.delta < 0 ? '#F87171' : '#9ae2e6' }}>
-                  {e.delta > 0 ? '+' : ''}{e.delta}
+                  style={{ color: e.avanco > 0 ? '#34D399' : '#9ae2e6' }}>
+                  {formatarValorAvanco(e.avanco)}
                 </span>
               )}
               {e.status !== 'sem_trilha' && <ChevronRight size={15} className="text-brand-300/55" />}

@@ -138,6 +138,15 @@ export function pct(nota: number): string {
   const n = Math.max(1, Math.min(4, nota || 1));
   return `${Math.round(((n - 1) / 3) * 100)}%`;
 }
+/**
+ * Os níveis de um agregado ou de uma pessoa, em texto: "N2 para N3" quando subiu e
+ * "N3" quando manteve. O papel mostra NÍVEL e avanço, nunca a média das notas
+ * (R-32, 04/10/2026: o PDF imprimia "de 2,1 para 2,5" por competência e por
+ * comportamento, e as colunas Antes e Depois com a nota de cada pessoa nomeada).
+ */
+export function textoDosNiveis(pre: number, pos: number): string {
+  return pos > pre ? `N${pre} para N${pos}` : `N${pos}`;
+}
 function dataBr(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -231,8 +240,6 @@ function BarraEvolucao({ item }: { item: EvolucaoAgregado }) {
         <Text style={s.compMeta}>
           {item.competencia ? `${item.competencia}  ·  ` : ''}
           {item.n === 1 ? '1 pessoa' : `${item.n} pessoas`}
-          {'  ·  '}
-          {`de ${num(item.mediaPre)} para ${num(item.mediaPos)}`}
         </Text>
         {mudouNivel ? (
           <View style={s.nivelMudou}>
@@ -377,7 +384,7 @@ function RadarCompetencia({ item }: { item: CompetenciaRadar }) {
     <View style={s.radarCard} wrap={false}>
       <Text style={s.radarTitle}>{competencia.chave}</Text>
       <Text style={s.radarSub}>
-        {`${competencia.n === 1 ? '1 pessoa' : `${competencia.n} pessoas`} · de ${num(competencia.mediaPre)} para ${num(competencia.mediaPos)} · avanço ${comSinal(competencia.delta)}`}
+        {`${competencia.n === 1 ? '1 pessoa' : `${competencia.n} pessoas`} · ${textoDosNiveis(competencia.nivelPre, competencia.nivelPos)} · avanço ${comSinal(competencia.delta)}`}
       </Text>
       <View style={s.radarLegenda}>
         <View style={{ ...s.legendaPonto, backgroundColor: colors.gray400 }} />
@@ -437,7 +444,7 @@ function RadarCompetencia({ item }: { item: CompetenciaRadar }) {
                 <View style={{ flex: 1 }}>
                   <Text style={s.radarDescritor}>{descritorParaHumano(eixo.chave)}</Text>
                   <Text style={s.radarValores}>
-                    {`${num(eixo.mediaPre)} para ${num(eixo.mediaPos)} · avanço ${comSinal(eixo.delta)}`}
+                    {`${textoDosNiveis(eixo.nivelPre, eixo.nivelPos)} · avanço ${comSinal(eixo.delta)}`}
                   </Text>
                 </View>
               </View>
@@ -454,7 +461,7 @@ function RadarCompetencia({ item }: { item: CompetenciaRadar }) {
               <View style={s.radarNumero}><Text style={s.radarNumeroTexto}>{indice + 1}</Text></View>
               <View style={{ flex: 1 }}>
                 <Text style={s.radarDescritor}>{descritorParaHumano(eixo.chave)}</Text>
-                <Text style={s.radarValores}>{`${num(eixo.mediaPre)} para ${num(eixo.mediaPos)} · avanço ${comSinal(eixo.delta)}`}</Text>
+                <Text style={s.radarValores}>{`${textoDosNiveis(eixo.nivelPre, eixo.nivelPos)} · avanço ${comSinal(eixo.delta)}`}</Text>
               </View>
             </View>
           ))}
@@ -476,8 +483,8 @@ function TabelaPessoas({ pessoas }: { pessoas: EvolucaoPessoa[] }) {
         <Text style={{ ...s.thText, flex: 2.6, paddingRight: 7 }}>Pessoa</Text>
         <Text style={{ ...s.thText, flex: 1.5, paddingRight: 7 }}>Cargo</Text>
         <Text style={{ ...s.thText, flex: 2.3, paddingRight: 7 }}>Competência</Text>
-        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Antes</Text>
-        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Depois</Text>
+        <Text style={{ ...s.thText, width: 50, textAlign: 'center' }}>Partida</Text>
+        <Text style={{ ...s.thText, width: 50, textAlign: 'center' }}>Chegada</Text>
         <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Avanço</Text>
       </View>
       {pessoas.map((p, i) => (
@@ -485,8 +492,8 @@ function TabelaPessoas({ pessoas }: { pessoas: EvolucaoPessoa[] }) {
           <Text style={{ ...s.tdStrong, flex: 2.6, paddingRight: 7 }}>{p.nome}</Text>
           <Text style={{ ...s.td, flex: 1.5, paddingRight: 7 }}>{p.cargo || '—'}</Text>
           <Text style={{ ...s.td, flex: 2.3, fontSize: 7.5, paddingRight: 7 }}>{p.competencia || '—'}</Text>
-          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{num(p.mediaPre)}</Text>
-          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{num(p.mediaPos)}</Text>
+          <Text style={{ ...s.td, width: 50, textAlign: 'center' }}>{`N${p.nivelPre}`}</Text>
+          <Text style={{ ...s.td, width: 50, textAlign: 'center' }}>{`N${p.nivelPos}`}</Text>
           <Text style={{ ...s.tdStrong, width: 46, textAlign: 'center', color: p.delta > 0 ? colors.green : colors.textMuted }}>
             {comSinal(p.delta)}
           </Text>
@@ -503,8 +510,8 @@ function TabelaComportamentos({ comportamentos }: { comportamentos: EvolucaoAgre
         <Text style={{ ...s.thText, flex: 3, paddingRight: 8 }}>Comportamento</Text>
         <Text style={{ ...s.thText, flex: 2.4 }}>Competência</Text>
         <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Pessoas</Text>
-        <Text style={{ ...s.thText, width: 42, textAlign: 'center' }}>Antes</Text>
-        <Text style={{ ...s.thText, width: 42, textAlign: 'center' }}>Depois</Text>
+        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Partida</Text>
+        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Chegada</Text>
         <Text style={{ ...s.thText, width: 40, textAlign: 'center' }}>Avanço</Text>
       </View>
       {comportamentos.map((d, i) => (
@@ -512,8 +519,8 @@ function TabelaComportamentos({ comportamentos }: { comportamentos: EvolucaoAgre
           <Text style={{ ...s.tdStrong, flex: 3, paddingRight: 8 }}>{descritorParaHumano(d.chave)}</Text>
           <Text style={{ ...s.td, flex: 2.4, fontSize: 7.5 }}>{d.competencia || '—'}</Text>
           <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{d.n}</Text>
-          <Text style={{ ...s.td, width: 42, textAlign: 'center' }}>{num(d.mediaPre)}</Text>
-          <Text style={{ ...s.td, width: 42, textAlign: 'center' }}>{num(d.mediaPos)}</Text>
+          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{`N${d.nivelPre}`}</Text>
+          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{`N${d.nivelPos}`}</Text>
           <Text style={{ ...s.tdStrong, width: 40, textAlign: 'center', color: d.delta > 0 ? colors.green : colors.textMuted }}>
             {comSinal(d.delta)}
           </Text>
@@ -606,7 +613,7 @@ export default function RelatorioEvolucaoPDF({
           <Text style={s.p}>
             {`A leitura abaixo vem de ${resumo.descritoresMedidos} ${resumo.descritoresMedidos === 1 ? 'avaliação' : 'avaliações'} de comportamento, em ${porDescritor.length} ${porDescritor.length === 1 ? 'comportamento distinto' : 'comportamentos distintos'}`}
             {ultimaMedicao ? `, com a medição mais recente em ${dataBr(ultimaMedicao)}.` : '.'}
-            {` O avanço médio por competência medida foi de ${comSinal(resumo.deltaMedio)} ponto na régua de 1 a 4.`}
+            {` O avanço médio por competência medida foi de ${comSinal(resumo.deltaMedio)}.`}
           </Text>
           <View style={s.boxAccent} wrap={false}>
             <Text style={s.pStrong}>Regra de leitura</Text>
@@ -689,7 +696,7 @@ export default function RelatorioEvolucaoPDF({
               <CabecalhoCargo recorte={cargo} />
               {pagina === 0 && (
                 <Text style={s.p}>
-                  {'Cada radar mostra uma competência isoladamente. Os eixos são seus descritores; quanto mais distante do centro, maior a nota na régua de 1 a 4. A área cinza é o diagnóstico e a área ciano é o fechamento.'}
+                  {'Cada radar mostra uma competência isoladamente. Os eixos são seus descritores; quanto mais distante do centro, maior o nível na régua de 1 a 4. A área cinza é o diagnóstico e a área ciano é o fechamento.'}
                 </Text>
               )}
               {grupo.map((item) => <RadarCompetencia key={item.competencia.chave} item={item} />)}

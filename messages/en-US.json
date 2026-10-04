@@ -855,8 +855,8 @@
         "risk": "Risk to monitor"
       },
       "levels": {
-        "title": "Average competency level",
-        "ofFour": "of 4 levels",
+        "title": "Distribution by level",
+        "mostFrequent": "most common level",
         "evaluated": "People assessed",
         "assessments": "Assessments"
       },
@@ -869,9 +869,9 @@
       "roles": {
         "eyebrow": "Reading by role",
         "title": "Different contexts need different actions",
-        "subtitle": "Select a role to compare its average competency level, strengths, risks, and suggested focus for the next cycle.",
-        "average": "Average competency level",
-        "averageDescription": "Average of the competencies assessed for people in this role.",
+        "subtitle": "Select a role to compare its competency level, strengths, risks, and suggested focus for the next cycle.",
+        "average": "Competency level",
+        "averageDescription": "Level that sums up the competencies assessed for people in this role.",
         "focus": "Recommended focus",
         "reading": "Role reading",
         "strengths": "Strengths",
@@ -884,9 +884,9 @@
           "organizationScope": "{count, plural, one {# person in the organization} other {# people in the organization}}",
           "organizationNotice": "{role} does not yet have the minimum of three assessed people for an anonymous breakdown. This matrix therefore shows the organization-wide distribution.",
           "competency": "Competency",
-          "competencyAverage": "average level {value}",
-          "levelAverage": "Average level",
-          "rowAverage": "average {value}",
+          "competencyMostFrequent": "most common: {value}",
+          "levelMostFrequent": "Most common level",
+          "rowMostFrequent": "most common: {value}",
           "priority": "Priority",
           "descriptor": "Descriptor",
           "levels": {
@@ -937,17 +937,17 @@
         "partial": "Partial growth",
         "stable": "Stable",
         "noVerdict": "No verdict",
-        "averageDelta": "Average change",
+        "averageDelta": "Average gain",
         "byCompetencyTitle": "What grew",
-        "byCompetencySubtitle": "Entry and exit averages per competency, with how many people were measured in each.",
+        "byCompetencySubtitle": "Starting level and ending level per competency, with how many people were measured in each.",
         "byDescriptorTitle": "Behavior by behavior",
         "peopleTitle": "Who grew",
-        "peopleSubtitle": "By name, visible only to HR and direct leadership.",
+        "peopleSubtitle": "By name, in alphabetical order, visible only to HR and direct leadership.",
         "columnPerson": "Person",
         "columnCompetency": "Competency",
-        "columnBefore": "Start",
-        "columnAfter": "Close",
-        "columnDelta": "Change",
+        "columnBefore": "Starting level",
+        "columnAfter": "Ending level",
+        "columnDelta": "Gain",
         "columnVerdict": "Result",
         "columnSupport": "Support",
         "supportHigh": "High",
@@ -1684,7 +1684,8 @@
       "title": "Assessment completed",
       "progress": "Progress",
       "viewReport": "See full report →",
-      "demoScore": "Demonstration score",
+      "demoLevel": "Demonstration result",
+      "levelValue": "Level {n}",
       "pilotNote": "In the pilot, the assessment demonstrates the full-season method — it does not measure growth over 2 weeks.",
       "reportPreparing": "Preparing your report…",
       "reportUnavailable": "Your report is still being prepared. Try again in a few minutes.",
@@ -1918,7 +1919,7 @@
       "baselineNote": "Levels mapped in the diagnostic — the baseline a full season builds on.",
       "assessmentSection": "Closing assessment (demonstration)",
       "assessmentNote": "How scenario-based assessment works in the full season. In 2 weeks it demonstrates the method — it does not measure growth.",
-      "demoScore": "Demonstration score:"
+      "demoLevel": "Level in the demonstration:"
     },
     "noClosing": {
       "title": "{name}, you completed the program",
@@ -2076,43 +2077,12 @@
     }
   },
   "Evolution": {
-    "eyebrow": "Its evolution",
-    "title": "Evolution Report",
-    "fallbackCompetency": "Competency",
-    "season": "Season {number}",
-    "heroSubtitle": "See where there has been progress, where there is still a gap and which signs deserve attention.",
-    "downloadFull": "Download full report",
-    "viewSeasonReport": "See full season report",
-    "descriptorFallback": "{number} descriptor",
+    "eyebrow": "Your evolution",
     "empty": {
       "title": "Compare your progress after reassessment",
       "subtitle": "Here you will see what changed between your initial assessment and the reassessment at the end of your journey.",
       "card": "Until the comparison is available, follow your plan and practise the behaviours covered in your journey.",
       "goToJourney": "Follow my journey"
-    },
-    "classification": {
-      "confirmed": "Evolution confirmed",
-      "partial": "Partial evolution",
-      "stable": "Stable"
-    },
-    "metrics": {
-      "competenciesShort": "{count} comp.",
-      "confirmed": "Confirmed",
-      "partial": "Partials"
-    },
-    "sections": {
-      "descriptorComparison": "Comparison by descriptor",
-      "prePost": "Pre x Post season",
-      "byCompetency": "By competency",
-      "initialCurrent": "Initial x current notes",
-      "finalAssessment": "Final assessment",
-      "cycleSynthesis": "Cycle synthesis"
-    },
-    "summary": {
-      "biggestAdvance": "Biggest advancement",
-      "mainAttentionPoint": "Main point of attention",
-      "currentAverage": "Current average grade",
-      "averageOutOf": "{value} 4.0"
     }
   },
   "AssessmentChat": {
@@ -5211,6 +5181,7 @@
       "noPrimaryAction": "Use the team signals below to define the focus of the next conversation.",
       "thisWeek": "This week",
       "competencies": "Competency pulse",
+      "mostFrequentLevel": "Most common level: {level}",
       "highlights": "Strengths to recognize",
       "attentionPeople": "Priority conversations",
       "pdfEyebrow": "Supporting document",

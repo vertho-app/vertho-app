@@ -51,7 +51,6 @@ const SUPERFICIES = [
   'app/dashboard/gestor/equipe-evolucao/page.tsx',
   'app/admin/evolucao/page.tsx',
   'app/dashboard/relatorios/relatorios-rh-view.tsx',
-  'app/dashboard/evolucao/page.tsx',
   'lib/plenaria-equipe-pdf.ts',
 ];
 
@@ -74,7 +73,9 @@ describe('toda superfície que pinta veredito lê a paleta única', () => {
  * o veredito voltar a ele, o arquivo sai daqui e volta para `SUPERFICIES`, lendo a
  * paleta única.
  */
-const SEM_VEREDITO = ['components/pdf/RelatorioEvolucao.tsx'];
+// `app/dashboard/evolucao/page.tsx` (Minha evolução) saiu da paleta em 04/10/2026 (R-08):
+// agora só redireciona ao relatório da temporada, que é quem pinta o veredito.
+const SEM_VEREDITO = ['components/pdf/RelatorioEvolucao.tsx', 'app/dashboard/evolucao/page.tsx'];
 
 describe('superfície que deixou de pintar veredito não volta a pintar por fora da paleta', () => {
   it.each(SEM_VEREDITO)('%s', (arquivo) => {

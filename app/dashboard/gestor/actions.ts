@@ -10,6 +10,8 @@ import { PROGRESSO, TRILHA, TURMA_MEMBRO } from '@/lib/status';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 import { estaAtrasada, semanasDeAtraso } from '@/lib/season-engine/atraso';
+import { avancoMedioExibido, relatorioMedeEvolucao } from '@/lib/season-engine/convergencia';
+import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
 import {
   normalizeManagerReportInsight,
@@ -64,7 +66,24 @@ export type EquipeRow = {
   semana: number | null; // 1..N do PROGRAMA dela (jornada 7, onboarding 10…) ou null
   /** Duração do programa DESTA pessoa — o teto da barra de progresso (D1). */
   totalSemanas: number | null;
-  delta: number | null; // só quando concluida
+  /**
+   * Avanço médio da jornada concluída: a média dos avanços exibidos dos
+   * comportamentos, cada um com piso ZERO e uma casa (`avancoMedioExibido`).
+   * Nunca negativo. `null` quando a trilha não concluiu ou o relatório NÃO mede
+   * evolução (piloto, Personalizado sem fechamento): lá não há nota de partida.
+   *
+   * 🔴 Era `delta`, a diferença crua entre `nota_media_pos` e a média das
+   * `nota_pre` (R-18, 04/10/2026). Ela saía negativa e em vermelho, e no piloto
+   * e no Personalizado a média inicial virava 0 (campo ausente) e o gestor lia um
+   * avanço inventado ("+2,6"). Decisão do dono: o gestor vê nível e avanço.
+   */
+  avanco: number | null;
+  /**
+   * Nível de partida e de chegada por competência (o nível da MÉDIA das notas,
+   * que nunca cai abaixo do de partida), nos mesmos casos do `avanco`. Vazio
+   * quando não há o que afirmar.
+   */
+  niveis: Array<{ competencia: string | null; nivelInicial: number | null; nivelFinal: number | null }>;
   perfilDominante: string | null;
   fontePerfilExterno: string | null;
   /** Turma da participação ativa (mig 210). O gestor pensa em pessoas, então a
@@ -663,13 +682,18 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       totalSemanas = duracaoDaTrilha(t);
       semana = Math.min(totalSemanas, Math.ceil(dias / 7));
     }
-    let delta: number | null = null;
-    if (t?.status === 'concluida' && t.evolution_report) {
-      const rep = t.evolution_report as any;
-      const desc = rep?.descritores || [];
-      const mPos = rep?.nota_media_pos != null ? Number(rep.nota_media_pos) : null;
-      const mPre = desc.length ? desc.reduce((a: number, d: any) => a + (d.nota_pre || 0), 0) / desc.length : null;
-      delta = (mPos != null && mPre != null) ? Number((mPos - mPre).toFixed(2)) : null;
+    // Só a trilha concluída que MEDE evolução (tem nota de partida E de chegada por
+    // comportamento) tem avanço e nível a mostrar. A mesma régua das outras telas
+    // (`relatorioMedeEvolucao`): o piloto e o Personalizado sem fechamento gravam só
+    // o ponto de partida.
+    let avanco: number | null = null;
+    let niveis: EquipeRow['niveis'] = [];
+    if (t?.status === 'concluida' && t.evolution_report && relatorioMedeEvolucao(t.evolution_report as any)) {
+      const desc = Array.isArray((t.evolution_report as any)?.descritores) ? (t.evolution_report as any).descritores : [];
+      avanco = avancoMedioExibido(desc);
+      niveis = agruparPorCompetencia(desc)
+        .filter((g) => g.nivelInicial != null && g.nivelFinal != null)
+        .map((g) => ({ competencia: g.competencia, nivelInicial: g.nivelInicial, nivelFinal: g.nivelFinal }));
     }
     const status: EquipeRow['status'] = !t ? 'sem_trilha'
       : t.status === 'ativa' ? 'em_andamento'
@@ -684,7 +708,8 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       competenciaFoco: t?.competencia_foco || null,
       semana,
       totalSemanas,
-      delta,
+      avanco,
+      niveis,
       perfilDominante: c.perfil_dominante || null,
       fontePerfilExterno: c.perfil_externo_fonte || null,
       turma: turmaPorColab.get(c.id) || null,

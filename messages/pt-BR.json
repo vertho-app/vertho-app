@@ -855,8 +855,8 @@
         "risk": "Risco a acompanhar"
       },
       "levels": {
-        "title": "Nível médio das competências",
-        "ofFour": "de 4 níveis",
+        "title": "Distribuição por nível",
+        "mostFrequent": "nível mais frequente",
         "evaluated": "Pessoas avaliadas",
         "assessments": "Avaliações"
       },
@@ -869,9 +869,9 @@
       "roles": {
         "eyebrow": "Leitura por cargo",
         "title": "Contextos diferentes pedem ações diferentes",
-        "subtitle": "Selecione um cargo para comparar o nível médio das competências, forças, riscos e o foco sugerido para o próximo ciclo.",
-        "average": "Nível médio das competências",
-        "averageDescription": "Média das competências avaliadas para as pessoas deste cargo.",
+        "subtitle": "Selecione um cargo para comparar o nível das competências, forças, riscos e o foco sugerido para o próximo ciclo.",
+        "average": "Nível das competências",
+        "averageDescription": "Nível que resume as competências avaliadas para as pessoas deste cargo.",
         "focus": "Foco recomendado",
         "reading": "Leitura do cargo",
         "strengths": "Forças",
@@ -884,9 +884,9 @@
           "organizationScope": "{count, plural, one {# pessoa na organização} other {# pessoas na organização}}",
           "organizationNotice": "{role} ainda não tem o mínimo de três pessoas avaliadas para um recorte anônimo. Por isso, esta matriz mostra a distribuição da organização.",
           "competency": "Competência",
-          "competencyAverage": "nível médio {value}",
-          "levelAverage": "Nível médio",
-          "rowAverage": "média {value}",
+          "competencyMostFrequent": "mais frequente: {value}",
+          "levelMostFrequent": "Nível mais frequente",
+          "rowMostFrequent": "mais frequente: {value}",
           "priority": "Prioridade",
           "descriptor": "Descritor",
           "levels": {
@@ -937,17 +937,17 @@
         "partial": "Evolução parcial",
         "stable": "Estável",
         "noVerdict": "Sem veredito",
-        "averageDelta": "Variação média",
+        "averageDelta": "Avanço médio",
         "byCompetencyTitle": "O que evoluiu",
-        "byCompetencySubtitle": "Média de entrada e de saída por competência, com o número de pessoas medidas em cada uma.",
+        "byCompetencySubtitle": "Nível de partida e de chegada por competência, com o número de pessoas medidas em cada uma.",
         "byDescriptorTitle": "Comportamento a comportamento",
         "peopleTitle": "Quem evoluiu",
-        "peopleSubtitle": "Nominal, visível apenas para o RH e a liderança direta.",
+        "peopleSubtitle": "Nominal, em ordem alfabética, visível apenas para o RH e a liderança direta.",
         "columnPerson": "Pessoa",
         "columnCompetency": "Competência",
-        "columnBefore": "Início",
-        "columnAfter": "Fechamento",
-        "columnDelta": "Variação",
+        "columnBefore": "Nível de partida",
+        "columnAfter": "Nível de chegada",
+        "columnDelta": "Avanço",
         "columnVerdict": "Resultado",
         "columnSupport": "Sustentação",
         "supportHigh": "Alta",
@@ -1684,7 +1684,8 @@
       "title": "Avaliação concluída",
       "progress": "Avanço",
       "viewReport": "Ver relatório completo →",
-      "demoScore": "Nota da demonstração",
+      "demoLevel": "Resultado da demonstração",
+      "levelValue": "Nível {n}",
       "pilotNote": "No piloto, a avaliação demonstra o método da temporada completa — não mede evolução em 2 semanas.",
       "reportPreparing": "Preparando seu relatório…",
       "reportUnavailable": "Seu relatório ainda está sendo preparado. Tente de novo em alguns minutos.",
@@ -1918,7 +1919,7 @@
       "baselineNote": "Níveis mapeados no diagnóstico — a base sobre a qual uma temporada completa trabalha.",
       "assessmentSection": "Avaliação de fechamento (demonstração)",
       "assessmentNote": "Como a avaliação por cenário funciona na temporada completa. Em 2 semanas ela demonstra o método — não mede evolução.",
-      "demoScore": "Nota da demonstração:"
+      "demoLevel": "Nível na demonstração:"
     },
     "noClosing": {
       "title": "{name}, você concluiu o programa",
@@ -2077,42 +2078,11 @@
   },
   "Evolution": {
     "eyebrow": "Sua evolução",
-    "title": "Relatório de Evolução",
-    "fallbackCompetency": "Competência",
-    "season": "Temporada {number}",
-    "heroSubtitle": "Veja onde houve avanço, onde ainda existe gap e quais sinais merecem atenção.",
-    "downloadFull": "Baixar relatório completo",
-    "viewSeasonReport": "Ver relatório completo da temporada",
-    "descriptorFallback": "Descritor {number}",
     "empty": {
       "title": "A comparação vem após a reavaliação",
       "subtitle": "Aqui você verá o que mudou entre o mapeamento inicial e a reavaliação ao final da jornada.",
       "card": "Enquanto essa comparação ainda não está disponível, acompanhe seu plano e pratique os comportamentos trabalhados na jornada.",
       "goToJourney": "Acompanhar minha jornada"
-    },
-    "classification": {
-      "confirmed": "Evolução confirmada",
-      "partial": "Evolução parcial",
-      "stable": "Estável"
-    },
-    "metrics": {
-      "competenciesShort": "{count} comp.",
-      "confirmed": "Confirmadas",
-      "partial": "Parciais"
-    },
-    "sections": {
-      "descriptorComparison": "Comparativo por descritor",
-      "prePost": "Pré x Pós temporada",
-      "byCompetency": "Por competência",
-      "initialCurrent": "Notas inicial x atual",
-      "finalAssessment": "Avaliação final",
-      "cycleSynthesis": "Síntese do ciclo"
-    },
-    "summary": {
-      "biggestAdvance": "Maior avanço",
-      "mainAttentionPoint": "Principal ponto de atenção",
-      "currentAverage": "Nota média atual",
-      "averageOutOf": "{value} de 4.0"
     }
   },
   "AssessmentChat": {
@@ -5211,6 +5181,7 @@
       "noPrimaryAction": "Use os sinais da equipe abaixo para definir o foco da próxima conversa.",
       "thisWeek": "Nesta semana",
       "competencies": "Pulso das competências",
+      "mostFrequentLevel": "Nível mais frequente: {level}",
       "highlights": "Pontos fortes a reconhecer",
       "attentionPeople": "Conversas prioritárias",
       "pdfEyebrow": "Documento de apoio",

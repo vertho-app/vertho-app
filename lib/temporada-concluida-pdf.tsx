@@ -35,6 +35,7 @@ import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competen
 import { montarTeia, temTeia, NOTA_MAX, NOTA_MIN } from '@/lib/season-engine/teia-evolucao';
 import { textosDoRelatorio } from '@/lib/season-engine/relatorio-texto';
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import { nivelDaNotaOuNull } from '@/lib/nivel-da-nota-ou-nulo';
 import { createTranslator } from 'next-intl';
 import mensagensPtBR from '@/messages/pt-BR.json';
 
@@ -459,8 +460,8 @@ function TemporadaPilotoPDF({ dados, marca }: { dados: any; marca: MarcaPdf }) {
             <View key={i} style={s.card} wrap={false}>
               <View style={s.row}>
                 <Text style={s.cardTitle}>{descritorParaHumano(d.descritor)}</Text>
-                {d.baseline != null && (
-                  <Text style={{ ...s.delta, color: colors.navy }}>{`${num(d.baseline)}/4,0`}</Text>
+                {nivelDaNotaOuNull(d.baseline) != null && (
+                  <Text style={{ ...s.delta, color: colors.navy }}>{`Nível ${nivelDaNotaOuNull(d.baseline)}`}</Text>
                 )}
               </View>
             </View>
@@ -479,8 +480,8 @@ function TemporadaPilotoPDF({ dados, marca }: { dados: any; marca: MarcaPdf }) {
               <View style={s.card}>
                 <Text style={s.rotulo}>Devolutiva</Text>
                 <Text style={{ ...s.text, marginTop: 3 }}>{sem14.resumo_avaliacao.mensagem_geral}</Text>
-                {sem14.nota_media_pos != null && (
-                  <Text style={s.muted}>{`Nota da demonstração: ${num(sem14.nota_media_pos)}/4,0`}</Text>
+                {nivelDaNotaOuNull(sem14.nota_media_pos) != null && (
+                  <Text style={s.muted}>{`Nível na demonstração: ${nivelDaNotaOuNull(sem14.nota_media_pos)}`}</Text>
                 )}
               </View>
             )}

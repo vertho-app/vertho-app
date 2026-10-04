@@ -11,8 +11,10 @@ import {
 import { PageContainer, PageHero } from '@/components/page-shell';
 import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
 import type { RhReportDocument, RhReportKind, RhReportsCenter, RhReportsScope } from '@/lib/relatorios/rh-center';
-import type { EvolucaoAgregado } from '@/lib/relatorios/evolucao-center';
-import { TETO_N3 } from '@/lib/nivel-regua';
+import type { EvolucaoAgregadoTela } from '@/lib/relatorios/evolucao-center';
+import { formatarValorAvanco } from '@/lib/season-engine/convergencia';
+import { nivelMaisFrequente } from '@/lib/nivel-frequente';
+import { nivelDaNota } from '@/lib/nivel-regua';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
 import { baixarPdf } from '@/lib/relatorios/baixar-pdf';
@@ -52,6 +54,11 @@ const DOCUMENT_ICONS: Record<RhReportKind, any> = {
 };
 
 const LEVEL_COLORS = ['#FB7185', '#FBBF24', '#22D3EE', '#34D399'];
+
+/** "N2", ou o travessão quando não há nível a mostrar (ausência não é N1). */
+function nivelDe(nivel: number | null): string {
+  return nivel != null ? `N${nivel}` : '\u2014';
+}
 
 function normalize(value: unknown): string {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -320,67 +327,40 @@ function VerdictPill({ veredito, t }: { veredito: string | null; t: any }) {
   );
 }
 
-/** Barra de entrada e saída na escala 1 a 4 do modelo de competências. */
 /**
- * Escala fixa 1 a 4 do modelo de competências, com os cortes de nível
- * desenhados no trilho.
+ * Os QUATRO NÍVEIS do modelo de competências, com o de partida e o de chegada.
  *
- * ⚠️ A ESCALA PRECISA ESTAR VISÍVEL. A primeira versão desenhava a barra
- * proporcional (isso estava certo) mas imprimia os valores de entrada e saída
- * nas duas extremidades — e aí a leitura natural é que o trilho VAI de 1,83 a
- * 2,70, não que ele vai de 1 a 4 e a pessoa ocupa aquele pedaço. Duas
- * competências com deltas iguais e patamares diferentes ficavam
- * indistinguíveis. Agora os limites da escala ficam nas pontas, os cortes de
- * N2/N3/N4 aparecem como marcas, e os valores da pessoa vão em cima do
- * respectivo ponto.
+ * 🔴 Era uma barra proporcional à NOTA, com "1,83 → 2,70" impresso embaixo
+ * (R-32, 04/10/2026): o RH lia uma nota decimal por competência e por comportamento,
+ * contra a decisão do dono de que ninguém do cliente vê nota. Agora são quatro
+ * degraus: cinza até o nível de partida, verde nos degraus que o grupo CONQUISTOU
+ * (de partida a chegada), vazio acima. Nunca há degrau "perdido": o nível de chegada
+ * não fica abaixo do de partida.
  */
-const CORTES_DE_NIVEL = [2, 3, TETO_N3];
-
-function DeltaBar({ pre, pos }: { pre: number; pos: number }) {
-  const pct = (nota: number) => Math.max(0, Math.min(100, ((nota - 1) / 3) * 100));
-  const inicio = pct(Math.min(pre, pos));
-  const fim = pct(Math.max(pre, pos));
-  const subiu = pos >= pre;
+function NiveisBar({ pre, pos }: { pre: number; pos: number }) {
   return (
     <div>
-      <div className="relative h-[22px] overflow-hidden rounded-md border border-white/[0.07] bg-white/[0.03]">
-        {CORTES_DE_NIVEL.map((corte) => (
-          <div
-            key={corte}
-            aria-hidden="true"
-            className="absolute inset-y-0 w-px bg-white/[0.14]"
-            style={{ left: `${pct(corte)}%` }}
-          />
-        ))}
-        <div className="absolute inset-y-[4px] rounded-sm bg-white/20" style={{ left: 0, width: `${inicio}%` }} />
-        <div
-          className="absolute inset-y-[4px] rounded-sm"
-          style={{
-            left: `${inicio}%`,
-            width: `${Math.max(fim - inicio, 0.6)}%`,
-            background: subiu ? '#34D399' : '#FBBF24',
-          }}
-        />
+      <div className="grid grid-cols-4 gap-1" aria-hidden="true">
+        {[1, 2, 3, 4].map((nivel) => {
+          const conquistado = nivel > pre && nivel <= pos;
+          const dePartida = nivel <= pre;
+          return (
+            <div
+              key={nivel}
+              className="h-[10px] rounded-sm"
+              style={{ background: conquistado ? '#34D399' : dePartida ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.05)' }}
+            />
+          );
+        })}
       </div>
-      {/* Os LIMITES da escala nas pontas e os valores da pessoa juntos no
-          meio. Posicionar cada valor sobre o seu ponto foi tentado e cai num
-          defeito visível: com delta pequeno (que é a maioria) os dois números
-          se sobrepõem. Os cortes de nível no trilho já dizem onde a pessoa
-          está; aqui basta dizer de quanto para quanto. */}
-      <div className="mt-1 flex items-baseline justify-between font-mono text-[10px] tabular-nums">
-        <span className="text-white/25">1</span>
-        <span className="text-white/45">
-          {pre.toFixed(2)}
-          <span className="mx-1 text-white/25">→</span>
-          <span className="font-bold" style={{ color: subiu ? '#34D399' : '#FBBF24' }}>{pos.toFixed(2)}</span>
-        </span>
-        <span className="text-white/25">4</span>
+      <div className="mt-1 grid grid-cols-4 gap-1 text-center font-mono text-[9px] text-white/30" aria-hidden="true">
+        {[1, 2, 3, 4].map((nivel) => <span key={nivel}>N{nivel}</span>)}
       </div>
     </div>
   );
 }
 
-function EvolutionAggregateRow({ item, t, aninhado = false }: { item: EvolucaoAgregado; t: any; aninhado?: boolean }) {
+function EvolutionAggregateRow({ item, t, aninhado = false }: { item: EvolucaoAgregadoTela; t: any; aninhado?: boolean }) {
   return (
     <div className={`grid items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_180px_120px] ${aninhado ? '' : 'border-b border-white/[0.05] last:border-b-0'}`}>
       <div className="min-w-0">
@@ -389,16 +369,16 @@ function EvolutionAggregateRow({ item, t, aninhado = false }: { item: EvolucaoAg
           {t('dashboard.evolution.peopleCount', { n: item.n })}
         </p>
       </div>
-      <DeltaBar pre={item.mediaPre} pos={item.mediaPos} />
+      <NiveisBar pre={item.nivelPre} pos={item.nivelPos} />
       <div className="flex items-center justify-end gap-2">
         <span className="rounded-md border border-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] text-white/40">
           {t('dashboard.evolution.level', { nivel: item.nivelPre })} → {t('dashboard.evolution.level', { nivel: item.nivelPos })}
         </span>
         <strong
           className="text-base tabular-nums"
-          style={{ color: item.delta > 0 ? '#34D399' : item.delta < 0 ? '#FBBF24' : 'rgba(255,255,255,.5)' }}
+          style={{ color: item.delta > 0 ? '#34D399' : 'rgba(255,255,255,.5)' }}
         >
-          {item.delta > 0 ? '+' : ''}{item.delta.toFixed(2)}
+          {formatarValorAvanco(item.delta)}
         </strong>
       </div>
     </div>
@@ -412,7 +392,7 @@ function EvolutionAggregateRow({ item, t, aninhado = false }: { item: EvolucaoAg
  * "no quê?" — que é a pergunta seguinte de quem vai agir. Antes eles viviam
  * numa segunda lista solta embaixo, sem dizer a qual competência pertenciam.
  */
-function CompetencyRow({ item, descritores, t }: { item: EvolucaoAgregado; descritores: EvolucaoAgregado[]; t: any }) {
+function CompetencyRow({ item, descritores, t }: { item: EvolucaoAgregadoTela; descritores: EvolucaoAgregadoTela[]; t: any }) {
   const [aberto, setAberto] = useState(false);
   const temDetalhe = descritores.length > 0;
 
@@ -553,8 +533,8 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
           ))}
           <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
             <p className="text-[11px] leading-tight text-white/45">{t('dashboard.evolution.averageDelta')}</p>
-            <strong className="mt-1 block text-2xl tabular-nums" style={{ ...serifStyle, color: resumo.deltaMedio >= 0 ? '#34D399' : '#FBBF24' }}>
-              {resumo.deltaMedio > 0 ? '+' : ''}{resumo.deltaMedio.toFixed(2)}
+            <strong className="mt-1 block text-2xl tabular-nums" style={{ ...serifStyle, color: resumo.deltaMedio > 0 ? '#34D399' : 'rgba(255,255,255,.72)' }}>
+              {formatarValorAvanco(resumo.deltaMedio)}
             </strong>
           </div>
         </div>
@@ -641,13 +621,13 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
                     <p>{pessoa.competencia}</p>
                     <p className="mt-0.5 text-[11px] text-white/30">{t('dashboard.evolution.descriptorCount', { n: pessoa.n })}</p>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-white/55 tabular-nums">{pessoa.mediaPre.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-right font-mono text-white/85 tabular-nums">{pessoa.mediaPos.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-white/55 tabular-nums">{t('dashboard.evolution.level', { nivel: pessoa.nivelPre })}</td>
+                  <td className="px-4 py-3 text-right font-mono text-white/85 tabular-nums">{t('dashboard.evolution.level', { nivel: pessoa.nivelPos })}</td>
                   <td
                     className="px-4 py-3 text-right font-mono font-bold tabular-nums"
-                    style={{ color: pessoa.delta > 0 ? '#34D399' : pessoa.delta < 0 ? '#FBBF24' : 'rgba(255,255,255,.5)' }}
+                    style={{ color: pessoa.delta > 0 ? '#34D399' : 'rgba(255,255,255,.5)' }}
                   >
-                    {pessoa.delta > 0 ? '+' : ''}{pessoa.delta.toFixed(2)}
+                    {formatarValorAvanco(pessoa.delta)}
                   </td>
                   <td className="px-4 py-3"><VerdictPill veredito={pessoa.veredito} t={t} /></td>
                   <td className="px-4 py-3 text-[11px] text-white/45">
@@ -696,8 +676,8 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
                     <span className="block truncate text-sm text-white/85">{item.chave}</span>
                     {item.competencia && <span className="block text-[11px] text-white/30">{item.competencia}</span>}
                   </span>
-                  <strong className="shrink-0 font-mono text-sm tabular-nums" style={{ color: item.delta > 0 ? '#34D399' : '#FBBF24' }}>
-                    {item.delta > 0 ? '+' : ''}{item.delta.toFixed(2)}
+                  <strong className="shrink-0 font-mono text-sm tabular-nums" style={{ color: item.delta > 0 ? '#34D399' : 'rgba(255,255,255,.5)' }}>
+                    {formatarValorAvanco(item.delta)}
                   </strong>
                 </li>
               ))}
@@ -744,8 +724,11 @@ function ExecutiveReading({ reports, t }: { reports: RhReportsCenter; t: any }) 
       <Panel className="p-5 md:p-6">
         <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-white/40">{t('dashboard.levels.title')}</p>
         <div className="mt-4 flex items-baseline gap-2">
-          <span className="text-[48px] leading-none text-white tabular-nums" style={serifStyle}>{insight.indicators.average ?? '—'}</span>
-          <span className="text-xs text-white/35">{t('dashboard.levels.ofFour')}</span>
+          {/* O nível em que mais gente está, da MESMA distribuição desenhada abaixo
+              (R-32, 04/10/2026). Era a média dos níveis ("2,34 de 4"): um número que
+              nenhuma pessoa tem e que a decisão do dono tirou das telas do cliente. */}
+          <span className="text-[48px] leading-none text-white tabular-nums" style={serifStyle}>{nivelDe(nivelMaisFrequente(insight.indicators.levels.map(({ level, percentage }) => ({ level, peso: percentage }))))}</span>
+          <span className="text-xs text-white/35">{t('dashboard.levels.mostFrequent')}</span>
         </div>
         <div className="mt-5 flex h-3 overflow-hidden rounded-full bg-white/[0.05]">
           {insight.indicators.levels.map(({ level, percentage }, index) => <div key={level} title={`N${level}: ${percentage}%`} style={{ width: `${percentage}%`, background: LEVEL_COLORS[index] }} />)}
@@ -873,7 +856,7 @@ function DescriptorAnalysis({
               }}
             >
               <span className={`block max-w-[220px] truncate text-[11px] font-bold ${selected ? 'text-white' : 'text-white/50'}`}>{item.competency}</span>
-              <span className="mt-1 block font-mono text-[9px] text-white/30">{t('dashboard.roles.descriptors.competencyAverage', { value: item.average.toFixed(2) })}</span>
+              <span className="mt-1 block font-mono text-[9px] text-white/30">{t('dashboard.roles.descriptors.competencyMostFrequent', { value: nivelDe(nivelMaisFrequente(item.levels.map(({ level, percentage }) => ({ level, peso: percentage })))) })}</span>
             </button>
           );
         })}
@@ -891,9 +874,8 @@ function DescriptorAnalysis({
               <h4 className="mt-1 max-w-3xl text-[24px] leading-tight text-white" style={serifStyle}>{competency.competency}</h4>
             </div>
             <div className="flex items-baseline gap-2 sm:text-right">
-              <span className="text-xs text-white/35">{t('dashboard.roles.descriptors.levelAverage')}</span>
-              <strong className="text-[31px] font-normal leading-none text-white tabular-nums" style={serifStyle}>{competency.average.toFixed(2)}</strong>
-              <span className="text-[10px] text-white/30">/ 4</span>
+              <span className="text-xs text-white/35">{t('dashboard.roles.descriptors.levelMostFrequent')}</span>
+              <strong className="text-[31px] font-normal leading-none text-white tabular-nums" style={serifStyle}>{nivelDe(nivelMaisFrequente(competency.levels.map(({ level, percentage }) => ({ level, peso: percentage }))))}</strong>
             </div>
           </div>
           <div className="relative mt-4 flex h-2 overflow-hidden rounded-full bg-white/[0.05]">
@@ -913,7 +895,7 @@ function DescriptorAnalysis({
             <div key={descriptor.descriptor} className="rounded-2xl border border-white/[0.07] bg-black/10 p-4">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm font-semibold leading-snug text-white/75">{descriptor.descriptor}</p>
-                <span className="shrink-0 rounded-lg bg-white/[0.05] px-2 py-1 font-mono text-[9px] text-white/40">{descriptor.average.toFixed(2)}</span>
+                <span className="shrink-0 rounded-lg bg-white/[0.05] px-2 py-1 font-mono text-[9px] text-white/40">{nivelDe(nivelMaisFrequente(descriptor.levels.map(({ level, percentage }) => ({ level, peso: percentage }))))}</span>
               </div>
               <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-white/[0.05]">
                 {descriptor.levels.map(({ level, percentage }, index) => (
@@ -945,7 +927,7 @@ function DescriptorAnalysis({
                   <th scope="row" className="px-6 py-4">
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-sm font-medium leading-snug text-white/72">{descriptor.descriptor}</span>
-                      <span className="shrink-0 font-mono text-[9px] text-white/28">{t('dashboard.roles.descriptors.rowAverage', { value: descriptor.average.toFixed(2) })}</span>
+                      <span className="shrink-0 font-mono text-[9px] text-white/28">{t('dashboard.roles.descriptors.rowMostFrequent', { value: nivelDe(nivelMaisFrequente(descriptor.levels.map(({ level, percentage }) => ({ level, peso: percentage })))) })}</span>
                     </div>
                   </th>
                   {descriptor.levels.map(({ level, percentage }, index) => (
@@ -1004,11 +986,11 @@ function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
           <div className="grid gap-3 lg:grid-cols-[.75fr_1.25fr]">
             <Panel className="p-5 md:p-6">
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35">{t('dashboard.roles.average')}</p>
-            <div className="mt-3 flex items-end gap-2"><span className="text-[54px] leading-none text-white" style={serifStyle}>{role.average?.toFixed(1) ?? '—'}</span><span className="pb-1 text-xs text-white/35">/ 4</span></div>
+            <div className="mt-3 flex items-end gap-2"><span className="text-[54px] leading-none text-white" style={serifStyle}>{nivelDe(role.average != null ? nivelDaNota(role.average) : null)}</span></div>
             <p className="mt-3 text-[10px] leading-relaxed text-white/32">{t('dashboard.roles.averageDescription')}</p>
             <div className="mt-4 grid grid-cols-4 gap-1">
               {[1, 2, 3, 4].map((level) => (
-                <div key={level} className="h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full" style={{ width: role.average && role.average >= level ? '100%' : role.average && role.average > level - 1 ? `${(role.average - (level - 1)) * 100}%` : '0%', background: LEVEL_COLORS[level - 1] }} /></div>
+                <div key={level} className="h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full" style={{ width: role.average != null && nivelDaNota(role.average) >= level ? '100%' : '0%', background: LEVEL_COLORS[level - 1] }} /></div>
               ))}
             </div>
             {focus && (

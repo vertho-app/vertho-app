@@ -9,6 +9,7 @@ import { avancoMedioExibido } from '@/lib/season-engine/convergencia';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { isTenantDemo } from '@/lib/demo/envio-guard';
 import { recortarElencoDemo } from '@/lib/demo/elenco-visivel';
+import { ordenarPorNome } from '@/lib/gestor/ordenar-por-nome';
 
 /**
  * Lista os liderados do gestor com temporada (em andamento ou concluída)
@@ -62,19 +63,16 @@ export async function listarEquipeEvolucao() {
     if (!trilhaPorColab[t.colaborador_id]) trilhaPorColab[t.colaborador_id] = t;
   }
 
-  const rows = colabs.map(c => {
+  const linhas = colabs.map(c => {
     const t = trilhaPorColab[c.id];
     const rep = t?.evolution_report || null;
     const resumo = rep?.resumo || {};
     const descritores = rep?.descritores || [];
-    const mediaPos = rep?.nota_media_pos != null ? Number(rep.nota_media_pos) : null;
-    const mediaPre = descritores.length
-      ? descritores.reduce((a, d) => a + (d.nota_pre || 0), 0) / descritores.length
-      : null;
-    const delta = (mediaPos != null && mediaPre != null) ? mediaPos - mediaPre : null;
     // O que a TELA mostra da pessoa: a média dos avanços exibidos nos descritores
-    // (piso zero em cada um). `delta` acima segue só para o PDF de plenária antigo
-    // não quebrar; ele leva quedas que o detalhe da pessoa não mostra (16/09/2026).
+    // (piso zero em cada um). Até 04/10/2026 a linha também levava `mediaPre`,
+    // `mediaPos` e `delta` (notas decimais e a diferença crua, que leva quedas),
+    // "só para o PDF de plenária antigo não quebrar": nenhum consumidor os lia, e
+    // iam para o navegador do gestor e do RH (R-111, decisão 1 da revisão de 02/10).
     const avancoMedio = avancoMedioExibido(descritores);
     // Nível por competência (da média, nunca cai) para a linha dizer se subiu.
     const competencias = agruparPorCompetencia(descritores).map((g) => ({
@@ -105,10 +103,13 @@ export async function listarEquipeEvolucao() {
       temporada: t?.numero_temporada || null,
       statusTrilha: t?.status || null,
       status,
-      mediaPre, mediaPos, delta, avancoMedio, competencias,
+      avancoMedio, competencias,
       resumoDescritores: resumo,
     };
   });
+  // Alfabética, para a tela e o PDF da plenária lerem a mesma ordem (R-111): quem
+  // chegava primeiro era quem o banco devolvia primeiro, sem critério nenhum.
+  const rows = ordenarPorNome(linhas);
 
   // Só quem TEM veredito conta como jornada encerrada. É o que decide se esta
   // tela tem o que mostrar: sem nenhuma trilha concluída ela desenha seis KPIs

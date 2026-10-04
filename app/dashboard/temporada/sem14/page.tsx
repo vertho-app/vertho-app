@@ -13,6 +13,7 @@ import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { PROGRESSO } from '@/lib/status';
 import { formatarAvanco } from '@/lib/season-engine/convergencia';
 import { leituraDoStatusDaAcumulada } from '@/lib/season-engine/trilha-runtime';
+import { nivelDaNotaOuNull } from '@/lib/nivel-da-nota-ou-nulo';
 
 const MIN_CHARS = 20;
 const MIN_CHARS_ARG = 3; // arguição é conversa — respostas curtas são válidas
@@ -680,10 +681,14 @@ export default function Sem14Page() {
             /* Piloto: SEM pré/delta — a avaliação é demonstração do método,
                não medição de evolução (2 semanas não medem evolução). */
             <div className="mb-4">
-              <div className="text-center rounded-lg bg-white/[0.05] p-3">
-                <p className="text-xl font-bold text-brand-400">{avaliacao.nota_media_pos}</p>
-                <p className="text-[10px] text-gray-500 uppercase">{t('done.demoScore')}</p>
-              </div>
+              {/* Nível, não nota (R-109, 04/10/2026): a conclusão do piloto mostrava a
+                  nota crua com o rótulo "Nota da demonstração". */}
+              {nivelDaNotaOuNull(avaliacao.nota_media_pos) != null && (
+                <div className="text-center rounded-lg bg-white/[0.05] p-3">
+                  <p className="text-xl font-bold text-brand-400">{t('done.levelValue', { n: nivelDaNotaOuNull(avaliacao.nota_media_pos) })}</p>
+                  <p className="text-[10px] text-gray-500 uppercase">{t('done.demoLevel')}</p>
+                </div>
+              )}
               <p className="text-[11px] text-gray-500 mt-2">{t('done.pilotNote')}</p>
             </div>
           ) : formatarAvanco(avaliacao.nota_media_pre, avaliacao.nota_media_pos) && (
