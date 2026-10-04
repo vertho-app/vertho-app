@@ -18,6 +18,8 @@ import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import { storageSlug } from '@/lib/storage-slug';
 import { caminhoDoPdf, idiomaDaPessoa } from '@/lib/pdf-locale';
 import type { AppLocale } from '@/i18n/routing';
+import { resolveAppLocale } from '@/lib/i18n';
+import { registrarLeituraIndisponivel } from '@/lib/gestor/leitura-indisponivel';
 import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { excludeInternalEmails } from '@/lib/internal-emails';
@@ -116,6 +118,25 @@ export async function gerarRelatorioGestorCore(
       return { success: false, error: 'Nenhum colaborador tem gestor_email preenchido. Configure em /admin/empresas/gerenciar.' };
     }
 
+    // R-67 (04/10/2026): a leitura executiva é do GESTOR, então sai da IA no idioma dele (`colaboradores.locale`; o
+    // gestor sem cadastro no tenant, ou sem idioma, fica com o da empresa, `empresas.default_locale`). Sem `locale`,
+    // o `callAI` lia o cookie de quem DISPAROU a geração (a operação, em pt-BR) e o gestor de outro idioma abria a
+    // tela traduzida com a síntese em português. Duas leituras próprias, com o `error` checado: se uma falha, a
+    // geração segue (é entrega, não construção) no idioma que sobrar, e a falha vai para o `degradacao_log`.
+    const idiomaPorColab = new Map<string, string | null>();
+    const idsDosGestores = (todosColabs || [])
+      .filter((c: any) => equipesPorGestor[(c.email || '').toLowerCase()])
+      .map((c: any) => c.id);
+    if (idsDosGestores.length) {
+      const { data: idiomas, error: errIdiomas } = await tdb.from('colaboradores').select('id, locale').in('id', idsDosGestores);
+      if (errIdiomas) await registrarLeituraIndisponivel(empresaId, 'relatorio-gestor-idioma-dos-gestores', errIdiomas.message);
+      else for (const r of idiomas || []) idiomaPorColab.set(r.id, r.locale ?? null);
+    }
+    const { data: idiomaEmpresa, error: errIdiomaEmpresa } = await sbRaw.from('empresas')
+      .select('default_locale').eq('id', empresaId).maybeSingle();
+    if (errIdiomaEmpresa) await registrarLeituraIndisponivel(empresaId, 'relatorio-gestor-idioma-da-empresa', errIdiomaEmpresa.message);
+    const idiomaDaEmpresa: string | null = idiomaEmpresa?.default_locale ?? null;
+
     // RAG/grounding: traz valores + cultura da empresa pra contextualizar recomendações
     let groundingBlock = '';
     try {
@@ -169,8 +190,10 @@ export async function gerarRelatorioGestorCore(
 
         const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})\nGESTOR: ${gestorNome} (${gestorEmail})\nTOTAL EQUIPE: ${membros.length}\nDISC: D=${discDist.D} I=${discDist.I} S=${discDist.S} C=${discDist.C}\n${groundingBlock ? `\n${groundingBlock}\n` : ''}\nDADOS DA EQUIPE:\n${JSON.stringify(membros, null, 2)}`;
 
+        // Um idioma só para o relatório do gestor: o texto da IA e o texto fixo do PDF.
+        const idiomaDoGestor = resolveAppLocale(gestorColab ? idiomaPorColab.get(gestorColab.id) : null, idiomaDaEmpresa);
         const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 64000, {
-          taskKey: 'relatorio_gestor', empresaId,
+          taskKey: 'relatorio_gestor', empresaId, locale: idiomaDoGestor,
         });
         const relatorio: any = await extractJSON(resultado);
 
@@ -181,9 +204,8 @@ export async function gerarRelatorioGestorCore(
         try {
           const pdfData = { conteudo: relatorio, gestor_nome: gestorNome, gerado_em: new Date().toISOString() };
           // O relatório é do GESTOR: o texto fixo do papel sai no idioma dele (gestor sem cadastro no tenant: o da empresa).
-          const locale = await idiomaDaPessoa(empresaId, gestorColab?.id);
-          const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome, locale);
-          if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer, locale);
+          const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome, idiomaDoGestor);
+          if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer, idiomaDoGestor);
         } catch (e: any) { console.error('[PDF Gestor]', e.message); }
 
         // empresa_id é injetado pelo tdb.upsert
