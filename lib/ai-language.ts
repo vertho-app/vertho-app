@@ -1,4 +1,4 @@
-import type { AppLocale } from '@/i18n/routing';
+import { defaultLocale, type AppLocale } from '@/i18n/routing';
 import { localeLanguageName } from '@/lib/i18n';
 
 /** Uma política de redação para síncrono, chat e lote, sem dado demográfico. */
@@ -19,13 +19,24 @@ Antes de responder, revise todas as referências à pessoa participante e reform
 export const REGRA_PONTUACAO_DA_SAIDA = `═══ PONTUAÇÃO ═══
 Não use travessão (nem o longo nem o médio) no texto que você escreve: para uma pausa, use vírgula, dois-pontos ou ponto final. Hífen e intervalos como "3 a 5" continuam normais. Citações literais da pessoa ficam exatamente como ela escreveu.`;
 
+/**
+ * Só entra quando o idioma NÃO é o padrão (Onda E, 04/10/2026). O código confere por NOME o que o
+ * modelo devolve: o PDI casa cada competência pelo nome (`alinhar`, em `individual-core`) e, sem
+ * casar, grava a competência sem o texto que a IA escreveu; o blueprint aplica o nível real pelo
+ * nome; o scorer do fechamento casa o descritor pelo nome. Pedir "traduza os valores textuais"
+ * sem esta ressalva convida o modelo a traduzir o nome da competência junto com a prosa.
+ * No idioma padrão o prompt segue byte a byte como sempre foi (o cache do prefixo não muda).
+ */
+export const REGRA_NOMES_DOS_DADOS = 'Nomes de competências, descritores, cargos, empresas e pessoas que o prompt traz como dados ficam exatamente como foram escritos, sem tradução: o sistema os confere por nome.';
+
 export function withLanguageInstruction(system: string, locale: AppLocale, opcoes: { semTravessao?: boolean } = {}): string {
+  const nomesDosDados = locale === defaultLocale ? '' : `\n${REGRA_NOMES_DOS_DADOS}`;
   const base = `${system}
 
 ═══ IDIOMA DA EXPERIÊNCIA ═══
 Use ${localeLanguageName(locale)} em todo texto destinado ao usuário final.
 Mantenha nomes de campos JSON, enums técnicos, códigos e identificadores exatamente como especificados no prompt.
-Se o prompt exigir JSON, retorne JSON válido e traduza apenas os valores textuais voltados ao usuário.
+Se o prompt exigir JSON, retorne JSON válido e traduza apenas os valores textuais voltados ao usuário.${nomesDosDados}
 
 ${REDACAO_SEM_GENERO}`;
   return opcoes.semTravessao ? `${base}

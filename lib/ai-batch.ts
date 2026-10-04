@@ -31,6 +31,14 @@ export interface BatchReq {
    * roda — a mesma forma do F-I14.
    */
   cacheSystem?: boolean;
+  /**
+   * Idioma DESTA request (Onda E, 04/10/2026). Vence o `opts.locale` do lote, que
+   * vale para todos, e este vence o padrão (pt-BR). Existe porque um lote de PDI ou
+   * de blueprint junta pessoas de idiomas diferentes: o idioma é o de quem LÊ cada
+   * documento, e um valor único por lote só serve a quem fala o idioma dele. Sem o
+   * campo, honrar `locale` só no síncrono seria consertar o gêmeo que não roda.
+   */
+  locale?: AppLocale;
 }
 
 function anthropicClient() {
@@ -49,7 +57,7 @@ export async function createClaudeBatch(
 ): Promise<string> {
   const locale = opts.locale || defaultLocale;
   const requests = reqs.map((r) => {
-    const system = withLanguageInstruction(r.system, locale);
+    const system = withLanguageInstruction(r.system, r.locale || locale);
     const systemBlock: any = r.cacheSystem !== false && system.length > 4000
       ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
       : system;
@@ -455,7 +463,9 @@ export function createAIBatchCollector(
     // Modelo não-Claude (override por-tarefa da empresa) → síncrono, preserva o provedor.
     if (!String(model).startsWith('claude')) return callAI(system, user, aiConfig, maxTokens, options);
     return new Promise<string>((resolve, reject) => {
-      queue.push({ customId: `r${seq++}`, system, user, model, maxTokens, cacheSystem: options?.cacheSystem, resolve, reject, options });
+      // `options.locale` vale nos DOIS caminhos: o síncrono o repassa ao `callAI` (via `options`) e o lote o
+      // leva na request. Antes só o síncrono o honrava, e o coletor mandava tudo no idioma do coletor.
+      queue.push({ customId: `r${seq++}`, system, user, model, maxTokens, cacheSystem: options?.cacheSystem, locale: options?.locale, resolve, reject, options });
       schedule();
     });
   };
@@ -492,7 +502,7 @@ export async function createOpenAIBatch(
       // gpt-5.x (reasoning) exige max_completion_tokens; margem p/ o thinking.
       max_completion_tokens: r.maxTokens,
       messages: [
-        { role: 'system', content: withLanguageInstruction(r.system, locale) },
+        { role: 'system', content: withLanguageInstruction(r.system, r.locale || locale) },
         { role: 'user', content: r.user },
       ],
     },
