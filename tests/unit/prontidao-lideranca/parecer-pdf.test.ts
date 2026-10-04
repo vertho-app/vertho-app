@@ -54,11 +54,11 @@ describe('PDF de prontidão para liderança', () => {
     expect(Buffer.isBuffer(buf)).toBe(true);
     expect(buf.subarray(0, 4).toString()).toBe('%PDF');
     expect(buf.length).toBeGreaterThan(4000);
-  }, 30000);
+  }, 120000); // renderiza PDF de verdade; sob carga passava de 30 s
 
   it('renderiza o consolidado da equipe', async () => {
     const buf = await renderConsolidadoPDF({ empresaNome: 'ACME', data: consolidado });
     expect(buf.subarray(0, 4).toString()).toBe('%PDF');
     expect(buf.length).toBeGreaterThan(4000);
-  }, 30000);
+  }, 120000); // renderiza PDF de verdade; sob carga passava de 30 s
 });

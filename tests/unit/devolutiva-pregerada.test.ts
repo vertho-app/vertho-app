@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
 
+// Estes testes geram o PDF do relatório de verdade: sob a suíte inteira, com outros processos na máquina, passam dos 20 s globais.
+vi.setConfig({ testTimeout: 120_000 });
+
 /**
  * Pré-geração da devolutiva em voz no `after()` do DISC.
  *

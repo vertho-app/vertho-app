@@ -44,7 +44,7 @@ describe('PDFs demonstrativos da central do RH', () => {
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
       expect(buffer.byteLength).toBeGreaterThan(10_000);
     }
-  }, 30_000);
+  }, 120_000); // renderiza 3 PDFs de verdade; sob carga passava de 30 s
 
   it('timeline sem blueprint respeita as 7 semanas e põe a competência seguinte em outro ciclo', () => {
     const fases = montarTrilhaFasesPdi([
