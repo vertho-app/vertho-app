@@ -32,6 +32,8 @@ export const AI_TASKS = [
   // Latente (nenhum tenant tem override hoje), mas na tela que o operador usa.
   { key: 'ia4_avaliacao', label: 'IA4 — Avaliar respostas', fase: 'Fase 2' },
   { key: 'ia4_check', label: 'IA4 — Validação (check dual)', fase: 'Fase 2' },
+  // Onda F (04/10/2026): a devolutiva que a pessoa lê, reescrita no idioma dela. Só roda para quem não é pt-BR.
+  { key: 'ia4_feedback', label: 'IA4: devolutiva no idioma da pessoa', fase: 'Fase 2' },
   { key: 'pdi_individual', label: 'PDI Individual', fase: 'Fase 2' },
   { key: 'relatorio_gestor', label: 'Relatório Gestor', fase: 'Fase 2' },
   { key: 'relatorio_rh', label: 'Relatório RH', fase: 'Fase 2' },

@@ -24,6 +24,7 @@ import {
   consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao,
   comModeloDaTask, IA4_CALL_OPTIONS, IA4_MAX_TOKENS,
 } from '@/lib/ia4-avaliacao';
+import { feedbackNoIdiomaDaPessoa, textoDoFeedback } from '@/lib/ia4-feedback-idioma';
 
 const IA4_REVIEW_SYSTEM = `Você é o Motor de Revisão de Avaliações da Vertho Mentor IA.
 
@@ -219,12 +220,21 @@ ${resumoAnterior || '(formato legado — sem detalhamento por descritor)'}`);
     // CONSERTA uma avaliação reprovada, e consertar noutro modelo trocaria a
     // régua de uma pessoa no meio da mesma população.
     const cfgRev = await comModeloDaTask(aiConfig, resp.empresa_id);
-    const resultado = await callAI(IA4_REVIEW_SYSTEM, user, cfgRev, IA4_MAX_TOKENS, { ...IA4_CALL_OPTIONS, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
+    const resultado = await callAI(IA4_REVIEW_SYSTEM, user, cfgRev, IA4_MAX_TOKENS, { ...IA4_CALL_OPTIONS, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id, locale: 'pt-BR' });
     const revisaoDaIA = await extractJSON(resultado);
 
     if (!revisaoDaIA) return { success: false, error: 'IA não retornou revisão válida' };
     // O que se grava é lido pela pessoa e pelo RH: volta com o nome.
     const revisao = unmaskDeepPII(revisaoDaIA, pii);
+
+    // Onda F: a nota sai em pt-BR (a chamada acima fixa o idioma: o JSON é consolidado por nome de descritor) e a
+    // devolutiva que a pessoa lê é reescrita à parte, no idioma dela, só para quem não é pt-BR.
+    if (revisao.avaliacao_revisada && typeof revisao.avaliacao_revisada === 'object') {
+      const { feedback: feedbackDaPessoa } = await feedbackNoIdiomaDaPessoa(revisao.avaliacao_revisada.feedback, {
+        empresaId: resp.empresa_id, colaboradorId: resp.colaborador_id, colab, respostaId,
+      });
+      if (feedbackDaPessoa !== revisao.avaliacao_revisada.feedback) revisao.avaliacao_revisada.feedback = feedbackDaPessoa;
+    }
 
     // ── Consolidação em código (mesmo padrão da IA4 original) ──
     const descPorDescritor = revisao.avaliacao_revisada?.avaliacao_por_descritor || [];
@@ -249,9 +259,7 @@ ${resumoAnterior || '(formato legado — sem detalhamento por descritor)'}`);
     };
 
     const feedbackObj = revisao.avaliacao_revisada?.feedback;
-    const feedbackStr = typeof feedbackObj === 'object'
-      ? [feedbackObj.resumo_geral, feedbackObj.mensagem_positiva, feedbackObj.mensagem_construtiva].filter(Boolean).join('\n')
-      : (feedbackObj || '');
+    const feedbackStr = textoDoFeedback(feedbackObj);
 
     const { data: updated, error: updErr } = await tdb.from('respostas').update({
       avaliacao_ia: avaliacaoFinal,

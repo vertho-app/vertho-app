@@ -186,6 +186,8 @@ export const SAIDAS_AO_CLIENTE: Readonly<Record<string, FormaDaSaida>> = {
   devolutiva_comportamental: 'texto',
   // Documentos e mensagens em JSON
   sem14_redacao: 'json',
+  // A devolutiva da IA4 reescrita no idioma da pessoa (só os três textos que ela lê; a nota não passa por aqui).
+  ia4_feedback: 'json',
   pdi_individual: 'json',
   relatorio_gestor: 'json',
   relatorio_rh: 'json',

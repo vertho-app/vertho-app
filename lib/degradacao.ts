@@ -523,6 +523,14 @@ export const DEGRADACAO = {
    * `<envio>:<coluna do carimbo>`.
    */
   WHATSAPP_FALHA_DE_ENTREGA: 'whatsapp-falha-de-entrega',
+  /**
+   * IA4 (feedback que a pessoa lê na tela de resultado): a redação no idioma dela falhou
+   * (a IA caiu, devolveu JSON inválido ou nenhum dos três textos veio). A avaliação NÃO se
+   * perde: a nota e o resto do JSON seguem intactos e o feedback fica no idioma da avaliação
+   * (pt-BR). Aviso, não erro: a pessoa lê a devolutiva em outro idioma até alguém reavaliar.
+   * Chave: `<resposta>`. `detalhe.locale` diz o idioma que faltou.
+   */
+  FEEDBACK_IA4_SEM_IDIOMA: 'feedback-ia4-sem-idioma',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

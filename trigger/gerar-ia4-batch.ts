@@ -154,7 +154,9 @@ export const gerarIA4BatchTask = task({
         let batchIdGen: string | null = pp.batchIdGen ?? (await batchPendenteDoJob(payload.jobId, 'ia4_avaliacao'));
         try {
           if (!batchIdGen) {
-            const reqs: BatchReq[] = aAvaliar.map((p) => ({ customId: p.customId, system: IA4_SYSTEM, user: p.user, model: genModel, maxTokens: IA4_MAX_TOKENS }));
+            // `locale: 'pt-BR'` EXPLÍCITO (Onda F): a nota sai em pt-BR (consolidada por nome de descritor), como o
+            // síncrono. A devolutiva da pessoa é reescrita no idioma dela na hora de persistir (`consolidarEPersistirIA4`).
+            const reqs: BatchReq[] = aAvaliar.map((p) => ({ customId: p.customId, system: IA4_SYSTEM, user: p.user, model: genModel, maxTokens: IA4_MAX_TOKENS, locale: 'pt-BR' as const }));
             batchIdGen = await createClaudeBatch(reqs, { ledger: { feature: 'ia4_avaliacao', empresaId, jobId: payload.jobId } });
             // Persistência ≠ fornecedor: o lote está pago e vai entregar.
             try {

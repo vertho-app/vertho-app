@@ -72,7 +72,7 @@ const fonte = (f: string) => readFileSync(join(RAIZ, f), 'utf8');
 
 /** Tarefas que levam dado de pessoa. Âncora NEGATIVA: nenhuma pode virar liberada. */
 const COM_DADO_DE_PESSOA = [
-  'ia4_avaliacao', 'ia4_check', 'pdi_individual', 'pdi_check', 'relatorio_gestor', 'relatorio_rh',
+  'ia4_avaliacao', 'ia4_check', 'ia4_feedback', 'pdi_individual', 'pdi_check', 'relatorio_gestor', 'relatorio_rh',
   'relatorio_comportamental', 'insights_executivos', 'devolutiva_comportamental', 'beto', 'ipi',
   'sim_aluno', 'chat_simulador', 'sem13_qualitativa', 'sem14_scorer', 'sem14_check', 'sem14_redacao',
   'acumulada_primaria', 'acumulada_check', 'blueprint_gerar', 'blueprint_audit', 'conversa_fase3',

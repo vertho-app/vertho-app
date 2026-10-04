@@ -23,6 +23,7 @@ import { buscarContextoPPP } from '@/lib/ia2-gabarito';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 import { maskColaborador, maskTextPII, unmaskDeepPII } from '@/lib/pii-masker';
+import { feedbackNoIdiomaDaPessoa, textoDoFeedback } from '@/lib/ia4-feedback-idioma';
 
 export const IA4_SYSTEM = `Você é o Motor de Avaliação de Competências da Vertho Mentor IA.
 
@@ -564,9 +565,14 @@ export async function consolidarEPersistirIA4(
     avaliacao.recomendacoes_pdi = avaliacao.feedback.recomendacoes_pdi;
   }
 
-  const feedbackStr = typeof avaliacao.feedback === 'object'
-    ? [avaliacao.feedback.resumo_geral, avaliacao.feedback.mensagem_positiva, avaliacao.feedback.mensagem_construtiva].filter(Boolean).join('\n')
-    : (avaliacao.feedback || '');
+  // Onda F: a devolutiva que a pessoa lê sai no idioma DELA. A nota fica como a IA4 a escreveu (pt-BR, nomes de
+  // descritor intactos); só os três textos de `feedback` passam por uma redação à parte, e só para quem não é pt-BR
+  // (`lib/ia4-feedback-idioma.ts`). Caminho único do síncrono e do lote: os dois persistem por aqui.
+  const { feedback: feedbackDaPessoa } = await feedbackNoIdiomaDaPessoa(avaliacao.feedback, {
+    empresaId: resp.empresa_id, colaboradorId: resp.colaborador_id, colab, respostaId: resp.id,
+  });
+  if (feedbackDaPessoa !== avaliacao.feedback) avaliacao.feedback = feedbackDaPessoa;
+  const feedbackStr = textoDoFeedback(avaliacao.feedback);
 
   // ORDEM IMPORTA (achado 1.4 do FMEA-PIPELINE): as notas de descritor sobem
   // ANTES de marcar a resposta como avaliada. Se o upsert falhar, avaliacao_ia
@@ -678,13 +684,16 @@ export async function avaliarUmaRespostaCore(
   // default genérico do wrapper.
   const cfg = await comModeloDaTask(aiConfig, resp.empresa_id);
 
-  let resultado = await callAI(IA4_SYSTEM, user, cfg, IA4_MAX_TOKENS, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
+  // `locale: 'pt-BR'` EXPLÍCITO (Onda F): o JSON de nota é consolidado por NOME de descritor e o `trecho` é citação da
+  // resposta, então ele sai sempre em pt-BR, e não no idioma do cookie de quem clicou em "avaliar". A devolutiva que a
+  // pessoa lê é reescrita à parte, no idioma dela (`consolidarEPersistirIA4`).
+  let resultado = await callAI(IA4_SYSTEM, user, cfg, IA4_MAX_TOKENS, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id, locale: 'pt-BR' });
   let avaliacao = await extractJSON(resultado);
 
   if (!avaliacao) {
     console.warn(`[IA4] retry para ${rotulo}: primeira resposta sem JSON`);
     const userRetry = `${user}\n\n=== ATENÇÃO ===\nSua resposta anterior não foi um JSON válido. Retorne APENAS o JSON, sem texto antes ou depois, sem markdown.`;
-    resultado = await callAI(IA4_SYSTEM, userRetry, cfg, IA4_MAX_TOKENS, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
+    resultado = await callAI(IA4_SYSTEM, userRetry, cfg, IA4_MAX_TOKENS, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id, locale: 'pt-BR' });
     avaliacao = await extractJSON(resultado);
   }
 
