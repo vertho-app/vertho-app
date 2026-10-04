@@ -10,6 +10,7 @@ import { requireAdminSupabase, requireEmpresaSupabase, requireLinhaSupabase } fr
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { resolverModuloBaseParaConteudo, enriquecerPromptComModuloBase } from '@/lib/season-engine/modulo-base-integration';
 import { getModelForTask } from '@/lib/ai-tasks';
+import { resolveAppLocale } from '@/lib/i18n';
 import { derivarArquetipo } from '@/lib/disc-arquetipos';
 import { resumirPPP, extracaoParaTexto, briefPreenchido, assinaturaCurta, type EscolaBrief } from '@/lib/escola-brief';
 import { buildPersonalizacaoPrompt } from '@/lib/season-engine/prompts/personalizacao';
@@ -224,8 +225,17 @@ export async function gerarConteudoIA({
     // 2.845. VÍDEO fica de fora: no mesmo call-site ele LÊ 75.366 contra
     // 234.545 escritos, e desligar lá custaria mais do que economiza.
     const cacheSystem = formato === 'video' ? undefined : false;
+    // Roteiro de VÍDEO e de PODCAST vai para voz, e a voz é pt-BR (`languageCode` em `lib/gemini-tts.ts`). Sem
+    // `locale` o `callAI` síncrono lia o cookie de quem clicou em "gerar" (e o lote e as tasks, pt-BR): o mesmo
+    // conteúdo saía em idiomas diferentes conforme quem o disparava (Onda F, 04/10/2026). Agora o idioma é explícito:
+    // o do módulo-base aplicado, senão o que a célula declara (`aiConfig.locale`), senão pt-BR (`resolveAppLocale`).
+    // Vale nos dois caminhos: o coletor de lote leva `options.locale` na request. Texto e case ficam como estavam.
+    const idiomaDoRoteiro = formato === 'video' || formato === 'audio'
+      ? resolveAppLocale(moduloUsado?.locale, (aiConfig as any)?.locale)
+      : null;
     let conteudoGerado = (await ai(system, user, { ...aiConfig, model: model || aiConfig?.model }, maxTokens, {
       taskKey: taskKey || 'conteudo_gerar', empresaId, cacheSystem,
+      ...(idiomaDoRoteiro ? { locale: idiomaDoRoteiro } : {}),
     })).trim();
 
     // Garante o mínimo de 8.000 caracteres nos PDFs (texto/case): se vier curto,

@@ -42,7 +42,7 @@ describe('gerarRoteiroDeModulo com coletor de lote', () => {
 
     expect(r.roteiro).toEqual({ title: 'T', scenes: [] });
     expect(coletor).toHaveBeenCalledTimes(1);
-    expect(coletor).toHaveBeenCalledWith('SYS', 'USER', { model: 'claude-opus-5' }, 16_000, { taskKey: 'conteudo_video', empresaId: 'emp-1' });
+    expect(coletor).toHaveBeenCalledWith('SYS', 'USER', { model: 'claude-opus-5' }, 16_000, { taskKey: 'conteudo_video', empresaId: 'emp-1', locale: 'pt-BR' });
     expect(callAI).not.toHaveBeenCalled();
     expect(submitClaudeBatch).not.toHaveBeenCalled();
   });
@@ -55,7 +55,7 @@ describe('gerarRoteiroDeModulo com coletor de lote', () => {
     expect(r.roteiro).toBeTruthy();
     expect(coletor).toHaveBeenCalledTimes(1);
     expect(callAI).toHaveBeenCalledTimes(1);
-    expect(callAI.mock.calls[0][4]).toEqual({ taskKey: 'conteudo_video', source: 'batch-sync', empresaId: 'emp-1' });
+    expect(callAI.mock.calls[0][4]).toEqual({ taskKey: 'conteudo_video', source: 'batch-sync', empresaId: 'emp-1', locale: 'pt-BR' });
   });
 
   it('coletor rejeita (lote e fallback falharam): ainda tenta o síncrono antes de desistir', async () => {
@@ -81,7 +81,7 @@ describe('gerarRoteiroDeModulo sem coletor', () => {
     callAI.mockResolvedValue('ROTEIRO');
     await gerarRoteiroDeModulo(M, { forceSync: true, empresaId: 'emp-1' });
     expect(submitClaudeBatch).not.toHaveBeenCalled();
-    expect(callAI.mock.calls[0][4]).toEqual({ taskKey: 'conteudo_video', empresaId: 'emp-1' });
+    expect(callAI.mock.calls[0][4]).toEqual({ taskKey: 'conteudo_video', empresaId: 'emp-1', locale: 'pt-BR' });
   });
 
   it('sem forceSync nem coletor, segue o lote avulso de sempre', async () => {

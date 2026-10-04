@@ -15,6 +15,7 @@
 import { callAI } from '@/actions/ai-client';
 import { submitClaudeBatch, type AIRun } from '@/lib/ai-batch';
 import { getModelForTask } from '@/lib/ai-tasks';
+import { resolveAppLocale } from '@/lib/i18n';
 import { buildRoteiroPrompt, parseRoteiro, normalizarRoteiro, type ModuloParaRoteiro, type VideoRoteiro } from '@/lib/video/roteiro-prompt';
 
 export type { RoteiroScene, VideoRoteiro, ModuloParaRoteiro } from '@/lib/video/roteiro-prompt';
@@ -45,6 +46,10 @@ export async function gerarRoteiroDeModulo(
   } = {},
 ): Promise<{ roteiro?: VideoRoteiro; error?: string }> {
   const { system, user } = buildRoteiroPrompt(m);
+  // O idioma do roteiro é EXPLÍCITO (Onda F, 04/10/2026): o do módulo-base (o mesmo que `buildRoteiroPrompt` já põe
+  // no texto do prompt), senão pt-BR (`resolveAppLocale`). A voz é pt-BR. Sem isto o `callAI` síncrono lia o cookie de
+  // quem clicou em "gerar vídeo", e o lote e a task caíam em pt-BR: o mesmo módulo saía em idiomas diferentes.
+  const locale = resolveAppLocale(m.locale);
   const model = await getModelForTask(null as any, 'conteudo_video').catch(() => 'claude-sonnet-4-6');
   let roteiro: VideoRoteiro | null = null;
   // Chave de desligar: `VIDEO_ROTEIRO_MODE=sync` manda TUDO pelo síncrono, inclusive o coletor.
@@ -54,10 +59,10 @@ export async function gerarRoteiroDeModulo(
   // lote não parsear, vai pelo síncrono: repetir pelo coletor abriria OUTRA rodada
   // de lote em série, e é justamente a espera somada que o coletor evita.
   if (opts.aiRunRoteiro && !modoSync) {
-    const bruto = await opts.aiRunRoteiro(system, user, { model }, ROTEIRO_MAX_TOKENS, { taskKey: 'conteudo_video', empresaId: opts.empresaId ?? null }).catch(() => '');
+    const bruto = await opts.aiRunRoteiro(system, user, { model }, ROTEIRO_MAX_TOKENS, { taskKey: 'conteudo_video', empresaId: opts.empresaId ?? null, locale }).catch(() => '');
     roteiro = parseRoteiro(bruto);
     if (!roteiro) {
-      const raw = await callAI(system, user, { model }, ROTEIRO_MAX_TOKENS, { taskKey: 'conteudo_video', source: 'batch-sync', empresaId: opts.empresaId ?? null }).catch(() => '');
+      const raw = await callAI(system, user, { model }, ROTEIRO_MAX_TOKENS, { taskKey: 'conteudo_video', source: 'batch-sync', empresaId: opts.empresaId ?? null, locale }).catch(() => '');
       roteiro = parseRoteiro(raw);
     }
     if (!roteiro) return { error: 'A IA não retornou um roteiro válido.' };
@@ -70,7 +75,7 @@ export async function gerarRoteiroDeModulo(
   if (model.startsWith('claude') && !modoSync && !opts.forceSync) {
     try {
       const resultados = await submitClaudeBatch(
-        [{ customId: BATCH_CUSTOM_ID, system, user, model, maxTokens: ROTEIRO_MAX_TOKENS }],
+        [{ customId: BATCH_CUSTOM_ID, system, user, model, maxTokens: ROTEIRO_MAX_TOKENS, locale }],
         {
           pollMs: BATCH_POLL_MS,
           budgetMs: BATCH_POLL_MS * BATCH_MAX_POLLS,
@@ -107,7 +112,7 @@ export async function gerarRoteiroDeModulo(
   // que em `lib/ai-batch.ts` significa lote DEGRADADO: o síncrono do Kit parecia falha.
   for (let tentativa = 1; tentativa <= 2 && !roteiro; tentativa++) {
     const raw = await callAI(system, user, { model }, ROTEIRO_MAX_TOKENS, {
-      taskKey: 'conteudo_video', empresaId: opts.empresaId ?? null,
+      taskKey: 'conteudo_video', empresaId: opts.empresaId ?? null, locale,
     }).catch(() => '');
     roteiro = parseRoteiro(raw);
   }

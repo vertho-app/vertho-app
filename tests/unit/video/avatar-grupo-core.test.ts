@@ -76,7 +76,7 @@ describe('prepararGrupoAvatar', () => {
 
     expect(g).toEqual({ id: 'g-1', status: 'pendente', textos: FIXO });
     expect(callAI).toHaveBeenCalledTimes(1);
-    expect(callAI.mock.calls[0][4]).toEqual({ taskKey: 'video_avatar_grupo', empresaId: 'emp-1' });
+    expect(callAI.mock.calls[0][4]).toEqual({ taskKey: 'video_avatar_grupo', empresaId: 'emp-1', locale: 'pt-BR' });
     // O texto não recebe DISC: é o mesmo para os quatro perfis.
     expect(`${callAI.mock.calls[0][0]}${callAI.mock.calls[0][1]}`).not.toMatch(/\bDISC\b|dominante|perfil (D|I|S|C)\b/);
     const up = sb.escritas.find((e) => e.tabela === 'video_avatar_grupo' && e.op === 'upsert');

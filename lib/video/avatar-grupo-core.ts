@@ -20,6 +20,7 @@
 import { tasks } from '@trigger.dev/sdk';
 import { callAI } from '@/actions/ai-client';
 import { getModelForTask } from '@/lib/ai-tasks';
+import { resolveAppLocale } from '@/lib/i18n';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { AVATAR_GRUPO, type AvatarGrupoStatus } from '@/lib/status';
 import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
@@ -132,7 +133,9 @@ export async function gerarTextosAvatarGrupo(m: ModuloParaRoteiro, empresaId: st
   let problemas: string[] = [];
   for (let i = 0; i < 2; i++) {
     const pedido = problemas.length ? `${user}\n\nA versão anterior foi recusada por: ${problemas.join('; ')}. Corrija.` : user;
-    const raw = await callAI(system, pedido, { model }, 4000, { taskKey: 'video_avatar_grupo', empresaId });
+    // Abertura e fecho falados do vídeo: o idioma é o do roteiro (o do módulo-base, senão pt-BR), explícito. A voz é
+    // pt-BR; sem isto o `callAI` síncrono lia o cookie de quem disparou (Onda F, 04/10/2026).
+    const raw = await callAI(system, pedido, { model }, 4000, { taskKey: 'video_avatar_grupo', empresaId, locale: resolveAppLocale(m.locale) });
     const t = parseTextos(raw);
     problemas = t ? problemasDosTextosAvatar(t) : ['resposta sem JSON válido'];
     if (t && !problemas.length) return t;
