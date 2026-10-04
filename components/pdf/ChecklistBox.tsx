@@ -21,11 +21,15 @@ const s = StyleSheet.create({
   itemText: { fontSize: 8, color: 'rgba(255,255,255,0.85)', lineHeight: 1.4, flex: 1 },
 });
 
-export default function ChecklistBox({ items, title }: { items?: string[]; title?: string }) {
+/**
+ * O título vem de quem chama, já no idioma do papel (o padrão fixo em português saiu
+ * com a onda D; "Checklist Tático" também saiu do vocabulário, R-123).
+ */
+export default function ChecklistBox({ items, title }: { items?: string[]; title: string }) {
   if (!items?.length) return null;
   return (
     <View style={s.container} wrap={false}>
-      <Text style={s.label}>{title || 'Checklist Tático'}</Text>
+      <Text style={s.label}>{title}</Text>
       {items.map((item: string, i: number) => (
         <View key={i} style={s.item}>
           <View style={s.checkbox} />

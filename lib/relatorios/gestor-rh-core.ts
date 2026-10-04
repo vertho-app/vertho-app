@@ -16,6 +16,8 @@ import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import { storageSlug } from '@/lib/storage-slug';
+import { caminhoDoPdf, idiomaDaPessoa } from '@/lib/pdf-locale';
+import type { AppLocale } from '@/i18n/routing';
 import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { excludeInternalEmails } from '@/lib/internal-emails';
@@ -43,6 +45,7 @@ async function gerarPDFBuffer(
   tipo: RelatorioTipo,
   data: unknown,
   empresaNome: string,
+  locale: AppLocale,
 ): Promise<Buffer | null> {
   let Component: React.ComponentType<any> | undefined;
   if (tipo === 'individual') {
@@ -57,7 +60,7 @@ async function gerarPDFBuffer(
   }
   if (!Component) return null;
   const logoBase64 = getLogoCoverBase64();
-  return renderToBuffer(React.createElement(Component, { data, empresaNome, logoBase64 }));
+  return renderToBuffer(React.createElement(Component, { data, empresaNome, logoBase64, locale }));
 }
 
 async function salvarPDFStorage(
@@ -66,9 +69,11 @@ async function salvarPDFStorage(
   tipo: RelatorioTipo,
   colaboradorNome: string,
   buffer: Buffer,
+  locale: AppLocale,
 ): Promise<string | null> {
   const slug = storageSlug(colaboradorNome, tipo);
-  const path = `${empresaId}/${tipo}-${slug}-${Date.now()}.pdf`;
+  // O idioma do PDF vai no nome do arquivo (`lib/pdf-locale.ts`): é como o download sabe em que idioma ele nasceu.
+  const path = caminhoDoPdf(empresaId, tipo, slug, locale);
   const { error } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
     contentType: 'application/pdf',
     upsert: true,
@@ -175,8 +180,10 @@ export async function gerarRelatorioGestorCore(
         let pdfPath: string | null = null;
         try {
           const pdfData = { conteudo: relatorio, gestor_nome: gestorNome, gerado_em: new Date().toISOString() };
-          const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome);
-          if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer);
+          // O relatório é do GESTOR: o texto fixo do papel sai no idioma dele (gestor sem cadastro no tenant: o da empresa).
+          const locale = await idiomaDaPessoa(empresaId, gestorColab?.id);
+          const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome, locale);
+          if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer, locale);
         } catch (e: any) { console.error('[PDF Gestor]', e.message); }
 
         // empresa_id é injetado pelo tdb.upsert
@@ -313,8 +320,10 @@ ${JSON.stringify(registros, null, 2)}`;
     let pdfPath: string | null = null;
     try {
       const pdfData = { conteudo: relatorio, gerado_em: new Date().toISOString() };
-      const buffer = await gerarPDFBuffer('rh', pdfData, empresa.nome);
-      if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'rh', empresa.nome, buffer);
+      // O relatório de RH é da EMPRESA: o texto fixo do papel sai no idioma dela (quem baixa em outro idioma recebe uma versão própria na rota).
+      const locale = await idiomaDaPessoa(empresaId, null);
+      const buffer = await gerarPDFBuffer('rh', pdfData, empresa.nome, locale);
+      if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'rh', empresa.nome, buffer, locale);
     } catch (e: any) { console.error('[PDF Gen RH]', e.message); }
 
     // Relatório RH é agregado (colaborador_id = NULL).

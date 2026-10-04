@@ -3,7 +3,8 @@ import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { colors, fonts } from './styles';
 import ChecklistBox from './ChecklistBox';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import { nivelOuNull } from '@/lib/nivel-regua';
+import { nivelOuNull, rotuloNivel } from '@/lib/nivel-regua';
+import { idiomaDoPdf, tradutorDoPdf } from '@/lib/pdf-i18n';
 
 const s = StyleSheet.create({
   // ── Header navy compacto ────────────────────────────────────────────
@@ -129,10 +130,14 @@ function PrefixedItem({ prefix, color, text, textColor }: {
   );
 }
 
-export default function CompetencyBlock({ comp, index, total, ciclo }: {
+export default function CompetencyBlock({ comp, index, total, ciclo, locale }: {
   comp: any; index: number; total: number;
   ciclo?: { numero: number; janela: string | null; inicioSemana?: number; comecaAgora: boolean };
+  /** Idioma do texto fixo do bloco (padrão: pt-BR). O texto da competência (IA) segue como foi gerado. */
+  locale?: string | null;
 }) {
+  const t = tradutorDoPdf(locale);
+  const idioma = idiomaDoPdf(locale);
   const nivel = nivelOuNull(comp.nivel ?? comp.nivel_atual);
   const isFlag = comp.flag || nivel === null || nivel <= 1;
   const isStrong = nivel !== null && nivel >= 3;
@@ -146,14 +151,14 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
         </View>
         <View style={s.headerRight}>
           <View style={s.badgeLevel}>
-            <Text style={s.badgeLevelText}>{nivel === null ? 'Pendente' : `Nível ${nivel}`}</Text>
+            <Text style={s.badgeLevelText}>{nivel === null ? t('competency.pending') : rotuloNivel(nivel, { idioma })}</Text>
           </View>
           {/* "Prioridade", em âmbar, no lugar do selo vermelho "Atenção Prioritária" e do
               "Em Desenvolvimento" do N2 (R-38): o nível já está no selo ao lado, e a cor
               de alarme sobre o ponto de partida de alguém não cabe no papel que ela leva. */}
           {isFlag ? (
             <View style={s.badgeDev}>
-              <Text style={s.badgeDevText}>Prioridade</Text>
+              <Text style={s.badgeDevText}>{t('competency.priority')}</Text>
             </View>
           ) : null}
         </View>
@@ -162,7 +167,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
       {/* ── Descritores em desenvolvimento (amber) ── */}
       {!isStrong && comp.descritores_desenvolvimento?.length > 0 && (
         <View style={s.descritorBox} wrap={false}>
-          <Text style={{ ...s.blockLabel, color: colors.yellow }}>Comportamentos em Desenvolvimento</Text>
+          <Text style={{ ...s.blockLabel, color: colors.yellow }}>{t('competency.developingBehaviors')}</Text>
           {comp.descritores_desenvolvimento.map((d: any, i: number) => (
             <PrefixedItem key={i} prefix="•" color={colors.yellow} text={descritorParaHumano(d)} textColor={colors.yellowText} />
           ))}
@@ -172,21 +177,21 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
       {/* ── Fez Bem / Melhorar (two-col) ── */}
       <View style={s.twoCol} wrap={false}>
         <View style={s.fezBemCol}>
-          <Text style={{ ...s.blockLabel, color: colors.green }}>Fez bem</Text>
+          <Text style={{ ...s.blockLabel, color: colors.green }}>{t('competency.didWell')}</Text>
           {comp.fez_bem?.length > 0
             ? comp.fez_bem.map((e: any, j: number) => (
                 <PrefixedItem key={j} prefix="+" color={colors.green} text={e} textColor={colors.greenText} />
               ))
-            : <Text style={{ ...s.blockItem, color: colors.greenText }}>Sem registro</Text>
+            : <Text style={{ ...s.blockItem, color: colors.greenText }}>{t('competency.noRecord')}</Text>
           }
         </View>
         <View style={s.melhorarCol}>
-          <Text style={{ ...s.blockLabel, color: colors.orange }}>Melhorar</Text>
+          <Text style={{ ...s.blockLabel, color: colors.orange }}>{t('competency.improve')}</Text>
           {comp.melhorar?.length > 0
             ? comp.melhorar.map((e: any, j: number) => (
                 <PrefixedItem key={j} prefix="↑" color={colors.orange} text={e} textColor={colors.orangeText} />
               ))
-            : <Text style={{ ...s.blockItem, color: colors.orangeText }}>Sem registro</Text>
+            : <Text style={{ ...s.blockItem, color: colors.orangeText }}>{t('competency.noRecord')}</Text>
           }
         </View>
       </View>
@@ -194,7 +199,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
       {/* ── Análise (azul, itálico) ── */}
       {comp.feedback && (
         <View style={s.analiseBox} wrap={false}>
-          <Text style={{ ...s.blockLabel, color: '#0369A1' }}>Análise</Text>
+          <Text style={{ ...s.blockLabel, color: '#0369A1' }}>{t('competency.analysis')}</Text>
           <Text style={s.analiseText}>{comp.feedback}</Text>
         </View>
       )}
@@ -202,35 +207,35 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
       {/* ── Sprint de 30 dias (novo — enxuto). Fallback: plano_30_dias antigo ── */}
       {!isStrong && comp.sprint ? (
         <View>
-          <Text style={s.planoTitle}>{ciclo ? `Objetivo da jornada ${ciclo.numero}` : 'Plano de 30 dias'}</Text>
+          <Text style={s.planoTitle}>{ciclo ? t('competency.journeyGoal', { n: ciclo.numero }) : t('competency.plan30')}</Text>
           {ciclo && (
             <Text style={{ fontSize: 8.5, fontWeight: 700, marginBottom: 4, color: ciclo.comecaAgora ? colors.cyan : colors.gray600 }}>
               {ciclo.comecaAgora
-                ? `Começa agora${ciclo.janela ? ` · ${ciclo.janela}` : ''}`
-                : `Só começa depois da jornada 1${ciclo.inicioSemana ? `, a partir da semana ${ciclo.inicioSemana}` : ''}`}
+                ? (ciclo.janela ? t('competency.startsNowWindow', { window: ciclo.janela }) : t('competency.startsNow'))
+                : (ciclo.inicioSemana ? t('competency.startsAfterWeek', { n: ciclo.inicioSemana }) : t('competency.startsAfter'))}
             </Text>
           )}
           {ciclo && (
             <Text style={{ fontSize: 8, fontStyle: 'italic', color: colors.gray600, lineHeight: 1.5, marginBottom: 8 }}>
-              {'Este é o objetivo da jornada: o destino que as suas atividades semanais constroem. Não é trabalho a mais.'}
+              {t('competency.goalExplain')}
             </Text>
           )}
           {comp.sprint.foco_30_dias && (
             <View style={s.sprintFoco} wrap={false}>
-              <Text style={s.sprintFocoLabel}>{ciclo ? 'Foco da jornada' : 'Foco dos 30 dias'}</Text>
+              <Text style={s.sprintFocoLabel}>{ciclo ? t('competency.journeyFocus') : t('competency.focus30')}</Text>
               <Text style={s.sprintFocoText}>{comp.sprint.foco_30_dias}</Text>
             </View>
           )}
           <View style={s.sprintRow} wrap={false}>
             {comp.sprint.acao_principal && (
               <View style={{ ...s.sprintCard, backgroundColor: colors.perfilBg, borderColor: colors.perfilBorder }}>
-                <Text style={{ ...s.sprintCardLabel, color: '#0369A1' }}>Ação Principal</Text>
+                <Text style={{ ...s.sprintCardLabel, color: '#0369A1' }}>{t('competency.mainAction')}</Text>
                 <Text style={{ ...s.sprintCardText, color: colors.blueText }}>{comp.sprint.acao_principal}</Text>
               </View>
             )}
             {comp.sprint.acao_apoio && (
               <View style={s.sprintCard}>
-                <Text style={{ ...s.sprintCardLabel, color: colors.gray600 }}>Ação de Apoio</Text>
+                <Text style={{ ...s.sprintCardLabel, color: colors.gray600 }}>{t('competency.supportAction')}</Text>
                 <Text style={s.sprintCardText}>{comp.sprint.acao_apoio}</Text>
               </View>
             )}
@@ -238,24 +243,24 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
           <View style={s.sprintRow} wrap={false}>
             {comp.sprint.evidencia_esperada && (
               <View style={{ ...s.sprintCard, backgroundColor: colors.fezBemBg, borderColor: colors.fezBemBorder }}>
-                <Text style={{ ...s.sprintCardLabel, color: colors.green }}>Evidência Esperada</Text>
+                <Text style={{ ...s.sprintCardLabel, color: colors.green }}>{t('competency.expectedEvidence')}</Text>
                 <Text style={{ ...s.sprintCardText, color: colors.greenText }}>{comp.sprint.evidencia_esperada}</Text>
               </View>
             )}
             {comp.sprint.ritual && (
               <View style={{ ...s.sprintCard, backgroundColor: colors.melhorarBg, borderColor: colors.melhorarBorder }}>
-                <Text style={{ ...s.sprintCardLabel, color: colors.orange }}>Ritual</Text>
+                <Text style={{ ...s.sprintCardLabel, color: colors.orange }}>{t('competency.ritual')}</Text>
                 <Text style={{ ...s.sprintCardText, color: colors.orangeText }}>{comp.sprint.ritual}</Text>
               </View>
             )}
           </View>
           {comp.sprint.checklist?.length > 0 && (
-            <ChecklistBox items={comp.sprint.checklist} title="Guia de execução" />
+            <ChecklistBox items={comp.sprint.checklist} title={t('competency.executionGuide')} />
           )}
         </View>
       ) : !isStrong && comp.plano_30_dias ? (
         <View>
-          <Text style={s.planoTitle}>Plano de 30 dias</Text>
+          <Text style={s.planoTitle}>{t('competency.plan30')}</Text>
           <View style={s.steps}>
             {['semana_1', 'semana_2', 'semana_3', 'semana_4'].map((sem: string, si: number) => {
               const semana = comp.plano_30_dias[sem];
@@ -282,7 +287,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
         <View style={s.bottomRow} wrap={false}>
           {comp.dicas_desenvolvimento?.length > 0 && (
             <View style={s.dicasBox}>
-              <Text style={{ ...s.blockLabel, color: colors.green }}>Dica de Desenvolvimento</Text>
+              <Text style={{ ...s.blockLabel, color: colors.green }}>{t('competency.developmentTip')}</Text>
               {comp.dicas_desenvolvimento.map((d: any, i: number) => (
                 <Text key={i} style={{ fontSize: 8, color: colors.greenText, lineHeight: 1.6, marginBottom: 2 }}>{d}</Text>
               ))}
@@ -290,9 +295,9 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
           )}
           {comp.estudo_recomendado?.length > 0 && (
             <View style={s.estudoBox}>
-              <Text style={{ ...s.blockLabel, color: colors.purple }}>Conteúdos da jornada</Text>
+              <Text style={{ ...s.blockLabel, color: colors.purple }}>{t('competency.journeyContents')}</Text>
               <Text style={{ fontSize: 7.5, color: colors.purpleText, fontStyle: 'italic', lineHeight: 1.5, marginBottom: 5 }}>
-                {'Você recebe estes temas ao longo da jornada, resumidos toda semana. Você não precisa buscar por conta própria.'}
+                {t('competency.journeyContentsNote')}
               </Text>
               {comp.estudo_recomendado.map((e: any, i: number) => (
                 <Text key={i} style={{ fontSize: 8, color: colors.purpleText, lineHeight: 1.6, marginBottom: 2 }}>
@@ -306,7 +311,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
 
       {/* ── Checklist Tático (navy + branco) ── */}
       {comp.checklist_tatico?.length > 0 && (
-        <ChecklistBox items={comp.checklist_tatico} />
+        <ChecklistBox items={comp.checklist_tatico} title={t('competency.tacticalSteps')} />
       )}
     </View>
   );

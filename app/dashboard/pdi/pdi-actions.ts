@@ -7,6 +7,7 @@ import { storageSlug } from '@/lib/storage-slug';
 import { totalDoMapeamento } from '@/lib/demo/convidado-demo';
 import { colaboradorEmDegustacao } from '@/lib/demo/degustacao-mapeamento';
 import { pdiRetidoPelaAuditoria } from '@/lib/relatorios/pdi-retido';
+import { caminhoDoPdf, idiomaDaPessoa, idiomaDoCaminhoPdf } from '@/lib/pdf-locale';
 
 /**
  * Carrega o PDI ativo do colaborador.
@@ -15,10 +16,10 @@ import { pdiRetidoPelaAuditoria } from '@/lib/relatorios/pdi-retido';
 export async function loadPDI() {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
-  if (!email) return { error: 'Não autenticado' };
+  if (!email) return { error: 'Não autenticado', codigo: 'nao_autenticado' };
 
   const colab = await findColabByEmail(email, 'id, nome_completo, email, cargo, area_depto, empresa_id');
-  if (!colab) return { error: 'Colaborador nao encontrado' };
+  if (!colab) return { error: 'Colaborador nao encontrado', codigo: 'colaborador_nao_encontrado' };
 
   const sb = createSupabaseAdmin();
 
@@ -78,16 +79,20 @@ export async function loadPDI() {
 
 /**
  * Retorna uma signed URL do Supabase Storage para o PDI do colab autenticado.
- * Se o PDF ainda não existe no bucket, gera on-the-fly e sobe primeiro.
- * Client usa a URL direto pra baixar (sem passar payload pelo server action).
+ * Se o PDF ainda não existe no bucket, ou existe em outro idioma que não o da
+ * pessoa, gera on-the-fly e sobe primeiro. Client usa a URL direto pra baixar
+ * (sem passar payload pelo server action).
+ *
+ * Erro: `error` é o texto em pt-BR de sempre (log e quem ainda o lê) e `codigo` é o
+ * código estável que a tela traduz (`Pdf.download.errors.*`), como o login faz.
  */
 export async function baixarMeuPdiPdf() {
   try {
     const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
     const email = await getAuthenticatedEmailFromAction();
-    if (!email) return { error: 'Não autenticado' };
+    if (!email) return { error: 'Não autenticado', codigo: 'nao_autenticado' };
     const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id');
-    if (!colab) return { error: 'Colaborador não encontrado' };
+    if (!colab) return { error: 'Colaborador não encontrado', codigo: 'colaborador_nao_encontrado' };
 
     const sb = createSupabaseAdmin();
 
@@ -99,9 +104,9 @@ export async function baixarMeuPdiPdf() {
       .order('gerado_em', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!rel) return { error: 'PDI não encontrado' };
+    if (!rel) return { error: 'PDI não encontrado', codigo: 'pdi_nao_encontrado' };
     // O PDF segue a tela: reprovado pela 2ª IA não sai (R-60).
-    if (pdiRetidoPelaAuditoria(rel.conteudo, rel.gerado_em)) return { error: 'PDI não encontrado' };
+    if (pdiRetidoPelaAuditoria(rel.conteudo, rel.gerado_em)) return { error: 'PDI não encontrado', codigo: 'pdi_nao_encontrado' };
 
     const slug = storageSlug(colab.nome_completo, 'pdi');
     // Resolvido antes do `if (!path)` porque o nome do arquivo também é marca —
@@ -109,9 +114,13 @@ export async function baixarMeuPdiPdf() {
     const marca = await resolverMarcaPdf(colab.empresa_id);
     const filename = `${nomeArquivoMarca('vertho-pdi', marca)}-${slug}.pdf`;
 
-    // Se ainda não tem PDF salvo, gera e sobe antes de criar a signed URL
+    // O PDF sai no idioma da PESSOA (colaboradores.locale, senão o da empresa, senão pt-BR). O arquivo
+    // guardado diz o idioma em que nasceu no nome; em outro idioma, ele é gerado de novo e passa a ser o dela.
+    const locale = await idiomaDaPessoa(colab.empresa_id, colab.id);
+
+    // Se ainda não tem PDF salvo (ou ele está em outro idioma), gera e sobe antes de criar a signed URL
     let path = rel.pdf_path;
-    if (!path) {
+    if (!path || idiomaDoCaminhoPdf(path) !== locale) {
       const { renderToBuffer } = await import('@react-pdf/renderer');
       const React = (await import('react')).default;
       const { default: RelatorioIndividualPDF } = await import('@/components/pdf/RelatorioIndividual');
@@ -129,14 +138,18 @@ export async function baixarMeuPdiPdf() {
           data, empresaNome: emp?.nome || '',
           logoBase64: marca.logoBase64 || undefined,
           mostrarVertho: marca.mostrarVertho,
+          locale,
         }) as any
       );
-      path = `${rel.empresa_id}/individual-${slug}-${Date.now()}.pdf`;
+      path = caminhoDoPdf(rel.empresa_id, 'individual', slug, locale);
       const { error: upErr } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
         contentType: 'application/pdf',
         upsert: true,
       });
-      if (upErr) return { error: `Falha ao salvar PDF: ${upErr.message}` };
+      if (upErr) {
+        console.error('[baixarMeuPdiPdf] upload:', upErr.message);
+        return { error: `Falha ao salvar PDF: ${upErr.message}`, codigo: 'falha_salvar' };
+      }
       await sb.from('relatorios').update({ pdf_path: path }).eq('id', rel.id);
     }
 
@@ -144,11 +157,14 @@ export async function baixarMeuPdiPdf() {
     const { data: signed, error: signErr } = await sb.storage
       .from('relatorios-pdf')
       .createSignedUrl(path, 300, { download: filename });
-    if (signErr) return { error: `Erro ao gerar link: ${signErr.message}` };
+    if (signErr) {
+      console.error('[baixarMeuPdiPdf] link:', signErr.message);
+      return { error: `Erro ao gerar link: ${signErr.message}`, codigo: 'falha_link' };
+    }
 
     return { success: true, url: signed.signedUrl, filename };
   } catch (err) {
     console.error('[baixarMeuPdiPdf]', err);
-    return { error: err?.message || 'Erro ao gerar PDF' };
+    return { error: err?.message || 'Erro ao gerar PDF', codigo: 'falha_gerar' };
   }
 }

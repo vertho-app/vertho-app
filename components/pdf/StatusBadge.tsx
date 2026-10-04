@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
-import { nivelColor, nivelBgColor, nivelLabel, fonts, colors } from './styles';
+import { nivelColor, nivelBgColor, fonts, colors } from './styles';
 import { rotuloNivel } from '@/lib/nivel-regua';
 
 const s = StyleSheet.create({
@@ -37,7 +37,7 @@ function LevelDots({ nivel, color }: { nivel: number; color: string }) {
   return <View style={s.dotsRow}>{dots}</View>;
 }
 
-export default function StatusBadge({ nivel }: { nivel: number }) {
+export default function StatusBadge({ nivel, locale }: { nivel: number; locale?: string | null }) {
   const n = Math.round(nivel || 0);
   const color = nivelColor(n);
   const bg = nivelBgColor(n);
@@ -46,19 +46,9 @@ export default function StatusBadge({ nivel }: { nivel: number }) {
     <View style={s.container}>
       <View style={{ ...s.badge, backgroundColor: bg }}>
         <Text style={{ ...s.level, color }}>{rotuloNivel(n, { forma: 'curto' })}</Text>
-        <Text style={{ ...s.label, color }}>{nivelLabel(n)}</Text>
+        <Text style={{ ...s.label, color }}>{rotuloNivel(Math.min(4, Math.max(1, n || 1)), { idioma: locale ?? undefined })}</Text>
       </View>
       <LevelDots nivel={n} color={color} />
-    </View>
-  );
-}
-
-export function FlagBadge() {
-  return (
-    <View style={{ ...s.badge, backgroundColor: '#FEF3C7', marginBottom: 6 }}>
-      <Text style={{ fontSize: 7.5, fontWeight: 'bold', color: '#92400E', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-        Prioridade
-      </Text>
     </View>
   );
 }

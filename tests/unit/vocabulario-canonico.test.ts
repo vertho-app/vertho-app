@@ -253,7 +253,28 @@ describe('PDFs, certificado e proposta (R-52, R-120, R-122)', () => {
       expect(fonte, arquivo).not.toMatch(/Sprint de 30|Ciclo \$\{|Ciclo \d|ciclo a ciclo|Missão prática|do ciclo|cada ciclo/);
       expect(fonte, arquivo).not.toMatch(/Sua trilha|na trilha|sua trilha/);
     }
-    expect(visivel('components/pdf/CompetencyBlock.tsx')).toContain("'Plano de 30 dias'");
+    // Desde a onda D o texto fixo do PDI mora no catálogo `Pdf` (4 idiomas): o nome do plano e o
+    // vocabulário se travam lá, e o código só aponta para a chave.
+    expect(visivel('components/pdf/CompetencyBlock.tsx')).toContain("t('competency.plan30')");
+    expect(ptBR.Pdf.competency.plan30).toBe('Plano de 30 dias');
+    expect(esES.Pdf.competency.plan30).toBe('Plan de 30 días');
+    expect(enUS.Pdf.competency.plan30).toBe('30-day plan');
+  });
+
+  it('o catálogo dos PDFs (Pdf) diz Jornada/Recorrido/Journey e não usa os termos vetados, nos quatro idiomas', () => {
+    const vetados: Record<string, RegExp> = {
+      'pt-BR': /Sprint de 30|ciclo|trilha|temporada|checklist|miss(ão|ões)(?![a-zà-ú])|pílula|Tutor/i,
+      'pt-PT': /Sprint de 30|ciclo|trilha|temporada|checklist|miss(ão|ões)(?![a-zà-ú])|pílula|Tutor/i,
+      'es-ES': /Sprint de 30|ciclo|temporada|itinerario|ruta|checklist|píldora|Tutor/i,
+      'en-US': /30-day sprint|cycles?|seasons?|checklist|learning pill|Tutor/i,
+    };
+    for (const [idioma, cat] of Object.entries(CATALOGOS)) {
+      const achados = folhasDoCliente({ Pdf: cat.Pdf }).filter(([, v]) => vetados[idioma].test(v)).map(([p]) => p);
+      expect(achados, `${idioma}: termo vetado nos PDFs`).toEqual([]);
+    }
+    expect(esES.Pdf.individual.journeyN).toBe('Recorrido {n}');
+    expect(enUS.Pdf.individual.journeyN).toBe('Journey {n}');
+    expect(ptBR.Pdf.individual.journeyN).toBe('Jornada {n}');
   });
 
   it('o certificado diz Jornada, Recorrido e Journey (não Temporada nem Season)', () => {

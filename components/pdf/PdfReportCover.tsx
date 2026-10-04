@@ -2,6 +2,7 @@ import React from 'react';
 import { Page, View, Text, Image, StyleSheet, Font, Svg, Defs, LinearGradient, Stop, Rect } from '@react-pdf/renderer';
 import './styles'; // side-effect: registra 'NotoSans' (Inter) p/ o subtítulo
 import { brand } from './tokens';
+import { tradutorDoPdf } from '@/lib/pdf-i18n';
 
 // ── Fontes do design system (display + UI). Inter (corpo) já é 'NotoSans'. ──
 const CDN = 'https://cdn.jsdelivr.net/fontsource/fonts';
@@ -59,9 +60,9 @@ function Divider() {
 }
 
 export default function PdfReportCover({
-  bgBase64, logoBase64, titulo = ['Plano de', 'Desenvolvimento'], overline = 'Plano de desenvolvimento individual',
-  nome, cargo, empresa, tagline = 'Pequenos ajustes, grande impacto.', mentorLabel = 'Mentor IA', jornada,
-  mostrarVertho = true,
+  bgBase64, logoBase64, titulo: tituloPedido, overline: overlinePedido,
+  nome, cargo, empresa, tagline: taglinePedida, mentorLabel = 'Mentor IA', jornada,
+  mostrarVertho = true, locale,
 }: {
   bgBase64?: string | null;
   logoBase64?: string | null;
@@ -81,7 +82,18 @@ export default function PdfReportCover({
   mentorLabel?: string | null;
   /** Linha descritiva sob o nome (ex.: "Uma jornada de 14 semanas de aprendizagem"). */
   jornada?: string | null;
+  /**
+   * Idioma do texto fixo da capa (os padrões de título, overline e slogan e a
+   * linha de confidencialidade). Sem ele, pt-BR: DNA, Perfil Organizacional e
+   * Adequação, que não são desta onda, seguem como estavam.
+   */
+  locale?: string | null;
 }) {
+  const t = tradutorDoPdf(locale);
+  // `undefined` pede o padrão do idioma; `null` (overline) esconde a linha, como sempre.
+  const titulo = tituloPedido ?? [t('cover.defaultTitleLine1'), t('cover.defaultTitleLine2')];
+  const overline = overlinePedido === undefined ? t('cover.defaultOverline') : overlinePedido;
+  const tagline = taglinePedida ?? t('cover.tagline');
   const subtitulo = [cargo, empresa].filter(Boolean).join(' · ');
   return (
     <Page size="A4" style={s.page}>
@@ -107,7 +119,7 @@ export default function PdfReportCover({
         <View style={s.spacer} />
 
         {tagline && mostrarVertho ? <Text style={s.tagline}>{tagline}</Text> : null}
-        <Text style={s.confid}>{mostrarVertho ? 'Confidencial · uso restrito · vertho.ai' : 'Confidencial · uso restrito'}</Text>
+        <Text style={s.confid}>{mostrarVertho ? t('cover.confidentialUseBrand') : t('cover.confidentialUse')}</Text>
       </View>
     </Page>
   );

@@ -6,7 +6,8 @@ import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { LevelDots } from './StatusBadge';
 import CompetencyBlock from './CompetencyBlock';
-import { nivelOuNull } from '@/lib/nivel-regua';
+import { nivelOuNull, rotuloNivel } from '@/lib/nivel-regua';
+import { idiomaDoPdf, tradutorDoPdf, type PdfT } from '@/lib/pdf-i18n';
 
 const s = StyleSheet.create({
   text: { fontSize: fonts.body, color: colors.textSecondary, lineHeight: 1.65, marginBottom: 4 },
@@ -129,10 +130,10 @@ function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string 
 }
 
 // ── Fixed Footer ────────────────────────────────────────────────────────────
-function PageFooter({ mostrarVertho = true }: { mostrarVertho?: boolean }) {
+function PageFooter({ mostrarVertho = true, t }: { mostrarVertho?: boolean; t: PdfT }) {
   return (
     <View style={pageStyles.footer} fixed>
-      <Text style={pageStyles.footerText}>{mostrarVertho ? 'vertho.ai · Confidencial' : 'Confidencial'}</Text>
+      <Text style={pageStyles.footerText}>{mostrarVertho ? t('individual.footerBrand') : t('common.confidential')}</Text>
       <Text style={pageStyles.footerText}
         render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
@@ -163,38 +164,44 @@ export type TrilhaFasePdi = { fase: string; titulo: string; detalhe: string };
  * qualquer outra duração, ou nenhuma, vira ciclos sem número de semana: o
  * desenho de 14 semanas num programa de 7, 9 ou 10 afirma o que não existe (R-28).
  */
-export function montarTrilhaFasesPdi(competencias: any[], totalSemanas: number | null): TrilhaFasePdi[] {
+export function montarTrilhaFasesPdi(
+  competencias: any[],
+  totalSemanas: number | null,
+  /** Tradutor do papel (padrão: pt-BR, como os testes e os chamadores antigos esperam). */
+  t: PdfT = tradutorDoPdf(),
+): TrilhaFasePdi[] {
   const acaoDe = (comp: any): string =>
-    (comp?.sprint?.acao_principal || comp?.melhorar?.[0] || 'mapear e praticar os comportamentos prioritários');
+    (comp?.sprint?.acao_principal || comp?.melhorar?.[0] || t('individual.defaultAction'));
+  const semanas = (from: number, to: number) => t('individual.weeksRange', { from, to });
 
   if (totalSemanas !== 7 && totalSemanas !== 14) {
     return competencias.map((comp: any, i: number) => ({
-      fase: `Jornada ${i + 1}`,
+      fase: t('individual.journeyN', { n: i + 1 }),
       titulo: comp.nome,
       detalhe: i === 0
-        ? `Aprender, praticar e registrar evidências: ${acaoDe(comp)}`
-        : 'Começa depois do fechamento da jornada anterior, na sequência.',
+        ? t('individual.learnPracticeRecord', { action: acaoDe(comp) })
+        : t('individual.startsAfterPrevious'),
     }));
   }
 
   if (totalSemanas === 7 && competencias.length >= 1) {
     const fases: TrilhaFasePdi[] = [
       {
-        fase: 'Semanas 1 a 6',
+        fase: semanas(1, 6),
         titulo: competencias[0].nome,
-        detalhe: `Aprender, praticar e registrar evidências: ${acaoDe(competencias[0])}`,
+        detalhe: t('individual.learnPracticeRecord', { action: acaoDe(competencias[0]) }),
       },
       {
-        fase: 'Semana 7',
-        titulo: 'Avaliação final',
-        detalhe: 'Consolidar as evidências da jornada e responder ao cenário final da competência.',
+        fase: t('individual.weekN', { n: 7 }),
+        titulo: t('individual.finalAssessment'),
+        detalhe: t('individual.finalAssessmentDetail'),
       },
     ];
     for (const proxima of competencias.slice(1)) {
       fases.push({
-        fase: 'Próxima jornada',
+        fase: t('individual.nextJourney'),
         titulo: proxima.nome,
-        detalhe: 'Começa depois do fechamento da jornada atual, em uma nova jornada de 7 semanas.',
+        detalhe: t('individual.nextJourneyDetail', { weeks: 7 }),
       });
     }
     return fases;
@@ -202,17 +209,17 @@ export function montarTrilhaFasesPdi(competencias: any[], totalSemanas: number |
 
   if (competencias.length >= 2) {
     return [
-      { fase: 'Semanas 1 a 4', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
-      { fase: 'Semanas 5 a 8', titulo: competencias[1].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[1])}` },
-      { fase: 'Semanas 9 a 12', titulo: 'Integração e desafio prático', detalhe: 'Aplicar as duas competências juntas em um desafio prático de complexidade crescente.' },
-      { fase: 'Semanas 13 a 14', titulo: 'Avaliação final', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
+      { fase: semanas(1, 4), titulo: competencias[0].nome, detalhe: t('individual.mapAndPractice', { action: acaoDe(competencias[0]) }) },
+      { fase: semanas(5, 8), titulo: competencias[1].nome, detalhe: t('individual.mapAndPractice', { action: acaoDe(competencias[1]) }) },
+      { fase: semanas(9, 12), titulo: t('individual.integration'), detalhe: t('individual.integrationDetail') },
+      { fase: semanas(13, 14), titulo: t('individual.finalAssessment'), detalhe: t('individual.finalReflectionDetail') },
     ];
   }
   if (competencias.length === 1) {
     return [
-      { fase: 'Semanas 1 a 8', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
-      { fase: 'Semanas 9 a 12', titulo: 'Aprofundamento', detalhe: 'Aprofundar a prática em situações mais complexas do dia a dia.' },
-      { fase: 'Semanas 13 a 14', titulo: 'Avaliação final', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
+      { fase: semanas(1, 8), titulo: competencias[0].nome, detalhe: t('individual.mapAndPractice', { action: acaoDe(competencias[0]) }) },
+      { fase: semanas(9, 12), titulo: t('individual.deepening'), detalhe: t('individual.deepeningDetail') },
+      { fase: semanas(13, 14), titulo: t('individual.finalAssessment'), detalhe: t('individual.finalReflectionDetail') },
     ];
   }
   return [];
@@ -220,10 +227,16 @@ export function montarTrilhaFasesPdi(competencias: any[], totalSemanas: number |
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, mostrarVertho = true }: {
+export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, mostrarVertho = true, locale }: {
   data: any;
   empresaNome?: string;
   logoBase64?: string;
+  /**
+   * Idioma do texto FIXO do papel (rótulos, títulos, legendas): o da pessoa que lê
+   * (`lib/pdf-locale.ts`). Sem ele, pt-BR. O que a IA escreveu no PDI (acolhimento,
+   * análise, plano, mensagem final) segue no idioma em que foi gerado.
+   */
+  locale?: string | null;
   /**
    * false = tenant white-label (`sys_config.pdf_sem_marca`): nenhuma
    * identificação da Vertho no documento — capa, cabeçalho, rodapé e
@@ -235,6 +248,8 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
   const c = data.conteudo;
   if (!c) return null;
 
+  const t = tradutorDoPdf(locale);
+  const idioma = idiomaDoPdf(locale);
   const competencias = c.competencias || [];
   const nome = data.colaborador_nome || '';
   // Duração REAL da trilha. Era "14 semanas" fixo na capa — desde a jornada de
@@ -247,8 +262,8 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
     .map((s: any) => Number(s?.semana) || 0)
     .filter((n: number) => n > 0);
   const totalSemanas: number | null = Number(c.total_semanas) || (semanasDoMapa.length ? Math.max(...semanasDoMapa) : null);
-  const duracaoEmTexto = totalSemanas ? `${totalSemanas} semanas` : null;
-  const headerLabel = `Plano de Desenvolvimento Individual${nome ? ` · ${(nome.split(' ')[0]) || nome}` : ''}`;
+  const duracaoEmTexto = totalSemanas ? t('individual.weeksCount', { n: totalSemanas }) : null;
+  const headerLabel = `${t('individual.coverTitle')}${nome ? ` · ${(nome.split(' ')[0]) || nome}` : ''}`;
 
   // Competências que já têm sprint (novo modelo) — dirige o one-pager.
   const sprintComps = competencias.filter((comp: any) => comp && comp.sprint);
@@ -257,7 +272,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
   // Sem mapa detalhado, a timeline ainda precisa obedecer à duração real. A
   // jornada de 7 semanas desenvolve UMA competência; as demais vêm em ciclos
   // seguintes, não em blocos fictícios dentro das mesmas sete semanas.
-  const trilhaFases = montarTrilhaFasesPdi(competencias, totalSemanas);
+  const trilhaFases = montarTrilhaFasesPdi(competencias, totalSemanas, t);
 
   // ── Binding REAL "vira trilha" (Estágio 2) ──────────────────────────────
   // Quando o PDI veio de um Development Blueprint, `conteudo.trilha_mapa` traz as
@@ -283,7 +298,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
   }
   const cicloLabel = (nome: string): string | null => {
     const cw = cicloPorComp[nome];
-    return cw ? `Semanas ${cw.min} a ${cw.max}` : null;
+    return cw ? t('individual.weeksRange', { from: cw.min, to: cw.max }) : null;
   };
   // Sprint (objetivo comportamental) por competência — pra fundir na jornada.
   const sprintPorComp: Record<string, any> = {};
@@ -317,11 +332,11 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
     for (const g of grupos) {
       const min = g.nums.length ? Math.min(...g.nums) : 0;
       const max = g.nums.length ? Math.max(...g.nums) : 0;
-      const faseLabel = g.nums.length > 1 ? `Semanas ${min} a ${max}` : `Semana ${min}`;
-      const titulo = g.comps.length ? g.comps.join(' + ') : (g.temAvaliacao ? 'Avaliação final' : 'Desafio integrado');
+      const faseLabel = g.nums.length > 1 ? t('individual.weeksRange', { from: min, to: max }) : t('individual.weekN', { n: min });
+      const titulo = g.comps.length ? g.comps.join(' + ') : (g.temAvaliacao ? t('individual.finalAssessment') : t('individual.integratedChallenge'));
       // Teoria: temas de conteúdo das competências do bloco (o que a pessoa APRENDE).
       const temas: string[] = [];
-      for (const cp of g.comps) for (const t of (blueprintConteudos[cp] || [])) if (t.tema && !temas.includes(t.tema)) temas.push(t.tema);
+      for (const cp of g.comps) for (const ct of (blueprintConteudos[cp] || [])) if (ct.tema && !temas.includes(ct.tema)) temas.push(ct.tema);
       // Objetivo do ciclo (sprint) quando o bloco é de UMA competência (não integração/avaliação).
       const spr = (g.comps.length === 1 && !g.temAvaliacao) ? sprintPorComp[g.comps[0]] : undefined;
       const objetivo = spr?.foco_30_dias || undefined;
@@ -346,13 +361,14 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
         bgBase64={getReportCoverBgBase64()}
         logoBase64={logoBase64}
         mostrarVertho={mostrarVertho}
-        titulo={['Plano de Desenvolvimento Individual', '(PDI)']}
+        titulo={[t('individual.coverTitle'), '(PDI)']}
         overline={null}
         mentorLabel={null}
-        jornada={duracaoEmTexto ? `Uma jornada de ${duracaoEmTexto} de aprendizagem` : null}
+        jornada={duracaoEmTexto ? t('individual.coverJourney', { duration: duracaoEmTexto }) : null}
         nome={nome}
         cargo={data.colaborador_cargo}
         empresa={empresaNome}
+        locale={idioma}
       />
 
       {/* ═══════════════════ PERFIL + RESUMO DE DESEMPENHO ═══════════════════ */}
@@ -365,7 +381,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
         {/* Perfil Comportamental — texto introdutório em azul claro */}
         {c.perfil_comportamental && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Perfil Comportamental</ReportSectionTitle>
+            <ReportSectionTitle>{t('individual.behavioralProfile')}</ReportSectionTitle>
             <Text style={s.perfilText}>{c.perfil_comportamental.descricao}</Text>
           </View>
         )}
@@ -374,7 +390,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
         {c.perfil_comportamental && (
           <View style={s.pontosRow} wrap={false}>
             <View style={{ ...s.pontosCol, backgroundColor: colors.fezBemBg, borderColor: colors.fezBemBorder }}>
-              <Text style={{ ...s.pontosLabel, color: colors.green }}>Pontos Fortes</Text>
+              <Text style={{ ...s.pontosLabel, color: colors.green }}>{t('individual.strengths')}</Text>
               {c.perfil_comportamental.pontos_forca?.map((p: any, i: number) => (
                 <View key={i} style={s.pontosItemRow}>
                   <Text style={{ ...s.pontosPrefix, color: colors.green }}>+</Text>
@@ -383,7 +399,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
               ))}
             </View>
             <View style={{ ...s.pontosCol, backgroundColor: colors.melhorarBg, borderColor: colors.melhorarBorder }}>
-              <Text style={{ ...s.pontosLabel, color: colors.orange }}>Pontos de Atenção</Text>
+              <Text style={{ ...s.pontosLabel, color: colors.orange }}>{t('individual.attentionPoints')}</Text>
               {c.perfil_comportamental.pontos_atencao?.map((p: any, i: number) => (
                 <View key={i} style={s.pontosItemRow}>
                   <Text style={{ ...s.pontosPrefix, color: colors.orange }}>!</Text>
@@ -397,12 +413,12 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
         {/* Resumo de Desempenho — tabela premium navy */}
         {(c.resumo_desempenho || competencias)?.length > 0 && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Ponto de partida por competência</ReportSectionTitle>
+            <ReportSectionTitle>{t('individual.startingPoint')}</ReportSectionTitle>
             <View style={s.table}>
               <View style={s.tableHead}>
-                <Text style={{ ...s.tableHeadCell, flex: 3 }}>Competência</Text>
-                <Text style={{ ...s.tableHeadCell, flex: 1.2, textAlign: 'center' }}>Nível</Text>
-                <Text style={{ ...s.tableHeadCell, flex: 1.6, textAlign: 'center' }}>Os quatro níveis</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 3 }}>{t('individual.competency')}</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1.2, textAlign: 'center' }}>{t('individual.level')}</Text>
+                <Text style={{ ...s.tableHeadCell, flex: 1.6, textAlign: 'center' }}>{t('individual.fourLevels')}</Text>
               </View>
               {(c.resumo_desempenho || competencias).map((comp: any, i: number) => {
                 const nivel = nivelOuNull(comp.nivel ?? comp.nivel_atual);
@@ -414,7 +430,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                     </Text>
                     <View style={{ flex: 1.2, alignItems: 'center' }}>
                       <View style={s.nivelTag}>
-                        <Text style={s.nivelTagText}>{nivel === null ? '\u2014' : `Nível ${nivel}`}</Text>
+                        <Text style={s.nivelTagText}>{nivel === null ? '\u2014' : rotuloNivel(nivel, { idioma })}</Text>
                       </View>
                     </View>
                     <View style={{ flex: 1.6, alignItems: 'center' }}>
@@ -430,9 +446,9 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
         {/* Trilha de Cursos */}
         {c.trilha_cursos?.length > 0 && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Cursos de apoio</ReportSectionTitle>
+            <ReportSectionTitle>{t('individual.supportCourses')}</ReportSectionTitle>
             <View style={s.trilhaBox}>
-              <Text style={s.trilhaLabel}>Cursos recomendados</Text>
+              <Text style={s.trilhaLabel}>{t('individual.recommendedCourses')}</Text>
               {c.trilha_cursos.map((curso: any, i: number) => (
                 <Text key={i} style={s.trilhaItem}>
                   {i + 1}. {curso.nome}{curso.competencia ? ` (${curso.competencia})` : ''}
@@ -442,7 +458,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
           </View>
         )}
 
-        <PageFooter mostrarVertho={mostrarVertho} />
+        <PageFooter mostrarVertho={mostrarVertho} t={t} />
       </Page>
 
       {/* ═══ SPRINT ONE-PAGER (LEGADO — só sem blueprint; com blueprint, tudo vira
@@ -450,9 +466,9 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
       {!hasBinding && sprintComps.length > 0 && (
         <Page size="A4" style={pageStyles.page} wrap>
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
-          <ReportSectionTitle>Seu plano, jornada a jornada</ReportSectionTitle>
+          <ReportSectionTitle>{t('individual.planByJourney')}</ReportSectionTitle>
           <Text style={s.mapIntro}>
-            {`${duracaoEmTexto ? `Sua jornada tem ${duracaoEmTexto} e você` : 'Na sua jornada você'} trabalha uma competência por vez. Abaixo, o foco de cada jornada: comece pela primeira; a segunda entra na sequência.`}
+            {duracaoEmTexto ? t('individual.planIntroWeeks', { duration: duracaoEmTexto }) : t('individual.planIntro')}
           </Text>
           {sprintComps.map((comp: any, i: number) => (
             <View key={i} style={s.mapCard} wrap={false}>
@@ -461,30 +477,30 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                 <Text style={s.mapCardName}>{comp.nome}</Text>
               </View>
               <Text style={{ fontSize: 8, color: colors.cyan, letterSpacing: 1, marginBottom: 5, textTransform: 'uppercase' }}>
-                {`Jornada ${i + 1}${cicloLabel(comp.nome) ? ` · ${cicloLabel(comp.nome)}` : ''}`}
+                {`${t('individual.journeyN', { n: i + 1 })}${cicloLabel(comp.nome) ? ` · ${cicloLabel(comp.nome)}` : ''}`}
               </Text>
               {comp.sprint?.foco_30_dias && <Text style={s.mapFoco}>{comp.sprint.foco_30_dias}</Text>}
               {comp.sprint?.acao_principal && (
                 <View style={s.mapLine}>
-                  <Text style={s.mapLineLabel}>Ação principal</Text>
+                  <Text style={s.mapLineLabel}>{t('individual.mainAction')}</Text>
                   <Text style={s.mapLineText}>{comp.sprint.acao_principal}</Text>
                 </View>
               )}
               {comp.sprint?.evidencia_esperada && (
                 <View style={s.mapLine}>
-                  <Text style={s.mapLineLabel}>Evidência</Text>
+                  <Text style={s.mapLineLabel}>{t('individual.evidence')}</Text>
                   <Text style={s.mapLineText}>{comp.sprint.evidencia_esperada}</Text>
                 </View>
               )}
               {comp.sprint?.ritual && (
                 <View style={s.mapLine}>
-                  <Text style={s.mapLineLabel}>Ritual</Text>
+                  <Text style={s.mapLineLabel}>{t('individual.ritual')}</Text>
                   <Text style={s.mapLineText}>{comp.sprint.ritual}</Text>
                 </View>
               )}
             </View>
           ))}
-          <PageFooter mostrarVertho={mostrarVertho} />
+          <PageFooter mostrarVertho={mostrarVertho} t={t} />
         </Page>
       )}
 
@@ -500,9 +516,9 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
           : undefined;
         return (
           <Page key={idx} size="A4" style={pageStyles.page} wrap>
-            <PageHeader logoBase64={logoBase64} label={`Competência ${idx + 1} de ${competencias.length}`} />
-            <CompetencyBlock comp={comp} index={idx} total={competencias.length} ciclo={ciclo} />
-            <PageFooter mostrarVertho={mostrarVertho} />
+            <PageHeader logoBase64={logoBase64} label={t('individual.competencyOf', { n: idx + 1, total: competencias.length })} />
+            <CompetencyBlock comp={comp} index={idx} total={competencias.length} ciclo={ciclo} locale={idioma} />
+            <PageFooter mostrarVertho={mostrarVertho} t={t} />
           </Page>
         );
       })}
@@ -511,11 +527,11 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
       {competencias.length >= 1 && (
         <Page size="A4" style={pageStyles.page} wrap>
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
-          <ReportSectionTitle>{hasBinding ? 'Sua jornada, passo a passo' : 'Como este PDI vira jornada'}</ReportSectionTitle>
+          <ReportSectionTitle>{hasBinding ? t('individual.pathStepByStep') : t('individual.howPdiBecomesJourney')}</ReportSectionTitle>
           <Text style={s.trilhaIntro}>
             {hasBinding
-              ? `${duracaoEmTexto ? `Sua jornada tem ${duracaoEmTexto}, uma` : 'Na sua jornada é uma'} competência por vez. Cada jornada tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica: o objetivo é o destino, as atividades semanais são o caminho até ele, não trabalho a mais. Você recebe o conteúdo resumido toda semana (microaprendizagem), não precisa buscar por conta própria. Comece pela Jornada 1: a segunda só começa quando ela terminar, e a jornada guia você semana a semana.`
-              : 'O que está no seu PDI é exatamente o que você vai aprender e praticar na jornada. Cada jornada tem conteúdo (o que você estuda) e desafio (o que você aplica).'}
+              ? (duracaoEmTexto ? t('individual.pathIntroWeeks', { duration: duracaoEmTexto }) : t('individual.pathIntro'))
+              : t('individual.howPdiBecomesJourneyIntro')}
           </Text>
           {hasBinding ? (
             bindingBlocos.map((b, i) => (
@@ -523,7 +539,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                 <View style={s.tlPhase}>
                   <Text style={s.tlPhaseText}>{b.faseLabel}</Text>
                   {b.focoAgora && (
-                    <Text style={{ fontSize: 7, color: colors.cyan, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 3 }}>Foco agora</Text>
+                    <Text style={{ fontSize: 7, color: colors.cyan, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 3 }}>{t('individual.focusNow')}</Text>
                   )}
                 </View>
                 <View style={s.tlBody}>
@@ -533,17 +549,17 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                   )}
                   {b.conteudos.length > 0 && !b.temAvaliacao && (
                     <View style={s.mapLine}>
-                      <Text style={s.mapLineLabel}>Aprende</Text>
+                      <Text style={s.mapLineLabel}>{t('individual.learns')}</Text>
                       <View style={{ flex: 1 }}>
-                        {b.conteudos.map((t, j) => (
-                          <Text key={j} style={s.tlDetail}>{t}</Text>
+                        {b.conteudos.map((tema, j) => (
+                          <Text key={j} style={s.tlDetail}>{tema}</Text>
                         ))}
                       </View>
                     </View>
                   )}
                   {b.acoes.length > 0 && (
                     <View style={s.mapLine}>
-                      <Text style={s.mapLineLabel}>{b.temAvaliacao ? 'Avalia' : 'Desafio'}</Text>
+                      <Text style={s.mapLineLabel}>{b.temAvaliacao ? t('individual.assesses') : t('individual.challenge')}</Text>
                       <View style={{ flex: 1 }}>
                         {b.acoes.map((a, j) => (
                           <Text key={j} style={s.tlDetail}>{a}</Text>
@@ -553,20 +569,20 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                   )}
                   {b.evidencia && (
                     <View style={s.mapLine}>
-                      <Text style={s.mapLineLabel}>Evidência</Text>
+                      <Text style={s.mapLineLabel}>{t('individual.evidence')}</Text>
                       <Text style={[s.tlDetail, { flex: 1 }]}>{b.evidencia}</Text>
                     </View>
                   )}
                   {b.ritual && (
                     <View style={s.mapLine}>
-                      <Text style={s.mapLineLabel}>Ritual</Text>
+                      <Text style={s.mapLineLabel}>{t('individual.ritual')}</Text>
                       <Text style={[s.tlDetail, { flex: 1 }]}>{b.ritual}</Text>
                     </View>
                   )}
                   {(b.temMissao || b.temAvaliacao) && (
                     <View style={s.tlMeta}>
-                      {b.temMissao && <Text style={s.tlBadge}>Desafio prático</Text>}
-                      {b.temAvaliacao && <Text style={s.tlBadge}>Avaliação final</Text>}
+                      {b.temMissao && <Text style={s.tlBadge}>{t('individual.practicalChallenge')}</Text>}
+                      {b.temAvaliacao && <Text style={s.tlBadge}>{t('individual.finalAssessment')}</Text>}
                     </View>
                   )}
                 </View>
@@ -584,15 +600,15 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
             ))
           )}
           <Text style={s.trilhaFooterNote}>
-            {'Cada passo do PDI vira uma semana de prática: o plano e a jornada são o mesmo caminho.'}
+            {t('individual.pathFootnote')}
           </Text>
           {c.mensagem_final && (
             <View style={[s.finalBox, { marginTop: 18 }]} wrap={false}>
-              <Text style={s.finalLabel}>Mensagem Final</Text>
+              <Text style={s.finalLabel}>{t('individual.finalMessage')}</Text>
               <Text style={s.finalText}>{c.mensagem_final}</Text>
             </View>
           )}
-          <PageFooter mostrarVertho={mostrarVertho} />
+          <PageFooter mostrarVertho={mostrarVertho} t={t} />
         </Page>
       )}
 
@@ -601,10 +617,10 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
         <Page size="A4" style={pageStyles.page}>
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
           <View style={s.finalBox}>
-            <Text style={s.finalLabel}>Mensagem Final</Text>
+            <Text style={s.finalLabel}>{t('individual.finalMessage')}</Text>
             <Text style={s.finalText}>{c.mensagem_final}</Text>
           </View>
-          <PageFooter mostrarVertho={mostrarVertho} />
+          <PageFooter mostrarVertho={mostrarVertho} t={t} />
         </Page>
       )}
 

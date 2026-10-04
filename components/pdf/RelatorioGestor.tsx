@@ -5,6 +5,7 @@ import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { nivelMaisFrequente } from '@/lib/nivel-frequente';
 import { rotuloNivel } from '@/lib/nivel-regua';
+import { compararNomes, idiomaDoPdf, tradutorDoPdf, type PdfT } from '@/lib/pdf-i18n';
 // SectionTitle → ReportSectionTitle (Fraunces) e PageBackground → PageHeader fino, de PdfReportCover
 
 const s = StyleSheet.create({
@@ -47,17 +48,17 @@ const s = StyleSheet.create({
   acaoPrincipalSub: { fontFamily: 'NotoSans', fontSize: 10, color: colors.textSecondary, fontStyle: 'italic', marginTop: 6 },
 });
 
-function PageFooter() {
+function PageFooter({ t }: { t: PdfT }) {
   return (
     <View style={pageStyles.footer} fixed>
-      <Text style={pageStyles.footerText}>{'Vertho Mentor IA \u00b7 Confidencial'}</Text>
+      <Text style={pageStyles.footerText}>{t('common.footerMentor')}</Text>
       <Text style={pageStyles.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
   );
 }
 
-// Header fino unificado (mesmo padr\u00e3o do PDI) \u2014 substitui o antigo fundo de
-// p\u00e1gina inteira (template-fundo-relatorios.png), unificando o look e cortando
+// Header fino unificado (mesmo padrão do PDI) \u2014 substitui o antigo fundo de
+// página inteira (template-fundo-relatorios.png), unificando o look e cortando
 // o PDF de ~1,7MB para ~200KB.
 function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string }) {
   return (
@@ -68,10 +69,10 @@ function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string 
   );
 }
 
-const acoes = [
-  { key: 'esta_semana', label: 'Esta Semana', bg: '#B91C1C', contentBg: '#FEF2F2' },
-  { key: 'proximas_semanas', label: 'Pr\u00f3ximas 2 a 4 semanas', bg: '#2563EB', contentBg: '#EFF6FF' },
-  { key: 'medio_prazo', label: 'M\u00e9dio prazo (1 a 2 meses)', bg: '#16A34A', contentBg: '#F0FDF4' },
+const acoesPorHorizonte = (t: PdfT) => [
+  { key: 'esta_semana', label: t('gestor.thisWeek'), bg: '#B91C1C', contentBg: '#FEF2F2' },
+  { key: 'proximas_semanas', label: t('gestor.nextWeeks'), bg: '#2563EB', contentBg: '#EFF6FF' },
+  { key: 'medio_prazo', label: t('gestor.midTerm'), bg: '#16A34A', contentBg: '#F0FDF4' },
 ];
 
 function textOf(v: any): string {
@@ -122,19 +123,26 @@ function getDestaque(v: any) {
  * (relatórios gravados e o prompt usam `alta|media|baixa`); só o rótulo mudou, e
  * o legado `urgente|importante` cai nos mesmos três degraus.
  */
-export function urgenciaLabel(v: any): string {
+export type UrgenciaChave = 'conversa' | 'alta' | 'media' | 'baixa' | 'outra';
+
+/** O degrau da prioridade, independente do idioma: o estilo do cartão decide por ele, não pelo rótulo traduzido. */
+export function urgenciaChave(v: any): UrgenciaChave {
   const raw = String(v || '').trim().toLowerCase();
-  if (!raw) return 'CONVERSA';
-  if (raw === 'urgente' || raw === 'alta') return 'PRIORIDADE ALTA';
-  if (raw === 'importante' || raw === 'media' || raw === 'média') return 'PRIORIDADE MÉDIA';
-  if (raw === 'baixa' || raw === 'baixo') return 'ACOMPANHAR';
-  return String(v).toUpperCase();
+  if (!raw) return 'conversa';
+  if (raw === 'urgente' || raw === 'alta') return 'alta';
+  if (raw === 'importante' || raw === 'media' || raw === 'média') return 'media';
+  if (raw === 'baixa' || raw === 'baixo') return 'baixa';
+  return 'outra';
 }
 
-/** Em ordem alfabética pelo nome (pt-BR, sem acento nem caixa), nunca pela ordem do ranking antigo. */
-export function emOrdemAlfabetica<T>(lista: T[], nomeDe: (x: T) => unknown): T[] {
-  const nome = (x: T) => String(nomeDe(x) ?? '');
-  return [...lista].sort((a, b) => nome(a).localeCompare(nome(b), 'pt-BR', { sensitivity: 'base' }));
+export function urgenciaLabel(v: any, t: PdfT = tradutorDoPdf()): string {
+  const chave = urgenciaChave(v);
+  return chave === 'outra' ? String(v).toUpperCase() : t(`gestor.urgency.${chave}`);
+}
+
+/** Em ordem alfabética pelo nome (no idioma de quem lê, sem acento nem caixa), nunca pela ordem do ranking antigo. */
+export function emOrdemAlfabetica<T>(lista: T[], nomeDe: (x: T) => unknown, locale: string | null = 'pt-BR'): T[] {
+  return [...lista].sort((a, b) => compararNomes(nomeDe(a), nomeDe(b), locale));
 }
 
 /** "N2", o nível em que mais pessoas estão, ou `null` sem distribuição. */
@@ -144,9 +152,18 @@ export function nivelMaisFrequenteDe(distribuicao: any): string | null {
   return nivel != null ? rotuloNivel(nivel, { forma: 'curto' }) : null;
 }
 
-export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { data: any; empresaNome?: string; logoBase64?: string }) {
+export default function RelatorioGestorPDF({ data, empresaNome, logoBase64, locale }: {
+  data: any;
+  empresaNome?: string;
+  logoBase64?: string;
+  /** Idioma do texto fixo do papel: o de quem lê (`lib/pdf-locale.ts`). Sem ele, pt-BR. O texto da IA segue como foi gerado. */
+  locale?: string | null;
+}) {
   const c = data.conteudo;
   if (!c) return null;
+  const t = tradutorDoPdf(locale);
+  const idioma = idiomaDoPdf(locale);
+  const acoes = acoesPorHorizonte(t);
   const resumoExecutivo = getResumoExecutivo(c.resumo_executivo);
 
   return (
@@ -155,28 +172,29 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
       <PdfReportCover
         bgBase64={getReportCoverBgBase64()}
         logoBase64={logoBase64}
-        overline={'Relat\u00f3rio do gestor'}
-        titulo={['An\u00e1lise da', 'Equipe']}
+        overline={t('gestor.coverOverline')}
+        titulo={[t('gestor.coverTitle1'), t('gestor.coverTitle2')]}
         nome={data.gestor_nome}
-        cargo="Gestor"
+        cargo={t('gestor.roleManager')}
         empresa={empresaNome}
-        tagline={'Do diagn\u00f3stico \u00e0 conversa de desenvolvimento.'}
+        tagline={t('gestor.tagline')}
+        locale={idioma}
       />
 
       {/* Resumo + Evolução + Ranking */}
       <Page size="A4" style={pageStyles.page} wrap>
-        <PageHeader logoBase64={logoBase64} label={'Relatório do Gestor'} />
+        <PageHeader logoBase64={logoBase64} label={t('gestor.reportLabel')} />
 
         {c.resumo_executivo && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Resumo Executivo</ReportSectionTitle>
+            <ReportSectionTitle>{t('gestor.executiveSummary')}</ReportSectionTitle>
             <View style={s.box}>
               <Text style={s.text}>{textOf(resumoExecutivo?.leitura || c.resumo_executivo)}</Text>
               {(resumoExecutivo?.principalAvanco || c.resumo_executivo?.principal_avanco) && (
-                <Text style={{ ...s.text, color: '#2E7D32', marginTop: 4 }}>Ponto forte: {textOf(resumoExecutivo?.principalAvanco || c.resumo_executivo?.principal_avanco)}</Text>
+                <Text style={{ ...s.text, color: '#2E7D32', marginTop: 4 }}>{t('gestor.strongPoint', { text: textOf(resumoExecutivo?.principalAvanco || c.resumo_executivo?.principal_avanco) })}</Text>
               )}
               {(resumoExecutivo?.principalPontoAtencao || c.resumo_executivo?.principal_ponto_de_atencao) && (
-                <Text style={{ ...s.text, color: '#E65100', marginTop: 2 }}>Atenção: {textOf(resumoExecutivo?.principalPontoAtencao || c.resumo_executivo?.principal_ponto_de_atencao)}</Text>
+                <Text style={{ ...s.text, color: '#E65100', marginTop: 2 }}>{t('gestor.attentionLabel', { text: textOf(resumoExecutivo?.principalPontoAtencao || c.resumo_executivo?.principal_ponto_de_atencao) })}</Text>
               )}
             </View>
           </View>
@@ -184,11 +202,11 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.destaques_evolucao?.length > 0 && (
           <View style={s.section} wrap={false}>
-            {/* Sempre "Pontos fortes": o relat\u00f3rio recebe s\u00f3 o n\u00edvel ATUAL, sem hist\u00f3rico, e
-                "Destaques de Evolu\u00e7\u00e3o" afirmava uma evolu\u00e7\u00e3o que ningu\u00e9m mediu (R-36). */}
-            <ReportSectionTitle>{'Pontos fortes a reconhecer'}</ReportSectionTitle>
+            {/* Sempre "Pontos fortes": o relatório recebe só o nível ATUAL, sem histórico, e
+                "Destaques de Evolução" afirmava uma evolução que ninguém mediu (R-36). */}
+            <ReportSectionTitle>{t('gestor.strengthsToRecognize')}</ReportSectionTitle>
             <View style={s.evolBox}>
-              {emOrdemAlfabetica<any>(c.destaques_evolucao, (d) => getDestaque(d)?.nome).map((d: any, i: number) => (
+              {emOrdemAlfabetica<any>(c.destaques_evolucao, (d) => getDestaque(d)?.nome, idioma).map((d: any, i: number) => (
                 <View key={i} style={{ marginBottom: 4 }}>
                   <Text style={s.evolItem}>
                     + {(() => {
@@ -206,52 +224,53 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {(c.ranking_atencao || c.ranking_qualificado)?.length > 0 && (
           <View style={s.section}>
-            {/* "Pontos de Aten\u00e7\u00e3o", em ordem alfab\u00e9tica (R-36, 04/10/2026). Era "Ranking de
-                Aten\u00e7\u00e3o": pessoas nomeadas, selo "URGENTE" em vermelho. A decis\u00e3o do dono \u00e9
-                que o gestor v\u00ea n\u00edvel e conversa a ter, sem ranking nem alarme. */}
-            <ReportSectionTitle>{'Pontos de Aten\u00e7\u00e3o'}</ReportSectionTitle>
-            {emOrdemAlfabetica<any>(c.ranking_atencao || c.ranking_qualificado, (r) => r?.nome).map((r: any, i: number) => {
-              const urg = urgenciaLabel(r.urgencia);
-              const bgStyle = urg === 'PRIORIDADE ALTA' ? s.rankUrgente : urg === 'PRIORIDADE M\u00c9DIA' ? s.rankImportante : s.rankOutro;
+            {/* "Pontos de Atenção", em ordem alfabética (R-36, 04/10/2026). Era "Ranking de
+                Atenção": pessoas nomeadas, selo "URGENTE" em vermelho. A decisão do dono é
+                que o gestor vê nível e conversa a ter, sem ranking nem alarme. */}
+            <ReportSectionTitle>{t('gestor.attentionPoints')}</ReportSectionTitle>
+            {emOrdemAlfabetica<any>(c.ranking_atencao || c.ranking_qualificado, (r) => r?.nome, idioma).map((r: any, i: number) => {
+              const urg = urgenciaLabel(r.urgencia, t);
+              const grau = urgenciaChave(r.urgencia);
+              const bgStyle = grau === 'alta' ? s.rankUrgente : grau === 'media' ? s.rankImportante : s.rankOutro;
               return (
                 <View key={i} style={{ ...s.rankCard, ...bgStyle }} wrap={false}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={s.rankName}>{textOf(r.nome)}: {textOf(r.competencia)} ({rotuloNivel(Number(textOf(r.nivel || r.nivel_fase3)), { forma: 'curto' })})</Text>
-                    <View style={{ ...s.badge, backgroundColor: urg === 'PRIORIDADE ALTA' ? '#FEF3C7' : urg === 'PRIORIDADE M\u00c9DIA' ? '#DBEAFE' : '#ECFDF3' }}>
-                      <Text style={{ ...s.badgeText, color: urg === 'PRIORIDADE ALTA' ? '#92400E' : urg === 'PRIORIDADE M\u00c9DIA' ? '#1E40AF' : '#166534' }}>{urg}</Text>
+                    <View style={{ ...s.badge, backgroundColor: grau === 'alta' ? '#FEF3C7' : grau === 'media' ? '#DBEAFE' : '#ECFDF3' }}>
+                      <Text style={{ ...s.badgeText, color: grau === 'alta' ? '#92400E' : grau === 'media' ? '#1E40AF' : '#166534' }}>{urg}</Text>
                     </View>
                   </View>
                   {(r.motivo || r.motivo_curto) && <Text style={s.rankMotivo}>{textOf(r.motivo || r.motivo_curto)}</Text>}
-                  {r.risco_se_nao_agir && <Text style={{ ...s.rankMotivo, color: '#92400E' }}>Risco: {textOf(r.risco_se_nao_agir)}</Text>}
+                  {r.risco_se_nao_agir && <Text style={{ ...s.rankMotivo, color: '#92400E' }}>{t('gestor.risk', { text: textOf(r.risco_se_nao_agir) })}</Text>}
                 </View>
               );
             })}
           </View>
         )}
 
-        <PageFooter />
+        <PageFooter t={t} />
       </Page>
 
       {/* Análise + DISC + Ações */}
       <Page size="A4" style={pageStyles.page} wrap>
-        <PageHeader logoBase64={logoBase64} label={'Relatório do Gestor'} />
+        <PageHeader logoBase64={logoBase64} label={t('gestor.reportLabel')} />
 
         {c.analise_por_competencia?.length > 0 && (
           <View style={s.section}>
-            <ReportSectionTitle>{'An\u00e1lise por Compet\u00eancia'}</ReportSectionTitle>
+            <ReportSectionTitle>{t('gestor.analysisByCompetency')}</ReportSectionTitle>
             {c.analise_por_competencia.map((a: any, i: number) => (
               <View key={i} wrap={false} style={{ marginBottom: 10 }}>
-                {/* Sem a "M\u00e9dia" (R-36, 04/10/2026): o relat\u00f3rio mostrava "M\u00e9dia: 2.3" por
-                    compet\u00eancia. Fica o n\u00edvel mais frequente, da mesma distribui\u00e7\u00e3o de
+                {/* Sem a "Média" (R-36, 04/10/2026): o relatório mostrava "Média: 2.3" por
+                    competência. Fica o nível mais frequente, da mesma distribuição de
                     pessoas que vem logo abaixo. */}
-                <Text style={s.h3}>{a.competencia}{nivelMaisFrequenteDe(a.distribuicao) ? `: n\u00edvel mais frequente ${nivelMaisFrequenteDe(a.distribuicao)}` : ''}</Text>
-                {a.distribuicao && <Text style={s.textIt}>{'Pessoas por n\u00edvel'}: {[1, 2, 3, 4].map((nivel) => `${rotuloNivel(nivel, { forma: 'curto' })}: ${a.distribuicao[`n${nivel}`]}`).join(' | ')}</Text>}
+                <Text style={s.h3}>{nivelMaisFrequenteDe(a.distribuicao) ? t('gestor.competencyMostFrequent', { competency: String(a.competencia ?? ''), level: nivelMaisFrequenteDe(a.distribuicao) as string }) : a.competencia}</Text>
+                {a.distribuicao && <Text style={s.textIt}>{t('gestor.peopleByLevel', { levels: [1, 2, 3, 4].map((nivel) => `${rotuloNivel(nivel, { forma: 'curto' })}: ${a.distribuicao[`n${nivel}`]}`).join(' | ') })}</Text>}
                 <Text style={s.text}>{a.padrao_observado}</Text>
                 {a.acao_gestor && (
                   <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 6, padding: 10, marginTop: 4 }}>
-                    <Text style={{ fontFamily: 'NotoSans', fontSize: 9, fontWeight: 600, color: '#1E40AF', marginBottom: 3 }}>{'A\u00e7\u00e3o do Gestor'}</Text>
+                    <Text style={{ fontFamily: 'NotoSans', fontSize: 9, fontWeight: 600, color: '#1E40AF', marginBottom: 3 }}>{t('gestor.managerAction')}</Text>
                     <Text style={s.text}>{a.acao_gestor}</Text>
-                    {a.impacto_se_nao_agir && <Text style={{ fontFamily: 'NotoSans', fontSize: 8, color: '#991B1B', fontStyle: 'italic', marginTop: 3 }}>Risco: {a.impacto_se_nao_agir}</Text>}
+                    {a.impacto_se_nao_agir && <Text style={{ fontFamily: 'NotoSans', fontSize: 8, color: '#991B1B', fontStyle: 'italic', marginTop: 3 }}>{t('gestor.risk', { text: textOf(a.impacto_se_nao_agir) })}</Text>}
                   </View>
                 )}
               </View>
@@ -261,17 +280,17 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.perfil_disc_equipe && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Mapeamento Comportamental da Equipe</ReportSectionTitle>
+            <ReportSectionTitle>{t('gestor.teamBehavioralMapping')}</ReportSectionTitle>
             <View style={s.box}><Text style={s.text}>{c.perfil_disc_equipe.descricao}</Text></View>
             {c.perfil_disc_equipe.forca_coletiva && (
               <View style={s.discForce}>
-                <Text style={{ ...s.discLabel, color: '#166534' }}>{'For\u00e7a coletiva'}</Text>
+                <Text style={{ ...s.discLabel, color: '#166534' }}>{t('gestor.collectiveStrength')}</Text>
                 <Text style={s.text}>{c.perfil_disc_equipe.forca_coletiva}</Text>
               </View>
             )}
             {c.perfil_disc_equipe.risco_coletivo && (
               <View style={s.discRisk}>
-                <Text style={{ ...s.discLabel, color: '#92400E' }}>Risco coletivo</Text>
+                <Text style={{ ...s.discLabel, color: '#92400E' }}>{t('gestor.collectiveRisk')}</Text>
                 <Text style={s.text}>{c.perfil_disc_equipe.risco_coletivo}</Text>
               </View>
             )}
@@ -280,11 +299,11 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.acoes && (
           <View style={s.section}>
-            <ReportSectionTitle>{'Plano de A\u00e7\u00e3o'}</ReportSectionTitle>
+            <ReportSectionTitle>{t('gestor.actionPlan')}</ReportSectionTitle>
             {c.acoes.acao_principal && (
               <View style={s.acaoPrincipal} wrap={false}>
-                <Text style={s.acaoPrincipalText}>{'COMECE POR AQUI: '}{typeof c.acoes.acao_principal === 'string' ? c.acoes.acao_principal : c.acoes.acao_principal.titulo}</Text>
-                <Text style={s.acaoPrincipalSub}>{'Voc\u00ea n\u00e3o precisa fazer tudo na segunda-feira. Comece por esta a\u00e7\u00e3o.'}</Text>
+                <Text style={s.acaoPrincipalText}>{t('gestor.startHere', { action: typeof c.acoes.acao_principal === 'string' ? c.acoes.acao_principal : textOf(c.acoes.acao_principal.titulo) })}</Text>
+                <Text style={s.acaoPrincipalSub}>{t('gestor.startHereNote')}</Text>
               </View>
             )}
             {acoes.map(({ key, label, bg, contentBg }) => {
@@ -318,10 +337,10 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.papel_do_gestor && (
           <View style={s.section}>
-            <ReportSectionTitle>Papel do Gestor</ReportSectionTitle>
-            {[{ label: 'Semanal', val: c.papel_do_gestor.semanal },
-              { label: 'Quinzenal', val: c.papel_do_gestor.quinzenal },
-              { label: 'Pr\u00f3xima jornada', val: c.papel_do_gestor.proximo_ciclo },
+            <ReportSectionTitle>{t('gestor.managerRole')}</ReportSectionTitle>
+            {[{ label: t('gestor.weekly'), val: c.papel_do_gestor.semanal },
+              { label: t('gestor.biweekly'), val: c.papel_do_gestor.quinzenal },
+              { label: t('gestor.nextJourney'), val: c.papel_do_gestor.proximo_ciclo },
             ].filter((p: any) => p.val).map((p: any, i: number) => (
               <View key={i} style={s.papelCard}>
                 <Text style={s.papelLabel}>{p.label}</Text>
@@ -335,7 +354,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
           <View wrap={false}><View style={s.divider} /><Text style={s.textIt}>{c.mensagem_final}</Text></View>
         )}
 
-        <PageFooter />
+        <PageFooter t={t} />
       </Page>
     </Document>
   );

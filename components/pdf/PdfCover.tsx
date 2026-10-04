@@ -1,6 +1,7 @@
 import React from 'react';
 import { Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { colors, fonts } from './styles';
+import { dataLongaNoPdf, tradutorDoPdf } from '@/lib/pdf-i18n';
 
 const s = StyleSheet.create({
   page: {
@@ -119,13 +120,12 @@ export default function PdfCover({
   cargo,
   empresa,
   data,
-  tipo = 'Plano de Desenvolvimento Individual',
-  ciclo = '30 dias',
+  tipo: tipoPedido,
   locale = 'pt-BR',
 }: PdfCoverProps) {
-  const dataFormatada = data
-    ? new Date(data).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' })
-    : new Date().toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' });
+  const t = tradutorDoPdf(locale);
+  const tipo = tipoPedido ?? t('coverLegacy.type');
+  const dataFormatada = dataLongaNoPdf(data, locale);
 
   const cargoLine = [cargo, empresa].filter(Boolean).join(' · ');
   const primeiroNome = (nome || '').split(' ')[0] || nome;
@@ -147,14 +147,14 @@ export default function PdfCover({
         <View style={s.divider} />
         <View style={s.metaRow}>
           <View style={s.metaItem}>
-            <Text style={s.metaLabel}>Data</Text>
+            <Text style={s.metaLabel}>{t('coverLegacy.date')}</Text>
             <Text style={s.metaValue}>{dataFormatada}</Text>
           </View>
         </View>
       </View>
 
       <View style={s.bottom}>
-        <Text style={s.bottomText}>Confidencial. Uso restrito a colaborador, gestor e RH</Text>
+        <Text style={s.bottomText}>{t('coverLegacy.confidentialAudience')}</Text>
         <Text style={s.bottomText}>vertho.ai</Text>
       </View>
     </Page>

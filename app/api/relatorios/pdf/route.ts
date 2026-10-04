@@ -12,6 +12,8 @@ import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 import { storageSlug } from '@/lib/storage-slug';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import { pdiRetidoPelaAuditoria } from '@/lib/relatorios/pdi-retido';
+import { caminhoDoPdf, idiomaDoCaminhoPdf, idiomaDoLeitor } from '@/lib/pdf-locale';
+import { defaultLocale } from '@/i18n/routing';
 import React from 'react';
 
 // O fallback regenera o PDF com renderToBuffer (CPU-bound) quando o
@@ -106,8 +108,18 @@ export async function GET(request) {
     const baseName = rel.tipo === 'individual' ? colaboradorNome : empresaNome;
     const filename = `${nomeArquivoMarca(tipoCfg.prefix, marca)}-${(baseName || rel.tipo).replace(/\s+/g, '-').toLowerCase()}.pdf`;
 
-    // 1) Tentar baixar do storage se já foi salvo
-    if (rel.pdf_path) {
+    // Idioma do papel (onda D): o de quem BAIXA, nos três documentos que levam texto
+    // fixo (PDI, gestor, RH). O arquivo guardado diz em que idioma nasceu no próprio
+    // nome (`lib/pdf-locale.ts`); sem marca, é pt-BR, que era o único que existia.
+    const comIdioma = rel.tipo === 'individual' || rel.tipo === 'gestor' || rel.tipo === 'rh';
+    const locale = comIdioma
+      ? await idiomaDoLeitor(auth, rel.empresa_id)
+      : defaultLocale;
+    const idiomaGuardado = idiomaDoCaminhoPdf(rel.pdf_path);
+    let guardarDepoisDeGerar = !rel.pdf_path;
+
+    // 1) Tentar baixar do storage se já foi salvo, e se estiver no idioma de quem baixa
+    if (rel.pdf_path && (!comIdioma || idiomaGuardado === locale)) {
       const { data: stored, error: dlErr } = await sb.storage.from('relatorios-pdf').download(rel.pdf_path);
       if (!dlErr && stored) {
         const buffer = Buffer.from(await stored.arrayBuffer());
@@ -116,10 +128,18 @@ export async function GET(request) {
             'Content-Type': 'application/pdf',
             'Content-Disposition': contentDispositionHeader(filename, contentDisposition),
             'X-Pdf-Source': 'storage',
+            'X-Pdf-Locale': idiomaGuardado,
           },
         });
       }
       console.warn('[PDF] download falhou, vai regenerar:', dlErr?.message);
+      guardarDepoisDeGerar = true;
+    } else if (rel.pdf_path) {
+      // Guardado em outro idioma: este download renderiza no idioma de quem baixa. O
+      // arquivo guardado só é trocado quando quem baixa é o DONO do relatório (a pessoa do
+      // PDI, o gestor do relatório dele): o idioma dele passa a ser o do arquivo.
+      const ehDono = !!rel.colaborador_id && auth.colaborador?.id === rel.colaborador_id;
+      guardarDepoisDeGerar = ehDono;
     }
 
     // 2) Fallback: gerar on-the-fly e salvar no storage
@@ -143,22 +163,25 @@ export async function GET(request) {
         data, empresaNome,
         logoBase64: marca.logoBase64 || undefined,
         mostrarVertho: marca.mostrarVertho,
+        locale,
       }) as any
     );
 
     // Salvar no storage para próximos downloads
-    try {
-      const slug = storageSlug(baseName, rel.tipo);
-      const path = `${rel.empresa_id}/${rel.tipo}-${slug}-${Date.now()}.pdf`;
-      const { error: upErr } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
-        contentType: 'application/pdf',
-        upsert: true,
-      });
-      if (!upErr) {
-        await sb.from('relatorios').update({ pdf_path: path }).eq('id', relatorioId);
+    if (guardarDepoisDeGerar) {
+      try {
+        const slug = storageSlug(baseName, rel.tipo);
+        const path = caminhoDoPdf(rel.empresa_id, rel.tipo, slug, locale);
+        const { error: upErr } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+        if (!upErr) {
+          await sb.from('relatorios').update({ pdf_path: path }).eq('id', relatorioId);
+        }
+      } catch (e) {
+        console.error('[PDF upload]', e.message);
       }
-    } catch (e) {
-      console.error('[PDF upload]', e.message);
     }
 
     return new NextResponse(buffer as any, {
@@ -166,6 +189,7 @@ export async function GET(request) {
         'Content-Type': 'application/pdf',
         'Content-Disposition': contentDispositionHeader(filename, contentDisposition),
         'X-Pdf-Source': 'generated',
+        'X-Pdf-Locale': locale,
       },
     });
   } catch (err) {

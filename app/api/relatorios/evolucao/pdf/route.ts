@@ -9,6 +9,7 @@ import { resolverMarcaPdf, marcaVertho, nomeArquivoMarca } from '@/lib/pdf-marca
 import { requireRole } from '@/lib/auth/request-context';
 import { resolverEmpresaDoRelatorio } from '@/lib/auth/empresa-do-relatorio';
 import { contentDispositionHeader } from '@/lib/http/content-disposition';
+import { idiomaDoLeitor } from '@/lib/pdf-locale';
 
 /**
  * PDF executivo de evolução — o agregado do fim de jornada, pelo recorte que o
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
     }
 
     const tdb = tenantDb(empresaId);
-    const empresaResult = await tdb.raw.from('empresas').select('nome').eq('id', empresaId).maybeSingle();
+    const empresaResult = await tdb.raw.from('empresas').select('nome, default_locale').eq('id', empresaId).maybeSingle();
     if (empresaResult.error) {
       // O supabase-js RETORNA `{ error }`. Sem checar, a falha viraria um PDF com
       // o nome da empresa em branco — e o documento circula assim.
@@ -72,6 +73,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'não foi possível ler a empresa' }, { status: 500 });
     }
     const empresaNome = empresaResult.data?.nome || '';
+    // O papel sai no idioma de quem baixa (colaboradores.locale, senão o da empresa, senão pt-BR).
+    const locale = await idiomaDoLeitor(auth, empresaId, { localeDaEmpresa: (empresaResult.data as any)?.default_locale ?? null });
 
     // Mesma régua de recorte da tela: turma de outro tenant ou encerrada cai
     // para a empresa inteira, e o PDF diz qual recorte saiu.
@@ -97,6 +100,7 @@ export async function GET(request: Request) {
         logoBase64: marca.logoBase64 || undefined,
         mostrarVertho: marca.mostrarVertho,
         recorte: recorte.turma?.nome || null,
+        locale,
       }) as any,
     );
 

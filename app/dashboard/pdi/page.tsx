@@ -178,6 +178,8 @@ function CompetencyBlock({ comp, idx, t }: { comp?: any; idx?: any; t: any }) {
 
 export default function PDIPage() {
   const t = useTranslations('Pdi');
+  // Erros do carregamento e do download chegam como CÓDIGO estável e são traduzidos aqui.
+  const tPdf = useTranslations('Pdf');
   const locale = useLocale();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -192,7 +194,7 @@ export default function PDIPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       const result = await loadPDI();
-      if (result.error) setError(result.error);
+      if (result.error) setError(result.codigo ? tPdf(`download.errors.${result.codigo}`) : result.error);
       else setData(result);
       setLoading(false);
     })();
@@ -205,7 +207,7 @@ export default function PDIPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       const r = await baixarMeuPdiPdf();
-      if (r.error) { setDownloadErr(r.error); return; }
+      if (r.error) { setDownloadErr(r.codigo ? tPdf(`download.errors.${r.codigo}`) : r.error); return; }
       // Download direto via signed URL (sem passar pelo server action)
       window.location.href = r.url;
     } catch (e) {

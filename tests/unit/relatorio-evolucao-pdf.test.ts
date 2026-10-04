@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { numeroNoPdf } from '@/lib/pdf-i18n';
 import {
   pct, comSinal, formatarNumeroRelatorio, paginarPessoas, selecionarMultiplicadores,
   montarRadaresPorCompetencia, paginarRadares, pontosRadar, paginarComportamentos,
@@ -19,6 +20,9 @@ import {
 } from '@/components/pdf/RelatorioEvolucao';
 
 const FONTE = readFileSync(join(__dirname, '..', '..', 'components', 'pdf', 'RelatorioEvolucao.tsx'), 'utf8');
+// Desde a onda D o texto fixo do papel mora no catálogo (`Pdf.evolucao`), nos quatro idiomas: as
+// afirmações abaixo são lidas de lá, e o código só pode apontar para a chave.
+const PT = JSON.parse(readFileSync(join(__dirname, '..', '..', 'messages', 'pt-BR.json'), 'utf8')).Pdf.evolucao;
 
 describe('escala da barra', () => {
   it('mapeia a régua de 1 a 4 no trilho inteiro', () => {
@@ -116,9 +120,10 @@ describe('separação editorial por cargo', () => {
   });
 
   it('identifica o cargo em todas as seções analíticas', () => {
-    expect(FONTE).toContain('<CabecalhoCargo recorte={cargo} />');
+    expect(FONTE).toContain('<CabecalhoCargo recorte={cargo} t={t} />');
     expect(FONTE).toContain('recortesCargo.flatMap');
-    expect(FONTE).toContain('<Text style={s.cargoEyebrow}>Cargo</Text>');
+    expect(FONTE).toContain("<Text style={s.cargoEyebrow}>{t('evolucao.role')}</Text>");
+    expect(PT.role).toBe('Cargo');
     expect(FONTE).not.toContain('Recorte por cargo');
   });
 
@@ -136,8 +141,10 @@ describe('separação editorial por cargo', () => {
 
 describe('as afirmações do papel vêm da comparação entre cenários', () => {
   it('deixa explícito que a pauta de conversas pertence ao cargo da página', () => {
-    expect(FONTE).toContain('Neste cargo, quem terminou uma competência com avanço 0,0');
-    expect(FONTE).not.toContain('Quem terminou uma competência sem avanço entre o cenário inicial e o final');
+    expect(FONTE).toContain("t('evolucao.conversationsFirstText', { zero: numeroNoPdf(0, idioma, 1) })");
+    expect(PT.conversationsFirstText).toContain('Neste cargo, quem terminou uma competência com avanço {zero}');
+    expect(numeroNoPdf(0, 'pt-BR', 1)).toBe('0,0');
+    expect(PT.conversationsFirstText).not.toContain('Quem terminou uma competência sem avanço entre o cenário inicial e o final');
   });
 
   it('não renderiza classificação de convergência ou sustentação', () => {
@@ -149,8 +156,9 @@ describe('as afirmações do papel vêm da comparação entre cenários', () => 
   });
 
   it('explica que evidências não alteram a medida externa', () => {
-    expect(FONTE).toContain('compara exclusivamente os resultados dos cenários inicial e final');
-    expect(FONTE).toContain('não alteram notas, avanços ou níveis deste relatório');
+    expect(FONTE).toContain("t('evolucao.readingRuleText')");
+    expect(PT.readingRuleText).toContain('compara exclusivamente os resultados dos cenários inicial e final');
+    expect(PT.readingRuleText).toContain('não alteram notas, avanços ou níveis deste relatório');
   });
 
   it('remove a página de método e seus detalhes técnicos', () => {
@@ -199,7 +207,8 @@ describe('chamada da tela do RH para o PDF executivo', () => {
   });
 
   it('anuncia os próximos passos, que o PDF de fato traz', () => {
-    expect(FONTE).toContain('Próximos passos');
+    expect(FONTE).toContain("t('evolucao.nextSteps')");
+    expect(PT.nextSteps).toBe('Próximos passos');
     expect(chamada('pt-BR')).toContain('próximos passos');
     expect(chamada('pt-PT')).toContain('próximos passos');
     expect(chamada('es-ES')).toContain('próximos pasos');

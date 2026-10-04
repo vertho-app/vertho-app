@@ -29,6 +29,10 @@ import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { nivelDaNota, rotuloNivel } from '@/lib/nivel-regua';
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import {
+  arredondarParaPdf, compararNomes, dataNoPdf, idiomaDoPdf, numeroNoPdf, tradutorDoPdf, type PdfT,
+} from '@/lib/pdf-i18n';
+import { CARGO_NAO_INFORMADO, semDadoNoPdf } from '@/lib/relatorios/rotulos-sem-dado';
 import type {
   EvolucaoCentro, EvolucaoAgregado, EvolucaoPessoa, EvolucaoRecorteCargo,
 } from '@/lib/relatorios/evolucao-center';
@@ -120,18 +124,17 @@ const TOM_METRICA = {
   neutro: { fg: colors.textPrimary, bg: colors.gray100, border: colors.gray200 },
 };
 
-/** Uma casa decimal, com arredondamento convencional; o dado-fonte segue em 2 casas. */
-export function formatarNumeroRelatorio(v: number, casas = 1): string {
-  const fator = 10 ** casas;
-  const limpo = Number((Number(v) || 0).toFixed(10));
-  return (Math.round(limpo * fator) / fator).toFixed(casas).replace('.', ',');
+/**
+ * Uma casa decimal, com arredondamento convencional; o dado-fonte segue em 2 casas.
+ * O separador decimal é o do idioma de quem lê (3,5 em pt e es; 3.5 em en); sem
+ * idioma, pt-BR, como sempre.
+ */
+export function formatarNumeroRelatorio(v: number, casas = 1, locale?: string | null): string {
+  return numeroNoPdf(v, locale, casas);
 }
-function num(v: number): string {
-  return formatarNumeroRelatorio(v);
-}
-export function comSinal(v: number): string {
-  const avanco = Number(formatarNumeroRelatorio(Math.max(0, Number(v) || 0)).replace(',', '.'));
-  return `${avanco > 0 ? '+' : ''}${num(avanco)}`;
+export function comSinal(v: number, locale?: string | null): string {
+  const avanco = arredondarParaPdf(Math.max(0, Number(v) || 0), 1);
+  return `${avanco > 0 ? '+' : ''}${numeroNoPdf(avanco, locale, 1)}`;
 }
 /** Posição de uma nota no trilho de 1 a 4, em porcentagem. */
 export function pct(nota: number): string {
@@ -144,22 +147,16 @@ export function pct(nota: number): string {
  * (R-32, 04/10/2026: o PDF imprimia "de 2,1 para 2,5" por competência e por
  * comportamento, e as colunas Antes e Depois com a nota de cada pessoa nomeada).
  */
-export function textoDosNiveis(pre: number, pos: number): string {
+export function textoDosNiveis(pre: number, pos: number, t: PdfT = tradutorDoPdf()): string {
   return pos > pre
-    ? `${rotuloNivel(pre, { forma: 'curto' })} para ${rotuloNivel(pos, { forma: 'curto' })}`
+    ? t('evolucao.levelUp', { from: rotuloNivel(pre, { forma: 'curto' }), to: rotuloNivel(pos, { forma: 'curto' }) })
     : rotuloNivel(pos, { forma: 'curto' });
 }
-function dataBr(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
 
-function PageFooter() {
+function PageFooter({ t }: { t: PdfT }) {
   return (
     <View style={pageStyles.footer} fixed>
-      <Text style={pageStyles.footerText}>{'Relatório de evolução · Confidencial'}</Text>
+      <Text style={pageStyles.footerText}>{t('evolucao.footer')}</Text>
       <Text style={pageStyles.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
   );
@@ -174,15 +171,15 @@ function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string 
   );
 }
 
-function CabecalhoCargo({ recorte }: { recorte: EvolucaoRecorteCargo }) {
+function CabecalhoCargo({ recorte, t }: { recorte: EvolucaoRecorteCargo; t: PdfT }) {
   return (
     <View style={s.cargoHead} wrap={false}>
       <View style={{ flex: 1, paddingRight: 12 }}>
-        <Text style={s.cargoEyebrow}>Cargo</Text>
-        <Text style={s.cargoNome}>{recorte.cargo}</Text>
+        <Text style={s.cargoEyebrow}>{t('evolucao.role')}</Text>
+        <Text style={s.cargoNome}>{semDadoNoPdf(recorte.cargo, t)}</Text>
       </View>
       <Text style={s.cargoContagem}>
-        {`${recorte.pessoasMedidas} ${recorte.pessoasMedidas === 1 ? 'pessoa medida' : 'pessoas medidas'}`}
+        {t('evolucao.peopleMeasured', { n: recorte.pessoasMedidas })}
       </Text>
     </View>
   );
@@ -229,26 +226,26 @@ function FaixasDaRegua({ item }: { item: EvolucaoAgregado }) {
  * em cinza, a de chegada em cyan. O trilho é a régua inteira de propósito — barra
  * normalizada pelo próprio valor faz um avanço de 0,1 parecer enorme.
  */
-function BarraEvolucao({ item }: { item: EvolucaoAgregado }) {
+function BarraEvolucao({ item, t, idioma }: { item: EvolucaoAgregado; t: PdfT; idioma: string }) {
   const positivo = item.delta > 0;
   const mudouNivel = item.nivelPos > item.nivelPre;
   return (
     <View style={s.compRow} wrap={false}>
       <View style={s.compHead}>
         <Text style={s.compName}>{item.chave}</Text>
-        <Text style={{ ...s.compDelta, color: positivo ? colors.green : colors.textMuted }}>{comSinal(item.delta)}</Text>
+        <Text style={{ ...s.compDelta, color: positivo ? colors.green : colors.textMuted }}>{comSinal(item.delta, idioma)}</Text>
       </View>
       <View style={s.compMetaLinha}>
         <Text style={s.compMeta}>
           {item.competencia ? `${item.competencia}  ·  ` : ''}
-          {item.n === 1 ? '1 pessoa' : `${item.n} pessoas`}
+          {t('evolucao.peopleCount', { n: item.n })}
         </Text>
         {mudouNivel ? (
           <View style={s.nivelMudou}>
-            <Text style={s.nivelMudouTexto}>{`Mudança de nível · N${item.nivelPre} para N${item.nivelPos}`}</Text>
+            <Text style={s.nivelMudouTexto}>{t('evolucao.levelChange', { from: rotuloNivel(item.nivelPre, { forma: 'curto' }), to: rotuloNivel(item.nivelPos, { forma: 'curto' }) })}</Text>
           </View>
         ) : (
-          <Text style={s.nivelManteve}>{`Nível N${item.nivelPos}`}</Text>
+          <Text style={s.nivelManteve}>{t('evolucao.levelCurrent', { level: rotuloNivel(item.nivelPos, { forma: 'curto' }) })}</Text>
         )}
       </View>
 
@@ -347,13 +344,14 @@ export type CompetenciaRadar = {
 export function montarRadaresPorCompetencia(
   porCompetencia: EvolucaoAgregado[],
   porDescritor: EvolucaoAgregado[],
+  locale: string | null = 'pt-BR',
 ): CompetenciaRadar[] {
   return porCompetencia.map((competencia) => ({
     competencia,
     descritores: porDescritor
       .filter((descritor) => descritor.competencia === competencia.chave)
       .slice()
-      .sort((a, b) => descritorParaHumano(a.chave).localeCompare(descritorParaHumano(b.chave), 'pt-BR')),
+      .sort((a, b) => compararNomes(descritorParaHumano(a.chave), descritorParaHumano(b.chave), locale)),
   })).filter((item) => item.descritores.length > 0);
 }
 
@@ -375,7 +373,7 @@ export function pontosRadar(valores: number[], centro = 90, raio = 68): string {
   return valores.map((valor, indice) => pontoRadar(valor, indice, valores.length, centro, raio).join(',')).join(' ');
 }
 
-function RadarCompetencia({ item }: { item: CompetenciaRadar }) {
+function RadarCompetencia({ item, t, idioma }: { item: CompetenciaRadar; t: PdfT; idioma: string }) {
   const { competencia, descritores } = item;
   const total = descritores.length;
   const valoresAntes = descritores.map((descritor) => descritor.mediaPre);
@@ -386,13 +384,13 @@ function RadarCompetencia({ item }: { item: CompetenciaRadar }) {
     <View style={s.radarCard} wrap={false}>
       <Text style={s.radarTitle}>{competencia.chave}</Text>
       <Text style={s.radarSub}>
-        {`${competencia.n === 1 ? '1 pessoa' : `${competencia.n} pessoas`} · ${textoDosNiveis(competencia.nivelPre, competencia.nivelPos)} · avanço ${comSinal(competencia.delta)}`}
+        {`${t('evolucao.peopleCount', { n: competencia.n })} · ${textoDosNiveis(competencia.nivelPre, competencia.nivelPos, t)} · ${t('evolucao.progressValue', { value: comSinal(competencia.delta, idioma) })}`}
       </Text>
       <View style={s.radarLegenda}>
         <View style={{ ...s.legendaPonto, backgroundColor: colors.gray400 }} />
-        <Text style={s.legendaTexto}>Diagnóstico inicial</Text>
+        <Text style={s.legendaTexto}>{t('evolucao.initialDiagnosis')}</Text>
         <View style={{ ...s.legendaPonto, backgroundColor: colors.cyan }} />
-        <Text style={s.legendaTexto}>Fechamento da jornada</Text>
+        <Text style={s.legendaTexto}>{t('evolucao.journeyClosing')}</Text>
       </View>
 
       {total >= 3 ? (
@@ -446,7 +444,7 @@ function RadarCompetencia({ item }: { item: CompetenciaRadar }) {
                 <View style={{ flex: 1 }}>
                   <Text style={s.radarDescritor}>{descritorParaHumano(eixo.chave)}</Text>
                   <Text style={s.radarValores}>
-                    {`${textoDosNiveis(eixo.nivelPre, eixo.nivelPos)} · avanço ${comSinal(eixo.delta)}`}
+                    {`${textoDosNiveis(eixo.nivelPre, eixo.nivelPos, t)} · ${t('evolucao.progressValue', { value: comSinal(eixo.delta, idioma) })}`}
                   </Text>
                 </View>
               </View>
@@ -456,14 +454,14 @@ function RadarCompetencia({ item }: { item: CompetenciaRadar }) {
       ) : (
         <View>
           <Text style={s.radarAviso}>
-            {'Esta competência tem menos de três descritores medidos; por isso a evolução aparece em linhas, sem formar um polígono artificial.'}
+            {t('evolucao.radarFewDescriptors')}
           </Text>
           {descritores.map((eixo, indice) => (
             <View key={`${competencia.chave}::${eixo.chave}`} style={s.radarLinha}>
               <View style={s.radarNumero}><Text style={s.radarNumeroTexto}>{indice + 1}</Text></View>
               <View style={{ flex: 1 }}>
                 <Text style={s.radarDescritor}>{descritorParaHumano(eixo.chave)}</Text>
-                <Text style={s.radarValores}>{`${textoDosNiveis(eixo.nivelPre, eixo.nivelPos)} · avanço ${comSinal(eixo.delta)}`}</Text>
+                <Text style={s.radarValores}>{`${textoDosNiveis(eixo.nivelPre, eixo.nivelPos, t)} · ${t('evolucao.progressValue', { value: comSinal(eixo.delta, idioma) })}`}</Text>
               </View>
             </View>
           ))}
@@ -478,26 +476,26 @@ export function selecionarMultiplicadores(pessoas: EvolucaoPessoa[], limite = 3)
   return pessoas.filter((p) => nivelDaNota(p.mediaPos) === 4).slice(0, limite);
 }
 
-function TabelaPessoas({ pessoas }: { pessoas: EvolucaoPessoa[] }) {
+function TabelaPessoas({ pessoas, t, idioma }: { pessoas: EvolucaoPessoa[]; t: PdfT; idioma: string }) {
   return (
     <>
       <View style={s.th}>
-        <Text style={{ ...s.thText, flex: 2.6, paddingRight: 7 }}>Pessoa</Text>
-        <Text style={{ ...s.thText, flex: 1.5, paddingRight: 7 }}>Cargo</Text>
-        <Text style={{ ...s.thText, flex: 2.3, paddingRight: 7 }}>Competência</Text>
-        <Text style={{ ...s.thText, width: 50, textAlign: 'center' }}>Partida</Text>
-        <Text style={{ ...s.thText, width: 50, textAlign: 'center' }}>Chegada</Text>
-        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Avanço</Text>
+        <Text style={{ ...s.thText, flex: 2.6, paddingRight: 7 }}>{t('evolucao.person')}</Text>
+        <Text style={{ ...s.thText, flex: 1.5, paddingRight: 7 }}>{t('evolucao.role')}</Text>
+        <Text style={{ ...s.thText, flex: 2.3, paddingRight: 7 }}>{t('evolucao.competency')}</Text>
+        <Text style={{ ...s.thText, width: 50, textAlign: 'center' }}>{t('evolucao.start')}</Text>
+        <Text style={{ ...s.thText, width: 50, textAlign: 'center' }}>{t('evolucao.arrival')}</Text>
+        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>{t('evolucao.progress')}</Text>
       </View>
       {pessoas.map((p, i) => (
         <View key={`${p.colaboradorId}::${p.competencia}::${p.concluidoEm || i}`} style={i % 2 ? s.trAlt : s.tr} wrap={false}>
           <Text style={{ ...s.tdStrong, flex: 2.6, paddingRight: 7 }}>{p.nome}</Text>
-          <Text style={{ ...s.td, flex: 1.5, paddingRight: 7 }}>{p.cargo || '—'}</Text>
+          <Text style={{ ...s.td, flex: 1.5, paddingRight: 7 }}>{semDadoNoPdf(p.cargo, t) || '\u2014'}</Text>
           <Text style={{ ...s.td, flex: 2.3, fontSize: 7.5, paddingRight: 7 }}>{p.competencia || '—'}</Text>
           <Text style={{ ...s.td, width: 50, textAlign: 'center' }}>{rotuloNivel(p.nivelPre, { forma: 'curto' })}</Text>
           <Text style={{ ...s.td, width: 50, textAlign: 'center' }}>{rotuloNivel(p.nivelPos, { forma: 'curto' })}</Text>
           <Text style={{ ...s.tdStrong, width: 46, textAlign: 'center', color: p.delta > 0 ? colors.green : colors.textMuted }}>
-            {comSinal(p.delta)}
+            {comSinal(p.delta, idioma)}
           </Text>
         </View>
       ))}
@@ -505,16 +503,16 @@ function TabelaPessoas({ pessoas }: { pessoas: EvolucaoPessoa[] }) {
   );
 }
 
-function TabelaComportamentos({ comportamentos }: { comportamentos: EvolucaoAgregado[] }) {
+function TabelaComportamentos({ comportamentos, t, idioma }: { comportamentos: EvolucaoAgregado[]; t: PdfT; idioma: string }) {
   return (
     <>
       <View style={s.th}>
-        <Text style={{ ...s.thText, flex: 3, paddingRight: 8 }}>Comportamento</Text>
-        <Text style={{ ...s.thText, flex: 2.4 }}>Competência</Text>
-        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Pessoas</Text>
-        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Partida</Text>
-        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Chegada</Text>
-        <Text style={{ ...s.thText, width: 40, textAlign: 'center' }}>Avanço</Text>
+        <Text style={{ ...s.thText, flex: 3, paddingRight: 8 }}>{t('evolucao.behavior')}</Text>
+        <Text style={{ ...s.thText, flex: 2.4 }}>{t('evolucao.competency')}</Text>
+        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>{t('evolucao.people')}</Text>
+        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>{t('evolucao.start')}</Text>
+        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>{t('evolucao.arrival')}</Text>
+        <Text style={{ ...s.thText, width: 40, textAlign: 'center' }}>{t('evolucao.progress')}</Text>
       </View>
       {comportamentos.map((d, i) => (
         <View key={`${d.competencia} :: ${d.chave}`} style={i % 2 ? s.trAlt : s.tr} wrap={false}>
@@ -524,7 +522,7 @@ function TabelaComportamentos({ comportamentos }: { comportamentos: EvolucaoAgre
           <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{rotuloNivel(d.nivelPre, { forma: 'curto' })}</Text>
           <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{rotuloNivel(d.nivelPos, { forma: 'curto' })}</Text>
           <Text style={{ ...s.tdStrong, width: 40, textAlign: 'center', color: d.delta > 0 ? colors.green : colors.textMuted }}>
-            {comSinal(d.delta)}
+            {comSinal(d.delta, idioma)}
           </Text>
         </View>
       ))}
@@ -533,7 +531,7 @@ function TabelaComportamentos({ comportamentos }: { comportamentos: EvolucaoAgre
 }
 
 export default function RelatorioEvolucaoPDF({
-  data, empresaNome, logoBase64, mostrarVertho = true, recorte,
+  data, empresaNome, logoBase64, mostrarVertho = true, recorte, locale,
 }: {
   data: EvolucaoCentro;
   empresaNome?: string;
@@ -541,15 +539,19 @@ export default function RelatorioEvolucaoPDF({
   mostrarVertho?: boolean;
   /** Nome da turma/recorte, quando o RH filtrou a central antes de exportar. */
   recorte?: string | null;
+  /** Idioma do texto fixo, dos números e das datas do papel: o de quem baixa (`lib/pdf-locale.ts`). Sem ele, pt-BR. */
+  locale?: string | null;
 }) {
+  const t = tradutorDoPdf(locale);
+  const idioma = idiomaDoPdf(locale);
   const { cobertura, resumo, porCompetencia, porDescritor, pessoas, proximasAcoes } = data;
-  const label = 'Evolução da jornada';
+  const label = t('evolucao.headerLabel');
   const ultimaMedicao = pessoas.map((p) => p.concluidoEm).filter(Boolean).sort().reverse()[0] || null;
   // Compatibilidade com payloads materializados antes da separação por cargo.
   // A produção já recebe `porCargo` do agregador; o fallback evita que um PDF
   // histórico deixe de abrir e o identifica como um único recorte explícito.
   const recortesCargo: EvolucaoRecorteCargo[] = data.porCargo?.length ? data.porCargo : [{
-    cargo: recorte || 'Cargo não informado',
+    cargo: recorte || CARGO_NAO_INFORMADO,
     pessoasMedidas: cobertura.medidos,
     porCompetencia,
     porDescritor,
@@ -561,12 +563,13 @@ export default function RelatorioEvolucaoPDF({
     <PdfReportCover
       bgBase64={getReportCoverBgBase64()}
       logoBase64={logoBase64}
-      overline={'Relatório executivo · Fim de jornada'}
-      titulo={['Evolução', 'da Jornada']}
+      overline={t('evolucao.coverOverline')}
+      titulo={[t('evolucao.coverTitle1'), t('evolucao.coverTitle2')]}
       nome={empresaNome}
       cargo={recorte || undefined}
-      tagline={'O que mudou entre o cenário inicial e o cenário final.'}
+      tagline={t('evolucao.tagline')}
       mostrarVertho={mostrarVertho}
+      locale={idioma}
     />
   );
 
@@ -578,20 +581,18 @@ export default function RelatorioEvolucaoPDF({
         {capa}
         <Page size="A4" style={pageStyles.page} wrap>
           <PageHeader logoBase64={logoBase64} label={label} />
-          <ReportSectionTitle>Ainda não há evolução medida</ReportSectionTitle>
+          <ReportSectionTitle>{t('evolucao.emptyTitle')}</ReportSectionTitle>
           <View style={s.vazio}>
             <Text style={s.pStrong}>
-              {data.indisponivel
-                ? 'Não foi possível ler os dados de evolução neste momento. Isto é uma falha de leitura nossa, não um resultado do programa. Nenhuma conclusão deve ser tirada desta página.'
-                : 'A medição de evolução nasce no fechamento da jornada, quando o cenário final é avaliado e comparado com o diagnóstico inicial. Nenhum participante deste recorte chegou a esse ponto ainda.'}
+              {data.indisponivel ? t('evolucao.emptyUnavailable') : t('evolucao.emptyNotYet')}
             </Text>
             {!data.indisponivel && (
               <Text style={s.p}>
-                {`Participantes no recorte: ${cobertura.participantes}. Em jornada agora: ${cobertura.emJornada}. Com fechamento concluído: ${cobertura.medidos}.`}
+                {t('evolucao.emptyCounts', { participants: cobertura.participantes, inJourney: cobertura.emJornada, closed: cobertura.medidos })}
               </Text>
             )}
           </View>
-          <PageFooter />
+          <PageFooter t={t} />
         </Page>
       </Document>
     );
@@ -606,21 +607,19 @@ export default function RelatorioEvolucaoPDF({
         <PageHeader logoBase64={logoBase64} label={label} />
 
         <View style={s.section}>
-          <ReportSectionTitle>Onde a jornada chegou</ReportSectionTitle>
+          <ReportSectionTitle>{t('evolucao.whereJourneyArrived')}</ReportSectionTitle>
           <Text style={s.pStrong}>
-            {`${cobertura.medidos} ${cobertura.medidos === 1 ? 'pessoa concluiu' : 'pessoas concluíram'} a jornada e ${cobertura.medidos === 1 ? 'tem' : 'têm'} evolução medida`}
-            {cobertura.participantes ? `, de ${cobertura.participantes} no recorte (${cobertura.percentual}%).` : '.'}
-            {cobertura.emJornada ? ` Outras ${cobertura.emJornada} seguem em jornada e serão medidas no fechamento delas.` : ''}
+            {t('evolucao.coverageLine', { n: cobertura.medidos, hasTotal: cobertura.participantes ? 'yes' : 'no', total: cobertura.participantes, percent: `${cobertura.percentual}%` })}
+            {cobertura.emJornada ? ` ${t('evolucao.othersInJourney', { n: cobertura.emJornada })}` : ''}
           </Text>
           <Text style={s.p}>
-            {`A leitura abaixo vem de ${resumo.descritoresMedidos} ${resumo.descritoresMedidos === 1 ? 'avaliação' : 'avaliações'} de comportamento, em ${porDescritor.length} ${porDescritor.length === 1 ? 'comportamento distinto' : 'comportamentos distintos'}`}
-            {ultimaMedicao ? `, com a medição mais recente em ${dataBr(ultimaMedicao)}.` : '.'}
-            {` O avanço médio por competência medida foi de ${comSinal(resumo.deltaMedio)}.`}
+            {t('evolucao.readingFrom', { assessments: resumo.descritoresMedidos, behaviors: porDescritor.length, hasDate: ultimaMedicao ? 'yes' : 'no', date: dataNoPdf(ultimaMedicao, idioma) })}
+            {` ${t('evolucao.averageProgress', { value: comSinal(resumo.deltaMedio, idioma) })}`}
           </Text>
           <View style={s.boxAccent} wrap={false}>
-            <Text style={s.pStrong}>Regra de leitura</Text>
+            <Text style={s.pStrong}>{t('evolucao.readingRule')}</Text>
             <Text style={s.p}>
-              {'A evolução compara exclusivamente os resultados dos cenários inicial e final. As evidências continuam fazendo parte da jornada, mas não alteram notas, avanços ou níveis deste relatório.'}
+              {t('evolucao.readingRuleText')}
             </Text>
           </View>
         </View>
@@ -628,38 +627,38 @@ export default function RelatorioEvolucaoPDF({
         <View style={s.section}>
           <View style={s.cards}>
             <CartaoMetrica
-              n={cobertura.medidos} label="Pessoas medidas" tom="ciano"
-              hint="Com cenário inicial e final concluídos."
+              n={cobertura.medidos} label={t('evolucao.cardPeopleMeasured')} tom="ciano"
+              hint={t('evolucao.cardPeopleMeasuredHint')}
             />
             <CartaoMetrica
-              n={recortesCargo.length} label="Cargos" tom="neutro"
-              hint="Analisados separadamente neste relatório."
+              n={recortesCargo.length} label={t('evolucao.cardRoles')} tom="neutro"
+              hint={t('evolucao.cardRolesHint')}
             />
             <CartaoMetrica
-              n={porCompetencia.length} label="Competências" tom="verde" ultimo
-              hint="Comparadas pela mesma régua de quatro níveis."
+              n={porCompetencia.length} label={t('evolucao.cardCompetencies')} tom="verde" ultimo
+              hint={t('evolucao.cardCompetenciesHint')}
             />
           </View>
         </View>
 
         <View style={s.section}>
-          <ReportSectionTitle>Recortes deste relatório</ReportSectionTitle>
+          <ReportSectionTitle>{t('evolucao.cutsTitle')}</ReportSectionTitle>
           <Text style={s.p}>
-            {`Os resultados das próximas páginas estão separados em ${recortesCargo.length} ${recortesCargo.length === 1 ? 'cargo' : 'cargos'}. Nenhuma média de competência ou comportamento mistura funções diferentes.`}
+            {t('evolucao.cutsIntro', { n: recortesCargo.length })}
           </Text>
           <View style={s.cargoResumo}>
             {recortesCargo.map((cargo) => (
               <View key={cargo.cargo} style={s.cargoResumoItem} wrap={false}>
-                <Text style={s.cargoResumoNome}>{cargo.cargo}</Text>
+                <Text style={s.cargoResumoNome}>{semDadoNoPdf(cargo.cargo, t)}</Text>
                 <Text style={s.cargoResumoMeta}>
-                  {`${cargo.pessoasMedidas} ${cargo.pessoasMedidas === 1 ? 'pessoa medida' : 'pessoas medidas'} · ${cargo.porCompetencia.length} ${cargo.porCompetencia.length === 1 ? 'competência' : 'competências'}`}
+                  {`${t('evolucao.peopleMeasured', { n: cargo.pessoasMedidas })} · ${t('evolucao.competencyCount', { n: cargo.porCompetencia.length })}`}
                 </Text>
               </View>
             ))}
           </View>
         </View>
 
-        <PageFooter />
+        <PageFooter t={t} />
       </Page>
 
       {/* ───────────────── 2. Avanço por cargo ───────────────── */}
@@ -667,43 +666,43 @@ export default function RelatorioEvolucaoPDF({
         <Page key={`avanco-${pagina}`} size="A4" style={pageStyles.page} wrap={false}>
           <PageHeader logoBase64={logoBase64} label={label} />
           <View style={s.section}>
-            <ReportSectionTitle>{pagina === 0 ? 'Onde o grupo mais avançou' : 'Onde o grupo mais avançou · continuação'}</ReportSectionTitle>
+            <ReportSectionTitle>{pagina === 0 ? t('evolucao.mostAdvanced') : t('evolucao.mostAdvancedContinued')}</ReportSectionTitle>
             <View style={s.legenda}>
               <View style={{ ...s.legendaPonto, backgroundColor: colors.gray400 }} />
-              <Text style={s.legendaTexto}>No diagnóstico inicial</Text>
+              <Text style={s.legendaTexto}>{t('evolucao.atInitialDiagnosis')}</Text>
               <View style={{ ...s.legendaPonto, backgroundColor: colors.cyan }} />
-              <Text style={s.legendaTexto}>No fechamento da jornada</Text>
+              <Text style={s.legendaTexto}>{t('evolucao.atJourneyClosing')}</Text>
             </View>
             {grupoCargos.map((cargo) => (
               <View key={cargo.cargo} style={{ marginBottom: 9 }} wrap={false}>
-                <CabecalhoCargo recorte={cargo} />
+                <CabecalhoCargo recorte={cargo} t={t} />
                 {cargo.porCompetencia.slice(0, 6).map((competencia) => (
-                  <BarraEvolucao key={competencia.chave} item={competencia} />
+                  <BarraEvolucao key={competencia.chave} item={competencia} t={t} idioma={idioma} />
                 ))}
               </View>
             ))}
           </View>
-          <PageFooter />
+          <PageFooter t={t} />
         </Page>
       ))}
 
       {/* ───────────────── 3. Radares por cargo e competência ───────────────── */}
       {recortesCargo.flatMap((cargo) => {
-        const paginas = paginarRadares(montarRadaresPorCompetencia(cargo.porCompetencia, cargo.porDescritor));
+        const paginas = paginarRadares(montarRadaresPorCompetencia(cargo.porCompetencia, cargo.porDescritor, idioma));
         return paginas.map((grupo, pagina) => (
           <Page key={`radares-${cargo.cargo}-${pagina}`} size="A4" style={pageStyles.page} wrap={false}>
             <PageHeader logoBase64={logoBase64} label={label} />
             <View style={s.section}>
-              <ReportSectionTitle>{pagina === 0 ? 'Evolução dos descritores por competência' : 'Evolução dos descritores · continuação'}</ReportSectionTitle>
-              <CabecalhoCargo recorte={cargo} />
+              <ReportSectionTitle>{pagina === 0 ? t('evolucao.radarsTitle') : t('evolucao.radarsTitleContinued')}</ReportSectionTitle>
+              <CabecalhoCargo recorte={cargo} t={t} />
               {pagina === 0 && (
                 <Text style={s.p}>
-                  {'Cada radar mostra uma competência isoladamente. Os eixos são seus descritores; quanto mais distante do centro, maior o nível na régua de 1 a 4. A área cinza é o diagnóstico e a área ciano é o fechamento.'}
+                  {t('evolucao.radarsIntro')}
                 </Text>
               )}
-              {grupo.map((item) => <RadarCompetencia key={item.competencia.chave} item={item} />)}
+              {grupo.map((item) => <RadarCompetencia key={item.competencia.chave} item={item} t={t} idioma={idioma} />)}
             </View>
-            <PageFooter />
+            <PageFooter t={t} />
           </Page>
         ));
       })}
@@ -715,16 +714,16 @@ export default function RelatorioEvolucaoPDF({
           <Page key={`comportamentos-${cargo.cargo}-${pagina}`} size="A4" style={pageStyles.page} wrap={false}>
             <PageHeader logoBase64={logoBase64} label={label} />
             <View style={s.section}>
-              <ReportSectionTitle>{pagina === 0 ? 'Comportamento por comportamento' : 'Comportamentos · continuação'}</ReportSectionTitle>
-              <CabecalhoCargo recorte={cargo} />
+              <ReportSectionTitle>{pagina === 0 ? t('evolucao.behaviorByBehavior') : t('evolucao.behaviorsContinued')}</ReportSectionTitle>
+              <CabecalhoCargo recorte={cargo} t={t} />
               {pagina === 0 && (
                 <Text style={s.p}>
-                  {'A competência é o título; o que se observa é o comportamento. Esta lista usa somente as pessoas deste cargo.'}
+                  {t('evolucao.behaviorsIntro')}
                 </Text>
               )}
-              <TabelaComportamentos comportamentos={grupo} />
+              <TabelaComportamentos comportamentos={grupo} t={t} idioma={idioma} />
             </View>
-            <PageFooter />
+            <PageFooter t={t} />
           </Page>
         ));
       })}
@@ -736,16 +735,16 @@ export default function RelatorioEvolucaoPDF({
           <Page key={`pessoas-${cargo.cargo}-${pagina}`} size="A4" style={pageStyles.page} wrap={false}>
             <PageHeader logoBase64={logoBase64} label={label} />
             <View style={s.section}>
-              <ReportSectionTitle>{pagina === 0 ? 'Pessoa por pessoa' : 'Pessoa por pessoa · continuação'}</ReportSectionTitle>
-              <CabecalhoCargo recorte={cargo} />
+              <ReportSectionTitle>{pagina === 0 ? t('evolucao.personByPerson') : t('evolucao.personByPersonContinued')}</ReportSectionTitle>
+              <CabecalhoCargo recorte={cargo} t={t} />
               {pagina === 0 && (
                 <Text style={s.p}>
-                  {'Cada linha mostra uma pessoa em uma competência. Competências diferentes nunca são somadas ou mediadas.'}
+                  {t('evolucao.peopleIntro')}
                 </Text>
               )}
-              <TabelaPessoas pessoas={grupo} />
+              <TabelaPessoas pessoas={grupo} t={t} idioma={idioma} />
             </View>
-            <PageFooter />
+            <PageFooter t={t} />
           </Page>
         ));
       })}
@@ -757,20 +756,20 @@ export default function RelatorioEvolucaoPDF({
           <Page key={`proximos-${cargo.cargo}`} size="A4" style={pageStyles.page} wrap>
             <PageHeader logoBase64={logoBase64} label={label} />
             <View style={s.section}>
-              <ReportSectionTitle>Próximos passos</ReportSectionTitle>
-              <CabecalhoCargo recorte={cargo} />
+              <ReportSectionTitle>{t('evolucao.nextSteps')}</ReportSectionTitle>
+              <CabecalhoCargo recorte={cargo} t={t} />
             </View>
 
             {cargo.proximasAcoes.proximoCiclo.length > 0 && (
               <View style={s.section}>
-                <Text style={s.h3}>Candidatos à próxima jornada</Text>
+                <Text style={s.h3}>{t('evolucao.nextJourneyCandidates')}</Text>
                 <View style={s.boxAccent}>
                   <Text style={s.p}>
-                    {'As competências em que este cargo menos avançou. Os comportamentos da seção anterior ajudam a definir a abordagem dentro de cada competência.'}
+                    {t('evolucao.nextJourneyCandidatesText')}
                   </Text>
                   {cargo.proximasAcoes.proximoCiclo.map((d) => (
                     <Text key={d.chave} style={s.pStrong}>
-                      {`• ${d.chave}: ${d.n === 1 ? '1 pessoa' : `${d.n} pessoas`}, avanço de ${comSinal(d.delta)}`}
+                      {`• ${d.chave}: ${t('evolucao.peopleCount', { n: d.n })}, ${t('evolucao.progressOf', { value: comSinal(d.delta, idioma) })}`}
                     </Text>
                   ))}
                 </View>
@@ -779,16 +778,16 @@ export default function RelatorioEvolucaoPDF({
 
             {cargo.proximasAcoes.precisamApoio.length > 0 && (
               <View style={s.section}>
-                <Text style={s.h3}>Conversas a ter primeiro</Text>
+                <Text style={s.h3}>{t('evolucao.conversationsFirst')}</Text>
                 <View style={s.box}>
                   <Text style={s.p}>
-                    {'Neste cargo, quem terminou uma competência com avanço 0,0 entre o cenário inicial e o final. Não é uma lista de problema: é onde uma conversa de gestor pode mudar mais o próximo ciclo.'}
+                    {t('evolucao.conversationsFirstText', { zero: numeroNoPdf(0, idioma, 1) })}
                   </Text>
                   {cargo.proximasAcoes.precisamApoio.slice(0, 6).map((p, i) => (
                     <Text key={`${p.colaboradorId}::${p.competencia}::${i}`} style={s.pStrong}>
                       {`• ${p.nome}`}
                       {p.competencia ? ` · ${p.competencia}` : ''}
-                      {p.proximoPasso ? `. Próximo passo sugerido: ${p.proximoPasso}` : ''}
+                      {p.proximoPasso ? `. ${t('evolucao.suggestedNextStep', { step: p.proximoPasso })}` : ''}
                     </Text>
                   ))}
                 </View>
@@ -797,15 +796,15 @@ export default function RelatorioEvolucaoPDF({
 
             {multiplicadores.length > 0 && (
               <View style={s.section}>
-                <Text style={s.h3}>Quem pode multiplicar</Text>
+                <Text style={s.h3}>{t('evolucao.whoCanMultiply')}</Text>
                 <View style={s.box}>
                   <Text style={s.p}>
-                    {'Pessoas deste cargo que encerraram uma competência no N4, o nível de referência.'}
+                    {t('evolucao.whoCanMultiplyText')}
                   </Text>
                   {multiplicadores.map((p, i) => (
                     <View key={`${p.colaboradorId}::${p.competencia}::${i}`} style={{ marginBottom: 6 }}>
                       <Text style={s.pStrong}>
-                        {`• ${p.nome}: N4 em ${p.competencia || 'competência da jornada'}, avanço de ${comSinal(p.delta)}`}
+                        {`• ${p.nome}: ${t('evolucao.levelFourIn', { competency: p.competencia || t('evolucao.journeyCompetency') })}, ${t('evolucao.progressOf', { value: comSinal(p.delta, idioma) })}`}
                       </Text>
                       {p.insight ? <Text style={{ ...s.caption, marginLeft: 10 }}>{p.insight}</Text> : null}
                     </View>
@@ -814,7 +813,7 @@ export default function RelatorioEvolucaoPDF({
               </View>
             )}
 
-            <PageFooter />
+            <PageFooter t={t} />
           </Page>
         );
       })}

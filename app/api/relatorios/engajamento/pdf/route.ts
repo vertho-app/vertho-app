@@ -10,6 +10,8 @@ import { traduzirEngajamento } from '@/lib/engajamento/relatorio-traducao';
 import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 import RelatorioEngajamentoPDF from '@/components/pdf/RelatorioEngajamento';
 import { engagementLinks, appendEngagementQuery } from '@/lib/engajamento/surface';
+import { idiomaDoLeitor } from '@/lib/pdf-locale';
+import { dataNoPdf } from '@/lib/pdf-i18n';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -40,7 +42,7 @@ export async function GET(request: Request) {
   }
   try {
     const tdb = tenantDb(empresaId);
-    const empresa = await tdb.raw.from('empresas').select('nome, slug').eq('id', empresaId).maybeSingle();
+    const empresa = await tdb.raw.from('empresas').select('nome, slug, default_locale').eq('id', empresaId).maybeSingle();
     if (empresa.error) throw new Error(empresa.error.message);
     if (!empresa.data) return NextResponse.json({ error: 'Empresa não encontrada.' }, { status: 404 });
 
@@ -50,16 +52,17 @@ export async function GET(request: Request) {
     // Consulta com erro não pode virar um PDF com indicadores zerados.
     if (!evolution.ok) throw new Error('error' in evolution ? evolution.error : 'Evolução indisponível.');
     if (rollup.resumo && 'erro' in rollup.resumo && rollup.resumo.erro) throw new Error(String(rollup.resumo.erro));
-    // O texto do relatório sai no idioma do tradutor. O idioma do PDF é decidido
-    // fora desta rota; enquanto isso segue em pt-BR, como saía antes do R-67.
-    const { t, locale } = await traduzirEngajamento('pt-BR');
+    // O papel sai no idioma de quem baixa (colaboradores.locale, senão o da empresa, senão pt-BR).
+    // O texto do modelo vem do tradutor do Engajamento, o mesmo da tela.
+    const idioma = await idiomaDoLeitor(auth, empresaId, { localeDaEmpresa: empresa.data.default_locale ?? null });
+    const { t, locale } = await traduzirEngajamento(idioma);
     const views = buildViews({ empresaNome: empresa.data.nome, rollup, evolucao: evolution.data, t, locale });
     if (!views) return NextResponse.json({ error: 'Sem dados para gerar o relatório.' }, { status: 422 });
     const semana = evolution.data.semanas.at(-1)?.semana || evolution.data.semanaAtual || 0;
     const buffer = await renderToBuffer(React.createElement(RelatorioEngajamentoPDF, {
       data: views[publico], empresaNome: empresa.data.nome, semana, inscritos: evolution.data.inscritos,
-      geradoEm: new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-      logoBase64: marca.logoBase64, mostrarVertho: marca.mostrarVertho,
+      geradoEm: dataNoPdf(new Date(), locale),
+      logoBase64: marca.logoBase64, mostrarVertho: marca.mostrarVertho, locale,
       detailUrl: origin + appendEngagementQuery(engagementLinks(empresaId, surface).dashboard, 'view', 'evolucao'),
     }) as any);
     const slug = String(empresa.data.slug || empresaId).replace(/[^a-z0-9-]/gi, '-');

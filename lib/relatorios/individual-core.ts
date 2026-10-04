@@ -7,6 +7,8 @@ import { buildRelatorioIndividualPrompt, normKey } from '@/lib/relatorio-individ
 import { renderToBuffer } from '@react-pdf/renderer';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import { storageSlug } from '@/lib/storage-slug';
+import { caminhoDoPdf, idiomaDaPessoa } from '@/lib/pdf-locale';
+import type { AppLocale } from '@/i18n/routing';
 import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -42,6 +44,7 @@ async function gerarPDFBuffer(
   tipo: RelatorioTipo,
   data: unknown,
   empresaNome: string,
+  locale: AppLocale,
 ): Promise<Buffer | null> {
   let Component: React.ComponentType<any> | undefined;
   if (tipo === 'individual') {
@@ -56,7 +59,7 @@ async function gerarPDFBuffer(
   }
   if (!Component) return null;
   const logoBase64 = getLogoCoverBase64();
-  return renderToBuffer(React.createElement(Component, { data, empresaNome, logoBase64 }));
+  return renderToBuffer(React.createElement(Component, { data, empresaNome, logoBase64, locale }));
 }
 
 async function salvarPDFStorage(
@@ -65,9 +68,11 @@ async function salvarPDFStorage(
   tipo: RelatorioTipo,
   colaboradorNome: string,
   buffer: Buffer,
+  locale: AppLocale,
 ): Promise<string | null> {
   const slug = storageSlug(colaboradorNome, tipo);
-  const path = `${empresaId}/${tipo}-${slug}-${Date.now()}.pdf`;
+  // O idioma do PDF vai no nome do arquivo (`lib/pdf-locale.ts`): é como o download sabe em que idioma ele nasceu.
+  const path = caminhoDoPdf(empresaId, tipo, slug, locale);
   const { error } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
     contentType: 'application/pdf',
     upsert: true,
@@ -301,12 +306,14 @@ export async function persistRelatorioIndividualFromText(
       console.warn(`[pdi_check] ${colaboradorId?.slice(0, 8)}: ${relatorio.auditoria.resumo}`);
     }
 
-    // Gerar PDF
+    // Gerar PDF. O texto fixo do papel sai no idioma da PESSOA do PDI (colaboradores.locale,
+    // senão o da empresa, senão pt-BR); o que a IA escreveu fica no idioma em que foi gerado.
     let pdfPath: string | null = null;
     try {
+      const locale = await idiomaDaPessoa(empresaId, colaboradorId);
       const pdfData = { conteudo: relatorio, colaborador_nome: colab.nome_completo, colaborador_cargo: colab.cargo, gerado_em: new Date().toISOString() };
-      const buffer = await gerarPDFBuffer('individual', pdfData, empresa.nome);
-      if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'individual', colab.nome_completo, buffer);
+      const buffer = await gerarPDFBuffer('individual', pdfData, empresa.nome, locale);
+      if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'individual', colab.nome_completo, buffer, locale);
     } catch (e: any) { console.error('[PDF Gen]', e.message); }
 
     // Salvar — empresa_id é injetado pelo tdb.upsert

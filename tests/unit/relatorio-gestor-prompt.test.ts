@@ -193,8 +193,13 @@ describe('PDF do relatório do gestor', () => {
     const fonte = readFileSync('components/pdf/RelatorioGestor.tsx', 'utf8');
     // Nenhum vermelho no bloco das pessoas nomeadas (o cabeçalho "Esta Semana" do
     // plano de ação é de outra seção e segue como está).
+    // O título da seção agora é a chave do catálogo (onda D); a âncora tem que existir, senão o
+    // `slice(-1, ...)` devolveria um pedaço qualquer e o teste passaria sem olhar o bloco.
+    const inicioPessoas = fonte.indexOf("ReportSectionTitle>{t('gestor.attentionPoints')}");
+    expect(inicioPessoas).toBeGreaterThan(0);
     const bloco = fonte.slice(fonte.indexOf('const s = StyleSheet'), fonte.indexOf('function PageFooter'))
-      + fonte.slice(fonte.indexOf("ReportSectionTitle>{'Pontos de Aten"), fonte.indexOf('Análise + DISC'));
+      + fonte.slice(inicioPessoas, fonte.indexOf('Análise + DISC'));
+    expect(bloco.length).toBeGreaterThan(500);
     expect(bloco).not.toMatch(/#B91C1C|#991B1B|#FEE2E2|#FEF2F2/);
   });
 

@@ -8,6 +8,7 @@ import { logAdminAction } from '@/lib/audit';
 import { renderToBuffer } from '@react-pdf/renderer';
 import RelatorioIndividualPDF from '@/components/pdf/RelatorioIndividual';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import React from 'react';
 
 // ── Enviar PDFs em lote via WhatsApp ────────────────────────────────────────
@@ -69,6 +70,8 @@ export async function enviarPDFsLote(empresaId: string) {
             data,
             empresaNome: empresa?.nome || '',
             logoBase64: getLogoCoverBase64(),
+            // O PDI vai para a PESSOA: o texto fixo sai no idioma dela, na falta o da empresa, na falta pt-BR.
+            locale: await idiomaDaPessoa(empresaId, rel.colaborador_id),
           }) as any,
         );
         const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');

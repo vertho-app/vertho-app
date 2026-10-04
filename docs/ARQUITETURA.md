@@ -2412,6 +2412,14 @@ next.config.mjs            # wrapped com createNextIntlPlugin()
 - `colaboradores.locale TEXT` nullable (CHECK idem) — sobrescreve o default da empresa
 - Fallback de leitura: `colaborador.locale → empresa.default_locale → pt-BR`
 
+### 20.4 PDFs nos 4 idiomas (onda D, 04/10/2026, R-67 item 2)
+- **Escopo:** o texto FIXO (rótulos, títulos, legendas, cabeçalhos, rodapés) do PDI, do Relatório do Gestor, do Relatório de RH, do PDF semanal de engajamento e do PDF executivo de evolução. Os textos moram no namespace **`Pdf`** de `messages/*.json` (4 idiomas); nome de competência, descritor, cargo, pessoa e **todo texto de IA ficam como vieram** (os prompts do PDI, do gestor e do RH ainda não recebem locale: o papel mistura rótulo no idioma de quem lê com texto de IA em pt-BR até essa lacuna fechar).
+- **Tradutor:** `lib/pdf-i18n.ts` (`tradutorDoPdf(locale)`, o `createTranslator` do next-intl sobre o mesmo `messages/*.json`; não passa por `i18n/request.ts`, então roda em task do Trigger e em script). Chave ausente cai no pt-BR e deixa `console.error`; nunca imprime o caminho da chave. `numeroNoPdf`, `percentualNoPdf` e `dataNoPdf` seguem o `Intl` do idioma (data no fuso de Brasília).
+- **Quem decide o idioma** (`lib/pdf-locale.ts`): o da PESSOA que vê (`colaboradores.locale`, senão `empresas.default_locale`, senão pt-BR). Rota de download: o de quem baixa (`idiomaDoLeitor`). Quem GRAVA o PDF no Storage (`individual-core`, `gestor-rh-core`): o da pessoa dona do relatório (PDI: a pessoa; gestor: o gestor; RH: a empresa).
+- **O arquivo guardado diz o idioma no nome** (não há coluna, e a onda não cria migration): `...-<carimbo>.<idioma>.pdf` para pt-PT, es-ES e en-US; pt-BR segue `...-<carimbo>.pdf` (todo PDF anterior é pt-BR). A rota `/api/relatorios/pdf` serve o guardado só quando o idioma casa; senão renderiza de novo e só troca o arquivo guardado quando quem baixa é o dono do relatório. `X-Pdf-Locale` diz o idioma entregue. O nome do arquivo BAIXADO não muda de contrato.
+- **Texto que a TELA e o PDF leem juntos** (`lib/engajamento/relatorio-model.ts`): `buildViews({ locale })`; sem `locale`, pt-BR, e a tela segue como estava. Quem traduzir a tela do engajamento passa o `locale` daqui, e `motivoChave` (código estável do motivo do risco) existe ao lado do texto `motivo`.
+- **Guards:** `tests/unit/pdf-i18n-catalogo.test.ts` (chaves, argumentos, uso e órfãs), `pdf-sem-texto-fixo-guard.test.ts` (nenhum literal em português no código dos PDFs), `pdf-idiomas-render.test.ts` (5 documentos x 4 idiomas, sem português no en-US e glifos medidos na fonte real).
+
 ---
 
 ## 21. Auditoria de Admin + Matriz de Permissões
