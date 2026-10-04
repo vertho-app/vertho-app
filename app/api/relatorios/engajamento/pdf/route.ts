@@ -6,6 +6,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { rollUpEngajamento } from '@/lib/engajamento/roll-up';
 import { carregarEvolucaoEngajamento } from '@/lib/engajamento/evolucao';
 import { buildViews } from '@/lib/engajamento/relatorio-model';
+import { traduzirEngajamento } from '@/lib/engajamento/relatorio-traducao';
 import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 import RelatorioEngajamentoPDF from '@/components/pdf/RelatorioEngajamento';
 import { engagementLinks, appendEngagementQuery } from '@/lib/engajamento/surface';
@@ -49,7 +50,10 @@ export async function GET(request: Request) {
     // Consulta com erro não pode virar um PDF com indicadores zerados.
     if (!evolution.ok) throw new Error('error' in evolution ? evolution.error : 'Evolução indisponível.');
     if (rollup.resumo && 'erro' in rollup.resumo && rollup.resumo.erro) throw new Error(String(rollup.resumo.erro));
-    const views = buildViews({ empresaNome: empresa.data.nome, rollup, evolucao: evolution.data });
+    // O texto do relatório sai no idioma do tradutor. O idioma do PDF é decidido
+    // fora desta rota; enquanto isso segue em pt-BR, como saía antes do R-67.
+    const { t, locale } = await traduzirEngajamento('pt-BR');
+    const views = buildViews({ empresaNome: empresa.data.nome, rollup, evolucao: evolution.data, t, locale });
     if (!views) return NextResponse.json({ error: 'Sem dados para gerar o relatório.' }, { status: 422 });
     const semana = evolution.data.semanas.at(-1)?.semana || evolution.data.semanaAtual || 0;
     const buffer = await renderToBuffer(React.createElement(RelatorioEngajamentoPDF, {

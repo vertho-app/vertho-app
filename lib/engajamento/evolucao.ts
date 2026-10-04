@@ -1,8 +1,9 @@
 import 'server-only';
 import { tenantDb } from '@/lib/tenant-db';
 import { PROGRESSO } from '@/lib/status';
-import { buildEngagementEvolutionDashboard, type EngagementEvolutionDashboard } from '@/lib/engagement-evolution';
+import { AREA_SEM_NOME, buildEngagementEvolutionDashboard, type EngagementEvolutionDashboard } from '@/lib/engagement-evolution';
 import { historicoIlustrativoDemo } from '@/lib/demo/engajamento-historico';
+import type { FalhaEvolucao } from '@/lib/engajamento/surface';
 
 /** Leitura compartilhada por tela e PDF. O chamador autentica e autoriza a empresa. */
 export async function carregarEvolucaoEngajamento(
@@ -10,9 +11,10 @@ export async function carregarEvolucaoEngajamento(
   area?: string | null,
 ): Promise<
   | { ok: true; data: EngagementEvolutionDashboard }
-  | { ok: false; error: string }
+  | { ok: false; error: string; codigo: FalhaEvolucao }
 > {
-  if (!empresaId) return { ok: false, error: 'Selecione uma empresa' };
+  // `error` é a causa técnica (log, PDF); a tela lê `codigo` e traduz (R-67).
+  if (!empresaId) return { ok: false, error: 'empresa_ausente', codigo: 'empresa_ausente' };
 
   const tdb = tenantDb(empresaId);
   const [
@@ -39,14 +41,17 @@ export async function carregarEvolucaoEngajamento(
   ]);
 
   const queryError = enviosError || eventosError || videosError || progressoError || tutorError;
-  if (queryError) return { ok: false, error: queryError.message };
+  if (queryError) {
+    console.error('[engajamento] evolução:', queryError.message);
+    return { ok: false, error: queryError.message, codigo: 'leitura_falhou' };
+  }
 
   const dashboard = buildEngagementEvolutionDashboard({
     enrollments: (envios || []).map((row: any) => ({
       colaboradorId: row.colaborador_id,
       nome: row.colaboradores?.nome_completo || '—',
       cargo: row.colaboradores?.cargo || '',
-      area: row.colaboradores?.area_depto || 'Sem área',
+      area: row.colaboradores?.area_depto || AREA_SEM_NOME,
       semanaAtual: Number(row.semana_atual) || 1,
     })),
     events: (eventos || []).map((row: any) => ({

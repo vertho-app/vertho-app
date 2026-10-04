@@ -1046,6 +1046,590 @@
     },
     "footer": "Total disponível: {count}. Cada ficheiro respeita o acesso e a identidade visual desta empresa."
   },
+  "EngagementWorkspace": {
+    "weekShort": "S{week}",
+    "formats": {
+      "video": "Vídeo",
+      "audio": "Áudio",
+      "texto": "Texto",
+      "case": "Caso"
+    },
+    "fallbacks": {
+      "noRole": "Função não indicada",
+      "noArea": "Sem área",
+      "person": "Participante",
+      "competency": "Competência"
+    },
+    "noFormatOpened": "Nenhum formato aberto",
+    "journeyState": {
+      "pending": "etapa pendente",
+      "inProgress": "em curso",
+      "stageDone": "etapa concluída",
+      "journeyDone": "jornada concluída"
+    },
+    "badge": {
+      "unavailable": "Posição indisponível",
+      "unavailableTitle": "Não foi possível ler a jornada e o progresso desta pessoa",
+      "journeyDone": "Jornada concluída",
+      "journeyDoneOf": "Jornada concluída · {total} de {total} semanas",
+      "journeyDoneTitle": "Concluiu a última semana do plano. Calendário da turma: semana {week}",
+      "calendarTitle": "Calendário da turma: semana {week}",
+      "weekState": "Semana {week} · {state}"
+    },
+    "delivery": {
+      "contentShort": "C{n}",
+      "sendNoRecord": "envio sem registo semanal",
+      "sendRecorded": "envio registado",
+      "sendNotRecorded": "envio não registado",
+      "sendShortNoRecord": "Envio sem registo",
+      "sendShortSent": "Enviado",
+      "sendShortNone": "Sem envio",
+      "openedRecorded": "abertura registada",
+      "noOpeningRecorded": "sem abertura registada",
+      "openedShort": "abriu",
+      "notOpenedShort": "sem abertura"
+    },
+    "consumption": {
+      "video": "Vídeo concluído",
+      "audio": "Podcast concluído",
+      "material": "Material aberto",
+      "videoStarted": "Vídeo iniciado, não concluído",
+      "none": "Sem consumo registado"
+    },
+    "tutor": {
+      "yes": "A pessoa conversou com o Tira-Dúvidas nesta etapa.",
+      "no": "Sem conversa com o Tira-Dúvidas nesta etapa.",
+      "badge": "Tira-Dúvidas"
+    },
+    "distribution": {
+      "eyebrow": "Posição na jornada",
+      "title": "Onde as pessoas estão agora",
+      "calendarUnavailable": "Calendário indisponível",
+      "calendarSingle": "Calendário na semana {week}",
+      "calendarRange": "Turmas entre as semanas {min} e {max}",
+      "subtitle": "{calendar}. Selecione uma semana para filtrar a lista.",
+      "finishedCount": "{count, plural, one {# pessoa concluiu a jornada} other {# pessoas concluíram a jornada}}",
+      "clearWeek": "Limpar semana",
+      "bucketAria": "{count, plural, one {# pessoa} other {# pessoas}} na semana {week}",
+      "bucketAriaWithFinished": "{count, plural, one {# pessoa} other {# pessoas}} na semana {week}, {finished} com a jornada concluída",
+      "weekLabel": "Semana {week}",
+      "noPosition": "{count} sem posição disponível"
+    },
+    "pillSummary": {
+      "eyebrow": "Entrega dos conteúdos",
+      "title": "Do envio à escolha do formato",
+      "content": "Conteúdo {n}",
+      "recordedSignals": "sinais registados",
+      "received": "Recebeu",
+      "opened": "Abriu",
+      "chose": "Escolheu"
+    },
+    "formatPreference": {
+      "eyebrow": "Preferência declarada",
+      "title": "Envolvimento no formato principal",
+      "avgWatched": "Média visualizada: {pct, number, percent}",
+      "none": "Nenhuma preferência registada neste recorte."
+    },
+    "nextAction": {
+      "journeyDone": "Jornada concluída",
+      "journeyDoneWeeks": "Jornada concluída · {total} semanas",
+      "stageDone": "Etapa concluída",
+      "verifyPending": "Verificar etapa pendente",
+      "behindGuidance": "A posição individual está atrás do calendário da turma. Confirmar qual etapa falta concluir antes de orientar a próxima semana.",
+      "sendRecorded": "Há registo de envio do conteúdo; isso não confirma a entrega nem a leitura.",
+      "sendInsufficient": "Envio desta semana sem registo suficiente. Confirmar o histórico antes do contacto.",
+      "sendNone": "Sem registo de envio dos conteúdos neste recorte."
+    },
+    "card": {
+      "follow": "Acompanhar"
+    },
+    "table": {
+      "person": "Pessoa",
+      "individualStage": "Etapa individual",
+      "content1": "Conteúdo 1",
+      "content2": "Conteúdo 2",
+      "consumption": "Consumo",
+      "deliveryAndSupport": "Entrega e apoio",
+      "nextAction": "Próxima ação"
+    },
+    "coordination": {
+      "none": "Sem coordenação definida",
+      "groupPeople": "{count, plural, one {# pessoa neste recorte} other {# pessoas neste recorte}}",
+      "groupFollow": "{count} para acompanhar"
+    },
+    "header": {
+      "title": "Envolvimento da jornada",
+      "subtitleWithCompany": "{company} · do primeiro acesso à evidência prática",
+      "subtitleNoCompany": "Selecione uma empresa no filtro do topo",
+      "report": "Relatório"
+    },
+    "tabs": {
+      "aria": "Visões de envolvimento",
+      "current": "Visão atual",
+      "evolution": "Evolução semanal"
+    },
+    "filters": {
+      "weekAria": "Filtrar métricas por semana",
+      "currentStage": "Etapa atual de cada pessoa",
+      "weekOption": "Semana {week}",
+      "roleAria": "Filtrar métricas por função",
+      "allRoles": "Todas as funções",
+      "refresh": "Atualizar"
+    },
+    "noCompany": {
+      "title": "Escolha uma empresa para começar",
+      "hint": "O filtro fica no topo da área administrativa."
+    },
+    "loading": "A organizar os sinais da jornada…",
+    "loadError": "Não foi possível carregar os sinais. Atualize para tentar novamente.",
+    "empty": {
+      "title": "Nenhuma pessoa neste recorte",
+      "hint": "Altere a semana ou a função para consultar outro grupo."
+    },
+    "actNow": {
+      "title": "Onde agir agora",
+      "summaryWeek": "{count, plural, one {# pessoa} other {# pessoas}} que já chegaram à semana {week} · escolha uma pendência para abrir a lista",
+      "summaryCurrent": "{count, plural, one {# pessoa} other {# pessoas}} na etapa atual · escolha uma pendência para abrir a lista",
+      "reviewSends": "Rever envios",
+      "overdue": "Etapa em atraso",
+      "note": "Cada pessoa aparece na primeira etapa pendente. A etapa em atraso pode sobrepor-se aos restantes grupos. A ausência de atividade não confirma falha de entrega."
+    },
+    "signalJourney": {
+      "eyebrow": "Fluxo de sinais",
+      "title": "Conheça como a Vertho.ai funciona",
+      "descriptionWeek": "Sinais registados nesta semana: aceder, consumir e transformar o conteúdo em evidência.",
+      "descriptionCurrent": "A etapa atual de cada pessoa: aceder, consumir e transformar o conteúdo em evidência.",
+      "steps": {
+        "cadence": {
+          "label": "Na cadência",
+          "detail": "pessoas incluídas neste recorte"
+        },
+        "accessed": {
+          "label": "Acederam ao conteúdo",
+          "detail": "abriram pelo menos um formato"
+        },
+        "consumed": {
+          "label": "Consumiram",
+          "detail": "vídeo ou podcast concluído, ou material aberto"
+        },
+        "evidence": {
+          "label": "Entregaram evidência",
+          "detail": "concluíram a prática da semana"
+        }
+      },
+      "follow": "{count} para acompanhar",
+      "ofTotal": "de {total}"
+    },
+    "privacyNote": "O RH e a liderança acompanham a entrega e o nível da reflexão. O texto enviado continua privado.",
+    "quality": {
+      "title": "Qualidade das reflexões",
+      "delivered": "{count, plural, one {# pessoa entregou} other {# pessoas entregaram}} · nível da reflexão na etapa atual de cada uma",
+      "noClassification": "Sem classificação",
+      "note": "A IA classifica a reflexão ao fechar cada semana de conteúdo: alta traz um exemplo concreto e aprendizagem própria; média fica no geral; baixa é genérica ou demasiado curta. O texto é privado da pessoa e não aparece aqui.",
+      "levels": {
+        "alta": "Alta",
+        "media": "Média",
+        "baixa": "Baixa"
+      },
+      "stage": {
+        "done": "Jornada concluída",
+        "doneWithLevel": "Jornada concluída · última reflexão <b>{level}</b>",
+        "doneTitle": "A pessoa fechou a última semana do plano. O nível é o da última reflexão classificada; o texto é privado.",
+        "delivered": "Evidência entregue",
+        "deliveredWeek": "Evidência da semana {week} entregue",
+        "deliveredTitle": "Etapa fechada: a evidência desta semana já foi registada. O nível é classificado pela IA; o texto da reflexão é privado.",
+        "noLevel": "semana de aplicação, sem nível",
+        "pending": "Evidência pendente",
+        "pendingWeek": "Evidência da semana {week} pendente",
+        "pendingTitle": "A evidência que fecha esta semana ainda não foi registada."
+      }
+    },
+    "complementary": {
+      "aria": "Sinais complementares",
+      "openedPage": {
+        "label": "Abriram a página",
+        "detail": "abertura direta registada"
+      },
+      "finishedVideo": {
+        "label": "Concluíram o vídeo",
+        "detail": "{pct, number, percent} visualizado em média"
+      },
+      "usedTutor": {
+        "label": "Usaram o Tira-Dúvidas",
+        "detail": "conversas iniciadas no Tira-Dúvidas"
+      }
+    },
+    "people": {
+      "eyebrowCoordination": "Detalhe por coordenação",
+      "eyebrowPerson": "Detalhe por pessoa",
+      "title": "Quem avançou e quem pede acompanhamento",
+      "summary": "{pending} com etapa pendente · {noSignal} sem sinal registado",
+      "finishedCount": "{count} com a jornada concluída",
+      "segments": {
+        "all": "Todos",
+        "follow": "Acompanhar",
+        "moving": "Em movimento",
+        "finished": "Concluíram"
+      },
+      "search": "Procurar pessoa",
+      "groupBy": "Agrupar por",
+      "groupAria": "Agrupar pessoas",
+      "byCoordination": "Coordenação",
+      "byPerson": "Pessoa",
+      "reason": "Motivo da pendência",
+      "allReasons": "Todos os motivos",
+      "personSelected": "Pessoa selecionada pelo relatório",
+      "clearFilters": "Limpar filtros da lista",
+      "showing": "A mostrar {shown} de {total, plural, one {# pessoa} other {# pessoas}} neste recorte.",
+      "coordinationUnavailable": "Não foi possível consultar as ligações de coordenação. A mostrar as pessoas; use Atualizar para tentar novamente.",
+      "noMatch": "Nenhuma pessoa corresponde aos filtros selecionados."
+    },
+    "howTo": {
+      "summary": "Como interpretar estes sinais",
+      "access": {
+        "label": "Acesso:",
+        "body": "abrir a página e abrir um formato são sinais diferentes. Na semana 1, as aberturas da página anteriores a {date} não foram registadas."
+      },
+      "consumption": {
+        "label": "Consumo:",
+        "body": "vídeo ou podcast CONCLUÍDO; o material de leitura (texto e estudo de caso) conta ao ser aberto, porque um PDF noutro separador não tem evento de conclusão. “Sem consumo registado” é ausência de sinal, não prova de que a pessoa não viu."
+      },
+      "evidence": {
+        "label": "Evidência:",
+        "intro": "reflexão enviada ao concluir a semana.",
+        "bodyAdmin": "O texto completo continua disponível em Vertho → Evidências.",
+        "bodyRh": "Aqui aparece só o nível da reflexão (alta, média ou baixa); o texto é privado da pessoa."
+      },
+      "content": {
+        "label": "Conteúdos:",
+        "body": "a cadência envia o conteúdo da semana em que a pessoa ESTÁ (não o do calendário), pelo que o envio assinalado é o da etapa mostrada ao lado. O sistema guarda apenas o carimbo do último envio: ao filtrar outra semana, aparece como “sem registo” em vez de uma marca emprestada. “Sem envio” significa que nada foi enviado nesta etapa, inclusive quando a cadência da turma já terminou."
+      }
+    },
+    "trajectory": {
+      "accelerating": "A acelerar",
+      "on_track": "No ritmo",
+      "attention": "Atenção",
+      "critical": "Crítico"
+    },
+    "reasons": {
+      "sem_atividade_duas_semanas": "Sem atividade há duas semanas",
+      "sem_atividade_primeira_semana": "Sem atividade na primeira semana",
+      "sem_atividade_nesta_semana": "Sem atividade nesta semana",
+      "queda_de_pontos": "Queda de {points} pontos",
+      "consumo_incompleto": "Consumo incompleto",
+      "sem_evidencia": "Ainda sem evidência prática",
+      "sequencia_interrompida": "Interrompeu a sequência",
+      "ritmo_abaixo": "Ritmo abaixo do esperado"
+    },
+    "evolution": {
+      "toolbar": {
+        "title": "Compare o ritmo ao longo das semanas",
+        "hint": "O índice combina ativação, consumo, evidência e utilização do Tira-Dúvidas.",
+        "areaAria": "Filtrar evolução por área",
+        "allAreas": "Todas as áreas",
+        "refresh": "Atualizar"
+      },
+      "errors": {
+        "noCompany": "Não foi possível carregar a evolução. Selecione uma empresa.",
+        "generic": "Não foi possível carregar a evolução. Atualize para tentar novamente."
+      },
+      "loading": "A montar o histórico da jornada…",
+      "metrics": {
+        "aria": "Indicadores da semana mais recente",
+        "activation": "Ativação",
+        "consumption": "Consumo",
+        "practicalEvidence": "Evidência prática",
+        "toFollow": "Para acompanhar",
+        "toFollowDetail": "Em atenção ou críticos na fase atual"
+      },
+      "delta": {
+        "first": "Primeira semana medida",
+        "stable": "Estável desde a semana anterior",
+        "up": "Subiu {n} pp na semana",
+        "down": "Desceu {n} pp na semana"
+      },
+      "rhythm": {
+        "eyebrow": "Ritmo recente",
+        "title": "Trajetórias atuais",
+        "subtitle": "Leitura das duas últimas semanas alcançadas.",
+        "recovered": "{count, plural, one {# recuperado} other {# recuperados}}",
+        "recoveredHint": "Voltaram a apresentar atividade nesta semana."
+      },
+      "heatmap": {
+        "eyebrow": "Comparação",
+        "title": "Ritmo por área",
+        "hint": "Quanto mais intensa a cor, maior o movimento registado.",
+        "legendZero": "0",
+        "legendLow": "1 a 39",
+        "legendMid": "40 a 69",
+        "legendHigh": "70+",
+        "area": "Área",
+        "trend": "Tendência",
+        "participants": "{count, plural, one {# participante} other {# participantes}}",
+        "cellNoEligible": "Semana {week}: sem elegíveis",
+        "cell": "Semana {week}: índice {index} · {eligible} elegíveis"
+      },
+      "risk": {
+        "eyebrow": "Próxima ação",
+        "title": "Pessoas para acompanhar",
+        "subtitle": "Participantes em atenção ou críticos na fase atual.",
+        "participant": "Participante",
+        "area": "Área",
+        "index": "Índice",
+        "variation": "Variação",
+        "rhythm": "Ritmo",
+        "reason": "Motivo",
+        "viewSignals": "Ver sinais e próxima ação",
+        "week": "Semana {week}",
+        "empty": "Ninguém pede acompanhamento neste recorte."
+      },
+      "footnote": "O índice operacional distribui 20 pontos pela ativação, 30 pelo consumo, 40 pela evidência e 10 pela utilização do Tira-Dúvidas. Mede o movimento na jornada, não a competência nem o desempenho individual.",
+      "empty": "Ainda não há pessoas com semanas medidas nesta jornada."
+    },
+    "trend": {
+      "eyebrow": "Histórico",
+      "title": "Movimento semana a semana",
+      "description": "Percentagem entre as pessoas que já alcançaram cada etapa.",
+      "descriptionIllustrative": "Uma turma fictícia ganha ritmo ao longo do programa.",
+      "illustrativeBadge": "Histórico ilustrativo",
+      "series": {
+        "activation": "Ativação",
+        "consumption": "Consumo",
+        "evidence": "Evidência"
+      },
+      "selectWeek": "Semana {week} · selecione uma semana para comparar",
+      "noWeeks": "Sem semanas disponíveis",
+      "svgTitle": "{kind} de ativação, consumo e evidência. Valores disponíveis por semana abaixo.",
+      "kindIllustrative": "Histórico ilustrativo",
+      "kindMeasured": "Evolução semanal",
+      "pointTitle": "{series} · Semana {week}: {value, number, percent}",
+      "selectGroupAria": "Selecionar semana do gráfico",
+      "weekAria": "Semana {week}",
+      "viewValues": "Ver valores por semana",
+      "captionIllustrative": "Dados fictícios do histórico ilustrativo",
+      "captionMeasured": "Percentagens medidas por semana",
+      "weekColumn": "Semana"
+    },
+    "blockers": {
+      "ativacao": {
+        "label": "Sem ativação",
+        "action": "Verificar envio e acesso",
+        "guidance": "Confirmar o registo do envio, a validade do link e possíveis bloqueios de acesso. Se o acesso estiver a funcionar, preparar um lembrete para o grupo sem atividade.",
+        "owner": "Operação e gestor",
+        "deadline": "Hoje"
+      },
+      "consumo": {
+        "label": "Consumo pendente",
+        "action": "Apoiar a retoma do conteúdo",
+        "guidance": "Verificar onde a pessoa parou, orientar a retoma e oferecer o formato disponível mais adequado. Combinar um prazo para concluir o conteúdo.",
+        "owner": "Gestor",
+        "deadline": "Próximo dia útil"
+      },
+      "evidencia": {
+        "label": "Evidência pendente",
+        "action": "Orientar o registo da prática",
+        "guidance": "Confirmar se houve dificuldade na atividade ou no registo da evidência. Reforçar a orientação da semana e combinar a entrega com o grupo.",
+        "owner": "Gestor",
+        "deadline": "Antes do próximo acompanhamento"
+      }
+    },
+    "report": {
+      "stable": "estável",
+      "deltaUp": "+{n} pp",
+      "deltaDown": "−{n} pp",
+      "companyFallback": "Empresa",
+      "back": "Voltar ao envolvimento",
+      "title": "Relatório semanal",
+      "subtitle": "Dados reais · {company} · base elegível do fecho",
+      "subtitleWeek": "Dados reais · {company} · semana {week} · base elegível do fecho",
+      "audienceAria": "Público do relatório",
+      "audience": {
+        "gestor": "Gestor",
+        "rh": "RH / Direção"
+      },
+      "openPdf": "Abrir PDF para impressão",
+      "noCompany": "Selecione uma empresa no filtro do topo para ver o relatório.",
+      "loading": "A carregar dados reais do fecho…",
+      "errors": {
+        "title": "Não foi possível carregar o relatório.",
+        "load": "Falha ao carregar os dados do relatório.",
+        "evolution": "Falha ao carregar a evolução do envolvimento.",
+        "retry": "Tentar novamente"
+      },
+      "paperTitle": "Relatório semanal de envolvimento",
+      "period": "Semana {week} · {date}",
+      "closing": {
+        "priority": "Prioridade do fecho · Semana {week}",
+        "unavailable": "Base semanal indisponível",
+        "baseCompare": "Base semanal: {eligible} elegíveis · semana anterior: {previous}.",
+        "baseNoCompare": "Base semanal: {eligible} elegíveis · sem comparação anterior disponível.",
+        "populationChanged": "A população elegível mudou. As taxas comparam grupos de tamanhos diferentes."
+      },
+      "trajectories": {
+        "aria": "Acompanhamento de todos os inscritos",
+        "title": "Trajetórias de todos os inscritos",
+        "ofTotal": "de {enrolled}",
+        "note": "Cada pessoa na sua semana atual. Este total usa uma base diferente do fecho semanal.",
+        "link": "Ver prioridades de acompanhamento"
+      },
+      "thread": {
+        "eyebrow": "Etapas da jornada",
+        "title": "Onde o movimento perde força",
+        "basis": "Fecho da fase esperada · base elegível",
+        "steps": {
+          "eligible": "Elegíveis",
+          "activated": "Ativaram",
+          "consumed": "Consumiram",
+          "evidenced": "Evidenciaram"
+        },
+        "stage": {
+          "eligible": "elegíveis",
+          "activation": "ativação",
+          "consumption": "consumo",
+          "evidence": "evidência"
+        },
+        "biggestLoss": "Maior perda: {count, plural, one {# pessoa} other {# pessoas}} entre {from} e {to}."
+      },
+      "trend": {
+        "eyebrow": "Trajetória",
+        "title": "Últimos fechos, mesma régua",
+        "empty": "Sem histórico suficiente para a trajetória. Os fechos aparecem aqui a partir da segunda semana.",
+        "aria": "Tendência dos últimos fechos semanais",
+        "noPrevious": "sem comparação anterior"
+      },
+      "focus": {
+        "eyebrow": "Decisão",
+        "empty": "Nenhuma trajetória crítica ou de atenção registada na base de inscritos.",
+        "viewSignals": "Ver sinais da pessoa"
+      },
+      "cargo": {
+        "eyebrow": "Decisão por função",
+        "title": "Onde concentrar o acompanhamento",
+        "description": "Todas as funções, por ordem de pessoas em risco; depois, casos críticos e inscritos. Ativação, consumo e evidência: quantidade e percentagem dos elegíveis na semana {week}. Risco: quantidade e percentagem dos inscritos na função, cada pessoa na sua semana atual. Sem elegíveis significa que a função ainda não chegou a este fecho.",
+        "counts": "{enrolled} inscritos · {eligible} elegíveis",
+        "noEligible": "Sem elegíveis",
+        "atRisk": "Em risco",
+        "riskSplit": "{critical, plural, one {# crítico} other {# críticos}} · {attention} em atenção",
+        "suggestedAction": "Ação sugerida:",
+        "empty": "Sem dados por função disponíveis."
+      },
+      "secondary": {
+        "aria": "Sinais secundários",
+        "recovered": "recuperaram o ritmo",
+        "tutor": "usaram o Tira-Dúvidas",
+        "format": "formato com maior adesão"
+      },
+      "footer": "O envolvimento mede a atividade na jornada. Crítico: sem atividade na primeira semana ou em duas semanas consecutivas. Atenção: índice abaixo de 40, semana sem atividade ou descida face à anterior. Índice: ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10. As ações, os responsáveis e os prazos são sugestões para o acompanhamento da equipa.",
+      "detailedData": "Ver dados detalhados",
+      "available": "Relatório disponível para consulta e impressão.",
+      "downloadPdf": "Descarregar PDF",
+      "priorities": {
+        "title": "Prioridades e próximas ações",
+        "subtitle": "Grupos exclusivos da semana {week} · {eligible} elegíveis · maior grupo primeiro",
+        "copyPlan": "Copiar plano sugerido",
+        "copyStatus": {
+          "copied": "Plano copiado.",
+          "failed": "Não foi possível copiar. Use o PDF para guardar o plano."
+        },
+        "copy": {
+          "header": "{scope} · Semana {week}",
+          "action": "{n}. {title}\n{description}\nResponsável sugerido: {owner}\nPrazo sugerido: {deadline}"
+        },
+        "peoplePct": "{count, plural, one {pessoa} other {pessoas}} · {pct}",
+        "viewGroup": "Ver grupo afetado",
+        "noMembers": "O detalhe deste grupo não está disponível nesta leitura. Atualize o relatório.",
+        "owner": "Responsável sugerido: {owner} · {deadline}"
+      }
+    },
+    "model": {
+      "noRecord": "Sem registo",
+      "preferredFormat": "{format} · {pct, number, percent}",
+      "week": "Semana {week}",
+      "tutor": "{count} de {eligible}",
+      "thesisAccentDefault": "Rever o acompanhamento das turmas.",
+      "eyebrow": {
+        "gestor": "Leitura do gestor",
+        "rh": "Leitura de RH / Direção"
+      },
+      "scope": {
+        "gestor": "{company} · por pessoa e função",
+        "rh": "{company} · por área e função"
+      },
+      "kind": {
+        "ativacao": "ativação",
+        "consumo": "consumo",
+        "evidencia": "evidência"
+      },
+      "group": {
+        "ativacao": "estão sem ativação registada",
+        "consumo": "ativaram, mas não concluíram o consumo",
+        "evidencia": "consumiram, mas ainda não registaram evidência"
+      },
+      "thesis": {
+        "pending": "{count, plural, one {# pessoa} other {# pessoas}} com {kind} pendente.",
+        "completed": "A base semanal concluiu a jornada.",
+        "none": "Sem fecho semanal disponível."
+      },
+      "explanation": {
+        "group": "{count} de {eligible, plural, one {# pessoa elegível} other {# pessoas elegíveis}} {group} na semana {week}. {guidance}",
+        "noActivityNote": "A ausência de atividade não identifica a causa: verificar o envio, o acesso e o registo dos eventos antes de abordar o grupo.",
+        "allDone": "{count} de {eligible, plural, one {# pessoa elegível} other {# pessoas elegíveis}} concluíram a evidência na semana {week}. Acompanhar também as trajetórias individuais das restantes turmas.",
+        "none": "Não há fecho semanal disponível para este recorte. Nenhum indicador foi substituído pelo histórico acumulado."
+      },
+      "cargoAction": {
+        "notReached": "Acompanhar a semana atual das turmas; esta função ainda não chegou ao fecho.",
+        "gapActivation": "{count, plural, one {# pessoa} other {# pessoas}} sem ativação. Confirmar o acesso e combinar o primeiro contacto com o conteúdo.",
+        "gapConsumption": "{count, plural, one {# pessoa} other {# pessoas}} com ativação, mas sem consumo concluído. Reservar tempo para concluir o conteúdo.",
+        "gapEvidence": "{count, plural, one {# pessoa} other {# pessoas}} com consumo concluído, mas sem evidência. Orientar o registo da aplicação prática.",
+        "closedAtRisk": "Fecho completo entre os elegíveis. Acompanhar as trajetórias em risco e possíveis descidas face à semana anterior.",
+        "recognize": "Reconhecer a participação e sustentar a aplicação prática."
+      },
+      "members": {
+        "areaContext": "{count, plural, one {# pessoa com esta pendência} other {# pessoas com esta pendência}} na semana {week}"
+      },
+      "plan": {
+        "agree": {
+          "title": "Combinar a próxima ação com o grupo",
+          "description": "Rever o motivo da pendência e os sinais de cada pessoa. Definir o responsável e preparar uma orientação específica para o bloqueio encontrado.",
+          "owner": "Gestor da equipa",
+          "deadline": "Após a verificação"
+        },
+        "review": {
+          "title": "Reavaliar o mesmo grupo",
+          "description": "Na próxima leitura, confirmar quem avançou de etapa e quem continua pendente. Registar o resultado no acompanhamento da equipa.",
+          "owner": "Gestor e RH",
+          "deadline": "Em 48 horas, como sugestão"
+        },
+        "reviewOthers": {
+          "title": "Rever as trajetórias individuais",
+          "description": "Acompanhar outras turmas e reconhecer quem recuperou o ritmo.",
+          "owner": "Gestor e RH",
+          "deadline": "Próxima reunião de acompanhamento"
+        },
+        "alignAreas": {
+          "title": "Alinhar o plano com os gestores das áreas",
+          "description": "Priorizar as áreas com mais trajetórias críticas e maior proporção de pessoas afetadas. Combinar o apoio, o responsável e a data de revisão.",
+          "owner": "RH e gestores das áreas",
+          "deadline": "Após a verificação"
+        }
+      },
+      "focus": {
+        "titlePeople": "Trajetórias que pedem acompanhamento",
+        "titleAreas": "Áreas que pedem acompanhamento",
+        "subtitle": "Base: {enrolled} inscritos, cada pessoa na sua semana atual. {rule}",
+        "rulePeople": "Até 3 prioridades, com as trajetórias críticas primeiro.",
+        "ruleAreas": "Ordenação por trajetórias críticas, quantidade e proporção de pessoas afetadas.",
+        "areaContext": "{risk} pessoas em risco · {total} inscritos · {pct, number, percent} da área",
+        "areaContextNoBase": "{risk} pessoas em acompanhamento",
+        "areaReason": "{critical} em trajetória crítica · {attention} em atenção. Alinhar o plano com o gestor da área."
+      },
+      "signal": {
+        "critical": "Crítico",
+        "attention": "Atenção",
+        "criticalTrajectories": "Trajetórias críticas"
+      }
+    }
+  },
   "DashboardJourney": {
     "cta": {
       "1": "Fazer perfil comportamental",

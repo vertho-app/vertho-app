@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildEngagementEvolutionDashboard } from '@/lib/engagement-evolution';
 import { buildViews } from '@/lib/engajamento/relatorio-model';
+import { tEngajamento } from '../helpers/traducao-engajamento';
 import { engagementBlocker, engagementDetailHref } from '@/lib/engajamento/prioridades';
 
 const base = { events: [], videos: [], progress: [], tutorUses: [], completedStatus: 'completed' };
@@ -17,7 +18,7 @@ describe('prioridades de engajamento', () => {
         { colaboradorId: 'concluiu', semana: 2, tipo: 'conteudo', status: 'completed', conteudoConsumido: false },
       ],
     });
-    const views = buildViews({ empresaNome: 'Teste', rollup, evolucao: evolution })!;
+    const views = buildViews({ t: tEngajamento(), empresaNome: 'Teste', rollup, evolucao: evolution })!;
     expect(views.gestor.eligible).toBe(4);
     expect(views.gestor.enrolled).toBe(5);
     expect(views.gestor.priorities.map((item) => [item.key, item.count, item.members.length])).toEqual([
@@ -32,7 +33,7 @@ describe('prioridades de engajamento', () => {
     const evolution = buildEngagementEvolutionDashboard({ ...base,
       enrollments: Array.from({ length: 35 }, (_, i) => person(String(i).padStart(2, '0'), 2, i < 20 ? 'Área A' : 'Área B')),
     });
-    const view = buildViews({ empresaNome: 'Teste', rollup, evolucao: evolution })!.rh;
+    const view = buildViews({ t: tEngajamento(), empresaNome: 'Teste', rollup, evolucao: evolution })!.rh;
     expect(evolution.pessoasEmRisco).toHaveLength(35);
     expect(view.risk.total).toBe(35);
     expect(view.focusItems.find((item) => item.name === 'Área B')?.context).toContain('15 pessoas em risco · 15 inscritos');
@@ -40,7 +41,7 @@ describe('prioridades de engajamento', () => {
 
   it('não chama primeira semana de duas semanas sem atividade nem inventa estabilidade', () => {
     const evolution = buildEngagementEvolutionDashboard({ ...base, enrollments: [person('nova', 1)] });
-    const view = buildViews({ empresaNome: 'Teste', rollup, evolucao: evolution })!.gestor;
+    const view = buildViews({ t: tEngajamento(), empresaNome: 'Teste', rollup, evolucao: evolution })!.gestor;
     expect(view.focusItems[0].reason).toBe('Sem atividade na primeira semana');
     expect(view.canCompare).toBe(false);
   });
@@ -54,10 +55,10 @@ describe('prioridades de engajamento', () => {
   });
 
   it('não apresenta agregado como semanal após falha ou ausência de fechamento', () => {
-    expect(buildViews({ empresaNome: 'Teste', rollup, evolucao: null })).toBeNull();
+    expect(buildViews({ t: tEngajamento(), empresaNome: 'Teste', rollup, evolucao: null })).toBeNull();
     const evolution = buildEngagementEvolutionDashboard({ ...base, enrollments: [] });
-    expect(buildViews({ empresaNome: 'Teste', rollup, evolucao: evolution })!.gestor.eligible).toBe(0);
-    expect(buildViews({ empresaNome: 'Teste', rollup: { resumo: { erro: 'Indisponível' } }, evolucao: evolution })).toBeNull();
+    expect(buildViews({ t: tEngajamento(), empresaNome: 'Teste', rollup, evolucao: evolution })!.gestor.eligible).toBe(0);
+    expect(buildViews({ t: tEngajamento(), empresaNome: 'Teste', rollup: { resumo: { erro: 'Indisponível' } }, evolucao: evolution })).toBeNull();
   });
 
   it('filtros operacionais respeitam consumo e evidência sem exigir um evento de abertura', () => {

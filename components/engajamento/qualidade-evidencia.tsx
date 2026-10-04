@@ -1,10 +1,14 @@
 /**
  * Qualidade da reflexão entregue, como RH e gestor a veem: só o nível.
  * O texto da reflexão não chega a estas telas (ver `lib/engajamento/qualidade-evidencia.ts`).
+ *
+ * Os textos moram em `EngagementWorkspace.quality` nos quatro idiomas (R-67).
+ * O componente é usado pelo Engajamento do RH e pelo do gestor (os dois são
+ * componentes de cliente), então ele mesmo traduz: quem o usa não passa texto.
  */
+import { useTranslations } from 'next-intl';
 import {
   NIVEIS_QUALIDADE,
-  ROTULO_QUALIDADE,
   normalizarQualidade,
   type QualidadeEvidencia,
 } from '@/lib/engajamento/qualidade-evidencia';
@@ -37,18 +41,21 @@ const TEXTO: Record<QualidadeEvidencia, string> = {
  * dúvida sobre de qual semana o sinal fala.
  */
 export function EntregaDaEtapa({ pessoa }: { pessoa: any }) {
+  const t = useTranslations('EngagementWorkspace');
   if (!pessoa || !('enviouEvidencia' in pessoa)) return null;
   const semana = Number(pessoa.semanaDoSinal);
-  const daSemana = Number.isFinite(semana) && semana > 0 ? ` da semana ${semana}` : '';
+  const temSemana = Number.isFinite(semana) && semana > 0;
 
   if (pessoa.jornadaConcluida) {
     const nivelFinal = normalizarQualidade(pessoa.qualidadeUltimaReflexao);
     return (
       <span
         className="block text-[10px] font-semibold leading-relaxed text-fuchsia-200"
-        title="A pessoa fechou a última semana do plano. O nível é o da última reflexão classificada; o texto é privado."
+        title={t('quality.stage.doneTitle')}
       >
-        Jornada concluída{nivelFinal ? <> · última reflexão <b className={TEXTO[nivelFinal]}>{ROTULO_QUALIDADE[nivelFinal]}</b></> : null}
+        {nivelFinal
+          ? t.rich('quality.stage.doneWithLevel', { level: t(`quality.levels.${nivelFinal}`), b: (trecho) => <b className={TEXTO[nivelFinal]}>{trecho}</b> })
+          : t('quality.stage.done')}
       </span>
     );
   }
@@ -58,12 +65,12 @@ export function EntregaDaEtapa({ pessoa }: { pessoa: any }) {
     return (
       <span
         className="block text-[10px] font-semibold leading-relaxed text-emerald-200"
-        title="Etapa fechada: a evidência desta semana já foi registrada. O nível é classificado pela IA; o texto da reflexão é privado."
+        title={t('quality.stage.deliveredTitle')}
       >
-        Evidência{daSemana} entregue
+        {temSemana ? t('quality.stage.deliveredWeek', { week: semana }) : t('quality.stage.delivered')}
         {nivel
-          ? <> · <b className={TEXTO[nivel]}>{ROTULO_QUALIDADE[nivel]}</b></>
-          : <span className="text-white/35"> · semana de missão, sem nível</span>}
+          ? <> · <b className={TEXTO[nivel]}>{t(`quality.levels.${nivel}`)}</b></>
+          : <span className="text-white/35"> · {t('quality.stage.noLevel')}</span>}
       </span>
     );
   }
@@ -71,43 +78,44 @@ export function EntregaDaEtapa({ pessoa }: { pessoa: any }) {
   return (
     <span
       className="block text-[10px] font-semibold leading-relaxed text-white/40"
-      title="A evidência que fecha esta semana ainda não foi registrada."
+      title={t('quality.stage.pendingTitle')}
     >
-      Evidência{daSemana} pendente
+      {temSemana ? t('quality.stage.pendingWeek', { week: semana }) : t('quality.stage.pending')}
     </span>
   );
 }
 
 /** Faixa do resumo: quantas das pessoas que entregaram estão em cada nível. */
 export function QualidadeEvidenciaResumo({ contagem }: { contagem?: Record<string, number> | null }) {
+  const t = useTranslations('EngagementWorkspace');
   if (!contagem) return null;
   const semClassificacao = Number(contagem.semClassificacao) || 0;
   const total = NIVEIS_QUALIDADE.reduce((soma, nivel) => soma + (Number(contagem[nivel]) || 0), 0) + semClassificacao;
   if (!total) return null;
   return (
-    <section aria-label="Qualidade das reflexões" className="rounded-[16px] border border-white/[0.07] bg-white/[0.02] px-4 py-3">
+    <section aria-label={t('quality.title')} className="rounded-[16px] border border-white/[0.07] bg-white/[0.02] px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-bold text-white/70">Qualidade das reflexões</p>
+        <p className="text-[10px] font-bold text-white/70">{t('quality.title')}</p>
         <p className="text-[9px] text-white/35">
-          {total} {total === 1 ? 'pessoa entregou' : 'pessoas entregaram'} · nível da reflexão na etapa atual de cada uma
+          {t('quality.delivered', { count: total })}
         </p>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {NIVEIS_QUALIDADE.map((nivel) => (
           <span key={nivel} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold ${CLASSE[nivel]}`}>
-            {ROTULO_QUALIDADE[nivel]}
+            {t(`quality.levels.${nivel}`)}
             <span className="font-mono tabular-nums">{Number(contagem[nivel]) || 0}</span>
           </span>
         ))}
         {semClassificacao > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.025] px-2.5 py-1 text-[10px] font-bold text-white/40">
-            Sem classificação
+            {t('quality.noClassification')}
             <span className="font-mono tabular-nums">{semClassificacao}</span>
           </span>
         )}
       </div>
       <p className="mt-2 text-[9px] leading-relaxed text-white/32">
-        A IA classifica a reflexão ao fechar cada semana de conteúdo: alta traz exemplo concreto e aprendizado próprio; média fica no geral; baixa é genérica ou muito curta. O texto é privado da pessoa e não aparece aqui.
+        {t('quality.note')}
       </p>
     </section>
   );

@@ -76,7 +76,11 @@ export interface EngagementRiskPerson {
   indiceAtual: number;
   delta: number;
   trajetoria: EngagementTrajectory;
+  /** Texto em português, para o PDF e quem já o lia. A tela traduz por `motivoCodigo`. */
   motivo: string;
+  motivoCodigo?: MotivoRisco;
+  /** Só no código `queda_de_pontos`. */
+  motivoPontos?: number;
 }
 
 export interface EngagementEvolutionDashboard {
@@ -140,6 +144,32 @@ function trajectory(current: number, previous: number, hasPrevious: boolean): En
   return 'on_track';
 }
 
+/**
+ * Por que a pessoa pede acompanhamento, como CÓDIGO estável (R-67).
+ *
+ * O texto em português saía direto daqui para a tela, então o RH de língua
+ * espanhola ou inglesa lia a frase em português. O código viaja junto com o
+ * texto (`motivo`, que o PDF e os consumidores antigos seguem lendo) e a tela
+ * traduz pelo código (`lib/engajamento/rotulos.ts`).
+ */
+export type MotivoRisco =
+  | 'sem_atividade_duas_semanas' | 'sem_atividade_primeira_semana' | 'sem_atividade_nesta_semana'
+  | 'queda_de_pontos' | 'consumo_incompleto' | 'sem_evidencia' | 'sequencia_interrompida' | 'ritmo_abaixo';
+
+/** Valores que a tela troca pelo rótulo do idioma: o dado fica estável para filtro e agrupamento. */
+export const AREA_SEM_NOME = 'Sem área';
+export const CARGO_SEM_NOME = 'Cargo não informado';
+
+const TEXTO_DO_MOTIVO: Record<Exclude<MotivoRisco, 'queda_de_pontos'>, string> = {
+  sem_atividade_duas_semanas: 'Sem atividade há duas semanas',
+  sem_atividade_primeira_semana: 'Sem atividade na primeira semana',
+  sem_atividade_nesta_semana: 'Sem atividade nesta semana',
+  consumo_incompleto: 'Consumo incompleto',
+  sem_evidencia: 'Ainda sem evidência prática',
+  sequencia_interrompida: 'Interrompeu a sequência',
+  ritmo_abaixo: 'Ritmo abaixo do esperado',
+};
+
 function riskReason(
   current: PersonWeekState,
   previous: PersonWeekState,
@@ -147,14 +177,18 @@ function riskReason(
   previousScore: number,
   currentTrajectory: EngagementTrajectory,
   hasPrevious: boolean,
-): string {
-  if (currentTrajectory === 'critical') return hasPrevious ? 'Sem atividade há duas semanas' : 'Sem atividade na primeira semana';
-  if (!current.activated) return 'Sem atividade nesta semana';
-  if (currentScore < previousScore) return `Queda de ${previousScore - currentScore} pontos`;
-  if (!current.consumed) return 'Consumo incompleto';
-  if (!current.evidence) return 'Ainda sem evidência prática';
-  if (previous.activated && !current.activated) return 'Interrompeu a sequência';
-  return 'Ritmo abaixo do esperado';
+): { codigo: MotivoRisco; pontos?: number; texto: string } {
+  const simples = (codigo: Exclude<MotivoRisco, 'queda_de_pontos'>) => ({ codigo, texto: TEXTO_DO_MOTIVO[codigo] });
+  if (currentTrajectory === 'critical') return simples(hasPrevious ? 'sem_atividade_duas_semanas' : 'sem_atividade_primeira_semana');
+  if (!current.activated) return simples('sem_atividade_nesta_semana');
+  if (currentScore < previousScore) {
+    const pontos = previousScore - currentScore;
+    return { codigo: 'queda_de_pontos', pontos, texto: `Queda de ${pontos} pontos` };
+  }
+  if (!current.consumed) return simples('consumo_incompleto');
+  if (!current.evidence) return simples('sem_evidencia');
+  if (previous.activated && !current.activated) return simples('sequencia_interrompida');
+  return simples('ritmo_abaixo');
 }
 
 export function buildEngagementEvolutionDashboard(input: {
@@ -168,8 +202,8 @@ export function buildEngagementEvolutionDashboard(input: {
 }): EngagementEvolutionDashboard {
   const allEnrollments = input.enrollments.map((enrollment) => ({
     ...enrollment,
-    cargo: enrollment.cargo.trim().replace(/\s+/g, ' ') || 'Cargo não informado',
-    area: enrollment.area.trim() || 'Sem área',
+    cargo: enrollment.cargo.trim().replace(/\s+/g, ' ') || CARGO_SEM_NOME,
+    area: enrollment.area.trim() || AREA_SEM_NOME,
     semanaAtual: Math.max(1, Math.floor(enrollment.semanaAtual || 1)),
   }));
   const areasDisponiveis = [...new Set(allEnrollments.map((enrollment) => enrollment.area))]
@@ -345,6 +379,7 @@ export function buildEngagementEvolutionDashboard(input: {
     if (currentTrajectory === 'attention') cargo.atencao += 1;
     if (hasPrevious && previous.score === 0 && current.score > 0) recovered += 1;
     if (currentTrajectory === 'attention' || currentTrajectory === 'critical') {
+      const motivo = riskReason(current, previous, current.score, previous.score, currentTrajectory, hasPrevious);
       riskPeople.push({
         colaboradorId: enrollment.colaboradorId,
         nome: enrollment.nome,
@@ -354,14 +389,9 @@ export function buildEngagementEvolutionDashboard(input: {
         indiceAtual: current.score,
         delta: current.score - previous.score,
         trajetoria: currentTrajectory,
-        motivo: riskReason(
-          current,
-          previous,
-          current.score,
-          previous.score,
-          currentTrajectory,
-          hasPrevious,
-        ),
+        motivo: motivo.texto,
+        motivoCodigo: motivo.codigo,
+        ...(motivo.pontos != null ? { motivoPontos: motivo.pontos } : {}),
       });
     }
   }

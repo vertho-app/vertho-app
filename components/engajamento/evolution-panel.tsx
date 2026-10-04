@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import WeeklyTrendChart from './weekly-trend-chart';
 import {
   Activity,
@@ -15,28 +16,36 @@ import {
 import { getEvolucaoEngajamentoEmpresa } from '@/actions/engajamento';
 import type { EngagementEvolutionLoader, EngagementSurface } from '@/lib/engajamento/surface';
 import { engagementDetailHref } from '@/lib/engajamento/prioridades';
+import { motivoDeRisco, rotuloArea, rotuloCargo, type Traduzir } from '@/lib/engajamento/rotulos';
+import { useFormatadores } from './use-formatadores';
 import type {
   EngagementAreaMetric,
   EngagementEvolutionDashboard,
   EngagementTrajectory,
 } from '@/lib/engagement-evolution';
 
+/**
+ * Aba "Evolução semanal" do Engajamento. Todo texto vem de `EngagementWorkspace`
+ * nos quatro idiomas (R-67): aqui ficam só a cor e a regra de cada trajetória, e
+ * o rótulo mora em `trajectory.<chave>`. O motivo de cada pessoa chega como
+ * código (`motivoCodigo`) e a área e o cargo de reserva viram rótulo traduzido
+ * em `lib/engajamento/rotulos.ts`.
+ */
 const TRAJECTORY_META: Record<EngagementTrajectory, {
-  label: string;
   bar: string;
   text: string;
 }> = {
-  accelerating: { label: 'Acelerando', bar: 'bg-emerald-400', text: 'text-emerald-300' },
-  on_track: { label: 'No ritmo', bar: 'bg-cyan-400', text: 'text-cyan-300' },
-  attention: { label: 'Atenção', bar: 'bg-amber-400', text: 'text-amber-300' },
-  critical: { label: 'Crítico', bar: 'bg-rose-400', text: 'text-rose-300' },
+  accelerating: { bar: 'bg-emerald-400', text: 'text-emerald-300' },
+  on_track: { bar: 'bg-cyan-400', text: 'text-cyan-300' },
+  attention: { bar: 'bg-amber-400', text: 'text-amber-300' },
+  critical: { bar: 'bg-rose-400', text: 'text-rose-300' },
 };
 
-function pctDelta(current: number, previous?: number): string {
-  if (previous == null) return 'Primeira semana medida';
+function pctDelta(t: Traduzir, current: number, previous?: number): string {
+  if (previous == null) return t('evolution.delta.first');
   const delta = current - previous;
-  if (delta === 0) return 'Estável desde a semana anterior';
-  return `${delta > 0 ? 'Subiu' : 'Caiu'} ${Math.abs(delta)} pp na semana`;
+  if (delta === 0) return t('evolution.delta.stable');
+  return t(delta > 0 ? 'evolution.delta.up' : 'evolution.delta.down', { n: Math.abs(delta) });
 }
 
 function MetricCard({
@@ -64,26 +73,28 @@ function MetricCard({
   );
 }
 
-function TrajectoriesCard({
+export function TrajectoriesCard({
   trajectories,
   recovered,
 }: {
   trajectories: EngagementEvolutionDashboard['trajetorias'];
   recovered: number;
 }) {
+  const t = useTranslations('EngagementWorkspace');
+  const { num, pct: pctTexto } = useFormatadores();
   const total = Object.values(trajectories).reduce((sum, value) => sum + value, 0);
   const ordered: EngagementTrajectory[] = ['accelerating', 'on_track', 'attention', 'critical'];
 
   return (
     <aside className="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
-      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">Ritmo recente</p>
+      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">{t('evolution.rhythm.eyebrow')}</p>
       <h3
         className="mt-1 text-[21px] leading-tight text-white"
         style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
       >
-        Trajetórias atuais
+        {t('evolution.rhythm.title')}
       </h3>
-      <p className="mt-1 text-[10px] text-white/30">Leitura das duas últimas semanas alcançadas.</p>
+      <p className="mt-1 text-[10px] text-white/30">{t('evolution.rhythm.subtitle')}</p>
       <div className="mt-5 space-y-3">
         {ordered.map((key) => {
           const value = trajectories[key];
@@ -92,8 +103,8 @@ function TrajectoriesCard({
           return (
             <div key={key}>
               <div className="flex items-center justify-between gap-3 text-[10px]">
-                <span className="text-white/55">{meta.label}</span>
-                <span className={`${meta.text} font-mono tabular-nums`}>{value} · {percentage}%</span>
+                <span className="text-white/55">{t(`trajectory.${key}`)}</span>
+                <span className={`${meta.text} font-mono tabular-nums`}>{num(value)} · {pctTexto(percentage)}</span>
               </div>
               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
                 <div className={`h-full rounded-full ${meta.bar}`} style={{ width: `${percentage}%` }} />
@@ -105,8 +116,8 @@ function TrajectoriesCard({
       <div className="mt-5 flex items-start gap-2 border-t border-white/[0.07] pt-4">
         <RotateCcw size={13} className="mt-0.5 shrink-0 text-emerald-300" aria-hidden="true" />
         <div>
-          <p className="text-[10px] font-semibold text-white/70">{recovered} recuperado{recovered === 1 ? '' : 's'}</p>
-          <p className="mt-0.5 text-[9px] leading-relaxed text-white/28">Voltaram a apresentar atividade nesta semana.</p>
+          <p className="text-[10px] font-semibold text-white/70">{t('evolution.rhythm.recovered', { count: recovered })}</p>
+          <p className="mt-0.5 text-[9px] leading-relaxed text-white/28">{t('evolution.rhythm.recoveredHint')}</p>
         </div>
       </div>
     </aside>
@@ -121,59 +132,61 @@ function heatCellClass(value: number | null): string {
   return 'bg-rose-400/12 text-rose-200';
 }
 
-function AreaHeatmap({ areas, weeks }: { areas: EngagementAreaMetric[]; weeks: number[] }) {
+export function AreaHeatmap({ areas, weeks }: { areas: EngagementAreaMetric[]; weeks: number[] }) {
+  const t = useTranslations('EngagementWorkspace');
+  const { num } = useFormatadores();
   return (
     <section className="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">Comparação</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">{t('evolution.heatmap.eyebrow')}</p>
           <h3
             className="mt-1 text-[21px] leading-tight text-white"
             style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
           >
-            Ritmo por área
+            {t('evolution.heatmap.title')}
           </h3>
-          <p className="mt-1 text-[10px] text-white/30">Quanto mais intensa a cor, maior o movimento registrado.</p>
+          <p className="mt-1 text-[10px] text-white/30">{t('evolution.heatmap.hint')}</p>
         </div>
         <div className="flex items-center gap-2 text-[9px] text-white/30">
-          <span className="h-2.5 w-2.5 rounded bg-rose-400/15" /> 0
-          <span className="h-2.5 w-2.5 rounded bg-amber-400/15" /> 1–39
-          <span className="h-2.5 w-2.5 rounded bg-cyan-400/15" /> 40–69
-          <span className="h-2.5 w-2.5 rounded bg-emerald-400/15" /> 70+
+          <span className="h-2.5 w-2.5 rounded bg-rose-400/15" /> {t('evolution.heatmap.legendZero')}
+          <span className="h-2.5 w-2.5 rounded bg-amber-400/15" /> {t('evolution.heatmap.legendLow')}
+          <span className="h-2.5 w-2.5 rounded bg-cyan-400/15" /> {t('evolution.heatmap.legendMid')}
+          <span className="h-2.5 w-2.5 rounded bg-emerald-400/15" /> {t('evolution.heatmap.legendHigh')}
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] border-separate border-spacing-1 text-[10px]">
           <thead>
             <tr className="text-white/30">
-              <th className="min-w-[170px] px-2 py-1 text-left font-semibold">Área</th>
-              {weeks.map((week) => <th key={week} className="px-1 py-1 text-center font-semibold">S{week}</th>)}
-              <th className="px-2 py-1 text-right font-semibold">Tendência</th>
+              <th className="min-w-[170px] px-2 py-1 text-left font-semibold">{t('evolution.heatmap.area')}</th>
+              {weeks.map((week) => <th key={week} className="px-1 py-1 text-center font-semibold">{t('weekShort', { week })}</th>)}
+              <th className="px-2 py-1 text-right font-semibold">{t('evolution.heatmap.trend')}</th>
             </tr>
           </thead>
           <tbody>
             {areas.map((area) => (
               <tr key={area.area}>
                 <td className="px-2 py-2 text-white/60">
-                  <p className="font-semibold">{area.area}</p>
-                  <p className="text-[9px] text-white/25">{area.participantes} participante{area.participantes === 1 ? '' : 's'}</p>
+                  <p className="font-semibold">{rotuloArea(t, area.area)}</p>
+                  <p className="text-[9px] text-white/25">{t('evolution.heatmap.participants', { count: area.participantes })}</p>
                 </td>
                 {area.semanas.map((week) => (
                   <td key={week.semana} className="p-0.5 text-center">
                     <div
                       className={`rounded-[10px] px-2 py-2 font-mono tabular-nums ${heatCellClass(week.indice)}`}
                       title={week.indice == null
-                        ? `Semana ${week.semana}: sem elegíveis`
-                        : `Semana ${week.semana}: índice ${week.indice} · ${week.elegiveis} elegíveis`}
+                        ? t('evolution.heatmap.cellNoEligible', { week: week.semana })
+                        : t('evolution.heatmap.cell', { week: week.semana, index: week.indice, eligible: week.elegiveis })}
                     >
-                      {week.indice ?? '—'}
+                      {week.indice == null ? '—' : num(week.indice)}
                     </div>
                   </td>
                 ))}
                 <td className={`px-2 py-2 text-right font-mono tabular-nums ${
                   (area.tendencia ?? 0) < 0 ? 'text-rose-300' : 'text-emerald-300'
                 }`}>
-                  {area.tendencia == null ? '—' : `${area.tendencia >= 0 ? '↑' : '↓'} ${Math.abs(area.tendencia)}`}
+                  {area.tendencia == null ? '—' : `${area.tendencia >= 0 ? '↑' : '↓'} ${num(Math.abs(area.tendencia))}`}
                 </td>
               </tr>
             ))}
@@ -184,29 +197,31 @@ function AreaHeatmap({ areas, weeks }: { areas: EngagementAreaMetric[]; weeks: n
   );
 }
 
-function RiskTable({ data, empresaId, surface }: { data: EngagementEvolutionDashboard; empresaId: string; surface: EngagementSurface }) {
+export function RiskTable({ data, empresaId, surface }: { data: EngagementEvolutionDashboard; empresaId: string; surface: EngagementSurface }) {
+  const t = useTranslations('EngagementWorkspace');
+  const { num } = useFormatadores();
   return (
     <section className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.025]">
       <div className="p-4 sm:p-5">
-        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">Próxima ação</p>
+        <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">{t('evolution.risk.eyebrow')}</p>
         <h3
           className="mt-1 text-[21px] leading-tight text-white"
           style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
         >
-          Pessoas para acompanhar
+          {t('evolution.risk.title')}
         </h3>
-        <p className="mt-1 text-[10px] text-white/30">Participantes em atenção ou críticos no estágio atual.</p>
+        <p className="mt-1 text-[10px] text-white/30">{t('evolution.risk.subtitle')}</p>
       </div>
       <div className="overflow-x-auto border-t border-white/[0.07]">
         <table className="w-full min-w-[720px] text-[10px]">
           <thead>
             <tr className="text-left uppercase tracking-[0.1em] text-white/28">
-              <th className="px-5 py-3 font-bold">Participante</th>
-              <th className="px-3 py-3 font-bold">Área</th>
-              <th className="px-3 py-3 text-center font-bold">Índice</th>
-              <th className="px-3 py-3 text-center font-bold">Variação</th>
-              <th className="px-3 py-3 font-bold">Ritmo</th>
-              <th className="px-3 py-3 font-bold">Motivo</th>
+              <th className="px-5 py-3 font-bold">{t('evolution.risk.participant')}</th>
+              <th className="px-3 py-3 font-bold">{t('evolution.risk.area')}</th>
+              <th className="px-3 py-3 text-center font-bold">{t('evolution.risk.index')}</th>
+              <th className="px-3 py-3 text-center font-bold">{t('evolution.risk.variation')}</th>
+              <th className="px-3 py-3 font-bold">{t('evolution.risk.rhythm')}</th>
+              <th className="px-3 py-3 font-bold">{t('evolution.risk.reason')}</th>
             </tr>
           </thead>
           <tbody>
@@ -216,28 +231,28 @@ function RiskTable({ data, empresaId, surface }: { data: EngagementEvolutionDash
                 <tr key={person.colaboradorId} className="border-t border-white/[0.055] transition-colors hover:bg-white/[0.025]">
                   <td className="px-5 py-3">
                     <p className="font-semibold text-white/75">{person.nome}</p>
-                    <p className="text-[9px] text-white/25">{person.cargo || 'Cargo não informado'}</p>
-                    <Link href={engagementDetailHref(empresaId, { id: person.colaboradorId, week: person.semanaAtual }, surface)} className="mt-1 inline-flex min-h-9 items-center text-xs text-cyan-200 hover:underline focus-visible:outline-2 focus-visible:outline-cyan-300">Ver sinais e próxima ação</Link>
+                    <p className="text-[9px] text-white/25">{rotuloCargo(t, person.cargo)}</p>
+                    <Link href={engagementDetailHref(empresaId, { id: person.colaboradorId, week: person.semanaAtual }, surface)} className="mt-1 inline-flex min-h-9 items-center text-xs text-cyan-200 hover:underline focus-visible:outline-2 focus-visible:outline-cyan-300">{t('evolution.risk.viewSignals')}</Link>
                   </td>
                   <td className="px-3 py-3 text-white/45">
-                    <p>{person.area}</p>
-                    <p className="text-[9px] text-white/25">Semana {person.semanaAtual}</p>
+                    <p>{rotuloArea(t, person.area)}</p>
+                    <p className="text-[9px] text-white/25">{t('evolution.risk.week', { week: person.semanaAtual })}</p>
                   </td>
-                  <td className="px-3 py-3 text-center font-mono tabular-nums text-white/75">{person.indiceAtual}</td>
+                  <td className="px-3 py-3 text-center font-mono tabular-nums text-white/75">{num(person.indiceAtual)}</td>
                   <td className={`px-3 py-3 text-center font-mono tabular-nums ${
                     person.delta < 0 ? 'text-rose-300' : person.delta > 0 ? 'text-emerald-300' : 'text-white/30'
                   }`}>
-                    {person.delta > 0 ? '+' : ''}{person.delta}
+                    {person.delta > 0 ? '+' : ''}{num(person.delta)}
                   </td>
-                  <td className={`px-3 py-3 font-semibold ${meta.text}`}>{meta.label}</td>
-                  <td className="px-3 py-3 text-white/40">{person.motivo}</td>
+                  <td className={`px-3 py-3 font-semibold ${meta.text}`}>{t(`trajectory.${person.trajetoria}`)}</td>
+                  <td className="px-3 py-3 text-white/40">{motivoDeRisco(t, person)}</td>
                 </tr>
               );
             })}
             {!data.pessoasEmRisco.length && (
               <tr>
                 <td colSpan={6} className="px-5 py-10 text-center text-white/30">
-                  Ninguém pede acompanhamento neste recorte.
+                  {t('evolution.risk.empty')}
                 </td>
               </tr>
             )}
@@ -259,9 +274,12 @@ export default function EngagementEvolutionPanel({
   loadEvolution?: EngagementEvolutionLoader;
   surface?: EngagementSurface;
 }) {
+  const t = useTranslations('EngagementWorkspace');
+  const { num, pct: pctTexto } = useFormatadores();
   const [area, setArea] = useState('');
   const [data, setData] = useState<EngagementEvolutionDashboard | null>(null);
   const [loading, setLoading] = useState(false);
+  // Guarda o CÓDIGO da falha, nunca o texto do servidor: a mensagem sai do catálogo.
   const [error, setError] = useState<string | null>(null);
   const requestCounter = useRef(0);
 
@@ -279,14 +297,14 @@ export default function EngagementEvolutionPanel({
       const result = await (loadEvolution ? loadEvolution(area || null) : getEvolucaoEngajamentoEmpresa(empresaId, area || null));
       if (requestId !== requestCounter.current) return;
       if (result.ok === false) {
-        setError(result.error);
+        // `in` em vez de ler direto: o tsconfig roda com `strict: false`, e sem
+        // ele a união discriminada por booleano não estreita.
+        setError(String(('codigo' in result && (result as any).codigo) || 'generic'));
         return;
       }
       setData(result.data);
-    } catch (cause) {
-      if (requestId === requestCounter.current) {
-        setError(cause instanceof Error ? cause.message : 'Falha inesperada ao carregar');
-      }
+    } catch {
+      if (requestId === requestCounter.current) setError('generic');
     } finally {
       if (requestId === requestCounter.current) setLoading(false);
     }
@@ -306,19 +324,19 @@ export default function EngagementEvolutionPanel({
     <div className="space-y-5">
       <div className="flex flex-col gap-3 rounded-[16px] border border-white/[0.07] bg-black/10 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[10px] font-semibold text-white/55">Compare o ritmo ao longo das semanas</p>
-          <p className="mt-0.5 text-[9px] text-white/28">O índice combina ativação, consumo, evidência e uso do Tira-Dúvidas.</p>
+          <p className="text-[10px] font-semibold text-white/55">{t('evolution.toolbar.title')}</p>
+          <p className="mt-0.5 text-[9px] text-white/28">{t('evolution.toolbar.hint')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
             value={area}
             onChange={(event) => setArea(event.target.value)}
             disabled={loading}
-            aria-label="Filtrar evolução por área"
+            aria-label={t('evolution.toolbar.areaAria')}
             className="min-h-8 max-w-[220px] rounded-[10px] border border-white/[0.09] bg-[#081a2f] px-2.5 text-[10px] font-semibold text-white/65 outline-none focus:border-cyan-300/35 disabled:opacity-40"
           >
-            <option value="">Todas as áreas</option>
-            {(data?.areasDisponiveis || []).map((item) => <option key={item} value={item}>{item}</option>)}
+            <option value="">{t('evolution.toolbar.allAreas')}</option>
+            {(data?.areasDisponiveis || []).map((item) => <option key={item} value={item}>{rotuloArea(t, item)}</option>)}
           </select>
           <button
             type="button"
@@ -327,52 +345,52 @@ export default function EngagementEvolutionPanel({
             className="inline-flex min-h-8 items-center gap-1.5 rounded-[10px] border border-white/[0.09] bg-white/[0.035] px-3 text-[10px] font-bold text-white/55 transition-colors hover:bg-white/[0.07] hover:text-white disabled:opacity-40"
           >
             {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Atualizar
+            {t('evolution.toolbar.refresh')}
           </button>
         </div>
       </div>
 
       {error && (
         <div className="rounded-[16px] border border-rose-300/20 bg-rose-300/[0.07] p-4 text-[11px] text-rose-200">
-          Não foi possível carregar a evolução: {error}
+          {t(error === 'empresa_ausente' ? 'evolution.errors.noCompany' : 'evolution.errors.generic')}
         </div>
       )}
 
       {loading && !data && (
         <div className="flex items-center gap-2 rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-6 text-[11px] text-white/35">
-          <Loader2 size={15} className="animate-spin" /> Montando o histórico da jornada…
+          <Loader2 size={15} className="animate-spin" /> {t('evolution.loading')}
         </div>
       )}
 
       {data && current && (
         <div className={`space-y-5 transition-opacity ${loading ? 'pointer-events-none opacity-55' : 'opacity-100'}`} aria-busy={loading}>
-          <section aria-label="Indicadores da semana mais recente" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <section aria-label={t('evolution.metrics.aria')} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <MetricCard
               icon={Activity}
-              label="Ativação"
-              value={`${current.ativacaoPct}%`}
-              detail={pctDelta(current.ativacaoPct, previous?.ativacaoPct)}
+              label={t('evolution.metrics.activation')}
+              value={pctTexto(current.ativacaoPct)}
+              detail={pctDelta(t, current.ativacaoPct, previous?.ativacaoPct)}
               color="text-cyan-300"
             />
             <MetricCard
               icon={CheckCircle2}
-              label="Consumo"
-              value={`${current.consumoPct}%`}
-              detail={pctDelta(current.consumoPct, previous?.consumoPct)}
+              label={t('evolution.metrics.consumption')}
+              value={pctTexto(current.consumoPct)}
+              detail={pctDelta(t, current.consumoPct, previous?.consumoPct)}
               color="text-emerald-300"
             />
             <MetricCard
               icon={ClipboardCheck}
-              label="Evidência prática"
-              value={`${current.evidenciaPct}%`}
-              detail={pctDelta(current.evidenciaPct, previous?.evidenciaPct)}
+              label={t('evolution.metrics.practicalEvidence')}
+              value={pctTexto(current.evidenciaPct)}
+              detail={pctDelta(t, current.evidenciaPct, previous?.evidenciaPct)}
               color="text-amber-300"
             />
             <MetricCard
               icon={TriangleAlert}
-              label="Para acompanhar"
-              value={data.emRisco}
-              detail="Em atenção ou críticos no estágio atual"
+              label={t('evolution.metrics.toFollow')}
+              value={num(data.emRisco)}
+              detail={t('evolution.metrics.toFollowDetail')}
               color="text-rose-300"
             />
           </section>
@@ -386,14 +404,14 @@ export default function EngagementEvolutionPanel({
           <RiskTable data={data} empresaId={empresaId!} surface={surface} />
 
           <p className="px-1 text-[9px] leading-relaxed text-white/25">
-            O índice operacional distribui 20 pontos para ativação, 30 para consumo, 40 para evidência e 10 para uso do Tira-Dúvidas. Ele mede movimento na jornada, não competência ou desempenho individual.
+            {t('evolution.footnote')}
           </p>
         </div>
       )}
 
       {data && !current && !loading && (
         <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.025] p-9 text-center text-[11px] text-white/35">
-          Ainda não há pessoas com semanas medidas nesta jornada.
+          {t('evolution.empty')}
         </div>
       )}
     </div>

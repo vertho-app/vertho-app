@@ -1046,6 +1046,590 @@
     },
     "footer": "Total available: {count}. Every file respects this company's access rules and visual identity."
   },
+  "EngagementWorkspace": {
+    "weekShort": "W{week}",
+    "formats": {
+      "video": "Video",
+      "audio": "Audio",
+      "texto": "Text",
+      "case": "Case"
+    },
+    "fallbacks": {
+      "noRole": "Role not provided",
+      "noArea": "No area",
+      "person": "Participant",
+      "competency": "Competency"
+    },
+    "noFormatOpened": "No format opened",
+    "journeyState": {
+      "pending": "stage pending",
+      "inProgress": "in progress",
+      "stageDone": "stage completed",
+      "journeyDone": "journey completed"
+    },
+    "badge": {
+      "unavailable": "Position unavailable",
+      "unavailableTitle": "The journey and progress of this person could not be read",
+      "journeyDone": "Journey completed",
+      "journeyDoneOf": "Journey completed · {total} of {total} weeks",
+      "journeyDoneTitle": "Completed the last week of the plan. Cohort calendar: week {week}",
+      "calendarTitle": "Cohort calendar: week {week}",
+      "weekState": "Week {week} · {state}"
+    },
+    "delivery": {
+      "contentShort": "C{n}",
+      "sendNoRecord": "delivery with no weekly record",
+      "sendRecorded": "delivery recorded",
+      "sendNotRecorded": "delivery not recorded",
+      "sendShortNoRecord": "Delivery not recorded",
+      "sendShortSent": "Sent",
+      "sendShortNone": "Not sent",
+      "openedRecorded": "opening recorded",
+      "noOpeningRecorded": "no opening recorded",
+      "openedShort": "opened",
+      "notOpenedShort": "not opened"
+    },
+    "consumption": {
+      "video": "Video completed",
+      "audio": "Podcast completed",
+      "material": "Material opened",
+      "videoStarted": "Video started, not completed",
+      "none": "No consumption recorded"
+    },
+    "tutor": {
+      "yes": "The person talked to Tira-Dúvidas at this stage.",
+      "no": "No conversation with Tira-Dúvidas at this stage.",
+      "badge": "Tira-Dúvidas"
+    },
+    "distribution": {
+      "eyebrow": "Position in the journey",
+      "title": "Where people are now",
+      "calendarUnavailable": "Calendar unavailable",
+      "calendarSingle": "Calendar at week {week}",
+      "calendarRange": "Cohorts between weeks {min} and {max}",
+      "subtitle": "{calendar}. Select a week to filter the list.",
+      "finishedCount": "{count, plural, one {# person completed the journey} other {# people completed the journey}}",
+      "clearWeek": "Clear week",
+      "bucketAria": "{count, plural, one {# person} other {# people}} in week {week}",
+      "bucketAriaWithFinished": "{count, plural, one {# person} other {# people}} in week {week}, {finished} with the journey completed",
+      "weekLabel": "Week {week}",
+      "noPosition": "{count} with no position available"
+    },
+    "pillSummary": {
+      "eyebrow": "Content delivery",
+      "title": "From delivery to choosing a format",
+      "content": "Content {n}",
+      "recordedSignals": "recorded signals",
+      "received": "Received",
+      "opened": "Opened",
+      "chose": "Chose"
+    },
+    "formatPreference": {
+      "eyebrow": "Stated preference",
+      "title": "Engagement in the main format",
+      "avgWatched": "Average watched: {pct, number, percent}",
+      "none": "No preference recorded in this selection."
+    },
+    "nextAction": {
+      "journeyDone": "Journey completed",
+      "journeyDoneWeeks": "Journey completed · {total} weeks",
+      "stageDone": "Stage completed",
+      "verifyPending": "Check the pending stage",
+      "behindGuidance": "The individual position is behind the cohort calendar. Check which stage is still to be completed before guiding the next week.",
+      "sendRecorded": "The content delivery is recorded; this does not confirm it was received or read.",
+      "sendInsufficient": "This week's delivery has too little record. Check the history before reaching out.",
+      "sendNone": "No content delivery recorded in this selection."
+    },
+    "card": {
+      "follow": "Follow up"
+    },
+    "table": {
+      "person": "Person",
+      "individualStage": "Individual stage",
+      "content1": "Content 1",
+      "content2": "Content 2",
+      "consumption": "Consumption",
+      "deliveryAndSupport": "Delivery and support",
+      "nextAction": "Next action"
+    },
+    "coordination": {
+      "none": "No coordination defined",
+      "groupPeople": "{count, plural, one {# person in this selection} other {# people in this selection}}",
+      "groupFollow": "{count} to follow up"
+    },
+    "header": {
+      "title": "Journey engagement",
+      "subtitleWithCompany": "{company} · from first access to practical evidence",
+      "subtitleNoCompany": "Select a company in the filter at the top",
+      "report": "Report"
+    },
+    "tabs": {
+      "aria": "Engagement views",
+      "current": "Current view",
+      "evolution": "Weekly evolution"
+    },
+    "filters": {
+      "weekAria": "Filter metrics by week",
+      "currentStage": "Each person's current stage",
+      "weekOption": "Week {week}",
+      "roleAria": "Filter metrics by role",
+      "allRoles": "All roles",
+      "refresh": "Refresh"
+    },
+    "noCompany": {
+      "title": "Choose a company to start",
+      "hint": "The filter is at the top of the admin area."
+    },
+    "loading": "Organizing the journey signals…",
+    "loadError": "The signals could not be loaded. Refresh to try again.",
+    "empty": {
+      "title": "No people in this selection",
+      "hint": "Change the week or the role to look at another group."
+    },
+    "actNow": {
+      "title": "Where to act now",
+      "summaryWeek": "{count, plural, one {# person} other {# people}} who have already reached week {week} · choose a pending item to open the list",
+      "summaryCurrent": "{count, plural, one {# person} other {# people}} at the current stage · choose a pending item to open the list",
+      "reviewSends": "Review deliveries",
+      "overdue": "Stage overdue",
+      "note": "Each person appears at the first pending stage. An overdue stage can overlap with the other groups. No activity does not confirm a delivery failure."
+    },
+    "signalJourney": {
+      "eyebrow": "Signal flow",
+      "title": "See how Vertho.ai works",
+      "descriptionWeek": "Signals recorded this week: access, consume, and turn the content into evidence.",
+      "descriptionCurrent": "Each person's current stage: access, consume, and turn the content into evidence.",
+      "steps": {
+        "cadence": {
+          "label": "In the cadence",
+          "detail": "people included in this selection"
+        },
+        "accessed": {
+          "label": "Accessed content",
+          "detail": "opened at least one format"
+        },
+        "consumed": {
+          "label": "Consumed",
+          "detail": "video or podcast completed, or material opened"
+        },
+        "evidence": {
+          "label": "Delivered evidence",
+          "detail": "completed the week's practice"
+        }
+      },
+      "follow": "{count} to follow up",
+      "ofTotal": "of {total}"
+    },
+    "privacyNote": "HR and leadership follow the delivery and the level of the reflection. The text submitted stays private.",
+    "quality": {
+      "title": "Reflection quality",
+      "delivered": "{count, plural, one {# person delivered} other {# people delivered}} · reflection level at each person's current stage",
+      "noClassification": "Not classified",
+      "note": "AI rates the reflection when each content week closes: high brings a concrete example and personal learning; medium stays general; low is generic or too short. The text is private to the person and does not appear here.",
+      "levels": {
+        "alta": "High",
+        "media": "Medium",
+        "baixa": "Low"
+      },
+      "stage": {
+        "done": "Journey completed",
+        "doneWithLevel": "Journey completed · last reflection <b>{level}</b>",
+        "doneTitle": "The person closed the last week of the plan. The level is that of the last rated reflection; the text is private.",
+        "delivered": "Evidence delivered",
+        "deliveredWeek": "Week {week} evidence delivered",
+        "deliveredTitle": "Stage closed: this week's evidence has already been recorded. The level is rated by AI; the reflection text is private.",
+        "noLevel": "application week, no level",
+        "pending": "Evidence pending",
+        "pendingWeek": "Week {week} evidence pending",
+        "pendingTitle": "The evidence that closes this week has not been recorded yet."
+      }
+    },
+    "complementary": {
+      "aria": "Complementary signals",
+      "openedPage": {
+        "label": "Opened the page",
+        "detail": "direct opening recorded"
+      },
+      "finishedVideo": {
+        "label": "Completed the video",
+        "detail": "{pct, number, percent} watched on average"
+      },
+      "usedTutor": {
+        "label": "Used Tira-Dúvidas",
+        "detail": "conversations started in Tira-Dúvidas"
+      }
+    },
+    "people": {
+      "eyebrowCoordination": "Detail by coordination",
+      "eyebrowPerson": "Detail by person",
+      "title": "Who moved forward and who needs follow-up",
+      "summary": "{pending} with a pending stage · {noSignal} with no signal recorded",
+      "finishedCount": "{count} with the journey completed",
+      "segments": {
+        "all": "All",
+        "follow": "Follow up",
+        "moving": "Moving",
+        "finished": "Finished"
+      },
+      "search": "Search person",
+      "groupBy": "Group by",
+      "groupAria": "Group people",
+      "byCoordination": "Coordination",
+      "byPerson": "Person",
+      "reason": "Pending reason",
+      "allReasons": "All reasons",
+      "personSelected": "Person selected from the report",
+      "clearFilters": "Clear list filters",
+      "showing": "Showing {shown} of {total, plural, one {# person} other {# people}} in this selection.",
+      "coordinationUnavailable": "The coordination links could not be checked. Showing the people; use Refresh to try again.",
+      "noMatch": "No person matches the selected filters."
+    },
+    "howTo": {
+      "summary": "How to read these signals",
+      "access": {
+        "label": "Access:",
+        "body": "opening the page and opening a format are different signals. In week 1, page openings before {date} were not recorded."
+      },
+      "consumption": {
+        "label": "Consumption:",
+        "body": "video or podcast COMPLETED; reading material (text and case study) counts when opened, because a PDF in another tab has no completion event. “No consumption recorded” is the absence of a signal, not proof that the person did not see it."
+      },
+      "evidence": {
+        "label": "Evidence:",
+        "intro": "reflection submitted when the week is completed.",
+        "bodyAdmin": "The full text remains available in Vertho → Evidence.",
+        "bodyRh": "Only the level of the reflection (high, medium or low) appears here; the text is private to the person."
+      },
+      "content": {
+        "label": "Content:",
+        "body": "the cadence sends the content of the week the person IS in (not the calendar's), so the delivery shown is the one for the stage displayed beside it. The system keeps only the stamp of the last delivery: when you filter another week, it shows as “not recorded” instead of a borrowed mark. “Not sent” means nothing was sent at this stage, even when the cohort's cadence has already ended."
+      }
+    },
+    "trajectory": {
+      "accelerating": "Accelerating",
+      "on_track": "On track",
+      "attention": "Attention",
+      "critical": "Critical"
+    },
+    "reasons": {
+      "sem_atividade_duas_semanas": "No activity for two weeks",
+      "sem_atividade_primeira_semana": "No activity in the first week",
+      "sem_atividade_nesta_semana": "No activity this week",
+      "queda_de_pontos": "Dropped {points} points",
+      "consumo_incompleto": "Consumption incomplete",
+      "sem_evidencia": "No practical evidence yet",
+      "sequencia_interrompida": "Broke the streak",
+      "ritmo_abaixo": "Pace below expected"
+    },
+    "evolution": {
+      "toolbar": {
+        "title": "Compare the pace across the weeks",
+        "hint": "The index combines activation, consumption, evidence and use of Tira-Dúvidas.",
+        "areaAria": "Filter evolution by area",
+        "allAreas": "All areas",
+        "refresh": "Refresh"
+      },
+      "errors": {
+        "noCompany": "The evolution could not be loaded. Select a company.",
+        "generic": "The evolution could not be loaded. Refresh to try again."
+      },
+      "loading": "Building the journey history…",
+      "metrics": {
+        "aria": "Indicators for the most recent week",
+        "activation": "Activation",
+        "consumption": "Consumption",
+        "practicalEvidence": "Practical evidence",
+        "toFollow": "To follow up",
+        "toFollowDetail": "In attention or critical at the current stage"
+      },
+      "delta": {
+        "first": "First week measured",
+        "stable": "Stable since the previous week",
+        "up": "Up {n} pp this week",
+        "down": "Down {n} pp this week"
+      },
+      "rhythm": {
+        "eyebrow": "Recent pace",
+        "title": "Current trajectories",
+        "subtitle": "Reading of the last two weeks reached.",
+        "recovered": "{count, plural, one {# recovered} other {# recovered}}",
+        "recoveredHint": "Showed activity again this week."
+      },
+      "heatmap": {
+        "eyebrow": "Comparison",
+        "title": "Pace by area",
+        "hint": "The more intense the color, the more movement recorded.",
+        "legendZero": "0",
+        "legendLow": "1 to 39",
+        "legendMid": "40 to 69",
+        "legendHigh": "70+",
+        "area": "Area",
+        "trend": "Trend",
+        "participants": "{count, plural, one {# participant} other {# participants}}",
+        "cellNoEligible": "Week {week}: no eligible people",
+        "cell": "Week {week}: index {index} · {eligible} eligible"
+      },
+      "risk": {
+        "eyebrow": "Next action",
+        "title": "People to follow up",
+        "subtitle": "Participants in attention or critical at the current stage.",
+        "participant": "Participant",
+        "area": "Area",
+        "index": "Index",
+        "variation": "Change",
+        "rhythm": "Pace",
+        "reason": "Reason",
+        "viewSignals": "View signals and next action",
+        "week": "Week {week}",
+        "empty": "Nobody needs follow-up in this selection."
+      },
+      "footnote": "The operational index gives 20 points to activation, 30 to consumption, 40 to evidence and 10 to the use of Tira-Dúvidas. It measures movement in the journey, not competency or individual performance.",
+      "empty": "There are no people with measured weeks in this journey yet."
+    },
+    "trend": {
+      "eyebrow": "History",
+      "title": "Week-by-week movement",
+      "description": "Percentage among the people who have already reached each stage.",
+      "descriptionIllustrative": "A fictional cohort gains pace over the program.",
+      "illustrativeBadge": "Illustrative history",
+      "series": {
+        "activation": "Activation",
+        "consumption": "Consumption",
+        "evidence": "Evidence"
+      },
+      "selectWeek": "Week {week} · select a week to compare",
+      "noWeeks": "No weeks available",
+      "svgTitle": "{kind} of activation, consumption and evidence. Values by week are available below.",
+      "kindIllustrative": "Illustrative history",
+      "kindMeasured": "Weekly evolution",
+      "pointTitle": "{series} · Week {week}: {value, number, percent}",
+      "selectGroupAria": "Select chart week",
+      "weekAria": "Week {week}",
+      "viewValues": "View values by week",
+      "captionIllustrative": "Fictional data from the illustrative history",
+      "captionMeasured": "Percentages measured by week",
+      "weekColumn": "Week"
+    },
+    "blockers": {
+      "ativacao": {
+        "label": "No activation",
+        "action": "Check delivery and access",
+        "guidance": "Check the delivery record, the link's validity and possible access blocks. If access is working, prepare a reminder for the group with no activity.",
+        "owner": "Operations and manager",
+        "deadline": "Today"
+      },
+      "consumo": {
+        "label": "Consumption pending",
+        "action": "Support resuming the content",
+        "guidance": "Check where the person stopped, guide them to resume and offer the most suitable available format. Agree on a deadline to finish the content.",
+        "owner": "Manager",
+        "deadline": "Next business day"
+      },
+      "evidencia": {
+        "label": "Evidence pending",
+        "action": "Guide the practice record",
+        "guidance": "Confirm whether there was difficulty with the activity or with recording the evidence. Reinforce the week's guidance and agree on delivery with the group.",
+        "owner": "Manager",
+        "deadline": "Before the next follow-up"
+      }
+    },
+    "report": {
+      "stable": "stable",
+      "deltaUp": "+{n} pp",
+      "deltaDown": "−{n} pp",
+      "companyFallback": "Company",
+      "back": "Back to engagement",
+      "title": "Weekly report",
+      "subtitle": "Real data · {company} · eligible base of the closing",
+      "subtitleWeek": "Real data · {company} · week {week} · eligible base of the closing",
+      "audienceAria": "Report audience",
+      "audience": {
+        "gestor": "Manager",
+        "rh": "HR / Executive"
+      },
+      "openPdf": "Open PDF to print",
+      "noCompany": "Select a company in the filter at the top to see the report.",
+      "loading": "Loading real closing data…",
+      "errors": {
+        "title": "The report could not be loaded.",
+        "load": "Failed to load the report data.",
+        "evolution": "Failed to load the engagement evolution.",
+        "retry": "Try again"
+      },
+      "paperTitle": "Weekly engagement report",
+      "period": "Week {week} · {date}",
+      "closing": {
+        "priority": "Closing priority · Week {week}",
+        "unavailable": "Weekly base unavailable",
+        "baseCompare": "Weekly base: {eligible} eligible · previous week: {previous}.",
+        "baseNoCompare": "Weekly base: {eligible} eligible · no previous comparison available.",
+        "populationChanged": "The eligible population changed. The rates compare groups of different sizes."
+      },
+      "trajectories": {
+        "aria": "Follow-up of everyone enrolled",
+        "title": "Trajectories of everyone enrolled",
+        "ofTotal": "of {enrolled}",
+        "note": "Each person in their current week. This total uses a different base than the weekly closing.",
+        "link": "See follow-up priorities"
+      },
+      "thread": {
+        "eyebrow": "Journey stages",
+        "title": "Where momentum fades",
+        "basis": "Closing of the expected stage · eligible base",
+        "steps": {
+          "eligible": "Eligible",
+          "activated": "Activated",
+          "consumed": "Consumed",
+          "evidenced": "Gave evidence"
+        },
+        "stage": {
+          "eligible": "eligibility",
+          "activation": "activation",
+          "consumption": "consumption",
+          "evidence": "evidence"
+        },
+        "biggestLoss": "Biggest loss: {count, plural, one {# person} other {# people}} between {from} and {to}."
+      },
+      "trend": {
+        "eyebrow": "Trajectory",
+        "title": "Latest closings, same yardstick",
+        "empty": "Not enough history for the trajectory yet. Closings appear here from the second week.",
+        "aria": "Trend of the latest weekly closings",
+        "noPrevious": "no previous comparison"
+      },
+      "focus": {
+        "eyebrow": "Decision",
+        "empty": "No critical or attention trajectory recorded in the enrolled base.",
+        "viewSignals": "View the person's signals"
+      },
+      "cargo": {
+        "eyebrow": "Decision by role",
+        "title": "Where to focus the follow-up",
+        "description": "All roles, ordered by people at risk; then critical cases and enrolled. Activation, consumption and evidence: number and percentage of the eligible in week {week}. Risk: number and percentage of those enrolled in the role, each person in their current week. No eligible people means the role has not reached this closing yet.",
+        "counts": "{enrolled} enrolled · {eligible} eligible",
+        "noEligible": "No eligible people",
+        "atRisk": "At risk",
+        "riskSplit": "{critical} critical · {attention} in attention",
+        "suggestedAction": "Suggested action:",
+        "empty": "No data by role available."
+      },
+      "secondary": {
+        "aria": "Secondary signals",
+        "recovered": "got their pace back",
+        "tutor": "used Tira-Dúvidas",
+        "format": "format with the highest adoption"
+      },
+      "footer": "Engagement measures activity in the journey. Critical: no activity in the first week or in two consecutive weeks. Attention: index below 40, a week with no activity, or a drop from the previous one. Index: activation 20 + consumption 30 + evidence 40 + Tira-Dúvidas 10. The actions, owners and deadlines are suggestions for the team's follow-up.",
+      "detailedData": "View detailed data",
+      "available": "Report available to read and print.",
+      "downloadPdf": "Download PDF",
+      "priorities": {
+        "title": "Priorities and next actions",
+        "subtitle": "Exclusive groups of week {week} · {eligible} eligible · largest group first",
+        "copyPlan": "Copy suggested plan",
+        "copyStatus": {
+          "copied": "Plan copied.",
+          "failed": "Could not copy. Use the PDF to keep the plan."
+        },
+        "copy": {
+          "header": "{scope} · Week {week}",
+          "action": "{n}. {title}\n{description}\nSuggested owner: {owner}\nSuggested deadline: {deadline}"
+        },
+        "peoplePct": "{count, plural, one {person} other {people}} · {pct}",
+        "viewGroup": "View affected group",
+        "noMembers": "The detail of this group is not available in this reading. Refresh the report.",
+        "owner": "Suggested owner: {owner} · {deadline}"
+      }
+    },
+    "model": {
+      "noRecord": "No record",
+      "preferredFormat": "{format} · {pct, number, percent}",
+      "week": "Week {week}",
+      "tutor": "{count} of {eligible}",
+      "thesisAccentDefault": "Review the follow-up of the cohorts.",
+      "eyebrow": {
+        "gestor": "Manager reading",
+        "rh": "HR / Executive reading"
+      },
+      "scope": {
+        "gestor": "{company} · by person and role",
+        "rh": "{company} · by area and role"
+      },
+      "kind": {
+        "ativacao": "activation",
+        "consumo": "consumption",
+        "evidencia": "evidence"
+      },
+      "group": {
+        "ativacao": "have no activation recorded",
+        "consumo": "activated but did not finish consuming",
+        "evidencia": "consumed but have not yet recorded evidence"
+      },
+      "thesis": {
+        "pending": "{count, plural, one {# person} other {# people}} with pending {kind}.",
+        "completed": "The weekly base completed the journey.",
+        "none": "No weekly closing available."
+      },
+      "explanation": {
+        "group": "{count} of {eligible, plural, one {# eligible person} other {# eligible people}} {group} in week {week}. {guidance}",
+        "noActivityNote": "No activity does not identify the cause: check delivery, access and event recording before approaching the group.",
+        "allDone": "{count} of {eligible, plural, one {# eligible person} other {# eligible people}} completed the evidence in week {week}. Also follow the individual trajectories in the other cohorts.",
+        "none": "No weekly closing is available for this selection. No indicator was replaced by the accumulated history."
+      },
+      "cargoAction": {
+        "notReached": "Follow the cohorts' current week; this role has not reached the closing yet.",
+        "gapActivation": "{count, plural, one {# person} other {# people}} with no activation. Confirm access and agree on the first contact with the content.",
+        "gapConsumption": "{count, plural, one {# person} other {# people}} activated but without completed consumption. Set aside time to finish the content.",
+        "gapEvidence": "{count, plural, one {# person} other {# people}} with completed consumption but no evidence. Guide the recording of the practical application.",
+        "closedAtRisk": "Closing complete among the eligible. Follow the trajectories at risk and possible drops from the previous week.",
+        "recognize": "Recognize the participation and sustain the practical application."
+      },
+      "members": {
+        "areaContext": "{count, plural, one {# person with this pending item} other {# people with this pending item}} in week {week}"
+      },
+      "plan": {
+        "agree": {
+          "title": "Agree on the next action with the group",
+          "description": "Review why it is pending and each person's signals. Define the owner and prepare specific guidance for the block found.",
+          "owner": "Team manager",
+          "deadline": "After the check"
+        },
+        "review": {
+          "title": "Reassess the same group",
+          "description": "In the next reading, check who moved to the next stage and who is still pending. Record the result in the team's follow-up.",
+          "owner": "Manager and HR",
+          "deadline": "Within 48 hours, as a suggestion"
+        },
+        "reviewOthers": {
+          "title": "Review the individual trajectories",
+          "description": "Follow other cohorts and recognize those who got their pace back.",
+          "owner": "Manager and HR",
+          "deadline": "Next follow-up meeting"
+        },
+        "alignAreas": {
+          "title": "Align the plan with the area managers",
+          "description": "Prioritize the areas with more critical trajectories and a larger share of affected people. Agree on the support, the owner and the review date.",
+          "owner": "HR and area managers",
+          "deadline": "After the check"
+        }
+      },
+      "focus": {
+        "titlePeople": "Trajectories that need follow-up",
+        "titleAreas": "Areas that need follow-up",
+        "subtitle": "Base: {enrolled} enrolled, each person in their current week. {rule}",
+        "rulePeople": "Up to 3 priorities, critical trajectories first.",
+        "ruleAreas": "Ordered by critical trajectories, number and share of affected people.",
+        "areaContext": "{risk} people at risk · {total} enrolled · {pct, number, percent} of the area",
+        "areaContextNoBase": "{risk} people under follow-up",
+        "areaReason": "{critical} in a critical trajectory · {attention} in attention. Align the plan with the area manager."
+      },
+      "signal": {
+        "critical": "Critical",
+        "attention": "Attention",
+        "criticalTrajectories": "Critical trajectories"
+      }
+    }
+  },
   "DashboardJourney": {
     "cta": {
       "1": "Start behavioral profile",

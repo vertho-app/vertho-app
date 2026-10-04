@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { engagementBlocker } from '@/lib/engajamento/prioridades';
+import ptBR from '@/messages/pt-BR.json';
 
 /**
  * "Quantas pessoas finalizaram?" era uma pergunta sem resposta na tela.
@@ -51,11 +52,17 @@ describe('a régua de fim de jornada chega às telas', () => {
 
 describe('a tela DIZ quem finalizou', () => {
   it('o painel de RH tem badge, contador e recorte próprios do fim de jornada', () => {
-    expect(PAINEL).toContain('Jornada concluída');
-    expect(PAINEL).toContain('concluiu a jornada');
-    expect(PAINEL).toContain('com a jornada concluída');
+    // O texto mora no catálogo (R-67): a tela chama a chave e o catálogo diz a frase.
+    expect(PAINEL).toContain("t('badge.journeyDone')");
+    expect(PAINEL).toContain("t('distribution.finishedCount'");
+    expect(PAINEL).toContain("t('people.finishedCount'");
     expect(PAINEL).toContain("'finalizados'");
-    expect(PAINEL).toContain("['finalizados', 'Finalizaram'");
+    expect(PAINEL).toContain("['finalizados', 'finished'");
+    const t = ptBR.EngagementWorkspace;
+    expect(t.badge.journeyDone).toBe('Jornada concluída');
+    expect(t.distribution.finishedCount).toContain('concluiu a jornada');
+    expect(t.people.finishedCount).toContain('com a jornada concluída');
+    expect(t.people.segments.finished).toBe('Finalizaram');
   });
 
   it('o painel do gestor também nomeia o estado terminal', () => {
@@ -91,7 +98,8 @@ describe('a cor do estado terminal se separa do "em curso"', () => {
     expect(estados).toContain("dot: 'bg-fuchsia-300'");
     expect(estados).toContain("dot: 'bg-violet-400'");
     expect(estados).not.toContain('emerald');
-    expect(estados).toContain("label: 'jornada concluída'");
+    expect(estados).toContain("chave: 'journeyDone'");
+    expect(ptBR.EngagementWorkspace.journeyState.journeyDone).toBe('jornada concluída');
   });
 
   it('a barra pinta as fatias pelo mapa de estados, não por classe solta', () => {
@@ -104,7 +112,9 @@ describe('a cor do estado terminal se separa do "em curso"', () => {
   it('a legenda sai do mapa de estados: estado novo não fica sem rótulo', () => {
     expect(PAINEL).toContain('Object.values(ESTADO_JORNADA).map');
     const estados = PAINEL.slice(PAINEL.indexOf('const ESTADO_JORNADA'), PAINEL.indexOf('const temSinal'));
-    expect((estados.match(/label:/g) || []).length).toBe(4);
+    // Cada estado tem a chave que liga ao rótulo do catálogo, e o catálogo tem os quatro.
+    expect((estados.match(/chave:/g) || []).length).toBe(4);
+    expect(Object.keys(ptBR.EngagementWorkspace.journeyState).sort()).toEqual(['inProgress', 'journeyDone', 'pending', 'stageDone']);
   });
 });
 
@@ -118,6 +128,6 @@ describe('quem terminou não recebe pendência inventada', () => {
 
   it('a próxima ação de quem terminou não é "evidência pendente"', () => {
     const proxima = PAINEL.slice(PAINEL.indexOf('function ProximaAcao'), PAINEL.indexOf('function PessoaCard'));
-    expect(proxima.indexOf('finalizouJornada(pessoa)')).toBeLessThan(proxima.indexOf('Etapa concluída'));
+    expect(proxima.indexOf('finalizouJornada(pessoa)')).toBeLessThan(proxima.indexOf("t('nextAction.stageDone')"));
   });
 });

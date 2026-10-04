@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Activity,
   ArrowDownRight,
@@ -23,10 +24,18 @@ import {
 } from 'lucide-react';
 import { engagementLinks, appendEngagementQuery, type EngagementPanelProps, type EngagementSurface } from '@/lib/engajamento/surface';
 import ReportPriorities from '@/components/engajamento/report-priorities';
+import { useFormatadores } from '@/components/engajamento/use-formatadores';
 import { engagementDetailHref } from '@/lib/engajamento/prioridades';
+import { rotuloCargo, type Traduzir } from '@/lib/engajamento/rotulos';
 import type { EngagementEvolutionDashboard } from '@/lib/engagement-evolution';
 import { buildViews, type Audience, type Signal, type TrendPoint, type ReportView } from '@/lib/engajamento/relatorio-model';
 
+/**
+ * Relatório semanal do Engajamento na tela. Todo texto vem de
+ * `EngagementWorkspace` (`report.*` e `model.*`) nos quatro idiomas (R-67): o
+ * `buildViews` recebe o `t` do idioma de quem lê e devolve as frases prontas,
+ * as mesmas que o PDF recebe do tradutor do servidor.
+ */
 const SIGNAL_STYLES: Record<Signal, { dot: string; text: string; bg: string; border: string }> = {
   critical: {
     dot: 'bg-rose-400',
@@ -48,40 +57,44 @@ const SIGNAL_STYLES: Record<Signal, { dot: string; text: string; bg: string; bor
   },
 };
 
+// O rótulo de cada série mora em `EngagementWorkspace.trend.series.<chave>`.
 const SERIES = [
-  { key: 'activation' as const, label: 'Ativação', color: '#34c5cc' },
-  { key: 'consumption' as const, label: 'Consumo', color: '#55d6a0' },
-  { key: 'evidence' as const, label: 'Evidência', color: '#f4b740' },
+  { key: 'activation' as const, chave: 'activation', color: '#34c5cc' },
+  { key: 'consumption' as const, chave: 'consumption', color: '#55d6a0' },
+  { key: 'evidence' as const, chave: 'evidence', color: '#f4b740' },
 ];
 
-function signedDelta(value: number) {
-  if (value === 0) return 'estável';
-  return `${value > 0 ? '+' : '−'}${Math.abs(value)} pp`;
+function signedDelta(t: Traduzir, value: number) {
+  if (value === 0) return t('report.stable');
+  return t(value > 0 ? 'report.deltaUp' : 'report.deltaDown', { n: Math.abs(value) });
 }
 
 function MetricDelta({ value }: { value: number }) {
+  const t = useTranslations('EngagementWorkspace');
   const positive = value >= 0;
   const Icon = positive ? ArrowUpRight : ArrowDownRight;
   return (
     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${positive ? 'text-emerald-300' : 'text-rose-300'}`}>
       <Icon size={12} aria-hidden="true" />
-      {signedDelta(value)}
+      {signedDelta(t, value)}
     </span>
   );
 }
 
-function EngagementThread({ data }: { data: ReportView }) {
+export function EngagementThread({ data }: { data: ReportView }) {
+  const t = useTranslations('EngagementWorkspace');
+  const { num, pct: pctTexto } = useFormatadores();
   const steps = [
-    { label: 'Elegíveis', count: data.eligible, pct: data.eligible ? 100 : 0, delta: null as number | null, color: '#77e7ee' },
-    { label: 'Ativaram', count: data.activation.count, pct: data.activation.pct, delta: data.activation.delta, color: '#34c5cc' },
-    { label: 'Consumiram', count: data.consumption.count, pct: data.consumption.pct, delta: data.consumption.delta, color: '#55d6a0' },
-    { label: 'Evidenciaram', count: data.evidence.count, pct: data.evidence.pct, delta: data.evidence.delta, color: '#f4b740' },
+    { chave: 'eligible', count: data.eligible, pct: data.eligible ? 100 : 0, delta: null as number | null, color: '#77e7ee' },
+    { chave: 'activated', count: data.activation.count, pct: data.activation.pct, delta: data.activation.delta, color: '#34c5cc' },
+    { chave: 'consumed', count: data.consumption.count, pct: data.consumption.pct, delta: data.consumption.delta, color: '#55d6a0' },
+    { chave: 'evidenced', count: data.evidence.count, pct: data.evidence.pct, delta: data.evidence.delta, color: '#f4b740' },
   ];
 
   const perdas = [
-    { de: 'elegíveis', para: 'ativação', perda: data.eligible - data.activation.count },
-    { de: 'ativação', para: 'consumo', perda: data.activation.count - data.consumption.count },
-    { de: 'consumo', para: 'evidência', perda: data.consumption.count - data.evidence.count },
+    { de: 'eligible', para: 'activation', perda: data.eligible - data.activation.count },
+    { de: 'activation', para: 'consumption', perda: data.activation.count - data.consumption.count },
+    { de: 'consumption', para: 'evidence', perda: data.consumption.count - data.evidence.count },
   ].filter((p) => p.perda > 0);
   const maior = perdas.length ? [...perdas].sort((a, b) => b.perda - a.perda)[0] : null;
 
@@ -90,29 +103,29 @@ function EngagementThread({ data }: { data: ReportView }) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-[var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/70">
-            Etapas da jornada
+            {t('report.thread.eyebrow')}
           </p>
           <h3 id="engagement-thread-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">
-            Onde o movimento perde força
+            {t('report.thread.title')}
           </h3>
         </div>
-        <p className="text-xs text-white/40">Fechamento do estágio esperado · base elegível</p>
+        <p className="text-xs text-white/40">{t('report.thread.basis')}</p>
       </div>
 
       <div className="mt-6 hidden sm:block">
         <div className="grid grid-cols-4">
           {steps.map((step, index) => (
-            <div key={step.label} className={`min-w-0 px-3 first:pl-0 last:pr-0 ${index ? 'border-l border-white/[0.07]' : ''}`}>
+            <div key={step.chave} className={`min-w-0 px-3 first:pl-0 last:pr-0 ${index ? 'border-l border-white/[0.07]' : ''}`}>
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="font-[var(--font-manrope)] text-[30px] font-semibold leading-none text-white tabular-nums">
-                    {step.count}
+                    {num(step.count)}
                   </div>
-                  <div className="mt-1 text-xs text-white/50">{step.label}</div>
+                  <div className="mt-1 text-xs text-white/50">{t(`report.thread.steps.${step.chave}`)}</div>
                 </div>
                 <div className="text-right">
                   <div className="font-[var(--font-manrope)] text-base font-semibold tabular-nums" style={{ color: step.color }}>
-                    {step.pct}%
+                    {pctTexto(step.pct)}
                   </div>
                   {step.delta != null && data.canCompare && <MetricDelta value={step.delta} />}
                 </div>
@@ -122,27 +135,27 @@ function EngagementThread({ data }: { data: ReportView }) {
         </div>
 
         <div className="mt-4 grid grid-cols-4 gap-3" aria-hidden="true">
-          {steps.map((step) => <div key={step.label} className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${step.pct}%`, background: step.color }} /></div>)}
+          {steps.map((step) => <div key={step.chave} className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${step.pct}%`, background: step.color }} /></div>)}
         </div>
 
         {maior && (
           <div className="mt-2 flex items-center gap-2 text-xs text-rose-200/80">
             <CircleAlert size={14} aria-hidden="true" />
-            Maior perda: {maior.perda} {maior.perda === 1 ? 'pessoa' : 'pessoas'} entre {maior.de} e {maior.para}.
+            {t('report.thread.biggestLoss', { count: maior.perda, from: t(`report.thread.stage.${maior.de}`), to: t(`report.thread.stage.${maior.para}`) })}
           </div>
         )}
       </div>
 
       <div className="mt-5 space-y-4 sm:hidden">
         {steps.map((step) => (
-          <div key={step.label}>
+          <div key={step.chave}>
             <div className="flex items-end justify-between gap-3">
               <div>
-                <span className="font-[var(--font-manrope)] text-xl font-semibold text-white tabular-nums">{step.count}</span>
-                <span className="ml-2 text-xs text-white/50">{step.label}</span>
+                <span className="font-[var(--font-manrope)] text-xl font-semibold text-white tabular-nums">{num(step.count)}</span>
+                <span className="ml-2 text-xs text-white/50">{t(`report.thread.steps.${step.chave}`)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-[var(--font-manrope)] text-sm font-semibold tabular-nums" style={{ color: step.color }}>{step.pct}%</span>
+                <span className="font-[var(--font-manrope)] text-sm font-semibold tabular-nums" style={{ color: step.color }}>{pctTexto(step.pct)}</span>
                 {step.delta != null && data.canCompare && <MetricDelta value={step.delta} />}
               </div>
             </div>
@@ -156,7 +169,9 @@ function EngagementThread({ data }: { data: ReportView }) {
   );
 }
 
-function TrendChart({ points }: { points: TrendPoint[] }) {
+export function TrendChart({ points }: { points: TrendPoint[] }) {
+  const t = useTranslations('EngagementWorkspace');
+  const { pct: pctTexto } = useFormatadores();
   const width = 620;
   const height = 232;
   const left = 38;
@@ -170,7 +185,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
   );
 
   if (!points.length) {
-    return <p className="mt-5 text-xs text-white/40">Sem histórico suficiente para a trajetória — os fechamentos aparecem aqui a partir da segunda semana.</p>;
+    return <p className="mt-5 text-xs text-white/40">{t('report.trend.empty')}</p>;
   }
 
   // Valores iguais (inclusive todos em zero) precisam de rótulos separados.
@@ -187,11 +202,11 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
   return (
     <>
       <div className="mt-5 hidden sm:block">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label="Tendência dos últimos fechamentos semanais">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label={t('report.trend.aria')}>
           {[25, 50, 75, 100].map((tick) => (
             <g key={tick}>
               <line x1={left} x2={right} y1={y(tick)} y2={y(tick)} stroke="rgba(255,255,255,.07)" strokeWidth="1" />
-              <text x="3" y={y(tick) + 4} fill="rgba(255,255,255,.35)" fontSize="10">{tick}%</text>
+              <text x="3" y={y(tick) + 4} fill="rgba(255,255,255,.35)" fontSize="10">{pctTexto(tick)}</text>
             </g>
           ))}
           {SERIES.map((series) => (
@@ -201,7 +216,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
                 <circle key={point.label} cx={x(index)} cy={y(point[series.key])} r="4" fill="#07192f" stroke={series.color} strokeWidth="2" />
               ))}
               <text x={right + 12} y={labelY.get(series.key)} fill={series.color} fontSize="10" fontWeight="600">
-                {series.label} {points.at(-1)?.[series.key]}%
+                {t(`trend.series.${series.chave}`)} {pctTexto(points.at(-1)?.[series.key] ?? 0)}
               </text>
             </g>
           ))}
@@ -220,10 +235,10 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
               <div className="flex items-center justify-between gap-3 text-xs">
                 <span className="flex items-center gap-2 text-white/60">
                   <span className="h-2 w-2 rounded-full" style={{ background: series.color }} />
-                  {series.label}
+                  {t(`trend.series.${series.chave}`)}
                 </span>
                 <span className="font-[var(--font-manrope)] font-semibold text-white tabular-nums">
-                  {current}% <span className={current >= previous ? 'text-emerald-300' : 'text-rose-300'}>({points.length > 1 ? signedDelta(current - previous) : 'sem comparação anterior'})</span>
+                  {pctTexto(current)} <span className={current >= previous ? 'text-emerald-300' : 'text-rose-300'}>({points.length > 1 ? signedDelta(t, current - previous) : t('report.trend.noPrevious')})</span>
                 </span>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-[10px] bg-white/[0.06]">
@@ -237,17 +252,18 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
   );
 }
 
-function FocusList({ data, empresaId, surface }: { data: ReportView; empresaId: string; surface: EngagementSurface }) {
+export function FocusList({ data, empresaId, surface }: { data: ReportView; empresaId: string; surface: EngagementSurface }) {
+  const t = useTranslations('EngagementWorkspace');
   return (
     <section id="trajetorias-prioritarias" aria-labelledby="focus-title" className="h-full border-l border-white/[0.08] pl-0 lg:pl-7">
       <p className="font-[var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.2em] text-amber-200/70">
-        Decisão
+        {t('report.focus.eyebrow')}
       </p>
       <h3 id="focus-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">{data.focusTitle}</h3>
       <p className="mt-1 max-w-md text-xs leading-relaxed text-white/40">{data.focusSubtitle}</p>
 
       {data.focusItems.length === 0 ? (
-        <p className="mt-5 text-xs leading-relaxed text-white/40">Nenhuma trajetória crítica ou de atenção registrada na base de inscritos.</p>
+        <p className="mt-5 text-xs leading-relaxed text-white/40">{t('report.focus.empty')}</p>
       ) : (
         <div className="mt-5 divide-y divide-white/[0.07]">
           {data.focusItems.map((item, index) => {
@@ -267,7 +283,7 @@ function FocusList({ data, empresaId, surface }: { data: ReportView; empresaId: 
                     </span>
                   </div>
                   <p className="mt-2 text-xs leading-relaxed text-white/60">{item.reason}</p>
-                  {item.id && <Link href={engagementDetailHref(empresaId, item, surface)} className="mt-2 inline-flex min-h-10 items-center gap-1 text-xs text-cyan-200 hover:underline">Ver sinais da pessoa <ArrowUpRight size={13} /></Link>}
+                  {item.id && <Link href={engagementDetailHref(empresaId, item, surface)} className="mt-2 inline-flex min-h-10 items-center gap-1 text-xs text-cyan-200 hover:underline">{t('report.focus.viewSignals')} <ArrowUpRight size={13} /></Link>}
                 </div>
               </div>
             );
@@ -278,47 +294,50 @@ function FocusList({ data, empresaId, surface }: { data: ReportView; empresaId: 
   );
 }
 
-function CargoBreakdown({ data, semana }: { data: ReportView; semana: number }) {
+export function CargoBreakdown({ data, semana }: { data: ReportView; semana: number }) {
+  const t = useTranslations('EngagementWorkspace');
+  const { num, pct: pctTexto } = useFormatadores();
   return <section aria-labelledby="cargo-title" className="engagement-report-cargos py-7">
-    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">Decisão por cargo</p>
-    <h3 id="cargo-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">Onde concentrar o acompanhamento</h3>
+    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">{t('report.cargo.eyebrow')}</p>
+    <h3 id="cargo-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">{t('report.cargo.title')}</h3>
     <p className="mt-2 text-xs leading-relaxed text-white/60">
-      Todos os cargos, em ordem de pessoas em risco; depois, casos críticos e inscritos.
-      Ativação, consumo e evidência: quantidade e percentual dos elegíveis na semana {semana}.
-      Risco: quantidade e percentual dos inscritos no cargo, cada pessoa na sua semana atual.
-      Sem elegíveis significa que o cargo ainda não chegou a este fechamento.
+      {t('report.cargo.description', { week: semana })}
     </p>
     {data.cargos.length ? <div className="mt-5 space-y-3">
       {data.cargos.map((cargo) => <div key={cargo.cargo} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <h4 className="text-sm font-semibold text-white">{cargo.cargo}</h4>
-          <p className="text-xs text-white/55">{cargo.participantes} inscritos · {cargo.elegiveis} elegíveis</p>
+          <h4 className="text-sm font-semibold text-white">{rotuloCargo(t, cargo.cargo)}</h4>
+          <p className="text-xs text-white/55">{t('report.cargo.counts', { enrolled: cargo.participantes, eligible: cargo.elegiveis })}</p>
         </div>
         <dl className="my-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: 'Ativaram', value: cargo.ativados, pct: cargo.ativacaoPct },
-            { label: 'Consumiram', value: cargo.consumiram, pct: cargo.consumoPct },
-            { label: 'Evidenciaram', value: cargo.evidencias, pct: cargo.evidenciaPct },
-          ].map((metric) => <div key={metric.label}>
-            <dt className="text-[11px] text-white/50">{metric.label}</dt>
-            <dd className="mt-1 text-sm text-white tabular-nums">{cargo.elegiveis ? <>{metric.value} <span className="text-white/55">· {metric.pct}%</span></> : <span className="text-xs text-white/50">Sem elegíveis</span>}</dd>
+            { chave: 'activated', value: cargo.ativados, pct: cargo.ativacaoPct },
+            { chave: 'consumed', value: cargo.consumiram, pct: cargo.consumoPct },
+            { chave: 'evidenced', value: cargo.evidencias, pct: cargo.evidenciaPct },
+          ].map((metric) => <div key={metric.chave}>
+            <dt className="text-[11px] text-white/50">{t(`report.thread.steps.${metric.chave}`)}</dt>
+            <dd className="mt-1 text-sm text-white tabular-nums">{cargo.elegiveis ? <>{num(metric.value)} <span className="text-white/55">· {pctTexto(metric.pct)}</span></> : <span className="text-xs text-white/50">{t('report.cargo.noEligible')}</span>}</dd>
           </div>)}
           <div>
-            <dt className="text-[11px] text-white/50">Em risco</dt>
-            <dd className={`mt-1 text-sm tabular-nums ${cargo.emRisco ? 'text-amber-200' : 'text-emerald-200'}`}>{cargo.emRisco} · {cargo.riscoPct}%</dd>
-            <dd className="mt-1 text-[10px] text-white/50">{cargo.criticos} críticos · {cargo.atencao} em atenção</dd>
+            <dt className="text-[11px] text-white/50">{t('report.cargo.atRisk')}</dt>
+            <dd className={`mt-1 text-sm tabular-nums ${cargo.emRisco ? 'text-amber-200' : 'text-emerald-200'}`}>{num(cargo.emRisco)} · {pctTexto(cargo.riscoPct)}</dd>
+            <dd className="mt-1 text-[10px] text-white/50">{t('report.cargo.riskSplit', { critical: cargo.criticos, attention: cargo.atencao })}</dd>
           </div>
         </dl>
-        <p className="border-t border-white/10 pt-3 text-xs leading-relaxed text-white/65"><span className="font-semibold text-cyan-200">Ação sugerida: </span>{cargo.acao}</p>
+        <p className="border-t border-white/10 pt-3 text-xs leading-relaxed text-white/65"><span className="font-semibold text-cyan-200">{t('report.cargo.suggestedAction')} </span>{cargo.acao}</p>
       </div>)}
-    </div> : <p className="mt-4 text-sm text-white/60">Sem dados por cargo disponíveis.</p>}
+    </div> : <p className="mt-4 text-sm text-white/60">{t('report.cargo.empty')}</p>}
   </section>;
 }
 
 export default function EngagementReport({ empresaId, empresaNome, surface, loadRollup, loadEvolution }: EngagementPanelProps) {
+  const t = useTranslations('EngagementWorkspace');
+  const locale = useLocale();
+  const { num } = useFormatadores();
   const links = engagementLinks(empresaId, surface);
   const [audience, setAudience] = useState<Audience>(surface === 'rh' ? 'rh' : 'gestor');
   const [loading, setLoading] = useState(true);
+  // Guarda só que falhou, nunca o texto do servidor: a mensagem sai do catálogo.
   const [erro, setErro] = useState<string | null>(null);
   const [rollup, setRollup] = useState<any>(null);
   const [evolucao, setEvolucao] = useState<EngagementEvolutionDashboard | null>(null);
@@ -337,16 +356,12 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
           setEvolucao(e.data);
         } else {
           setEvolucao(null);
-          // `in` em vez de ler `e.error` direto: o tsconfig roda com
-          // `strict: false`, e sem ele a união discriminada por BOOLEANO não
-          // estreita — o ramo `else` continua com o tipo dos dois lados, e
-          // `e.error` não compila. `in` estreita independente de strict.
-          setErro('error' in e ? e.error : 'Falha ao carregar a evolução do engajamento.');
+          setErro('evolution');
         }
       })
-      .catch((err) => {
+      .catch(() => {
         if (!vivo) return;
-        setErro(err?.message || 'Falha ao carregar os dados do relatório.');
+        setErro('load');
       })
       .finally(() => {
         if (vivo) setLoading(false);
@@ -354,23 +369,23 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
     return () => { vivo = false; };
   }, [empresaId, loadRollup, loadEvolution]);
 
-  const companyName = empresaNome || 'Empresa';
+  const companyName = empresaNome || t('report.companyFallback');
   const hoje = useMemo(
-    () => new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
-    [],
+    () => new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date()),
+    [locale],
   );
   const semanaAtual = evolucao?.semanaAtual || evolucao?.semanas?.at(-1)?.semana || 0;
 
   const views = useMemo(() => {
     if (loading || erro || !evolucao) return null;
-    return buildViews({ empresaNome: companyName, rollup, evolucao });
-  }, [loading, erro, rollup, evolucao, companyName]);
+    return buildViews({ empresaNome: companyName, rollup, evolucao, t, locale });
+  }, [loading, erro, rollup, evolucao, companyName, t, locale]);
 
   const data = views?.[audience] || null;
 
   const detailHref = appendEngagementQuery(links.dashboard, 'view', 'evolucao');
 
-  const periodo = semanaAtual ? `Semana ${semanaAtual} · ${hoje}` : hoje;
+  const periodo = semanaAtual ? t('report.period', { week: semanaAtual, date: hoje }) : hoje;
   const ritmoAtencao = Boolean(data?.priorities.length);
   const pdfHref = empresaId
     ? appendEngagementQuery(links.pdf, 'publico', audience)
@@ -382,17 +397,17 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
         <div className="engagement-report-toolbar mb-5 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <Link href={links.dashboard} className="inline-flex items-center gap-1.5 text-xs text-white/45 transition-colors hover:text-cyan-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300">
-              <ArrowLeft size={13} aria-hidden="true" /> Voltar ao engajamento
+              <ArrowLeft size={13} aria-hidden="true" /> {t('report.back')}
             </Link>
-            <h1 className="mt-3 font-[var(--font-manrope)] text-2xl font-semibold text-white">Relatório semanal</h1>
-            <p className="mt-1 text-xs text-white/40">Dados reais · {companyName}{semanaAtual ? ` · semana ${semanaAtual}` : ''} · base elegível do fechamento</p>
+            <h1 className="mt-3 font-[var(--font-manrope)] text-2xl font-semibold text-white">{t('report.title')}</h1>
+            <p className="mt-1 text-xs text-white/40">{semanaAtual ? t('report.subtitleWeek', { company: companyName, week: semanaAtual }) : t('report.subtitle', { company: companyName })}</p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {surface === 'admin' && <div className="inline-flex rounded-[10px] border border-white/[0.08] bg-white/[0.035] p-1" role="group" aria-label="Público do relatório">
+            {surface === 'admin' && <div className="inline-flex rounded-[10px] border border-white/[0.08] bg-white/[0.035] p-1" role="group" aria-label={t('report.audienceAria')}>
               {([
-                { key: 'gestor' as const, label: 'Gestor', Icon: Users },
-                { key: 'rh' as const, label: 'RH / Diretoria', Icon: Building2 },
+                { key: 'gestor' as const, label: t('report.audience.gestor'), Icon: Users },
+                { key: 'rh' as const, label: t('report.audience.rh'), Icon: Building2 },
               ]).map(({ key, label, Icon }) => (
                 <button
                   key={key}
@@ -413,21 +428,21 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
               disabled={!pdfHref || loading || !data}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-white/[0.1] px-3 text-xs font-semibold text-white/65 transition-colors hover:border-cyan-300/30 hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 sm:min-h-10"
             >
-              <Printer size={14} aria-hidden="true" /> Abrir PDF para impressão
+              <Printer size={14} aria-hidden="true" /> {t('report.openPdf')}
             </button>
           </div>
         </div>
 
         {!empresaId && (
           <div className="rounded-[24px] border border-white/[0.1] bg-[#07192f] p-8 text-sm text-white/60">
-            Selecione uma empresa no filtro do topo para ver o relatório.
+            {t('report.noCompany')}
           </div>
         )}
 
         {empresaId && loading && (
           <div className="flex items-center gap-3 rounded-[24px] border border-white/[0.1] bg-[#07192f] p-8 text-sm text-white/60">
             <Loader2 size={18} className="animate-spin text-cyan-300" aria-hidden="true" />
-            Carregando dados reais do fechamento…
+            {t('report.loading')}
           </div>
         )}
 
@@ -435,14 +450,14 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
           <div className="flex items-start gap-3 rounded-[24px] border border-rose-300/20 bg-rose-400/[0.06] p-8 text-sm text-rose-100/80">
             <CircleAlert size={18} className="mt-0.5 shrink-0 text-rose-300" aria-hidden="true" />
             <div>
-              <p className="font-semibold text-rose-100">Não foi possível carregar o relatório.</p>
-              <p className="mt-1 text-xs text-rose-100/60">{erro}</p>
+              <p className="font-semibold text-rose-100">{t('report.errors.title')}</p>
+              <p className="mt-1 text-xs text-rose-100/60">{t(erro === 'evolution' ? 'report.errors.evolution' : 'report.errors.load')}</p>
               <button
                 type="button"
                 onClick={() => window.location.reload()}
                 className="mt-3 inline-flex items-center gap-1.5 rounded-[10px] border border-rose-300/25 px-3 py-2 text-xs font-semibold text-rose-100 transition-colors hover:bg-rose-300/10"
               >
-                Tentar de novo
+                {t('report.errors.retry')}
               </button>
             </div>
           </div>
@@ -459,7 +474,7 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
                 </div>
                 <div>
                   <div className="font-[var(--font-manrope)] text-xs font-bold uppercase tracking-[0.16em] text-white">{surface === 'rh' ? companyName : 'Vertho'}</div>
-                  <div className="text-[11px] text-white/40">Relatório semanal de engajamento</div>
+                  <div className="text-[11px] text-white/40">{t('report.paperTitle')}</div>
                 </div>
               </div>
 
@@ -473,18 +488,18 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
             <div className="relative px-5 py-5 md:px-9 md:py-6">
               <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
                 <div>
-                  <p className={`text-xs font-semibold ${ritmoAtencao ? 'text-amber-200' : 'text-cyan-200'}`}>{data.hasWeeklyData ? `Prioridade do fechamento · Semana ${data.week}` : 'Base semanal indisponível'}</p>
+                  <p className={`text-xs font-semibold ${ritmoAtencao ? 'text-amber-200' : 'text-cyan-200'}`}>{data.hasWeeklyData ? t('report.closing.priority', { week: data.week }) : t('report.closing.unavailable')}</p>
                   <h2 className="mt-2 max-w-3xl font-[var(--font-manrope)] text-2xl font-semibold leading-tight tracking-tight text-white md:text-3xl">{data.thesis}</h2>
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-white/70">{data.explanation}</p>
-                  <p className="mt-3 text-xs text-white/60">Base semanal: {data.eligible} elegíveis{data.canCompare ? ` · semana anterior: ${data.previousEligible}` : ' · sem comparação anterior disponível'}.</p>
-                  {data.previousEligible !== null && data.previousEligible !== data.eligible && <p className="mt-1 text-xs text-amber-200">A população elegível mudou. As taxas comparam grupos de tamanhos diferentes.</p>}
+                  <p className="mt-3 text-xs text-white/60">{data.canCompare ? t('report.closing.baseCompare', { eligible: data.eligible, previous: data.previousEligible }) : t('report.closing.baseNoCompare', { eligible: data.eligible })}</p>
+                  {data.previousEligible !== null && data.previousEligible !== data.eligible && <p className="mt-1 text-xs text-amber-200">{t('report.closing.populationChanged')}</p>}
                 </div>
-                <aside className="rounded-xl border border-white/10 bg-white/[0.025] p-4" aria-label="Acompanhamento de todos os inscritos">
-                  <h3 className="text-xs font-semibold text-white/70">Trajetórias de todos os inscritos</h3>
-                  <p className="mt-2 text-3xl font-semibold tabular-nums text-white">{data.risk.total} <span className="text-xs font-normal text-white/60">de {data.enrolled}</span></p>
-                  <p className="mt-2 text-xs text-white/70">{data.risk.critical} críticos · {data.risk.attention} em atenção</p>
-                  <p className="mt-2 text-xs leading-relaxed text-white/60">Cada pessoa na sua semana atual. Este total usa uma base diferente do fechamento semanal.</p>
-                  <a href="#trajetorias-prioritarias" className="mt-3 inline-flex min-h-10 items-center text-xs text-cyan-200 hover:underline">Ver prioridades de acompanhamento</a>
+                <aside className="rounded-xl border border-white/10 bg-white/[0.025] p-4" aria-label={t('report.trajectories.aria')}>
+                  <h3 className="text-xs font-semibold text-white/70">{t('report.trajectories.title')}</h3>
+                  <p className="mt-2 text-3xl font-semibold tabular-nums text-white">{num(data.risk.total)} <span className="text-xs font-normal text-white/60">{t('report.trajectories.ofTotal', { enrolled: data.enrolled })}</span></p>
+                  <p className="mt-2 text-xs text-white/70">{t('report.cargo.riskSplit', { critical: data.risk.critical, attention: data.risk.attention })}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-white/60">{t('report.trajectories.note')}</p>
+                  <a href="#trajetorias-prioritarias" className="mt-3 inline-flex min-h-10 items-center text-xs text-cyan-200 hover:underline">{t('report.trajectories.link')}</a>
                 </aside>
               </section>
 
@@ -498,13 +513,13 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
                 <section aria-labelledby="trend-title">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <p className="font-[var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/70">Trajetória</p>
-                      <h3 id="trend-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">Últimos fechamentos, mesma régua</h3>
+                      <p className="font-[var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/70">{t('report.trend.eyebrow')}</p>
+                      <h3 id="trend-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">{t('report.trend.title')}</h3>
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-white/45">
                       {SERIES.map((series) => (
                         <span key={series.key} className="inline-flex items-center gap-1.5">
-                          <span className="h-0.5 w-4 rounded-full" style={{ background: series.color }} /> {series.label}
+                          <span className="h-0.5 w-4 rounded-full" style={{ background: series.color }} /> {t(`trend.series.${series.chave}`)}
                         </span>
                       ))}
                     </div>
@@ -517,18 +532,18 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
 
               <CargoBreakdown data={data} semana={semanaAtual} />
 
-              <section className="grid divide-y divide-white/[0.07] border-y border-white/[0.08] sm:grid-cols-3 sm:divide-x sm:divide-y-0" aria-label="Sinais secundários">
+              <section className="grid divide-y divide-white/[0.07] border-y border-white/[0.08] sm:grid-cols-3 sm:divide-x sm:divide-y-0" aria-label={t('report.secondary.aria')}>
                 <div className="flex items-center gap-3 py-4 sm:pr-5">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-emerald-300/[0.09] text-emerald-200"><RotateCcw size={16} aria-hidden="true" /></div>
-                  <div><div className="font-[var(--font-manrope)] text-lg font-semibold text-white tabular-nums">{data.recovered}</div><div className="text-[11px] text-white/40">recuperaram o ritmo</div></div>
+                  <div><div className="font-[var(--font-manrope)] text-lg font-semibold text-white tabular-nums">{num(data.recovered)}</div><div className="text-[11px] text-white/40">{t('report.secondary.recovered')}</div></div>
                 </div>
                 <div className="flex items-center gap-3 py-4 sm:px-5">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-violet-300/[0.09] text-violet-200"><MessageSquareText size={16} aria-hidden="true" /></div>
-                  <div><div className="font-[var(--font-manrope)] text-lg font-semibold text-white tabular-nums">{data.tutor}</div><div className="text-[11px] text-white/40">usaram o Tira-Dúvidas</div></div>
+                  <div><div className="font-[var(--font-manrope)] text-lg font-semibold text-white tabular-nums">{data.tutor}</div><div className="text-[11px] text-white/40">{t('report.secondary.tutor')}</div></div>
                 </div>
                 <div className="flex items-center gap-3 py-4 sm:pl-5">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-cyan-300/[0.09] text-cyan-200"><Activity size={16} aria-hidden="true" /></div>
-                  <div><div className="font-[var(--font-manrope)] text-lg font-semibold text-white">{data.preferredFormat}</div><div className="text-[11px] text-white/40">formato com maior adesão</div></div>
+                  <div><div className="font-[var(--font-manrope)] text-lg font-semibold text-white">{data.preferredFormat}</div><div className="text-[11px] text-white/40">{t('report.secondary.format')}</div></div>
                 </div>
               </section>
 
@@ -536,14 +551,14 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
                 <div className="flex max-w-3xl items-start gap-3">
                   <ShieldCheck size={16} className="mt-0.5 shrink-0 text-cyan-200/70" aria-hidden="true" />
                   <p className="text-[11px] leading-relaxed text-white/35">
-                    Engajamento mede atividade na jornada. Crítico: sem atividade na primeira semana ou em duas semanas consecutivas. Atenção: índice abaixo de 40, semana sem atividade ou queda em relação à anterior. Índice: ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10. As ações, os responsáveis e os prazos são sugestões para o acompanhamento da equipe.
+                    {t('report.footer')}
                   </p>
                 </div>
                 <Link
                   href={detailHref}
                   className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[10px] bg-cyan-300 px-4 text-xs font-bold text-[#06172c] transition-colors hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200"
                 >
-                  Ver dados detalhados <ArrowUpRight size={14} aria-hidden="true" />
+                  {t('report.detailedData')} <ArrowUpRight size={14} aria-hidden="true" />
                 </Link>
               </footer>
             </div>
@@ -552,8 +567,8 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
 
         {empresaId && !loading && views && data && (
           <div className="engagement-report-toolbar mt-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-white/35">
-            <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-300" aria-hidden="true" /> Relatório disponível para consulta e impressão.</span>
-            <a href={pdfHref || undefined} className="inline-flex items-center gap-1.5 text-white/45 transition-colors hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300"><Download size={12} aria-hidden="true" /> Baixar PDF</a>
+            <span className="inline-flex items-center gap-1.5"><CheckCircle2 size={12} className="text-emerald-300" aria-hidden="true" /> {t('report.available')}</span>
+            <a href={pdfHref || undefined} className="inline-flex items-center gap-1.5 text-white/45 transition-colors hover:text-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300"><Download size={12} aria-hidden="true" /> {t('report.downloadPdf')}</a>
           </div>
         )}
       </div>

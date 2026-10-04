@@ -1,4 +1,5 @@
 import { engagementLinks, appendEngagementQuery, type EngagementSurface } from './surface';
+import type { Traduzir } from './rotulos';
 
 /** Critérios operacionais compartilhados entre filtros, tela e relatório. */
 export type EngagementBlocker = 'ativacao' | 'consumo' | 'evidencia';
@@ -20,6 +21,22 @@ export const BLOCKER_META: Record<EngagementBlocker, { label: string; action: st
     owner: 'Gestor', deadline: 'Antes do próximo acompanhamento',
   },
 };
+
+/**
+ * `BLOCKER_META` no idioma de quem lê (R-67). As constantes acima são o texto
+ * em pt-BR que os testes e o PDF antigo seguem lendo; a tela e o relatório
+ * passam por aqui, e `EngagementWorkspace.blockers` guarda os quatro idiomas.
+ * Um teste confere que o catálogo pt-BR e `BLOCKER_META` dizem a mesma coisa.
+ */
+export function blockerMeta(t: Traduzir, key: EngagementBlocker): { label: string; action: string; guidance: string; owner: string; deadline: string } {
+  return {
+    label: t(`blockers.${key}.label`),
+    action: t(`blockers.${key}.action`),
+    guidance: t(`blockers.${key}.guidance`),
+    owner: t(`blockers.${key}.owner`),
+    deadline: t(`blockers.${key}.deadline`),
+  };
+}
 
 export function isEngagementBlocker(value: unknown): value is EngagementBlocker {
   return value === 'ativacao' || value === 'consumo' || value === 'evidencia';

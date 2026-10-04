@@ -1046,6 +1046,590 @@
     },
     "footer": "Total disponible: {count}. Cada archivo respeta el acceso y la identidad visual de esta empresa."
   },
+  "EngagementWorkspace": {
+    "weekShort": "S{week}",
+    "formats": {
+      "video": "Vídeo",
+      "audio": "Audio",
+      "texto": "Texto",
+      "case": "Caso"
+    },
+    "fallbacks": {
+      "noRole": "Puesto no indicado",
+      "noArea": "Sin área",
+      "person": "Participante",
+      "competency": "Competencia"
+    },
+    "noFormatOpened": "Ningún formato abierto",
+    "journeyState": {
+      "pending": "etapa pendiente",
+      "inProgress": "en curso",
+      "stageDone": "etapa completada",
+      "journeyDone": "recorrido completado"
+    },
+    "badge": {
+      "unavailable": "Posición no disponible",
+      "unavailableTitle": "No fue posible leer el recorrido ni el progreso de esta persona",
+      "journeyDone": "Recorrido completado",
+      "journeyDoneOf": "Recorrido completado · {total} de {total} semanas",
+      "journeyDoneTitle": "Completó la última semana del plan. Calendario de la cohorte: semana {week}",
+      "calendarTitle": "Calendario de la cohorte: semana {week}",
+      "weekState": "Semana {week} · {state}"
+    },
+    "delivery": {
+      "contentShort": "C{n}",
+      "sendNoRecord": "envío sin registro semanal",
+      "sendRecorded": "envío registrado",
+      "sendNotRecorded": "envío no registrado",
+      "sendShortNoRecord": "Envío sin registro",
+      "sendShortSent": "Enviado",
+      "sendShortNone": "Sin envío",
+      "openedRecorded": "apertura registrada",
+      "noOpeningRecorded": "sin apertura registrada",
+      "openedShort": "abrió",
+      "notOpenedShort": "sin apertura"
+    },
+    "consumption": {
+      "video": "Vídeo completado",
+      "audio": "Pódcast completado",
+      "material": "Material abierto",
+      "videoStarted": "Vídeo iniciado, no completado",
+      "none": "Sin consumo registrado"
+    },
+    "tutor": {
+      "yes": "La persona conversó con el Tira-Dúvidas en esta etapa.",
+      "no": "Sin conversación con el Tira-Dúvidas en esta etapa.",
+      "badge": "Tira-Dúvidas"
+    },
+    "distribution": {
+      "eyebrow": "Posición en el recorrido",
+      "title": "Dónde están ahora las personas",
+      "calendarUnavailable": "Calendario no disponible",
+      "calendarSingle": "Calendario en la semana {week}",
+      "calendarRange": "Cohortes entre las semanas {min} y {max}",
+      "subtitle": "{calendar}. Seleccione una semana para filtrar la lista.",
+      "finishedCount": "{count, plural, one {# persona completó el recorrido} other {# personas completaron el recorrido}}",
+      "clearWeek": "Quitar semana",
+      "bucketAria": "{count, plural, one {# persona} other {# personas}} en la semana {week}",
+      "bucketAriaWithFinished": "{count, plural, one {# persona} other {# personas}} en la semana {week}, {finished} con el recorrido completado",
+      "weekLabel": "Semana {week}",
+      "noPosition": "{count} sin posición disponible"
+    },
+    "pillSummary": {
+      "eyebrow": "Entrega de los contenidos",
+      "title": "Del envío a la elección del formato",
+      "content": "Contenido {n}",
+      "recordedSignals": "señales registradas",
+      "received": "Recibió",
+      "opened": "Abrió",
+      "chose": "Eligió"
+    },
+    "formatPreference": {
+      "eyebrow": "Preferencia declarada",
+      "title": "Compromiso en el formato principal",
+      "avgWatched": "Media visualizada: {pct, number, percent}",
+      "none": "Ninguna preferencia registrada en esta selección."
+    },
+    "nextAction": {
+      "journeyDone": "Recorrido completado",
+      "journeyDoneWeeks": "Recorrido completado · {total} semanas",
+      "stageDone": "Etapa completada",
+      "verifyPending": "Revisar etapa pendiente",
+      "behindGuidance": "La posición individual va por detrás del calendario de la cohorte. Compruebe qué etapa falta por completar antes de orientar la próxima semana.",
+      "sendRecorded": "Hay registro de envío del contenido; eso no confirma la entrega ni la lectura.",
+      "sendInsufficient": "Envío de esta semana sin registro suficiente. Compruebe el historial antes del contacto.",
+      "sendNone": "Sin registro de envío de los contenidos en esta selección."
+    },
+    "card": {
+      "follow": "Seguimiento"
+    },
+    "table": {
+      "person": "Persona",
+      "individualStage": "Etapa individual",
+      "content1": "Contenido 1",
+      "content2": "Contenido 2",
+      "consumption": "Consumo",
+      "deliveryAndSupport": "Entrega y apoyo",
+      "nextAction": "Próxima acción"
+    },
+    "coordination": {
+      "none": "Sin coordinación definida",
+      "groupPeople": "{count, plural, one {# persona en esta selección} other {# personas en esta selección}}",
+      "groupFollow": "{count} para seguimiento"
+    },
+    "header": {
+      "title": "Compromiso del recorrido",
+      "subtitleWithCompany": "{company} · del primer acceso a la evidencia práctica",
+      "subtitleNoCompany": "Seleccione una empresa en el filtro superior",
+      "report": "Informe"
+    },
+    "tabs": {
+      "aria": "Vistas de compromiso",
+      "current": "Vista actual",
+      "evolution": "Evolución semanal"
+    },
+    "filters": {
+      "weekAria": "Filtrar métricas por semana",
+      "currentStage": "Etapa actual de cada persona",
+      "weekOption": "Semana {week}",
+      "roleAria": "Filtrar métricas por puesto",
+      "allRoles": "Todos los puestos",
+      "refresh": "Actualizar"
+    },
+    "noCompany": {
+      "title": "Elija una empresa para empezar",
+      "hint": "El filtro está en la parte superior del área administrativa."
+    },
+    "loading": "Organizando las señales del recorrido…",
+    "loadError": "No fue posible cargar las señales. Actualice para intentarlo de nuevo.",
+    "empty": {
+      "title": "Ninguna persona en esta selección",
+      "hint": "Cambie la semana o el puesto para consultar otro grupo."
+    },
+    "actNow": {
+      "title": "Dónde actuar ahora",
+      "summaryWeek": "{count, plural, one {# persona} other {# personas}} que ya han llegado a la semana {week} · elija un asunto pendiente para abrir la lista",
+      "summaryCurrent": "{count, plural, one {# persona} other {# personas}} en la etapa actual · elija un asunto pendiente para abrir la lista",
+      "reviewSends": "Revisar envíos",
+      "overdue": "Etapa atrasada",
+      "note": "Cada persona aparece en la primera etapa pendiente. La etapa atrasada puede solaparse con los demás grupos. La ausencia de actividad no confirma un fallo de entrega."
+    },
+    "signalJourney": {
+      "eyebrow": "Flujo de señales",
+      "title": "Conozca cómo funciona Vertho.ai",
+      "descriptionWeek": "Señales registradas en esta semana: acceder, consumir y convertir el contenido en evidencia.",
+      "descriptionCurrent": "La etapa actual de cada persona: acceder, consumir y convertir el contenido en evidencia.",
+      "steps": {
+        "cadence": {
+          "label": "En la cadencia",
+          "detail": "personas incluidas en esta selección"
+        },
+        "accessed": {
+          "label": "Accedieron al contenido",
+          "detail": "abrieron al menos un formato"
+        },
+        "consumed": {
+          "label": "Consumieron",
+          "detail": "vídeo o pódcast completado, o material abierto"
+        },
+        "evidence": {
+          "label": "Entregaron evidencia",
+          "detail": "completaron la práctica de la semana"
+        }
+      },
+      "follow": "{count} para seguimiento",
+      "ofTotal": "de {total}"
+    },
+    "privacyNote": "RR. HH. y el liderazgo siguen la entrega y el nivel de la reflexión. El texto enviado sigue siendo privado.",
+    "quality": {
+      "title": "Calidad de las reflexiones",
+      "delivered": "{count, plural, one {# persona entregó} other {# personas entregaron}} · nivel de la reflexión en la etapa actual de cada una",
+      "noClassification": "Sin clasificar",
+      "note": "La IA clasifica la reflexión al cerrar cada semana de contenido: alta aporta un ejemplo concreto y aprendizaje propio; media se queda en lo general; baja es genérica o demasiado corta. El texto es privado de la persona y no aparece aquí.",
+      "levels": {
+        "alta": "Alta",
+        "media": "Media",
+        "baixa": "Baja"
+      },
+      "stage": {
+        "done": "Recorrido completado",
+        "doneWithLevel": "Recorrido completado · última reflexión <b>{level}</b>",
+        "doneTitle": "La persona cerró la última semana del plan. El nivel es el de la última reflexión clasificada; el texto es privado.",
+        "delivered": "Evidencia entregada",
+        "deliveredWeek": "Evidencia de la semana {week} entregada",
+        "deliveredTitle": "Etapa cerrada: la evidencia de esta semana ya se ha registrado. El nivel lo clasifica la IA; el texto de la reflexión es privado.",
+        "noLevel": "semana de aplicación, sin nivel",
+        "pending": "Evidencia pendiente",
+        "pendingWeek": "Evidencia de la semana {week} pendiente",
+        "pendingTitle": "La evidencia que cierra esta semana aún no se ha registrado."
+      }
+    },
+    "complementary": {
+      "aria": "Señales complementarias",
+      "openedPage": {
+        "label": "Abrieron la página",
+        "detail": "apertura directa registrada"
+      },
+      "finishedVideo": {
+        "label": "Completaron el vídeo",
+        "detail": "{pct, number, percent} visualizado de media"
+      },
+      "usedTutor": {
+        "label": "Usaron el Tira-Dúvidas",
+        "detail": "conversaciones iniciadas en el Tira-Dúvidas"
+      }
+    },
+    "people": {
+      "eyebrowCoordination": "Detalle por coordinación",
+      "eyebrowPerson": "Detalle por persona",
+      "title": "Quién avanzó y quién necesita seguimiento",
+      "summary": "{pending} con etapa pendiente · {noSignal} sin señal registrada",
+      "finishedCount": "{count} con el recorrido completado",
+      "segments": {
+        "all": "Todos",
+        "follow": "Seguimiento",
+        "moving": "En movimiento",
+        "finished": "Finalizaron"
+      },
+      "search": "Buscar persona",
+      "groupBy": "Agrupar por",
+      "groupAria": "Agrupar personas",
+      "byCoordination": "Coordinación",
+      "byPerson": "Persona",
+      "reason": "Motivo de seguimiento",
+      "allReasons": "Todos los motivos",
+      "personSelected": "Persona seleccionada desde el informe",
+      "clearFilters": "Quitar filtros de la lista",
+      "showing": "Mostrando {shown} de {total, plural, one {# persona} other {# personas}} en esta selección.",
+      "coordinationUnavailable": "No fue posible consultar los vínculos de coordinación. Se muestran las personas; use Actualizar para intentarlo de nuevo.",
+      "noMatch": "Ninguna persona coincide con los filtros seleccionados."
+    },
+    "howTo": {
+      "summary": "Cómo interpretar estas señales",
+      "access": {
+        "label": "Acceso:",
+        "body": "abrir la página y abrir un formato son señales distintas. En la semana 1, las aperturas de la página anteriores al {date} no se registraron."
+      },
+      "consumption": {
+        "label": "Consumo:",
+        "body": "vídeo o pódcast COMPLETADO; el material de lectura (texto y estudio de caso) cuenta al abrirse, porque un PDF en otra pestaña no tiene evento de finalización. “Sin consumo registrado” es ausencia de señal, no prueba de que la persona no lo vio."
+      },
+      "evidence": {
+        "label": "Evidencia:",
+        "intro": "reflexión enviada al completar la semana.",
+        "bodyAdmin": "El texto completo sigue disponible en Vertho → Evidencias.",
+        "bodyRh": "Aquí solo aparece el nivel de la reflexión (alta, media o baja); el texto es privado de la persona."
+      },
+      "content": {
+        "label": "Contenidos:",
+        "body": "la cadencia envía el contenido de la semana en la que la persona ESTÁ (no el del calendario), así que el envío marcado es el de la etapa mostrada al lado. El sistema guarda solo la marca del último envío: al filtrar otra semana, aparece como “sin registro” en lugar de una marca prestada. “Sin envío” significa que no se envió nada en esta etapa, incluso cuando la cadencia de la cohorte ya terminó."
+      }
+    },
+    "trajectory": {
+      "accelerating": "Acelerando",
+      "on_track": "Al ritmo",
+      "attention": "Atención",
+      "critical": "Crítico"
+    },
+    "reasons": {
+      "sem_atividade_duas_semanas": "Sin actividad desde hace dos semanas",
+      "sem_atividade_primeira_semana": "Sin actividad en la primera semana",
+      "sem_atividade_nesta_semana": "Sin actividad esta semana",
+      "queda_de_pontos": "Caída de {points} puntos",
+      "consumo_incompleto": "Consumo incompleto",
+      "sem_evidencia": "Aún sin evidencia práctica",
+      "sequencia_interrompida": "Interrumpió la secuencia",
+      "ritmo_abaixo": "Ritmo por debajo de lo esperado"
+    },
+    "evolution": {
+      "toolbar": {
+        "title": "Compare el ritmo a lo largo de las semanas",
+        "hint": "El índice combina activación, consumo, evidencia y uso del Tira-Dúvidas.",
+        "areaAria": "Filtrar evolución por área",
+        "allAreas": "Todas las áreas",
+        "refresh": "Actualizar"
+      },
+      "errors": {
+        "noCompany": "No fue posible cargar la evolución. Seleccione una empresa.",
+        "generic": "No fue posible cargar la evolución. Actualice para intentarlo de nuevo."
+      },
+      "loading": "Preparando el historial del recorrido…",
+      "metrics": {
+        "aria": "Indicadores de la semana más reciente",
+        "activation": "Activación",
+        "consumption": "Consumo",
+        "practicalEvidence": "Evidencia práctica",
+        "toFollow": "Para seguimiento",
+        "toFollowDetail": "En atención o críticos en la etapa actual"
+      },
+      "delta": {
+        "first": "Primera semana medida",
+        "stable": "Estable desde la semana anterior",
+        "up": "Subió {n} pp en la semana",
+        "down": "Bajó {n} pp en la semana"
+      },
+      "rhythm": {
+        "eyebrow": "Ritmo reciente",
+        "title": "Trayectorias actuales",
+        "subtitle": "Lectura de las dos últimas semanas alcanzadas.",
+        "recovered": "{count, plural, one {# recuperado} other {# recuperados}}",
+        "recoveredHint": "Volvieron a mostrar actividad esta semana."
+      },
+      "heatmap": {
+        "eyebrow": "Comparación",
+        "title": "Ritmo por área",
+        "hint": "Cuanto más intenso es el color, mayor es el movimiento registrado.",
+        "legendZero": "0",
+        "legendLow": "1 a 39",
+        "legendMid": "40 a 69",
+        "legendHigh": "70+",
+        "area": "Área",
+        "trend": "Tendencia",
+        "participants": "{count, plural, one {# participante} other {# participantes}}",
+        "cellNoEligible": "Semana {week}: sin elegibles",
+        "cell": "Semana {week}: índice {index} · {eligible} elegibles"
+      },
+      "risk": {
+        "eyebrow": "Próxima acción",
+        "title": "Personas con seguimiento",
+        "subtitle": "Participantes en atención o críticos en la etapa actual.",
+        "participant": "Participante",
+        "area": "Área",
+        "index": "Índice",
+        "variation": "Variación",
+        "rhythm": "Ritmo",
+        "reason": "Motivo",
+        "viewSignals": "Ver señales y próxima acción",
+        "week": "Semana {week}",
+        "empty": "Nadie necesita seguimiento en esta selección."
+      },
+      "footnote": "El índice operativo reparte 20 puntos para la activación, 30 para el consumo, 40 para la evidencia y 10 para el uso del Tira-Dúvidas. Mide movimiento en el recorrido, no competencia ni desempeño individual.",
+      "empty": "Aún no hay personas con semanas medidas en este recorrido."
+    },
+    "trend": {
+      "eyebrow": "Historial",
+      "title": "Movimiento semana a semana",
+      "description": "Porcentaje entre las personas que ya alcanzaron cada etapa.",
+      "descriptionIllustrative": "Una cohorte ficticia gana ritmo a lo largo del programa.",
+      "illustrativeBadge": "Historial ilustrativo",
+      "series": {
+        "activation": "Activación",
+        "consumption": "Consumo",
+        "evidence": "Evidencia"
+      },
+      "selectWeek": "Semana {week} · seleccione una semana para comparar",
+      "noWeeks": "Sin semanas disponibles",
+      "svgTitle": "{kind} de activación, consumo y evidencia. Los valores por semana están disponibles abajo.",
+      "kindIllustrative": "Historial ilustrativo",
+      "kindMeasured": "Evolución semanal",
+      "pointTitle": "{series} · Semana {week}: {value, number, percent}",
+      "selectGroupAria": "Seleccionar semana del gráfico",
+      "weekAria": "Semana {week}",
+      "viewValues": "Ver valores por semana",
+      "captionIllustrative": "Datos ficticios del historial ilustrativo",
+      "captionMeasured": "Porcentajes medidos por semana",
+      "weekColumn": "Semana"
+    },
+    "blockers": {
+      "ativacao": {
+        "label": "Sin activación",
+        "action": "Verificar envío y acceso",
+        "guidance": "Comprobar el registro del envío, la validez del enlace y posibles bloqueos de acceso. Si el acceso funciona, preparar un recordatorio para el grupo sin actividad.",
+        "owner": "Operación y gestor",
+        "deadline": "Hoy"
+      },
+      "consumo": {
+        "label": "Consumo pendiente",
+        "action": "Apoyar la reanudación del contenido",
+        "guidance": "Verificar dónde se detuvo la persona, orientar la reanudación y ofrecer el formato disponible más adecuado. Acordar un plazo para completar el contenido.",
+        "owner": "Gestor",
+        "deadline": "Próximo día hábil"
+      },
+      "evidencia": {
+        "label": "Evidencia pendiente",
+        "action": "Orientar el registro de la práctica",
+        "guidance": "Confirmar si hubo dificultad con la actividad o con el registro de la evidencia. Reforzar la orientación de la semana y acordar la entrega con el grupo.",
+        "owner": "Gestor",
+        "deadline": "Antes del próximo seguimiento"
+      }
+    },
+    "report": {
+      "stable": "estable",
+      "deltaUp": "+{n} pp",
+      "deltaDown": "−{n} pp",
+      "companyFallback": "Empresa",
+      "back": "Volver al compromiso",
+      "title": "Informe semanal",
+      "subtitle": "Datos reales · {company} · base elegible del cierre",
+      "subtitleWeek": "Datos reales · {company} · semana {week} · base elegible del cierre",
+      "audienceAria": "Público del informe",
+      "audience": {
+        "gestor": "Gestor",
+        "rh": "RR. HH. / Dirección"
+      },
+      "openPdf": "Abrir PDF para imprimir",
+      "noCompany": "Seleccione una empresa en el filtro superior para ver el informe.",
+      "loading": "Cargando datos reales del cierre…",
+      "errors": {
+        "title": "No fue posible cargar el informe.",
+        "load": "Error al cargar los datos del informe.",
+        "evolution": "Error al cargar la evolución del compromiso.",
+        "retry": "Intentar de nuevo"
+      },
+      "paperTitle": "Informe semanal de compromiso",
+      "period": "Semana {week} · {date}",
+      "closing": {
+        "priority": "Prioridad del cierre · Semana {week}",
+        "unavailable": "Base semanal no disponible",
+        "baseCompare": "Base semanal: {eligible} elegibles · semana anterior: {previous}.",
+        "baseNoCompare": "Base semanal: {eligible} elegibles · sin comparación anterior disponible.",
+        "populationChanged": "La población elegible cambió. Las tasas comparan grupos de tamaños distintos."
+      },
+      "trajectories": {
+        "aria": "Seguimiento de todos los inscritos",
+        "title": "Trayectorias de todos los inscritos",
+        "ofTotal": "de {enrolled}",
+        "note": "Cada persona en su semana actual. Este total usa una base distinta a la del cierre semanal.",
+        "link": "Ver prioridades de seguimiento"
+      },
+      "thread": {
+        "eyebrow": "Etapas del recorrido",
+        "title": "Dónde el movimiento pierde fuerza",
+        "basis": "Cierre de la etapa esperada · base elegible",
+        "steps": {
+          "eligible": "Elegibles",
+          "activated": "Activaron",
+          "consumed": "Consumieron",
+          "evidenced": "Evidenciaron"
+        },
+        "stage": {
+          "eligible": "elegibles",
+          "activation": "activación",
+          "consumption": "consumo",
+          "evidence": "evidencia"
+        },
+        "biggestLoss": "Mayor pérdida: {count, plural, one {# persona} other {# personas}} entre {from} y {to}."
+      },
+      "trend": {
+        "eyebrow": "Trayectoria",
+        "title": "Últimos cierres, misma regla",
+        "empty": "Aún no hay historial suficiente para la trayectoria. Los cierres aparecen aquí a partir de la segunda semana.",
+        "aria": "Tendencia de los últimos cierres semanales",
+        "noPrevious": "sin comparación anterior"
+      },
+      "focus": {
+        "eyebrow": "Decisión",
+        "empty": "Ninguna trayectoria crítica o de atención registrada en la base de inscritos.",
+        "viewSignals": "Ver señales de la persona"
+      },
+      "cargo": {
+        "eyebrow": "Decisión por puesto",
+        "title": "Dónde concentrar el seguimiento",
+        "description": "Todos los puestos, por orden de personas en riesgo; después, casos críticos e inscritos. Activación, consumo y evidencia: cantidad y porcentaje de los elegibles en la semana {week}. Riesgo: cantidad y porcentaje de los inscritos en el puesto, cada persona en su semana actual. Sin elegibles significa que el puesto aún no ha llegado a este cierre.",
+        "counts": "{enrolled} inscritos · {eligible} elegibles",
+        "noEligible": "Sin elegibles",
+        "atRisk": "En riesgo",
+        "riskSplit": "{critical, plural, one {# crítico} other {# críticos}} · {attention} en atención",
+        "suggestedAction": "Acción sugerida:",
+        "empty": "No hay datos por puesto disponibles."
+      },
+      "secondary": {
+        "aria": "Señales secundarias",
+        "recovered": "recuperaron el ritmo",
+        "tutor": "usaron el Tira-Dúvidas",
+        "format": "formato con mayor adhesión"
+      },
+      "footer": "El compromiso mide actividad en el recorrido. Crítico: sin actividad en la primera semana o en dos semanas consecutivas. Atención: índice inferior a 40, semana sin actividad o caída respecto a la anterior. Índice: activación 20 + consumo 30 + evidencia 40 + Tira-Dúvidas 10. Las acciones, los responsables y los plazos son sugerencias para el seguimiento del equipo.",
+      "detailedData": "Ver datos detallados",
+      "available": "Informe disponible para consulta e impresión.",
+      "downloadPdf": "Descargar PDF",
+      "priorities": {
+        "title": "Prioridades y próximas acciones",
+        "subtitle": "Grupos exclusivos de la semana {week} · {eligible} elegibles · primero el grupo mayor",
+        "copyPlan": "Copiar plan sugerido",
+        "copyStatus": {
+          "copied": "Plan copiado.",
+          "failed": "No fue posible copiar. Use el PDF para guardar el plan."
+        },
+        "copy": {
+          "header": "{scope} · Semana {week}",
+          "action": "{n}. {title}\n{description}\nResponsable sugerido: {owner}\nPlazo sugerido: {deadline}"
+        },
+        "peoplePct": "{count, plural, one {persona} other {personas}} · {pct}",
+        "viewGroup": "Ver grupo afectado",
+        "noMembers": "El detalle de este grupo no está disponible en esta lectura. Actualice el informe.",
+        "owner": "Responsable sugerido: {owner} · {deadline}"
+      }
+    },
+    "model": {
+      "noRecord": "Sin registro",
+      "preferredFormat": "{format} · {pct, number, percent}",
+      "week": "Semana {week}",
+      "tutor": "{count} de {eligible}",
+      "thesisAccentDefault": "Revisar el seguimiento de las cohortes.",
+      "eyebrow": {
+        "gestor": "Lectura del gestor",
+        "rh": "Lectura de RR. HH. / Dirección"
+      },
+      "scope": {
+        "gestor": "{company} · por persona y puesto",
+        "rh": "{company} · por área y puesto"
+      },
+      "kind": {
+        "ativacao": "activación",
+        "consumo": "consumo",
+        "evidencia": "evidencia"
+      },
+      "group": {
+        "ativacao": "están sin activación registrada",
+        "consumo": "se activaron, pero no completaron el consumo",
+        "evidencia": "consumieron, pero aún no registraron evidencia"
+      },
+      "thesis": {
+        "pending": "{count, plural, one {# persona} other {# personas}} con {kind} pendiente.",
+        "completed": "La base semanal completó el recorrido.",
+        "none": "Sin cierre semanal disponible."
+      },
+      "explanation": {
+        "group": "{count} de {eligible, plural, one {# persona elegible} other {# personas elegibles}} {group} en la semana {week}. {guidance}",
+        "noActivityNote": "La ausencia de actividad no identifica la causa: verificar el envío, el acceso y el registro de los eventos antes de abordar al grupo.",
+        "allDone": "{count} de {eligible, plural, one {# persona elegible} other {# personas elegibles}} completaron la evidencia en la semana {week}. Conviene seguir también las trayectorias individuales de las demás cohortes.",
+        "none": "No hay cierre semanal disponible para esta selección. Ningún indicador se sustituyó por el historial acumulado."
+      },
+      "cargoAction": {
+        "notReached": "Seguir la semana actual de las cohortes; este puesto aún no ha llegado al cierre.",
+        "gapActivation": "{count, plural, one {# persona} other {# personas}} sin activación. Confirmar el acceso y acordar el primer contacto con el contenido.",
+        "gapConsumption": "{count, plural, one {# persona} other {# personas}} con activación, pero sin consumo completado. Reservar tiempo para completar el contenido.",
+        "gapEvidence": "{count, plural, one {# persona} other {# personas}} con consumo completado, pero sin evidencia. Orientar el registro de la aplicación práctica.",
+        "closedAtRisk": "Cierre completo entre los elegibles. Seguir las trayectorias en riesgo y posibles caídas respecto a la semana anterior.",
+        "recognize": "Reconocer la participación y sostener la aplicación práctica."
+      },
+      "members": {
+        "areaContext": "{count, plural, one {# persona con este asunto pendiente} other {# personas con este asunto pendiente}} en la semana {week}"
+      },
+      "plan": {
+        "agree": {
+          "title": "Acordar la próxima acción con el grupo",
+          "description": "Revisar el motivo por el que sigue pendiente y las señales de cada persona. Definir al responsable y preparar una orientación específica para el bloqueo encontrado.",
+          "owner": "Gestor del equipo",
+          "deadline": "Tras la verificación"
+        },
+        "review": {
+          "title": "Reevaluar el mismo grupo",
+          "description": "En la próxima lectura, comprobar quién avanzó de etapa y quién sigue pendiente. Registrar el resultado en el seguimiento del equipo.",
+          "owner": "Gestor y RR. HH.",
+          "deadline": "En 48 horas, como sugerencia"
+        },
+        "reviewOthers": {
+          "title": "Revisar las trayectorias individuales",
+          "description": "Seguir a otras cohortes y reconocer a quienes recuperaron el ritmo.",
+          "owner": "Gestor y RR. HH.",
+          "deadline": "Próxima reunión de seguimiento"
+        },
+        "alignAreas": {
+          "title": "Alinear el plan con los gestores de las áreas",
+          "description": "Priorizar las áreas con más trayectorias críticas y mayor proporción de personas afectadas. Acordar el apoyo, el responsable y la fecha de revisión.",
+          "owner": "RR. HH. y gestores de las áreas",
+          "deadline": "Tras la verificación"
+        }
+      },
+      "focus": {
+        "titlePeople": "Trayectorias que requieren seguimiento",
+        "titleAreas": "Áreas que requieren seguimiento",
+        "subtitle": "Base: {enrolled} inscritos, cada persona en su semana actual. {rule}",
+        "rulePeople": "Hasta 3 prioridades, con las trayectorias críticas primero.",
+        "ruleAreas": "Orden por trayectorias críticas, cantidad y proporción de personas afectadas.",
+        "areaContext": "{risk} personas en riesgo · {total} inscritos · {pct, number, percent} del área",
+        "areaContextNoBase": "{risk} personas en seguimiento",
+        "areaReason": "{critical} en trayectoria crítica · {attention} en atención. Alinear el plan con el gestor del área."
+      },
+      "signal": {
+        "critical": "Crítico",
+        "attention": "Atención",
+        "criticalTrajectories": "Trayectorias críticas"
+      }
+    }
+  },
   "DashboardJourney": {
     "cta": {
       "1": "Hacer perfil comportamental",

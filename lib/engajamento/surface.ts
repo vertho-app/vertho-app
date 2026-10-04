@@ -1,8 +1,15 @@
 import type { EngagementEvolutionDashboard } from '@/lib/engagement-evolution';
 
 export type EngagementSurface = 'admin' | 'rh';
+
+/**
+ * Por que a leitura da evolução falhou, como CÓDIGO (R-67). `error` segue com a
+ * causa técnica para log e para o PDF; a tela traduz por `codigo` e nunca
+ * imprime `error`: o texto vinha em português ou era a mensagem crua do banco.
+ */
+export type FalhaEvolucao = 'empresa_ausente' | 'leitura_falhou';
 export type EngagementEvolutionLoader = (area?: string | null) => Promise<
-  { ok: true; data: EngagementEvolutionDashboard } | { ok: false; error: string }
+  { ok: true; data: EngagementEvolutionDashboard } | { ok: false; error: string; codigo?: FalhaEvolucao }
 >;
 
 /** Each portal supplies authorized readers; presentation never chooses the tenant. */

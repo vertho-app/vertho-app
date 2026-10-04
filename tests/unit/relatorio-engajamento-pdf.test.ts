@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildViews } from '@/lib/engajamento/relatorio-model';
+import { tEngajamento } from '../helpers/traducao-engajamento';
 
 const mock = vi.hoisted(() => ({
   auth: vi.fn(), empresa: vi.fn(), rollup: vi.fn(), evolution: vi.fn(), marca: vi.fn(), render: vi.fn(),
@@ -87,7 +88,7 @@ describe('PDF de engajamento: dados e autorização', () => {
   });
 
   it('usa o fechamento e seus deltas, mesmo quando o agregado tem outros totais', () => {
-    const views = buildViews({ empresaNome: 'Teste', rollup, evolucao })!;
+    const views = buildViews({ t: tEngajamento(), empresaNome: 'Teste', rollup, evolucao })!;
     for (const data of Object.values(views)) {
       expect(data.eligible).toBe(20);
       expect(data.activation).toEqual({ count: 5, pct: 25, delta: -25 });
@@ -108,7 +109,7 @@ describe('PDF de engajamento: dados e autorização', () => {
     [10, 10, 10, 10, 2, 'Acompanhar as trajetórias em risco e possíveis quedas'],
     [10, 10, 10, 10, 0, 'Reconhecer a participação'],
   ])('sugere ação coerente com a base e o gargalo do cargo (%i, %i, %i, %i)', (elegiveis, ativados, consumiram, evidencias, emRisco, expected) => {
-    const data = buildViews({ empresaNome: 'Teste', rollup, evolucao: {
+    const data = buildViews({ t: tEngajamento(), empresaNome: 'Teste', rollup, evolucao: {
       ...evolucao, cargos: [{ ...evolucao.cargos[0], elegiveis, ativados, consumiram, evidencias, emRisco }],
     } })!;
     expect(data.rh.cargos[0].acao).toContain(expected);

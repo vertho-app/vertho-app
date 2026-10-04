@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react';
+import { useTranslations } from 'next-intl';
 import { ChevronRight, type LucideIcon } from 'lucide-react';
 
 export type SignalTone = 'cyan' | 'teal' | 'emerald' | 'amber';
@@ -46,9 +47,13 @@ const TONE: Record<SignalTone, {
 /**
  * Leitura acumulada da jornada. Os blocos são conectados porque os sinais têm
  * ordem real: entrar na cadência → abrir → consumir → entregar.
+ *
+ * O título, a descrição e cada passo chegam prontos (quem usa traduz); o que é
+ * do próprio componente, o rótulo padrão do topo e o "de N", vem do catálogo
+ * `EngagementWorkspace.signalJourney` nos quatro idiomas (R-67).
  */
 export function SignalJourney({
-  eyebrow = 'Trilha de sinais',
+  eyebrow,
   title,
   description,
   total,
@@ -62,6 +67,7 @@ export function SignalJourney({
   steps: SignalJourneyStep[];
   action?: ReactNode;
 }) {
+  const t = useTranslations('EngagementWorkspace');
   return (
     <section
       aria-labelledby="signal-journey-title"
@@ -74,7 +80,7 @@ export function SignalJourney({
       <div className="flex flex-col gap-3 border-b border-white/[0.07] px-4 py-4 sm:px-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300/75">
-            {eyebrow}
+            {eyebrow ?? t('signalJourney.eyebrow')}
           </p>
           <h2
             id="signal-journey-title"
@@ -111,7 +117,7 @@ export function SignalJourney({
                 </div>
                 <p className={`mt-4 text-[28px] font-semibold leading-none tabular-nums ${tone.value}`}>
                   {step.value}
-                  <span className="ml-1 text-[12px] font-medium text-white/28">de {total}</span>
+                  <span className="ml-1 text-[12px] font-medium text-white/28">{t('signalJourney.ofTotal', { total })}</span>
                 </p>
                 <p className="mt-2 text-[11px] font-bold text-white/80">{step.label}</p>
                 <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/[0.07]" aria-hidden="true">

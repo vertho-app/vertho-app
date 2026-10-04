@@ -4,6 +4,7 @@ import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beaco
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   AlertTriangle,
   Award,
@@ -31,20 +32,31 @@ import AdminPageHeader from '@/components/admin/page-header';
 import EngagementEvolutionPanel from '@/components/engajamento/evolution-panel';
 import { SignalJourney } from '@/components/engajamento/signal-journey';
 import { EntregaDaEtapa, QualidadeEvidenciaResumo } from '@/components/engajamento/qualidade-evidencia';
-import { BLOCKER_META, engagementBlocker, hasEngagementSignal, isEngagementBlocker, type EngagementBlocker } from '@/lib/engajamento/prioridades';
+import { useFormatadores } from '@/components/engajamento/use-formatadores';
+import { BLOCKER_META, blockerMeta, engagementBlocker, hasEngagementSignal, isEngagementBlocker, type EngagementBlocker } from '@/lib/engajamento/prioridades';
+import { dataDoMarcoDeAbertura, rotuloCargo } from '@/lib/engajamento/rotulos';
 import { engagementLinks, type EngagementPanelProps } from '@/lib/engajamento/surface';
 
+/**
+ * Todo texto desta tela vem de `EngagementWorkspace` nos quatro idiomas (R-67):
+ * ela é a "Visão atual" do Engajamento, que o RH lê em `/dashboard/gestor/engajamento`
+ * e a Vertho em `/admin/engajamento`. Os rótulos de formato, de estado da jornada
+ * e de consumo ficam em chaves (`formats`, `journeyState`, `consumption`); aqui
+ * só moram o ícone, a cor e a regra.
+ */
 const FMT: Record<string, {
   Icon: LucideIcon;
   cor: string;
   fundo: string;
-  label: string;
 }> = {
-  video: { Icon: Video, cor: 'text-cyan-300', fundo: 'bg-cyan-300/10 border-cyan-300/20', label: 'Vídeo' },
-  audio: { Icon: Headphones, cor: 'text-violet-300', fundo: 'bg-violet-300/10 border-violet-300/20', label: 'Áudio' },
-  texto: { Icon: FileText, cor: 'text-emerald-300', fundo: 'bg-emerald-300/10 border-emerald-300/20', label: 'Texto' },
-  case: { Icon: BookOpen, cor: 'text-amber-300', fundo: 'bg-amber-300/10 border-amber-300/20', label: 'Caso' },
+  video: { Icon: Video, cor: 'text-cyan-300', fundo: 'bg-cyan-300/10 border-cyan-300/20' },
+  audio: { Icon: Headphones, cor: 'text-violet-300', fundo: 'bg-violet-300/10 border-violet-300/20' },
+  texto: { Icon: FileText, cor: 'text-emerald-300', fundo: 'bg-emerald-300/10 border-emerald-300/20' },
+  case: { Icon: BookOpen, cor: 'text-amber-300', fundo: 'bg-amber-300/10 border-amber-300/20' },
 };
+
+/** Formato desconhecido cai em "texto", como sempre caiu. */
+const chaveDeFormato = (formato: string): string => (FMT[formato] ? formato : 'texto');
 
 type Foco = 'todos' | 'atencao' | 'movimento' | 'finalizados';
 type AbaEngajamento = 'atual' | 'evolucao';
@@ -60,25 +72,27 @@ type AbaEngajamento = 'atual' | 'evolucao';
  *
  * `finalizada` ≠ `concluida`: `concluida` é quem fechou a etapa da vez e espera
  * a próxima; `finalizada` é quem fechou a ÚLTIMA semana do plano.
+ *
+ * O rótulo mora no catálogo (`journeyState.<chave>`); `chave` é o que liga um ao outro.
  */
 const ESTADO_JORNADA = {
   pendente: {
-    label: 'etapa pendente',
+    chave: 'pending',
     dot: 'bg-amber-400',
     chip: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200',
   },
   curso: {
-    label: 'em curso',
+    chave: 'inProgress',
     dot: 'bg-cyan-400',
     chip: 'border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-200',
   },
   concluida: {
-    label: 'etapa concluída',
+    chave: 'stageDone',
     dot: 'bg-violet-400',
     chip: 'border-violet-300/25 bg-violet-300/[0.09] text-violet-200',
   },
   finalizada: {
-    label: 'jornada concluída',
+    chave: 'journeyDone',
     dot: 'bg-fuchsia-300',
     chip: 'border-fuchsia-300/35 bg-fuchsia-300/[0.14] text-fuchsia-100',
   },
@@ -97,22 +111,24 @@ function pedeAcompanhamento(pessoa: any): boolean {
 }
 
 function FormatosIcons({ lista, comRotulo = false }: { lista?: string[]; comRotulo?: boolean }) {
-  if (!lista?.length) return <span className="text-[10px] text-white/25">Nenhum formato aberto</span>;
+  const t = useTranslations('EngagementWorkspace');
+  if (!lista?.length) return <span className="text-[10px] text-white/25">{t('noFormatOpened')}</span>;
 
   return (
     <span className="flex flex-wrap gap-1">
       {lista.map((formato) => {
-        const meta = FMT[formato] || FMT.texto;
+        const meta = FMT[chaveDeFormato(formato)];
+        const rotulo = t(`formats.${chaveDeFormato(formato)}`);
         const Icon = meta.Icon;
         return (
           <span
             key={formato}
-            title={meta.label}
-            aria-label={meta.label}
+            title={rotulo}
+            aria-label={rotulo}
             className={`inline-flex items-center gap-1 rounded-[10px] border px-1.5 py-1 text-[9px] font-bold ${meta.fundo} ${meta.cor}`}
           >
             <Icon size={11} aria-hidden="true" />
-            {comRotulo && meta.label}
+            {comRotulo && rotulo}
           </span>
         );
       })}
@@ -121,13 +137,14 @@ function FormatosIcons({ lista, comRotulo = false }: { lista?: string[]; comRotu
 }
 
 function SemanaBadge({ pessoa }: { pessoa: any }) {
+  const t = useTranslations('EngagementWorkspace');
   if (pessoa.semanaAcessivel == null) {
     return (
       <span
-        title="Não foi possível ler a jornada e o progresso desta pessoa"
+        title={t('badge.unavailableTitle')}
         className="inline-flex rounded-full border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[10px] font-semibold text-white/30"
       >
-        Posição indisponível
+        {t('badge.unavailable')}
       </span>
     );
   }
@@ -137,14 +154,14 @@ function SemanaBadge({ pessoa }: { pessoa: any }) {
   // "etapa pendente" na semana seguinte ao encerramento.
   if (finalizouJornada(pessoa)) {
     const total = Number(pessoa.totalSemanasJornada);
-    const escopo = Number.isFinite(total) && total > 0 ? ` · ${total} de ${total} semanas` : '';
+    const rotuloFinal = Number.isFinite(total) && total > 0 ? t('badge.journeyDoneOf', { total }) : t('badge.journeyDone');
     return (
       <span
-        title={`Concluiu a última semana do plano. Calendário da turma: semana ${pessoa.semanaAberta ?? pessoa.semanaCalendario}`}
+        title={t('badge.journeyDoneTitle', { week: pessoa.semanaAberta ?? pessoa.semanaCalendario })}
         className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-1 text-[10px] font-semibold tabular-nums ${ESTADO_JORNADA.finalizada.chip}`}
       >
         <Award size={11} aria-hidden="true" />
-        Jornada concluída{escopo}
+        {rotuloFinal}
       </span>
     );
   }
@@ -157,11 +174,11 @@ function SemanaBadge({ pessoa }: { pessoa: any }) {
 
   return (
     <span
-      title={`Calendário da turma: semana ${pessoa.semanaAberta ?? pessoa.semanaCalendario}`}
+      title={t('badge.calendarTitle', { week: pessoa.semanaAberta ?? pessoa.semanaCalendario })}
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-1 text-[10px] font-semibold tabular-nums ${situacao.chip}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${situacao.dot}`} aria-hidden="true" />
-      Semana {pessoa.semanaAcessivel} · {situacao.label}
+      {t('badge.weekState', { week: pessoa.semanaAcessivel, state: t(`journeyState.${situacao.chave}`) })}
     </span>
   );
 }
@@ -177,13 +194,14 @@ function PilulaSignal({
   abriu: boolean;
   formatos?: string[];
 }) {
-  const envio = recebeu === null ? 'envio sem registro semanal' : recebeu ? 'envio registrado' : 'envio não registrado';
-  const envioCurto = recebeu === null ? 'Envio sem registro' : recebeu ? 'Enviada' : 'Sem envio';
+  const t = useTranslations('EngagementWorkspace');
+  const envio = recebeu === null ? t('delivery.sendNoRecord') : recebeu ? t('delivery.sendRecorded') : t('delivery.sendNotRecorded');
+  const envioCurto = recebeu === null ? t('delivery.sendShortNoRecord') : recebeu ? t('delivery.sendShortSent') : t('delivery.sendShortNone');
 
   return (
     <div className="flex min-w-[154px] items-center gap-2 rounded-[10px] border border-white/[0.07] bg-white/[0.025] px-2 py-1.5">
       <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-[8px] text-[10px] font-bold ${abriu ? 'bg-cyan-300/12 text-cyan-200' : 'bg-white/[0.04] text-white/35'}`}>
-        P{numero}
+        {t('delivery.contentShort', { n: numero })}
       </span>
       <span className="min-w-0">
         <span className="flex items-center gap-1.5">
@@ -195,12 +213,12 @@ function PilulaSignal({
           <Eye
             size={12}
             className={abriu ? 'text-cyan-300' : 'text-white/20'}
-            aria-label={abriu ? 'abertura registrada' : 'sem abertura registrada'}
+            aria-label={abriu ? t('delivery.openedRecorded') : t('delivery.noOpeningRecorded')}
           />
           <FormatosIcons lista={formatos} />
         </span>
         <span className="mt-0.5 block text-[9px] text-white/32">
-          {envioCurto} · {abriu ? 'abriu' : 'sem abertura'}
+          {envioCurto} · {abriu ? t('delivery.openedShort') : t('delivery.notOpenedShort')}
         </span>
       </span>
     </div>
@@ -219,22 +237,23 @@ function PilulaSignal({
  * (texto/estudo de caso) conta ao ser aberto, porque PDF em outra aba não tem
  * evento de conclusão. A frase diz qual dos três aconteceu.
  */
-const CONSUMO_ESTADO: Record<string, { label: string; cor: string }> = {
-  video: { label: 'Vídeo concluído', cor: 'text-emerald-300' },
-  audio: { label: 'Podcast concluído', cor: 'text-emerald-300' },
-  material: { label: 'Material aberto', cor: 'text-emerald-300' },
-  video_iniciado: { label: 'Vídeo iniciado, não concluído', cor: 'text-amber-300' },
+const CONSUMO_ESTADO: Record<string, { chave: string; cor: string }> = {
+  video: { chave: 'video', cor: 'text-emerald-300' },
+  audio: { chave: 'audio', cor: 'text-emerald-300' },
+  material: { chave: 'material', cor: 'text-emerald-300' },
+  video_iniciado: { chave: 'videoStarted', cor: 'text-amber-300' },
 };
 
 function Consumo({ pessoa, compacto = false }: { pessoa: any; compacto?: boolean }) {
+  const t = useTranslations('EngagementWorkspace');
   const estado = CONSUMO_ESTADO[String(pessoa.origemConsumo)]
-    ?? { label: 'Sem consumo registrado', cor: 'text-white/30' };
+    ?? { chave: 'none', cor: 'text-white/30' };
 
   return (
     <div className={compacto ? 'min-w-0' : 'min-w-[130px]'}>
       <div className={`flex items-center gap-1.5 text-[10px] font-semibold ${estado.cor}`}>
         <CheckCircle2 size={12} aria-hidden="true" />
-        {estado.label}
+        {t(`consumption.${estado.chave}`)}
       </div>
     </div>
   );
@@ -247,6 +266,7 @@ function Consumo({ pessoa, compacto = false }: { pessoa: any; compacto?: boolean
  * acende de verdade em qualquer etapa.
  */
 function EntregaETutor({ pessoa }: { pessoa: any }) {
+  const t = useTranslations('EngagementWorkspace');
   return (
     <div className="min-w-0 space-y-1.5">
       <EntregaDaEtapa pessoa={pessoa} />
@@ -254,16 +274,14 @@ function EntregaETutor({ pessoa }: { pessoa: any }) {
         pessoa.conversouTutor
           ? 'border-violet-300/20 bg-violet-300/[0.08] text-violet-200'
           : 'border-white/[0.07] bg-white/[0.025] text-white/28'
-      }`} title={pessoa.conversouTutor
-        ? 'A pessoa conversou com o Tira-Dúvidas nesta etapa.'
-        : 'Sem conversa com o Tira-Dúvidas nesta etapa.'}>
-        <MessageCircle size={11} aria-hidden="true" /> Tira-Dúvidas
+      }`} title={pessoa.conversouTutor ? t('tutor.yes') : t('tutor.no')}>
+        <MessageCircle size={11} aria-hidden="true" /> {t('tutor.badge')}
       </span>
     </div>
   );
 }
 
-function DistribuicaoJornada({
+export function DistribuicaoJornada({
   colaboradores,
   semanas,
   posicaoSelecionada,
@@ -274,6 +292,8 @@ function DistribuicaoJornada({
   posicaoSelecionada: number | null;
   onSelecionar: (semana: number | null) => void;
 }) {
+  const t = useTranslations('EngagementWorkspace');
+  const { num } = useFormatadores();
   const distribuicao = semanas.map((semana) => {
     const pessoas = colaboradores.filter((c) => Number(c.semanaAcessivel) === semana);
     const finalizadas = pessoas.filter(finalizouJornada).length;
@@ -299,26 +319,26 @@ function DistribuicaoJornada({
   const calendarioMin = calendarios.length ? Math.min(...calendarios) : null;
   const calendarioMax = calendarios.length ? Math.max(...calendarios) : null;
   const calendarioTexto = calendarioMin == null || calendarioMax == null
-    ? 'Calendário indisponível'
+    ? t('distribution.calendarUnavailable')
     : calendarioMin === calendarioMax
-      ? `Calendário na semana ${calendarioMin}`
-      : `Turmas entre as semanas ${calendarioMin} e ${calendarioMax}`;
+      ? t('distribution.calendarSingle', { week: calendarioMin })
+      : t('distribution.calendarRange', { min: calendarioMin, max: calendarioMax });
   const semPosicao = colaboradores.filter((c) => c.semanaAcessivel == null).length;
 
   return (
     <section aria-labelledby="distribuicao-jornada-titulo" className="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/35">Posição na trilha</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/35">{t('distribution.eyebrow')}</p>
           <h2
             id="distribuicao-jornada-titulo"
             className="mt-1 text-[21px] leading-tight text-white"
             style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
           >
-            Onde as pessoas estão agora
+            {t('distribution.title')}
           </h2>
           <p className="mt-1 text-[10px] text-white/35">
-            {calendarioTexto}. Selecione uma semana para filtrar a lista.
+            {t('distribution.subtitle', { calendar: calendarioTexto })}
           </p>
           {/* A barra responde "onde estão"; só este número responde "quantas
               terminaram": chegar à última semana e concluí-la são estados
@@ -326,9 +346,7 @@ function DistribuicaoJornada({
           {totalFinalizadas > 0 && (
             <p className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-semibold ${ESTADO_JORNADA.finalizada.chip}`}>
               <Award size={11} aria-hidden="true" />
-              {totalFinalizadas === 1
-                ? '1 pessoa concluiu a jornada'
-                : `${totalFinalizadas} pessoas concluíram a jornada`}
+              {t('distribution.finishedCount', { count: totalFinalizadas })}
             </p>
           )}
         </div>
@@ -338,7 +356,7 @@ function DistribuicaoJornada({
             onClick={() => onSelecionar(null)}
             className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.07] px-3 py-1.5 text-[10px] font-bold text-cyan-200 transition-colors hover:bg-cyan-300/12 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
           >
-            Limpar semana
+            {t('distribution.clearWeek')}
           </button>
         )}
       </div>
@@ -354,7 +372,7 @@ function DistribuicaoJornada({
                 type="button"
                 disabled={total === 0}
                 aria-pressed={selecionada}
-                aria-label={`${total} pessoa${total === 1 ? '' : 's'} na semana ${semana}${finalizadas > 0 ? `, ${finalizadas} com a jornada concluída` : ''}`}
+                aria-label={t(finalizadas > 0 ? 'distribution.bucketAriaWithFinished' : 'distribution.bucketAria', { count: total, week: semana, finished: finalizadas })}
                 onClick={() => onSelecionar(selecionada ? null : semana)}
                 className={`group w-[78px] shrink-0 rounded-[16px] border p-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-default ${
                   selecionada
@@ -380,9 +398,9 @@ function DistribuicaoJornada({
                   </span>
                 </span>
                 <span className={`mt-2 block text-[9px] font-bold uppercase tracking-[0.12em] ${selecionada ? 'text-cyan-200' : 'text-white/35'}`}>
-                  Semana {semana}
+                  {t('distribution.weekLabel', { week: semana })}
                 </span>
-                <span className="mt-0.5 block text-sm font-semibold tabular-nums text-white/80">{total}</span>
+                <span className="mt-0.5 block text-sm font-semibold tabular-nums text-white/80">{num(total)}</span>
               </button>
             );
           })}
@@ -393,38 +411,40 @@ function DistribuicaoJornada({
         {/* A legenda sai do próprio mapa, na ordem em que as fatias são
             empilhadas: estado novo aparece aqui sem ninguém lembrar. */}
         {Object.values(ESTADO_JORNADA).map((estado) => (
-          <span key={estado.label} className="inline-flex items-center gap-1.5">
+          <span key={estado.chave} className="inline-flex items-center gap-1.5">
             <span className={`h-1.5 w-1.5 rounded-full ${estado.dot}`} />
-            {estado.label}
+            {t(`journeyState.${estado.chave}`)}
           </span>
         ))}
-        {semPosicao > 0 && <span>{semPosicao} sem posição disponível</span>}
+        {semPosicao > 0 && <span>{t('distribution.noPosition', { count: semPosicao })}</span>}
       </div>
     </section>
   );
 }
 
-function PilulasResumo({ itens }: { itens: any[] }) {
+export function PilulasResumo({ itens }: { itens: any[] }) {
+  const t = useTranslations('EngagementWorkspace');
+  const { num } = useFormatadores();
   return (
     <section className="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
-      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/35">Entrega das pílulas</p>
-      <h2 className="mt-1 text-sm font-semibold text-white">Do envio à escolha do formato</h2>
+      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/35">{t('pillSummary.eyebrow')}</p>
+      <h2 className="mt-1 text-sm font-semibold text-white">{t('pillSummary.title')}</h2>
       <div className="mt-4 space-y-3">
         {itens.map((item) => (
           <div key={item.pilula} className="rounded-[16px] border border-white/[0.07] bg-black/10 p-3">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-white/70">Pílula {item.pilula}</span>
-              <span className="text-[9px] text-white/30">sinais registrados</span>
+              <span className="text-[10px] font-bold text-white/70">{t('pillSummary.content', { n: item.pilula })}</span>
+              <span className="text-[9px] text-white/30">{t('pillSummary.recordedSignals')}</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { label: 'Recebeu', valor: item.recebeu, cor: 'text-emerald-300' },
-                { label: 'Abriu', valor: item.abriu, cor: 'text-cyan-300' },
-                { label: 'Escolheu', valor: item.abriuFormato, cor: 'text-teal-300' },
+                { chave: 'received', valor: item.recebeu, cor: 'text-emerald-300' },
+                { chave: 'opened', valor: item.abriu, cor: 'text-cyan-300' },
+                { chave: 'chose', valor: item.abriuFormato, cor: 'text-teal-300' },
               ].map((sinal) => (
-                <div key={sinal.label}>
-                  <p className={`text-lg font-semibold tabular-nums ${sinal.cor}`}>{sinal.valor}</p>
-                  <p className="text-[9px] text-white/32">{sinal.label}</p>
+                <div key={sinal.chave}>
+                  <p className={`text-lg font-semibold tabular-nums ${sinal.cor}`}>{num(Number(sinal.valor) || 0)}</p>
+                  <p className="text-[9px] text-white/32">{t(`pillSummary.${sinal.chave}`)}</p>
                 </div>
               ))}
             </div>
@@ -435,61 +455,67 @@ function PilulasResumo({ itens }: { itens: any[] }) {
   );
 }
 
-function FormatosResumo({ itens }: { itens: any[] }) {
+export function FormatosResumo({ itens }: { itens: any[] }) {
+  const t = useTranslations('EngagementWorkspace');
+  const { num, pct: pctTexto } = useFormatadores();
   return (
     <section className="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
-      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/35">Preferência declarada</p>
-      <h2 className="mt-1 text-sm font-semibold text-white">Engajamento no formato principal</h2>
+      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/35">{t('formatPreference.eyebrow')}</p>
+      <h2 className="mt-1 text-sm font-semibold text-white">{t('formatPreference.title')}</h2>
       <div className="mt-4 space-y-3">
         {itens.map((item) => {
-          const meta = FMT[item.formato] || FMT.texto;
+          const chave = chaveDeFormato(item.formato);
+          const meta = FMT[chave];
           const Icon = meta.Icon;
           const pct = item.principal ? Math.round((item.engajou / item.principal) * 100) : 0;
           return (
             <div key={item.formato}>
               <div className="flex items-center justify-between gap-3 text-[10px]">
                 <span className={`inline-flex items-center gap-1.5 font-bold ${meta.cor}`}>
-                  <Icon size={12} aria-hidden="true" /> {meta.label}
+                  <Icon size={12} aria-hidden="true" /> {t(`formats.${chave}`)}
                 </span>
                 <span className="font-mono tabular-nums text-white/45">
-                  {item.engajou}/{item.principal} · {pct}%
+                  {num(item.engajou)}/{num(item.principal)} · {pctTexto(pct)}
                 </span>
               </div>
               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
                 <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-400" style={{ width: `${pct}%` }} />
               </div>
               {item.pctMedio != null && (
-                <p className="mt-1 text-right text-[9px] text-white/28">Média assistida: {item.pctMedio}%</p>
+                <p className="mt-1 text-right text-[9px] text-white/28">{t('formatPreference.avgWatched', { pct: item.pctMedio / 100 })}</p>
               )}
             </div>
           );
         })}
-        {!itens.length && <p className="text-[10px] text-white/30">Nenhuma preferência registrada neste recorte.</p>}
+        {!itens.length && <p className="text-[10px] text-white/30">{t('formatPreference.none')}</p>}
       </div>
     </section>
   );
 }
 
 function ProximaAcao({ pessoa }: { pessoa: any }) {
+  const t = useTranslations('EngagementWorkspace');
   const blocker = engagementBlocker(pessoa);
   if (finalizouJornada(pessoa)) {
     const total = Number(pessoa.totalSemanasJornada);
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-fuchsia-100">
         <Award size={12} aria-hidden="true" />
-        Jornada concluída{Number.isFinite(total) && total > 0 ? ` · ${total} semanas` : ''}
+        {Number.isFinite(total) && total > 0 ? t('nextAction.journeyDoneWeeks', { total }) : t('nextAction.journeyDone')}
       </span>
     );
   }
-  if (!blocker && !pessoa.jornadaAtrasada) return <span className="text-xs text-emerald-200">Etapa concluída</span>;
+  if (!blocker && !pessoa.jornadaAtrasada) return <span className="text-xs text-emerald-200">{t('nextAction.stageDone')}</span>;
+  const meta = blocker ? blockerMeta(t, blocker) : null;
   return <details className="max-w-sm text-xs">
-    <summary className="cursor-pointer text-cyan-200 focus-visible:outline-2 focus-visible:outline-cyan-300">{blocker ? BLOCKER_META[blocker].action : 'Verificar etapa pendente'}</summary>
-    <p className="mt-2 leading-relaxed text-white/65">{blocker ? BLOCKER_META[blocker].guidance : 'A posição individual está atrás do calendário da turma. Conferir qual etapa falta concluir antes de orientar a próxima semana.'}</p>
-    {blocker === 'ativacao' && <p className="mt-2 text-white/60">{pessoa.recebeuP1 === true || pessoa.recebeuP2 === true ? 'Há registro de envio do conteúdo; isso não confirma entrega ou leitura.' : pessoa.recebeuP1 === null || pessoa.recebeuP2 === null ? 'Envio desta semana sem registro suficiente. Conferir o histórico antes do contato.' : 'Sem registro de envio das pílulas neste recorte.'}</p>}
+    <summary className="cursor-pointer text-cyan-200 focus-visible:outline-2 focus-visible:outline-cyan-300">{meta ? meta.action : t('nextAction.verifyPending')}</summary>
+    <p className="mt-2 leading-relaxed text-white/65">{meta ? meta.guidance : t('nextAction.behindGuidance')}</p>
+    {blocker === 'ativacao' && <p className="mt-2 text-white/60">{pessoa.recebeuP1 === true || pessoa.recebeuP2 === true ? t('nextAction.sendRecorded') : pessoa.recebeuP1 === null || pessoa.recebeuP2 === null ? t('nextAction.sendInsufficient') : t('nextAction.sendNone')}</p>}
   </details>;
 }
 
-function PessoaCard({ pessoa }: { pessoa: any }) {
+export function PessoaCard({ pessoa }: { pessoa: any }) {
+  const t = useTranslations('EngagementWorkspace');
   const atencao = pedeAcompanhamento(pessoa);
   const finalizada = finalizouJornada(pessoa);
   return (
@@ -501,11 +527,11 @@ function PessoaCard({ pessoa }: { pessoa: any }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[13px] font-semibold text-white">{pessoa.nome}</p>
-          <p className="truncate text-[10px] text-white/35">{pessoa.cargo || 'Cargo não informado'}</p>
+          <p className="truncate text-[10px] text-white/35">{rotuloCargo(t, pessoa.cargo)}</p>
         </div>
         {atencao && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-300/10 px-2 py-1 text-[9px] font-bold text-amber-200">
-            <AlertTriangle size={10} aria-hidden="true" /> Acompanhar
+            <AlertTriangle size={10} aria-hidden="true" /> {t('card.follow')}
           </span>
         )}
       </div>
@@ -522,6 +548,7 @@ function PessoaCard({ pessoa }: { pessoa: any }) {
 }
 
 function PessoasList({ pessoas }: { pessoas: any[] }) {
+  const t = useTranslations('EngagementWorkspace');
   return <>
             <div className="grid gap-2 p-3 md:grid-cols-2 lg:hidden">
               {pessoas.map((pessoa) => <PessoaCard key={pessoa.colaboradorId} pessoa={pessoa} />)}
@@ -531,13 +558,13 @@ function PessoasList({ pessoas }: { pessoas: any[] }) {
               <table className="w-full min-w-[980px] text-left">
                 <thead>
                   <tr className="text-[9px] uppercase tracking-[0.12em] text-white/30">
-                    <th className="px-5 py-3 font-bold">Pessoa</th>
-                    <th className="px-3 py-3 font-bold">Etapa individual</th>
-                    <th className="px-3 py-3 font-bold">Pílula 1</th>
-                    <th className="px-3 py-3 font-bold">Pílula 2</th>
-                    <th className="px-3 py-3 font-bold">Consumo</th>
-                    <th className="px-3 py-3 font-bold">Entrega e apoio</th>
-                    <th className="px-3 py-3 font-bold">Próxima ação</th>
+                    <th className="px-5 py-3 font-bold">{t('table.person')}</th>
+                    <th className="px-3 py-3 font-bold">{t('table.individualStage')}</th>
+                    <th className="px-3 py-3 font-bold">{t('table.content1')}</th>
+                    <th className="px-3 py-3 font-bold">{t('table.content2')}</th>
+                    <th className="px-3 py-3 font-bold">{t('table.consumption')}</th>
+                    <th className="px-3 py-3 font-bold">{t('table.deliveryAndSupport')}</th>
+                    <th className="px-3 py-3 font-bold">{t('table.nextAction')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -562,7 +589,7 @@ function PessoasList({ pessoas }: { pessoas: any[] }) {
                             />
                             <div className="min-w-0">
                               <p className={`max-w-[210px] truncate text-[12px] font-semibold ${atencao ? 'text-amber-100' : 'text-white/85'}`}>{pessoa.nome}</p>
-                              <p className="max-w-[210px] truncate text-[9px] text-white/30">{pessoa.cargo || 'Cargo não informado'}</p>
+                              <p className="max-w-[210px] truncate text-[9px] text-white/30">{rotuloCargo(t, pessoa.cargo)}</p>
                             </div>
                           </div>
                         </td>
@@ -582,20 +609,22 @@ function PessoasList({ pessoas }: { pessoas: any[] }) {
   </>;
 }
 
-function Coordenacoes({ pessoas, abrir }: { pessoas: any[]; abrir: boolean }) {
+export function Coordenacoes({ pessoas, abrir }: { pessoas: any[]; abrir: boolean }) {
+  const t = useTranslations('EngagementWorkspace');
+  const locale = useLocale();
   const grupos = new Map<string, { id: string; nome: string; pessoas: any[]; atencao: number }>();
   for (const pessoa of pessoas) {
     const id = pessoa.coordenadorEmail || '__sem__';
-    if (!grupos.has(id)) grupos.set(id, { id, nome: pessoa.coordenadorNome || 'Sem coordenação definida', pessoas: [], atencao: 0 });
+    if (!grupos.has(id)) grupos.set(id, { id, nome: pessoa.coordenadorNome || t('coordination.none'), pessoas: [], atencao: 0 });
     const grupo = grupos.get(id)!;
     grupo.pessoas.push(pessoa);
     if (pedeAcompanhamento(pessoa)) grupo.atencao++;
   }
-  const ordenados = [...grupos.values()].sort((a, b) => b.atencao - a.atencao || b.pessoas.length - a.pessoas.length || a.nome.localeCompare(b.nome));
+  const ordenados = [...grupos.values()].sort((a, b) => b.atencao - a.atencao || b.pessoas.length - a.pessoas.length || a.nome.localeCompare(b.nome, locale));
   return <div className="space-y-3 p-3">
     {ordenados.map((grupo) => <details key={`${grupo.id}-${abrir}`} open={abrir} className="group overflow-hidden rounded-xl border border-white/10">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 bg-white/[0.025] p-4 focus-visible:outline-2 focus-visible:outline-cyan-300 [&::-webkit-details-marker]:hidden">
-        <div className="min-w-0"><h3 className="break-words text-sm font-semibold text-white">{grupo.nome}</h3><p className="mt-1 text-xs text-white/60">{grupo.pessoas.length} pessoas neste recorte · <span className="text-amber-200">{grupo.atencao} para acompanhar</span></p></div>
+        <div className="min-w-0"><h3 className="break-words text-sm font-semibold text-white">{grupo.nome}</h3><p className="mt-1 text-xs text-white/60">{t('coordination.groupPeople', { count: grupo.pessoas.length })} · <span className="text-amber-200">{t('coordination.groupFollow', { count: grupo.atencao })}</span></p></div>
         <ChevronDown size={16} className="shrink-0 text-cyan-200 group-open:rotate-180" />
       </summary>
       <PessoasList pessoas={grupo.pessoas} />
@@ -604,6 +633,9 @@ function Coordenacoes({ pessoas, abrir }: { pessoas: any[]; abrir: boolean }) {
 }
 
 export default function EngagementPanel({ empresaId, empresaNome, surface, loadRollup, loadEvolution }: EngagementPanelProps) {
+  const t = useTranslations('EngagementWorkspace');
+  const locale = useLocale();
+  const { num } = useFormatadores();
   const links = engagementLinks(empresaId, surface);
   const [agrupamento, setAgrupamento] = useState<'pessoas' | 'coordenacao'>(surface === 'rh' ? 'coordenacao' : 'pessoas');
   const [loading, setLoading] = useState(false);
@@ -631,7 +663,9 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
       if (result.resumo && 'erro' in result.resumo && result.resumo.erro) throw new Error(String(result.resumo.erro));
       setData(result);
     } catch {
-      if (currentRequest === requestId.current) setErro('Não foi possível carregar os sinais. Atualize para tentar novamente.');
+      // Guarda só que falhou: o texto sai do catálogo na hora de desenhar, e o
+      // `t` fica fora das dependências (trocar de idioma não refaz a leitura).
+      if (currentRequest === requestId.current) setErro('load');
     } finally {
       if (currentRequest === requestId.current) setLoading(false);
     }
@@ -696,7 +730,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
   const finalizaram = colabs.filter(finalizouJornada).length;
 
   const colabsVisiveis = useMemo(() => {
-    const termo = busca.trim().toLocaleLowerCase('pt-BR');
+    const termo = busca.trim().toLocaleLowerCase(locale);
     return colabsNaPosicao
       .filter((c) => !pessoaSel || c.colaboradorId === pessoaSel)
       .filter((c) => !motivoSel || ((semanaSel == null || c.semanaCalendario >= semanaSel) && (motivoSel === 'atraso' ? c.jornadaAtrasada : engagementBlocker(c) === motivoSel)))
@@ -706,9 +740,9 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
         if (foco === 'finalizados') return finalizouJornada(c);
         return !pedeAcompanhamento(c) && !finalizouJornada(c);
       })
-      .filter((c) => !termo || `${c.nome} ${c.cargo || ''}`.toLocaleLowerCase('pt-BR').includes(termo))
-      .sort((a, b) => Number(pedeAcompanhamento(b)) - Number(pedeAcompanhamento(a)) || a.nome.localeCompare(b.nome));
-  }, [busca, colabsNaPosicao, foco, motivoSel, pessoaSel, semanaSel]);
+      .filter((c) => !termo || `${c.nome} ${c.cargo || ''}`.toLocaleLowerCase(locale).includes(termo))
+      .sort((a, b) => Number(pedeAcompanhamento(b)) - Number(pedeAcompanhamento(a)) || a.nome.localeCompare(b.nome, locale));
+  }, [busca, colabsNaPosicao, foco, motivoSel, pessoaSel, semanaSel, locale]);
 
   const mostrarAtencao = () => {
     setFoco('atencao');
@@ -731,28 +765,32 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
     window.requestAnimationFrame(() => document.getElementById(`aba-engajamento-${proxima}`)?.focus());
   };
 
+  // A data a partir da qual a abertura da página passou a ser registrada, no
+  // formato do idioma (era "15/07" escrito em português).
+  const dataDoRegistro = dataDoMarcoDeAbertura(locale);
+
   return (
     <div className="mx-auto w-full max-w-[1500px] p-4 sm:p-6 lg:p-8">
       {!loading && !erro && resumo && total > 0 && <DemoExplorationBeacon alvo="engajamento" />}
       <AdminPageHeader
         icon={BarChart3}
         iconClassName="text-cyan-300"
-        title="Engajamento da jornada"
+        title={t('header.title')}
         subtitle={empresaNome
-          ? `${empresaNome} · do primeiro acesso à evidência prática`
-          : 'Selecione uma empresa no filtro do topo'}
+          ? t('header.subtitleWithCompany', { company: empresaNome })
+          : t('header.subtitleNoCompany')}
         actions={empresaId ? (
           <Link
             href={links.report}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.035] px-3 py-1.5 text-[10px] font-bold text-white/55 transition-colors hover:bg-white/[0.07] hover:text-white"
           >
-            <FileChartColumnIncreasing size={12} aria-hidden="true" /> Relatório
+            <FileChartColumnIncreasing size={12} aria-hidden="true" /> {t('header.report')}
           </Link>
         ) : null}
       />
 
       <div className="mb-5 flex flex-col gap-2 border-b border-white/[0.08] lg:flex-row lg:items-end lg:justify-between">
-        <div role="tablist" aria-label="Visões de engajamento" className="flex items-center gap-5 sm:gap-7">
+        <div role="tablist" aria-label={t('tabs.aria')} className="flex items-center gap-5 sm:gap-7">
           <button
             id="aba-engajamento-atual"
             type="button"
@@ -768,7 +806,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
                 : 'text-white/35 after:bg-transparent hover:text-white/70'
             }`}
           >
-            <BarChart3 size={13} aria-hidden="true" /> Visão atual
+            <BarChart3 size={13} aria-hidden="true" /> {t('tabs.current')}
           </button>
           <button
             id="aba-engajamento-evolucao"
@@ -785,20 +823,20 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
                 : 'text-white/35 after:bg-transparent hover:text-white/70'
             }`}
           >
-            <TrendingUp size={13} aria-hidden="true" /> Evolução semanal
+            <TrendingUp size={13} aria-hidden="true" /> {t('tabs.evolution')}
           </button>
         </div>
         {aba === 'atual' && (
           <div className="flex flex-wrap items-center gap-2 pb-2">
           <select
-            aria-label="Filtrar métricas por semana"
+            aria-label={t('filters.weekAria')}
             value={semanaSel ?? ''}
             onChange={(event) => setSemanaSel(event.target.value ? Number(event.target.value) : null)}
             disabled={!empresaId}
             className="min-h-8 rounded-[10px] border border-white/[0.09] bg-[#081a2f] px-2.5 text-[10px] font-semibold text-white/65 outline-none focus:border-cyan-300/35 disabled:opacity-40"
           >
-            <option value="">Etapa atual de cada pessoa</option>
-            {semanas.map((s) => <option key={s} value={s}>Semana {s}</option>)}
+            <option value="">{t('filters.currentStage')}</option>
+            {semanas.map((s) => <option key={s} value={s}>{t('filters.weekOption', { week: s })}</option>)}
           </select>
           {/* Função: num tenant com duas turmas no ar, a média do total não
               descreve nenhuma delas — em Macaé, 40% de atividade nos professores
@@ -806,13 +844,13 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
               POPULAÇÃO na origem, então todo card e toda lista descem dele. */}
           {cargosDisponiveis.length > 1 && (
             <select
-              aria-label="Filtrar métricas por função"
+              aria-label={t('filters.roleAria')}
               value={cargoSel}
               onChange={(event) => setCargoSel(event.target.value)}
               disabled={!empresaId}
               className="min-h-8 rounded-[10px] border border-white/[0.09] bg-[#081a2f] px-2.5 text-[10px] font-semibold text-white/65 outline-none focus:border-cyan-300/35 disabled:opacity-40"
             >
-              <option value="">Todas as funções</option>
+              <option value="">{t('filters.allRoles')}</option>
               {cargosDisponiveis.map((c: string) => <option key={c} value={c}>{c}</option>)}
             </select>
           )}
@@ -823,7 +861,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
             className="inline-flex min-h-8 items-center gap-1.5 rounded-[10px] border border-white/[0.09] bg-white/[0.035] px-3 text-[10px] font-bold text-white/55 transition-colors hover:bg-white/[0.07] hover:text-white disabled:opacity-40"
           >
             {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Atualizar
+            {t('filters.refresh')}
           </button>
           </div>
         )}
@@ -832,8 +870,8 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
       {!empresaId && (
         <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.025] p-10 text-center">
           <Users size={22} className="mx-auto text-cyan-300/45" aria-hidden="true" />
-          <p className="mt-3 text-sm font-semibold text-white/70">Escolha uma empresa para começar</p>
-          <p className="mt-1 text-[11px] text-white/35">O filtro fica no topo da área administrativa.</p>
+          <p className="mt-3 text-sm font-semibold text-white/70">{t('noCompany.title')}</p>
+          <p className="mt-1 text-[11px] text-white/35">{t('noCompany.hint')}</p>
         </div>
       )}
 
@@ -845,17 +883,17 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
       >
       {empresaId && loading && !resumo && (
         <div className="flex items-center gap-2 rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-6 text-sm text-white/40">
-          <Loader2 size={16} className="animate-spin" /> Organizando os sinais da jornada…
+          <Loader2 size={16} className="animate-spin" /> {t('loading')}
         </div>
       )}
 
-      {empresaId && erro && <div role="alert" className="mb-5 rounded-xl border border-rose-300/25 bg-rose-300/5 p-5 text-sm text-rose-100">{erro}</div>}
+      {empresaId && erro && <div role="alert" className="mb-5 rounded-xl border border-rose-300/25 bg-rose-300/5 p-5 text-sm text-rose-100">{t('loadError')}</div>}
 
       {empresaId && resumo && total === 0 && !loading && (
         <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.025] p-10 text-center">
           <BarChart3 size={22} className="mx-auto text-cyan-300/45" aria-hidden="true" />
-          <p className="mt-3 text-sm font-semibold text-white/70">Nenhuma pessoa neste recorte</p>
-          <p className="mt-1 text-[11px] text-white/35">Altere a semana ou a função para consultar outro grupo.</p>
+          <p className="mt-3 text-sm font-semibold text-white/70">{t('empty.title')}</p>
+          <p className="mt-1 text-[11px] text-white/35">{t('empty.hint')}</p>
         </div>
       )}
 
@@ -863,27 +901,27 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
         <div className="space-y-5">
           <section aria-labelledby="acoes-title" className="rounded-2xl border border-cyan-300/20 bg-[#0b2137] p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><h2 id="acoes-title" className="text-lg font-semibold text-white">Onde agir agora</h2><p className="mt-1 text-xs text-white/65">{elegiveisParaAcao.length} pessoas {semanaSel ? `que já chegaram à semana ${semanaSel}` : 'na etapa atual'} · escolha uma pendência para abrir a lista</p></div>
-              {links.reviewEnvios && <Link href={links.reviewEnvios} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-cyan-200 hover:bg-white/5"><Send size={14} /> Revisar envios</Link>}
+              <div><h2 id="acoes-title" className="text-lg font-semibold text-white">{t('actNow.title')}</h2><p className="mt-1 text-xs text-white/65">{semanaSel ? t('actNow.summaryWeek', { count: elegiveisParaAcao.length, week: semanaSel }) : t('actNow.summaryCurrent', { count: elegiveisParaAcao.length })}</p></div>
+              {links.reviewEnvios && <Link href={links.reviewEnvios} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-cyan-200 hover:bg-white/5"><Send size={14} /> {t('actNow.reviewSends')}</Link>}
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {([...Object.entries(BLOCKER_META).map(([key, value]) => ({ key: key as EngagementBlocker | 'atraso', label: value.label, count: elegiveisParaAcao.filter((person) => engagementBlocker(person) === key).length })), { key: 'atraso' as const, label: 'Etapa em atraso', count: elegiveisParaAcao.filter((person) => person.jornadaAtrasada).length }]).map((item) => <button key={item.key} type="button" onClick={() => selecionarPendencia(item.key)} aria-pressed={motivoSel === item.key} className={`rounded-xl border p-4 text-left focus-visible:outline-2 focus-visible:outline-cyan-300 ${motivoSel === item.key ? 'border-cyan-300/60 bg-cyan-300/10' : 'border-white/15 bg-white/[0.025] hover:bg-white/5'}`}>
-                <span className="block text-xs text-white/70">{item.label}</span><span className="mt-1 block text-2xl font-semibold tabular-nums text-white">{item.count}</span>
+              {([...(Object.keys(BLOCKER_META) as EngagementBlocker[]).map((key) => ({ key: key as EngagementBlocker | 'atraso', label: blockerMeta(t, key).label, count: elegiveisParaAcao.filter((person) => engagementBlocker(person) === key).length })), { key: 'atraso' as const, label: t('actNow.overdue'), count: elegiveisParaAcao.filter((person) => person.jornadaAtrasada).length }]).map((item) => <button key={item.key} type="button" onClick={() => selecionarPendencia(item.key)} aria-pressed={motivoSel === item.key} className={`rounded-xl border p-4 text-left focus-visible:outline-2 focus-visible:outline-cyan-300 ${motivoSel === item.key ? 'border-cyan-300/60 bg-cyan-300/10' : 'border-white/15 bg-white/[0.025] hover:bg-white/5'}`}>
+                <span className="block text-xs text-white/70">{item.label}</span><span className="mt-1 block text-2xl font-semibold tabular-nums text-white">{num(item.count)}</span>
               </button>)}
             </div>
-            <p className="mt-3 text-xs text-white/55">Cada pessoa aparece na primeira etapa pendente. Etapa em atraso pode se sobrepor aos demais grupos. Ausência de atividade não confirma falha de entrega.</p>
+            <p className="mt-3 text-xs text-white/55">{t('actNow.note')}</p>
           </section>
           <SignalJourney
-            title="Conheça como a Vertho.ai funciona"
+            title={t('signalJourney.title')}
             description={semanaSel
-              ? 'Sinais registrados nesta semana: acessar, consumir e transformar o conteúdo em evidência.'
-              : 'A etapa atual de cada pessoa: acessar, consumir e transformar o conteúdo em evidência.'}
+              ? t('signalJourney.descriptionWeek')
+              : t('signalJourney.descriptionCurrent')}
             total={total}
             steps={[
-              { label: 'Na cadência', value: total, detail: 'pessoas incluídas neste recorte', icon: Users, tone: 'cyan' },
-              { label: 'Acessaram conteúdo', value: resumo.abriramAlgumFormato || 0, detail: 'abriram ao menos um formato', icon: LayoutGrid, tone: 'teal' },
-              { label: 'Consumiram', value: resumo.consumiram || 0, detail: 'vídeo ou podcast concluído, ou material aberto', icon: CheckCircle2, tone: 'emerald' },
-              { label: 'Entregaram evidência', value: resumo.enviaramEvidencia || 0, detail: 'concluíram a prática da semana', icon: ClipboardCheck, tone: 'amber' },
+              { label: t('signalJourney.steps.cadence.label'), value: total, detail: t('signalJourney.steps.cadence.detail'), icon: Users, tone: 'cyan' },
+              { label: t('signalJourney.steps.accessed.label'), value: resumo.abriramAlgumFormato || 0, detail: t('signalJourney.steps.accessed.detail'), icon: LayoutGrid, tone: 'teal' },
+              { label: t('signalJourney.steps.consumed.label'), value: resumo.consumiram || 0, detail: t('signalJourney.steps.consumed.detail'), icon: CheckCircle2, tone: 'emerald' },
+              { label: t('signalJourney.steps.evidence.label'), value: resumo.enviaramEvidencia || 0, detail: t('signalJourney.steps.evidence.detail'), icon: ClipboardCheck, tone: 'amber' },
             ]}
             action={(
               <button
@@ -892,21 +930,21 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
                 className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/[0.08] px-3 py-2 text-[10px] font-bold text-amber-100 transition-colors hover:bg-amber-300/12 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
               >
                 <AlertTriangle size={13} aria-hidden="true" />
-                {emAtencao} para acompanhar
+                {t('signalJourney.follow', { count: emAtencao })}
               </button>
             )}
           />
           <p className="-mt-2 px-1 text-[11px] leading-relaxed text-white/45">
-            RH e liderança acompanham a entrega e o nível da reflexão. O relato enviado continua privado.
+            {t('privacyNote')}
           </p>
 
           <QualidadeEvidenciaResumo contagem={resumo.qualidadeEvidencias} />
 
-          <section aria-label="Sinais complementares" className="grid gap-2 sm:grid-cols-3">
+          <section aria-label={t('complementary.aria')} className="grid gap-2 sm:grid-cols-3">
             {[
-              { icon: Eye, label: 'Abriram a página', value: resumo.abriramLink || 0, detail: 'abertura direta registrada', cor: 'text-cyan-300' },
-              { icon: Video, label: 'Concluíram vídeo', value: resumo.terminaramVideo || 0, detail: `${resumo.pctMedioVideo || 0}% assistido em média`, cor: 'text-emerald-300' },
-              { icon: MessageCircle, label: 'Usaram o Tira-Dúvidas', value: resumo.conversaramTutor || 0, detail: 'conversas iniciadas no Tira-Dúvidas', cor: 'text-violet-300' },
+              { icon: Eye, label: t('complementary.openedPage.label'), value: resumo.abriramLink || 0, detail: t('complementary.openedPage.detail'), cor: 'text-cyan-300' },
+              { icon: Video, label: t('complementary.finishedVideo.label'), value: resumo.terminaramVideo || 0, detail: t('complementary.finishedVideo.detail', { pct: (resumo.pctMedioVideo || 0) / 100 }), cor: 'text-emerald-300' },
+              { icon: MessageCircle, label: t('complementary.usedTutor.label'), value: resumo.conversaramTutor || 0, detail: t('complementary.usedTutor.detail'), cor: 'text-violet-300' },
             ].map((item) => {
               const Icon = item.icon;
               return (
@@ -916,7 +954,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
                     <p className="text-[10px] font-semibold text-white/60">{item.label}</p>
                     <p className="text-[9px] text-white/28">{item.detail}</p>
                   </div>
-                  <span className="font-mono text-lg font-semibold tabular-nums text-white/80">{item.value}</span>
+                  <span className="font-mono text-lg font-semibold tabular-nums text-white/80">{num(item.value)}</span>
                 </div>
               );
             })}
@@ -938,18 +976,18 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
             <div className="border-b border-white/[0.07] p-4 sm:p-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/35">{surface === 'rh' && agrupamento === 'coordenacao' ? 'Detalhe por coordenação' : 'Detalhe por pessoa'}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/35">{surface === 'rh' && agrupamento === 'coordenacao' ? t('people.eyebrowCoordination') : t('people.eyebrowPerson')}</p>
                   <h2
                     id="pessoas-title"
                     className="mt-1 text-[21px] leading-tight text-white"
                     style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
                   >
-                    Quem avançou — e quem pede acompanhamento
+                    {t('people.title')}
                   </h2>
                   <p className="mt-1 text-[10px] text-white/32">
-                    {etapasPendentes} com etapa pendente · {semSinal} sem sinal registrado
+                    {t('people.summary', { pending: etapasPendentes, noSignal: semSinal })}
                     {finalizaram > 0 && (
-                      <> · <span className="font-semibold text-fuchsia-100">{finalizaram} com a jornada concluída</span></>
+                      <> · <span className="font-semibold text-fuchsia-100">{t('people.finishedCount', { count: finalizaram })}</span></>
                     )}
                   </p>
                 </div>
@@ -957,16 +995,16 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <div className="flex items-center gap-1 rounded-full border border-white/[0.07] bg-black/10 p-1">
                     {([
-                      ['todos', 'Todos', colabsNaPosicao.length],
-                      ['atencao', 'Acompanhar', colabsNaPosicao.filter(pedeAcompanhamento).length],
+                      ['todos', 'all', colabsNaPosicao.length],
+                      ['atencao', 'follow', colabsNaPosicao.filter(pedeAcompanhamento).length],
                       // "Em movimento" exclui quem terminou: os quatro
                       // segmentos somam o recorte, e quem fechou o plano não é
                       // alguém para empurrar, é alguém para reconhecer.
-                      ['movimento', 'Em movimento', colabsNaPosicao.filter((c) => !pedeAcompanhamento(c) && !finalizouJornada(c)).length],
+                      ['movimento', 'moving', colabsNaPosicao.filter((c) => !pedeAcompanhamento(c) && !finalizouJornada(c)).length],
                       ...(colabs.some(finalizouJornada)
-                        ? [['finalizados', 'Finalizaram', colabsNaPosicao.filter(finalizouJornada).length] as const]
+                        ? [['finalizados', 'finished', colabsNaPosicao.filter(finalizouJornada).length] as const]
                         : []),
-                    ] as const).map(([valor, label, quantidade]) => (
+                    ] as const).map(([valor, chave, quantidade]) => (
                       <button
                         key={valor}
                         type="button"
@@ -980,55 +1018,55 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
                               : 'bg-cyan-300/12 text-cyan-200'
                         }`}
                       >
-                        {label} <span className="ml-0.5 font-mono">{quantidade}</span>
+                        {t(`people.segments.${chave}`)} <span className="ml-0.5 font-mono">{num(quantidade)}</span>
                       </button>
                     ))}
                   </div>
                   <label className="flex min-h-9 items-center gap-2 rounded-full border border-white/[0.08] bg-black/10 px-3 focus-within:border-cyan-300/30">
                     <Search size={12} className="text-white/30" aria-hidden="true" />
-                    <span className="sr-only">Buscar pessoa</span>
+                    <span className="sr-only">{t('people.search')}</span>
                     <input
                       value={busca}
                       onChange={(event) => setBusca(event.target.value)}
-                      placeholder="Buscar pessoa"
+                      placeholder={t('people.search')}
                       className="w-full bg-transparent text-[10px] text-white outline-none placeholder:text-white/25 sm:w-32"
                     />
                   </label>
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                {surface === 'rh' && <label className="text-xs text-white/70">Agrupar por <select aria-label="Agrupar pessoas" value={agrupamento} onChange={(event) => setAgrupamento(event.target.value as typeof agrupamento)} className="ml-2 min-h-10 rounded-lg border border-white/15 bg-[#081a2f] px-3 text-white"><option value="coordenacao">Coordenação</option><option value="pessoas">Pessoa</option></select></label>}
-                <label className="text-xs text-white/70">Motivo da pendência <select aria-label="Motivo da pendência" value={motivoSel} onChange={(event) => setMotivoSel(event.target.value as typeof motivoSel)} className="ml-2 min-h-10 rounded-lg border border-white/15 bg-[#081a2f] px-3 text-white"><option value="">Todos os motivos</option>{Object.entries(BLOCKER_META).map(([key, meta]) => <option key={key} value={key}>{meta.label}</option>)}<option value="atraso">Etapa em atraso</option></select></label>
-                {pessoaSel && <span className="text-xs text-cyan-200">Pessoa selecionada pelo relatório</span>}
-                {(motivoSel || pessoaSel || busca || foco !== 'todos' || posicaoSel != null) && <button type="button" onClick={() => { setMotivoSel(''); setPessoaSel(''); setBusca(''); setFoco('todos'); setPosicaoSel(null); }} className="min-h-10 text-xs text-cyan-200 hover:underline">Limpar filtros da lista</button>}
+                {surface === 'rh' && <label className="text-xs text-white/70">{t('people.groupBy')} <select aria-label={t('people.groupAria')} value={agrupamento} onChange={(event) => setAgrupamento(event.target.value as typeof agrupamento)} className="ml-2 min-h-10 rounded-lg border border-white/15 bg-[#081a2f] px-3 text-white"><option value="coordenacao">{t('people.byCoordination')}</option><option value="pessoas">{t('people.byPerson')}</option></select></label>}
+                <label className="text-xs text-white/70">{t('people.reason')} <select aria-label={t('people.reason')} value={motivoSel} onChange={(event) => setMotivoSel(event.target.value as typeof motivoSel)} className="ml-2 min-h-10 rounded-lg border border-white/15 bg-[#081a2f] px-3 text-white"><option value="">{t('people.allReasons')}</option>{(Object.keys(BLOCKER_META) as EngagementBlocker[]).map((key) => <option key={key} value={key}>{blockerMeta(t, key).label}</option>)}<option value="atraso">{t('actNow.overdue')}</option></select></label>
+                {pessoaSel && <span className="text-xs text-cyan-200">{t('people.personSelected')}</span>}
+                {(motivoSel || pessoaSel || busca || foco !== 'todos' || posicaoSel != null) && <button type="button" onClick={() => { setMotivoSel(''); setPessoaSel(''); setBusca(''); setFoco('todos'); setPosicaoSel(null); }} className="min-h-10 text-xs text-cyan-200 hover:underline">{t('people.clearFilters')}</button>}
               </div>
-              <p role="status" className="mt-3 text-xs text-white/60">Mostrando {colabsVisiveis.length} de {colabsNaPosicao.length} pessoas neste recorte.</p>
+              <p role="status" className="mt-3 text-xs text-white/60">{t('people.showing', { shown: colabsVisiveis.length, total: colabsNaPosicao.length })}</p>
             </div>
 
-            {surface === 'rh' && data?.coordenacaoDisponivel === false && <p role="status" className="px-5 py-3 text-xs text-amber-200">Não foi possível consultar os vínculos de coordenação. Mostrando as pessoas; use Atualizar para tentar novamente.</p>}
+            {surface === 'rh' && data?.coordenacaoDisponivel === false && <p role="status" className="px-5 py-3 text-xs text-amber-200">{t('people.coordinationUnavailable')}</p>}
             {surface === 'rh' && agrupamento === 'coordenacao' && data?.coordenacaoDisponivel !== false
               ? <Coordenacoes pessoas={colabsVisiveis} abrir={Boolean(pessoaSel || motivoSel || busca)} />
               : <PessoasList pessoas={colabsVisiveis} />}
 
             {!colabsVisiveis.length && (
               <div className="border-t border-white/[0.06] px-5 py-10 text-center text-[11px] text-white/35">
-                Nenhuma pessoa corresponde aos filtros selecionados.
+                {t('people.noMatch')}
               </div>
             )}
           </section>
 
           <details className="group rounded-[16px] border border-white/[0.07] bg-black/10 px-4 py-3">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[10px] font-semibold text-white/45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 [&::-webkit-details-marker]:hidden">
-              Como interpretar estes sinais
+              {t('howTo.summary')}
               <ChevronDown size={13} className="transition-transform group-open:rotate-180" aria-hidden="true" />
             </summary>
             <div className="mt-3 grid gap-3 border-t border-white/[0.06] pt-3 text-[10px] leading-relaxed text-white/32 md:grid-cols-2">
-              <p><strong className="text-white/55">Acesso:</strong> abrir a página e abrir um formato são sinais diferentes. Na semana 1, aberturas da página anteriores a 15/07 não foram registradas.</p>
-              <p><strong className="text-white/55">Consumo:</strong> vídeo ou podcast CONCLUÍDO; material de leitura (texto e estudo de caso) conta ao ser aberto, porque PDF em outra aba não tem evento de conclusão. “Sem consumo registrado” é ausência de sinal, não prova de que a pessoa não viu.</p>
-              <p><strong className="text-white/55">Evidência:</strong> reflexão enviada ao concluir a semana. {surface === 'admin'
-                ? 'O texto completo continua disponível em Vertho → Evidências.'
-                : 'Aqui aparece só o nível da reflexão (alta, média ou baixa); o texto é privado da pessoa.'}</p>
-              <p><strong className="text-white/55">Pílulas:</strong> a cadência manda a pílula da semana em que a pessoa ESTÁ (não a do calendário), então o envio marcado é o da etapa mostrada ao lado. O banco guarda só o carimbo do último envio: ao filtrar outra semana, ele aparece como “sem registro” em vez de um ✓ emprestado. “Sem envio” significa que nada saiu neste ciclo — inclusive quando a cadência da turma já terminou.</p>
+              <p><strong className="text-white/55">{t('howTo.access.label')}</strong> {t('howTo.access.body', { date: dataDoRegistro })}</p>
+              <p><strong className="text-white/55">{t('howTo.consumption.label')}</strong> {t('howTo.consumption.body')}</p>
+              <p><strong className="text-white/55">{t('howTo.evidence.label')}</strong> {t('howTo.evidence.intro')} {surface === 'admin'
+                ? t('howTo.evidence.bodyAdmin')
+                : t('howTo.evidence.bodyRh')}</p>
+              <p><strong className="text-white/55">{t('howTo.content.label')}</strong> {t('howTo.content.body')}</p>
             </div>
           </details>
         </div>
