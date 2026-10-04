@@ -32,6 +32,20 @@ const EXCECOES: Record<string, string> = {
 const ALEM_DO_REGISTRO = ['blueprint_gerar'];
 const ALVOS = new Set([...Object.keys(SAIDAS_AO_CLIENTE), ...ALEM_DO_REGISTRO]);
 
+/**
+ * Onda F (04/10/2026). Tarefa de NOTA: o JSON é consolidado por NOME de descritor e o `trecho` é citação, então a
+ * chamada fixa `locale: 'pt-BR'` EXPLÍCITO (e não o cookie de quem disparou). O que a pessoa lê da IA4 é reescrito à
+ * parte, no idioma dela (`ia4_feedback`, que está no registro e passa o idioma da pessoa).
+ */
+const NOTA_FIXA_EM_PTBR = ['ia4_avaliacao'];
+
+/**
+ * Onda F. Roteiro que vai para VOZ (a voz é pt-BR): o idioma é explícito, o do módulo-base ou da célula, senão pt-BR,
+ * e nunca o cookie de quem clicou em "gerar". `conteudo_podcast` e `conteudo_video` de `actions/conteudos.ts` têm a
+ * `taskKey` por variável (formato), então a leitura delas está num teste próprio abaixo.
+ */
+const ROTEIRO_COM_IDIOMA = ['conteudo_video', 'video_avatar_grupo'];
+
 const RAIZES = ['actions', 'app', 'lib', 'trigger'];
 
 function arquivos(dir: string, acc: string[] = []): string[] {
@@ -82,7 +96,7 @@ function textoDaChamada(src: string, depoisDoParentese: number): string {
   return src.slice(depoisDoParentese, i);
 }
 
-interface Chamada { arquivo: string; taskKey: string | null; temLocale: boolean }
+interface Chamada { arquivo: string; taskKey: string | null; temLocale: boolean; fixoPtBR: boolean }
 
 function chamadasDoRepo(): Chamada[] {
   const out: Chamada[] = [];
@@ -98,7 +112,7 @@ function chamadasDoRepo(): Chamada[] {
         if (/^\s*(\/\/|\*|\/\*)/.test(linha) || /function\s+(callAI|callAIChat)\b/.test(linha)) continue;
         const corpo = textoDaChamada(src, m.index + m[0].length);
         const tk = corpo.match(/taskKey\s*:\s*'([a-z0-9_]+)'/);
-        out.push({ arquivo, taskKey: tk ? tk[1] : null, temLocale: /\blocale\b/.test(corpo) });
+        out.push({ arquivo, taskKey: tk ? tk[1] : null, temLocale: /\blocale\b/.test(corpo), fixoPtBR: /\blocale\s*:\s*'pt-BR'/.test(corpo) });
       }
     }
   }
@@ -113,7 +127,7 @@ describe('o guard enxerga o alvo (não está verde por não achar nada)', () => 
     expect(CHAMADAS.length).toBeGreaterThan(100);
     expect(DO_REGISTRO.length).toBeGreaterThan(10);
     // Os que a Onda E ligou ao idioma têm de aparecer: se o parser deixar de vê-los, o guard esvazia.
-    for (const tarefa of ['conversa_fase3', 'tira_duvidas', 'pdi_individual', 'blueprint_gerar', 'relatorio_rh', 'relatorio_comportamental', 'devolutiva_comportamental', 'beto', 'relatorio_gestor']) {
+    for (const tarefa of ['conversa_fase3', 'tira_duvidas', 'pdi_individual', 'blueprint_gerar', 'relatorio_rh', 'relatorio_comportamental', 'devolutiva_comportamental', 'beto', 'relatorio_gestor', 'ia4_feedback']) {
       expect(DO_REGISTRO.some((c) => c.taskKey === tarefa), `call-site de ${tarefa}`).toBe(true);
     }
   });
@@ -140,5 +154,34 @@ describe('toda tarefa que escreve ao cliente passa o idioma de quem lê', () => 
     const conversas = readFileSync('app/api/temporada/reflection/route.ts', 'utf8').match(/callAIChat\(/g) ?? [];
     expect(conversas.length).toBe(2);
     expect(rota.filter((c) => c.temLocale).length).toBe(2);
+  });
+});
+
+describe('Onda F: a nota fica em pt-BR e o roteiro de voz tem idioma explícito', () => {
+  it('o guard enxerga os call-sites de nota e de roteiro (não está verde por não achar nada)', () => {
+    for (const tarefa of [...NOTA_FIXA_EM_PTBR, ...ROTEIRO_COM_IDIOMA]) {
+      expect(CHAMADAS.some((c) => c.taskKey === tarefa), `call-site de ${tarefa}`).toBe(true);
+    }
+  });
+
+  it('toda chamada de nota da IA4 (avaliação, retry e reavaliação) fixa `locale: pt-BR`', () => {
+    const sem = CHAMADAS.filter((c) => c.taskKey && NOTA_FIXA_EM_PTBR.includes(c.taskKey) && !c.fixoPtBR).map((c) => `${c.arquivo} (${c.taskKey})`);
+    expect(sem, 'a nota da IA4 sem `locale: pt-BR` volta ao idioma do cookie: o nome do descritor pode vir traduzido e a nota se perde').toEqual([]);
+  });
+
+  it('a request de nota do lote da IA4 fixa `locale: pt-BR`', () => {
+    const task = readFileSync('trigger/gerar-ia4-batch.ts', 'utf8');
+    expect(task).toMatch(/system: IA4_SYSTEM[^}]*locale: 'pt-BR'/);
+  });
+
+  it('toda chamada de roteiro de vídeo e de avatar passa `locale`', () => {
+    const sem = CHAMADAS.filter((c) => c.taskKey && ROTEIRO_COM_IDIOMA.includes(c.taskKey) && !c.temLocale).map((c) => `${c.arquivo} (${c.taskKey})`);
+    expect(sem).toEqual([]);
+  });
+
+  it('o gerador de conteúdo passa o idioma ao roteiro de vídeo e de podcast (taskKey por variável), e só a eles', () => {
+    const fonte = readFileSync('actions/conteudos.ts', 'utf8');
+    expect(fonte).toContain("const idiomaDoRoteiro = formato === 'video' || formato === 'audio'");
+    expect(fonte).toContain('...(idiomaDoRoteiro ? { locale: idiomaDoRoteiro } : {}),');
   });
 });
