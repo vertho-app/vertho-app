@@ -3,8 +3,9 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 /**
  * Onda D, d-mail (04/10/2026): quando a leitura do idioma dos destinatários falha,
- * os três disparos do admin mandam os e-mails no padrão (o que saía antes da onda)
+ * os disparos do admin mandam os e-mails no padrão (o que saía antes da onda)
  * e DIZEM isso a quem opera. Fallback pode existir, nunca invisível.
+ * (O terceiro disparo, o convite de avaliação por e-mail, saiu em 04/10/2026.)
  */
 
 const h = vi.hoisted(() => ({
@@ -32,14 +33,12 @@ vi.mock('@/lib/turmas/escopo', () => ({ idsDoEscopoOuFalhar: vi.fn(async () => n
 
 let sbAtual = criarSupabaseMock({
   resolver: (t) => (t === 'empresas' ? { nome: 'Escola Teste', slug: 'escolateste' } : null),
-  escritaUnica: (_t, _op, payload) => ({ ...payload, id: 'env-1' }),
   lista: (t) => (t === 'colaboradores'
     ? [{ id: 'c1', nome_completo: 'Ana Souza', email: 'ana@escola.test', cargo: 'Professora', telefone: null, perfil_dominante: 'D', d_natural: 60 }]
     : []),
 });
 
 import { enviarLinksPerfil } from '@/actions/fase5/relatorios-envios';
-import { dispararEmails } from '@/actions/fase2';
 import { dispararMensagemCustomizada } from '@/app/admin/whatsapp/actions';
 
 describe('falha ao ler o idioma: o disparo sai no padrão e avisa quem opera', () => {
@@ -59,13 +58,6 @@ describe('falha ao ler o idioma: o disparo sai no padrão e avisa quem opera', (
     expect(h.idiomas.de).toHaveBeenCalledWith('c1');
   });
 
-  it('convite de avaliação', async () => {
-    const r: any = await dispararEmails('emp-1');
-    expect(r.success).toBe(true);
-    expect(r.message).toContain('idioma de cada pessoa não lido');
-    expect(h.idiomas.de).toHaveBeenCalledWith('c1');
-  });
-
   it('mensagem customizada', async () => {
     const r: any = await dispararMensagemCustomizada('emp-1', 'Oi {{nome}}', 'email', {}, 'Aviso');
     expect(r.success).toBe(true);
@@ -76,7 +68,6 @@ describe('falha ao ler o idioma: o disparo sai no padrão e avisa quem opera', (
   it('leitura sem falha: nenhum aviso na mensagem', async () => {
     h.idiomas.falhou = false;
     expect(((await enviarLinksPerfil('emp-1')) as any).message).toBe('1 links enviados');
-    expect(((await dispararEmails('emp-1')) as any).message).not.toContain('idioma');
     expect(((await dispararMensagemCustomizada('emp-1', 'Oi', 'email', {}, 'Aviso')) as any).message).not.toContain('idioma');
   });
 });

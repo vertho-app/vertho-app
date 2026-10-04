@@ -41,7 +41,6 @@ import {
 import { magicLinkEmail, signupEmail } from '@/lib/i18n-auth-templates';
 import { APP_URL } from '@/lib/domain';
 import { enviarLinksPerfil } from '@/actions/fase5/relatorios-envios';
-import { dispararEmails } from '@/actions/fase2';
 import { locales } from '@/i18n/routing';
 
 const LINK_TENANT = 'https://acme.vertho.ai/privacidade';
@@ -130,19 +129,6 @@ describe('e-mails de disparo do admin levam o link da política', () => {
     temLinkDePrivacidade(sendEmail.mock.calls[0][0].html, 'https://escolateste.vertho.ai/privacidade');
   });
 
-  it('convite de avaliação (dispararEmails)', async () => {
-    sbAtual = criarSupabaseMock({
-      resolver: (t) => (t === 'empresas' ? { nome: 'Escola Teste', slug: 'escolateste' } : null),
-      escritaUnica: (_t, _op, payload) => ({ ...payload, id: 'env-1' }),
-      lista: (t) => (t === 'colaboradores'
-        ? [{ id: 'c1', nome_completo: 'Ana Souza', email: 'ana@escola.test', cargo: 'Professora', perfil_dominante: 'D', d_natural: 60 }]
-        : []),
-    });
-    const r: any = await dispararEmails('emp-1');
-    expect(r.success).toBe(true);
-    expect(sendEmail).toHaveBeenCalledTimes(1);
-    temLinkDePrivacidade(sendEmail.mock.calls[0][0].html, 'https://escolateste.vertho.ai/privacidade');
-  });
 });
 
 describe('o rodapé em si', () => {

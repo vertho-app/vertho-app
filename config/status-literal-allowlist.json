@@ -2,7 +2,7 @@
   "description": "Literais de status hardcoded ('concluido' vs 'concluida'…) — a fonte única e lib/status.ts. Estoque CONGELADO: a contagem por arquivo so pode CAIR, e entrada com contagem maior que o real e stale (E8 da auditoria 22/08 — folga e permissao pre-aprovada para o proximo literal entrar). Escopo ampliado em 24/08 para components/ e trigger/, que estavam de fora; scripts/ segue fora de proposito: sao utilitarios locais de diagnostico, nao vao para o runtime do produto. Guard: tests/unit/security/status-literal-guard.test.ts",
   "allowlist": {
     "actions/cron-jobs.ts": 3,
-    "actions/fase2.ts": 4,
+    "actions/fase2.ts": 2,
     "actions/fase4.ts": 1,
     "actions/fase5/evolucao.ts": 1,
     "actions/fase5/reavaliacao.ts": 3,

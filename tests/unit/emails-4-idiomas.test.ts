@@ -13,7 +13,7 @@ import baseline from '../fixtures/emails-cadencia-ptbr.json';
  *     sem travessão nem emoji, com o rodapé de privacidade no idioma;
  *  3. em en-US e es-ES não sobra português; o dado do banco entra escapado;
  *  4. os textos têm os mesmos `{marcadores}` nos 4 idiomas (o tipo não vê isso);
- *  5. os três disparos do admin (perfil, convite, mensagem customizada) escolhem o
+ *  5. os disparos do admin (perfil e mensagem customizada) escolhem o
  *     idioma POR DESTINATÁRIO: o da pessoa, senão o da empresa, senão pt-BR.
  *
  * A cadência em si (cron diário, locale vindo do banco) está em
@@ -49,7 +49,6 @@ import {
 import { COPIA_EMAIL, copiaEmail, escaparHtml, preencher } from '@/lib/i18n-email-templates';
 import { ROTULO_PRIVACIDADE } from '@/lib/notifications/rodape-privacidade';
 import { enviarLinksPerfil } from '@/actions/fase5/relatorios-envios';
-import { dispararEmails } from '@/actions/fase2';
 import { dispararMensagemCustomizada } from '@/app/admin/whatsapp/actions';
 
 const BASE = 'https://acme.vertho.ai';
@@ -153,9 +152,9 @@ describe('es-ES abre toda exclamação (R-121)', () => {
     }
   });
 
-  it('o assunto e a saudação do convite e do perfil também (copy fixa)', () => {
+  it('o assunto e a saudação do perfil também (copy fixa)', () => {
     const c = COPIA_EMAIL['es-ES'];
-    for (const t of [c.saudacao, c.perfil.saudacao, c.convite.saudacao, c.convite.saudacaoSemNome, c.missao.nota]) {
+    for (const t of [c.saudacao, c.perfil.saudacao, c.missao.nota]) {
       expect((t.match(/!/g) || []).length, t).toBe((t.match(/¡/g) || []).length);
     }
   });
@@ -299,7 +298,8 @@ describe('os textos têm a mesma forma nos 4 idiomas', () => {
 
   it('as mesmas chaves, nenhuma vazia', () => {
     const base = [...porLocale['pt-BR'].keys()];
-    expect(base.length).toBeGreaterThan(50);
+    // Piso de sanidade: o percurso enxerga o conteúdo (48 chaves desde que o convite saiu).
+    expect(base.length).toBeGreaterThan(45);
     for (const l of locales) {
       expect([...porLocale[l].keys()], l).toEqual(base);
       for (const [k, v] of porLocale[l]) expect(v.trim().length, `${l}: ${k}`).toBeGreaterThan(0);
@@ -369,7 +369,6 @@ const COM_CARGO_E_DISC = (p: any) => ({ ...p, cargo: 'Professora', telefone: nul
 function mockDaEmpresa(defaultLocale: string | null) {
   return criarSupabaseMock({
     resolver: (t, cols) => (t === 'empresas' ? projetar([{ nome: 'Escola Teste', slug: 'escolateste', default_locale: defaultLocale }], cols)[0] : null),
-    escritaUnica: (_t, _op, payload) => ({ ...payload, id: 'env-1' }),
     lista: (t, cols) => (t === 'colaboradores' ? projetar(PESSOAS.map(COM_CARGO_E_DISC), cols) : []),
   });
 }
@@ -410,40 +409,12 @@ describe('disparos do admin: o idioma é o do destinatário (pessoa, senão empr
     expect(enviadoPara('zed@escola.test').html).toContain(`>${ROTULO_PRIVACIDADE['pt-BR']}</a>`);
   });
 
-  it('convite de avaliação (dispararEmails)', async () => {
-    sbAtual = mockDaEmpresa('es-ES');
-    const r: any = await dispararEmails('emp-1');
-    expect(r.success).toBe(true);
-    expect(sendEmail).toHaveBeenCalledTimes(PESSOAS.length);
-    const ptbr = enviadoPara('ana@escola.test');
-    expect(ptbr.subject).toBe('[Escola Teste] Avaliação de Competências');
-    expect(ptbr.html).toContain('<p>Olá Ana!</p>');
-    expect(ptbr.html).toContain('Você foi convidado(a) para participar da avaliação de competências da <strong>Escola Teste</strong>.');
-    expect(ptbr.html).toContain('>Iniciar Avaliação</a>');
-    expect(ptbr.html).toContain('Ou acesse: https://escolateste.vertho.ai/avaliacao/');
-    const en = enviadoPara('kim@escola.test');
-    expect(en.subject).toBe('[Escola Teste] Competency Assessment');
-    expect(en.html).toContain('<p>Hi, Kim!</p>');
-    expect(en.html).toContain('You have been invited to take part in the competency assessment at <strong>Escola Teste</strong>.');
-    expect(en.html).toContain('Or open: https://escolateste.vertho.ai/avaliacao/');
-    expect(en.html).toContain(`>${ROTULO_PRIVACIDADE['en-US']}</a>`);
-    const es = enviadoPara('eva@escola.test');
-    expect(es.subject).toBe('[Escola Teste] Evaluación de Competencias');
-    expect(es.html).toContain('<p>¡Hola, Eva!</p>');
-    expect(es.html).toContain(`>${ROTULO_PRIVACIDADE['es-ES']}</a>`);
-    expect(enviadoPara('rui@escola.test').html).toContain('Foi convidado(a) a participar na avaliação');
-  });
-
-  it('cadastro sem nome: o convite abre sem nome e o perfil usa o nome-padrão do idioma', async () => {
+  it('cadastro sem nome: o perfil usa o nome-padrão do idioma', async () => {
     const semNome = { ...COM_CARGO_E_DISC({ id: 'c-x', email: 'x@escola.test', locale: 'es-ES' }), nome_completo: null };
     sbAtual = criarSupabaseMock({
       resolver: (t, cols) => (t === 'empresas' ? projetar([{ nome: 'Escola Teste', slug: 'escolateste', default_locale: null }], cols)[0] : null),
-      escritaUnica: (_t, _op, payload) => ({ ...payload, id: 'env-1' }),
       lista: (t, cols) => (t === 'colaboradores' ? projetar([semNome], cols) : []),
     });
-    await dispararEmails('emp-1');
-    expect(enviadoPara('x@escola.test').html).toContain('<p>¡Hola!</p>');
-    sendEmail.mockClear();
     await enviarLinksPerfil('emp-1');
     expect(enviadoPara('x@escola.test').html).toContain('<p>¡Hola, Colaborador!</p>');
   });

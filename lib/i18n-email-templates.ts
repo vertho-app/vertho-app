@@ -80,11 +80,6 @@ export interface CopiaEmail {
   semanaPendente: { assunto: string; intro: string; explicacao: string; cta: string };
   /** Link do perfil de evolução, disparado pelo admin para o grupo todo. */
   perfil: { assunto: string; saudacao: string; corpo: string; cta: string };
-  /** Convite de avaliação por e-mail (dispararEmails). */
-  convite: {
-    assunto: string; saudacao: string; saudacaoSemNome: string; corpo: string;
-    cta: string; alternativa: string;
-  };
   /** Assunto padrão do disparo manual, quando o operador não escreve um. */
   assuntoPadraoDisparo: string;
 }
@@ -148,14 +143,6 @@ const COPIA = {
       corpo: 'Seu perfil está disponível.',
       cta: 'Acessar Perfil',
     },
-    convite: {
-      assunto: '[{empresa}] Avaliação de Competências',
-      saudacao: 'Olá {nome}!',
-      saudacaoSemNome: 'Olá!',
-      corpo: 'Você foi convidado(a) para participar da avaliação de competências da <strong>{empresa}</strong>.',
-      cta: 'Iniciar Avaliação',
-      alternativa: 'Ou acesse: {link}',
-    },
     assuntoPadraoDisparo: '[{empresa}] Avaliação',
   },
 
@@ -216,14 +203,6 @@ const COPIA = {
       saudacao: 'Olá, {nome}!',
       corpo: 'O seu perfil está disponível.',
       cta: 'Aceder ao Perfil',
-    },
-    convite: {
-      assunto: '[{empresa}] Avaliação de Competências',
-      saudacao: 'Olá, {nome}!',
-      saudacaoSemNome: 'Olá!',
-      corpo: 'Foi convidado(a) a participar na avaliação de competências da <strong>{empresa}</strong>.',
-      cta: 'Iniciar Avaliação',
-      alternativa: 'Ou aceda a: {link}',
     },
     assuntoPadraoDisparo: '[{empresa}] Avaliação',
   },
@@ -286,14 +265,6 @@ const COPIA = {
       corpo: 'Tu perfil está disponible.',
       cta: 'Acceder al Perfil',
     },
-    convite: {
-      assunto: '[{empresa}] Evaluación de Competencias',
-      saudacao: '¡Hola, {nome}!',
-      saudacaoSemNome: '¡Hola!',
-      corpo: 'Te han invitado a participar en la evaluación de competencias de <strong>{empresa}</strong>.',
-      cta: 'Iniciar evaluación',
-      alternativa: 'O accede a: {link}',
-    },
     assuntoPadraoDisparo: '[{empresa}] Evaluación',
   },
 
@@ -354,14 +325,6 @@ const COPIA = {
       saudacao: 'Hi, {nome}!',
       corpo: 'Your profile is available.',
       cta: 'View Profile',
-    },
-    convite: {
-      assunto: '[{empresa}] Competency Assessment',
-      saudacao: 'Hi, {nome}!',
-      saudacaoSemNome: 'Hi!',
-      corpo: 'You have been invited to take part in the competency assessment at <strong>{empresa}</strong>.',
-      cta: 'Start assessment',
-      alternativa: 'Or open: {link}',
     },
     assuntoPadraoDisparo: '[{empresa}] Assessment',
   },

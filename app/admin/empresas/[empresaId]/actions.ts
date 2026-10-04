@@ -755,7 +755,7 @@ export async function loadColaboradoresLista(empresaId) {
 
 // ── Wrappers das actions reais ──
 import { rodarIA1 as _ia1, rodarIA2 as _ia2, rodarIA3 as _ia3 } from '@/actions/fase1';
-import { dispararEmails as _emails, verStatusEnvios as _status } from '@/actions/fase2';
+import { verStatusEnvios as _status } from '@/actions/fase2';
 import { rodarIA4 as _ia4, rodarIA4Uma as _ia4Uma, listarPendentesIA4 as _listarIA4, verFilaIA4 as _fila } from '@/actions/fase3';
 import { listarPendentesCheck as _listarCheck } from '@/actions/check-ia4';
 import { rechecarResposta as _recheckUma } from '@/actions/fase3';
@@ -766,7 +766,6 @@ import { dispararLinksCIS as _dispCIS, dispararRelatoriosLote as _dispLote } fro
 export async function rodarIA1(e, c) { await requireAdminAction('ai.audit.regenerate'); return _ia1(e, c); }
 export async function rodarIA2(e, c, opts?: { cargoNome?: string }) { await requireAdminAction('ai.audit.regenerate'); return _ia2(e, c, opts); }
 export async function rodarIA3(e, c) { await requireAdminAction('ai.audit.regenerate'); return _ia3(e, c); }
-export async function dispararEmails(e) { await requireAdminAction('assessments.dispatch'); return _emails(e); }
 export async function verStatusEnvios(e) { await requireAdminAction(); return _status(e); }
 export async function rodarIA4(e, c) {
   try {
