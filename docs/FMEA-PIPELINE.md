@@ -1281,6 +1281,24 @@ diretores de Macaé têm duas competências de foco no mesmo cargo.
 - o auditor (`cenarios_b_check`) recebe **uma** competência: avaliando um cenário integrador de duas,
   ele desconta por escopo. Nota baixa ali pode ser o instrumento medindo a própria limitação.
 
+**Onboarding (R-21, 04/10/2026).** O fechamento do Onboarding é nas 5 competências de uma vez, e o lote
+gera um B por célula, então nenhum B por célula o serve (424 na porta da avaliação final). O integrador
+de Ibipeba era cadastrado à mão; o do Onboarding passou a ter gerador (`lib/cenario-b-integrador.ts`,
+task `cenarios_b_integrador`, botão "Cenário B integrador (Onboarding)" no pipeline da empresa).
+- `competencia_id` nulo: o índice único da mig 261 é por (empresa, cargo, competência) e NULL não colide.
+  Ancorar numa das 5 esbarraria no B dela (23505) e faria a reavaliação servir o integrador no lugar do B simples.
+- `alternativas.cobertura_exata`: o integrador do Onboarding só serve a trilha com EXATAMENTE as mesmas
+  competências (`escolherCenarioB`) e não conta como B das células (`celulasSemCenarioB`): sem isso uma
+  Jornada de uma competência receberia um caso de 5, e o lote deixaria de gerar o B de cada competência.
+  Os integradores de Ibipeba seguem com a cobertura "pelo menos".
+- Uma pergunta por competência (5): a rota lia só `p1..p4` e a 5ª nunca chegaria à pessoa
+  (`perguntasDoCenarioB`). A tela do fechamento deixou de ter "4 perguntas" fixas.
+- Sem índice único para o integrador (NULL): a garantia contra dois disparos simultâneos é a releitura
+  antes de gravar (a corrida exata ainda pode gravar dois; a escolha pega o mais recente). Índice parcial
+  é migration, decisão do dono.
+- Sem auditor de 2ª IA (o `cenarios_b_check` audita uma competência só); `checkCenarioBUm` e
+  `checkCenariosBLote` passam ao largo dele.
+
 ### F-C15 · O fan-out do cron escolhe as empresas do dia pela cadência CRUA, e a semana de feriado fica sem entrega ✅ (corrigido 09/09, `a2e86f4d`)
 
 **Gatilho:** `actions/cron-jobs.ts::triggerDiario` — o filtro `doDia` comparava `hoje` com
