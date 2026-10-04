@@ -26,7 +26,8 @@ import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppNudg
 import { textoPilulaWhatsapp, emailPilula, emailPilulaPendente, enviarEmailPilula, deepLinkSemana, templateWhatsAppMissao, emailMissao, emailEvidencia, emailSemanaPendente, emailAvaliacaoFinal } from '@/lib/notifications/pilula-envio';
 import { enviarPilulaPorTemplate, enviarPorTemplate, templateAtivo } from '@/lib/notifications/pilula-template';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
-import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engine/formato-anunciado';
+import { formatosEntregaveis, escolherFormatoAnunciado, formatoDeReserva } from '@/lib/season-engine/formato-anunciado';
+import { criarCacheDeKits, conteudoComoAPessoaVe } from '@/lib/season-engine/conteudo-da-pessoa';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { semanaCenarioBDoPlano, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { estadoDoFechamento } from '@/lib/season-engine/estado-fechamento';
@@ -158,6 +159,22 @@ export async function processarEmpresaDiario(
    * numa coorte, dezenas compartilham a mesma célula de vídeo.
    */
   const cacheDeck = new Map<string, boolean>();
+  /**
+   * Kits por (cargo × DISC), lidos UMA vez no disparo. O formato que a mensagem
+   * anuncia depende de o kit ser novo (R-88): é o kit que diz se o vídeo fica
+   * escondido de quem não o tem entre os 2 primeiros formatos. Client raw, como na
+   * tela e no health: o resolvedor de kit usa `.or(empresa OR global)`.
+   */
+  const kitsDaCelula = criarCacheDeKits(tdb.raw, empresa.id, async (motivo, cargo, disc) => {
+    await registrarDegradacao({
+      fluxo: 'envio',
+      tipo: DEGRADACAO.FORMATO_ANUNCIADO_SEM_KIT,
+      chave: `diario:${empresa.id}`,
+      empresaId: empresa.id,
+      severidade: 'aviso',
+      detalhe: { motivo, cargo, disc },
+    });
+  });
   const { data: envios } = await tdb.from('fase4_envios')
     .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_evidencia_whatsapp_em, ultima_evidencia_email_em, ultima_evidencia_push_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
     .eq('status', ENVIO.ATIVO);
@@ -562,15 +579,44 @@ export async function processarEmpresaDiario(
        *
        * A régua é a MESMA do health (`formatosEntregaveis`), e o vídeo entra por
        * deck ao vivo: `formatos_disponiveis` nunca o contém.
+       *
+       * 🔴 E o conteúdo é o que a PESSOA VÊ, com o overlay do kit (R-88). No kit novo
+       * o vídeo só aparece para quem o tem entre os 2 primeiros formatos, e quem nunca
+       * declarou preferência é texto + caso: o deck pronto da célula não basta para
+       * prometer "seu vídeo de hoje". Sem o overlay o cron lia o plano cru e anunciava
+       * vídeo a quem a tela não abria.
        */
+      let conteudoDaPessoa: any = item?.conteudo || item;
+      try {
+        conteudoDaPessoa = await conteudoComoAPessoaVe(tdb.raw, {
+          item,
+          semana,
+          colab: envio.colaboradores,
+          empresaId: empresa.id,
+          competenciaFoco,
+          kitsCache: await kitsDaCelula(envio.colaboradores.cargo ?? null, envio.colaboradores.perfil_dominante ?? null),
+        });
+      } catch (e: any) {
+        // Cai no plano cru, que é o comportamento de antes, mas dizendo que caiu.
+        await registrarDegradacao({
+          fluxo: 'envio',
+          tipo: DEGRADACAO.FORMATO_ANUNCIADO_SEM_KIT,
+          chave: `diario:${empresa.id}`,
+          empresaId: empresa.id,
+          severidade: 'aviso',
+          detalhe: { motivo: e?.message || String(e), onde: 'overlay' },
+        });
+      }
+      const semVideo = conteudoDaPessoa?.video_permitido === false;
       const entregaveis = await formatosEntregaveis(tdb.raw, {
         empresaId: empresa.id,
-        conteudo: item?.conteudo || item,
+        conteudo: conteudoDaPessoa,
         cargo: envio.colaboradores.cargo ?? null,
         disc: envio.colaboradores.perfil_dominante ?? null,
         cacheDeck,
       });
-      const formatoAnunciado = escolherFormatoAnunciado(envio.colaboradores, entregaveis) ?? formatoPref;
+      const formatoAnunciado = escolherFormatoAnunciado(envio.colaboradores, entregaveis, { semVideo })
+        ?? (semVideo ? formatoDeReserva(envio.colaboradores, { semVideo }) : formatoPref);
 
       const opts = { formato: formatoAnunciado, semana, baseUrl, pilula };
       const agora = new Date().toISOString();

@@ -33,6 +33,15 @@ export function topDoisFormatos(colab: any): Array<'video' | FormatoKit> | null 
 }
 
 /**
+ * Os 2 formatos que a pessoa VÊ num kit novo: os 2 primeiros dela, ou texto + estudo de caso quando não declarou
+ * preferência. É a regra que o overlay da tela aplica, e a que o cron da cadência e o health usam para dizer o que a
+ * mensagem pode prometer (R-88). Uma função só, para os três não discordarem sobre quem tem vídeo.
+ */
+export function formatosTop2DaPessoa(colab: any): Array<'video' | FormatoKit> {
+  return topDoisFormatos(colab) ?? [...FORMATOS_SEM_PREFERENCIA];
+}
+
+/**
  * A pessoa tem o VÍDEO entre os 2 primeiros formatos? Decide quem recebe a saudação nominal numa célula de kit nascido da
  * regra das preferências. A versão do worker da Hetzner (`worker-hetzner/saudacao.mjs`) é idêntica e travada por teste.
  */

@@ -468,6 +468,14 @@ export const DEGRADACAO = {
    * cenário. Chave = `<empresaId>:<cargo>:<competência>`.
    */
   COMPETENCIA_SEM_CENARIO: 'competencia-sem-cenario',
+  /**
+   * envio (cadência): o kit da (cargo × DISC) não pôde ser lido ao decidir o formato
+   * que a mensagem anuncia (R-88, 04/10/2026). Sem ele o cron não sabe se a pessoa
+   * está num kit novo, que esconde o vídeo de quem não o tem entre os 2 primeiros
+   * formatos, e a mensagem volta a prometer pela preferência. `aviso`: a mensagem
+   * sai, só pode citar um formato que a tela não abre. Chave: `diario:<empresa>`.
+   */
+  FORMATO_ANUNCIADO_SEM_KIT: 'formato-anunciado-sem-kit',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

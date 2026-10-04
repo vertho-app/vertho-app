@@ -65,6 +65,15 @@ export async function formatosEntregaveis(
   const { empresaId, conteudo, cargo, disc, cacheDeck } = args;
   const formatos = Object.keys(conteudo?.formatos_disponiveis || {}).filter((f) => f !== 'video');
 
+  // Kit NOVO (`por_preferencia`): o overlay marca `video_permitido: false` para quem
+  // não tem o vídeo entre os 2 primeiros formatos, e a tela o esconde mesmo com o
+  // deck pronto (R-88). Prometer vídeo a essa pessoa é prometer o que ela não vê, e
+  // sem preferência declarada era TODO MUNDO: o default de `derivarPrioridadeFormatos`
+  // é vídeo, e o kit novo trata quem não respondeu como texto + caso. Só `false`
+  // fecha a porta: ausente (kit anterior, ou conteúdo que não passou pelo overlay)
+  // segue como sempre foi.
+  if (conteudo?.video_permitido === false) return formatos;
+
   const coreId = conteudo?.core_id ?? null;
   const chave = `${coreId}|${cargo}|${String(disc || '').charAt(0).toUpperCase()}`;
   let temVideo = cacheDeck?.get(chave);
@@ -85,8 +94,22 @@ export async function formatosEntregaveis(
  * a pessoa procurar o que não está lá. E `null` quando não há formato nenhum:
  * quem chama decide se ainda vale mandar (a semana pode ter só o desafio).
  */
-export function escolherFormatoAnunciado(colab: any, entregaveis: string[]): string | null {
+export function escolherFormatoAnunciado(
+  colab: any,
+  entregaveis: string[],
+  opts: { semVideo?: boolean } = {},
+): string | null {
   if (!entregaveis.length) return null;
-  const preferidos = derivarPrioridadeFormatos(colab);
+  const preferidos = derivarPrioridadeFormatos(colab).filter((f) => !(opts.semVideo && f === 'video'));
   return preferidos.find((f) => entregaveis.includes(f)) ?? entregaveis[0];
+}
+
+/**
+ * O que a mensagem diz quando NENHUM formato é entregável: a primeira preferência
+ * da pessoa, sem o vídeo se o kit novo o esconde dela (R-88). É a reserva do envio
+ * e do health, para que os dois afirmem a mesma coisa.
+ */
+export function formatoDeReserva(colab: any, opts: { semVideo?: boolean } = {}): string {
+  const preferidos = derivarPrioridadeFormatos(colab).filter((f) => !(opts.semVideo && f === 'video'));
+  return preferidos[0] ?? 'texto';
 }

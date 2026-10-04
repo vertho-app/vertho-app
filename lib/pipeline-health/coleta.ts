@@ -13,8 +13,8 @@ import { type RetakeTtsAgregado, type CanarioObservado, type CalibracaoVozObserv
  */
 import { precarregarKits, overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
-import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
-import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engine/formato-anunciado';
+import { formatosEntregaveis, escolherFormatoAnunciado, formatoDeReserva } from '@/lib/season-engine/formato-anunciado';
+import { formatosTop2DaPessoa } from '@/lib/season-engine/kit/formatos-por-preferencia';
 import { normalizePhone } from '@/lib/phone';
 import { levantarPlanoKitsCoorte, SEM_TURMA } from '@/lib/season-engine/kit/plano-coorte';
 import { TURMA_ENCERRADAS, TURMA_MEMBRO, TRILHA } from '@/lib/status';
@@ -116,6 +116,10 @@ export async function coletarEntregasPrevistas(
     await overlayKitNaSemana(sb, copia, {
       empresaId, disc: c.perfil_dominante, cargo: c.cargo,
       formatoPref: formatoPreferido(c), competenciaFoco: t?.competencia_foco || null,
+      // Os 2 formatos que a pessoa VÊ no kit novo (R-88). Sem eles o overlay não filtra e
+      // não marca `video_permitido`, e o pré-voo dava por entregável o vídeo que a tela
+      // esconde: o gêmeo medindo outra coisa que a entrega.
+      formatosTop2: formatosTop2DaPessoa(c),
       kitsCache: cacheKits.get(chave),
       // Mesmo flag do caminho real: sem isto o health mediria a semana com dois
       // desafios enquanto o colaborador recebe um — o gêmeo que não roda
@@ -157,7 +161,8 @@ export async function coletarEntregasPrevistas(
        * A regra continua PODENDO falhar: com `entregaveis` vazio, o envio cai no
        * preferido e a promessa volta a ser falsa. É esse caso que sobra.
        */
-      formatoAnunciado: escolherFormatoAnunciado(c, formatos) ?? derivarPrioridadeFormatos(c)[0],
+      formatoAnunciado: escolherFormatoAnunciado(c, formatos, { semVideo: cont.video_permitido === false })
+        ?? formatoDeReserva(c, { semVideo: cont.video_permitido === false }),
       formatosDisponiveis: formatos,
       coreId: cont.core_id ?? null,
       desafioPlaceholder: /^Aplique /i.test(String(cont.desafio_texto || '')),

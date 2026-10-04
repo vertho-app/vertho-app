@@ -8,7 +8,7 @@ import { escolherCenarioB } from '@/lib/season-engine/cenario-b';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { entregaEhReal } from '@/lib/season-engine/week-gating';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
-import { topDoisFormatos } from '@/lib/season-engine/kit/formatos-por-preferencia';
+import { formatosTop2DaPessoa } from '@/lib/season-engine/kit/formatos-por-preferencia';
 import { getProgramaConfigByModo, getProgramaConfigDaTrilha, normalizarModoPrograma } from '@/lib/season-engine/programa-config';
 import { conteudosServiveisPorCargo } from '@/lib/season-engine/build-season';
 import { carregarConfigsEfetivasEmLote } from '@/lib/turmas';
@@ -601,7 +601,7 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
   try {
     const formatoPref = formatoPreferido(colab);
     // Só age em kit marcado `por_preferencia`; sem preferência declarada, a pessoa é tratada como texto + estudo de caso.
-    const formatosTop2 = (topDoisFormatos(colab) ?? ['texto', 'case']) as Array<'video' | 'audio' | 'texto' | 'case'>;
+    const formatosTop2 = formatosTop2DaPessoa(colab) as Array<'video' | 'audio' | 'texto' | 'case'>;
     const disc = (colab.perfil_dominante || '').charAt(0).toUpperCase() || null;
     const competenciaFoco = trilha.competencia_foco || (Array.isArray(trilha.competencias_foco) ? trilha.competencias_foco[0] : null);
     // Pré-carrega TODOS os kits da trilha em 3 queries (antes: 2-3 queries POR
