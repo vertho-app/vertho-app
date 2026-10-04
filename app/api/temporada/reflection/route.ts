@@ -234,7 +234,7 @@ export async function POST(request) {
 
     // Gates (temporal com espelho + progressão) — fonte única em trilha-runtime
     const gate = await checarGatesSemana(sb, trilha, semana);
-    if (gate) return NextResponse.json({ error: gate.error }, { status: gate.status });
+    if (gate) return NextResponse.json({ error: gate.error, codigo: gate.codigo }, { status: gate.status });
 
     const { data: colab } = await sb.from('colaboradores')
       .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
@@ -410,7 +410,7 @@ export async function POST(request) {
       respostaIA = (respostaIA || '').trim();
     } catch (err) {
       console.error('[reflection] callAIChat:', err);
-      return NextResponse.json({ error: 'Erro na IA' }, { status: 500 });
+      return NextResponse.json({ error: 'Erro na IA', codigo: 'ia' }, { status: 500 });
     }
 
     const totalTurnsIA = proximoTurnIA;

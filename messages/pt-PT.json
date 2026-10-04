@@ -1781,7 +1781,23 @@
       "ask": "Tirar dúvida sobre a semana",
       "unlockAfterContent": "Fica disponível depois de abrir o conteúdo",
       "empty": "Pergunte o que quiser sobre <strong>{descriptor}</strong>.",
-      "placeholder": "A sua dúvida... (Shift+Enter para nova linha)"
+      "placeholder": "A sua dúvida... (Shift+Enter para nova linha)",
+      "notSaved": "A sua resposta chegou, mas não conseguimos guardá-la no histórico desta conversa. Se precisar dela mais tarde, copie-a agora."
+    },
+    "chatError": {
+      "network": "Sem ligação à Vertho. Verifique a sua internet e tente novamente.",
+      "timeout": "A resposta demorou mais do que o esperado. Recarregue a página para ver se a sua mensagem ficou registada; se não aparecer, envie novamente.",
+      "session": "A sua sessão expirou. Inicie sessão novamente para continuar.",
+      "forbidden": "Não tem permissão para responder nesta semana.",
+      "contentNotOpened": "Abra um dos formatos do conteúdo desta semana antes de tirar dúvidas.",
+      "consumptionNotSaved": "Não conseguimos registar que abriu o conteúdo desta semana. Tente novamente.",
+      "weekLocked": "Esta semana ainda não está aberta para si. Volte à lista de semanas.",
+      "dailyLimit": "Atingiu o limite de {limit} perguntas por dia no Tira-Dúvidas. Volte amanhã.",
+      "tooFast": "Demasiadas mensagens em pouco tempo. Aguarde {seconds} segundos e tente novamente.",
+      "unavailable": "O serviço não respondeu agora. Tente novamente dentro de instantes.",
+      "ai": "O mentor não conseguiu responder agora. Tente novamente dentro de instantes.",
+      "generic": "Não foi possível enviar a sua mensagem. Tente novamente.",
+      "retry": "Tentar novamente"
     },
     "evidence": {
       "title": "Evidências",

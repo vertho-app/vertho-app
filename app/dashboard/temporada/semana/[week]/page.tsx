@@ -23,6 +23,8 @@ import FirstViewVideo from '@/components/first-view-video';
 // compartilhada com o envio de segunda do triggerDiario.
 import { APLICACAO_VIDEO_ID, CONCLUSAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
 import { descritorParaHumano, descritoresParaHumano } from '@/lib/descritor-humano';
+import { chamarConversa, type FalhaDaConversa } from '@/lib/season-engine/falha-da-conversa';
+import ErroDaConversa from '@/components/temporada/erro-da-conversa';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 
@@ -173,6 +175,24 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const [tdInput, setTdInput] = useState('');
   const [tdBusy, setTdBusy] = useState(false);
   const [tdOpen, setTdOpen] = useState(false);
+  /**
+   * FALHAS DAS CONVERSAS, DITAS (R-91). Até 04/10/2026 um 500, um 429, o limite
+   * diário e um 403 chegavam como "resposta sem histórico" e sumiam em silêncio: a
+   * pessoa via a própria fala aparecer e nada acontecer. `retry` diz o que o botão
+   * "tentar de novo" refaz; o texto digitado volta ao campo, porque a rota só
+   * grava a fala junto com a resposta e, sem gravar, ela sumia no F5.
+   */
+  const [chatErro, setChatErro] = useState<{ falha: FalhaDaConversa; retry: 'init' | 'send' } | null>(null);
+  const [tdErro, setTdErro] = useState<{ falha: FalhaDaConversa } | null>(null);
+  const [missaoErro, setMissaoErro] = useState<{ falha: FalhaDaConversa; modo: string } | null>(null);
+  /** A resposta do Tira-Dúvidas chegou, mas o histórico não ficou gravado (R-140). */
+  const [tdNaoSalvo, setTdNaoSalvo] = useState(false);
+  /**
+   * A abertura do conteúdo foi GRAVADA nesta sessão? `conteudoConsumido` só muda
+   * quando os dados são recarregados, e o Tira-Dúvidas exige o consumo gravado no
+   * servidor: sem este sinal, cada pergunta regravaria a marcação à toa.
+   */
+  const consumoGravado = useRef(false);
   // Missão Prática (sems 4/8/12): modo + compromisso.
   // modo=null → nada escolhido; 'pratica' → vai executar na vida real; 'cenario' → fallback escrito
   const [compromissoInput, setCompromissoInput] = useState('');
@@ -329,11 +349,37 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
   async function handleConsumido() {
     if (visaoLeitura) return;
-    await marcarConteudoConsumido(data.trilha.id, semanaNum);
+    // O resultado é lido (R-140): a action devolvia `ok` com a marcação perdida. Abrir o
+    // conteúdo NÃO fica bloqueado por isso, porque `podeConversar` já vale com o que a
+    // pessoa abriu nesta sessão. Quem depende do consumo gravado é o Tira-Dúvidas, que
+    // regrava e diz o estado real (ver `garantirConsumoGravado`). Rede caída aqui não
+    // pode virar erro solto na tela.
+    const marcado = await marcarConteudoConsumido(data.trilha.id, semanaNum).catch(() => null);
+    if ((marcado as any)?.ok) consumoGravado.current = true;
+    await recarregarDados();
+  }
+
+  /**
+   * Recarrega a semana. Uma leitura que falhou NÃO substitui os dados da tela: o
+   * `setData(r)` direto trocava a semana inteira por `{ error }` e a pessoa via
+   * "Temporada não encontrada" por um blip de rede, no meio de uma conversa.
+   */
+  async function recarregarDados() {
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { router.replace('/login'); return; }
     const r = await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
-    setData(r);
+    if (!r?.error) setData(r);
+  }
+
+  /**
+   * O Tira-Dúvidas só responde com o consumo do conteúdo GRAVADO (a rota devolve 403
+   * sem ele). Grava aqui, com o resultado checado, e devolve se está gravado.
+   */
+  async function garantirConsumoGravado(): Promise<boolean> {
+    if (conteudoConsumido || consumoGravado.current) return true;
+    const marcado: any = await marcarConteudoConsumido(data.trilha.id, semanaNum).catch(() => null);
+    if (marcado?.ok) { consumoGravado.current = true; return true; }
+    return false;
   }
 
   // Escolhe endpoint conforme tipo da semana. TODA semana de avaliação do plano
@@ -403,6 +449,21 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const turnosFaltando = respostasFaltantes(turnosFeitos, turnosNecessarios);
   const respostasFeitas = Math.max(respostasNecessarias - turnosFaltando, 0);
 
+  /**
+   * Abre o Tira-Dúvidas. A ROTA exige o consumo gravado (403 sem ele); liberar o
+   * card sem gravar a marcação trocaria um botão cinza por um erro mudo, pior. Grava
+   * e abre, e se NÃO gravou diz isso (R-140): abrir o card para a primeira pergunta
+   * tomar um 403 era o erro mudo.
+   */
+  async function abrirTiraDuvidas() {
+    setTdErro(null);
+    if (!(await garantirConsumoGravado())) {
+      setTdErro({ falha: { tipo: 'consumo-nao-gravado' } });
+      return;
+    }
+    setTdOpen(true);
+  }
+
   async function startChat() {
     if (visaoLeitura) return;
     setChatStarted(true);
@@ -413,21 +474,28 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     if (!conteudoConsumido) {
       marcarConteudoConsumido(data.trilha.id, semanaNum).catch(() => {});
     }
+    setChatErro(null);
     setChatBusy(true);
-    const r = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trilhaId: data.trilha.id, semana: semanaNum, action: 'init' }),
-    }).then(r => r.json());
-    if (r.history) setChatHistory(r.history);
-    setChatFinished(!!r.finished);
-    setChatBusy(false);
-    // Fechamento: o init grava o cenário no feedback — recarrega pra renderizar.
-    if (semanaNum === semCenarioB && r.cenario) {
-      const user = (await sb.auth.getUser()).data.user;
-      if (!user) { router.replace('/login'); return; }
-      const fresh = await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
-      setData(fresh);
+    try {
+      const r = await chamarConversa(() => fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trilhaId: data.trilha.id, semana: semanaNum, action: 'init' }),
+      }));
+      if (!r.ok) {
+        // Nada foi aberto: volta ao botão de começar, com o motivo e a saída.
+        setChatStarted(false);
+        setChatErro({ falha: r.falha, retry: 'init' });
+        return;
+      }
+      if (r.dados.history) setChatHistory(r.dados.history);
+      setChatFinished(!!r.dados.finished);
+      // Fechamento: o init grava o cenário no feedback, recarrega pra renderizar.
+      if (semanaNum === semCenarioB && r.dados.cenario) await recarregarDados();
+    } finally {
+      // `chamarConversa` não lança, mas o recarregar pode: o "pensando" não pode
+      // depender de a última linha rodar.
+      setChatBusy(false);
     }
   }
 
@@ -435,23 +503,25 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     if (visaoLeitura) return;
     if (missaoBusy) return;
     if (modo === 'pratica' && !compromissoInput.trim()) return;
+    setMissaoErro(null);
     setMissaoBusy(true);
-    const r = await fetchAuth('/api/temporada/missao', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        trilhaId: data.trilha.id,
-        semana: semanaNum,
-        modo,
-        compromisso: modo === 'pratica' ? compromissoInput.trim() : undefined,
-      }),
-    }).then(r => r.json());
-    setMissaoBusy(false);
-    if (!r.error) {
-      const user = (await sb.auth.getUser()).data.user;
-      if (!user) { router.replace('/login'); return; }
-      const fresh = await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
-      setData(fresh);
+    try {
+      const r = await chamarConversa(() => fetchAuth('/api/temporada/missao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trilhaId: data.trilha.id,
+          semana: semanaNum,
+          modo,
+          compromisso: modo === 'pratica' ? compromissoInput.trim() : undefined,
+        }),
+      }));
+      // Escolher o modo é gravação da pessoa: se não gravou, ela precisa saber. O
+      // `if (!r.error)` de antes engolia a falha e o botão parecia não responder.
+      if (!r.ok) { setMissaoErro({ falha: r.falha, modo }); return; }
+      await recarregarDados();
+    } finally {
+      setMissaoBusy(false);
     }
   }
 
@@ -460,16 +530,46 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     if (!tdInput.trim() || tdBusy) return;
     tdMicRef.current?.stop();
     const msg = tdInput;
+    const marca = new Date().toISOString();
     setTdInput('');
-    setTdHistory(h => [...h, { role: 'user', content: msg, timestamp: new Date().toISOString() }]);
+    setTdErro(null);
+    setTdNaoSalvo(false);
+    setTdHistory(h => [...h, { role: 'user', content: msg, timestamp: marca }]);
     setTdBusy(true);
-    const r = await fetchAuth('/api/temporada/tira-duvidas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trilhaId: data.trilha.id, semana: semanaNum, message: msg }),
-    }).then(r => r.json());
-    if (r.history) setTdHistory(r.history);
-    setTdBusy(false);
+    // A fala otimista sai do histórico e volta ao campo quando a rota não a aceitou: ela
+    // só grava a pergunta junto com a resposta, e a que ficava na tela sumia no F5.
+    const desfazer = () => {
+      setTdHistory(h => {
+        const i = h.map((m) => m?.timestamp).lastIndexOf(marca);
+        return i < 0 ? h : h.filter((_, k) => k !== i);
+      });
+      setTdInput(msg);
+    };
+    try {
+      if (!(await garantirConsumoGravado())) {
+        desfazer();
+        setTdErro({ falha: { tipo: 'consumo-nao-gravado' } });
+        return;
+      }
+      const r = await chamarConversa(() => fetchAuth('/api/temporada/tira-duvidas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trilhaId: data.trilha.id, semana: semanaNum, message: msg }),
+      }));
+      if (!r.ok) {
+        // A rota diz que o consumo não está gravado: a próxima tentativa regrava.
+        if (r.falha.tipo === 'conteudo-nao-aberto') consumoGravado.current = false;
+        desfazer();
+        setTdErro({ falha: r.falha });
+        return;
+      }
+      if (r.dados.history) setTdHistory(r.dados.history);
+      // A resposta chegou, mas a rota não conseguiu guardá-la (R-140): diz isso em vez
+      // de deixar a pessoa descobrir no F5. Não se pergunta de novo: já foi paga.
+      if (r.dados.salvo === false) setTdNaoSalvo(true);
+    } finally {
+      setTdBusy(false);
+    }
   }
 
   async function sendMessage() {
@@ -477,17 +577,36 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     if (!chatInput.trim() || chatBusy) return;
     chatMicRef.current?.stop();
     const msg = chatInput;
+    const marca = new Date().toISOString();
     setChatInput('');
-    setChatHistory(h => [...h, { role: 'user', content: msg, timestamp: new Date().toISOString() }]);
+    setChatErro(null);
+    setChatHistory(h => [...h, { role: 'user', content: msg, timestamp: marca }]);
     setChatBusy(true);
-    const r = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trilhaId: data.trilha.id, semana: semanaNum, message: msg, action: 'send' }),
-    }).then(r => r.json());
-    if (r.history) setChatHistory(r.history);
-    setChatFinished(!!r.finished);
-    setChatBusy(false);
+    try {
+      const r = await chamarConversa(() => fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trilhaId: data.trilha.id, semana: semanaNum, message: msg, action: 'send' }),
+      }));
+      if (!r.ok) {
+        // A rota só grava a fala junto com a resposta: sem ela, a que está na tela
+        // sumiria no F5. Sai do histórico e volta ao campo, e "tentar de novo" reenvia.
+        setChatHistory(h => {
+          const i = h.map((m) => m?.timestamp).lastIndexOf(marca);
+          return i < 0 ? h : h.filter((_, k) => k !== i);
+        });
+        setChatInput(msg);
+        setChatErro({ falha: r.falha, retry: 'send' });
+        return;
+      }
+      if (r.dados.history) setChatHistory(r.dados.history);
+      setChatFinished(!!r.dados.finished);
+    } finally {
+      // Em 504, queda de rede ou qualquer exceção o "pensando" tem que acabar e o campo
+      // destravar (R-91): antes o `setChatBusy(false)` ficava depois de um `r.json()`
+      // que lançava.
+      setChatBusy(false);
+    }
   }
 
   return (
@@ -970,6 +1089,12 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         );
       })()}
 
+      {missaoErro && (
+        <div className="mb-4">
+          <ErroDaConversa falha={missaoErro.falha} onRetry={() => setMissaoModo(missaoErro.modo)} t={t} />
+        </div>
+      )}
+
       {/* Conversa qualitativa: a avaliação que NÃO é o fechamento (regular=13,
           encerramento de Ibipeba=8). Nos modos de um slot só (piloto, jornada)
           isto é `false` — lá a acumulada roda em background, sem tela. */}
@@ -1156,13 +1281,20 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                   {/* Fim do PLANO, não o número 14: numa jornada de 7 ou num
                       Personalizado sem fechamento a trilha acaba antes, e a
                       última conversa dizia "Próxima semana libera" para uma
-                      semana que não existe (R-30). */}
+                      semana que não existe (R-30, R-124). */}
                   {ehUltimaSemanaDaTrilha(data.trilha, semanaNum)
                     ? t('evidence.doneSeason')
                     : t('evidence.doneNextWeek', { date: formatarLiberacao(data.trilha.data_inicio, semanaNum + 1) })}
                 </div>
               )}
             </>
+          )}
+          {chatErro && (
+            <ErroDaConversa
+              falha={chatErro.falha}
+              onRetry={chatErro.retry === 'init' ? startChat : (chatInput.trim() ? sendMessage : undefined)}
+              t={t}
+            />
           )}
         </GlassCard>
         </div>
@@ -1183,13 +1315,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
           </div>
 
           {!tdOpen ? (
-            <button onClick={() => {
-                // A ROTA do tira-dúvidas exige consumo (403). Liberar o botão
-                // sem gravar a marcação trocaria um botão cinza por um erro
-                // mudo — pior. Grava e abre.
-                if (!conteudoConsumido) marcarConteudoConsumido(data.trilha.id, semanaNum).catch(() => {});
-                setTdOpen(true);
-              }}
+            <button onClick={abrirTiraDuvidas}
               disabled={!podeConversar}
               title={!podeConversar ? t('qa.markContentFirst') : ''}
               className="w-full px-4 py-3 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold">
@@ -1237,6 +1363,18 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                 <MicInput ref={tdMicRef} value={tdInput} onChange={setTdInput} disabled={tdBusy} />
               </div>
             </>
+          )}
+          {tdNaoSalvo && (
+            <p role="status" className="mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[12px] leading-snug text-amber-100">
+              {t('qa.notSaved')}
+            </p>
+          )}
+          {tdErro && (
+            <ErroDaConversa
+              falha={tdErro.falha}
+              onRetry={tdOpen ? (tdInput.trim() ? sendTiraDuvida : undefined) : abrirTiraDuvidas}
+              t={t}
+            />
           )}
         </GlassCard>
       )}

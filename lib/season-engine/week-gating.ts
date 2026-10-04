@@ -105,9 +105,20 @@ export const MAX_TURNS_MISSAO_FEEDBACK = 20;
 /** Semana 13 (qualitativa) conta turnos de IA DIRETO, sem dividir por 2. */
 export const TURNOS_IA_AVALIACAO_QUALITATIVA = 12;
 
-/** Slot do JSONB onde a conversa daquela semana mora. */
-export function slotDaConversa(semana: number | string, tipoSemana?: string | null): 'reflexao' | 'feedback' {
-  return tipoSemana === 'aplicacao' || Number(semana) === 14 ? 'feedback' : 'reflexao';
+/**
+ * Slot do JSONB onde a conversa daquela semana mora.
+ *
+ * `semanaCenarioB` é a semana do fechamento NO PLANO (`semanaCenarioBDoPlano`), que
+ * guarda em `feedback`. Sem ele a régua caía em `semana === 14`, verdade só no formato
+ * de 14 semanas: na Jornada o fechamento é a 7 e no encerramento de Ibipeba a 9, e o
+ * cartão da semana 7 lia o slot errado (R-124).
+ */
+export function slotDaConversa(
+  semana: number | string,
+  tipoSemana?: string | null,
+  semanaCenarioB: number = 14,
+): 'reflexao' | 'feedback' {
+  return tipoSemana === 'aplicacao' || Number(semana) === semanaCenarioB ? 'feedback' : 'reflexao';
 }
 
 /**
@@ -172,8 +183,13 @@ export function respostasFaltantes(turnosFeitos: number, turnosNecessarios: numb
 }
 
 /** Turnos de IA já gravados no transcript de um registro de progresso. */
-export function contarTurnosIa(progresso: any, semana: number | string, tipoSemana?: string | null): number {
-  const slot = slotDaConversa(semana, tipoSemana);
+export function contarTurnosIa(
+  progresso: any,
+  semana: number | string,
+  tipoSemana?: string | null,
+  semanaCenarioB: number = 14,
+): number {
+  const slot = slotDaConversa(semana, tipoSemana, semanaCenarioB);
   const transcript = progresso?.[slot]?.transcript_completo;
   if (!Array.isArray(transcript)) return 0;
   return transcript.filter((m: any) => m?.role === 'assistant').length;

@@ -181,7 +181,7 @@ export async function POST(request) {
     // trilha-runtime. No piloto o fechamento (sem 3) herda o calendário da
     // sem 2 (calendario_semana no snapshot); o gate real é a progressão.
     const gate = await checarGatesSemana(sb, trilha, semana);
-    if (gate) return NextResponse.json({ error: gate.error }, { status: gate.status });
+    if (gate) return NextResponse.json({ error: gate.error, codigo: gate.codigo }, { status: gate.status });
 
     const { data: colab } = await sb.from('colaboradores')
       .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();

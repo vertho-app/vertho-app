@@ -137,9 +137,19 @@ describe('item 2 — o degrau manual deixou de ser catraca', () => {
     // `setTdOpen(true)` aparece duas vezes (a outra reabre a caixa ao carregar
     // um transcript existente, que não precisa marcar nada). A que interessa é
     // a do onClick do botão — a ÚLTIMA, dentro do JSX.
-    const iBotao = TELA.lastIndexOf('setTdOpen(true);');
-    const vizinhanca = TELA.slice(Math.max(iBotao - 500, 0), iBotao);
-    expect(vizinhanca).toContain('marcarConteudoConsumido(data.trilha.id, semanaNum)');
+    //
+    // Desde 04/10/2026 (R-140) o botão chama `abrirTiraDuvidas`, que só abre depois de
+    // `garantirConsumoGravado`: a marcação é gravada COM o resultado checado, e se não
+    // gravou a tela diz isso em vez de abrir o card para um 403 na primeira pergunta.
+    const iAbrir = TELA.indexOf('async function abrirTiraDuvidas');
+    expect(iAbrir).toBeGreaterThan(-1);
+    const iAbre = TELA.indexOf('setTdOpen(true);', iAbrir);
+    expect(iAbre).toBeGreaterThan(iAbrir);
+    expect(TELA.slice(iAbrir, iAbre)).toContain('await garantirConsumoGravado()');
+    expect(TELA).toContain('onClick={abrirTiraDuvidas}');
+    const iGarantir = TELA.indexOf('async function garantirConsumoGravado');
+    expect(iGarantir).toBeGreaterThan(-1);
+    expect(TELA.slice(iGarantir, iGarantir + 700)).toContain('marcarConteudoConsumido(data.trilha.id, semanaNum)');
   });
 });
 
@@ -426,7 +436,7 @@ describe('lista de semanas — a incompleta passou a se anunciar', () => {
 
   it('usa a MESMA régua da tela da semana e das rotas', () => {
     expect(LISTA).toContain('turnosIaNecessarios(s.semana, s.tipo, p?.feedback?.modo, qualitativaDoPlano(');
-    expect(LISTA).toContain('contarTurnosIa(p, s.semana, s.tipo)');
+    expect(LISTA).toContain('contarTurnosIa(p, s.semana, s.tipo, semCenarioB)');
     // Um número escrito aqui seria a 3ª cópia da régua.
     expect(LISTA).not.toMatch(/faltam\s*=\s*\d+/);
   });

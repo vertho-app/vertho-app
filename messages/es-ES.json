@@ -1781,7 +1781,23 @@
       "ask": "Hacer una pregunta sobre la semana",
       "unlockAfterContent": "Se libera cuando abras el contenido",
       "empty": "Pregunta lo que quieras sobre <strong>{descriptor}</strong>.",
-      "placeholder": "Tu pregunta... (Shift+Enter para nueva línea)"
+      "placeholder": "Tu pregunta... (Shift+Enter para nueva línea)",
+      "notSaved": "Tu respuesta llegó, pero no pudimos guardarla en el historial de esta conversación. Si la necesitas después, cópiala ahora."
+    },
+    "chatError": {
+      "network": "Sin conexión con Vertho. Revisa tu internet e inténtalo de nuevo.",
+      "timeout": "La respuesta tardó más de lo esperado. Recarga la página para ver si tu mensaje quedó registrado; si no aparece, envíalo de nuevo.",
+      "session": "Tu sesión ha caducado. Inicia sesión de nuevo para continuar.",
+      "forbidden": "No tienes permiso para responder en esta semana.",
+      "contentNotOpened": "Abre uno de los formatos del contenido de esta semana antes de hacer preguntas.",
+      "consumptionNotSaved": "No pudimos registrar que abriste el contenido de esta semana. Inténtalo de nuevo.",
+      "weekLocked": "Esta semana aún no está abierta para ti. Vuelve a la lista de semanas.",
+      "dailyLimit": "Has alcanzado el límite de {limit} preguntas por día. Vuelve mañana.",
+      "tooFast": "Demasiados mensajes en poco tiempo. Espera {seconds} segundos e inténtalo de nuevo.",
+      "unavailable": "El servicio no respondió ahora. Inténtalo de nuevo en unos instantes.",
+      "ai": "El mentor no pudo responder ahora. Inténtalo de nuevo en unos instantes.",
+      "generic": "No fue posible enviar tu mensaje. Inténtalo de nuevo.",
+      "retry": "Intentar de nuevo"
     },
     "evidence": {
       "title": "Evidencias",

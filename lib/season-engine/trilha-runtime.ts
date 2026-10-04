@@ -257,14 +257,21 @@ export async function checarGatesSemana(
   sb: any,
   trilha: TrilhaRuntime,
   semana: number | string,
-): Promise<{ error: string; status: number } | null> {
+): Promise<{ error: string; status: number; codigo: 'semana-bloqueada' | 'indisponivel' } | null> {
   // A régua mora em `avaliarAcessoSemana` (week-gating), que a TELA também usa
   // para explicar o bloqueio. Duas cópias da mesma regra é como a lista passou a
   // liberar o que a rota nega — ver o comentário da função lá.
-  const { data: prev } = Number(semana) > 1
+  const { data: prev, error: errPrev } = Number(semana) > 1
     ? await sb.from('temporada_semana_progresso')
         .select('semana, status').eq('trilha_id', trilha.id).eq('semana', Number(semana) - 1).maybeSingle()
-    : { data: null };
+    : { data: null, error: null };
+  // Leitura que falhou NÃO é "a semana anterior não foi concluída": sem checar, o
+  // `prev` nulo virava "Conclua a semana N antes", e a pessoa que concluiu lia que
+  // não concluiu (R-139, mesma classe). 503 com código: a tela oferece tentar de novo.
+  if (errPrev) {
+    console.error('[checarGatesSemana] leitura da semana anterior falhou:', errPrev.message);
+    return { error: 'Não foi possível verificar a sua semana agora. Tente de novo em instantes.', status: 503, codigo: 'indisponivel' };
+  }
 
   const acesso = avaliarAcessoSemana({
     dataInicio: trilha.data_inicio,
@@ -278,9 +285,10 @@ export async function checarGatesSemana(
     return {
       error: `Semana ${semana} ainda bloqueada. Libera ${acesso.liberaEm}.`,
       status: 403,
+      codigo: 'semana-bloqueada',
     };
   }
-  return { error: `Conclua a semana ${acesso.semanaPendente} antes.`, status: 403 };
+  return { error: `Conclua a semana ${acesso.semanaPendente} antes.`, status: 403, codigo: 'semana-bloqueada' };
 }
 
 /**

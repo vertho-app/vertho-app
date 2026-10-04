@@ -90,7 +90,7 @@ export async function POST(request) {
 
     // Gates (temporal com espelho + progressão) — fonte única em trilha-runtime
     const gate = await checarGatesSemana(sb, trilha, semana);
-    if (gate) return NextResponse.json({ error: gate.error }, { status: gate.status });
+    if (gate) return NextResponse.json({ error: gate.error, codigo: gate.codigo }, { status: gate.status });
 
     const { data: colab, error: errColab } = await sb.from('colaboradores')
       .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
@@ -186,7 +186,7 @@ export async function POST(request) {
             // Sem o desafio do kit, o do plano segue como antes.
             blocoDesafio ? null : e.conteudo?.desafio_texto,
           // O separador é o mesmo de sempre (travessão), por escape: o texto que o tutor lê não muda.
-          ].filter(Boolean).join(' — ')),
+          ].filter(Boolean).join(' \u2014 ')),
           blocoDesafio,
         ].filter(Boolean).join('\n')
       : [
@@ -326,7 +326,7 @@ export async function POST(request) {
       })).trim();
     } catch (err) {
       console.error('[tira-duvidas] callAIChat:', err);
-      return NextResponse.json({ error: 'Erro na IA' }, { status: 500 });
+      return NextResponse.json({ error: 'Erro na IA', codigo: 'ia' }, { status: 500 });
     }
 
     // Despersonaliza: troca aliases de volta por nomes reais antes de exibir
@@ -361,7 +361,7 @@ export async function POST(request) {
       .eq('id', prog.id).eq('empresa_id', trilha.empresa_id);
     if (errHistorico) await perdeu('historico', errHistorico.message);
 
-    // Telemetria — log da chamada pra rate limit futuro + custo. É ela que o teto
+    // Telemetria: log da chamada pra rate limit futuro + custo. É ela que o teto
     // diário conta: sem a linha, a pergunta não pesa no limite.
     const { error: errLog } = await sb.from('ia_usage_log').insert({
       empresa_id: trilha.empresa_id,

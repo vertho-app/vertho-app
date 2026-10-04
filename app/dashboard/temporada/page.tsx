@@ -10,7 +10,7 @@ import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText
 import { loadTemporada, loadTemporadaPorEmail } from '@/actions/temporadas';
 import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { semanaLiberadaPorData, formatarLiberacao, turnosIaNecessarios, contarTurnosIa } from '@/lib/season-engine/week-gating';
-import { qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { qualitativaDoPlano, semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
 import FirstViewVideo from '@/components/first-view-video';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { formatarAvanco, formatarValorAvanco, exibeAntesDepois, relatorioMedeEvolucao } from '@/lib/season-engine/convergencia';
@@ -91,8 +91,10 @@ export default function TemporadaPage() {
   const totalSemanas = semanas.length || duracaoDaTrilha(trilha);
   // Última semana de avaliação = onde fica o wizard cenário B (regular=14, onboarding=10).
   // Como a rota é única (/sem14), redireciono pra ela tanto faz o número da semana.
-  const semanasAvaliacao = semanas.filter((s: any) => s.tipo === 'avaliacao').map((s: any) => s.semana);
-  const semCenarioB = semanasAvaliacao.length ? Math.max(...semanasAvaliacao) : totalSemanas;
+  // `0` quando o plano não tem avaliação (Personalizado SEM fechamento): o fallback era
+  // `totalSemanas`, que mandava a última semana de CONTEÚDO para o assistente do
+  // Cenário B de um fechamento que não existe (R-124). Mesma régua da tela da semana.
+  const semCenarioB = semanaCenarioBDoPlano(semanas, 0);
   const pct = Math.round((concluidas / Math.max(1, totalSemanas)) * 100);
   // Piloto: o slot de fechamento carrega calendario_semana (espelho) no plano.
   // A jornada "vendida" são as semanas de CONTEÚDO (2) — o fechamento é etapa.
@@ -256,8 +258,13 @@ export default function TemporadaPage() {
               nunca um número escrito aqui: era assim que esta base colecionava
               portas com critérios diferentes para a mesma decisão.
             */
-            const turnosFeitos = emAndamento ? contarTurnosIa(p, s.semana, s.tipo) : 0;
-            const faltam = emAndamento
+            // A semana do Cenário B é a avaliação final (o assistente de cenário), e não
+            // uma conversa de respostas contadas. Sem esta exceção ela abria na Jornada
+            // dizendo "conversa não começou" (R-124): a régua de turnos lia o slot
+            // errado e cobrava 6 respostas de uma tela que não as tem.
+            const ehFechamento = s.semana === semCenarioB;
+            const turnosFeitos = emAndamento && !ehFechamento ? contarTurnosIa(p, s.semana, s.tipo, semCenarioB) : 0;
+            const faltam = emAndamento && !ehFechamento
               ? Math.max(turnosIaNecessarios(s.semana, s.tipo, p?.feedback?.modo, qualitativaDoPlano(semanas)) - turnosFeitos, 0)
               : 0;
 

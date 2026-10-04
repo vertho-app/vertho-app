@@ -71,7 +71,7 @@ export async function POST(request) {
 
     // Gates (temporal com espelho + progressão) — fonte única em trilha-runtime
     const gate = await checarGatesSemana(sb, trilha, semana);
-    if (gate) return NextResponse.json({ error: gate.error }, { status: gate.status });
+    if (gate) return NextResponse.json({ error: gate.error, codigo: gate.codigo }, { status: gate.status });
 
     const { data: prog, error: errProg } = await sb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
