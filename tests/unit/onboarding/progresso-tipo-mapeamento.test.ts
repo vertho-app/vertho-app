@@ -27,7 +27,8 @@ import { criarSupabaseMock } from '../../helpers/supabase-mock';
 
 const CONSTRAINT = 'temporada_semana_progresso_tipo_check';
 
-const semComentarios = (sql: string) => sql.split('\n').map((l) => l.replace(/--.*$/, '')).join('\n');
+// `\r?\n`: no Windows o checkout vem com CRLF, e o `.` da regex não engole o `\r`.
+const semComentarios = (sql: string) => sql.split(/\r?\n/).map((l) => l.replace(/--.*$/, '')).join('\n');
 
 /** Os tipos que a CHECK aceita: os literais `'x'::text` entre o ADD e o `;`. */
 function tiposDaCheck(sql: string): string[] | null {
