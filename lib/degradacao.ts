@@ -505,6 +505,16 @@ export const DEGRADACAO = {
    * viu era uma falha. Chave: `<onde>:<empresa>`.
    */
   LEITURA_INDISPONIVEL: 'leitura-indisponivel',
+  /**
+   * envio: a Meta reportou `failed` para uma mensagem da cadência que ela havia aceitado
+   * (R-94, 04/10/2026). `detalhe.estado`: `reaberto` (o carimbo do canal foi apagado e o
+   * envio voltou a ser pendente: a janela de recuperação tenta de novo, no máximo 2 dias),
+   * `permanente` (erro do DESTINO, como número sem WhatsApp: NÃO reabre, repetir só
+   * puniria a qualidade da conta; alguém precisa corrigir o cadastro) ou `nao-reaberto`
+   * (a escrita que reabriria falhou). `aviso`: o e-mail e o push seguem. Chave:
+   * `<envio>:<coluna do carimbo>`.
+   */
+  WHATSAPP_FALHA_DE_ENTREGA: 'whatsapp-falha-de-entrega',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { safeSecretEqual } from '@/lib/secure-compare';
 import { interpretarPayload, camposDoStatus, encareceu } from '@/lib/whatsapp/cloud-webhook';
+import { reabrirEnvioPorFalha } from '@/lib/whatsapp/reabrir-envio';
 import { decidirDono, filtroDeTelefone } from '@/lib/whatsapp/resolver-dono';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { fanoutInboxPush } from '@/lib/notifications/inbox-push';
@@ -386,8 +387,16 @@ export async function POST(req: Request) {
       const { data, error } = await sb.from('notification_deliveries')
         .update(camposDoStatus(s))
         .eq('provider_message_id', s.waMessageId)
-        .select('id');
+        .select('id, dedupe_key, empresa_id, created_at');
       if (error) throw new Error(error.message);
+
+      // `failed` de uma mensagem da CADÊNCIA reabre o envio (R-94): a Cloud API aceita o template
+      // na hora e o cron carimba o canal; sem apagar o carimbo aqui, a falha que a Meta reporta
+      // depois nunca voltava a ser pendente e a janela de recuperação não tinha o que refazer.
+      // Nunca lança: este webhook responde 200 sempre.
+      if (s.status === 'failed') {
+        for (const entrega of data || []) await reabrirEnvioPorFalha(sb, entrega, s.erro);
+      }
 
       if (!data?.length) {
         // Não é falha de gravação: é status de uma mensagem que não temos

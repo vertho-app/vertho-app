@@ -16,12 +16,23 @@ export function mesmoDiaUTC(ts: string | null | undefined, hojeUTC: string): boo
 }
 
 /**
- * Um canal está pendente quando é APLICÁVEL (o colaborador tem esse contato) e
- * ainda não foi carimbado hoje. Canal inaplicável nunca pende — senão um colab
- * sem telefone manteria a pílula eternamente "em aberto".
+ * O carimbo é de `desdeUTC` em diante (UTC)? É o "já saiu" de uma JANELA de recuperação
+ * (R-94): o papel agendado numa segunda e refeito na quarta conta como entregue se o
+ * canal foi carimbado na segunda, na terça ou na quarta. Com `desdeUTC` igual a hoje é o
+ * mesmo teste de `mesmoDiaUTC`.
  */
-export function canalPendente(aplicavel: boolean, carimbo: string | null | undefined, hojeUTC: string): boolean {
-  return aplicavel && !mesmoDiaUTC(carimbo, hojeUTC);
+export function carimboDesde(ts: string | null | undefined, desdeUTC: string): boolean {
+  return !!ts && new Date(ts).toISOString().slice(0, 10) >= desdeUTC;
+}
+
+/**
+ * Um canal está pendente quando é APLICÁVEL (o colaborador tem esse contato) e
+ * ainda não foi carimbado hoje (ou, numa recuperação, desde a data do papel). Canal
+ * inaplicável nunca pende, senão um colab sem telefone manteria a pílula
+ * eternamente "em aberto".
+ */
+export function canalPendente(aplicavel: boolean, carimbo: string | null | undefined, hojeUTC: string, desdeUTC?: string): boolean {
+  return aplicavel && !(desdeUTC ? carimboDesde(carimbo, desdeUTC) : mesmoDiaUTC(carimbo, hojeUTC));
 }
 
 /**
@@ -40,14 +51,16 @@ export function pilulaPendente(args: {
   carimboEmail: string | null | undefined;
   carimboPush?: string | null | undefined;
   hojeUTC: string;
+  /** Numa recuperação (R-94): a data do dia agendado do papel. Sem ela, vale só o dia de hoje. */
+  desdeUTC?: string;
 }): boolean {
   return (
-    canalPendente(args.temTelefone, args.carimboWhatsapp, args.hojeUTC) ||
-    canalPendente(args.temEmail, args.carimboEmail, args.hojeUTC) ||
+    canalPendente(args.temTelefone, args.carimboWhatsapp, args.hojeUTC, args.desdeUTC) ||
+    canalPendente(args.temEmail, args.carimboEmail, args.hojeUTC, args.desdeUTC) ||
     // Push entra como canal de PRIMEIRA classe, não como penduricalho: se ele
     // falhou e os outros dois saíram, a pílula segue pendente e o push é
     // recuperável na próxima passada. Tratá-lo como secundário reintroduziria,
     // só que para o canal novo, exatamente o bug que este módulo consertou.
-    canalPendente(Boolean(args.temPush), args.carimboPush, args.hojeUTC)
+    canalPendente(Boolean(args.temPush), args.carimboPush, args.hojeUTC, args.desdeUTC)
   );
 }

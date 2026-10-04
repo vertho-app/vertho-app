@@ -1,7 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
+import { temTrabalhoHoje } from '@/lib/fase4/janelas';
 import { tenantDb } from '@/lib/tenant-db';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesafioQuinta } from '@/lib/notifications';
 import { resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
@@ -393,12 +393,10 @@ export async function triggerDiario() {
     // para quarta; na quarta o fan-out enfileirou 1 de 12 empresas e as 36
     // pessoas do Ibipeba não receberam a P2. O log diz "1/1 empresas
     // enfileiradas", que parece saudável.
-    const { diaP1, diaP2, diaEv } = diasDaSemanaComFeriado({
-      diaP1: cadencia.fase4_dia_pilula ?? 1,
-      diaP2: cadencia.fase4_dia_pilula2 ?? 2,
-      diaEv: cadencia.fase4_dia_evidencia ?? 4,
-    }, hojeUTC, hoje);
-    return hoje === diaP1 || hoje === diaP2 || hoje === diaEv;
+    //
+    // E a RECUPERAÇÃO entra pela mesma porta (R-94): o dia livre depois de um papel
+    // agendado também tem trabalho, e `temTrabalhoHoje` é a pergunta que o worker faz.
+    return temTrabalhoHoje(cadencia, hojeUTC, hoje);
   });
 
   // FAN-OUT: uma task por empresa, sem delay entre tasks (o espaçamento de 2s
@@ -424,7 +422,7 @@ export async function triggerDiario() {
   // FALLBACK sem QSTASH (dev local — mesmo padrão de app/radar/actions.ts):
   // processa as empresas inline em loop, como antes do fan-out.
   console.warn('[triggerDiario] QSTASH_TOKEN ausente — processando INLINE (sem fan-out)');
-  let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0, adiadosPorTeto = 0;
+  let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0, adiadosPorTeto = 0, recuperacoes = 0, pendenciasPosFim = 0;
   // Empresas cujo processamento explodiu — reportadas no retorno em vez de sumirem.
   const empresasComFalha: string[] = [];
 
@@ -437,6 +435,7 @@ export async function triggerDiario() {
       const r = await processarEmpresaDiario(empresa, { hoje, hojeUTC });
       pilulas += r.pilulas; emails += r.emails; evidencias += r.evidencias;
       nudges += r.nudges; erros += r.erros; adiadosPorTeto += r.adiadosPorTeto;
+      recuperacoes += r.recuperacoes; pendenciasPosFim += r.pendenciasPosFim;
     } catch (e: any) {
       erros++;
       empresasComFalha.push((empresa as any).slug || (empresa as any).id);
@@ -448,9 +447,11 @@ export async function triggerDiario() {
   // Adiados aparecem no texto do lock: "12 pílulas" com 200 na coorte só é lido
   // corretamente ao lado de "188 adiados pelo teto".
   const adiadoTxt = adiadosPorTeto ? ` · ${adiadosPorTeto} adiados pelo teto` : '';
-  const message = `Diário (inline): ${pilulas} pílulas WhatsApp, ${emails} e-mails, ${evidencias} evidências, ${nudges} nudges${adiadoTxt}${alerta}`;
+  // Recuperações e pendências de pós-fim (R-94) aparecem para que "está rodando" seja observável.
+  const recTxt = recuperacoes || pendenciasPosFim ? ` · ${recuperacoes} recuperações, ${pendenciasPosFim} pendências de pós-fim` : '';
+  const message = `Diário (inline): ${pilulas} pílulas WhatsApp, ${emails} e-mails, ${evidencias} evidências, ${nudges} nudges${adiadoTxt}${recTxt}${alerta}`;
   await lock.liberar(message);
-  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, empresasComFalha, message };
+  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, recuperacoes, pendenciasPosFim, empresasComFalha, message };
   } catch (err: any) {
     // Marca a execução como encerrada mesmo em falha global — senão o lock ficaria
     // pendurado e o retry de hoje seria recusado como "execução em andamento".

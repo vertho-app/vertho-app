@@ -241,7 +241,8 @@ describe('call-site da cadência', () => {
   it('a TERÇA volta a entregar a 2ª pílula quando a chave nova está ligada', () => {
     // Sem o `!conteudoPendenteLigado` a pendência continuaria ocupando o slot
     // da P2, e quem está travado seguiria sem ver o segundo conteúdo da semana.
-    expect(fonte).toContain('hoje === diaP2 && pendenciaLigada && !conteudoPendenteLigado && bloqueadaNaAnterior');
+    // `slotAtivo('p2')` (R-94): o dia agendado OU a recuperação do papel.
+    expect(fonte).toContain("slotAtivo('p2') && pendenciaLigada && !conteudoPendenteLigado && bloqueadaNaAnterior");
   });
 
   it('a variante pendente NÃO cai no texto livre legado', () => {

@@ -71,10 +71,15 @@ describe('fan-out do cron diário na semana de feriado', () => {
     // Exige a CHAMADA, não a menção: o comentário acima do filtro cita a função
     // pelo nome, e um `toContain` casaria nele mesmo com a régua removida do
     // código — o mutante sobreviveu assim na primeira versão deste teste.
-    expect(filtro).toMatch(/diasDaSemanaComFeriado\s*\(/);
-    expect(filtro).toMatch(/hoje === diaP1/);
+    //
+    // Desde 04/10/2026 (R-94) a pergunta é `temTrabalhoHoje`, que cobre o dia agendado E os
+    // dias de recuperação, e a régua de feriado mora dentro dela (`lib/fase4/janelas.ts`).
+    expect(filtro).toMatch(/temTrabalhoHoje\s*\(\s*cadencia,\s*hojeUTC,\s*hoje\s*\)/);
+    const janelas = readFileSync(join(process.cwd(), 'lib/fase4/janelas.ts'), 'utf-8');
+    expect(janelas).toMatch(/diasDaSemanaComFeriado\s*\(/);
     // e os dias da config só entram COMO ARGUMENTO da régua, nunca direto na
     // comparação
     expect(filtro).not.toMatch(/const diaP1 = cadencia/);
+    expect(filtro).not.toMatch(/hoje === diaP1/);
   });
 });

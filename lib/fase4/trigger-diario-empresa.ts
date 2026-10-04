@@ -19,7 +19,8 @@
  *     `fase4EnvioId`/`carimboCampo` e quem grava `ultima_pilulaN_whatsapp_em`
  *     é o webhook whatsapp-cis, depois do sendWhatsapp ok (F-C4).
  */
-import { mesmoDiaUTC, pilulaPendente } from '@/lib/notifications/carimbo-canal';
+import { carimboDesde, pilulaPendente } from '@/lib/notifications/carimbo-canal';
+import { janelasDoDia, decidirPosFim, type SlotCadencia } from '@/lib/fase4/janelas';
 import { tenantDb } from '@/lib/tenant-db';
 import { APP_URL, tenantUrl } from '@/lib/domain';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppNudgeDesafio } from '@/lib/notifications';
@@ -39,7 +40,7 @@ import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarPush } from '@/lib/notifications/push-core';
 import { pushPilula, pushPilulaPendente, pushMissao, pushEvidencia, pushSemanaPendente, pushAvaliacaoFinal } from '@/lib/notifications/push-copy';
 import { temaPilula } from '@/lib/notifications/pilula-envio';
-import { ENVIO, PROGRESSO } from '@/lib/status';
+import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
 import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
 
 const TOTAL_SEMANAS = 14;
@@ -98,6 +99,14 @@ export interface ResumoEmpresaDiario {
    * indistinguível de um pulo que passou a pegar gente demais.
    */
   aguardandoInicio: number;
+  /**
+   * Papéis refeitos num dia livre porque o do dia agendado (1 a 2 dias antes) não chegou a alguém
+   * (R-94). Conta pessoa x papel em recuperação, tentada, e não envio confirmado: serve para ver que
+   * a recuperação ESTÁ rodando, e que ela não passou a pegar gente demais.
+   */
+  recuperacoes: number;
+  /** Atrasados que receberam a pendência de pós-fim do plano (a cada quinzena, R-94). */
+  pendenciasPosFim: number;
 }
 
 /**
@@ -122,6 +131,7 @@ export async function processarEmpresaDiario(
   let cobrancasPuladas = 0;
   /** Envios cuja trilha ainda não começou: pulados sem enviar e sem avançar o relógio. */
   let aguardandoInicio = 0;
+  let recuperacoes = 0, pendenciasPosFim = 0;
 
   const cadencia = (empresa as any).sys_config?.cadencia || {};
   /**
@@ -142,9 +152,21 @@ export async function processarEmpresaDiario(
   if (deslocou.length) {
     console.log(`[triggerDiario] ${(empresa as any).slug}: feriado nacional nesta semana — ${deslocou.join(' · ')}`);
   }
-  if (hoje !== diaP1 && hoje !== diaP2 && hoje !== diaEv) {
-    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio }; // empresa sem nada hoje
+  /**
+   * O QUE A CADÊNCIA FAZ HOJE (R-94): o papel agendado e, num dia livre, a RECUPERAÇÃO do que caiu 1 a
+   * 2 dias antes. Até 04/10/2026 só existia o dia exato de cada papel: envio que falhava no dia (template
+   * recusado, SES caído, cron perdido) nunca era refeito. A régua mora em `lib/fase4/janelas.ts`.
+   */
+  const janela = janelasDoDia(cadencia, hojeUTC, hoje);
+  if (!janela.agendados.length && !janela.recuperando.length) {
+    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, pendenciasPosFim }; // empresa sem nada hoje
   }
+  const agendado = (slot: SlotCadencia) => janela.agendados.includes(slot);
+  const recSlot = (slot: SlotCadencia) => janela.recuperando.find((r) => r.slot === slot);
+  const slotAtivo = (slot: SlotCadencia) => agendado(slot) || !!recSlot(slot);
+  /** Desde quando um carimbo conta como "já saiu" neste papel: hoje, ou a data do papel numa recuperação. */
+  const desdeDoSlot = (slot: SlotCadencia) => recSlot(slot)?.desdeUTC ?? hojeUTC;
+  const jaNoSlot = (ts: string | null | undefined, slot: SlotCadencia) => carimboDesde(ts, desdeDoSlot(slot));
 
   // Deep-link da pílula = URL do TENANT (ibipeba.vertho.ai), não a genérica.
   const baseUrl = (empresa as any).slug ? tenantUrl((empresa as any).slug) : APP_URL;
@@ -178,7 +200,7 @@ export async function processarEmpresaDiario(
   const { data: envios } = await tdb.from('fase4_envios')
     .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_evidencia_whatsapp_em, ultima_evidencia_email_em, ultima_evidencia_push_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
     .eq('status', ENVIO.ATIVO);
-  if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio };
+  if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, pendenciasPosFim };
 
   // Trilha mais recente de CADA colaborador em UMA query (era 1 query por
   // envio — N+1). Ordenada por numero_temporada desc, a PRIMEIRA ocorrência
@@ -204,10 +226,14 @@ export async function processarEmpresaDiario(
     // campo, `semanaLiberadaPorData` é fail-closed (devolve false) e TODA semana
     // pareceria bloqueada por data — o redirecionamento nunca aconteceria e o
     // silêncio seria indistinguível de "ninguém está travado".
-    const { data: trilhas } = await tdb.from('trilhas')
-      .select('id, colaborador_id, numero_temporada, temporada_plano, competencia_foco, data_inicio')
+    const { data: trilhas, error: errTrilhas } = await tdb.from('trilhas')
+      .select('id, colaborador_id, numero_temporada, temporada_plano, competencia_foco, data_inicio, status')
       .in('colaborador_id', colabIds)
       .order('numero_temporada', { ascending: false });
+    // Sem checar, a falha virava "ninguém tem trilha": sem `data_inicio` o gate de data é fail-closed
+    // e, agora, sem `status` o pós-fim concluiria o envio de quem está atrasado (R-94). Lançar cai no
+    // `catch` abaixo, que deixa `progressoConfiavel` falso e mantém o calendário, como já fazia com o progresso.
+    if (errTrilhas) throw new Error(`trilhas: ${errTrilhas.message}`);
     for (const t of (trilhas || []) as any[]) {
       if (!trilhaPorColab.has(t.colaborador_id)) trilhaPorColab.set(t.colaborador_id, t);
     }
@@ -506,9 +532,46 @@ export async function processarEmpresaDiario(
 
     // Fim da temporada é do CALENDÁRIO: usar a semana de entrega aqui deixaria
     // quem está travado na 1 rodando para sempre, sem nunca concluir o envio.
+    //
+    // 🔴 MAS QUEM FICOU ATRASADO NÃO PODE RECEBER "CONCLUÍDO" E SILÊNCIO (R-94). O relógio passa do
+    // fim do plano mesmo para quem tem semanas por fazer, e a quinta em que isso acontecia fechava o
+    // envio: nenhuma mensagem mais, por mais que faltasse. Agora quem a leitura confirma atrasado
+    // (trilha ativa, com semanas por concluir) recebe a pendência a cada quinzena, por até 8 semanas
+    // depois do fim do plano, e só então é concluído. Sem leitura confiável a decisão é a de antes.
+    let posFimPendencia = false;
     if (semanaCalendario > totalSemanas) {
-      if (hoje === diaEv) await tdb.from('fase4_envios').update({ status: ENVIO.CONCLUIDO }).eq('id', envio.id);
-      continue;
+      // Só a quinta decide, como sempre; nos outros dias não há nada a fazer aqui.
+      if (!agendado('ev')) continue;
+      const semanasConcluidas = new Set((progressoPorColab.get(envio.colaborador_id) || [])
+        .filter((p: any) => p?.status === PROGRESSO.CONCLUIDO && Number(p?.semana) >= 1 && Number(p?.semana) <= totalSemanas)
+        .map((p: any) => Number(p.semana))).size;
+      const decisaoFim = decidirPosFim({
+        progressoConfiavel,
+        trilhaAtiva: trilha?.status === TRILHA.ATIVA,
+        semanasConcluidas,
+        totalSemanas,
+        semanaPelaData: semanaDaTrilha,
+        ultimoAvisoEm: envio.ultima_evidencia_em ? new Date(envio.ultima_evidencia_em).getTime() : null,
+        agora: Date.now(),
+      });
+      if (decisaoFim === 'concluir') {
+        const { error: errConclusao } = await tdb.from('fase4_envios').update({ status: ENVIO.CONCLUIDO }).eq('id', envio.id);
+        if (errConclusao) {
+          // O envio segue ativo e a quinta seguinte tenta de novo: é entrega, então degrada, mas registrando.
+          erros++;
+          await registrarDegradacao({
+            fluxo: 'envio',
+            tipo: DEGRADACAO.TELEMETRIA_ENTREGA_FALHOU,
+            chave: `conclusao-envio:${empresa.id}`,
+            empresaId: empresa.id,
+            severidade: 'aviso',
+            detalhe: { motivo: errConclusao.message, envioId: envio.id },
+          });
+        }
+        continue;
+      }
+      if (decisaoFim === 'aguardar') continue;
+      posFimPendencia = true; // a pendência sai adiante, depois de os remetentes existirem
     }
     const nome = envio.colaboradores.nome_completo || 'Colaborador';
     // Telefone: coluna `whatsapp` ou, no fallback, `telefone` (muitos tenants só têm este).
@@ -520,6 +583,16 @@ export async function processarEmpresaDiario(
     // ultimo_envio DERIVADO em JS (não existe coluna): o mais recente dos 3 carimbos.
     const ultimoEnvio = [envio.ultima_pilula1_em, envio.ultima_pilula2_em, envio.ultima_evidencia_em]
       .filter(Boolean).map((d: any) => new Date(d).getTime()).sort((a, b) => b - a)[0] || null;
+    /**
+     * O último envio ANTES do dia agendado da evidência, para a recuperação (R-94). O carimbo da quinta
+     * (`ultima_evidencia_em`) existe para todo mundo que o cron processou, tenha a mensagem chegado ou
+     * não: contá-lo faria o inativo que já recebeu o nudge de inatividade parecer "ativo" e receber,
+     * na sexta, a cobrança do desafio por cima.
+     */
+    const inicioDoDiaEv = recSlot('ev') ? Date.parse(`${recSlot('ev')!.desdeUTC}T00:00:00Z`) : null;
+    const ultimoEnvioAntesDoEv = inicioDoDiaEv == null ? ultimoEnvio
+      : ([envio.ultima_pilula1_em, envio.ultima_pilula2_em, envio.ultima_evidencia_em]
+        .filter(Boolean).map((d: any) => new Date(d).getTime()).filter((ms) => ms < inicioDoDiaEv).sort((a, b) => b - a)[0] || null);
 
     /**
      * A semana que a pessoa consegue abrir é a da AVALIAÇÃO FINAL (Cenário B)?
@@ -564,6 +637,9 @@ export async function processarEmpresaDiario(
       pendente = false,
     ) => {
       const pilula = stampCol === 'ultima_pilula1_em' ? 1 : 2;   // atribuição de abertura (?p=)
+      const slotDaPilula: SlotCadencia = pilula === 1 ? 'p1' : 'p2';
+      /** Refazendo um papel que não chegou: sem o caminho legado de texto livre (morto desde 13/08/2026). */
+      const recuperandoPilula = !!recSlot(slotDaPilula);
       const wppCol = pilula === 1 ? 'ultima_pilula1_whatsapp_em' : 'ultima_pilula2_whatsapp_em';
       const mailCol = pilula === 1 ? 'ultima_pilula1_email_em' : 'ultima_pilula2_email_em';
       const pushCol = pilula === 1 ? 'ultima_pilula1_push_em' : 'ultima_pilula2_push_em';
@@ -634,7 +710,7 @@ export async function processarEmpresaDiario(
       // que é exatamente a semântica da guarda por canal.
       // Porteiro ANTES do envio, e depois da guarda de idempotência: consumir
       // vaga por quem já recebeu hoje gastaria o teto com ninguém.
-      const vaga = telefone && !mesmoDiaUTC(envio[wppCol], hojeUTC) ? vagaWhatsapp() : null;
+      const vaga = telefone && !jaNoSlot(envio[wppCol], slotDaPilula) ? vagaWhatsapp() : null;
       if (vaga !== null) {
         try {
           const argsTemplate = {
@@ -651,6 +727,12 @@ export async function processarEmpresaDiario(
             // Caminho da Cloud API: síncrono, então o carimbo é aqui e agora —
             // não há webhook de fila para confirmar depois.
             if (viaTemplate.ok) { pilulas++; stamp[wppCol] = agora; } else erros++;
+          } else if (recuperandoPilula) {
+            /**
+             * Recuperação (R-94): template recusado ou fora do ar vira nova tentativa DENTRO da janela, e
+             * fica visível (postflight, degradação). NUNCA texto livre: ele está morto desde 13/08/2026,
+             * e enfileirá-lo de novo seria repetir o envio que não chega, agora em mais dois dias.
+             */
           } else if (pendente) {
             /**
              * SEM caminho legado para a variante pendente, de propósito — a
@@ -674,7 +756,7 @@ export async function processarEmpresaDiario(
           }
         } catch { erros++; }
       }
-      if (email && !mesmoDiaUTC(envio[mailCol], hojeUTC)) {
+      if (email && !jaNoSlot(envio[mailCol], slotDaPilula)) {
         const { subject, html } = pendente ? emailPilulaPendente(nome, item, opts) : emailPilula(nome, item, opts);
         const r = await enviarEmailPilula(email, subject, html, {
           // `kind` segue 'pilula': a mensagem ENTREGA conteúdo (com tema e link
@@ -697,7 +779,7 @@ export async function processarEmpresaDiario(
       //
       // `comPush` já garante que só entra quem tem inscrição ativa, então isto
       // não custa nada para quem não aderiu.
-      if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio[pushCol], hojeUTC)) {
+      if (pushLigado && comPush.has(envio.colaborador_id) && !jaNoSlot(envio[pushCol], slotDaPilula)) {
         const texto = pendente ? pushPilulaPendente(semana, temaPilula(item)) : pushPilula(semana, temaPilula(item));
         const r = await enviarPush({
           colaboradorId: envio.colaborador_id,
@@ -759,8 +841,10 @@ export async function processarEmpresaDiario(
      * na semana 1, e a semana 6 continua pendente" e o botão leva de volta para
      * a porta fechada. Travado em `tests/unit/p2-semana-pendente.test.ts`.
      */
-    const enviarSemanaPendente = async () => {
-      const opts = { semana: semanaCalendario, semanaPendente: semana, baseUrl };
+    const enviarSemanaPendente = async (semanaDoRelogioNaMensagem: number = semanaCalendario) => {
+      // `semanaDoRelogioNaMensagem`: depois do fim do plano o relógio passa do total, e "sua trilha está na
+      // semana 9" numa jornada de 7 não faz sentido; a pendência de pós-fim manda o teto do plano (R-94).
+      const opts = { semana: semanaDoRelogioNaMensagem, semanaPendente: semana, baseUrl };
       const agora = new Date().toISOString();
       const stamp: Record<string, string> = {};
 
@@ -768,13 +852,13 @@ export async function processarEmpresaDiario(
       // não passava pelo enfileirador, que era onde a trava morava. Era o maior
       // volume da semana — 61 mensagens na terça 25/08 — inteiramente fora da
       // política.
-      const vagaPend = telefone && !mesmoDiaUTC(envio.ultima_pilula2_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
+      const vagaPend = telefone && !jaNoSlot(envio.ultima_pilula2_whatsapp_em, 'p2') ? vagaWhatsapp() : null;
       if (vagaPend !== null) {
         try {
           const viaTemplate = await enviarPorTemplate('pendencia', {
             telefone, nome,
             // `semana` = calendário e `semanaPendente` = acessível: ver acima.
-            semana: semanaCalendario, semanaPendente: semana,
+            semana: semanaDoRelogioNaMensagem, semanaPendente: semana,
             tema: '',
             slug: (empresa as any).slug, baseUrl,
             // Sem formato: a mensagem não anuncia conteúdo, anuncia pendência.
@@ -794,7 +878,7 @@ export async function processarEmpresaDiario(
         } catch { erros++; }
       }
 
-      if (email && !mesmoDiaUTC(envio.ultima_pilula2_email_em, hojeUTC)) {
+      if (email && !jaNoSlot(envio.ultima_pilula2_email_em, 'p2')) {
         const { subject, html } = emailSemanaPendente(nome, opts);
         // Kind próprio: pendência NÃO é pílula. Reaproveitar o kind faria a
         // contagem de cadência somar uma cobrança como se fosse entrega de
@@ -808,7 +892,7 @@ export async function processarEmpresaDiario(
         if (r.ok) { emails++; stamp.ultima_pilula2_email_em = agora; } else erros++;
       }
 
-      if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_pilula2_push_em, hojeUTC)) {
+      if (pushLigado && comPush.has(envio.colaborador_id) && !jaNoSlot(envio.ultima_pilula2_push_em, 'p2')) {
         const texto = pushSemanaPendente(semana);
         const r = await enviarPush({
           colaboradorId: envio.colaborador_id,
@@ -857,7 +941,7 @@ export async function processarEmpresaDiario(
     const enviarAberturaAvaliacaoFinal = async () => {
       const agora = new Date().toISOString();
       const stamp: Record<string, string> = {};
-      const vagaFinal = avaliacaoFinalLigada && telefone && !mesmoDiaUTC(envio.ultima_pilula1_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
+      const vagaFinal = avaliacaoFinalLigada && telefone && !jaNoSlot(envio.ultima_pilula1_whatsapp_em, 'p1') ? vagaWhatsapp() : null;
       if (vagaFinal !== null) {
         try {
           const viaTemplate = await enviarPorTemplate('avaliacao_final', {
@@ -873,7 +957,7 @@ export async function processarEmpresaDiario(
           }
         } catch { erros++; }
       }
-      if (email && !mesmoDiaUTC(envio.ultima_pilula1_email_em, hojeUTC)) {
+      if (email && !jaNoSlot(envio.ultima_pilula1_email_em, 'p1')) {
         const { subject, html } = emailAvaliacaoFinal(nome, { semana, baseUrl, momento: 'abertura' });
         const r = await enviarEmailPilula(email, subject, html, {
           kind: 'avaliacao_final',
@@ -883,7 +967,7 @@ export async function processarEmpresaDiario(
         });
         if (r.ok) { emails++; stamp.ultima_pilula1_email_em = agora; } else erros++;
       }
-      if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_pilula1_push_em, hojeUTC)) {
+      if (pushLigado && comPush.has(envio.colaborador_id) && !jaNoSlot(envio.ultima_pilula1_push_em, 'p1')) {
         const texto = pushAvaliacaoFinal('abertura');
         const r = await enviarPush({
           colaboradorId: envio.colaborador_id,
@@ -917,12 +1001,14 @@ export async function processarEmpresaDiario(
 
     // Há canal PENDENTE hoje? Ver lib/notifications/carimbo-canal.
     const temPush = comPush.has(envio.colaborador_id);
-    const pendente = (wppCol: string, mailCol: string, pushCol?: string) =>
+    const pendente = (slot: SlotCadencia, wppCol: string, mailCol: string, pushCol?: string) =>
       pilulaPendente({
         temTelefone: !!telefone, temEmail: !!email, temPush,
         carimboWhatsapp: envio[wppCol], carimboEmail: envio[mailCol],
         carimboPush: pushCol ? envio[pushCol] : null,
         hojeUTC,
+        // Numa recuperação, "já saiu" é carimbo desde o dia agendado do papel, não só de hoje.
+        desdeUTC: desdeDoSlot(slot),
       });
 
     /**
@@ -935,8 +1021,33 @@ export async function processarEmpresaDiario(
      */
     const bloqueadaNaAnterior = semana < semanaCalendario;
 
+    // ── PENDÊNCIA DE PÓS-FIM DO PLANO (R-94): o atrasado depois do último dia do calendário ──
+    // Sai ANTES de qualquer outro bloco e encerra o laço da pessoa: passado o fim, não há pílula nem
+    // cobrança da semana, e a quinta NÃO avança mais o relógio (o relógio está além do plano). O aviso
+    // seguinte só vem daqui a 14 dias, medido pelo carimbo da evidência, que esta quinta atualiza.
+    if (posFimPendencia) {
+      pendenciasPosFim++;
+      await enviarSemanaPendente(Math.min(semanaCalendario, totalSemanas));
+      const { error: errAviso } = await tdb.from('fase4_envios')
+        .update({ ultima_evidencia_em: new Date().toISOString() }).eq('id', envio.id);
+      if (errAviso) {
+        // Sem o carimbo o aviso repetiria na quinta seguinte (e não a cada quinzena).
+        erros++;
+        await registrarDegradacao({
+          fluxo: 'envio',
+          tipo: DEGRADACAO.TELEMETRIA_ENTREGA_FALHOU,
+          chave: `carimbo-pendencia-pos-fim:${empresa.id}`,
+          empresaId: empresa.id,
+          severidade: 'aviso',
+          detalhe: { motivo: errAviso.message, envioId: envio.id },
+        });
+      }
+      continue;
+    }
+
     // ── 1ª PÍLULA (com a PENDÊNCIA embutida, para quem está travado) ──
-    if (hoje === diaP1 && !ehAvaliacaoFinal && !ehImpl(semana, plan) && conteudosDia[0] && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
+    if (slotAtivo('p1') && !ehAvaliacaoFinal && !ehImpl(semana, plan) && conteudosDia[0] && pendente('p1', 'ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
+      if (recSlot('p1')) recuperacoes++;
       await enviarPilulaDia(conteudosDia[0], 'ultima_pilula1_em', conteudoPendenteLigado && bloqueadaNaAnterior);
     }
 
@@ -946,7 +1057,8 @@ export async function processarEmpresaDiario(
     // 36/36 sem envio na segunda da semana 4). Agora a segunda abre a semana
     // com texto padrão + vídeo explicativo + deep-link. Reusa os carimbos da
     // pílula 1 (idempotência); o postflight não mede semana de aplicação.
-    if (hoje === diaP1 && plan?.tipo === 'aplicacao' && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
+    if (slotAtivo('p1') && plan?.tipo === 'aplicacao' && pendente('p1', 'ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
+      if (recSlot('p1')) recuperacoes++;
       // acao_principal precisa do plano NORMALIZADO — no banco a missão pode
       // estar como JSON cru/truncado (estado real de 33/36 trilhas da Ibipeba).
       let acaoPrincipal: string | null = null;
@@ -959,7 +1071,7 @@ export async function processarEmpresaDiario(
       const agora = new Date().toISOString();
       const stamp: Record<string, string> = {};
       let whatsappEnfileirado = false;
-      const vagaMissao = telefone && !mesmoDiaUTC(envio.ultima_pilula1_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
+      const vagaMissao = telefone && !jaNoSlot(envio.ultima_pilula1_whatsapp_em, 'p1') ? vagaWhatsapp() : null;
       if (vagaMissao !== null) {
         try {
           // Cloud API primeiro (`missao_semana_v2`, UTILITY desde 16/08/2026).
@@ -978,7 +1090,8 @@ export async function processarEmpresaDiario(
           if (viaTemplate.tentou) {
             // Caminho da Cloud API: síncrono, então o carimbo é aqui e agora.
             if (viaTemplate.ok) { pilulas++; stamp.ultima_pilula1_whatsapp_em = agora; } else erros++;
-          } else {
+          } else if (!recSlot('p1')) {
+            // Recuperação (R-94) NÃO cai aqui: texto livre morto desde 13/08/2026.
             // Mesmo contrato da pílula: carimbo do canal só no webhook, pós-envio.
             const enfileirou = await agendarWhatsapp({
               telefone,
@@ -990,7 +1103,7 @@ export async function processarEmpresaDiario(
           }
         } catch { erros++; }
       }
-      if (email && !mesmoDiaUTC(envio.ultima_pilula1_email_em, hojeUTC)) {
+      if (email && !jaNoSlot(envio.ultima_pilula1_email_em, 'p1')) {
         const { subject, html } = emailMissao(nome, optsMissao);
         // Kind próprio: a missão da semana de aplicação NÃO é pílula. Reaproveitar
         // o kind faria a contagem de cadência incluir um evento de outra natureza.
@@ -1002,7 +1115,7 @@ export async function processarEmpresaDiario(
         });
         if (r.ok) { emails++; stamp.ultima_pilula1_email_em = agora; } else erros++;
       }
-      if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_pilula1_push_em, hojeUTC)) {
+      if (pushLigado && comPush.has(envio.colaborador_id) && !jaNoSlot(envio.ultima_pilula1_push_em, 'p1')) {
         const texto = pushMissao(semana);
         const r = await enviarPush({
           colaboradorId: envio.colaborador_id,
@@ -1021,7 +1134,8 @@ export async function processarEmpresaDiario(
     }
 
     // ── AVALIAÇÃO FINAL: a segunda ANUNCIA que ela abriu (R-89) ──
-    if (hoje === diaP1 && avaliacaoFinalAberta && pendente('ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
+    if (slotAtivo('p1') && avaliacaoFinalAberta && pendente('p1', 'ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
+      if (recSlot('p1')) recuperacoes++;
       await enviarAberturaAvaliacaoFinal();
     }
 
@@ -1066,11 +1180,13 @@ export async function processarEmpresaDiario(
      * `conteudo_pendente` sem `pendencia` é legítimo e cai no mesmo lugar.
      */
     if (
-      hoje === diaP2 && pendenciaLigada && !conteudoPendenteLigado && bloqueadaNaAnterior
-      && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')
+      slotAtivo('p2') && pendenciaLigada && !conteudoPendenteLigado && bloqueadaNaAnterior
+      && pendente('p2', 'ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')
     ) {
+      if (recSlot('p2')) recuperacoes++;
       await enviarSemanaPendente();
-    } else if (hoje === diaP2 && !ehAvaliacaoFinal && !ehImpl(semana, plan) && conteudosDia[1] && pendente('ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')) {
+    } else if (slotAtivo('p2') && !ehAvaliacaoFinal && !ehImpl(semana, plan) && conteudosDia[1] && pendente('p2', 'ultima_pilula2_whatsapp_em', 'ultima_pilula2_email_em', 'ultima_pilula2_push_em')) {
+      if (recSlot('p2')) recuperacoes++;
       await enviarPilulaDia(conteudosDia[1], 'ultima_pilula2_em');
     }
 
@@ -1078,9 +1194,15 @@ export async function processarEmpresaDiario(
     // Gate POR CANAL (mig 213): olhar só `ultima_evidencia_em` fecharia a porta
     // para a recuperação do canal que falhou — com o e-mail entregue e o WhatsApp
     // fora, aquele carimbo já existe. É o mesmo raciocínio de `pilulaPendente`.
-    if (hoje === diaEv && pendente('ultima_evidencia_whatsapp_em', 'ultima_evidencia_email_em', 'ultima_evidencia_push_em')) {
+    if (slotAtivo('ev') && pendente('ev', 'ultima_evidencia_whatsapp_em', 'ultima_evidencia_email_em', 'ultima_evidencia_push_em')) {
+      if (recSlot('ev')) recuperacoes++;
       // Nudge de inatividade (2+ semanas sem envio) — não avança semana.
-      if (ultimoEnvio && (Date.now() - ultimoEnvio) / 86_400_000 >= 14) {
+      //
+      // Na RECUPERAÇÃO (R-94) quem estava inativo antes do dia da evidência já recebeu (ou deveria ter
+      // recebido) o nudge de inatividade na quinta: a sexta não lhe manda a cobrança do desafio por
+      // cima, e o nudge também não se refaz, que é uma mensagem de outra natureza.
+      if (!agendado('ev') && ultimoEnvioAntesDoEv && (inicioDoDiaEv! - ultimoEnvioAntesDoEv) / 86_400_000 >= 14) continue;
+      if (agendado('ev') && ultimoEnvio && (Date.now() - ultimoEnvio) / 86_400_000 >= 14) {
         const vagaNudge = telefone ? vagaWhatsapp() : null;
         if (vagaNudge !== null) {
           const nudgeMsg = `Olá, ${nome}! 👋\n\nNotamos que você está há mais de 2 semanas sem interagir com sua trilha.\n\nQue tal retomar hoje?\n\n— Vertho Mentor IA`;
@@ -1164,7 +1286,7 @@ export async function processarEmpresaDiario(
 
       // Avaliação final só sai por WhatsApp com o template dela LIGADO: a vaga
       // não é gasta com quem não vai receber nada por esse canal.
-      const vagaEv = !concluiuSemanaAcessivel && telefone && (!ehAvaliacaoFinal || avaliacaoFinalLigada) && !mesmoDiaUTC(envio.ultima_evidencia_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
+      const vagaEv = !concluiuSemanaAcessivel && telefone && (!ehAvaliacaoFinal || avaliacaoFinalLigada) && !jaNoSlot(envio.ultima_evidencia_whatsapp_em, 'ev') ? vagaWhatsapp() : null;
       if (vagaEv !== null) {
         const mensagem = ehDesafio
           ? templateWhatsAppNudgeDesafio(nome, semana, linkSemana)
@@ -1189,7 +1311,8 @@ export async function processarEmpresaDiario(
           if (viaTemplate.tentou) {
             // Cloud API é síncrona: o carimbo é aqui, não no webhook da fila.
             if (viaTemplate.ok) { evidencias++; stampEv.ultima_evidencia_whatsapp_em = agoraEv; } else erros++;
-          } else if (!ehAvaliacaoFinal) {
+          } else if (!ehAvaliacaoFinal && !recSlot('ev')) {
+            // Recuperação (R-94) NÃO cai aqui: texto livre morto desde 13/08/2026.
             // Sem caminho legado para a avaliação final: o texto livre da fila
             // é o da evidência, a promessa falsa que o R-89 tirou daqui.
             // Carimbo do canal vem do webhook, PÓS-envio — mesmo contrato da
@@ -1204,7 +1327,7 @@ export async function processarEmpresaDiario(
         } catch { erros++; }
       }
 
-      if (!concluiuSemanaAcessivel && email && !ehDemo && !mesmoDiaUTC(envio.ultima_evidencia_email_em, hojeUTC)) {
+      if (!concluiuSemanaAcessivel && email && !ehDemo && !jaNoSlot(envio.ultima_evidencia_email_em, 'ev')) {
         const { subject, html } = ehAvaliacaoFinal
           ? emailAvaliacaoFinal(nome, { semana, baseUrl, momento: 'cobranca' })
           : emailEvidencia(nome, { semana, baseUrl });
@@ -1217,7 +1340,7 @@ export async function processarEmpresaDiario(
         if (r.ok) { emails++; stampEv.ultima_evidencia_email_em = agoraEv; } else erros++;
       }
 
-      if (!concluiuSemanaAcessivel && pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_evidencia_push_em, hojeUTC)) {
+      if (!concluiuSemanaAcessivel && pushLigado && comPush.has(envio.colaborador_id) && !jaNoSlot(envio.ultima_evidencia_push_em, 'ev')) {
         const texto = ehAvaliacaoFinal ? pushAvaliacaoFinal('cobranca') : pushEvidencia(semana);
         const r = await enviarPush({
           colaboradorId: envio.colaborador_id,
@@ -1242,7 +1365,7 @@ export async function processarEmpresaDiario(
       //
       // `ultima_evidencia_em` continua sendo a alavanca do calendário (decisão de
       // produto: o avanço não depende de canal entregue), agora com um papel só.
-      if (!mesmoDiaUTC(envio.ultima_evidencia_em, hojeUTC)) {
+      if (!jaNoSlot(envio.ultima_evidencia_em, 'ev')) {
         stampEv.ultima_evidencia_em = agoraEv;
         // 🔴 `semanaCalendario + 1`, NUNCA `semana + 1`: quem está travado
         // recebe a pílula de uma semana antiga, e somar 1 sobre ELA jogaria o
@@ -1274,7 +1397,7 @@ export async function processarEmpresaDiario(
     });
   }
 
-  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio };
+  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, pendenciasPosFim };
 }
 
 /**
