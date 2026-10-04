@@ -3,7 +3,8 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
-import { selectDescriptors, selectDescriptorsPiloto } from '@/lib/season-engine/select-descriptors';
+import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsPiloto } from '@/lib/season-engine/select-descriptors';
+import { escolherCenarioB } from '@/lib/season-engine/cenario-b';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { entregaEhReal } from '@/lib/season-engine/week-gating';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
@@ -12,7 +13,8 @@ import { getProgramaConfigByModo, getProgramaConfigDaTrilha, normalizarModoProgr
 import { conteudosServiveisPorCargo } from '@/lib/season-engine/build-season';
 import { carregarConfigsEfetivasEmLote } from '@/lib/turmas';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
-import { gerarTemporadaCoreHeadless, normalizarSemanas, resolverCompetenciasDoPersonalizado } from '@/lib/season-engine/trilha-core';
+import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { gerarTemporadaCoreHeadless, normalizarSemanas, resolverCompetenciasDoOnboarding, resolverCompetenciasDoPersonalizado } from '@/lib/season-engine/trilha-core';
 import type { AIConfig } from './ai-client';
 import { z } from 'zod';
 import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction, assertTenantAccessAction } from '@/lib/auth/action-context';
@@ -80,15 +82,21 @@ async function gerarTemporadaCore(params: GerarTemporadaParams = {}) {
 }
 
 /**
- * Check de PRONTIDÃO do Piloto (admin, antes de liberar): pra cada colaborador,
- * resolve a competência âncora + top-4 descritores e verifica POR PRESENÇA:
+ * Check de PRONTIDÃO (admin, antes de liberar) do Piloto, do Personalizado e do
+ * Onboarding: pra cada colaborador, resolve a competência âncora + top-4
+ * descritores (Onboarding: as 5 competências do Top 5 do cargo) e verifica POR
+ * PRESENÇA:
  *   - CORE (bloqueador): descritor sem NENHUM micro-conteúdo utilizável
  *     (nem match direto do descritor, nem pool da competência) → a semana
  *     nasceria com fallback templated. Sinalizado como bloqueador.
  *   - Match direto ausente (aviso): usa pool da competência — degrada, ok.
  *   - Formatos opcionais faltando: ok, o switch degrada.
  *   - Cenário B (bloqueador do fechamento): sem banco_cenarios tipo
- *     'cenario_b' pro cargo → fechamento retornaria 424. Gerar via Fase 5.
+ *     'cenario_b' DA COMPETÊNCIA da trilha → fechamento retornaria 424. Gerar via
+ *     Fase 5. A régua é a MESMA do fechamento (`escolherCenarioB`, R-21): antes
+ *     olhava só o cargo, e a pessoa aparecia "pronta" com o B de outra
+ *     competência, ou com B só por competência num Onboarding que precisa de um
+ *     que cubra as 5.
  */
 const ProntidaoInput = z.object({ empresaId: z.string().min(1) });
 
@@ -107,24 +115,20 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
     // O modo é o que a GERAÇÃO resolveria para cada pessoa, na MESMA precedência
     // (participação → turma → override do colaborador → empresa → Jornada): o
     // check cobre quem resolveria pra degustação, 'piloto' (preset) OU 'custom'
-    // (builder). Lia só o override e a empresa, e dizia "pronto" ou "sem alvo"
+    // (builder) OU 'onboarding'. Lia só o override e a empresa, e dizia "pronto" ou "sem alvo"
     // sobre uma config que a turma da pessoa pode ter trocado (R-101).
     const configPorColab = await carregarConfigsEfetivasEmLote(sbRaw, empresaId, todosColabs as any[], empresa?.sys_config || {});
     const modoPorColab = new Map<string, string>(
       (todosColabs as any[]).map(c => [c.id, normalizarModoPrograma(configPorColab.get(c.id)?.programa_modo)]),
     );
     const colabs = (todosColabs as any[]).filter(
-      c => modoPorColab.get(c.id) === 'piloto' || modoPorColab.get(c.id) === 'custom',
+      c => ['piloto', 'custom', 'onboarding'].includes(modoPorColab.get(c.id) as string),
     );
     if (!colabs.length) {
-      throw new Error(`Nenhum colaborador resolveria pra piloto/personalizado (default da empresa: ${empresa?.sys_config?.programa_modo || 'jornada, o padrão'}; nenhum override individual nem de turma). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
+      throw new Error(`Nenhum colaborador resolveria pra piloto, personalizado ou onboarding (default da empresa: ${empresa?.sys_config?.programa_modo || 'jornada, o padrão'}; nenhum override individual). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
     }
     const configPiloto = getProgramaConfigByModo('piloto');
-
-    // Cenários B disponíveis por cargo (fechamento)
-    const { data: cenariosB } = await tdb.from('banco_cenarios')
-      .select('cargo').eq('tipo_cenario', 'cenario_b');
-    const cargosComCenarioB = new Set((cenariosB || []).map((c: any) => c.cargo));
+    const configOnboarding = getProgramaConfigByModo('onboarding');
 
     const resultados: any[] = [];
     const conteudoCache: Record<string, any[]> = {};
@@ -166,7 +170,7 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
       // empresa. Inválida/ausente → bloqueador por colaborador custom.
       const cfgEfetiva = configPorColab.get(colab.id) || {};
       const inputsCustom = modoColab === 'custom' ? parseProgramaCustom(cfgEfetiva.programa_custom) : null;
-      const cfg = modoColab === 'custom' ? (inputsCustom ? derivarConfigCustom(inputsCustom) : null) : configPiloto;
+      const cfg = modoColab === 'custom' ? (inputsCustom ? derivarConfigCustom(inputsCustom) : null) : modoColab === 'onboarding' ? configOnboarding : configPiloto;
       if (!cfg) {
         resultados.push({ colaborador: colab.nome_completo, pronto: false, bloqueadores: ['Modo Personalizado sem configuração válida (sys_config.programa_custom) — defina em Configurações → Programa'] });
         continue;
@@ -174,7 +178,8 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
 
       // Competência âncora — MESMA resolução da geração (trilha → cargo)
       const ancora: string | undefined = compPorColab.get(colab.id) || (colab.cargo ? compPorCargo.get(colab.cargo) : undefined);
-      if (!ancora) {
+      // O Onboarding cobre o Top 5 do cargo e não usa a competência foco.
+      if (!ancora && modoColab !== 'onboarding') {
         resultados.push({ colaborador: colab.nome_completo, pronto: false, bloqueadores: ['Sem competência foco resolvível (trilha/cargo)'] });
         continue;
       }
@@ -191,7 +196,21 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
       //    Com 2 competências, a geração exige as duas resolvidas e mapeadas
       //    antes de gerar a primeira; aqui é a mesma checagem, como bloqueador.
       const alvos: { competencia: string; descritores: string[] }[] = [];
-      if (modoColab === 'custom') {
+      if (modoColab === 'onboarding') {
+        //  - Onboarding (R-100): as competências do Top 5 do cargo, cada uma com
+        //    a avaliação da pessoa, pela MESMA função da geração. O que a geração
+        //    recusaria vira bloqueador aqui, com a mesma mensagem. A config é a da
+        //    empresa (o modo desta tela também é resolvido no nível da empresa).
+        const resolvido = await resolverCompetenciasDoOnboarding(tdb, colab, empresa?.sys_config, cfg.numCompetencias || 5);
+        if ('error' in resolvido) {
+          bloqueadores.push(resolvido.error);
+        } else {
+          const sel = selectDescriptorsMulti(resolvido.assessments, cfg.semanaParaCompetenciaIdx!, cfg.nivelMetaAlvo);
+          for (const comp of resolvido.competencias) {
+            alvos.push({ competencia: comp, descritores: sel.filter(d => d.competencia === comp).map(d => d.descritor) });
+          }
+        }
+      } else if (modoColab === 'custom') {
         let comps = [ancora];
         if ((inputsCustom?.numCompetencias || 1) >= 2) {
           const chave = `${colab.cargo || ''}|${ancora}`;
@@ -257,17 +276,33 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
         }
       }
 
-      // Fechamento: cenário B do cargo (a rota busca cargo do colab || 'todos').
-      // Modo SEM fechamento (custom, semanasAvaliacao=[]) não precisa de Cenário B.
-      if (cfg.semanasAvaliacao.length > 0
-          && !cargosComCenarioB.has(colab.cargo || 'todos') && !cargosComCenarioB.has('todos')) {
-        bloqueadores.push(`Fechamento sem Cenário B pro cargo "${colab.cargo || 'todos'}" — gere na Fase 5 (Cenários B em lote)`);
+      // Fechamento: o Cenário B tem que ser DA COMPETÊNCIA da trilha, pela MESMA
+      // escolha que o fechamento faz (`escolherCenarioB`, R-21). Cada trilha do
+      // Piloto e do Personalizado fecha em UMA competência; o Onboarding fecha
+      // nas 5 de uma vez e precisa de um B que cubra todas (integrador). Modo SEM
+      // fechamento (custom, semanasAvaliacao=[]) não precisa de Cenário B.
+      if (cfg.semanasAvaliacao.length > 0 && alvos.length > 0) {
+        const cargoB = colab.cargo || 'todos';
+        const grupos = modoColab === 'onboarding' ? [alvos.map(a => a.competencia)] : alvos.map(a => [a.competencia]);
+        for (const comps of grupos) {
+          let escolha: Awaited<ReturnType<typeof escolherCenarioB>>;
+          try {
+            escolha = await escolherCenarioB(sbRaw, empresaId, cargoB, comps, { registrar: false });
+          } catch (e: any) {
+            bloqueadores.push(`Fechamento: não consegui conferir o Cenário B (${e?.message || e})`);
+            continue;
+          }
+          if (escolha.cenario) continue;
+          bloqueadores.push(comps.length > 1
+            ? `Fechamento sem Cenário B que cubra as ${comps.length} competências do programa (${comps.join(', ')}): o lote de Cenários B gera um por competência, e o fechamento do Onboarding precisa de um B integrador que cubra todas. Cadastre-o antes da semana do fechamento`
+            : `Fechamento sem Cenário B da competência "${comps[0]}" pro cargo "${cargoB}": gere na Fase 5 (Cenários B em lote). O B de outra competência não serve, o fechamento avaliaria a coisa errada`);
+        }
       }
 
       resultados.push({
         colaborador: colab.nome_completo,
         cargo: colab.cargo,
-        competencia: alvos.map(a => a.competencia).join(' + ') || ancora,
+        competencia: alvos.map(a => a.competencia).join(' + ') || ancora || '',
         modo: modoColab,
         descritores: alvos.flatMap(a => a.descritores),
         pronto: bloqueadores.length === 0,
@@ -411,7 +446,7 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
     const sb = await requireAdminSupabase();
     const trilha = await findTrilhaComTenant(
       sb, trilhaId,
-      'id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados',
+      'id, colaborador_id, empresa_id, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados, programa_modo, programa_config',
     );
     if (!trilha) throw new Error('Trilha não encontrada');
     await assertTenantAccessAction(ctx, trilha.empresa_id);
@@ -451,7 +486,11 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
     } else if (slot.tipo === 'aplicacao') {
       const { promptCenario, parseCenarioResponse, cenarioToMarkdown } = await import('@/lib/season-engine/prompts/scenario');
       const { promptMissao, parseMissaoResponse, missaoToMarkdown } = await import('@/lib/season-engine/prompts/missao');
-      const complexidade = ({ 4: 'simples', 8: 'intermediario', 12: 'completo' } as Record<number, string>)[semana] || 'intermediario';
+      // A complexidade da semana é a que a CONFIG da trilha gravou na geração
+      // (R-127): `{4, 8, 12}` fixos valiam só no formato de 14 semanas, e a missão
+      // da semana 8 do Onboarding (a última, "completa") saía "intermediária".
+      const programaConfig = await resolverConfigDaTrilha(sb, trilha);
+      const complexidade = programaConfig.complexidadeMap[semana] || 'intermediario';
       const descritores = slot.descritores_cobertos || [];
       const comps = resolveCompetenciasSlot(trilha, slot);
       const m = promptMissao({

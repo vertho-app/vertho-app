@@ -8,6 +8,7 @@ import { parseJsonIA } from '@/lib/ai-json';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { getModelForTask } from '@/lib/ai-tasks';
 import { PROGRESSO } from '@/lib/status';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { linhasDaReflexaoSemanal } from '@/lib/season-engine/evidencia-semana';
 
 /**
@@ -187,7 +188,7 @@ export async function gerarAvaliacaoAcumuladaParcialCore(trilhaId: string, compe
         nomeColab: colabMasked.nome,
         nivelMetaAlvo,
       });
-      const r = await callAI(system, user, {}, 12000, { taskKey: 'acumulada_primaria' });
+      const r = await callAI(system, user, {}, 12000, { taskKey: 'acumulada_primaria', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id });
       // Todo texto do resultado volta com o nome (trechos e limites incluídos).
       const primaria = unmaskDeepPII(validateAvaliacaoAcumulada(parseJsonIA(r)), piiMap);
       acumuladosPorComp.push({ competencia: comp, primaria });
@@ -204,21 +205,86 @@ export async function gerarAvaliacaoAcumuladaParcialCore(trilhaId: string, compe
     competencias: competenciasFiltro,
     por_competencia: acumuladosPorComp,
   };
-  const { data: progSemFim } = await tdb.from('temporada_semana_progresso')
+  const { data: progSemFim, error: errProgSemFim } = await tdb.from('temporada_semana_progresso')
     .select('id, feedback').eq('trilha_id', trilhaId).eq('semana', semFim).maybeSingle();
-  if (progSemFim) {
-    const novoFb = { ...(progSemFim.feedback || {}), acumulado: payload };
-    await tdb.from('temporada_semana_progresso').update({ feedback: novoFb }).eq('id', progSemFim.id);
-  } else {
-    await tdb.from('temporada_semana_progresso').insert({
+  // Leitura que falha não pode virar "não há linha": o erro é lido, e a
+  // gravação também. Antes a leitura parcial "concluía" sem ter gravado nada.
+  if (errProgSemFim) return { error: `falha ao ler a semana ${semFim} para gravar a acumulada parcial: ${errProgSemFim.message}` };
+  const { error: errGravar } = progSemFim
+    ? await tdb.from('temporada_semana_progresso')
+      .update({ feedback: { ...(progSemFim.feedback || {}), acumulado: payload } }).eq('id', progSemFim.id)
+    : await tdb.from('temporada_semana_progresso').insert({
       trilha_id: trilhaId,
       colaborador_id: trilha.colaborador_id,
       semana: semFim, tipo: 'aplicacao', status: PROGRESSO.EM_ANDAMENTO,
       feedback: { acumulado: payload },
     });
-  }
+  if (errGravar) return { error: `falha ao gravar a acumulada parcial: ${errGravar.message}` };
 
   return { ok: true, parcial: true, acumuladosPorComp };
+}
+
+/**
+ * A acumulada PARCIAL de uma missão integradora do Onboarding, COM STATUS
+ * (R-100, 04/10/2026). É o que a rota `/reflection` chama dentro do `after()`.
+ *
+ * Antes o `after()` rodava o núcleo "no escuro": sem status, sem registro de
+ * falha (um `console.error`) e sem como saber depois se a leitura tinha saído.
+ * Agora a linha da semana da missão carrega `acumulada_status`
+ * (`processing` → `done` | `error`) e `acumulada_erro`, as mesmas colunas que a
+ * acumulada do piloto já usa, sem migration; e a falha vira linha em
+ * `degradacao_log` (`acumulada-parcial-falhou`), que o health lê.
+ *
+ * Continua só com a 1ª IA, por desenho (o FEATURES diz que a leitura parcial não
+ * passa pela 2ª) e continua sem tela de gestor ou RH: quem a lê é o painel
+ * interno da Vertho. NUNCA lança: roda depois da resposta da conversa.
+ */
+export async function rodarAcumuladaParcialComStatus(
+  trilhaId: string,
+  competencias: string[],
+  semana: number,
+  opts: { empresaId: string },
+): Promise<{ ok: boolean; erro?: string }> {
+  const tdb = tenantDb(opts.empresaId);
+  // Status é observabilidade, não gate: falhar em gravá-lo não derruba a leitura.
+  const marcar = async (campos: Record<string, any>) => {
+    const { error } = await tdb.from('temporada_semana_progresso')
+      .update(campos).eq('trilha_id', trilhaId).eq('semana', semana);
+    if (error) console.error('[acumulada parcial] status não gravado:', error.message);
+  };
+
+  await marcar({ acumulada_status: 'processing', acumulada_erro: null, acumulada_started_at: new Date().toISOString() });
+
+  let erro: string | null = null;
+  try {
+    const r: any = await gerarAvaliacaoAcumuladaParcialCore(trilhaId, competencias, semana, { empresaId: opts.empresaId });
+    if (r?.error) {
+      erro = String(r.error);
+    } else {
+      const falhas = (r?.acumuladosPorComp || []).filter((c: any) => c?.error);
+      if (falhas.length > 0) {
+        erro = `${falhas.length} de ${(r.acumuladosPorComp || []).length} competência(s) sem leitura: ${falhas.map((c: any) => `${c.competencia} (${c.error})`).join('; ')}`;
+      }
+    }
+  } catch (e: any) {
+    erro = String(e?.message || e);
+  }
+
+  if (erro) {
+    console.error('[onboarding acumulada parcial]', erro);
+    await marcar({ acumulada_status: 'error', acumulada_erro: erro.slice(0, 500) });
+    await registrarDegradacao({
+      fluxo: 'trilha',
+      tipo: DEGRADACAO.ACUMULADA_PARCIAL_FALHOU,
+      chave: `${trilhaId}:${semana}`,
+      empresaId: opts.empresaId,
+      detalhe: { erro: erro.slice(0, 500), semana, competencias },
+    });
+    return { ok: false, erro };
+  }
+
+  await marcar({ acumulada_status: 'done', acumulada_erro: null });
+  return { ok: true };
 }
 
 /**

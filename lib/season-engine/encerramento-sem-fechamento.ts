@@ -1,25 +1,67 @@
 /**
- * Depois do encerramento do Personalizado SEM fechamento (03/10/2026).
+ * O encerramento do Personalizado SEM fechamento (03/10/2026) e o que vem depois.
  *
  * Sem slot de avaliação no plano, o caminho normal de conclusão
  * (`gerarEvolutionReportCore`, que EXIGE o fechamento pontuado) nunca roda: a
  * trilha conclui quando a última semana de conteúdo conclui, na rota
  * /reflection, por um `update` que grava o relatório e o status.
  *
- * ⚠️ Aquele `update` não lê o `{ error }` que o supabase-js RETORNA, e é dívida
- * DECLARADA do guard E11 (`config/error-nao-checado-allowlist.json`). Mudar o
- * texto dele obrigaria a encolher a allowlist, que é zona do dono, então ele
- * ficou como estava. Esta função fecha o efeito da dívida em vez de esconder:
- * relê a trilha (com o erro lido) e só encadeia a próxima competência se a
- * trilha estiver MESMO concluída. Se não estiver, a falha vira linha crítica
- * em `degradacao_log`: a pessoa terminou tudo e não vê relatório nem
- * certificado, e não há um passo seguinte dela que tente de novo.
+ * `encerrarTrilhaSemFechamento` é esse `update`, COM o `{ error }` lido (R-138,
+ * 04/10/2026). Antes ele ficava na rota sem ler o erro (dívida declarada do guard
+ * E11) e a rota respondia normalmente mesmo quando a trilha não tinha concluído:
+ * a pessoa terminava tudo e não via relatório nem certificado, sem que ninguém
+ * soubesse. Agora a falha é registrada (crítico) e devolvida à rota, que responde
+ * o estado real, e a próxima fala na conversa encerrada tenta de novo.
  *
- * Roda dentro de `after()`, depois da resposta da conversa: nunca lança.
+ * `aposEncerramentoSemFechamento` roda depois, dentro de `after()`: relê a trilha
+ * (com o erro lido) e só encadeia a próxima competência se ela estiver MESMO
+ * concluída. Fica como segunda trava.
  */
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { TRILHA } from '@/lib/status';
 import { encadearAposConclusao, type ResultadoEncadeamento } from './encadear-jornada';
+import { montarReportSemFechamento } from './programa-custom';
+
+export type ResultadoEncerramento = { ok: true; encerrou: boolean } | { ok: false; erro: string };
+
+/**
+ * Conclui a trilha gravando o relatório de programa completo. Idempotente: só
+ * age em trilha que ainda não concluiu (`encerrou: false` = já estava
+ * concluída, nada foi reescrito, e o relatório e a data originais ficam).
+ * Nunca lança: a falha volta como `{ ok: false }` e fica em `degradacao_log`.
+ */
+export async function encerrarTrilhaSemFechamento(
+  sb: any,
+  trilha: { id: string; empresa_id: string; colaborador_id?: string | null; competencia_foco?: string | null; descritores_selecionados?: any },
+): Promise<ResultadoEncerramento> {
+  let erro: string | null = null;
+  let encerrou = false;
+  try {
+    const { data, error } = await sb.from('trilhas').update({
+      evolution_report: montarReportSemFechamento(trilha),
+      evolution_generated_at: new Date().toISOString(),
+      status: TRILHA.CONCLUIDA,
+    }).eq('id', trilha.id).eq('empresa_id', trilha.empresa_id).neq('status', TRILHA.CONCLUIDA).select('id');
+    if (error) erro = String(error.message || error);
+    else encerrou = Array.isArray(data) && data.length > 0;
+  } catch (e: any) {
+    erro = String(e?.message || e);
+  }
+  if (erro) {
+    console.error('[encerramento sem fechamento] trilha não concluída:', erro);
+    await registrarDegradacao({
+      fluxo: 'trilha',
+      tipo: DEGRADACAO.ENCERRAMENTO_SEM_FECHAMENTO_FALHOU,
+      chave: trilha.id,
+      empresaId: trilha.empresa_id,
+      colaboradorId: trilha.colaborador_id ?? null,
+      severidade: 'critico',
+      detalhe: { erro: `gravação da conclusão: ${erro.slice(0, 300)}` },
+    });
+    return { ok: false, erro };
+  }
+  return { ok: true, encerrou };
+}
 
 export interface TrilhaEncerrada {
   id: string;

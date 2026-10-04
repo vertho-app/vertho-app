@@ -135,3 +135,32 @@ describe('repararCoreOrfaoDaSemana · re-seleção roteada pelo motor (F-I2)', (
     expect(r.reparados).toBe(0);
   });
 });
+
+describe('repararCoreOrfaoDaSemana · o nível usa o alvo que o PLANO gravou (R-100)', () => {
+  // Duas faixas de nível, duas opções em cada (o recorte só vale com 2+ na faixa).
+  const faixas = [
+    { id: 'n1', titulo: 'Iniciante 1', formato: 'texto', competencia: 'Autocuidado', descritor: 'D1', cargo: 'Professor', ativo: true, nivel_min: 1, nivel_max: 2, versao: 1, taxa_conclusao: 0.4 },
+    { id: 'n2', titulo: 'Iniciante 2', formato: 'video', competencia: 'Autocuidado', descritor: 'D1', cargo: 'Professor', ativo: true, nivel_min: 1, nivel_max: 2, versao: 1, taxa_conclusao: 0.3 },
+    { id: 'a1', titulo: 'Avançado 1', formato: 'texto', competencia: 'Autocuidado', descritor: 'D1', cargo: 'Professor', ativo: true, nivel_min: 2.1, nivel_max: 4, versao: 1, taxa_conclusao: 0.4 },
+    { id: 'a2', titulo: 'Avançado 2', formato: 'video', competencia: 'Autocuidado', descritor: 'D1', cargo: 'Professor', ativo: true, nivel_min: 2.1, nivel_max: 4, versao: 1, taxa_conclusao: 0.3 },
+  ];
+  const slotCom = (nivel_alvo?: number) => ({
+    semana: 1, tipo: 'conteudo', competencia: 'Autocuidado', descritor: 'D1', nivel_atual: 1.5,
+    ...(nivel_alvo === undefined ? {} : { nivel_alvo }),
+    conteudo: { core_id: 'morto', core_titulo: 'Morto', core_url: null, formato_core: 'texto', core_reuso: false, formatos_disponiveis: {}, fallback_gerado: false },
+  });
+
+  it('plano de Onboarding (alvo 2): a nota 1,5 mira 1,75 e escolhe na faixa iniciante', async () => {
+    const slot: any = slotCom(2);
+    await repararCoreOrfaoDaSemana(sbComPool(faixas), slot, OPTS);
+    expect(['n1', 'n2']).toContain(slot.conteudo.core_id);
+  });
+
+  it('plano sem alvo gravado, ou de alvo 3 (todos os outros modos): mira 2,25, como o build', async () => {
+    for (const alvo of [undefined, 3]) {
+      const slot: any = slotCom(alvo);
+      await repararCoreOrfaoDaSemana(sbComPool(faixas), slot, OPTS);
+      expect(['a1', 'a2']).toContain(slot.conteudo.core_id);
+    }
+  });
+});

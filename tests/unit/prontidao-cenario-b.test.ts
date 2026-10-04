@@ -1,0 +1,196 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { criarSupabaseMock } from '../helpers/supabase-mock';
+
+/**
+ * A PRONTIDÃO (admin, antes de liberar) usa a MESMA escolha do fechamento
+ * (`escolherCenarioB`), não "existe algum B no cargo" (R-21, 04/10/2026).
+ *
+ * Antes ela só olhava o cargo: a pessoa aparecia "pronta" com o Cenário B de
+ * OUTRA competência na estante, e o fechamento, semanas depois, respondia 424.
+ * No Onboarding o fechamento é nas 5 competências de uma vez, e o gerador de
+ * Cenário B faz UM por competência: sem um B integrador que cubra as 5, ninguém
+ * fecha. O Onboarding também não era verificado por esta tela.
+ *
+ * Mutação: ver o relatório do lote 11.
+ */
+
+const h = vi.hoisted(() => ({ sbRaw: null as any, tdb: null as any }));
+
+vi.mock('@/lib/auth/protected-action', () => ({
+  DomainError: class DomainError extends Error {
+    codigo?: string;
+    constructor(m: string, c?: string) { super(m); this.codigo = c; }
+  },
+  protectedAction: (_perm: any, schema: any, fn: any) => async (raw: any) => {
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) return { success: false, error: 'Dados inválidos', code: 'VALIDATION' };
+    try {
+      return { success: true, data: await fn({ email: 'admin@test.com' }, parsed.data) };
+    } catch (e: any) {
+      return { success: false, error: String(e?.message ?? e) };
+    }
+  },
+}));
+vi.mock('@/lib/auth/action-context', () => ({
+  requireAdminAction: async () => ({}),
+  requireUserAction: async () => ({}),
+  getAuthenticatedEmailFromAction: async () => null,
+  assertTenantAccessAction: async () => {},
+}));
+vi.mock('@/lib/admin-supabase', () => ({ requireAdminSupabase: async () => h.sbRaw.client }));
+vi.mock('@/lib/tenant-db', () => ({ tenantDb: () => h.tdb.client }));
+vi.mock('@/lib/authz', () => ({ findColabByEmail: async () => null, canViewColabJourney: async () => false }));
+vi.mock('@/lib/audit', () => ({ logAdminAction: async () => {} }));
+vi.mock('@/actions/ai-client', () => ({ callAI: async () => '' }));
+vi.mock('@/lib/degradacao', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/degradacao')>();
+  return { ...mod, registrarDegradacao: vi.fn(async () => {}) };
+});
+
+import { verificarProntidaoPiloto } from '@/actions/temporadas';
+
+const TOP5 = ['Comp A', 'Comp B', 'Comp C', 'Comp D', 'Comp E'];
+const COMPETENCIAS = TOP5.map((nome, i) => ({ id: `comp-${i}`, nome }));
+const PERGUNTAS = { p1: 'P1', p2: 'P2', p3: 'P3', p4: 'P4' };
+const B = (id: string, competencia_id: string, extra: Record<string, unknown> = {}, cargo = 'Professor') => ({
+  id, titulo: `t-${id}`, descricao: `desc ${id}`, cargo, competencia_id, created_at: '2026-09-10T12:00:00Z',
+  alternativas: { ...PERGUNTAS, ...extra },
+});
+
+let sysConfig: any = {};
+let cenariosB: any[] = [];
+let avaliadas: string[] = TOP5;
+let top5: string[] = TOP5;
+
+const COLAB = {
+  id: 'c1', nome_completo: 'Pessoa Teste', cargo: 'Professor', programa_modo: null,
+  pref_video_curto: null, pref_video_longo: null, pref_texto: null, pref_audio: null, pref_estudo_caso: null,
+};
+
+function montar() {
+  h.sbRaw = criarSupabaseMock({
+    resolver: (tabela) => (tabela === 'empresas' ? { sys_config: sysConfig } : null),
+    lista: (tabela) => {
+      if (tabela === 'banco_cenarios') return cenariosB;
+      if (tabela === 'competencias') return COMPETENCIAS;
+      // Um conteúdo para cada descritor: a conferência de conteúdo passa limpa.
+      if (tabela === 'micro_conteudos') return avaliadas.flatMap((c) => [1, 2, 3, 4, 5, 6].map((n) => ({ descritor: `${c} D${n}`, formato: 'texto' })));
+      return [];
+    },
+  });
+  h.tdb = criarSupabaseMock({
+    resolver: (tabela) => (tabela === 'cargos_empresa' ? { top5_workshop: top5, competencia_foco: 'Comp A', competencias_foco: ['Comp A'] } : null),
+    lista: (tabela) => {
+      if (tabela === 'colaboradores') return [COLAB];
+      if (tabela === 'cargos_empresa') return [{ nome: 'Professor', competencia_foco: 'Comp A' }];
+      if (tabela === 'descriptor_assessments') {
+        return avaliadas.flatMap((competencia) => [1, 2, 3, 4, 5, 6].map((n) => ({ colaborador_id: 'c1', competencia, descritor: `${competencia} D${n}`, nota: 1.2 + n * 0.3 })));
+      }
+      return [];
+    },
+  });
+}
+
+const prontidao = async () => {
+  const r: any = await verificarProntidaoPiloto({ empresaId: 'emp-1' });
+  expect(r.success).toBe(true);
+  return r.data.resultados[0];
+};
+
+beforeEach(() => {
+  cenariosB = [];
+  avaliadas = TOP5;
+  top5 = TOP5;
+  sysConfig = {};
+  montar();
+});
+
+describe('prontidão: Personalizado (uma competência por trilha)', () => {
+  beforeEach(() => {
+    sysConfig = { programa_modo: 'custom', programa_custom: { semanas: 3, numCompetencias: 1, fechamento: true } };
+    montar();
+  });
+
+  it('só existe o B de OUTRA competência no cargo: NÃO está pronto (antes: "pronto")', async () => {
+    cenariosB = [B('b-outra', 'comp-3')];
+    montar();
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    expect(r.bloqueadores.join(' ')).toContain('Comp A');
+    expect(r.bloqueadores.join(' ')).toContain('Cenário B da competência');
+  });
+
+  it('o B da competência da trilha existe: pronto', async () => {
+    cenariosB = [B('b-a', 'comp-0'), B('b-outra', 'comp-3')];
+    montar();
+    const r = await prontidao();
+    expect(r.bloqueadores).toEqual([]);
+    expect(r.pronto).toBe(true);
+  });
+
+  it('sem nenhum B: bloqueador, como sempre foi', async () => {
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+  });
+
+  it('falha de leitura do B não vira "pronto": é bloqueador com a causa', async () => {
+    h.sbRaw.falharEm({ tabela: 'banco_cenarios', op: 'select', mensagem: 'timeout no pool' });
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    expect(r.bloqueadores.join(' ')).toContain('timeout no pool');
+  });
+});
+
+describe('prontidão: Onboarding (fecha nas 5 competências)', () => {
+  beforeEach(() => {
+    sysConfig = { programa_modo: 'onboarding' };
+    montar();
+  });
+
+  it('o Onboarding agora é verificado (a tela só olhava piloto e personalizado)', async () => {
+    const r = await prontidao();
+    expect(r.modo).toBe('onboarding');
+    expect(r.competencia).toBe(TOP5.join(' + '));
+    expect(r.descritores).toHaveLength(5);
+  });
+
+  it('um B por competência (o que o lote gera) NÃO basta: falta o integrador das 5', async () => {
+    cenariosB = TOP5.map((_, i) => B(`b-${i}`, `comp-${i}`));
+    montar();
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    expect(r.bloqueadores.join(' ')).toContain('cubra as 5 competências');
+    expect(r.bloqueadores.join(' ')).toContain('integrador');
+  });
+
+  it('um B integrador que cobre as 5: pronto', async () => {
+    cenariosB = [B('b-int', 'comp-0', { competencias_integradas: TOP5 })];
+    montar();
+    const r = await prontidao();
+    expect(r.bloqueadores).toEqual([]);
+    expect(r.pronto).toBe(true);
+  });
+
+  it('integrador que cobre só 4 das 5: não serve', async () => {
+    cenariosB = [B('b-int', 'comp-0', { competencias_integradas: TOP5.slice(0, 4) })];
+    montar();
+    expect((await prontidao()).pronto).toBe(false);
+  });
+
+  it('o Top 5 do cargo tem 3 competências: bloqueador com a MESMA mensagem da geração', async () => {
+    top5 = TOP5.slice(0, 3);
+    avaliadas = TOP5.slice(0, 3);
+    montar();
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    expect(r.bloqueadores[0]).toContain('cobre 5 competências em espiral');
+  });
+
+  it('competência do Top 5 sem avaliação: bloqueador diz qual', async () => {
+    avaliadas = TOP5.slice(0, 4);
+    montar();
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    expect(r.bloqueadores.join(' ')).toContain('Comp E');
+  });
+});

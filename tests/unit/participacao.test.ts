@@ -95,7 +95,8 @@ describe('cargaHorariaDoCertificado', () => {
     expect(cargaHorariaDoCertificado(getProgramaConfigByModo('jornada').semanas)).toBe(24);
     expect(cargaHorariaDoCertificado(getProgramaConfigByModo('regular_duo').semanas)).toBe(48);
     expect(cargaHorariaDoCertificado(getProgramaConfigByModo('regular_single').semanas)).toBe(48);
-    expect(cargaHorariaDoCertificado(getProgramaConfigByModo('onboarding').semanas)).toBe(34);
+    // 9 semanas desde 04/10/2026 (R-20): 48 x 9 / 14 = 30,86, arredondado para 31.
+    expect(cargaHorariaDoCertificado(getProgramaConfigByModo('onboarding').semanas)).toBe(31);
   });
 
   it('Personalizado de 1 a 4 semanas arredonda 48N/14', () => {

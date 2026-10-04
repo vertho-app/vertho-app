@@ -83,11 +83,11 @@ export const CONCLUSAO_VIDEO_ID: string | null = JORNADA_VIDEO_ID;
 
 export interface ProgramaConfig {
   modo: ProgramaModo;
-  /** Duração total da trilha em semanas. Regular=14, Onboarding=10. */
+  /** Duração total da trilha em semanas. Regular=14, Onboarding=9. */
   semanas: number;
-  /** Semanas em que ocorre missão prática (aplicação). Regular=[4,8,12], Onboarding=[4,7,9]. */
+  /** Semanas em que ocorre missão prática (aplicação). Regular=[4,8,12], Onboarding=[3,6,8]. */
   semanasMissao: number[];
-  /** Semanas reservadas para avaliação final. Regular=[13,14], Onboarding=[10]. */
+  /** Semanas reservadas para avaliação final. Regular=[13,14], Onboarding=[9]. */
   semanasAvaliacao: number[];
   /**
    * Semanas em que o GESTOR faz o checkpoint do liderado.
@@ -101,7 +101,7 @@ export interface ProgramaConfig {
    * vezes em qualquer programa.
    */
   semanasCheckpoint: number[];
-  /** Semana do wizard Cenário B / avaliação final. Regular=14, Onboarding=10. */
+  /** Semana do wizard Cenário B / avaliação final. Regular=14, Onboarding=9. */
   semanaCenarioB: number;
   /** Semana em que a Avaliação Acumulada é disparada. Regular=13. Em Onboarding, fica embutida nas missões. */
   semanaAcumulada: number;
@@ -220,45 +220,53 @@ export const PROGRAMA_REGULAR: ProgramaConfig = Object.freeze({
 }) as ProgramaConfig;
 
 /**
- * Onboarding: trilha de 10 semanas em espiral cobrindo 5 competências.
- * Missões integradoras nas semanas 4 (Comps 1+2), 7 (1+2+3+4) e 9 (todas).
- * Cenário B na semana 10. Nível-meta 2 (funcional / autonomia supervisionada).
+ * Onboarding: trilha de 9 semanas em espiral cobrindo 5 competências.
+ * Missões integradoras nas semanas 3 (Comps 1+2), 6 (1+2+3+4) e 8 (todas).
+ * Cenário B na semana 9. Nível-meta 2 (funcional / autonomia supervisionada).
  *
  * Cadência detalhada:
- *   1   — Calibragem (DISC + diagnóstico + onboarding institucional)
- *   2,3 — Fundamento Comp 1 e 2
- *   4   — Missão Integradora 1 (Comp 1+2)
- *   5,6 — Fundamento Comp 3 e 4
- *   7   — Missão Integradora 2 (Comp 1..4)
- *   8   — Fundamento Comp 5
- *   9   — Missão Integradora 3 (todas) + acumulada embutida
- *   10  — Cenário B + Evolution Report
+ *   1,2 — Fundamento Comp 1 e 2
+ *   3   — Missão Integradora 1 (Comp 1+2)
+ *   4,5 — Fundamento Comp 3 e 4
+ *   6   — Missão Integradora 2 (Comp 1..4)
+ *   7   — Fundamento Comp 5
+ *   8   — Missão Integradora 3 (todas) + acumulada embutida
+ *   9   — Cenário B + Evolution Report
  *
- * NOTA Fase 2: o template existe e é selecionado por sys_config.programa_modo,
- * mas `actions/temporadas.gerarTemporada` bloqueia geração em modo onboarding
- * até a Fase 3 (que refatora `selectDescriptors` para multi-competência e
- * adiciona prompts integradores no IA3).
+ * ⚠️ 9 semanas, e não 10, desde 04/10/2026 (R-20). O desenho original abria com
+ * uma semana 1 de "calibragem" (DISC + diagnóstico + onboarding institucional)
+ * que NUNCA teve implementação: nascia como semana de conteúdo sem conteúdo,
+ * sem botão de evidências, e o gate sequencial trancava as semanas 2 a 10 para
+ * sempre. A calibragem já acontece ANTES da trilha: o perfil DISC é a fase 1 da
+ * home, e a geração recusa quem ainda não tem o mapeamento das competências
+ * (fase 2), então a semana 1 repetiria o que a pessoa já fez. Em vez de
+ * inventar uma tela de calibragem, o programa começa no fundamento e todas as
+ * semanas seguintes subiram uma posição. Nenhuma trilha, empresa, turma ou
+ * colaborador usa este modo em produção (medido 04/10/2026), então não há plano
+ * de 10 semanas para migrar. Alternativa que o dono pode escolher no lugar:
+ * manter 10 e dar à semana 1 um tipo próprio com caminho de conclusão (tela,
+ * ação e copy novas).
  */
 export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
   modo: 'onboarding',
-  semanas: 10,
-  semanasMissao: [4, 7, 9],
-  semanasAvaliacao: [10],
-  semanasCheckpoint: [4, 7],
-  semanaCenarioB: 10,
-  semanaAcumulada: 9, // embutida na última missão integradora
-  slotsConteudo: [2, 3, 5, 6, 8], // 5 fundamentos; sem 1 = calibragem
-  blocosCobertos: { 4: 2, 7: 4, 9: -1 }, // 2 comps, 4 comps, todas as 5
-  complexidadeMap: { 4: 'simples', 7: 'intermediario', 9: 'completo' },
+  semanas: 9,
+  semanasMissao: [3, 6, 8],
+  semanasAvaliacao: [9],
+  semanasCheckpoint: [3, 6],
+  semanaCenarioB: 9,
+  semanaAcumulada: 8, // embutida na última missão integradora
+  slotsConteudo: [1, 2, 4, 5, 7], // 5 fundamentos, um por competência
+  blocosCobertos: { 3: 2, 6: 4, 8: -1 }, // 2 comps, 4 comps, todas as 5
+  complexidadeMap: { 3: 'simples', 6: 'intermediario', 8: 'completo' },
   nivelMetaAlvo: 2,
   numCompetencias: 5,
-  // Sem 2 = Comp[0], Sem 3 = Comp[1], Sem 5 = Comp[2], Sem 6 = Comp[3], Sem 8 = Comp[4]
-  semanaParaCompetenciaIdx: { 2: 0, 3: 1, 5: 2, 6: 3, 8: 4 },
+  // Sem 1 = Comp[0], Sem 2 = Comp[1], Sem 4 = Comp[2], Sem 5 = Comp[3], Sem 7 = Comp[4]
+  semanaParaCompetenciaIdx: { 1: 0, 2: 1, 4: 2, 5: 3, 7: 4 },
   // Conjunto CANDIDATO por missão — a cobertura efetiva é filtrada pela janela
-  // de entrega (28/07, em montarSemanaAplicacao): M1 (sem 4) cobre Comps 0+1
-  // (entregues sem 2-3); M2 (sem 7) cobre só Comps 2+3 (bloco fechado sem 5-6,
-  // desde a missão anterior); M3 (sem 9, última) é cumulativa = todas.
-  competenciasNaMissao: { 4: [0, 1], 7: [0, 1, 2, 3], 9: [-1] },
+  // de entrega (28/07, em montarSemanaAplicacao): M1 (sem 3) cobre Comps 0+1
+  // (entregues sem 1-2); M2 (sem 6) cobre só Comps 2+3 (bloco fechado sem 4-5,
+  // desde a missão anterior); M3 (sem 8, última) é cumulativa = todas.
+  competenciasNaMissao: { 3: [0, 1], 6: [0, 1, 2, 3], 8: [-1] },
   // Fase D+ (03/07): arguição LIGADA no onboarding (maxTurnos 6, janela mais
   // curta pra recém-formados). Todos os modos agora ON.
   arguicao: { ativa: true, maxTurnos: 6 },
@@ -500,7 +508,7 @@ export function getProgramaConfigByModo(modo?: string | null): ProgramaConfig {
  * avaliação do PDI) e o fallback das trilhas antigas.
  *
  *   - 'jornada'         → PROGRAMA_JORNADA (7 sem: 6 conteúdo + avaliação)
- *   - 'onboarding'      → PROGRAMA_ONBOARDING (10 sem, 5 comps, espiral)
+ *   - 'onboarding'      → PROGRAMA_ONBOARDING (9 sem, 5 comps, espiral)
  *   - 'custom'          → derivada de `sys_config.programa_custom` (a config de
  *                         UMA competência; `derivarConfigCustom`)
  *   - 'regular_duo' / 'regular' / 'regular_single' / 'piloto' → as constantes

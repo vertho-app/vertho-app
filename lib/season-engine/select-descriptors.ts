@@ -141,14 +141,19 @@ export interface AssessmentPorCompetencia {
  * 1 SelectedDescriptor com `competencia` preenchida.
  *
  * `semanaParaCompetenciaIdx` mapeia semana de fundamento → índice no array
- * de competências. Ex: Onboarding tem { 2: 0, 3: 1, 5: 2, 6: 3, 8: 4 }.
+ * de competências. Ex: Onboarding tem { 1: 0, 2: 1, 4: 2, 5: 3, 7: 4 }.
  *
  * Não usa contiguidade — cada competência tem exatamente 1 slot. Diferente
  * do regular, que aloca 2 semanas por descritor com gap profundo.
+ *
+ * `nivelMeta` é o nível-meta do programa (`ProgramaConfig.nivelMetaAlvo`): o
+ * Onboarding mira o N2, e o gap de cada descritor é medido contra ele (R-100).
+ * Default 3, o comportamento de todos os outros modos.
  */
 export function selectDescriptorsMulti(
   competenciasOrdenadas: AssessmentPorCompetencia[],
   semanaParaCompetenciaIdx: Record<number, number>,
+  nivelMeta: number = 3.0,
 ): SelectedDescriptor[] {
   const selecionados: SelectedDescriptor[] = [];
   for (const [semStr, idx] of Object.entries(semanaParaCompetenciaIdx)) {
@@ -165,7 +170,7 @@ export function selectDescriptorsMulti(
       descritor: escolhido.descritor,
       competencia: comp.competencia,
       nota_atual: nota,
-      gap: Math.max(0, 3.0 - nota),
+      gap: Math.max(0, nivelMeta - nota),
       semanas_alocadas: 1,
       semanas_ids: [semana],
     });

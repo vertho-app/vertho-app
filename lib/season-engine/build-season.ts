@@ -275,7 +275,10 @@ export async function repararCoreOrfaoDaSemana(
     if (coreId && pool.some((c) => c.id === coreId)) continue;
 
     // Recorte por nível como montarSemanaConteudo (fallback: pool inteiro).
-    const nivelMedio = (Number(e.nivel_atual ?? slot.nivel_atual ?? 1.5) + 3.0) / 2;
+    // O alvo é o que o PLANO gravou na geração (3.0 em todos os modos, 2.0 no
+    // Onboarding): reparar com outro número escolheria um nível diferente do build.
+    const nivelAlvo = Number(e.nivel_alvo ?? slot.nivel_alvo ?? 3.0);
+    const nivelMedio = (Number(e.nivel_atual ?? slot.nivel_atual ?? 1.5) + nivelAlvo) / 2;
     const comNivel = pool.filter((c: any) => (c.nivel_min ?? -Infinity) <= nivelMedio && (c.nivel_max ?? Infinity) >= nivelMedio);
     const candidatos = comNivel.length > 1 ? comNivel : pool;
 
@@ -374,6 +377,9 @@ export async function buildSeason({
 }: BuildSeasonInput): Promise<SemanaPlan[]> {
   const semanas: SemanaPlan[] = [];
   const blueprintDriven = !!blueprintBinding;
+  // O nível-meta do programa decide o nível do conteúdo escolhido e o alvo gravado
+  // no plano (R-100): 3 em todos os modos, 2 no Onboarding.
+  const nivelMeta = programaConfig.nivelMetaAlvo ?? 3.0;
   // Multi-comp dispara quando há mapa semana→comp (Onboarding espiral) OU
   // missões integradoras configuradas (Regular DUO) — sempre com >1 comp.
   const isMulti = (!!programaConfig.semanaParaCompetenciaIdx || !!programaConfig.competenciasNaMissao)
@@ -442,7 +448,7 @@ export async function buildSeason({
 
         for (const [idx, d] of ordenados.entries()) {
           const compDaEntrega = d.competencia || competencia;
-          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo);
+          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo, nivelMeta);
           if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
           entregas.push({
             dia: idx === 0 ? 'segunda' : 'terca',
@@ -462,7 +468,7 @@ export async function buildSeason({
           competencia,
           descritor: primeiro?.descritor || null,
           descritores_cobertos: entregas.map(e => e.descritor).filter(Boolean) as string[],
-          nivel_alvo: 3.0,
+          nivel_alvo: nivelMeta,
           nivel_atual: primeiro?.nivel_atual,
           conteudo: primeiro?.conteudo,
           conteudos_dia: entregas,
@@ -480,7 +486,7 @@ export async function buildSeason({
 
         for (const [idx, d] of ordenados.entries()) {
           const compDaEntrega = d.competencia || competencia;
-          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo);
+          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo, nivelMeta);
           if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
           entregas.push({
             dia: idx === 0 ? 'segunda' : 'terca',
@@ -502,7 +508,7 @@ export async function buildSeason({
           competencia: compsDistintas.join(' + ') || competencia,
           descritor: primeiro?.descritor || null,
           descritores_cobertos: entregas.map(e => e.descritor).filter(Boolean) as string[],
-          nivel_alvo: 3.0,
+          nivel_alvo: nivelMeta,
           nivel_atual: primeiro?.nivel_atual,
           conteudo: primeiro?.conteudo,
           // 1 entrega → sem conteudos_dia (shape single); 2 → conteudos_dia (shape duo).
@@ -517,7 +523,7 @@ export async function buildSeason({
 
         for (const [idx, d] of ordenados.entries()) {
           const compDaEntrega = d.competencia || competencia;
-          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo);
+          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo, nivelMeta);
           if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
           entregas.push({
             dia: idx === 0 ? 'segunda' : 'terca',
@@ -537,7 +543,7 @@ export async function buildSeason({
           competencia: compsArray.join(' + '),
           descritor: primeiro?.descritor || null,
           descritores_cobertos: entregas.map(e => e.descritor).filter(Boolean) as string[],
-          nivel_alvo: 3.0,
+          nivel_alvo: nivelMeta,
           nivel_atual: primeiro?.nivel_atual,
           conteudo: primeiro?.conteudo,
           conteudos_dia: entregas,
@@ -547,7 +553,7 @@ export async function buildSeason({
         // Em multi-competência, cada descritor pertence a uma competência específica
         const d = descritoresDaSemana[0];
         const compDaSemana = d.competencia || competencia;
-        plan = await montarSemanaConteudo(semana, d, compDaSemana, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo);
+        plan = await montarSemanaConteudo(semana, d, compDaSemana, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo, nivelMeta);
         if (plan.tipo === 'conteudo' && plan.conteudo?.core_id) idsJaUsados.add(plan.conteudo.core_id);
       }
     }
@@ -604,9 +610,11 @@ async function montarSemanaConteudo(
   aiConfig: AIConfigOpt,
   idsJaUsados: Set<string> = new Set(),
   fichaCargo = '',
+  /** Nível-meta do programa (`nivelMetaAlvo`): 3 em todos os modos, 2 no Onboarding. */
+  nivelMeta = 3.0,
 ): Promise<SemanaConteudo> {
   const sb = createSupabaseAdmin();
-  const nivelMedio = (descritorSel.nota_atual + 3.0) / 2;
+  const nivelMedio = (descritorSel.nota_atual + nivelMeta) / 2;
 
   // Busca conteúdos pra esse descritor com fallback gradual.
   // ⚠️ `kit_id IS NULL AND disc IS NULL`: conteúdo de KIT é específico de UM DISC e
@@ -707,7 +715,7 @@ async function montarSemanaConteudo(
     competencia,
     descritor: descritorSel.descritor,
     descritores_cobertos: [descritorSel.descritor],
-    nivel_alvo: 3.0,
+    nivel_alvo: nivelMeta,
     nivel_atual: descritorSel.nota_atual,
     conteudo: {
       formato_core: formatoCore,

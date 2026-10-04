@@ -183,3 +183,53 @@ describe('regerarSemana · reparo de conteúdo + normalização (F-I2)', () => {
     expect(res.error).toContain('avaliação');
   });
 });
+
+describe('regerarSemana · a complexidade da missão vem da CONFIG da trilha (R-127)', () => {
+  const slotMissao = (semana: number) => ({
+    semana, tipo: 'aplicacao', competencia: 'Autocuidado', descritor: null,
+    descritores_cobertos: ['D1', 'D2'], competencias_cobertas: ['Autocuidado'], status: 'disponivel',
+  });
+  const trilhaCom = (programa_modo: string | null, semana: number) => ({
+    id: 't1', colaborador_id: 'c1', empresa_id: 'e1',
+    competencia_foco: 'Autocuidado', competencias_foco: ['Autocuidado'],
+    descritores_selecionados: [{ descritor: 'D1', competencia: 'Autocuidado' }, { descritor: 'D2', competencia: 'Autocuidado' }],
+    programa_modo, programa_config: null,
+    temporada_plano: [slotMissao(semana)],
+  });
+  const complexidadeGravada = () => h.state.planoGravado[0].cenario.complexidade;
+
+  beforeEach(() => {
+    h.state = {};
+    h.state.progressoAtual = null;
+    h.state.sb = sbMock();
+  });
+
+  it.each([[3, 'simples'], [6, 'intermediario'], [8, 'completo']])(
+    'Onboarding, missão da semana %i: %s (as semanas 3/6/8 da config, não as 4/8/12 do formato de 14)',
+    async (semana, esperada) => {
+      h.state.trilha = trilhaCom('onboarding', semana);
+      const { regerarSemana } = await import('@/actions/temporadas');
+      const res = await regerarSemana({ trilhaId: 't1', semana });
+      expect(res.success).toBe(true);
+      expect(complexidadeGravada()).toBe(esperada);
+    },
+  );
+
+  it.each([[4, 'simples'], [8, 'intermediario'], [12, 'completo']])(
+    'formato de 14 semanas (DUO), missão da semana %i: %s, como sempre foi',
+    async (semana, esperada) => {
+      h.state.trilha = trilhaCom('regular_duo', semana);
+      const { regerarSemana } = await import('@/actions/temporadas');
+      const res = await regerarSemana({ trilhaId: 't1', semana });
+      expect(res.success).toBe(true);
+      expect(complexidadeGravada()).toBe(esperada);
+    },
+  );
+
+  it('semana de missão fora do mapa da config: intermediária (o padrão que já existia)', async () => {
+    h.state.trilha = trilhaCom('onboarding', 5);
+    const { regerarSemana } = await import('@/actions/temporadas');
+    await regerarSemana({ trilhaId: 't1', semana: 5 });
+    expect(complexidadeGravada()).toBe('intermediario');
+  });
+});

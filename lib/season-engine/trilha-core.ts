@@ -3,6 +3,7 @@ import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, select
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { blueprintToTrilhaInputs, type BlueprintTrilhaInputs } from '@/lib/blueprint/to-descriptors';
 import { focoDoCargo } from '@/lib/foco-cargo';
+import { chaveMapeamento } from '@/lib/mapeamento-competencias';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { getProgramaConfigByModo, normalizarModoPrograma, type ProgramaConfig, type ProgramaModoLabel, type SequenciaPersonalizado } from '@/lib/season-engine/programa-config';
 import { carregarContextoTurma } from '@/lib/turmas';
@@ -84,7 +85,9 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
       if (errCargoFoco) return { error: `Falha ao ler o foco do cargo: ${errCargoFoco.message}` };
       competenciaAlvo = focoDoCargo(cargoEmp)[0];
     }
-    if (!competenciaAlvo) return { error: 'Sem competência foco definida pra este colaborador' };
+    // A falta de foco só barra os modos que dependem dele (checagem logo depois de
+    // resolver o modo): o Onboarding cobre o Top 5 do cargo e não usa a
+    // competência foco, então um cargo sem foco não pode impedir a geração dele.
 
     // 2) Descobre contexto/setor da empresa + sys_config.
     // empresas não tem coluna empresa_id (o id DELA é o tenant) → usa raw.
@@ -127,6 +130,7 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     if (errTrilhaAtual) return { error: `Falha ao ler a trilha atual: ${errTrilhaAtual.message}` };
     const trava = travaRegeracao(trilhaAtual, { modoNovo: modoResolvido, novaJornada, turmaMembroId: ctxTurma.turmaMembroId });
     if (trava) return { error: trava.mensagem, codigo: trava.codigo };
+    if (!competenciaAlvo && modoResolvido !== 'onboarding') return { error: 'Sem competência foco definida pra este colaborador' };
 
     let programaConfig: ProgramaConfig = getProgramaConfigByModo(modoResolvido);
     // Personalizado: o snapshot que vai para `trilhas.programa_config` (mig 182)
@@ -350,83 +354,131 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
 }
 
 /**
- * Modo Onboarding: trilha de 10 semanas em espiral cobrindo até 5 competências.
+ * As competências de um Onboarding e as avaliações da pessoa nelas (R-100).
+ *
+ * Fonte: `sys_config.competencias_onboarding` (override da Vertho, na config
+ * EFETIVA: empresa, turma, participação) e, para completar, o TOP 5 DO CARGO
+ * (`cargos_empresa.top5_workshop`), que é o que o mapeamento da pessoa percorre.
+ * Até 04/10/2026 o complemento vinha de `top10_cargos` (o ranking da IA1, antes
+ * do workshop que escolhe o Top 5), então a trilha podia cobrir competências que
+ * a pessoa nunca respondeu, e o gerador aceitava menos de 5 (só recusava zero).
+ *
+ * Falha ALTO (régua de 28/07: na construção, nunca rebaixar calado):
+ *  - menos de `n` competências: o espiral tem um slot por competência, e slot
+ *    sem competência vira semana de conteúdo vazia, a mesma que o R-20 tirou;
+ *  - competência sem avaliação: antes entrava com o descritor "Descritor padrão"
+ *    e nota 1,5 inventada, que decidia o conteúdo de uma semana inteira.
+ *
+ * O nome que volta é o da AVALIAÇÃO (`descriptor_assessments.competencia`): o
+ * Top 5 compara por texto normalizado (`chaveMapeamento`), e a régua, o
+ * conteúdo e o relatório casam pelo nome gravado ali.
+ */
+export async function resolverCompetenciasDoOnboarding(
+  tdb: any,
+  colab: { id: string; cargo?: string | null },
+  cfg: Record<string, any> | null | undefined,
+  n: number,
+): Promise<
+  | { competencias: string[]; assessments: AssessmentPorCompetencia[] }
+  | { error: string; codigo: string }
+> {
+  const unicas = (lista: unknown[]): string[] => {
+    const vistas = new Set<string>();
+    const out: string[] = [];
+    for (const c of lista) {
+      const chave = chaveMapeamento(c);
+      if (!chave || vistas.has(chave)) continue;
+      vistas.add(chave);
+      out.push(String(c).trim());
+    }
+    return out;
+  };
+
+  const { data: cargoRow, error: errCargo } = await tdb.from('cargos_empresa')
+    .select('top5_workshop').eq('nome', colab.cargo || '').maybeSingle();
+  if (errCargo) return { error: `Falha ao ler o Top 5 do cargo: ${errCargo.message}`, codigo: 'onboarding_top5_leitura' };
+
+  const doOverride = unicas(Array.isArray(cfg?.competencias_onboarding) ? cfg!.competencias_onboarding : []);
+  const doTop5 = unicas(Array.isArray(cargoRow?.top5_workshop) ? cargoRow.top5_workshop : []);
+  const competencias = unicas([...doOverride, ...doTop5]).slice(0, n);
+
+  if (competencias.length === 0) {
+    return {
+      error: `Modo Onboarding precisa de ${n} competências. Defina o Top 5 do cargo "${colab.cargo || 'sem cargo'}" ou configure sys_config.competencias_onboarding.`,
+      codigo: 'onboarding_sem_competencias',
+    };
+  }
+  if (competencias.length < n) {
+    return {
+      error: `O Onboarding cobre ${n} competências em espiral e o cargo "${colab.cargo || 'sem cargo'}" tem ${competencias.length} (${competencias.join(', ')}). Complete o Top 5 do cargo ou defina sys_config.competencias_onboarding. Nada foi gerado.`,
+      codigo: 'onboarding_competencias_insuficientes',
+    };
+  }
+
+  const { data: linhas, error: errAssess } = await tdb.from('descriptor_assessments')
+    .select('competencia, descritor, nota')
+    .eq('colaborador_id', colab.id);
+  if (errAssess) return { error: `Falha ao ler as avaliações do colaborador: ${errAssess.message}`, codigo: 'onboarding_assessment_leitura' };
+
+  const porChave = new Map<string, { competencia: string; assessment: Array<{ descritor: string; nota: number }> }>();
+  for (const l of (linhas || []) as any[]) {
+    const chave = chaveMapeamento(l.competencia);
+    if (!chave) continue;
+    const grupo = porChave.get(chave) ?? { competencia: String(l.competencia), assessment: [] };
+    grupo.assessment.push({ descritor: l.descritor, nota: l.nota });
+    porChave.set(chave, grupo);
+  }
+
+  const assessments: AssessmentPorCompetencia[] = [];
+  const semAvaliacao: string[] = [];
+  for (const comp of competencias) {
+    const grupo = porChave.get(chaveMapeamento(comp));
+    if (grupo?.assessment.length) assessments.push({ competencia: grupo.competencia, assessment: grupo.assessment });
+    else semAvaliacao.push(comp);
+  }
+  if (semAvaliacao.length > 0) {
+    return {
+      error: `O Onboarding precisa do mapeamento das ${n} competências, e o colaborador ainda não tem avaliação (descriptor_assessments) em: ${semAvaliacao.join(', ')}. Rode o mapeamento antes de gerar a trilha. Nada foi gerado.`,
+      codigo: 'sem_assessment',
+    };
+  }
+  return { competencias: assessments.map((a) => a.competencia), assessments };
+}
+
+/**
+ * Modo Onboarding: trilha de 9 semanas em espiral cobrindo 5 competências.
  *
  * Estratégia:
- *  1. Resolve as N competências (sys_config.competencias_onboarding[] OR top10_cargos[0..4] do cargo)
- *  2. Carrega assessment de descritores pra cada competência
- *  3. selectDescriptorsMulti aloca 1 descritor/competência nos slots [2,3,5,6,8]
- *  4. buildSeason recebe `competencias` array + plano monta missões integradoras
- *  5. Persiste em `trilhas.competencias_foco TEXT[]` (migration 091)
+ *  1. Resolve as N competências e as avaliações (`resolverCompetenciasDoOnboarding`:
+ *     override da config efetiva, depois o Top 5 do cargo; falha alto)
+ *  2. selectDescriptorsMulti aloca 1 descritor/competência nos slots [1,2,4,5,7]
+ *  3. buildSeason recebe `competencias` array + plano monta missões integradoras
+ *  4. Persiste em `trilhas.competencias_foco TEXT[]` (migration 091)
  */
 export async function gerarTemporadaOnboarding(args: {
   turma?: ContextoGeracaoTurma;
   colab: any; empresa: any; tdb: any; sbRaw: any; contexto: string;
   programaConfig: any; aiConfig?: AIConfig; competenciaPrincipal: string;
 }) {
-  const { colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaPrincipal } = args;
+  const { colab, empresa, tdb, contexto, programaConfig, aiConfig } = args;
   const N = programaConfig.numCompetencias || 5;
 
-  // 1) Lista de competências da trilha. Fonte de verdade:
-  //    a) sys_config.competencias_onboarding (override manual do RH)
-  //    b) top10_cargos do cargo, pegando as N primeiras (validadas via IA1)
-  let competencias: string[] = Array.isArray(empresa?.sys_config?.competencias_onboarding)
-    ? empresa.sys_config.competencias_onboarding.slice(0, N)
-    : [];
+  // 1) Competências + avaliações, pela config EFETIVA (empresa → turma →
+  //    participação): a safra pode ter as suas competências. Sem turma é a
+  //    sys_config da empresa, como antes.
+  const resolvido = await resolverCompetenciasDoOnboarding(
+    tdb, colab, args.turma?.config ?? empresa?.sys_config ?? {}, N,
+  );
+  if ('error' in resolvido) return resolvido;
+  const { competencias, assessments } = resolvido;
 
-  if (competencias.length < N) {
-    // Fallback: pega top N do cargo em top10_cargos
-    const { data: top10 } = await tdb.from('top10_cargos')
-      .select('competencia_id, posicao')
-      .eq('cargo', colab.cargo || '')
-      .order('posicao')
-      .limit(N);
-    if (top10?.length) {
-      const ids = top10.map((t: any) => t.competencia_id);
-      const { data: comps } = await tdb.from('competencias')
-        .select('id, nome')
-        .in('id', ids);
-      const mapaIdNome = Object.fromEntries((comps || []).map((c: any) => [c.id, c.nome]));
-      const nomesPorPosicao = top10
-        .map((t: any) => mapaIdNome[t.competencia_id])
-        .filter(Boolean);
-      // Dedup mantendo ordem
-      competencias = [...new Set<string>([...competencias, ...nomesPorPosicao])].slice(0, N);
-    }
-  }
-
-  if (competencias.length === 0) {
-    return {
-      error: `Modo Onboarding precisa de pelo menos 1 competência. Configure sys_config.competencias_onboarding ou rode IA1 pro cargo "${colab.cargo}".`,
-      codigo: 'onboarding_sem_competencias',
-    };
-  }
-
-  // 2) Assessment por competência. Cada competência precisa de pelo menos 1 descritor avaliado.
-  const assessments: AssessmentPorCompetencia[] = [];
-  for (const comp of competencias) {
-    const { data: rows } = await tdb.from('descriptor_assessments')
-      .select('descritor, nota')
-      .eq('colaborador_id', colab.id)
-      .eq('competencia', comp);
-    if (rows && rows.length > 0) {
-      assessments.push({ competencia: comp, assessment: rows });
-    } else {
-      console.warn(`[gerarTemporadaOnboarding] ${comp} sem assessment — usará default neutro`);
-      await registrarDegradacao({
-        fluxo: 'trilha', tipo: DEGRADACAO.ONBOARDING_DEFAULT_NEUTRO, chave: `${colab.id}:${comp}`,
-        empresaId: colab.empresa_id, colaboradorId: colab.id,
-        detalhe: { competencia: comp },
-      });
-      assessments.push({ competencia: comp, assessment: [{ descritor: 'Descritor padrão', nota: 1.5 }] });
-    }
-  }
-
-  // 3) Distribui 1 descritor por competência nos slots de fundamento ([2,3,5,6,8])
+  // 3) Distribui 1 descritor por competência nos slots de fundamento (um por
+  //    competência, `semanaParaCompetenciaIdx`), com o gap medido contra o
+  //    nível-meta do programa (2 no Onboarding)
   if (!programaConfig.semanaParaCompetenciaIdx) {
     return { error: 'ProgramaConfig sem semanaParaCompetenciaIdx — não dá pra rodar Onboarding.' };
   }
-  const descritoresSelecionados = selectDescriptorsMulti(assessments, programaConfig.semanaParaCompetenciaIdx);
+  const descritoresSelecionados = selectDescriptorsMulti(assessments, programaConfig.semanaParaCompetenciaIdx, programaConfig.nivelMetaAlvo);
   if (descritoresSelecionados.length === 0) {
     return { error: 'Nenhum descritor selecionado — verifique assessments das competências do Onboarding.' };
   }

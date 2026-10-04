@@ -23,13 +23,10 @@ import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, 
 import { normalizarCompromisso } from '@/lib/season-engine/compromisso';
 import { MAX_TURNS_SOCRATIC, MAX_TURNS_ANALYTIC, MAX_TURNS_MISSAO_FEEDBACK } from '@/lib/season-engine/week-gating';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
-// `montarReportDegustacao` é só o nome LOCAL: o relatório é o de programa
-// completo (`montarReportSemFechamento`, 03/10/2026). O nome antigo mantém
-// idêntico o texto do update de encerramento, dívida declarada do guard E11.
-import { deveEncerrarSemFechamento, montarReportSemFechamento as montarReportDegustacao } from '@/lib/season-engine/programa-custom';
-import { aposEncerramentoSemFechamento } from '@/lib/season-engine/encerramento-sem-fechamento';
+import { deveEncerrarSemFechamento } from '@/lib/season-engine/programa-custom';
+import { aposEncerramentoSemFechamento, encerrarTrilhaSemFechamento } from '@/lib/season-engine/encerramento-sem-fechamento';
 import { tenantDb } from '@/lib/tenant-db';
-import { PROGRESSO, TRILHA } from '@/lib/status';
+import { PROGRESSO } from '@/lib/status';
 import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
 import type { acumuladaPilotoTask } from '@/trigger/acumulada-piloto';
@@ -290,7 +287,14 @@ export async function POST(request) {
     // Conta turns da IA já realizados
     const turnsIA = historico.filter(m => m.role === 'assistant').length;
     if (turnsIA >= maxTurns / 2) {
-      // Já encerrou
+      // Já encerrou. Personalizado SEM fechamento: se o encerramento da trilha
+      // falhou na vez anterior (a semana concluiu e a trilha ficou aberta), esta é a
+      // próxima chance. Idempotente: trilha já concluída não é reescrita.
+      if (prog?.status === PROGRESSO.CONCLUIDO && deveEncerrarSemFechamento(programaConfig, Number(semana))) {
+        const enc = await encerrarTrilhaSemFechamento(sb, trilha);
+        if (!enc.ok) return respostaEncerramentoFalhou({ historico, message: null, turnIA: turnsIA });
+        if (enc.encerrou) after(() => aposEncerramentoSemFechamento(sb, tenantDb(trilha.empresa_id), trilha));
+      }
       return NextResponse.json({ finished: true, history: historico, message: null });
     }
 
@@ -510,18 +514,15 @@ export async function POST(request) {
     // normal de conclusão (gerarEvolutionReport, que EXIGE fechamento
     // pontuado) nunca roda. Presets nunca entram (todos têm semanasAvaliacao
     // não-vazia; ver deveEncerrarSemFechamento). O relatório é o de programa
-    // completo (`montarReportSemFechamento`, aqui com o nome local antigo: o
-    // texto deste update é dívida declarada do guard E11 e não muda sem
-    // encolher a allowlist). Depois da resposta, `aposEncerramentoSemFechamento`
-    // confere que a trilha concluiu de fato e, com 2 competências, abre a
-    // segunda, como no fim de uma Jornada.
+    // completo (`montarReportSemFechamento`). A gravação lê o `{ error }`
+    // (R-138): se a trilha não concluiu, a resposta diz o estado real em vez de
+    // fingir sucesso, e a próxima fala tenta de novo. Depois da resposta,
+    // `aposEncerramentoSemFechamento` confere que a trilha concluiu de fato e,
+    // com 2 competências, abre a segunda, como no fim de uma Jornada.
     if (finished && deveEncerrarSemFechamento(programaConfig, Number(semana))) {
-      await sb.from('trilhas').update({
-        evolution_report: montarReportDegustacao(trilha),
-        evolution_generated_at: new Date().toISOString(),
-        status: TRILHA.CONCLUIDA,
-      }).eq('id', trilhaId).eq('empresa_id', trilha.empresa_id);
-      after(() => aposEncerramentoSemFechamento(sb, tenantDb(trilha.empresa_id), trilha));
+      const enc = await encerrarTrilhaSemFechamento(sb, trilha);
+      if (!enc.ok) return respostaEncerramentoFalhou({ historico, message: respostaIA, turnIA: proximoTurnIA });
+      if (enc.encerrou) after(() => aposEncerramentoSemFechamento(sb, tenantDb(trilha.empresa_id), trilha));
     }
 
     // Modo Piloto: ao concluir a ÚLTIMA semana de conteúdo (sem 2), dispara a
@@ -565,8 +566,10 @@ export async function POST(request) {
       }
     }
 
-    // Modo Onboarding: ao concluir missão integradora (4/7/9), dispara acumulada
+    // Modo Onboarding: ao concluir missão integradora (3/6/8), dispara acumulada
     // parcial em background — agrega evidências das comps cobertas até aqui.
+    // Com STATUS (`acumulada_status` na linha da missão) e a falha registrada em
+    // `degradacao_log` (R-100): antes o `after()` rodava no escuro.
     if (
       finished &&
       programaConfig.modo === 'onboarding' &&
@@ -575,21 +578,16 @@ export async function POST(request) {
       programaConfig.competenciasNaMissao
     ) {
       const idxs = programaConfig.competenciasNaMissao[Number(semana)] || [];
-      const { data: trilhaComp } = await sb.from('trilhas')
-        .select('competencias_foco').eq('id', trilhaId).maybeSingle();
-      const compsTrilha: string[] = Array.isArray(trilhaComp?.competencias_foco) ? trilhaComp!.competencias_foco : [];
+      // As competências da trilha já vieram no select do topo da rota.
+      const compsTrilha: string[] = Array.isArray(trilha.competencias_foco) ? trilha.competencias_foco : [];
       const compsCobertas = idxs.includes(-1)
         ? compsTrilha
         : idxs.map(i => compsTrilha[i]).filter(Boolean);
       if (compsCobertas.length) {
         // after(): idem — o IIFE solto morre no freeze pós-response da Vercel.
         after(async () => {
-          try {
-            const { gerarAvaliacaoAcumuladaParcialCore } = await import('@/lib/season-engine/avaliacao-acumulada-core');
-            await gerarAvaliacaoAcumuladaParcialCore(trilhaId, compsCobertas, Number(semana), { empresaId: auth.empresaId });
-          } catch (e: any) {
-            console.error('[onboarding acumulada parcial]', e?.message);
-          }
+          const { rodarAcumuladaParcialComStatus } = await import('@/lib/season-engine/avaliacao-acumulada-core');
+          await rodarAcumuladaParcialComStatus(trilhaId, compsCobertas, Number(semana), { empresaId: trilha.empresa_id });
         });
       }
     }
@@ -605,6 +603,21 @@ export async function POST(request) {
     return NextResponse.json({ error: err?.message || 'Erro' }, { status: 500 });
   }
   });
+}
+
+/**
+ * O encerramento do Personalizado sem fechamento falhou (R-138): a conversa FOI
+ * gravada (a semana concluiu), mas a trilha ficou aberta. A resposta carrega o
+ * estado real: o histórico e `finished: true` (a tela mostra a conversa final) e
+ * o erro (500, para o monitoramento), em vez de fingir que deu tudo certo. A
+ * falha já ficou em `degradacao_log` (crítico).
+ */
+function respostaEncerramentoFalhou({ historico, message, turnIA }: { historico: any[]; message: string | null; turnIA: number }) {
+  return NextResponse.json({
+    error: 'A conversa foi salva, mas não conseguimos encerrar a sua jornada agora. Envie uma mensagem de novo em instantes para tentar outra vez.',
+    encerramento: 'falhou',
+    message, turnIA, finished: true, history: historico,
+  }, { status: 500 });
 }
 
 function resolveCompetenciaSemana(trilha: any, semanaPlan: any): { label: string; competencias: string[] } {

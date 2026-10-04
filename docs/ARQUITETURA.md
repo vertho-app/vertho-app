@@ -1952,13 +1952,13 @@ Z-API: WhatsApp gateway
 
 | Dimensão | **Jornada** *(`jornada`)* — **em produção** | **Regular DUO** *(default)* | Regular single *(`regular_single`)* | Onboarding *(`onboarding`)* | Piloto *(`piloto`)* | **Personalizado** *(`custom`)* |
 |---|---|---|---|---|---|---|
-| Duração | **7 semanas** (6 de conteúdo + fechamento) | 14 semanas | 14 semanas | **10 semanas** | **2 semanas** + fechamento | **1 a 4 semanas** (config) |
+| Duração | **7 semanas** (6 de conteúdo + fechamento) | 14 semanas | 14 semanas | **9 semanas** | **2 semanas** + fechamento | **1 a 4 semanas** (config) |
 | Competências por trilha | **1** (DUO = 2 em sequência, não em paralelo) | **2 (em blocos paralelos)** | 1 (aprofundada) | **5 (em espiral)** | 1 (top-4 descritores por gap, 2 entregas/sem) | **1 ou 2** (config) |
 | Nível-meta na régua | 3 (proficiente) | 3 (proficiente) | 3 (proficiente) | **2 (autonomia supervisionada)** | 3 | 3 |
-| Missões | **nenhuma** — o desafio semanal cobre as 2 pílulas | Sem 4, 8, 12 (**integradoras das 2 comps**) | Sem 4, 8, 12 (uni-competência) | **Sem 4, 7, 9 (multi-competência integradora)** | **nenhuma** | **nenhuma** |
-| Avaliação Acumulada | **Sem 6**, ao fechar a última de conteúdo | Sem 13 (auto-trigger, **por competência**) | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** | Auto ao concluir a sem 2 (persiste na sem 2) | Como o piloto, quando há fechamento |
-| Cenário B (wizard final) | **Sem 7** | Sem 14 | Sem 14 | **Sem 10** | **Slot 3, calendário espelhado na sem 2** + trava de piso (`piloto-v1`) | **Opcional** — sem ele, conclui na última semana de conteúdo |
-| Slots de conteúdo | `[1,2,3,4,5,6]` (2 conteúdos/semana) | `[1,2,3,5,6,7,9,10,11]` (3 blocos de 3) | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem | `[1,2]` (2 entregas cada) | 1 por semana configurada |
+| Missões | **nenhuma** — o desafio semanal cobre as 2 pílulas | Sem 4, 8, 12 (**integradoras das 2 comps**) | Sem 4, 8, 12 (uni-competência) | **Sem 3, 6, 8 (multi-competência integradora)** | **nenhuma** | **nenhuma** |
+| Avaliação Acumulada | **Sem 6**, ao fechar a última de conteúdo | Sem 13 (auto-trigger, **por competência**) | Sem 13 (auto-trigger) | **Embutida nas missões 3/6/8 (parcial cumulativa, só a 1ª IA, com status)** | Auto ao concluir a sem 2 (persiste na sem 2) | Como o piloto, quando há fechamento |
+| Cenário B (wizard final) | **Sem 7** | Sem 14 | Sem 14 | **Sem 9** (exige B integrador das 5 competências) | **Slot 3, calendário espelhado na sem 2** + trava de piso (`piloto-v1`) | **Opcional** — sem ele, conclui na última semana de conteúdo |
+| Slots de conteúdo | `[1,2,3,4,5,6]` (2 conteúdos/semana) | `[1,2,3,5,6,7,9,10,11]` (3 blocos de 3) | `[1,2,3,5,6,7,9,10,11]` | `[1,2,4,5,7]` (a calibragem da semana 1 saiu em 04/10/2026) | `[1,2]` (2 entregas cada) | 1 por semana configurada |
 | Acompanhamento | Gestor | Gestor (por `gestor_email`) | Gestor | Gestor (por `gestor_email`) e RH; o papel tutor foi extinto em 22/09/2026 | Gestor | Gestor |
 | Push automatizado | cadência diária (pílula · pílula · evidência) | — | — | nenhum (o aviso ao tutor nas sems 4 e 7 saiu em 22/09/2026) | — | cadência **pára no fim do plano** |
 

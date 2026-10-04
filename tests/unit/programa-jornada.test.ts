@@ -25,18 +25,19 @@ import {
 
 /**
  * Semanas que de propósito não recebem conteúdo selecionado, missão nem
- * avaliação. Hoje só o onboarding tem uma: a semana 1 é calibragem (DISC +
- * diagnóstico + institucional). Ela ainda entra no plano como `conteudo` — o
- * `buildSeason` classifica por exclusão —, só não recebe descritor.
+ * avaliação. Nenhum modo tem uma: o onboarding tinha a semana 1 de "calibragem",
+ * que nascia como semana de conteúdo vazia, nunca concluía e trancava as demais
+ * (R-20, 04/10/2026); hoje ele começa no fundamento. O `buildSeason` classifica
+ * por exclusão, então um buraco vira uma semana de conteúdo sem descritor.
  *
- * A lista é explícita para que um buraco NOVO (slot esquecido num modo novo)
- * falhe aqui, em vez de virar uma semana muda na trilha de alguém.
+ * A lista é explícita e VAZIA para que um buraco NOVO (slot esquecido num modo
+ * novo) falhe aqui, em vez de virar uma semana muda na trilha de alguém.
  */
 const SEM_CONTEUDO_DECLARADO: Record<string, number[]> = {
   jornada: [],
   regular: [],
   regular_duo: [],
-  onboarding: [1], // calibragem
+  onboarding: [],
   piloto: [],
 };
 

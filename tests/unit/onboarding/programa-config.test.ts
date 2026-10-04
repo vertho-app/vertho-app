@@ -14,8 +14,10 @@ import {
 } from '@/lib/season-engine/select-descriptors';
 
 /**
- * Estrutura do template Onboarding deve casar com o brief seção 3.2:
- *   10 sem · 5 comps · missões 4/7/9 · cenário B sem 10 · nível-meta 2.
+ * Estrutura do template Onboarding: o brief seção 3.2 desenhava 10 semanas com
+ * uma semana 1 de calibragem que nunca teve implementação (R-20, 04/10/2026);
+ * o programa começa no fundamento:
+ *   9 sem · 5 comps · missões 3/6/8 · cenário B sem 9 · nível-meta 2.
  *
  * Estes testes pegam regressão se alguém mexer nos números sem querer.
  */
@@ -67,32 +69,46 @@ describe('Onboarding — programa-config', () => {
   });
 
   describe('PROGRAMA_ONBOARDING', () => {
-    it('tem 10 semanas com missões 4/7/9 e cenário B sem 10', () => {
-      expect(PROGRAMA_ONBOARDING.semanas).toBe(10);
-      expect(PROGRAMA_ONBOARDING.semanasMissao).toEqual([4, 7, 9]);
-      expect(PROGRAMA_ONBOARDING.semanasAvaliacao).toEqual([10]);
-      expect(PROGRAMA_ONBOARDING.semanaCenarioB).toBe(10);
+    it('tem 9 semanas com missões 3/6/8 e cenário B sem 9', () => {
+      expect(PROGRAMA_ONBOARDING.semanas).toBe(9);
+      expect(PROGRAMA_ONBOARDING.semanasMissao).toEqual([3, 6, 8]);
+      expect(PROGRAMA_ONBOARDING.semanasAvaliacao).toEqual([9]);
+      expect(PROGRAMA_ONBOARDING.semanaCenarioB).toBe(9);
     });
-    it('acumulada na sem 9 (embutida na última missão integradora)', () => {
-      expect(PROGRAMA_ONBOARDING.semanaAcumulada).toBe(9);
+    it('acumulada na sem 8 (embutida na última missão integradora)', () => {
+      expect(PROGRAMA_ONBOARDING.semanaAcumulada).toBe(8);
+      expect(PROGRAMA_ONBOARDING.semanaAcumulada).toBe(Math.max(...PROGRAMA_ONBOARDING.semanasMissao));
     });
     it('aloca 5 competências em espiral com nível-meta 2', () => {
       expect(PROGRAMA_ONBOARDING.numCompetencias).toBe(5);
       expect(PROGRAMA_ONBOARDING.nivelMetaAlvo).toBe(2);
     });
-    it('tem 5 slots de fundamento [2,3,5,6,8] — sem 1 é calibragem', () => {
-      expect(PROGRAMA_ONBOARDING.slotsConteudo).toEqual([2, 3, 5, 6, 8]);
-      expect(PROGRAMA_ONBOARDING.slotsConteudo).not.toContain(1);
+    it('tem 5 slots de fundamento [1,2,4,5,7], e a semana 1 TEM conteúdo (R-20)', () => {
+      expect(PROGRAMA_ONBOARDING.slotsConteudo).toEqual([1, 2, 4, 5, 7]);
+      // A calibragem antiga era uma semana 1 de conteúdo sem conteúdo: sem botão
+      // de evidências ela nunca concluía e trancava as demais.
+      expect(PROGRAMA_ONBOARDING.slotsConteudo).toContain(1);
     });
     it('semanaParaCompetenciaIdx mapeia cada slot a uma competência', () => {
-      expect(PROGRAMA_ONBOARDING.semanaParaCompetenciaIdx).toEqual({ 2: 0, 3: 1, 5: 2, 6: 3, 8: 4 });
+      expect(PROGRAMA_ONBOARDING.semanaParaCompetenciaIdx).toEqual({ 1: 0, 2: 1, 4: 2, 5: 3, 7: 4 });
+      // Cada slot de conteúdo tem uma competência, e só eles.
+      expect(Object.keys(PROGRAMA_ONBOARDING.semanaParaCompetenciaIdx!).map(Number).sort((a, b) => a - b))
+        .toEqual([...PROGRAMA_ONBOARDING.slotsConteudo].sort((a, b) => a - b));
     });
     it('competenciasNaMissao crescente: 2 → 4 → todas', () => {
       expect(PROGRAMA_ONBOARDING.competenciasNaMissao).toEqual({
-        4: [0, 1],
-        7: [0, 1, 2, 3],
-        9: [-1],
+        3: [0, 1],
+        6: [0, 1, 2, 3],
+        8: [-1],
       });
+    });
+    it('toda semana de 1 a 9 tem um papel: nenhum buraco como o da calibragem', () => {
+      const papeis = [
+        ...PROGRAMA_ONBOARDING.slotsConteudo,
+        ...PROGRAMA_ONBOARDING.semanasMissao,
+        ...PROGRAMA_ONBOARDING.semanasAvaliacao,
+      ].sort((a, b) => a - b);
+      expect(papeis).toEqual(Array.from({ length: PROGRAMA_ONBOARDING.semanas }, (_, i) => i + 1));
     });
   });
 
@@ -117,7 +133,7 @@ describe('Onboarding — programa-config', () => {
     it('programa_modo="onboarding" → ONBOARDING', () => {
       const c = getProgramaConfig({ programa_modo: 'onboarding' });
       expect(c.modo).toBe('onboarding');
-      expect(c.semanas).toBe(10);
+      expect(c.semanas).toBe(9);
       expect(c.numCompetencias).toBe(5);
     });
   });
@@ -166,7 +182,7 @@ describe('Onboarding — selectDescriptorsMulti', () => {
     { competencia: 'Postura', assessment: [{ descritor: 'PR-1', nota: 2.7 }] },
   ];
 
-  it('aloca 1 descritor por competência nos slots [2,3,5,6,8]', () => {
+  it('aloca 1 descritor por competência nos slots [1,2,4,5,7]', () => {
     const r = selectDescriptorsMulti(competenciasOrdenadas, PROGRAMA_ONBOARDING.semanaParaCompetenciaIdx!);
     expect(r).toHaveLength(5);
     // Cada item tem semanas_alocadas=1 e 1 slot
@@ -174,16 +190,16 @@ describe('Onboarding — selectDescriptorsMulti', () => {
       expect(d.semanas_alocadas).toBe(1);
       expect(d.semanas_ids).toHaveLength(1);
     });
-    // Slots cobertos = [2,3,5,6,8]
-    expect(r.flatMap(d => d.semanas_ids).sort((a, b) => a - b)).toEqual([2, 3, 5, 6, 8]);
+    // Slots cobertos = [1,2,4,5,7]
+    expect(r.flatMap(d => d.semanas_ids).sort((a, b) => a - b)).toEqual([1, 2, 4, 5, 7]);
   });
 
   it('escolhe descritor de MAIOR gap (nota mais baixa) por competência', () => {
     const r = selectDescriptorsMulti(competenciasOrdenadas, PROGRAMA_ONBOARDING.semanaParaCompetenciaIdx!);
+    const sem1 = r.find(d => d.semanas_ids.includes(1))!;
     const sem2 = r.find(d => d.semanas_ids.includes(2))!;
-    const sem3 = r.find(d => d.semanas_ids.includes(3))!;
-    expect(sem2.descritor).toBe('GS-1'); // 1.8 < 2.5
-    expect(sem3.descritor).toBe('PA-2'); // 1.5 < 2.0
+    expect(sem1.descritor).toBe('GS-1'); // 1.8 < 2.5
+    expect(sem2.descritor).toBe('PA-2'); // 1.5 < 2.0
   });
 
   it('preenche `competencia` em cada SelectedDescriptor', () => {

@@ -14,7 +14,7 @@ Produtos vivos voltados ao cliente:
 - **Mentor IA** (principal): mapeamento, plano de desenvolvimento individual e jornada guiada, multi-tenant por empresa. Formatos configuráveis **por empresa e por colaborador** (dá para misturar no mesmo tenant):
   - **Jornada Vertho** (o formato padrão): 7 semanas por competência, 6 de desenvolvimento e a 7ª de avaliação final (nível-meta 3, proficiência). Toda semana traz dois conteúdos curtos e um desafio prático. Ao concluir, a jornada seguinte começa sozinha na próxima competência; duas competências são duas jornadas em sequência. Quem precisa de 14 semanas faz duas Jornadas encadeadas, em sequência.
   - **Programa de 14 semanas (DUO e single)**: deixou de ser oferecido em 03/10/2026. As trilhas de 14 semanas já em andamento seguem como estão, até o fim.
-  - **Vertho Onboarding**: 10 semanas em espiral cobrindo 5 competências (nível-meta 2, autonomia supervisionada), para recém-formados. Configurado na plataforma, ainda sem turma em produção.
+  - **Vertho Onboarding**: 9 semanas em espiral cobrindo 5 competências (nível-meta 2, autonomia supervisionada), para recém-formados. Configurado na plataforma, ainda sem turma em produção.
   - **Personalizado**: uma Jornada de duração ajustável, de 1 a 6 semanas de desenvolvimento por competência, 1 ou 2 competências em sequência, com ou sem fechamento. Regras de programa completo: relatório com nível e avanço (quando há fechamento) e certificado com carga horária proporcional à duração. Configurado na plataforma, ainda sem trilha em produção (seção 5.5).
   - **Piloto** (degustação de 2 semanas): deixou de ser oferecido em 03/10/2026. O motor segue servindo quem já está nele (seção 5.4).
 - **Simuladores** *(set/2026, módulos contratados)*: **Simulador de vendas**, **Simulador de atendimento** e **Simulador de liderança**, com devolutiva por competência e evidência literal; e o **Mapeamento de liderança**, leitura do RH sobre quem está pronto para liderar (seção 6).
@@ -151,10 +151,10 @@ A plataforma está em **4 idiomas** (português do Brasil, português de Portuga
 
 | Dimensão | Jornada Vertho (padrão) | Vertho Onboarding |
 |---|---|---|
-| Duração | **7 semanas** (6 de desenvolvimento e fechamento na 7ª) | **10 semanas** |
+| Duração | **7 semanas** (6 de desenvolvimento e fechamento na 7ª) | **9 semanas** |
 | Competências | **1 por jornada**; duas competências = duas jornadas em sequência (14 semanas = duas Jornadas encadeadas) | **5 em espiral** |
 | Meta de proficiência | Nível 3 (proficiente) | **Nível 2 (autonomia supervisionada)** |
-| Cadência | 2 conteúdos e 1 desafio por semana | **Calibragem, fundamentos pareados e 3 missões integradoras** |
+| Cadência | 2 conteúdos e 1 desafio por semana | **Fundamentos e 3 missões integradoras** |
 | Acompanhamento | Gestor e RH | Gestor e RH |
 | Preço | Por projeto, parcelado por ciclo (`docs/ORCAMENTO.md`) | A definir |
 
@@ -166,19 +166,19 @@ Programas de outra duração, de 1 a 6 semanas de desenvolvimento por competênc
 
 | Feature | O que é | Benefício |
 |---|---|---|
-| **Trilha de 10 semanas em espiral** | Semana 1 = calibragem; semanas 2, 3, 5, 6 e 8 = fundamento de cada uma das 5 competências; semanas 4, 7 e 9 = missões integradoras; semana 10 = cenário final e relatório | Desenho: levar o recém-formado de "saiu da faculdade" a "consigo executar com supervisão", sem queimar etapas. Resultado ainda não medido, porque não houve turma. |
-| **Missões integradoras multi-competência** | A semana 4 cobre as competências 1 e 2; a semana 7, as competências 3 e 4; a semana 9 é cumulativa e cobre as cinco. A IA monta cenários onde as competências precisam ser exercidas juntas | Aprendizado coerente com a realidade do trabalho, onde nada acontece em silos. |
+| **Trilha de 9 semanas em espiral** | Semanas 1, 2, 4, 5 e 7 = fundamento de cada uma das 5 competências (as do Top 5 do cargo, na ordem dele); semanas 3, 6 e 8 = missões integradoras; semana 9 = cenário final e relatório. Começa direto no fundamento: o DISC e o mapeamento das competências acontecem ANTES da trilha, e a "semana de calibragem" que o desenho original previa nunca teve tela nem caminho de conclusão (04/10/2026) | Desenho: levar o recém-formado de "saiu da faculdade" a "consigo executar com supervisão", sem queimar etapas. Resultado ainda não medido, porque não houve turma. |
+| **Missões integradoras multi-competência** | A semana 3 cobre as competências 1 e 2; a semana 6, as competências 3 e 4; a semana 8 é cumulativa e cobre as cinco. A IA monta cenários onde as competências precisam ser exercidas juntas | Aprendizado coerente com a realidade do trabalho, onde nada acontece em silos. |
 | **IA de competências com viés por fase de carreira** | Configurável: `junior` prioriza competências operacionais e básicas; `senior` prioriza estratégicas e relacionais; `pleno` ou sem viés = comportamento padrão | Ranking de competências sintonizado com o momento da carreira. |
-| **Acumulada parcial automática nas missões** | Após cada missão integradora (4, 7 e 9), a 1ª IA roda a leitura acumulada cobrindo só as competências daquela janela, em segundo plano; essa leitura parcial não passa pela auditoria da 2ª IA | Desenho: gestor e RH recebem leitura intermediária do progresso sem esperar 10 semanas. |
-| **Régua nível-meta 2 (autonomia)** | As avaliações usam N2 como meta em vez de N3. Aprovação = todas as competências ≥ 2,0 | Critério calibrado à realidade do recém-formado, não ao nível esperado de um sênior. |
-| **Cenário final na semana 10** | Wizard final com 4 perguntas (situação, ação, raciocínio, autossensibilidade) cobrindo as 5 competências | Avaliação consolidada da formação, em situação realista do cargo. |
+| **Acumulada parcial automática nas missões** | Após cada missão integradora (3, 6 e 8), a 1ª IA roda a leitura acumulada cobrindo só as competências daquela janela, em segundo plano, com status registrado (`acumulada_status` na semana da missão) e a falha em `degradacao_log`; essa leitura parcial não passa pela auditoria da 2ª IA, por desenho. Quem a lê é o painel interno da Vertho (Auditorias, Av. Acumulada): não há tela do cliente | Desenho: a Vertho acompanha o progresso intermediário sem esperar 9 semanas. Gestor e RH não veem a leitura parcial. |
+| **Régua nível-meta 2 (autonomia)** | A seleção de descritores, o conteúdo escolhido e a leitura acumulada miram o N2 em vez do N3. A nota e o nível do fechamento seguem a régua única de 1 a 4: não há aprovação automática por nível | Critério calibrado à realidade do recém-formado, não ao nível esperado de um sênior. |
+| **Cenário final na semana 9** | Wizard final com 4 perguntas (situação, ação, raciocínio, autossensibilidade) cobrindo as 5 competências. Exige um Cenário B INTEGRADOR que cubra as 5 competências do programa: o lote de Cenários B gera um por competência, então o integrador é cadastrado à parte, e a Prontidão (`/admin/temporadas`) bloqueia a pessoa enquanto ele não existir | Avaliação consolidada da formação, em situação realista do cargo. |
 | **Liga por empresa E por colaborador** | O admin define o padrão na aba "Programa" e pode sobrescrever por pessoa em Configurações → Equipe. O Top 5 padrão vem de `competencias_onboarding` ou do top 5 do cargo | Novatos em onboarding sem tirar os veteranos da Jornada. |
 
 ### 5.3 Mensagens-chave do Onboarding (síntese para copy)
 
 > **Não usar até a primeira turma.** O Onboarding nunca rodou com cliente: as frases abaixo descrevem o desenho do programa, não um resultado.
 
-1. **"Um programa de 10 semanas desenhado para levar da diplomação à autonomia supervisionada."**
+1. **"Um programa de 9 semanas desenhado para levar da diplomação à autonomia supervisionada."**
 2. **"5 competências essenciais, exercidas juntas, como no trabalho real."**
 3. **"Nível-meta calibrado para quem está começando: autonomia supervisionada, não excelência sênior."**
 4. **"Sem produto separado: é a mesma plataforma de desenvolvimento, em modo recém-formado."**
@@ -196,7 +196,7 @@ Programas de outra duração, de 1 a 6 semanas de desenvolvimento por competênc
 | **Arguição: defesa oral (2º instrumento)** | Depois das 4 perguntas escritas, a IA abre uma conversa por turnos que SONDA a resposta (critério, robustez sob variação, limite reconhecido) e ajusta a leitura em até meio ponto por regra de código auditável; a devolutiva é escrita para o resultado final. Ligada em todos os formatos (na Jornada, no fechamento da semana 7) | Triangulação de método: o que a resposta preparada esconde, a sustentação ao vivo revela. |
 | **Trava de piso (honestidade estrutural)** | O nível mostrado no fechamento (nunca a nota) não fica abaixo do ponto de partida; a leitura bruta fica preservada com versão própria (`piloto-v1`), só para a auditoria interna, inconfundível com uma avaliação real | O piloto nunca "rebaixa" ninguém por falta de tempo de jornada, e o dado bruto continua auditável. |
 | **Relatório sem falso delta** | Tela e PDF de conclusão em variante própria: competência como PONTO DE PARTIDA e fechamento como demonstração, sem "antes e depois" | Nenhuma promessa de evolução que 2 semanas não sustentam: credibilidade na venda. |
-| **Conversão sem retrabalho** | Fechou? Troca o formato do colaborador e regenera a temporada: o mapeamento inteiro é reaproveitado no programa | O investimento do piloto vira o ponto de partida do programa real. |
+| **Conversão em programa** | ⛔ Não funciona como prometia, e o Piloto não é mais oferecido. Regerar a trilha de quem concluiu o piloto é recusado pela trava de regeração (`trilha_concluida`): a trilha seguinte precisa nascer como trilha nova, e o mapeamento da pessoa é reaproveitado porque vive fora da trilha | Não usar como argumento de venda. |
 
 **Mensagens-chave:** não usar. O Piloto não é mais oferecido.
 

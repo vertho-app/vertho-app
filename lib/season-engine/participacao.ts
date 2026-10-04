@@ -23,7 +23,8 @@ export const PARTICIPACAO_MINIMA = 0.75;
  * Até essa data eram 48h fixas por temporada, calibradas quando temporada = 14
  * semanas. Com a Jornada de 7 semanas a mesma pessoa saía com 2 × 48h no período
  * que antes valia 48h. Agora: Jornada 7 = 24h, programa de 14 = 48h, Onboarding
- * 10 = 34h, Personalizado de N semanas = 48N/14 arredondado.
+ * 9 = 31h (eram 10 semanas e 34h até 04/10/2026), Personalizado de N semanas =
+ * 48N/14 arredondado.
  *
  * A duração vem da CONFIG do programa (`ProgramaConfig.semanas`, pelo carimbo ou
  * pelo snapshot do Personalizado), não do `temporada_plano`: nas trilhas

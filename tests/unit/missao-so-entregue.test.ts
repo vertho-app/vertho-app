@@ -78,34 +78,36 @@ describe('descritoresEntreguesNaMissao — a missão cobre o bloco que acabou de
 });
 
 /**
- * Onboarding (semanasMissao [4,7,9]; competenciasNaMissao {4:[0,1], 7:[0,1,2,3], 9:[-1]}):
+ * Onboarding (semanasMissao [3,6,8]; competenciasNaMissao {3:[0,1], 6:[0,1,2,3], 8:[-1]}):
  * a regra da janela vale para ele TAMBÉM — antes do teste, nada travava regressão
  * nele e o comentário da config ainda dizia "M2 = 0..3". Com a janela, a M2 cobre
- * só o bloco fechado desde a M1 (Comps 2+3, entregues nas semanas 5-6).
+ * só o bloco fechado desde a M1 (Comps 2+3, entregues nas semanas 4-5).
+ * (Desde 04/10/2026 o programa começa no fundamento, sem a semana 1 de calibragem:
+ * as semanas de missão e de conteúdo subiram uma posição.)
  */
 const ONB = [
-  D('C0 descritor', 'C0', [2]),
-  D('C1 descritor', 'C1', [3]),
-  D('C2 descritor', 'C2', [5]),
-  D('C3 descritor', 'C3', [6]),
-  D('C4 descritor', 'C4', [8]),
+  D('C0 descritor', 'C0', [1]),
+  D('C1 descritor', 'C1', [2]),
+  D('C2 descritor', 'C2', [4]),
+  D('C3 descritor', 'C3', [5]),
+  D('C4 descritor', 'C4', [7]),
 ];
 
 describe('descritoresEntreguesNaMissao — janela no Onboarding', () => {
-  it('M1 (sem 4, desde=1): Comps 0+1 (semanas 2-3)', () => {
-    const out = descritoresEntreguesNaMissao(ONB, 4, ['C0', 'C1'], 1);
+  it('M1 (sem 3, desde=1): Comps 0+1 (semanas 1-2)', () => {
+    const out = descritoresEntreguesNaMissao(ONB, 3, ['C0', 'C1'], 1);
     expect(out.map((d) => d.competencia)).toEqual(['C0', 'C1']);
   });
 
-  it('M2 (sem 7, desde=5): SÓ Comps 2+3 — Comps 0+1 já foram avaliadas na M1', () => {
+  it('M2 (sem 6, desde=4): SÓ Comps 2+3 — Comps 0+1 já foram avaliadas na M1', () => {
     // É a mudança de comportamento no Onboarding: o conjunto candidato da config
     // é [0,1,2,3], mas a janela corta o que foi entregue antes da missão anterior.
-    const out = descritoresEntreguesNaMissao(ONB, 7, ['C0', 'C1', 'C2', 'C3'], 5);
+    const out = descritoresEntreguesNaMissao(ONB, 6, ['C0', 'C1', 'C2', 'C3'], 4);
     expect(out.map((d) => d.competencia)).toEqual(['C2', 'C3']);
   });
 
-  it('M3 (sem 9, última, desde=1): cumulativa — as 5 competências', () => {
-    const out = descritoresEntreguesNaMissao(ONB, 9, ['C0', 'C1', 'C2', 'C3', 'C4'], 1);
+  it('M3 (sem 8, última, desde=1): cumulativa — as 5 competências', () => {
+    const out = descritoresEntreguesNaMissao(ONB, 8, ['C0', 'C1', 'C2', 'C3', 'C4'], 1);
     expect(out).toHaveLength(5);
   });
 });

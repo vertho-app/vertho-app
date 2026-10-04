@@ -25,8 +25,6 @@ export const DEGRADACAO = {
   DUO_PARA_SINGLE: 'duo-para-single',
   /** trilha-core: descritores sem avaliação ignorados na alocação. */
   DESCRITOR_SEM_AVALIACAO: 'descritor-sem-avaliacao',
-  /** trilha-core (onboarding): competência sem assessment → default neutro 1.5. */
-  ONBOARDING_DEFAULT_NEUTRO: 'onboarding-default-neutro',
   /** trilha-core (DUO): blueprint→trilha não-aproveitável → selectDescriptorsDuo. */
   BLUEPRINT_ADAPTER_FALLBACK: 'blueprint-adapter-fallback',
   /** build-season: desafio por IA falhou → templated. */
@@ -64,6 +62,22 @@ export const DEGRADACAO = {
    * saber, porque não há um passo seguinte dela que tente de novo.
    */
   ENCERRAMENTO_SEM_FECHAMENTO_FALHOU: 'encerramento-sem-fechamento-falhou',
+  /**
+   * degustação de lead: a análise da resposta (IA4, em `after()`) falhou nas duas
+   * tentativas (R-103). Sem este registro a pessoa ficava em "suas respostas estão
+   * em análise" para sempre e ninguém sabia. `aviso`: a resposta está salva, e o
+   * painel da empresa de demonstração (IA4, Avaliar) refaz a análise. Chave:
+   * `<colaborador>:<competência>`.
+   */
+  DEGUSTACAO_AVALIACAO_FALHOU: 'degustacao-avaliacao-falhou',
+  /**
+   * Onboarding: a acumulada PARCIAL de uma missão integradora falhou (R-100).
+   * Roda em `after()`, só com a 1ª IA, e nenhuma tela do cliente a lê: sem este
+   * registro a falha era um `console.error` que ninguém via. `aviso`: a missão
+   * concluiu e a pessoa segue, só falta a leitura intermediária. Chave:
+   * `<trilha>:<semana>`.
+   */
+  ACUMULADA_PARCIAL_FALHOU: 'acumulada-parcial-falhou',
   /** contexto-empresa: síntese do PPP falhou → cai no PPP mais recente. */
   SINTESE_PPP_FALHOU: 'sintese-ppp-falhou',
   /** overlay: sem kit para o DISC da pessoa → mantém o conteúdo do build. */

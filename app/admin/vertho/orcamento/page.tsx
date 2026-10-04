@@ -74,7 +74,7 @@ const PRESET_KEYS: PresetKey[] = ['atual', 'premium', 'balanced', 'cheap'];
  */
 const JORNADAS = [
   { key: 'jornada', rotulo: 'Jornada', sub: '7 sem · 1 comp', cfg: PROGRAMA_JORNADA },
-  { key: 'onboarding', rotulo: 'Onboarding', sub: '10 sem · 5 comp', cfg: PROGRAMA_ONBOARDING },
+  { key: 'onboarding', rotulo: 'Onboarding', sub: `${PROGRAMA_ONBOARDING.semanas} sem · ${PROGRAMA_ONBOARDING.numCompetencias} comp`, cfg: PROGRAMA_ONBOARDING },
   { key: 'custom', rotulo: 'Customizada', sub: 'defina o programa', cfg: null },
 ] as const;
 
