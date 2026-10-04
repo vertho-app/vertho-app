@@ -7,6 +7,8 @@ import { logAdminAction } from '@/lib/audit';
 import { EMAIL_FROM_DEFAULT, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 import { emailConfigurationError, sendEmail, type SendEmailInput } from '@/lib/email-provider';
 import { rodapePrivacidadeHtml } from '@/lib/notifications/rodape-privacidade';
+import { carregarIdiomasDaEmpresa } from '@/lib/idioma-do-destinatario';
+import { copiaEmail, preencher } from '@/lib/i18n-email-templates';
 import { publicarTemplateCloudCis } from '@/lib/qstash-publish';
 import { lerParametroAcesso, montarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
 import { aplicarTetoLote, atrasosDoLote, duracaoEstimada } from '@/lib/whatsapp/cadencia';
@@ -221,6 +223,9 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     colabs = colabs.filter(c => c.email);
     if (!colabs.length) return { success: false, error: 'Nenhum destinatário com email' };
 
+    // Idioma de cada DESTINATÁRIO (Onda D): o da pessoa, senão o da empresa, senão pt-BR.
+    const idiomas = await carregarIdiomasDaEmpresa(sb, empresaId);
+
     const domain = ROOT_DOMAIN;
     const fromEmail = EMAIL_FROM_DEFAULT;
     const emailConfigError = emailConfigurationError();
@@ -251,10 +256,13 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 
       if (emailConfigError) { erroDetalhe = emailConfigError; erros++; continue; }
       try {
+        // Idioma do DESTINATÁRIO (Onda D). O CORPO é do operador (texto livre, não se traduz);
+        // o que é nosso e fixo, o rodapé e o assunto padrão, sai no idioma de quem recebe.
+        const locale = idiomas.de(colab.id);
         // R-46: o texto do disparo é livre (o admin escreve); o rodapé com a política
         // é fixo e sai de qualquer jeito, no host do tenant.
         const htmlMsg = msg.replace(/\n/g, '<br>').replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/_([^_]+)_/g, '<em>$1</em>')
-          + rodapePrivacidadeHtml(`https://${empresa.slug}.${domain}`);
+          + rodapePrivacidadeHtml(`https://${empresa.slug}.${domain}`, locale);
 
         // PDF do relatório (já resolvido no topo do loop; colabs sem PDF
         // nem chegam aqui).
@@ -273,7 +281,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         const emailBody: any = {
           from: fromEmail,
           to: colab.email,
-          subject: (assuntoTemplate || `[${empresa.nome}] Avaliação`)
+          subject: (assuntoTemplate || preencher(copiaEmail(locale).assuntoPadraoDisparo, { empresa: empresa.nome }, 'texto'))
             .replace(/\{\{nome\}\}/g, nome)
             .replace(/\{\{cargo\}\}/g, colab.cargo || '')
             .replace(/\{\{empresa\}\}/g, empresa.nome),
@@ -288,7 +296,8 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     }
 
     const puladosTxt = pulados ? `, ${pulados} sem relatório (não enviados)` : '';
-    const msg2 = `${enviados} emails enviados${erros ? `, ${erros} erros` : ''}${puladosTxt}${erroDetalhe ? `: ${erroDetalhe}` : ''}`;
+    const idiomaTxt = idiomas.falhou ? ' (idioma de cada pessoa não lido: rodapé e assunto padrão no padrão da empresa)' : '';
+    const msg2 = `${enviados} emails enviados${erros ? `, ${erros} erros` : ''}${puladosTxt}${idiomaTxt}${erroDetalhe ? `: ${erroDetalhe}` : ''}`;
     await logAdminAction({
       adminEmail: ctx.email, acao: 'whatsapp.broadcast', empresaId, empresaSlug: empresa.slug,
       alvo: `${colabs.length} colaboradores`,

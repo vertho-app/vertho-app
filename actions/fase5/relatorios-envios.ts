@@ -5,6 +5,8 @@ import { mapComLimite } from '@/lib/concurrency';
 import { tenantEmailFrom, tenantUrl } from '@/lib/domain';
 import { emailConfigurationError, sendEmail } from '@/lib/email-provider';
 import { rodapePrivacidadeHtml } from '@/lib/notifications/rodape-privacidade';
+import { carregarIdiomasDaEmpresa } from '@/lib/idioma-do-destinatario';
+import { copiaEmail, preencher } from '@/lib/i18n-email-templates';
 import { callAI, type AIConfig } from '../ai-client';
 import { extractJSON } from '../utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
@@ -247,21 +249,28 @@ export async function enviarLinksPerfil(empresaId: string) {
     if (!colaboradores?.length) return { success: false, error: 'Nenhum colaborador encontrado' };
     const configError = emailConfigurationError();
     if (configError) return { success: false, error: configError };
+    // Idioma do DESTINATÁRIO (Onda D): o da pessoa, senão o da empresa, senão pt-BR.
+    const idiomas = await carregarIdiomasDaEmpresa(sbRaw, empresaId);
     // E-mails em paralelo, abaixo da cota por segundo do provedor.
     const envios = await mapComLimite(colaboradores as any[], 5, async (colab: any) => {
       try {
+        const locale = idiomas.de(colab.id);
+        const base = copiaEmail(locale);
+        const c = base.perfil;
         const result = await sendEmail({
           from: tenantEmailFrom(empresa.slug, 'Vertho Mentor'),
           to: colab.email,
-          subject: `[${empresa.nome}] Seu Perfil de Evolução`,
-          html: `<p>Olá ${colab.nome_completo}!</p><p>Seu perfil está disponível.</p><p><a href="${tenantUrl(empresa.slug, '/dashboard/evolucao')}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;">Acessar Perfil</a></p>
-${rodapePrivacidadeHtml(tenantUrl(empresa.slug))}`,
+          subject: preencher(c.assunto, { empresa: empresa.nome }, 'texto'),
+          html: `<p>${preencher(c.saudacao, { nome: colab.nome_completo || base.nomePadrao })}</p><p>${c.corpo}</p><p><a href="${tenantUrl(empresa.slug, '/dashboard/evolucao')}" style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;">${c.cta}</a></p>
+${rodapePrivacidadeHtml(tenantUrl(empresa.slug), locale)}`,
         });
         return result.ok;
       } catch { return false; }
     });
     const enviados = envios.filter(Boolean).length;
-    return { success: true, message: `${enviados} links enviados` };
+    // O fallback de idioma não fica invisível para quem opera: a mensagem diz.
+    const avisoIdioma = idiomas.falhou ? ' (o idioma de cada pessoa não pôde ser lido: saíram no padrão da empresa)' : '';
+    return { success: true, message: `${enviados} links enviados${avisoIdioma}` };
   } catch (err) { return { success: false, error: err.message }; }
 }
 

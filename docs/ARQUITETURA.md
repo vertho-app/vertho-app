@@ -2402,6 +2402,7 @@ i18n/request.ts            # getRequestConfig: resolve locale por precedência (
 lib/i18n.ts                # normalizeAppLocale, resolveAppLocale, cookie 'vertho-locale'
 lib/i18n-server.ts         # getTenantDefaultLocaleBySlug (empresas.default_locale), getLocaleForEmail
 lib/i18n-auth-templates.ts # templates de OTP/auth (WhatsApp + email) nos 3 locales
+lib/i18n-email-templates.ts # e-mails da jornada (cadência, perfil, convite) nos 4 locales, pelo idioma do destinatário
 messages/{pt-BR,pt-PT,es-ES}.json
 next.config.mjs            # wrapped com createNextIntlPlugin()
 ```

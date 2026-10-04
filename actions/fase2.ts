@@ -3,6 +3,8 @@
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
 import { emailConfigurationError, sendEmail } from '@/lib/email-provider';
 import { rodapePrivacidadeHtml } from '@/lib/notifications/rodape-privacidade';
+import { carregarIdiomasDaEmpresa } from '@/lib/idioma-do-destinatario';
+import { copiaEmail, preencher } from '@/lib/i18n-email-templates';
 import crypto from 'crypto';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
@@ -48,6 +50,9 @@ export async function dispararEmails(empresaId: string) {
     if (!colaboradores.length) {
       return { success: false, error: 'Nenhum colaborador com DISC mapeado. Conclua o mapeamento comportamental antes de disparar o diagnóstico.' };
     }
+
+    // Idioma de cada DESTINATÁRIO (Onda D): o da pessoa, senão o da empresa, senão pt-BR.
+    const idiomas = await carregarIdiomasDaEmpresa(sb, empresaId);
 
     // Buscar envios já existentes
     const { data: enviosExistentes } = await sb.from('envios_diagnostico')
@@ -119,15 +124,19 @@ export async function dispararEmails(empresaId: string) {
       if (colab.email && !emailConfigurationError()) {
         try {
           const fromEmail = EMAIL_FROM_DEFAULT;
+          // Idioma do DESTINATÁRIO (Onda D): o da pessoa, senão o da empresa, senão pt-BR.
+          const locale = idiomas.de(colab.id);
+          const c = copiaEmail(locale).convite;
+          const primeiroNome = colab.nome_completo ? colab.nome_completo.split(' ')[0] : '';
           const emailRes = await sendEmail({
             from: fromEmail,
             to: colab.email,
-            subject: `[${empresa.nome}] Avaliação de Competências`,
-            html: `<p>Olá${colab.nome_completo ? ` ${colab.nome_completo.split(' ')[0]}` : ''}!</p>
-<p>Você foi convidado(a) para participar da avaliação de competências da <strong>${empresa.nome}</strong>.</p>
-<p><a href="${link}" style="background:#0D9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:bold;">Iniciar Avaliação</a></p>
-<p style="color:#666;font-size:12px;">Ou acesse: ${link}</p>
-${rodapePrivacidadeHtml(tenantUrl(empresa.slug))}`,
+            subject: preencher(c.assunto, { empresa: empresa.nome }, 'texto'),
+            html: `<p>${primeiroNome ? preencher(c.saudacao, { nome: primeiroNome }) : c.saudacaoSemNome}</p>
+<p>${preencher(c.corpo, { empresa: empresa.nome })}</p>
+<p><a href="${link}" style="background:#0D9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:bold;">${c.cta}</a></p>
+<p style="color:#666;font-size:12px;">${preencher(c.alternativa, { link })}</p>
+${rodapePrivacidadeHtml(tenantUrl(empresa.slug), locale)}`,
           });
           if (emailRes.ok) {
             emailEntregue = true;
@@ -205,6 +214,8 @@ ${rodapePrivacidadeHtml(tenantUrl(empresa.slug))}`,
     if (puladosSemDisc) parts.push(`${puladosSemDisc} sem DISC (ignorados)`);
     if (semCanal) parts.push(`${semCanal} sem canal disponível`);
     if (erros) parts.push(`${erros} erros`);
+    // O fallback de idioma não fica invisível para quem opera.
+    if (idiomas.falhou) parts.push('idioma de cada pessoa não lido (e-mails no padrão da empresa)');
 
     const acionados = emailsEnviados + whatsEnviados;
     if (acionados === 0 && jaEnviados === 0) {

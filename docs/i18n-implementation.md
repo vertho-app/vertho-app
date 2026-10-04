@@ -12,7 +12,7 @@ Locales suportados:
 2. Preferência de idioma: cookie `vertho-locale`, depois `empresas.default_locale` e futuramente `colaboradores.locale`.
 3. Conteúdo de negócio: deve migrar para tabelas de tradução por entidade em sprint própria.
 4. IA: `actions/ai-client.ts` injeta instrução de idioma, mantendo chaves JSON técnicas.
-5. Canais externos: templates de acesso ficam em `lib/i18n-auth-templates.ts`.
+5. Canais externos: templates de acesso ficam em `lib/i18n-auth-templates.ts`. Os e-mails da jornada (cadência semanal, perfil de evolução, convite, rodapé do disparo manual) ficam em `lib/i18n-email-templates.ts`, no mesmo desenho (TypeScript, `satisfies Record<AppLocale, ...>`, porque e-mail sai de cron e worker, sem contexto do next-intl). O idioma é o do DESTINATÁRIO: `colaboradores.locale`, senão `empresas.default_locale`, senão pt-BR (`resolveAppLocale`). Nome de competência, descritor e resumo do desafio vêm do banco e não se traduzem. Teste: `tests/unit/emails-4-idiomas.test.ts` (o pt-BR é byte a byte o de antes) e `tests/unit/emails-cadencia-idioma.test.ts`. WhatsApp (templates da Meta), SMS e push seguem só em pt-BR.
 
 ## Convenção de chaves
 
@@ -72,6 +72,7 @@ Pendente para próximos lotes:
 - Refinamento semântico de `pt-PT` e `es-ES` para chaves recém-adicionadas que inicialmente herdaram texto base em português brasileiro.
 - Migração completa da tela legada de Mercado Potencial, que ainda contém muitos rótulos internos e fórmulas explicativas específicas.
 - Conteúdos dinâmicos de banco, relatórios históricos e textos gerados previamente por IA seguem política acima.
+- E-mails: o vídeo explicativo do desafio de aplicação (`TUTORIAIS_PLATAFORMA.aplicacao`) é um só, em pt-BR, e entra em todos os idiomas. Push (`lib/notifications/push-copy.ts`) e WhatsApp seguem em pt-BR; o resumo semanal do gestor é texto livre de WhatsApp, não e-mail.
 
 ## Banco
 
