@@ -2294,7 +2294,10 @@
       "counter": "Scenario {current} of {total}",
       "progressLine": "Scenario {current} of {total} · {competency}",
       "finish": "Complete scenario →",
-      "previousDone": "Scenario {done} completed. This is the next one."
+      "previousDone": "Scenario {done} completed. This is the next one.",
+      "argueLine": "Oral defense · Scenario {current} of {total} · {competency}",
+      "argueDone": "Oral defense for this scenario completed. The next scenario is ready.",
+      "argueNext": "Go to the next scenario →"
     },
     "question": {
       "counter": "Question {current} from {total}",

@@ -77,12 +77,14 @@ function transcriptDe(respondidas: number) {
   }
   return t;
 }
-const slotOnboarding = (respondidas: number[], extra: Record<string, unknown> = {}) => ({
+/** `argumentos[i]` é a arguição do cenário i (a de cada competência, como na Jornada); ausente = ainda não aberta. */
+const slotOnboarding = (respondidas: number[], argumentos: any[] = []) => ({
   cenarios: COMPS.map((competencia, i) => ({
     competencia, cenario_b_id: `b-${i}`, cenario: `## Caso ${competencia}`, perguntas: PERGUNTAS, transcript_completo: transcriptDe(respondidas[i]),
+    ...(argumentos[i] ? { arguicao: argumentos[i] } : {}),
   })),
-  ...extra,
 });
+const DEFESA_CONCLUIDA = { turno: 6, concluida: true, historico: [], extracao: null };
 
 const req = (body: any) => new Request('http://escola.vertho.ai/api/temporada/evaluation', {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trilhaId: 'tr-1', ...body }),
@@ -167,9 +169,9 @@ describe('a conversa da acumulada (sem13_qualitativa) sai no idioma da pessoa', 
 
 // ── arguição: o idioma chega ao ctx, e o ctx ao callAIChat ───────────────────
 describe('a arguição (arguicao_turno) fala no idioma da pessoa', () => {
-  it('a rota põe o idioma da pessoa no contexto que abre a arguição (com os 5 cenários)', async () => {
+  it('a rota põe o idioma da pessoa no contexto que abre a arguição do cenário (uma por competência)', async () => {
     h.locale = { colab: 'es-ES', empresa: 'en-US' };
-    h.prog = { id: 'p12', status: 'em_andamento', feedback: slotOnboarding([4, 4, 4, 4, 3]) };
+    h.prog = { id: 'p12', status: 'em_andamento', feedback: slotOnboarding([4, 4, 4, 4, 3], Array(4).fill(DEFESA_CONCLUIDA)) };
     montar();
     // `arguicao` real: o contexto chega ao `callAIChat` do turno
     h.callAIChat.mockResolvedValue('Vamos conversar sobre a sua resposta.\n[META]{"turno":1,"encerrar":false}[/META]');
@@ -181,7 +183,7 @@ describe('a arguição (arguicao_turno) fala no idioma da pessoa', () => {
 
   it('cada turno seguinte (arguir) leva o mesmo idioma; a extração das evidências, não', async () => {
     h.locale = { colab: 'en-US', empresa: null };
-    h.prog = { id: 'p12', status: 'em_andamento', feedback: slotOnboarding([4, 4, 4, 4, 4], { arguicao: { turno: 5, concluida: false, historico: [{ role: 'user', content: '═══ CENÁRIO' }] } }) };
+    h.prog = { id: 'p12', status: 'em_andamento', feedback: slotOnboarding([4, 4, 4, 4, 4], [...Array(4).fill(DEFESA_CONCLUIDA), { turno: 5, concluida: false, historico: [{ role: 'user', content: '═══ CENÁRIO' }] }]) };
     montar();
     h.callAIChat.mockResolvedValue('Obrigado, era isso.\n[META]{"turno":6,"encerrar":true}[/META]');
     h.callAI.mockResolvedValue(JSON.stringify({ resumo: { leitura_geral: '', sustentacao_mais_forte: '', fragilidade_mais_relevante: '' }, evidencias_por_descritor: [] }));
@@ -303,7 +305,7 @@ describe('a devolutiva final (sem14_redacao) sai no idioma da pessoa; o scorer e
 
 describe('o polling da tela (ações de leitura) não paga a leitura do idioma', () => {
   it('fechamento_status não consulta o idioma; uma ação que escreve consulta', async () => {
-    h.prog = { id: 'p12', status: 'em_andamento', feedback: slotOnboarding([4, 4, 2, 0, 0]) };
+    h.prog = { id: 'p12', status: 'em_andamento', feedback: slotOnboarding([4, 4, 2, 0, 0], [DEFESA_CONCLUIDA, DEFESA_CONCLUIDA]) };
     montar();
     await POST(req({ semana: 12, action: 'fechamento_status' }));
     expect(idiomasLidos()).toBe(0);

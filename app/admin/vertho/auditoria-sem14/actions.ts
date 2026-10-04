@@ -188,6 +188,7 @@ ${ajustesTexto}`;
       semanaAcumulada: programaConfig.semanaAcumulada,
       mascarar: (texto) => maskTextPII(texto, piiMap),
       mascararProfundo: (valor) => maskDeepPII(valor, piiMap),
+      mascararExtracao: (ext) => mascararExtracaoArguicao(ext, piiMap),
       degradacao: { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
     });
     if ('erro' in montado) return { error: montado.erro };
@@ -213,8 +214,9 @@ ${ajustesTexto}`;
     config: programaConfig,
     regeracao: { feedbackAuditoria: maskTextPII(feedbackAuditoria, piiMap) },
     // Regeneração respeita a arguição já feita (fb.arguicao) — mesma modulação.
-    // Mascarada: a redação final e o auditor leem as citações.
-    evidenciasArguicao: fb.arguicao?.concluida ? mascararExtracaoArguicao(fb.arguicao.extracao, piiMap) : null,
+    // Mascarada: a redação final e o auditor leem as citações. Onboarding: a arguição de cada
+    // competência vem na entrada dela (`porCompetencia[i].evidenciasArguicao`).
+    evidenciasArguicao: !cenarios && fb.arguicao?.concluida ? mascararExtracaoArguicao(fb.arguicao.extracao, piiMap) : null,
     ledger: { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
   });
   if (resultado.ok !== true) return { error: `Scorer falhou: ${resultado.erro}`, meta: resultado.meta };

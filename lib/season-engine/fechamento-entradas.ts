@@ -4,7 +4,9 @@
  * propósito. Aquele módulo é puro e a tela do fechamento (componente de cliente) o
  * importa; este puxa a leitura de evidências, que não pode ir para o bundle do browser.
  */
+import { normalizarComp } from '@/lib/workshop-competencias';
 import { agregarEvidenciasAteAcumulada } from './evidencias-fechamento';
+import type { ArguicaoExtracao } from './arguicao';
 import {
   acumuladoDaCompetencia, descritoresDoFechamento, descritoresHomonimos, descritoresPorCompetencia, respostaDoCenario,
   type CenarioDoFechamento, type EntradaPorCompetencia, type LinhaDoMapeamento,
@@ -23,7 +25,9 @@ export type EntradasPorCompetencia =
  * as competências (o enriquecimento já agrupa pela competência de cada descritor);
  * aqui só se separa por competência. As evidências das semanas são lidas por
  * competência (cada scorer vê as dos seus descritores), e `mascarar` /
- * `mascararProfundo` são a PII do chamador: tudo que sai daqui vai mascarado.
+ * `mascararProfundo` são a PII do chamador: tudo que sai daqui vai mascarado. A arguição de cada
+ * competência (`cenarios[i].arguicao`) entra pela extração dela, só quando concluída, também
+ * mascarada (`mascararExtracao`): a fusão na nota roda por competência, sobre esta extração.
  */
 export async function montarEntradasPorCompetencia(a: {
   db: any;
@@ -34,6 +38,7 @@ export async function montarEntradasPorCompetencia(a: {
   semanaAcumulada: number;
   mascarar: (texto: string) => string;
   mascararProfundo: (valor: unknown) => unknown;
+  mascararExtracao: (extracao: ArguicaoExtracao | null | undefined) => ArguicaoExtracao | null;
   degradacao?: { empresaId?: string | null; colaboradorId?: string | null };
 }): Promise<EntradasPorCompetencia> {
   const { grupos, semCenario } = descritoresPorCompetencia(a.descritoresComRegua, a.cenarios.map((c) => c.competencia));
@@ -57,6 +62,7 @@ export async function montarEntradasPorCompetencia(a: {
       resposta: a.mascarar(respostaDoCenario(c)),
       evidenciasAcumuladas: mascaradas,
       acumuladoPrimaria: acumuladoDaCompetencia(acumuladoMascarado, g.descritores, c.competencia),
+      evidenciasArguicao: c.arguicao?.concluida ? a.mascararExtracao(c.arguicao.extracao) : null,
     });
   }
   return { ok: true, entradas, evidencias: evidencias.join('\n\n'), homonimos: descritoresHomonimos(grupos) };
@@ -90,4 +96,24 @@ export async function descritoresCompletosDoOnboarding(a: {
   if (error) return { ok: false, erro: `falha ao ler as avaliações do mapeamento (Cenário A): ${error.message}` };
   const { descritores, semMapeamento } = descritoresDoFechamento(a.selecionados, (data || []) as LinhaDoMapeamento[], a.competencias);
   return { ok: true, descritores, semMapeamento };
+}
+
+/**
+ * Os descritores de UMA competência do Onboarding, o conjunto que a arguição dela sonda e que o
+ * scorer pontua (os mesmos 6 do Cenário A, ver `descritoresDoFechamento`). A rota da arguição lê
+ * por aqui a cada turno: é uma leitura pequena, e dispensa gravar a lista no slot (que ficaria
+ * velha se a pessoa fosse remapeada no meio do fechamento).
+ */
+export async function descritoresDaCompetenciaDoOnboarding(a: {
+  db: any;
+  colaboradorId: string;
+  empresaId?: string | null;
+  selecionados: any[];
+  competencias: string[];
+  competencia: string;
+}): Promise<{ ok: true; descritores: any[] } | { ok: false; erro: string }> {
+  const lido = await descritoresCompletosDoOnboarding(a);
+  if ('erro' in lido) return { ok: false, erro: lido.erro };
+  const chave = normalizarComp(a.competencia);
+  return { ok: true, descritores: lido.descritores.filter((d) => normalizarComp(d?.competencia) === chave) };
 }

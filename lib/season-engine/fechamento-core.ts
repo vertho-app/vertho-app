@@ -5,7 +5,7 @@ import {
 } from '@/lib/season-engine/fechamento-scorer';
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
 import {
-  cenariosDoSlot, respostasDosCenarios, textoDosCenarios, type EntradaPorCompetencia,
+  cenariosDoSlot, chaveDaCitacao, extracaoDoConjunto, respostasDosCenarios, textoDosCenarios, type EntradaPorCompetencia,
 } from '@/lib/season-engine/fechamento-por-competencia';
 import { descritoresCompletosDoOnboarding, montarEntradasPorCompetencia } from '@/lib/season-engine/fechamento-entradas';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
@@ -244,6 +244,7 @@ export async function finalizarFechamentoCore(
         semanaAcumulada: config.semanaAcumulada,
         mascarar: (texto) => maskTextPII(texto, piiMap),
         mascararProfundo: (valor) => maskDeepPII(valor, piiMap),
+        mascararExtracao: (ext) => mascararExtracaoArguicao(ext, piiMap),
         degradacao: { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
       });
       // `in`, e não `.ok`: com `strict: false` a união por booleano não estreita.
@@ -274,8 +275,9 @@ export async function finalizarFechamentoCore(
       acumuladoPrimaria: maskDeepPII(acumuladoPrimaria, piiMap),
       config,
       // Fusão da arguição (Fase B): modula a nota quando a defesa oral concluiu.
-      // Mascarada: a redação final e o auditor leem as citações.
-      evidenciasArguicao: dados.arguicao?.concluida ? mascararExtracaoArguicao(dados.arguicao.extracao, piiMap) : null,
+      // Mascarada: a redação final e o auditor leem as citações. Onboarding: cada competência tem a
+      // sua arguição, e a extração dela vai na entrada (`porCompetencia[i].evidenciasArguicao`).
+      evidenciasArguicao: !cenarios && dados.arguicao?.concluida ? mascararExtracaoArguicao(dados.arguicao.extracao, piiMap) : null,
       prazoMs: opts.prazoMs,
       ledger: { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
     });
@@ -408,7 +410,6 @@ export type ResultadoRefazerRedacao =
     }
   | { ok: false; erro: string };
 
-const nomeNormalizado = (s: unknown) => String(s || '').trim().toLowerCase();
 
 /**
  * Refaz SÓ a redação final de um fechamento concluído em que ela falhou ou não
@@ -457,7 +458,14 @@ export async function refazerRedacaoFechamento(
     config.semanaAcumulada,
     { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
   );
-  const extracao = fb.arguicao?.concluida ? mascararExtracaoArguicao(fb.arguicao.extracao, map) : null;
+  // Onboarding: uma arguição por competência, lidas juntas pela redação (a mesma junção do scorer).
+  const cenariosDoFb = cenariosDoSlot(fb);
+  const extracao = cenariosDoFb
+    ? extracaoDoConjunto(cenariosDoFb.map((c) => ({
+      competencia: c.competencia,
+      extracao: c.arguicao?.concluida ? mascararExtracaoArguicao(c.arguicao.extracao, map) : null,
+    })))
+    : fb.arguicao?.concluida ? mascararExtracaoArguicao(fb.arguicao.extracao, map) : null;
   const citacoes = citacoesDaArguicao(extracao, avaliados);
   const competenciasLabel = Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 1
     ? trilha.competencias_foco.join(' + ')
@@ -477,7 +485,7 @@ export async function refazerRedacaoFechamento(
       nota_final: num(d.nota_pos),
       sustentacao_arguicao: d.sustentacao_arguicao ?? null,
       forca_arguicao: d.forca_arguicao ?? null,
-      citacao_arguicao: citacoes.get(nomeNormalizado(d.descritor)) ?? null,
+      citacao_arguicao: citacoes.get(chaveDaCitacao(d)) ?? null,
       piso_aplicado: !!d.piso_aplicado,
       justificativa: mascarar(d.justificativa),
     })),

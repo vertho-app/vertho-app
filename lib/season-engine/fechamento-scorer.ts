@@ -33,7 +33,7 @@ import { mapComLimite } from '@/lib/concurrency';
 import type { ProgramaConfig } from './programa-config';
 import type { ArguicaoExtracao } from './arguicao';
 import type { AppLocale } from '@/i18n/routing';
-import { mesclarPontuacoes, type EntradaPorCompetencia } from './fechamento-por-competencia';
+import { chaveDaCitacao, extracaoDoConjunto, mesclarPontuacoes, type EntradaPorCompetencia } from './fechamento-por-competencia';
 
 export interface PontuarFechamentoArgs {
   competencia: string;
@@ -208,8 +208,11 @@ export function citacoesDaArguicao(ext: ArguicaoExtracao | null | undefined, ava
   const out = new Map<string, string>();
   const evs = Array.isArray(ext?.evidencias_por_descritor) ? ext!.evidencias_por_descritor : [];
   for (const d of avaliados) {
-    const chave = normDescritor(d?.descritor);
-    const doDescritor = evs.filter((e) => normDescritor(e?.descritor) === chave);
+    const chave = chaveDaCitacao(d);
+    // Onboarding: a extração JUNTA das arguições traz a `competencia` de cada evidência, e o nome
+    // do descritor pode se repetir entre competências. Sem o campo (uma competência), só o nome.
+    const doDescritor = evs.filter((e) => normDescritor(e?.descritor) === normDescritor(d?.descritor)
+      && (!e?.competencia || !d?.competencia || normDescritor(e.competencia) === normDescritor(d.competencia)));
     const escolhida = doDescritor.find((e) => e?.sustentou === d?.sustentacao_arguicao && e?.forca === d?.forca_arguicao)
       ?? doDescritor[0];
     if (escolhida?.citacao) out.set(chave, escolhida.citacao);
@@ -432,9 +435,14 @@ async function rodarScorer(a: {
 }
 
 export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<PontuarFechamentoResultado> {
-  const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao, evidenciasArguicao, checkModel, prazoMs, ledger, porCompetencia, locale } = args;
+  const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao, evidenciasArguicao: evidenciasArguicaoDoArg, checkModel, prazoMs, ledger, porCompetencia, locale } = args;
   const { isPiloto, semanaFinal, semanasEvidencia, notaPrograma } = reguaTemporalDoPrograma(config);
   const porCompetenciaAtivo = (porCompetencia?.length ?? 0) > 1;
+  // Onboarding: cada competência tem a SUA arguição (a extração vem em cada entrada). A fusão na nota
+  // roda por competência; a redação final e o auditor leem as extrações juntas, num formato só.
+  const evidenciasArguicao = porCompetenciaAtivo
+    ? extracaoDoConjunto(porCompetencia!.map((e) => ({ competencia: e.competencia, extracao: e.evidenciasArguicao ?? null })))
+    : evidenciasArguicaoDoArg;
 
   const meta: PontuarFechamentoMeta = {
     tentativas: 0,
@@ -448,6 +456,7 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
   // (piloto) a narrativa saiu com régua temporal errada e a sanitização
   // cirúrgica não resolveu ("14 semanas" numa degustação de 2). ──
   let parsed: any = {};
+  let partesDoScorer: Array<{ competencia: string; parsed: any }> = [];
   if (porCompetenciaAtivo) {
     // Onboarding: uma rodada do scorer por competência, em paralelo (cada uma é uma
     // chamada com os 6 descritores da competência; as cinco juntas levam o tempo da mais
@@ -487,7 +496,8 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
     if (vazias.length || !meta.narrativaPilotoOk) {
       return { ok: false, erro: `A avaliação automática falhou ao processar a resposta (parse/narrativa inválida)${vazias.length ? ` em: ${vazias.join(', ')}` : ''}.`, meta };
     }
-    parsed = mesclarPontuacoes(porCompetencia!.map((e, i) => ({ competencia: e.competencia, parsed: rodadas[i].rodada!.parsed })));
+    partesDoScorer = porCompetencia!.map((e, i) => ({ competencia: e.competencia, parsed: rodadas[i].rodada!.parsed }));
+    parsed = mesclarPontuacoes(partesDoScorer);
   } else {
     const { system, user } = promptEvolutionScenarioScore({
       competencia, descritores, cenario, resposta, nomeColab, perfilDominante,
@@ -518,9 +528,22 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
   // código; derivada da classificação da extração, sem IA nova). Roda ANTES
   // da trava piloto. Sem evidências → no-op (nota do cenário intacta).
   if (evidenciasArguicao) {
-    const fus = fundirArguicao(parsed, evidenciasArguicao);
-    parsed = fus.parsed;
-    meta.arguicaoAjustados = fus.ajustados;
+    if (porCompetenciaAtivo) {
+      // Uma fusão por competência, cada uma com a extração da arguição DELA, e as saídas juntadas de
+      // novo (o rascunho do texto não muda). O nome de um descritor pode se repetir entre competências:
+      // por isso a fusão não roda sobre o conjunto, onde a extração de uma pegaria o descritor de outra.
+      let ajustados = 0;
+      parsed = mesclarPontuacoes(partesDoScorer.map((p, i) => {
+        const fus = fundirArguicao(p.parsed, porCompetencia![i].evidenciasArguicao);
+        ajustados += fus.ajustados;
+        return { competencia: p.competencia, parsed: fus.parsed };
+      }));
+      meta.arguicaoAjustados = ajustados;
+    } else {
+      const fus = fundirArguicao(parsed, evidenciasArguicao);
+      parsed = fus.parsed;
+      meta.arguicaoAjustados = fus.ajustados;
+    }
   }
 
   // TRAVA piloto-only (piso no baseline; bruto + piso_aplicado preservados;
@@ -560,7 +583,7 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
         nota_final: typeof d.nota_pos === 'number' ? d.nota_pos : null,
         sustentacao_arguicao: d.sustentacao_arguicao ?? null,
         forca_arguicao: d.forca_arguicao ?? null,
-        citacao_arguicao: citacoes.get(normDescritor(d.descritor)) ?? null,
+        citacao_arguicao: citacoes.get(chaveDaCitacao(d)) ?? null,
         piso_aplicado: !!d.piso_aplicado,
         justificativa: d.justificativa ?? null,
       })),

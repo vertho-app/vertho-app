@@ -50,12 +50,6 @@ export interface ArguicaoContexto {
   /** Piloto: enquadra como sustentação, nunca evolução. */
   isPiloto: boolean;
   /**
-   * Onboarding (04/10/2026): quantos cenários a pessoa respondeu, um por competência.
-   * Mais de 1 liga o bloco que pede UMA arguição sobre o conjunto, com sondagem nos
-   * trechos de maior risco. Ausente = o prompt de sempre, byte a byte.
-   */
-  cenarios?: number;
-  /**
    * O idioma da PESSOA (a arguição é uma conversa com ela): vai como opção explícita ao
    * `callAIChat('arguicao_turno')`. Ausente, a IA cai no idioma do cookie, como antes. A
    * extração das evidências (`arguicao_avaliacao`) é JSON interno e NÃO recebe idioma.
@@ -118,10 +112,6 @@ O que importa:
 4. Aceite teoria/opinião só como início — puxe para critério, consequência, exemplo.
 5. Explore também o LIMITE da resposta e o que ela deixou de considerar.
 6. NUNCA invente fatos que a pessoa não disse.
-${ctx.cenarios && ctx.cenarios > 1 ? `
-═══ VÁRIOS CENÁRIOS ═══
-${ctx.nomeColab} respondeu ${ctx.cenarios} cenários, um por competência, e esta é UMA arguição só, sobre o conjunto. Não tente cobrir todos: escolha os trechos de maior risco (resposta genérica, raciocínio que não se sustenta, limite que ela não reconheceu) e sonde esses. Diga de qual competência está falando, pelo nome.
-` : ''}
 ═══ COMO SONDAR (varie ao longo dos turnos) ═══
 - Aprofundar critério: "Você escolheu X. Que critério fez você preferir X a Y?"
 - Testar robustez: "E se, no cenário, o cliente já tivesse recusado antes?"
@@ -264,6 +254,8 @@ export interface ArguicaoExtracao {
   resumo: { leitura_geral: string; sustentacao_mais_forte: string; fragilidade_mais_relevante: string };
   evidencias_por_descritor: Array<{
     descritor: string;
+    /** Só na extração JUNTA do Onboarding (uma arguição por competência): de qual competência veio. */
+    competencia?: string;
     sustentou: 'confirmou' | 'aprofundou' | 'fragilizou' | 'sem_sinal';
     citacao: string;
     forca: 'fraca' | 'moderada' | 'forte';

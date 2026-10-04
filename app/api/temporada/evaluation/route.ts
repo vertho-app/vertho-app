@@ -20,10 +20,8 @@ import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, 
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import type { AppLocale } from '@/i18n/routing';
 import { escolherCenarioB, escolherCenariosBPorCompetencia, fechamentoPorCompetencia, perguntasDoCenarioB } from '@/lib/season-engine/cenario-b';
-import {
-  cenariosDoSlot, posicaoNoFechamento, respostasDoCenarioN, respostasDosCenarios, textoDosCenarios,
-  type CenarioDoFechamento,
-} from '@/lib/season-engine/fechamento-por-competencia';
+import { cenariosDoSlot, posicaoNoFechamento, respostasDoCenarioN, type CenarioDoFechamento } from '@/lib/season-engine/fechamento-por-competencia';
+import { descritoresDaCompetenciaDoOnboarding } from '@/lib/season-engine/fechamento-entradas';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { PROGRESSO } from '@/lib/status';
 import { comContexto } from '@/lib/execucao-contexto';
@@ -58,18 +56,17 @@ const ACOES_DE_LEITURA = new Set(['status', 'fechamento_status']);
  * missões e o cenário B fica na sem 10.
  */
 /** Monta o contexto da arguição a partir do estado do fechamento na rota:
- *  agrega as respostas do cenário (ou dos 5 cenários do Onboarding, uma arguição só
- *  sobre o conjunto) como a "tese" a ser defendida. */
+ *  agrega as respostas do cenário como a "tese" a ser defendida. No Onboarding é chamada uma vez
+ *  por cenário (a arguição de cada competência, o mesmo contexto da Jornada), com a competência
+ *  e os descritores dela. */
 function montarCtxArguicao(opts: {
   cenario: string; perguntas: any[]; historico: any[];
   colab: any; competenciasLabel: string; descritores: any[]; isPiloto: boolean;
-  /** Onboarding: os cenários do slot. Presentes, substituem `cenario`/`perguntas`/`historico`. */
-  cenarios?: CenarioDoFechamento[] | null;
   /** O idioma da pessoa: a arguição é uma conversa com ela. */
   locale?: AppLocale;
 }): ArguicaoContexto {
   const respostasUser = opts.historico.filter((m: any) => m.role === 'user');
-  const respostaCenario = opts.cenarios ? respostasDosCenarios(opts.cenarios) : opts.perguntas.map((p: any, i: number) =>
+  const respostaCenario = opts.perguntas.map((p: any, i: number) =>
     `[${p.dimensao}] ${p.texto}\n\u2192 ${respostasUser[i]?.content || '(sem resposta)'}`
   ).join('\n\n');
   return {
@@ -77,11 +74,10 @@ function montarCtxArguicao(opts: {
     cargo: opts.colab?.cargo,
     competencia: opts.competenciasLabel,
     perfilDominante: opts.colab?.perfil_dominante,
-    cenario: opts.cenarios ? textoDosCenarios(opts.cenarios) : opts.cenario,
+    cenario: opts.cenario,
     respostaCenario,
     descritores: opts.descritores,
     isPiloto: opts.isPiloto,
-    ...(opts.cenarios && opts.cenarios.length > 1 ? { cenarios: opts.cenarios.length } : {}),
     ...(opts.locale ? { locale: opts.locale } : {}),
   };
 }
@@ -412,6 +408,61 @@ export async function POST(request) {
         return { estado: 'processando' as const, erro: null, avaliacao: null };
       };
 
+      // ── ONBOARDING: o mesmo padrão da Jornada, repetido por cenário. Depois das respostas de cada
+      // cenário abre a arguição DAQUELA competência (mesmas regras do modo, sondando os descritores
+      // dela), e só depois vem o cenário seguinte; ao fim do último, a pontuação. A conversa e a
+      // extração de cada arguição ficam no próprio cenário (`cenarios[i].arguicao`). ──
+      const arguicaoLigada = !!programaConfig.arguicao?.ativa;
+      const gravarCenarios = (lista: CenarioDoFechamento[]) => upsertProg(sb, {
+        prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+        slotKey, novoSlot: { ...dados, cenarios: lista }, finished: false,
+      });
+      /** O contexto da arguição do cenário `c`: o da Jornada, sobre a competência dele e os descritores dela. */
+      const ctxArguicaoDoCenario = async (lista: CenarioDoFechamento[], c: CenarioDoFechamento) => {
+        const lido = await descritoresDaCompetenciaDoOnboarding({
+          db: sb, colaboradorId: trilha.colaborador_id, empresaId: trilha.empresa_id, selecionados: descritores,
+          competencias: lista.map((x) => x.competencia), competencia: c.competencia,
+        });
+        // `in`, e não `.ok`: com `strict: false` a união por booleano não estreita.
+        if ('erro' in lido) return { erro: lido.erro };
+        return {
+          ctx: montarCtxArguicao({
+            cenario: c.cenario, perguntas: c.perguntas, historico: c.transcript_completo, colab,
+            competenciasLabel: c.competencia, descritores: lido.descritores,
+            isPiloto: programaConfig.modo === 'piloto', locale: idioma,
+          }),
+        };
+      };
+      /** Abre a arguição do cenário `idx` (as respostas dele estão completas). */
+      const abrirArguicaoDoCenario = async (lista: CenarioDoFechamento[], idx: number) => {
+        const montado = await ctxArguicaoDoCenario(lista, lista[idx]);
+        if ('erro' in montado) return NextResponse.json({ error: montado.erro }, { status: 500 });
+        const { estado, reply } = await abrirArguicao(montado.ctx, programaConfig.arguicao!.maxTurnos, aiConfig, piiArg);
+        lista[idx].arguicao = estado;
+        await gravarCenarios(lista);
+        return NextResponse.json({ arguindo: true, arguicaoConcluida: false, message: reply, turno: 1, finished: false, cenarioIndex: idx });
+      };
+      /**
+       * O cenário `idx` terminou (as respostas e, se ligada, a arguição): abre a 1ª pergunta do seguinte,
+       * ou, sendo o último, dispara a pontuação. `extra` entra por cima da resposta (a fala de fecho da
+       * arguição, por exemplo).
+       */
+      const avancarDoCenario = async (lista: CenarioDoFechamento[], idx: number, extra: Record<string, unknown> = {}) => {
+        const seguinte = lista[idx + 1];
+        if (seguinte) {
+          if (seguinte.transcript_completo.length === 0) seguinte.transcript_completo.push(aberturaDaPergunta(seguinte.perguntas[0], 1));
+          await gravarCenarios(lista);
+          return NextResponse.json({
+            message: seguinte.transcript_completo[0]?.content, history: seguinte.transcript_completo, finished: false,
+            dimensao: seguinte.perguntas[0]?.dimensao, proximoCenario: true, cenarioConcluido: idx, cenarioIndex: idx + 1,
+            ...extra,
+          });
+        }
+        await gravarCenarios(lista);
+        const r = await dispararFinalizacao();
+        return NextResponse.json({ finalizando: r.estado === 'processando', fechamento: r.estado, finished: false, ...extra });
+      };
+
       // Acompanhamento da pontuação (tela em polling). Só leitura.
       if (action === 'fechamento_status') {
         const agora = Date.now();
@@ -519,9 +570,9 @@ export async function POST(request) {
           }
           // Abre a 1ª pergunta do cenário em que a pessoa está, se ainda não foi aberta
           // (sem IA: o texto vem do banco). Os seguintes abrem quando o anterior fecha.
-          const pos = posicaoNoFechamento(cenariosSlot);
+          const pos = posicaoNoFechamento(cenariosSlot, { arguicaoAtiva: !!programaConfig.arguicao?.ativa });
           const atual = pos.cenarioAtual === null ? null : cenariosSlot[pos.cenarioAtual];
-          if (atual && atual.transcript_completo.length === 0) {
+          if (atual && pos.etapa === 'respondendo' && atual.transcript_completo.length === 0) {
             atual.transcript_completo.push(aberturaDaPergunta(atual.perguntas[0], 1));
           }
           // A conversa vive em cada cenário: o `transcript_completo` vazio que o default de `dados`
@@ -580,9 +631,30 @@ export async function POST(request) {
       if (action === 'arguir') {
         if (!programaConfig.arguicao?.ativa) return NextResponse.json({ error: 'arguição desativada' }, { status: 400 });
         if (!message) return NextResponse.json({ error: 'message obrigatório' }, { status: 400 });
+        // ONBOARDING: a arguição é a do cenário em que a pessoa está (uma por competência).
+        const cenariosArg = cenariosDoSlot(dados);
+        if (cenariosArg) {
+          const posArg = posicaoNoFechamento(cenariosArg, { arguicaoAtiva: true });
+          const idxArg = posArg.etapa === 'arguindo' ? posArg.cenarioAtual! : -1;
+          const atualArg = idxArg >= 0 ? cenariosArg[idxArg] : null;
+          const estadoDoCenario = atualArg?.arguicao as ArguicaoEstado | undefined;
+          if (!atualArg || !estadoDoCenario || estadoDoCenario.concluida) return NextResponse.json({ error: 'arguição não está em andamento' }, { status: 400 });
+          const montado = await ctxArguicaoDoCenario(cenariosArg, atualArg);
+          if ('erro' in montado) return NextResponse.json({ error: montado.erro }, { status: 500 });
+          const { estado, reply, concluida } = await turnoArguicao(montado.ctx, estadoDoCenario, message, programaConfig.arguicao.maxTurnos, aiConfig, piiArg);
+          const arguicaoDoCenario: any = estado;
+          if (concluida) arguicaoDoCenario.extracao = await extrairEvidenciasArguicao(montado.ctx, estado, aiConfig, piiArg);
+          atualArg.arguicao = arguicaoDoCenario;
+          if (!concluida) {
+            await gravarCenarios(cenariosArg);
+            return NextResponse.json({ arguindo: true, arguicaoConcluida: false, message: reply, turno: estado.turno, finished: false, cenarioIndex: idxArg });
+          }
+          // Concluída: o cenário seguinte abre (ou, sendo o último, a pontuação é disparada com a fusão por competência).
+          return avancarDoCenario(cenariosArg, idxArg, { arguicaoConcluida: true, message: reply, turno: estado.turno });
+        }
         const estadoArg = dados.arguicao as ArguicaoEstado | undefined;
         if (!estadoArg || estadoArg.concluida) return NextResponse.json({ error: 'arguição não está em andamento' }, { status: 400 });
-        const ctxArg = montarCtxArguicao({ cenario: dados.cenario, perguntas: dados.perguntas || [], historico, colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto', cenarios: cenariosDoSlot(dados), locale: idioma });
+        const ctxArg = montarCtxArguicao({ cenario: dados.cenario, perguntas: dados.perguntas || [], historico, colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto', locale: idioma });
         const { estado, reply, concluida } = await turnoArguicao(ctxArg, estadoArg, message, programaConfig.arguicao.maxTurnos, aiConfig, piiArg);
         const arguicao: any = estado;
         if (concluida) arguicao.extracao = await extrairEvidenciasArguicao(ctxArg, estado, aiConfig, piiArg);
@@ -602,54 +674,42 @@ export async function POST(request) {
       }
 
       // action === 'send': colab respondeu. Pode ser pergunta 1-3 (faz próxima) ou pergunta 4 (scorer).
-      if (!message) return NextResponse.json({ error: 'message obrigatório' }, { status: 400 });
-
-      // ONBOARDING: a resposta entra no cenário em que a pessoa está (o primeiro com pergunta
-      // sem resposta), e a próxima pergunta é a do mesmo cenário ou a 1ª do seguinte. Quando a
-      // última pergunta do último cenário é respondida, vale o caminho de sempre: arguição
-      // (uma só, sobre o conjunto) ou pontuação.
+      // ONBOARDING: a resposta entra no cenário em que a pessoa está (o primeiro que ainda não terminou) e a
+      // próxima pergunta é a do mesmo cenário. Na última resposta dele abre a arguição DAQUELA competência (se
+      // ligada) e só depois o cenário seguinte; ao fim do último, a pontuação. Retomada: com as respostas do
+      // cenário completas e a arguição ainda sem abrir, a tela chama `send` SEM mensagem só para abri-la.
       const cenariosEnvio = cenariosDoSlot(dados);
+      const posEnvio = cenariosEnvio ? posicaoNoFechamento(cenariosEnvio, { arguicaoAtiva: arguicaoLigada }) : null;
+      const soAbrirArguicao = !!posEnvio && posEnvio.etapa === 'arguindo' && !cenariosEnvio![posEnvio.cenarioAtual!].arguicao;
+      if (!message && !soAbrirArguicao) return NextResponse.json({ error: 'message obrigatório' }, { status: 400 });
+
       if (cenariosEnvio) {
-        const pos = posicaoNoFechamento(cenariosEnvio);
-        if (pos.cenarioAtual === null) {
-          if (!(programaConfig.arguicao?.ativa && !dados.arguicao)) {
-            const leitura = estadoDoFechamento(prog, { arguicaoAtiva: !!programaConfig.arguicao?.ativa }, Date.now());
-            return NextResponse.json({ error: 'As respostas do cenário já foram registradas.', fechamento: leitura.estado }, { status: 409 });
-          }
-        } else {
-          const atual = cenariosEnvio[pos.cenarioAtual];
-          atual.transcript_completo.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
-          const respondidas = respostasDoCenarioN(atual);
-          if (respondidas < atual.perguntas.length) {
-            const abertura = aberturaDaPergunta(atual.perguntas[respondidas], respondidas + 1);
-            atual.transcript_completo.push(abertura);
-            await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot: { ...dados, cenarios: cenariosEnvio }, finished: false });
-            return NextResponse.json({
-              message: abertura.content, history: atual.transcript_completo, finished: false, dimensao: abertura.dimensao,
-              cenarioIndex: pos.cenarioAtual, perguntaIndex: respondidas,
-            });
-          }
-          const seguinte = cenariosEnvio[pos.cenarioAtual + 1];
-          if (seguinte) {
-            // Fechou um cenário: abre a 1ª pergunta do próximo (se ainda não estiver aberta).
-            if (seguinte.transcript_completo.length === 0) seguinte.transcript_completo.push(aberturaDaPergunta(seguinte.perguntas[0], 1));
-            await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot: { ...dados, cenarios: cenariosEnvio }, finished: false });
-            return NextResponse.json({
-              message: seguinte.transcript_completo[0]?.content, history: seguinte.transcript_completo, finished: false,
-              dimensao: seguinte.perguntas[0]?.dimensao, cenarioConcluido: pos.cenarioAtual,
-              cenarioIndex: pos.cenarioAtual + 1, perguntaIndex: 0,
-            });
-          }
+        if (posEnvio!.cenarioAtual === null) {
+          const leitura = estadoDoFechamento(prog, { arguicaoAtiva: arguicaoLigada }, Date.now());
+          return NextResponse.json({ error: 'As respostas do cenário já foram registradas.', fechamento: leitura.estado }, { status: 409 });
         }
-        if (programaConfig.arguicao?.ativa && !dados.arguicao) {
-          const ctxArg = montarCtxArguicao({ cenario: '', perguntas: [], historico: [], colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto', cenarios: cenariosEnvio, locale: idioma });
-          const { estado, reply } = await abrirArguicao(ctxArg, programaConfig.arguicao.maxTurnos, aiConfig, piiArg);
-          await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot: { ...dados, cenarios: cenariosEnvio, arguicao: estado }, finished: false });
-          return NextResponse.json({ arguindo: true, arguicaoConcluida: false, message: reply, turno: 1, finished: false });
+        const idx = posEnvio!.cenarioAtual;
+        const atual = cenariosEnvio[idx];
+        if (posEnvio!.etapa === 'arguindo') {
+          // Respostas completas: só falta a arguição. Se ela já abriu, quem a conduz é `arguir`.
+          if (atual.arguicao) {
+            return NextResponse.json({ error: 'As respostas do cenário já foram registradas.', fechamento: 'arguindo' }, { status: 409 });
+          }
+          return abrirArguicaoDoCenario(cenariosEnvio, idx);
         }
-        await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot: { ...dados, cenarios: cenariosEnvio }, finished: false });
-        const r = await dispararFinalizacao();
-        return NextResponse.json({ finalizando: r.estado === 'processando', fechamento: r.estado, finished: false });
+        atual.transcript_completo.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
+        const respondidas = respostasDoCenarioN(atual);
+        if (respondidas < atual.perguntas.length) {
+          const abertura = aberturaDaPergunta(atual.perguntas[respondidas], respondidas + 1);
+          atual.transcript_completo.push(abertura);
+          await gravarCenarios(cenariosEnvio);
+          return NextResponse.json({
+            message: abertura.content, history: atual.transcript_completo, finished: false, dimensao: abertura.dimensao,
+            cenarioIndex: idx, perguntaIndex: respondidas,
+          });
+        }
+        if (arguicaoLigada) return abrirArguicaoDoCenario(cenariosEnvio, idx);
+        return avancarDoCenario(cenariosEnvio, idx);
       }
 
       const cenario = dados.cenario;

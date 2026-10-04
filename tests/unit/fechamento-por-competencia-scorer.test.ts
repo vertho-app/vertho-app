@@ -8,12 +8,13 @@ import { callAI } from '@/actions/ai-client';
 
 /**
  * O fechamento do Onboarding pontua UMA vez por competência (cada uma contra a
- * conversa do SEU cenário, 4 descritores) e junta as saídas no formato de uma
+ * conversa do SEU cenário e os descritores DELA) e junta as saídas no formato de uma
  * competência só. Trinta descritores numa chamada estourariam o teto de saída do
  * scorer (11.000 tokens, medido 8.372 para um fechamento de uma competência).
  *
- * Tudo que vem depois do scorer (fusão da arguição, redação, auditor) roda UMA vez
- * sobre o conjunto. O fechamento de uma competência não muda.
+ * A fusão da arguição roda POR competência (cada uma tem a sua defesa oral, o padrão da
+ * Jornada repetido por cenário); a redação e o auditor rodam UMA vez sobre o conjunto, lendo
+ * as defesas juntas. O fechamento de uma competência não muda.
  */
 const mockAI = vi.mocked(callAI);
 
@@ -177,24 +178,126 @@ describe('pontuarFechamento por competência: uma rodada do scorer por competên
     expect(r.auditoria.status).toBe('aprovado');
   });
 
-  it('a arguição (uma só) ajusta cada descritor pelo seu nome, e a redação vê o que mudou', async () => {
+  // ── A arguição de cada competência: a fusão roda por competência ─────────────────────────────
+  const ext = (leitura: string, evs: Array<[string, string, string]>) => ({
+    resumo: { leitura_geral: leitura, sustentacao_mais_forte: `forte ${leitura}`, fragilidade_mais_relevante: `fraca ${leitura}` },
+    evidencias_por_descritor: evs.map(([descritor, sustentou, forca]) => ({ descritor, sustentou, forca, citacao: `trecho ${descritor}` })) as any,
+  });
+  /** As entradas com a extração da arguição de cada competência (`null` = sem extração). */
+  const entradasComArguicao = (porComp: Record<string, ReturnType<typeof ext> | null>) => COMPETENCIAS.map((c) => ({ ...entrada(c), evidenciasArguicao: porComp[c] ?? null }));
+
+  it('cada competência é ajustada pela extração DA arguição dela, e a redação vê o que mudou', async () => {
     aiNormal();
-    const evidenciasArguicao = {
-      resumo: { leitura_geral: 'leu', sustentacao_mais_forte: 'a', fragilidade_mais_relevante: 'b' },
-      evidencias_por_descritor: [
-        { descritor: 'A-desc1', sustentou: 'aprofundou', forca: 'forte', citacao: 'trecho' },
-        { descritor: 'E-desc2', sustentou: 'fragilizou', forca: 'moderada', citacao: 'outro' },
-      ],
-    };
-    const r: any = await pontuarFechamento(argsBase({ evidenciasArguicao }) as any);
+    const porCompetencia = entradasComArguicao({
+      'Comp A': ext('leu A', [['A-desc1', 'aprofundou', 'forte']]),
+      'Comp E': ext('leu E', [['E-desc2', 'fragilizou', 'moderada']]),
+    });
+    const r: any = await pontuarFechamento(argsBase({ porCompetencia }) as any);
     const por = (nome: string) => r.parsed.avaliacao_por_descritor.find((d: any) => d.descritor === nome);
-    expect(por('A-desc1')).toMatchObject({ nota_pos: 3.5, ajuste_arguicao: 0.5, nota_base_cenario: 3 });
-    expect(por('E-desc2')).toMatchObject({ nota_pos: 2.7, ajuste_arguicao: -0.35 });
-    expect(por('B-desc1')).toMatchObject({ nota_pos: 3, ajuste_arguicao: 0 });
+    expect(por('A-desc1')).toMatchObject({ nota_pos: 3.5, ajuste_arguicao: 0.5, nota_base_cenario: 3, competencia: 'Comp A' });
+    expect(por('E-desc2')).toMatchObject({ nota_pos: 2.7, ajuste_arguicao: -0.35, competencia: 'Comp E' });
+    // dentro de uma competência com defesa, o descritor que ela não tocou fica sem ajuste (como na Jornada)
+    expect(por('A-desc2')).toMatchObject({ nota_pos: 3, ajuste_arguicao: 0, sustentacao_arguicao: 'sem_sinal' });
+    // competência SEM extração (a defesa dela não saiu): nenhuma fusão nela, a nota fica a do scorer
+    expect(por('B-desc1')).toMatchObject({ nota_pos: 3 });
+    expect(por('B-desc1')).not.toHaveProperty('ajuste_arguicao');
     expect(r.parsed.redacao_final.descritores_com_nota_alterada).toBe(2);
     expect(r.meta.arguicaoAjustados).toBe(2);
     // a nota média do conjunto é refeita com as notas finais
     expect(r.parsed.nota_media_pos).toBe(3);
+  });
+
+  it('a extração de uma competência NÃO ajusta o descritor de outra (a fusão é por competência, não sobre o conjunto)', async () => {
+    aiNormal();
+    // a defesa de Comp B cita um descritor que é de Comp A: não tem o que ajustar em Comp B
+    const porCompetencia = entradasComArguicao({ 'Comp B': ext('leu B', [['A-desc1', 'aprofundou', 'forte']]) });
+    const r: any = await pontuarFechamento(argsBase({ porCompetencia }) as any);
+    const a1 = r.parsed.avaliacao_por_descritor.find((d: any) => d.descritor === 'A-desc1');
+    expect(a1).toMatchObject({ nota_pos: 3 });
+    expect(a1.ajuste_arguicao ?? 0).toBe(0);
+    expect(r.meta.arguicaoAjustados).toBe(0);
+  });
+
+  it('descritores com o MESMO nome em duas competências: cada defesa ajusta só o SEU descritor', async () => {
+    const homonimos = ['Comp A', 'Comp B'].map((c) => ({
+      ...entrada(c), descritores: [{ competencia: c, descritor: 'Escuta', nota_atual: 2 }],
+    }));
+    mockAI.mockImplementation(async (_s: any, user: any, _c: any, _m: any, o: any) => {
+      if (o.taskKey === 'sem14_scorer') {
+        return JSON.stringify({
+          avaliacao_por_descritor: [{ descritor: 'Escuta', nota_pre: 2, nota_cenario: 3, nota_pos: 3, nota_acumulada: null, justificativa: `j ${competenciaDoPrompt(user)}` }],
+          resumo_avaliacao: { mensagem_geral: 'm', evidencias_citadas: [], principal_avanco: 'a', principal_ponto_de_atencao: 'b', mensagem_final: 'c', proximos_passos: ['p'] },
+          alertas_metodologicos: [],
+        });
+      }
+      return o.taskKey === 'sem14_redacao' ? REDACAO : CHECK;
+    });
+    const porCompetencia = [
+      { ...homonimos[0], evidenciasArguicao: ext('leu A', [['Escuta', 'aprofundou', 'forte']]) },
+      { ...homonimos[1], evidenciasArguicao: null },
+    ];
+    const r: any = await pontuarFechamento(argsBase({ porCompetencia, descritores: homonimos.flatMap((e) => e.descritores) }) as any);
+    const [a, b] = r.parsed.avaliacao_por_descritor;
+    expect(a).toMatchObject({ competencia: 'Comp A', nota_pos: 3.5, ajuste_arguicao: 0.5 });
+    expect(b).toMatchObject({ competencia: 'Comp B', nota_pos: 3 });
+    expect(b.ajuste_arguicao ?? 0).toBe(0);
+  });
+
+  it('homônimos: cada descritor leva à redação a citação da defesa DA competência dele (não a do outro)', async () => {
+    const homonimos = ['Comp A', 'Comp B'].map((c) => ({ ...entrada(c), descritores: [{ competencia: c, descritor: 'Escuta', nota_atual: 2 }] }));
+    mockAI.mockImplementation(async (_s: any, user: any, _c: any, _m: any, o: any) => {
+      if (o.taskKey === 'sem14_scorer') {
+        return JSON.stringify({
+          avaliacao_por_descritor: [{ descritor: 'Escuta', nota_pre: 2, nota_cenario: 3, nota_pos: 3, nota_acumulada: null, justificativa: `j ${competenciaDoPrompt(user)}` }],
+          resumo_avaliacao: { mensagem_geral: 'm', evidencias_citadas: [], principal_avanco: 'a', principal_ponto_de_atencao: 'b', mensagem_final: 'c', proximos_passos: ['p'] },
+          alertas_metodologicos: [],
+        });
+      }
+      return o.taskKey === 'sem14_redacao' ? REDACAO : CHECK;
+    });
+    const porCompetencia = [
+      { ...homonimos[0], evidenciasArguicao: ext('leu A', [['Escuta', 'aprofundou', 'forte']]) },
+      { ...homonimos[1], evidenciasArguicao: ext('leu B', [['Escuta', 'fragilizou', 'fraca']]) },
+    ];
+    porCompetencia[0].evidenciasArguicao.evidencias_por_descritor[0].citacao = 'citação da defesa de A';
+    porCompetencia[1].evidenciasArguicao.evidencias_por_descritor[0].citacao = 'citação da defesa de B';
+    await pontuarFechamento(argsBase({ porCompetencia, descritores: homonimos.flatMap((e) => e.descritores) }) as any);
+    const redacao = String(chamadas('sem14_redacao')[0][1]);
+    expect(redacao).toContain('"citação da defesa de A"');
+    expect(redacao).toContain('"citação da defesa de B"');
+  });
+
+  it('a redação e o auditor leem as defesas juntas, com a competência de cada uma', async () => {
+    aiNormal();
+    const porCompetencia = entradasComArguicao({
+      'Comp A': ext('leu A', [['A-desc1', 'aprofundou', 'forte']]),
+      'Comp C': ext('leu C', [['C-desc3', 'confirmou', 'moderada']]),
+    });
+    await pontuarFechamento(argsBase({ porCompetencia }) as any);
+    const redacao = String(chamadas('sem14_redacao')[0][1]);
+    expect(redacao).toContain('O QUE A DEFESA ORAL MOSTROU');
+    expect(redacao).toContain('Comp A: leu A');
+    expect(redacao).toContain('Comp C: leu C');
+    const auditor = String(chamadas('sem14_check')[0][1]);
+    expect(auditor).toContain('DEFESA ORAL');
+    expect(auditor).toContain('Comp A / A-desc1: aprofundou (forte): "trecho A-desc1"');
+    expect(auditor).toContain('Comp C / C-desc3: confirmou (moderada)');
+  });
+
+  it('nenhuma defesa com extração: sem fusão, sem bloco de defesa no auditor, e a nota fica a do scorer', async () => {
+    aiNormal();
+    const r: any = await pontuarFechamento(argsBase({ porCompetencia: entradasComArguicao({}) }) as any);
+    expect(r.meta.arguicaoAjustados).toBeUndefined();
+    expect(r.parsed.avaliacao_por_descritor.every((d: any) => d.nota_pos === 3)).toBe(true);
+    expect(String(chamadas('sem14_check')[0][1])).not.toContain('DEFESA ORAL');
+  });
+
+  it('a extração única que vinha nos args (a arguição sobre o conjunto) não existe mais: o Onboarding lê só as das entradas', async () => {
+    aiNormal();
+    const evidenciasArguicao = ext('leu tudo', [['A-desc1', 'aprofundou', 'forte']]);
+    const r: any = await pontuarFechamento(argsBase({ evidenciasArguicao }) as any);
+    expect(r.parsed.avaliacao_por_descritor.find((d: any) => d.descritor === 'A-desc1')).toMatchObject({ nota_pos: 3 });
+    expect(r.meta.arguicaoAjustados).toBeUndefined();
   });
 
   it('a redação não saiu: a devolutiva mínima, montada das notas finais do conjunto, é o texto publicado', async () => {
@@ -248,6 +351,23 @@ describe('pontuarFechamento por competência: uma rodada do scorer por competên
 });
 
 describe('o fechamento de UMA competência não muda', () => {
+  it('a arguição (uma só, nos args) ajusta o descritor como sempre, sem campo de competência na saída', async () => {
+    mockAI.mockImplementation(async (_s: any, _u: any, _c: any, _m: any, o: any) => (o.taskKey === 'sem14_scorer' ? saidaDoScorer('Comp A') : o.taskKey === 'sem14_redacao' ? REDACAO : CHECK));
+    const evidenciasArguicao = {
+      resumo: { leitura_geral: 'leu', sustentacao_mais_forte: 'a', fragilidade_mais_relevante: 'b' },
+      evidencias_por_descritor: [{ descritor: 'A-desc1', sustentou: 'aprofundou', forca: 'forte', citacao: 'trecho' }],
+    };
+    const r: any = await pontuarFechamento({
+      competencia: 'Comp A', descritores: descritoresDe('Comp A'), cenario: '## C', resposta: 'r', nomeColab: 'Alias',
+      evidenciasAcumuladas: 'e', acumuladoPrimaria: null, config: PROGRAMA_REGULAR_DUO, evidenciasArguicao,
+    } as any);
+    const a1 = r.parsed.avaliacao_por_descritor.find((d: any) => d.descritor === 'A-desc1');
+    expect(a1).toMatchObject({ nota_pos: 3.5, ajuste_arguicao: 0.5, nota_base_cenario: 3 });
+    expect(a1).not.toHaveProperty('competencia');
+    expect(r.meta.arguicaoAjustados).toBe(1);
+    expect(String(chamadas('sem14_check')[0][1])).not.toContain('Comp A / A-desc1');
+  });
+
   const unica = {
     competencia: 'Comp A', descritores: descritoresDe('Comp A'), cenario: '## C', resposta: 'r', nomeColab: 'Alias',
     evidenciasAcumuladas: 'e', acumuladoPrimaria: null, config: PROGRAMA_REGULAR_DUO,

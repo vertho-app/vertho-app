@@ -1,19 +1,31 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { aplicarEnvio, cenariosDoSlot, posicaoNoFechamento, type CenarioDoFechamento } from '@/lib/season-engine/fechamento-por-competencia';
+import { cenariosDoSlot, posicaoNoFechamento, type CenarioDoFechamento } from '@/lib/season-engine/fechamento-por-competencia';
 
 /**
- * A tela do fechamento (`/dashboard/temporada/sem14`) no Onboarding: UM cenário por vez, com o
- * nome da competência e o progresso "cenário X de 5", 4 perguntas cada, retomando na pergunta
- * em que a pessoa parou. A tela é um componente de cliente (hooks, fetch): o que ela decide a
- * cada resposta do servidor vive em `aplicarEnvio` (puro, testado aqui) e o resto é guard de
- * fonte. ⚠️ Nada disto substitui VER a tela de 5 cenários numa imagem: ela nunca foi vista.
+ * A tela do fechamento (`/dashboard/temporada/sem14`) no Onboarding segue o MESMO fluxo da Jornada,
+ * repetido por cenário (decisão do dono, 04/10/2026): as 4 respostas do cenário se escrevem na tela e
+ * vão juntas no fim (`finalizar`), depois abre a arguição DAQUELA competência (chat, como na Jornada),
+ * e só então vem o cenário seguinte; ao fim do 5º, a pontuação. Retomar volta ao cenário e à etapa
+ * (respondendo ou arguindo) que o servidor diz.
+ *
+ * A tela é um componente de cliente (hooks, fetch): o que decide a posição vive no helper puro
+ * (`posicaoNoFechamento`, testado aqui e no servidor) e o resto é guard de fonte.
+ * ⚠️ Nada disto substitui VER a tela de 5 cenários numa imagem: ela nunca foi vista.
  */
 
 const ler = (p: string) => readFileSync(join(process.cwd(), p), 'utf-8');
 const PAGINA = ler('app/dashboard/temporada/sem14/page.tsx');
 const semComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** O trecho da tela entre duas âncoras (a segunda não entra). */
+const trecho = (de: string, ate: string) => {
+  const i = PAGINA.indexOf(de);
+  expect(i, `âncora não achada: ${de}`).toBeGreaterThan(-1);
+  const k = PAGINA.indexOf(ate, i + de.length);
+  expect(k, `âncora não achada: ${ate}`).toBeGreaterThan(i);
+  return PAGINA.slice(i, k);
+};
 
 describe('a contagem de perguntas é a REAL do cenário, nunca um 4 escrito à mão', () => {
   const codigo = semComentarios(PAGINA);
@@ -40,98 +52,115 @@ describe('a contagem de perguntas é a REAL do cenário, nunca um 4 escrito à m
 describe('os textos do Onboarding existem nos 4 idiomas', () => {
   const usadas = [...PAGINA.matchAll(/t\('scenario\.(\w+)'/g)].map((m) => m[1]);
 
-  it('a tela usa o contador, a linha de progresso, o concluir-cenário e o aviso do anterior', () => {
-    expect([...new Set(usadas)].sort()).toEqual(['counter', 'finish', 'previousDone', 'progressLine']);
+  it('a tela usa o contador, a linha de progresso, o concluir-cenário, o aviso do anterior e os três textos da defesa', () => {
+    expect([...new Set(usadas)].sort()).toEqual(['argueDone', 'argueLine', 'argueNext', 'counter', 'finish', 'previousDone', 'progressLine']);
   });
 
-  it.each(['pt-BR', 'pt-PT', 'es-ES', 'en-US'])('%s: as quatro chaves existem, com os parâmetros certos', (loc) => {
+  it.each(['pt-BR', 'pt-PT', 'es-ES', 'en-US'])('%s: as chaves existem, com os parâmetros certos', (loc) => {
     const s = JSON.parse(ler(`messages/${loc}.json`)).SeasonFinal.scenario;
     expect(s.counter).toContain('{current}');
     expect(s.counter).toContain('{total}');
     expect(s.progressLine).toContain('{competency}');
     expect(s.previousDone).toContain('{done}');
+    expect(s.argueLine).toContain('{current}');
+    expect(s.argueLine).toContain('{total}');
+    expect(s.argueLine).toContain('{competency}');
     expect(s.finish).toBeTruthy();
+    expect(s.argueDone).toBeTruthy();
+    expect(s.argueNext).toBeTruthy();
     expect(JSON.stringify(s)).not.toMatch(/[\u2014\u2013]/);
   });
 
-  it('pt-BR diz "Cenário X de N" (o progresso que o dono pediu)', () => {
+  it('pt-BR diz "Cenário X de N" (o progresso que o dono pediu) e "Defesa oral" na arguição de cada um', () => {
     const s = JSON.parse(ler('messages/pt-BR.json')).SeasonFinal.scenario;
     expect(s.counter.replace('{current}', '2').replace('{total}', '5')).toBe('Cenário 2 de 5');
+    expect(s.argueLine.replace('{current}', '2').replace('{total}', '5').replace('{competency}', 'Comunicação')).toBe('Defesa oral · Cenário 2 de 5 · Comunicação');
   });
 });
 
-describe('a tela lê o slot dos 5 cenários e envia cada resposta na hora', () => {
+describe('a tela segue o fluxo da Jornada, por cenário', () => {
   it('usa as MESMAS funções do servidor para a posição (cenariosDoSlot e posicaoNoFechamento)', () => {
     expect(PAGINA).toContain("from '@/lib/season-engine/fechamento-por-competencia'");
     expect(PAGINA).toContain('cenariosDoSlot(fb)');
     expect(PAGINA).toContain('posicaoNoFechamento(lista)');
   });
 
-  it('cada resposta é enviada ao clicar (action send) e a já enviada fica só para leitura', () => {
-    const envio = PAGINA.slice(PAGINA.indexOf('async function enviarRespostaAtual'), PAGINA.indexOf('async function finalizar()'));
-    expect(envio).toContain("action: 'send'");
-    expect(envio).toContain('aplicarEnvio(cenarios, idxCenario, resposta, data)');
-    expect(envio).toContain('if (i < respostasSalvas)');
-    expect(PAGINA).toContain('const respostaTravada = multi && step >= 1 && step - 1 < respostasSalvas;');
-  });
-
-  it('o cenário único segue enviando as respostas em sequência no fim (a Jornada não muda)', () => {
-    const finalizar = PAGINA.slice(PAGINA.indexOf('async function finalizar()'), PAGINA.indexOf('async function enviarArguicao'));
+  it('as respostas do cenário vão juntas no fim, pela MESMA `finalizar` da Jornada (não uma a uma): não há envio resposta a resposta', () => {
+    const finalizar = trecho('async function finalizar()', 'async function enviarArguicao');
     expect(finalizar).toContain('for (let i = respostasSalvas; i < respostas.length; i++)');
     expect(finalizar).toContain("action: 'send'");
-    expect(PAGINA).toContain('{multi ? (');
+    expect(finalizar).toContain('await aposUltimaResposta(data)');
+    expect(PAGINA).not.toContain('enviarRespostaAtual');
+    expect(PAGINA).not.toContain('aplicarEnvio');
+    expect(PAGINA).not.toContain('respostaTravada');
+    // "Próxima" só anda na tela (valida o mínimo); o botão do último passo chama `finalizar`
+    expect(PAGINA).toContain('micRef.current?.stop(); finalizar();');
+  });
+
+  it('o botão do último passo diz "Concluir cenário" nos quatro primeiros cenários e "Finalizar avaliação" no último', () => {
+    expect(PAGINA).toContain("multi && !ultimoCenario ? t('scenario.finish') : t('question.finish')");
+  });
+
+  it('depois da última resposta do cenário: a defesa dele abre (modo chat) ou o cenário seguinte abre (arguição desligada)', () => {
+    const apos = trecho('async function aposUltimaResposta(data)', 'async function finalizar()');
+    expect(apos).toContain('if (data.arguindo)');
+    expect(apos).toContain('setStep(7)');
+    expect(apos).toContain('if (data.proximoCenario)');
+    expect(apos).toContain('abrirProximoCenario(data.cenarioIndex, data.history)');
+  });
+
+  it('a defesa de um cenário que conclui: guarda o seguinte e oferece "próximo cenário"; a do último segue para a pontuação', () => {
+    const enviar = trecho('async function enviarArguicao()', 'if (error) return (');
+    expect(enviar).toContain('if (data.proximoCenario)');
+    expect(enviar).toContain('setArgProximo({ idx: data.cenarioIndex, history: data.history })');
+    expect(enviar).toContain("data.finalizando || data.fechamento === 'avaliado'");
+    expect(PAGINA).toContain('{argConcluida && argProximo ? (');
+    expect(PAGINA).toContain("t('scenario.argueNext')");
+    expect(PAGINA).toContain('onClick={continuarProximoCenario}');
+    // o painel da pontuação só aparece com a defesa concluída e SEM cenário seguinte
+    expect(PAGINA).toContain(') : argConcluida ? (');
+  });
+
+  it('o cabeçalho da defesa diz o cenário e a competência (Onboarding) e continua "Arguição" na Jornada', () => {
+    expect(PAGINA).toContain("step === 7 ? (multi ? t('scenario.argueLine'");
+    expect(PAGINA).toContain(": t('arguicao.badge')) : step === 6");
   });
 });
 
-describe('aplicarEnvio: o que a tela faz com a resposta do servidor', () => {
-  const PERGUNTAS = ['SITUAÇÃO', 'AÇÃO', 'RACIOCÍNIO', 'AUTOSSENSIBILIDADE'].map((d) => ({ dimensao: d, texto: `p ${d}` }));
-  const ENTRADA = (competencia: string, history: any[] = []): CenarioDoFechamento => ({
-    competencia, cenario_b_id: null, cenario: `## ${competencia}`, perguntas: PERGUNTAS, transcript_completo: history,
-  });
-  const lista = () => [ENTRADA('A', [{ role: 'assistant', content: '**SITUAÇÃO**' }]), ENTRADA('B'), ENTRADA('C')];
-  const resposta = { role: 'user', content: 'minha resposta' };
-
-  it('pergunta do meio: segue no MESMO cenário, com a conversa que o servidor devolveu', () => {
-    const history = [{ role: 'assistant', content: '**SITUAÇÃO**' }, resposta, { role: 'assistant', content: '**AÇÃO**' }];
-    const r = aplicarEnvio(lista(), 0, resposta, { cenarioIndex: 0, history });
-    expect(r.tipo).toBe('proxima-pergunta');
-    expect(r.lista[0].transcript_completo).toEqual(history);
-    expect(r.lista[1].transcript_completo).toEqual([]);
-  });
-
-  it('4ª resposta: o cenário fecha (com a resposta dentro) e o seguinte já chega com a 1ª pergunta aberta', () => {
-    const atual = [{ role: 'assistant', content: 'a' }, { role: 'user', content: 'r1' }, { role: 'user', content: 'r2' }, { role: 'user', content: 'r3' }];
-    const base = [ENTRADA('A', atual), ENTRADA('B'), ENTRADA('C')];
-    const abertura = [{ role: 'assistant', content: '**SITUAÇÃO**' }];
-    const r = aplicarEnvio(base, 0, resposta, { cenarioIndex: 1, history: abertura });
-    expect(r).toMatchObject({ tipo: 'proximo-cenario', idx: 1 });
-    expect(r.lista[0].transcript_completo.filter((m: any) => m.role === 'user')).toHaveLength(4);
-    expect(r.lista[1].transcript_completo).toEqual(abertura);
-    // e a posição, recalculada pelo mesmo helper do servidor, é o cenário 2, pergunta 1
-    expect(posicaoNoFechamento(r.lista)).toMatchObject({ cenarioAtual: 1, perguntaAtual: 0 });
+describe('retomar volta ao cenário e à etapa certos (respondendo ou arguindo)', () => {
+  it('o servidor diz onde a pessoa está (`fechamento_status`), e a tela abre o cenário ou a defesa dele', () => {
+    const lerEstado = trecho('async function lerEstadoDoFechamento', 'async function retomarOnboarding');
+    expect(lerEstado).toContain("action: 'fechamento_status'");
+    const retomar = trecho('async function retomarOnboarding', 'async function retomarArguicao');
+    expect(retomar).toContain("st?.estado === 'arguindo'");
+    expect(retomar).toContain("st?.estado === 'respondendo'");
+    expect(retomar).toContain('retomarArguicao(tid, semCB, lista, idx)');
+    expect(retomar).toContain('abrirCenario(lista, idx)');
+    // sem resposta do servidor, a conta local das respostas (a mesma do servidor, sem a defesa)
+    expect(retomar).toContain('posicaoNoFechamento(lista)');
+    // tudo feito e sem nota: o mesmo painel de pontuação da Jornada
+    expect(retomar).toContain('setStep(8)');
+    expect(retomar).toContain('acompanharFechamento(tid, semCB)');
   });
 
-  it('última resposta do último cenário (sem cenarioIndex): a lista guarda a resposta e nenhuma pergunta nova abre', () => {
-    const r = aplicarEnvio(lista(), 2, resposta, { finalizando: true } as any);
-    expect(r.tipo).toBe('ultima-resposta');
-    expect(r.lista[2].transcript_completo).toEqual([resposta]);
+  it('a defesa em andamento reabre do histórico do PRÓPRIO cenário; a que não abriu é aberta por `send` sem mensagem', () => {
+    const retomada = trecho('async function retomarArguicao', '/** Onboarding: o cenário `idx` abriu');
+    expect(retomada).toContain('const arg = lista[idx].arguicao;');
+    expect(retomada).toContain('argMsgsFromHistorico(arg.historico)');
+    expect(retomada).toContain("action: 'send' }");
+    expect(retomada).not.toContain('message:');
   });
 
-  it('não muta a lista recebida', () => {
-    const original = lista();
-    const copia = JSON.stringify(original);
-    aplicarEnvio(original, 0, resposta, { cenarioIndex: 1, history: [] });
-    expect(JSON.stringify(original)).toBe(copia);
-  });
-
-  it('retomada: o slot gravado volta ao cenário e à pergunta em que a pessoa parou', () => {
-    const slot = {
-      cenarios: [
-        { ...ENTRADA('A'), transcript_completo: [{ role: 'assistant', content: 'q1' }, { role: 'user', content: '1' }, { role: 'assistant', content: 'q2' }, { role: 'user', content: '2' }, { role: 'assistant', content: 'q3' }, { role: 'user', content: '3' }, { role: 'assistant', content: 'q4' }, { role: 'user', content: '4' }] },
-        { ...ENTRADA('B'), transcript_completo: [{ role: 'assistant', content: 'q1' }, { role: 'user', content: '1' }, { role: 'assistant', content: 'q2' }, { role: 'user', content: '2' }, { role: 'assistant', content: 'q3' }] },
-        ENTRADA('C'),
-      ],
-    };
-    expect(posicaoNoFechamento(cenariosDoSlot(slot)!)).toMatchObject({ cenarioAtual: 1, perguntaAtual: 2, totalRespostas: 6, totalPerguntas: 12 });
+  it('o slot gravado volta ao cenário e à pergunta em que a pessoa parou', () => {
+    const PERGUNTAS = ['SITUAÇÃO', 'AÇÃO', 'RACIOCÍNIO', 'AUTOSSENSIBILIDADE'].map((d) => ({ dimensao: d, texto: `p ${d}` }));
+    const ENTRADA = (competencia: string, history: any[] = [], arguicao?: any): CenarioDoFechamento => ({
+      competencia, cenario_b_id: null, cenario: `## ${competencia}`, perguntas: PERGUNTAS, transcript_completo: history, ...(arguicao ? { arguicao } : {}),
+    });
+    const respondidas = (n: number) => Array.from({ length: n }, (_, i) => [{ role: 'assistant', content: `q${i + 1}` }, { role: 'user', content: `${i + 1}` }]).flat();
+    const slot = { cenarios: [ENTRADA('A', respondidas(4), { concluida: true }), ENTRADA('B', respondidas(2)), ENTRADA('C')] };
+    expect(posicaoNoFechamento(cenariosDoSlot(slot)!, { arguicaoAtiva: true })).toMatchObject({ cenarioAtual: 1, perguntaAtual: 2, etapa: 'respondendo', totalRespostas: 6, totalPerguntas: 12 });
+    // com a defesa do cenário A ainda aberta, a pessoa volta A (arguindo), não ao B
+    const meio = { cenarios: [ENTRADA('A', respondidas(4), { concluida: false }), ENTRADA('B'), ENTRADA('C')] };
+    expect(posicaoNoFechamento(cenariosDoSlot(meio)!, { arguicaoAtiva: true })).toMatchObject({ cenarioAtual: 0, etapa: 'arguindo' });
   });
 });

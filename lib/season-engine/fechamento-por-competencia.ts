@@ -17,13 +17,21 @@
  * formato de sempre (`feedback.cenario`, `.perguntas`, `.transcript_completo`),
  * byte a byte: quem lê o slot decide pela PRESENÇA de `cenarios`, nunca pelo modo.
  *
- * Este módulo é a parte PURA: ler a posição da pessoa no slot, montar os textos que
- * o scorer, a arguição e os leitores do relatório consomem, e JUNTAR as pontuações
- * (uma chamada de IA por competência) no mesmo formato de saída de uma competência
- * só. Trinta descritores numa chamada estourariam o teto de saída do scorer; a
- * pontuação por competência cabe com folga e é o desenho que o Cenário A já usa.
+ * A ARGUIÇÃO segue o padrão da Jornada, repetido por cenário (decisão do dono, 04/10/2026,
+ * "o mesmo fluxo e padrão dos cenários da Jornada; a única diferença é que serão sempre 5
+ * cenários"): depois das 4 respostas de cada cenário abre a arguição DAQUELA competência
+ * (mesmas regras do modo, sondando os descritores dela) e só depois vem o cenário seguinte.
+ * A conversa e a extração de cada uma ficam no próprio cenário (`cenarios[i].arguicao`,
+ * o mesmo formato de `feedback.arguicao` da Jornada), e a fusão na nota roda por competência.
+ *
+ * Este módulo é a parte PURA: ler a posição da pessoa no slot (respondendo ou arguindo,
+ * em qual cenário), montar os textos que o scorer, a arguição e os leitores do relatório
+ * consomem, e JUNTAR as pontuações (uma chamada de IA por competência) no mesmo formato de
+ * saída de uma competência só. Trinta descritores numa chamada estourariam o teto de saída
+ * do scorer; a pontuação por competência cabe com folga e é o desenho que o Cenário A já usa.
  */
 import { normalizarComp } from '@/lib/workshop-competencias';
+import type { ArguicaoEstado, ArguicaoExtracao } from '@/lib/season-engine/arguicao';
 
 export interface PerguntaDoCenario {
   dimensao: string;
@@ -39,7 +47,15 @@ export interface CenarioDoFechamento {
   perguntas: PerguntaDoCenario[];
   /** As falas deste cenário: a pergunta (assistant) e a resposta (user), em ordem. */
   transcript_completo: any[];
+  /**
+   * A arguição DESTA competência, no formato de `feedback.arguicao` da Jornada (o estado da
+   * conversa e, ao concluir, a `extracao`). Ausente = ainda não aberta (ou arguição desligada).
+   */
+  arguicao?: ArguicaoDoCenario | null;
 }
+
+/** O estado da arguição de um cenário: a conversa (`ArguicaoEstado`) e, ao concluir, o que ela sustentou. */
+export type ArguicaoDoCenario = ArguicaoEstado & { extracao?: ArguicaoExtracao | null };
 
 /** A lista de cenários do slot, ou `null` quando é o formato de uma competência. */
 export function cenariosDoSlot(feedback: any): CenarioDoFechamento[] | null {
@@ -51,6 +67,7 @@ export function cenariosDoSlot(feedback: any): CenarioDoFechamento[] | null {
     cenario: String(c?.cenario ?? ''),
     perguntas: Array.isArray(c?.perguntas) ? c.perguntas : [],
     transcript_completo: Array.isArray(c?.transcript_completo) ? c.transcript_completo : [],
+    arguicao: c?.arguicao && typeof c.arguicao === 'object' ? c.arguicao : null,
   }));
 }
 
@@ -59,61 +76,48 @@ export function respostasDoCenarioN(c: Pick<CenarioDoFechamento, 'transcript_com
   return (c.transcript_completo || []).filter((m: any) => m?.role === 'user').length;
 }
 
+export type EtapaDoCenario = 'respondendo' | 'arguindo';
+
 export interface PosicaoNoFechamento {
   totalCenarios: number;
   totalPerguntas: number;
   totalRespostas: number;
-  /** Índice (0) do cenário em que a pessoa está; `null` quando respondeu todos. */
+  /** Índice (0) do cenário em que a pessoa está; `null` quando todos terminaram (respostas e, se ligada, arguição). */
   cenarioAtual: number | null;
-  /** Índice (0) da pergunta a responder dentro dele; `null` quando respondeu todos. */
+  /** Índice (0) da pergunta a responder dentro dele; `null` fora da etapa `respondendo`. */
   perguntaAtual: number | null;
+  /** O que falta no cenário atual: responder as perguntas ou concluir a arguição dele. `null` quando todos terminaram. */
+  etapa: EtapaDoCenario | null;
 }
 
 /**
- * Onde a pessoa está: o primeiro cenário com pergunta sem resposta. Retomar volta
- * a este cenário e a esta pergunta, e é a mesma conta da rota e da tela.
+ * Onde a pessoa está: o primeiro cenário que ainda não terminou. Um cenário termina quando
+ * as perguntas foram respondidas E, com a arguição ligada (`arguicaoAtiva`), a arguição dele
+ * foi concluída: só então vem o seguinte (o mesmo padrão da Jornada, cenário por cenário).
+ * Retomar volta a este cenário e a esta etapa, e é a mesma conta da rota e da tela.
  */
-export function posicaoNoFechamento(cenarios: CenarioDoFechamento[]): PosicaoNoFechamento {
+export function posicaoNoFechamento(cenarios: CenarioDoFechamento[], opts: { arguicaoAtiva?: boolean } = {}): PosicaoNoFechamento {
   let totalPerguntas = 0;
   let totalRespostas = 0;
   let cenarioAtual: number | null = null;
   let perguntaAtual: number | null = null;
+  let etapa: EtapaDoCenario | null = null;
   cenarios.forEach((c, i) => {
     const n = c.perguntas.length;
     const r = Math.min(respostasDoCenarioN(c), n);
     totalPerguntas += n;
     totalRespostas += r;
-    if (cenarioAtual === null && r < n) {
+    if (cenarioAtual !== null) return;
+    if (r < n) {
       cenarioAtual = i;
       perguntaAtual = r;
+      etapa = 'respondendo';
+    } else if (opts.arguicaoAtiva && !c.arguicao?.concluida) {
+      cenarioAtual = i;
+      etapa = 'arguindo';
     }
   });
-  return { totalCenarios: cenarios.length, totalPerguntas, totalRespostas, cenarioAtual, perguntaAtual };
-}
-
-export type AposEnvio =
-  | { tipo: 'ultima-resposta'; lista: CenarioDoFechamento[] }
-  | { tipo: 'proximo-cenario'; lista: CenarioDoFechamento[]; idx: number }
-  | { tipo: 'proxima-pergunta'; lista: CenarioDoFechamento[] };
-
-/**
- * O que a tela faz com a resposta do servidor a um `send` (a lista local acompanha o slot).
- * A resposta de uma pergunta do meio traz `cenarioIndex` e a conversa do cenário que agora
- * tem a pergunta aberta (`history`): o mesmo cenário (próxima pergunta) ou o seguinte (o
- * anterior fechou). Sem `cenarioIndex` é a última resposta do último cenário: o servidor
- * abriu a arguição ou disparou a pontuação, e não há mais pergunta a mostrar.
- */
-export function aplicarEnvio(
-  lista: CenarioDoFechamento[],
-  idxAtual: number,
-  resposta: { role: string; content: string; timestamp?: string },
-  data: { cenarioIndex?: unknown; history?: any[] },
-): AposEnvio {
-  const comResposta = lista.map((c, k) => (k === idxAtual ? { ...c, transcript_completo: [...c.transcript_completo, resposta] } : c));
-  if (typeof data?.cenarioIndex !== 'number') return { tipo: 'ultima-resposta', lista: comResposta };
-  const idx = data.cenarioIndex;
-  const atualizada = comResposta.map((c, k) => (k === idx && Array.isArray(data.history) ? { ...c, transcript_completo: data.history } : c));
-  return idx !== idxAtual ? { tipo: 'proximo-cenario', lista: atualizada, idx } : { tipo: 'proxima-pergunta', lista: atualizada };
+  return { totalCenarios: cenarios.length, totalPerguntas, totalRespostas, cenarioAtual, perguntaAtual, etapa };
 }
 
 /**
@@ -179,6 +183,11 @@ export interface EntradaPorCompetencia {
   /** Já mascaradas de PII pelo caller. */
   evidenciasAcumuladas?: string;
   acumuladoPrimaria?: unknown;
+  /**
+   * O que a arguição DESTA competência sustentou (a extração, já mascarada pelo caller). A
+   * fusão na nota roda por competência, sobre esta extração; ausente = sem ajuste nela.
+   */
+  evidenciasArguicao?: ArguicaoExtracao | null;
 }
 
 const nomeDoDescritor = (d: any) => String(d?.descritor ?? '').trim().toLowerCase();
@@ -259,6 +268,48 @@ export function descritoresDoFechamento(
   return { descritores, semMapeamento };
 }
 
+const textoDe = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+
+// ── A arguição, uma por competência ─────────────────────────────────────────
+
+/**
+ * A chave da citação da arguição de um descritor: o nome, e a competência quando o descritor a
+ * traz (Onboarding, onde o nome pode se repetir entre competências). Sem competência (uma só),
+ * é o nome de sempre.
+ */
+export function chaveDaCitacao(d: any): string {
+  const competencia = normalizarComp(d?.competencia);
+  return competencia ? `${competencia}|${nomeDoDescritor(d)}` : nomeDoDescritor(d);
+}
+
+/**
+ * As extrações das arguições (uma por competência, cada uma já mascarada pelo chamador)
+ * juntas no formato de UMA extração, que é o que a redação final e o auditor leem. O
+ * texto de cada leitura leva o nome da competência na frente, e cada evidência traz a
+ * `competencia` de onde veio (o nome do descritor pode se repetir entre competências).
+ * A FUSÃO na nota não usa esta junção: ela roda por competência, sobre a extração dela.
+ * Nenhuma arguição concluída (ou sem extração) devolve `null`.
+ */
+export function extracaoDoConjunto(
+  partes: Array<{ competencia: string; extracao: ArguicaoExtracao | null | undefined }>,
+): ArguicaoExtracao | null {
+  const com = partes.filter((p): p is { competencia: string; extracao: ArguicaoExtracao } => !!p.extracao);
+  if (!com.length) return null;
+  const texto = (campo: 'leitura_geral' | 'sustentacao_mais_forte' | 'fragilidade_mais_relevante') => com
+    .map((p) => (textoDe(p.extracao.resumo?.[campo]) ? `${p.competencia}: ${textoDe(p.extracao.resumo?.[campo])}` : ''))
+    .filter(Boolean)
+    .join('\n\n');
+  return {
+    resumo: {
+      leitura_geral: texto('leitura_geral'),
+      sustentacao_mais_forte: texto('sustentacao_mais_forte'),
+      fragilidade_mais_relevante: texto('fragilidade_mais_relevante'),
+    },
+    evidencias_por_descritor: com.flatMap((p) => (Array.isArray(p.extracao.evidencias_por_descritor) ? p.extracao.evidencias_por_descritor : [])
+      .map((e) => ({ ...e, competencia: p.competencia }))),
+  };
+}
+
 // ── Juntar as pontuações ────────────────────────────────────────────────────
 
 export interface PartePontuada {
@@ -274,8 +325,6 @@ function media(valores: unknown[]): number | null {
   const nums = valores.filter((v): v is number => typeof v === 'number');
   return nums.length ? round1(nums.reduce((a, b) => a + b, 0) / nums.length) : null;
 }
-
-const textoDe = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
 /**
  * Junta as saídas do scorer (uma por competência) NO FORMATO DE UMA COMPETÊNCIA SÓ,

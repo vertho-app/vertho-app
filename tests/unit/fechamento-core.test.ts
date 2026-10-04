@@ -567,15 +567,21 @@ describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um p
     programa_modo: 'onboarding', programa_config: {},
   };
   const MAPEAMENTO = COMPS.flatMap((c) => [1, 2, 3, 4, 5, 6].map((n) => ({ competencia: c, descritor: `${c.slice(-1)}-d${n}`, nota: NOTAS[n - 1] })));
-  const cenarios = () => COMPS.map((competencia, i) => ({
+  /** O que a defesa oral de cada competência sustentou (a citação traz o nome da pessoa, para provar a máscara). */
+  const EXT = (c: string) => ({
+    resumo: { leitura_geral: `leitura de ${c}`, sustentacao_mais_forte: 'forte', fragilidade_mais_relevante: 'fraca' },
+    evidencias_por_descritor: [{ descritor: `${c.slice(-1)}-d1`, sustentou: 'aprofundou', forca: 'forte', citacao: `Helmar defendeu ${c}` }],
+  });
+  /** `arguicoes[i]` troca a arguição do cenário i (`null` = não aberta); o default é concluída, com a extração dele. */
+  const cenarios = (arguicoes: Record<number, any> = {}) => COMPS.map((competencia, i) => ({
     competencia, cenario_b_id: `b-${i}`, cenario: `## Caso ${competencia}\n\ntexto do caso`, perguntas: PERGUNTAS,
     transcript_completo: transcript([`${competencia} r1`, `${competencia} r2`, `${competencia} r3`, `${competencia} r4`]),
+    ...(arguicoes[i] === null ? {} : { arguicao: arguicoes[i] ?? { turno: 6, concluida: true, historico: [], extracao: EXT(competencia) } }),
   }));
-  const slotOnb = (extra: any = {}) => ({
+  const slotOnb = (extra: any = {}, arguicoes: Record<number, any> = {}) => ({
     id: 'prog-9', status: 'em_andamento', iniciado_em: '2026-10-04T17:46:46Z',
     feedback: {
-      cenarios: cenarios(), finalizacao: { status: 'processando', iniciada_em: TOKEN },
-      arguicao: { turno: 6, concluida: true, historico: [], extracao: { classificacao: 'sustentou' } }, ...extra,
+      cenarios: cenarios(arguicoes), finalizacao: { status: 'processando', iniciada_em: TOKEN }, ...extra,
     },
   });
   const PARSED_ONB = {
@@ -609,7 +615,43 @@ describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um p
     expect(a.resposta).toContain('### Comp E');
     expect(a.evidenciasAcumuladas).toBe(Array(5).fill('evidências').join('\n\n'));
     expect(a.prazoMs).toBe(AGORA + 285_000);
-    expect(a.evidenciasArguicao).toEqual({ classificacao: 'sustentou' });
+    // a defesa oral é de CADA competência: a extração dela vai na entrada, e o conjunto não leva uma extração única
+    expect(a.evidenciasArguicao).toBeNull();
+  });
+
+  it('a arguição de cada competência chega ao scorer na entrada DELA, com a extração mascarada', async () => {
+    ok();
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN, prazoMs: AGORA + 285_000 });
+    const a = h.pontuar.mock.calls[0][0];
+    for (const [i, e] of a.porCompetencia.entries()) {
+      expect(e.evidenciasArguicao.resumo.leitura_geral, COMPS[i]).toBe(`leitura de ${COMPS[i]}`);
+      expect(e.evidenciasArguicao.evidencias_por_descritor, COMPS[i]).toHaveLength(1);
+      expect(e.evidenciasArguicao.evidencias_por_descritor[0].descritor).toBe(`${COMPS[i].slice(-1)}-d1`);
+      // o nome da pessoa não vai à IA: a citação sai mascarada
+      expect(e.evidenciasArguicao.evidencias_por_descritor[0].citacao).not.toContain('Helmar');
+    }
+  });
+
+  it('arguição de um cenário sem concluir, ou concluída sem extração: a entrada dele fica sem extração (sem fusão nele)', async () => {
+    h.estado.atual = slotOnb({}, {
+      1: { turno: 3, concluida: false, historico: [] },
+      3: { turno: 6, concluida: true, historico: [], extracao: null },
+      4: null,
+    });
+    ok();
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    const a = h.pontuar.mock.calls[0][0];
+    expect(a.porCompetencia.map((e: any) => e.evidenciasArguicao?.resumo?.leitura_geral ?? null)).toEqual([
+      'leitura de Comp A', null, 'leitura de Comp C', null, null,
+    ]);
+  });
+
+  it('o slot gravado guarda a arguição de cada cenário (a conversa e a extração ficam no próprio cenário)', async () => {
+    ok();
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    const fb = escritasProgresso().find((e: any) => e.payload.status === 'concluido').payload.feedback;
+    expect(fb.cenarios.map((c: any) => c.arguicao?.extracao?.resumo?.leitura_geral)).toEqual(COMPS.map((c) => `leitura de ${c}`));
+    expect(fb).not.toHaveProperty('arguicao');
   });
 
   it('o B pontua os 6 descritores de cada competência (os do Cenário A), não só os 4 selecionados para o conteúdo', async () => {
@@ -707,9 +749,9 @@ describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um p
 
   it('refazer a redação: o rascunho junta uma devolutiva por competência, e o prompt é avisado', async () => {
     h.estado.atual = { ...slotOnb(), status: 'concluido', feedback: {
-      cenarios: cenarios(), avaliacao_por_descritor: PARSED_ONB.avaliacao_por_descritor,
+      cenarios: cenarios({ 2: null, 4: { turno: 6, concluida: true, historico: [], extracao: null } }),
+      avaliacao_por_descritor: PARSED_ONB.avaliacao_por_descritor,
       resumo_avaliacao_rascunho: { mensagem_geral: 'Comp A: a\n\nComp B: b' }, redacao_final: { status: 'falhou' },
-      arguicao: { concluida: true, extracao: null },
     } };
     h.redigir.mockResolvedValue({ status: 'reescrita', resumo: { mensagem_geral: 'Helmar, texto novo.' }, tentativas: 1, sanitizacaoAplicada: false, warnings: [] });
     await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1' });
@@ -717,6 +759,11 @@ describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um p
     expect(h.redigir.mock.calls[0][0].competencia).toBe(COMPS.join(' + '));
     // as evidências são as dos descritores PONTUADOS (os 30 gravados), não só os selecionados
     expect(h.evidencias.mock.calls[0][2]).toHaveLength(30);
+    // a redação lê as defesas das competências que a tiveram, juntas e com a competência de cada uma
+    const arg = h.redigir.mock.calls[0][0].evidenciasArguicao;
+    expect(arg.resumo.leitura_geral).toBe('Comp A: leitura de Comp A\n\nComp B: leitura de Comp B\n\nComp D: leitura de Comp D');
+    expect(arg.evidencias_por_descritor.map((e: any) => e.competencia)).toEqual(['Comp A', 'Comp B', 'Comp D']);
+    expect(JSON.stringify(arg)).not.toContain('Helmar');
   });
 });
 

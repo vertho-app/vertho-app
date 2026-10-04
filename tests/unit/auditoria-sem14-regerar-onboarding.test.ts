@@ -97,6 +97,22 @@ describe('regerarScoringComFeedback no Onboarding: o conjunto é o dos 6 descrit
     expect(h.evidencias.mock.calls.every((c) => c[2].length === 6)).toBe(true);
   });
 
+  it('a defesa oral de cada competência (no cenário dela) vai na entrada dela, mascarada; a que não concluiu fica sem extração', async () => {
+    const extracao = (c: string) => ({
+      resumo: { leitura_geral: `leitura de ${c}`, sustentacao_mais_forte: 'a', fragilidade_mais_relevante: 'b' },
+      evidencias_por_descritor: [{ descritor: nome(c, 1), sustentou: 'aprofundou', forca: 'forte', citacao: `Ana defendeu ${c}` }],
+    });
+    h.slot.feedback.cenarios[0].arguicao = { turno: 6, concluida: true, historico: [], extracao: extracao('Comp A') };
+    h.slot.feedback.cenarios[1].arguicao = { turno: 2, concluida: false, historico: [] };
+    await regerarScoringComFeedback('prog-12');
+    const a = h.pontuar.mock.calls[0][0];
+    expect(a.porCompetencia[0].evidenciasArguicao.resumo.leitura_geral).toBe('leitura de Comp A');
+    expect(a.porCompetencia[0].evidenciasArguicao.evidencias_por_descritor[0].citacao).not.toContain('Ana');
+    expect(a.porCompetencia[1].evidenciasArguicao).toBeNull();
+    // o conjunto não leva uma extração única: o scorer junta as das entradas
+    expect(a.evidenciasArguicao).toBeNull();
+  });
+
   it('a leitura do mapeamento leva o filtro de empresa (client raw, sem o escopo do tenant)', async () => {
     await regerarScoringComFeedback('prog-12');
     expect(h.sb.usou('descriptor_assessments', 'eq', 'empresa_id')).toBe(true);
@@ -113,12 +129,14 @@ describe('regerarScoringComFeedback no Onboarding: o conjunto é o dos 6 descrit
 
   it('uma competência (sem `cenarios`): só os selecionados, sem porCompetencia, como sempre', async () => {
     h.trilha = TRILHA_UMA;
-    h.slot = { ...h.slot, feedback: { auditoria: AUDITORIA, cenario: '## caso', cenario_resposta: 'r', perguntas: PERGUNTAS, transcript_completo: transcript('Comp A') } };
+    h.slot = { ...h.slot, feedback: { auditoria: AUDITORIA, cenario: '## caso', cenario_resposta: 'r', perguntas: PERGUNTAS, transcript_completo: transcript('Comp A'), arguicao: { concluida: true, extracao: { resumo: { leitura_geral: 'leu' }, evidencias_por_descritor: [] } } } };
     const r: any = await regerarScoringComFeedback('prog-12');
     expect(r.ok).toBe(true);
     const a = h.pontuar.mock.calls[0][0];
     expect(a).not.toHaveProperty('porCompetencia');
     expect(a.descritores).toEqual(TRILHA_UMA.descritores_selecionados);
+    // a defesa oral de uma competência segue sendo o `feedback.arguicao` do slot, como sempre
+    expect(a.evidenciasArguicao).toEqual({ resumo: { leitura_geral: 'leu' }, evidencias_por_descritor: [] });
     expect(h.evidencias.mock.calls[0][2]).toEqual(TRILHA_UMA.descritores_selecionados);
     expect(h.sb.usou('descriptor_assessments', 'eq', 'colaborador_id')).toBe(false);
   });

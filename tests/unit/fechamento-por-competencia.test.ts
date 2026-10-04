@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
-  acumuladoDaCompetencia, cenariosDoSlot, descritoresDoFechamento, descritoresHomonimos, descritoresPorCompetencia, mesclarPontuacoes,
-  posicaoNoFechamento, respostaDoCenario, respostasDosCenarios, rotuloDasCompetencias, textoDosCenarios,
-  type CenarioDoFechamento,
+  acumuladoDaCompetencia, cenariosDoSlot, descritoresDoFechamento, descritoresHomonimos, descritoresPorCompetencia,
+  extracaoDoConjunto, mesclarPontuacoes, posicaoNoFechamento, respostaDoCenario, respostasDosCenarios, rotuloDasCompetencias,
+  textoDosCenarios, type CenarioDoFechamento,
 } from '@/lib/season-engine/fechamento-por-competencia';
 import { validateEvolutionScenarioScore } from '@/lib/season-engine/prompts/evolution-scenario';
 
@@ -43,7 +43,7 @@ describe('cenariosDoSlot: o formato do slot decide, não o modo', () => {
     expect(lista[0]).toMatchObject({ competencia: 'Comp A', cenario_b_id: 'b-Comp A' });
     expect(lista[1].transcript_completo).toEqual(transcript(0, 'b'));
     expect(cenariosDoSlot({ cenarios: [{ competencia: 'X' }] })![0]).toEqual({
-      competencia: 'X', cenario_b_id: null, cenario: '', perguntas: [], transcript_completo: [],
+      competencia: 'X', cenario_b_id: null, cenario: '', perguntas: [], transcript_completo: [], arguicao: null,
     });
   });
 });
@@ -67,7 +67,7 @@ describe('posicaoNoFechamento: retomar volta ao cenário e à pergunta em que a 
 
   it('as 20 respondidas: sem posição (só falta a arguição ou a nota)', () => {
     expect(posicaoNoFechamento(cenariosDoSlot(SLOT([4, 4, 4, 4, 4]))!)).toMatchObject({
-      totalRespostas: 20, cenarioAtual: null, perguntaAtual: null,
+      totalRespostas: 20, cenarioAtual: null, perguntaAtual: null, etapa: null,
     });
   });
 
@@ -81,6 +81,118 @@ describe('posicaoNoFechamento: retomar volta ao cenário e à pergunta em que a 
     const lista = cenariosDoSlot(SLOT([0, 0, 0, 0, 0]))!;
     lista[2] = { ...lista[2], perguntas: PERGUNTAS.slice(0, 3) };
     expect(posicaoNoFechamento(lista).totalPerguntas).toBe(19);
+  });
+});
+
+// ── A arguição de cada cenário (o padrão da Jornada, repetido por cenário) ───────────────────
+describe('posicaoNoFechamento com a arguição: o cenário só termina quando a defesa oral dele termina', () => {
+  const arg = (concluida: boolean) => ({ historico: [{ role: 'assistant', content: 'pergunta' }], turno: concluida ? 6 : 2, concluida });
+  /** O slot com as respostas dadas e a arguição (`null` = não aberta) de cada cenário. */
+  const slot = (respondidas: number[], argumentos: Array<ReturnType<typeof arg> | null>) => cenariosDoSlot({
+    cenarios: COMPETENCIAS.map((c, i) => ({ ...cenario(c, respondidas[i]), ...(argumentos[i] ? { arguicao: argumentos[i] } : {}) })),
+  })!;
+  const ligada = { arguicaoAtiva: true };
+
+  it('as 4 respostas do cenário 1 e a arguição dele ainda não aberta: continua NO cenário 1, na etapa arguindo', () => {
+    expect(posicaoNoFechamento(slot([4, 0, 0, 0, 0], [null, null, null, null, null]), ligada)).toMatchObject({
+      cenarioAtual: 0, perguntaAtual: null, etapa: 'arguindo',
+    });
+  });
+
+  it('a arguição do cenário 1 em andamento: ainda o cenário 1 (o 2 só abre depois da defesa)', () => {
+    expect(posicaoNoFechamento(slot([4, 0, 0, 0, 0], [arg(false), null, null, null, null]), ligada)).toMatchObject({
+      cenarioAtual: 0, etapa: 'arguindo',
+    });
+  });
+
+  it('a arguição do cenário 1 concluída: o cenário 2, respondendo, na 1ª pergunta', () => {
+    expect(posicaoNoFechamento(slot([4, 0, 0, 0, 0], [arg(true), null, null, null, null]), ligada)).toMatchObject({
+      cenarioAtual: 1, perguntaAtual: 0, etapa: 'respondendo',
+    });
+  });
+
+  it('retomada na defesa oral do 3º cenário: ele e a etapa arguindo, com os 4 e 5 ainda sem resposta', () => {
+    expect(posicaoNoFechamento(slot([4, 4, 4, 0, 0], [arg(true), arg(true), arg(false), null, null]), ligada)).toMatchObject({
+      totalRespostas: 12, cenarioAtual: 2, etapa: 'arguindo',
+    });
+  });
+
+  it('as 20 respondidas e as 5 defesas concluídas: ninguém falta (só a nota)', () => {
+    expect(posicaoNoFechamento(slot([4, 4, 4, 4, 4], Array(5).fill(arg(true))), ligada)).toMatchObject({
+      totalRespostas: 20, cenarioAtual: null, perguntaAtual: null, etapa: null,
+    });
+  });
+
+  it('as 20 respondidas e a defesa do ÚLTIMO pendente: o cenário 5, arguindo', () => {
+    expect(posicaoNoFechamento(slot([4, 4, 4, 4, 4], [arg(true), arg(true), arg(true), arg(true), null]), ligada)).toMatchObject({
+      cenarioAtual: 4, etapa: 'arguindo',
+    });
+  });
+
+  it('arguição DESLIGADA (ou sem a opção): a defesa não conta, e o cenário termina nas respostas', () => {
+    const lista = slot([4, 0, 0, 0, 0], [null, null, null, null, null]);
+    expect(posicaoNoFechamento(lista)).toMatchObject({ cenarioAtual: 1, etapa: 'respondendo' });
+    expect(posicaoNoFechamento(lista, { arguicaoAtiva: false })).toMatchObject({ cenarioAtual: 1, etapa: 'respondendo' });
+  });
+
+  it('a etapa respondendo traz a pergunta atual; a arguindo não tem pergunta', () => {
+    expect(posicaoNoFechamento(slot([2, 0, 0, 0, 0], [null, null, null, null, null]), ligada)).toMatchObject({ etapa: 'respondendo', perguntaAtual: 2 });
+    expect(posicaoNoFechamento(slot([4, 0, 0, 0, 0], [null, null, null, null, null]), ligada).perguntaAtual).toBeNull();
+  });
+});
+
+describe('cenariosDoSlot: a arguição vive em cada cenário', () => {
+  it('a arguição de cada cenário é lida do próprio cenário (e as outras ficam nulas)', () => {
+    const arguicao = { historico: [], turno: 3, concluida: true, extracao: { resumo: { leitura_geral: 'x', sustentacao_mais_forte: '', fragilidade_mais_relevante: '' }, evidencias_por_descritor: [] } };
+    const lista = cenariosDoSlot({ cenarios: [{ ...cenario('Comp A', 4), arguicao }, cenario('Comp B', 0)] })!;
+    expect(lista[0].arguicao).toEqual(arguicao);
+    expect(lista[1].arguicao).toBeNull();
+  });
+});
+
+describe('extracaoDoConjunto: as arguições de cada competência juntas, para a redação e o auditor', () => {
+  const ext = (leitura: string, evs: Array<[string, string, string]>) => ({
+    resumo: { leitura_geral: leitura, sustentacao_mais_forte: `forte ${leitura}`, fragilidade_mais_relevante: `fraca ${leitura}` },
+    evidencias_por_descritor: evs.map(([descritor, sustentou, forca]) => ({ descritor, sustentou, forca, citacao: `c ${descritor}` })) as any,
+  });
+
+  it('nenhuma arguição concluída (todas sem extração): null', () => {
+    expect(extracaoDoConjunto([])).toBeNull();
+    expect(extracaoDoConjunto([{ competencia: 'A', extracao: null }, { competencia: 'B', extracao: undefined }])).toBeNull();
+  });
+
+  it('o texto de cada leitura leva o nome da competência, na ordem; quem não tem extração fica de fora', () => {
+    const j = extracaoDoConjunto([
+      { competencia: 'Comp A', extracao: ext('leitura a', []) },
+      { competencia: 'Comp B', extracao: null },
+      { competencia: 'Comp C', extracao: ext('leitura c', []) },
+    ])!;
+    expect(j.resumo.leitura_geral).toBe('Comp A: leitura a\n\nComp C: leitura c');
+    expect(j.resumo.sustentacao_mais_forte).toBe('Comp A: forte leitura a\n\nComp C: forte leitura c');
+    expect(j.resumo.fragilidade_mais_relevante).toBe('Comp A: fraca leitura a\n\nComp C: fraca leitura c');
+  });
+
+  it('cada evidência traz a competência de onde veio (o nome do descritor pode se repetir entre competências)', () => {
+    const j = extracaoDoConjunto([
+      { competencia: 'Comp A', extracao: ext('a', [['Escuta', 'confirmou', 'forte']]) },
+      { competencia: 'Comp B', extracao: ext('b', [['Escuta', 'fragilizou', 'fraca']]) },
+    ])!;
+    expect(j.evidencias_por_descritor.map((e: any) => [e.competencia, e.descritor, e.sustentou])).toEqual([
+      ['Comp A', 'Escuta', 'confirmou'], ['Comp B', 'Escuta', 'fragilizou'],
+    ]);
+  });
+
+  it('não muda as extrações recebidas (a fusão por competência ainda as lê)', () => {
+    const a = ext('a', [['Escuta', 'confirmou', 'forte']]);
+    const antes = JSON.stringify(a);
+    extracaoDoConjunto([{ competencia: 'Comp A', extracao: a }]);
+    expect(JSON.stringify(a)).toBe(antes);
+    expect(a.evidencias_por_descritor[0]).not.toHaveProperty('competencia');
+  });
+
+  it('leitura vazia numa competência não deixa um "Comp B: " solto', () => {
+    const j = extracaoDoConjunto([{ competencia: 'Comp A', extracao: ext('a', []) }, { competencia: 'Comp B', extracao: { resumo: { leitura_geral: '  ', sustentacao_mais_forte: '', fragilidade_mais_relevante: '' }, evidencias_por_descritor: [] } }])!;
+    expect(j.resumo.leitura_geral).toBe('Comp A: a');
   });
 });
 

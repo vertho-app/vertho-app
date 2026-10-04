@@ -29,7 +29,7 @@ interface PromptEvolutionScenarioCheckParams {
    * byte a byte o de antes (golden em tests/unit/fechamento).
    */
   arguicao?: {
-    evidencias_por_descritor?: Array<{ descritor?: string; sustentou?: string; forca?: string; citacao?: string }>;
+    evidencias_por_descritor?: Array<{ descritor?: string; competencia?: string; sustentou?: string; forca?: string; citacao?: string }>;
   } | null;
 }
 
@@ -56,7 +56,7 @@ Como auditar com o ajuste:
 4. A devolutiva (resumo_avaliacao) deve conversar com as notas FINAIS (nota_pos).
 
 `;
-  const linhas = evs.map((e) => `- ${e?.descritor || '(sem descritor)'}: ${e?.sustentou || 'sem_sinal'} (${e?.forca || 'sem força'})${e?.citacao ? `: "${e.citacao}"` : ''}`);
+  const linhas = evs.map((e) => `- ${e?.competencia ? `${e.competencia} / ` : ''}${e?.descritor || '(sem descritor)'}: ${e?.sustentou || 'sem_sinal'} (${e?.forca || 'sem força'})${e?.citacao ? `: "${e.citacao}"` : ''}`);
   const user = `DEFESA ORAL (o que a arguição sustentou, por descritor):
 ${linhas.join('\n')}
 

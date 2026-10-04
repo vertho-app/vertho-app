@@ -1,7 +1,7 @@
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { resumoSemTratamentoDeGenero } from '@/lib/redacao-sem-genero';
 import { resumoSemTravessao } from '@/lib/ai-saida-sem-travessao';
-import { cenariosDoSlot, posicaoNoFechamento } from '@/lib/season-engine/fechamento-por-competencia';
+import { cenariosDoSlot, posicaoNoFechamento, type EtapaDoCenario } from '@/lib/season-engine/fechamento-por-competencia';
 
 /**
  * Em que ponto está o FECHAMENTO (semana do Cenário B) de uma trilha.
@@ -54,6 +54,13 @@ export interface LeituraFechamento {
   perguntas: number;
   /** Presente em `erro`: a mensagem gravada, ou `expirou` quando a reserva venceu. */
   erro?: string | null;
+  /**
+   * Só no Onboarding (cinco cenários, a arguição de cada um logo depois das respostas dele): o
+   * cenário (índice 0) e a etapa em que a pessoa está, para a tela retomar no lugar certo.
+   * `null` quando todos terminaram. Ausentes no fechamento de uma competência.
+   */
+  cenarioAtual?: number | null;
+  etapa?: EtapaDoCenario | null;
 }
 
 /**
@@ -83,13 +90,22 @@ export function estadoDoFechamento(
   const fb = prog?.feedback || {};
   const perguntas = perguntasDoFechamento(fb);
   const respostas = respostasDoCenario(fb);
-  const base = { respostas, perguntas };
-  const iniciado = cenariosDoSlot(fb) ? true : !!fb.cenario;
+  const cenarios = cenariosDoSlot(fb);
+  const iniciado = cenarios ? true : !!fb.cenario;
+  // Onboarding: cada cenário termina com a arguição dele (se ligada) antes de o próximo abrir, então
+  // "respondendo" e "arguindo" valem para o cenário em que a pessoa está, e não para o conjunto.
+  const pos = cenarios ? posicaoNoFechamento(cenarios, { arguicaoAtiva: opts.arguicaoAtiva }) : null;
+  const base = { respostas, perguntas, ...(pos ? { cenarioAtual: pos.cenarioAtual, etapa: pos.etapa } : {}) };
 
   if (prog?.status === PROGRESSO.CONCLUIDO) return { estado: 'avaliado', ...base };
   if (!iniciado || perguntas === 0) return { estado: 'nao-iniciado', ...base };
-  if (respostas < perguntas) return { estado: 'respondendo', ...base };
-  if (opts.arguicaoAtiva && !fb.arguicao?.concluida) return { estado: 'arguindo', ...base };
+  if (pos) {
+    if (pos.etapa === 'respondendo') return { estado: 'respondendo', ...base };
+    if (pos.etapa === 'arguindo') return { estado: 'arguindo', ...base };
+  } else {
+    if (respostas < perguntas) return { estado: 'respondendo', ...base };
+    if (opts.arguicaoAtiva && !fb.arguicao?.concluida) return { estado: 'arguindo', ...base };
+  }
 
   const fin: FinalizacaoSlot | undefined = fb.finalizacao;
   if (fin?.status === 'processando') {

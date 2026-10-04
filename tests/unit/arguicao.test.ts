@@ -228,25 +228,27 @@ describe('arguição — PII masking (Fase C)', () => {
   });
 });
 
-// ── ONBOARDING (04/10/2026): vários cenários numa arguição só ───────────────
-describe('arguição: o aviso de vários cenários (Onboarding)', () => {
-  it('sem `cenarios` (ou com 1), o prompt é byte a byte o de sempre', () => {
-    const sempre = buildArguicaoSystemPrompt(CTX, 8, 1);
-    expect(buildArguicaoSystemPrompt({ ...CTX, cenarios: 1 }, 8, 1)).toBe(sempre);
-    expect(buildArguicaoSystemPrompt({ ...CTX, cenarios: undefined }, 8, 1)).toBe(sempre);
-    expect(sempre).not.toContain('VÁRIOS CENÁRIOS');
+// ── ONBOARDING (04/10/2026): uma arguição POR cenário, o padrão da Jornada ───────────
+describe('arguição do Onboarding: a de cada competência é a MESMA da Jornada', () => {
+  const SEIS = ['Escuta ativa', 'Feedback', 'Delegação', 'Priorização', 'Registro', 'Acompanhamento']
+    .map((descritor) => ({ descritor }));
+  const CTX_COMP: ArguicaoContexto = { ...CTX, competencia: 'Comunicação', descritores: SEIS };
+
+  it('sonda os 6 descritores DA competência, os mesmos que o scorer pontua', () => {
+    const p = buildArguicaoSystemPrompt(CTX_COMP, 6, 1);
+    const bloco = p.slice(p.indexOf('DESCRITORES EM JOGO'), p.indexOf('ENCERRAMENTO'));
+    for (const d of SEIS) expect(bloco).toContain(d.descritor);
+    expect(bloco).toContain('Escuta ativa; Feedback; Delegação; Priorização; Registro; Acompanhamento');
   });
 
-  it('com 5 cenários: UMA arguição sobre o conjunto, sondando os trechos de maior risco e dizendo a competência', () => {
-    const p = buildArguicaoSystemPrompt({ ...CTX, cenarios: 5 }, 6, 1);
-    expect(p).toContain('═══ VÁRIOS CENÁRIOS ═══');
-    expect(p).toContain('Rodrigo respondeu 5 cenários, um por competência, e esta é UMA arguição só, sobre o conjunto.');
-    expect(p).toContain('Não tente cobrir todos');
-    expect(p).toContain('Diga de qual competência está falando');
-    // o bloco entra entre as regras e o "como sondar", sem tirar nada
-    expect(p.indexOf('VÁRIOS CENÁRIOS')).toBeGreaterThan(p.indexOf('REGRAS INEGOCIÁVEIS'));
-    expect(p.indexOf('VÁRIOS CENÁRIOS')).toBeLessThan(p.indexOf('COMO SONDAR'));
-    expect(p.slice(p.indexOf('VÁRIOS CENÁRIOS'), p.indexOf('COMO SONDAR'))).not.toMatch(/[\u2014\u2013]/);
-    expect(p.replace(/\n═══ VÁRIOS CENÁRIOS ═══\n[^\n]*\n/, '')).toBe(buildArguicaoSystemPrompt(CTX, 6, 1));
+  it('o prompt não tem bloco de "vários cenários": cada cenário tem a sua conversa, com as regras do modo', () => {
+    const p = buildArguicaoSystemPrompt(CTX_COMP, 6, 1);
+    expect(p).not.toContain('VÁRIOS CENÁRIOS');
+    expect(p).not.toContain('UMA arguição só');
+    expect(p).toContain('Máximo 6 turnos (turno atual: 1)');
+  });
+
+  it('o mesmo contexto dá o mesmo prompt que a Jornada daria para a competência (só a lista de descritores muda)', () => {
+    expect(buildArguicaoSystemPrompt({ ...CTX, descritores: SEIS }, 6, 1)).toBe(buildArguicaoSystemPrompt(CTX_COMP, 6, 1));
   });
 });

@@ -2294,7 +2294,10 @@
       "counter": "Cenário {current} de {total}",
       "progressLine": "Cenário {current} de {total} · {competency}",
       "finish": "Concluir cenário →",
-      "previousDone": "Cenário {done} concluído. Este é o próximo."
+      "previousDone": "Cenário {done} concluído. Este é o próximo.",
+      "argueLine": "Defesa oral · Cenário {current} de {total} · {competency}",
+      "argueDone": "Defesa oral deste cenário concluída. O próximo cenário já está pronto.",
+      "argueNext": "Ir para o próximo cenário →"
     },
     "question": {
       "counter": "Pergunta {current} de {total}",
