@@ -35,19 +35,19 @@ const KIT = [
     content: `13 OBJEÇÕES QUE O RC VAI OUVIR — respostas prontas.
 
 "Isso substitui avaliação de desempenho?" → Não. A Vertho desenvolve competências. Quem quer nota de avaliador + nine-box precisa de ferramenta de performance. Somos complementares.
-"A IA decide sozinha?" → Nunca. A IA diagnostica, sugere e avalia — o gestor e o RH tomam a decisão. Dual-IA (2ª IA valida a 1ª) em toda avaliação crítica.
-"Como evitar viés da IA?" → Dual-IA em toda avaliação, cenários ancorados no contexto real (PPP/cargo), scorer com régua explícita n1-n4 por descritor. A IA narra o motor, não inventa nota.
-"Como fica a LGPD?" → PII nunca toca a IA. Dados isolados por tenant. Audit log de acessos. Pulso com guard n≥7. Mascara em-voo, não em repouso.
+"A IA decide sozinha?" → Nunca. A IA diagnostica, sugere e avalia; o gestor e o RH tomam a decisão. No mapeamento, no PDI e nos cenários, uma segunda IA, de outra família, audita a primeira. Nos simuladores, cada nível exige a fala literal da pessoa, conferida por código.
+"Como evitar viés da IA?" → Segunda IA no mapeamento, no PDI e nos cenários, cenários ancorados no contexto real (PPP/cargo) e régua explícita de quatro níveis por descritor. A IA narra o motor, não inventa nota.
+"Como fica a LGPD?" → O fluxo de dados por provedor de IA está documentado e pode ir ao encarregado de dados do cliente. Nas conversas da jornada, no Tira-Dúvidas, na arguição, na avaliação final, no mapeamento de competências e no PDI, o nome da pessoa vira um identificador antes de ir à IA, e o nome volta só no texto que ela lê. Os relatórios ao gestor e ao RH vão com nome e cargo. Dados isolados por empresa e log de auditoria das ações administrativas. Nunca diga que dado pessoal "nunca toca a IA".
 "Os colaboradores vão aceitar?" → A jornada é por chat e conteúdo curto (vídeo, podcast, texto, case). Formato-core pela preferência da pessoa. Desafio semanal leve. Tira-dúvidas no tom da instituição.
-"Quanto tempo a pessoa dedica?" → ~20-30 min/semana (conteúdo + desafio + reflexão). Missão aplicada quinzenal é na rotina real do cargo, não é tarefa extra.
+"Quanto tempo a pessoa dedica?" → Uma atividade por semana: conteúdo curto no formato que a pessoa prefere, um desafio para aplicar no próprio trabalho e a conversa de evidências. O desafio é na rotina real do cargo, não é tarefa extra. Não prometa um número de minutos: a duração ainda não foi medida.
 "Já temos LMS / Qulture / Feedz." → LMS entrega curso. Qulture/Feedz medem performance. A Vertho fecha o loop: diagnóstico individual → trilha personalizada → evidência de evolução. São camadas diferentes.
-"Isso é pesquisa de clima?" → Não. O Pulso Vertho é leitura do ambiente que sustenta o desenvolvimento — não eNPS, não diagnóstico psicossocial, não compliance NR-1.
+"Isso é pesquisa de clima?" → Não. A Vertho mede evolução de competência, não clima: não é eNPS, não é diagnóstico psicossocial e não é compliance NR-1.
 "O conteúdo gerado por IA não é genérico?" → Cada conteúdo é gerado por cargo, perfil DISC, descritor da competência e contexto institucional (PPP/valores). Não é catálogo — é sob medida.
-"Como provo ROI?" → Evolution Report com delta real por descritor (ex.: "evoluiu de N2 para N3.4 em Negociação"). Plenária institucional mostra o consolidado pro board.
-"Serve pra NR-1?" → O Pulso oferece insumo qualitativo COMPLEMENTAR a especialistas técnicos. Não substitui análise técnica nem diagnóstico psicossocial. Linguagem: "complementar a", nunca "substitui".
-"Como o gestor usa na prática?" → Dashboard com delta de evolução da equipe, plenária consolidada, dossiê individual por liderado. O líder chega na 1:1 com documento, não com achismo.
+"Como provo ROI?" → Não prometemos retorno financeiro específico: o que se prova é evolução de competência. O relatório de evolução mostra o nível de partida, o de chegada e o avanço em cada comportamento (ex.: "de N2 para N3 em Negociação"), e o PDF executivo de fim de jornada leva o consolidado da turma para a diretoria.
+"Serve pra NR-1?" → Não é a finalidade da Vertho. Ela desenvolve competências e não substitui a análise técnica nem o diagnóstico psicossocial que a NR-1 pede. Não prometa aderência à NR-1: se o cliente precisa disso, é com o especialista técnico dele.
+"Como o gestor usa na prática?" → Painel da equipe com o avanço de cada liderado, Relatório do Gestor sobre a própria equipe e, ao fim da trilha, o PDF de evolução de cada liderado. O líder chega na 1:1 com documento, não com achismo.
 
-O QUE A VERTHO NÃO É: não medimos performance (desenvolvemos competências); não somos LMS (conteúdo gerado por IA, personalizado por cargo/perfil); não somos pesquisa de clima (o Pulso é leitura do ambiente); não somos ATS (atuamos de quem já entrou pra frente).
+O QUE A VERTHO NÃO É: não medimos performance (desenvolvemos competências); não somos LMS (conteúdo gerado por IA, personalizado por cargo/perfil); não somos pesquisa de clima; não somos ATS (atuamos de quem já entrou pra frente).
 
 FRASE CANÔNICA (decore): "Somos uma HRTech que entende o perfil de cada pessoa e personaliza as decisões sobre ela — de quem desenvolver a como reter e promover — com evidência de evolução, não achismo."`,
   },
@@ -74,8 +74,8 @@ REGRA DE OURO: a maioria mede alguma coisa. A pergunta que diferencia: "a plataf
 
 FRASE DE ABERTURA: "Oi [nome], sou [seu nome], represento a Vertho — uma plataforma de inteligência de pessoas. A gente ajuda empresas a desenvolver, promover e reter gente com base em evidência, não em achismo. Queria entender como funciona isso aí na [empresa] pra ver se faz sentido conversar. Posso fazer umas perguntas rápidas?"
 
-P1: "Como vocês decidem hoje quem desenvolver, promover ou realocar?" — Ideal: "avaliação de desempenho mas falta dados" ou "o gestor decide na intuição" (dor real). Red flag: "assessment center, comitê de calibração, processo maduro" (dor baixa). Se há dor → "Posso mostrar como a Vertho resolve isso em 14 semanas — diagnóstico + trilha + evidência. Demo de 25 min?"
-P2: "Como vocês medem se um treinamento funcionou?" — Ideal: "não medimos" ou "pesquisa de satisfação/NPS" (gastam sem ROI). Red flag: "correlação treinamento × indicadores com grupo controle" (raro). Se não medem → "Essa é a lacuna: a Vertho entrega Evolution Report com delta real por competência."
+P1: "Como vocês decidem hoje quem desenvolver, promover ou realocar?" — Ideal: "avaliação de desempenho mas falta dados" ou "o gestor decide na intuição" (dor real). Red flag: "assessment center, comitê de calibração, processo maduro" (dor baixa). Se há dor → "Posso mostrar como a Vertho resolve isso em jornadas de sete semanas por competência: diagnóstico, trilha e evidência. Demo de 25 min?"
+P2: "Como vocês medem se um treinamento funcionou?" — Ideal: "não medimos" ou "pesquisa de satisfação/NPS" (gastam sem ROI). Red flag: "correlação treinamento × indicadores com grupo controle" (raro). Se não medem → "Essa é a lacuna: a Vertho entrega um relatório de evolução com o nível de partida, o de chegada e o avanço por competência."
 P3: "Como o gestor acompanha o PDI depois da avaliação?" — Ideal: "o PDI vira documento morto" ou "depende do gestor". Red flag: "ferramenta que integra PDI com acompanhamento e o gestor usa". Se PDI é morto → "A Vertho transforma o PDI em trilha personalizada com conteúdo, missão e evidência. O gestor recebe dashboard, não planilha."
 
 RÉGUA DE DECISÃO: 2+ verdes → propor demo de 25 min. 1 verde → enviar one-pager do segmento + follow-up em 7 dias. 0 verde → nutrir, revisitar em 3 meses.`,
@@ -86,11 +86,11 @@ RÉGUA DE DECISÃO: 2+ verdes → propor demo de 25 min. 1 verde → enviar one-
     description: '3 perguntas para secretários de educação e coordenação da secretaria, com resposta ideal, red flag e próximo passo.',
     content: `SCRIPT DE QUALIFICAÇÃO — Secretaria / rede pública. Use com secretários de educação, diretores de ensino ou coordenação pedagógica da secretaria.
 
-FRASE DE ABERTURA: "Secretário(a), sou [seu nome], represento a Vertho — uma plataforma que ajuda redes de ensino a selecionar e desenvolver gestores e coordenadores com base em perfil e evidência. Queria entender como funciona a formação na rede de vocês. Posso fazer 3 perguntas rápidas?"
+FRASE DE ABERTURA: "Secretário(a), sou [seu nome], represento a Vertho, uma plataforma que ajuda redes de ensino a desenvolver gestores e coordenadores com base em perfil e evidência. Queria entender como funciona a formação na rede de vocês. Posso fazer 3 perguntas rápidas?"
 
 P1: "Como vocês priorizam a formação de gestores e coordenadores hoje?" — Ideal: "formação genérica pra todo mundo" ou "cada escola escolhe" (sem diagnóstico/priorização). Red flag: "programa estruturado com assessment individual e trilha por escola" (raro). Se genérica → "A Vertho faz o diagnóstico de cada gestor e monta a trilha pela realidade da escola dele — com cenários baseados no PPP. Mostro em 25 min?"
-P2: "Como vocês medem se a formação continuada gerou evolução real?" — Ideal: "não medimos" ou "frequência e certificado". Red flag: "indicadores correlacionados com IDEB/Saeb" (raro). Se não medem → "A Vertho entrega relatório de evolução com delta por competência — a secretaria vê quem evoluiu, quanto e onde."
-P3: "Como vocês personalizam a formação por escola ou por perfil de gestor?" — Ideal: "não personalizamos — mesma pauta pra rede". Red flag: "cada escola tem plano próprio com acompanhamento individual" (raro). Se não personaliza → "A Vertho gera conteúdo pela realidade de cada escola e pelo perfil do gestor. Piloto de 2 semanas mostra o método."
+P2: "Como vocês medem se a formação continuada gerou evolução real?" — Ideal: "não medimos" ou "frequência e certificado". Red flag: "indicadores correlacionados com IDEB/Saeb" (raro). Se não medem → "A Vertho entrega um relatório de evolução com o nível de partida, o de chegada e o avanço por competência; a secretaria vê quem evoluiu, quanto e onde."
+P3: "Como vocês personalizam a formação por escola ou por perfil de gestor?" — Ideal: "não personalizamos — mesma pauta pra rede". Red flag: "cada escola tem plano próprio com acompanhamento individual" (raro). Se não personaliza → "A Vertho gera conteúdo pela realidade de cada escola e pelo perfil do gestor. Uma jornada piloto, com uma competência e uma turma pequena, mostra o método."
 
 RÉGUA: 2+ verdes → demo 25 min. 1 verde → one-pager + follow-up 7 dias. 0 → nutrir, revisitar em 3 meses.`,
   },
@@ -103,8 +103,8 @@ RÉGUA: 2+ verdes → demo 25 min. 1 verde → one-pager + follow-up 7 dias. 0 �
 FRASE DE ABERTURA: "Oi [nome], sou [seu nome], represento a Vertho — inteligência de pessoas pra educação. A gente ajuda escolas a desenvolver professores e coordenadores com base em perfil e evidência — cada um recebe uma trilha personalizada. Queria entender como funciona o desenvolvimento de pessoas na [escola]."
 
 P1: "Como vocês desenvolvem professores e coordenadores hoje?" — Ideal: "formação interna genérica" ou "cursos externos quando dá" (sem diagnóstico/trilha). Red flag: "programa estruturado com coaching individual e assessment" (concorre com consultorias). Se genérica → "A Vertho faz o diagnóstico de cada profissional e monta trilha pelo perfil e pelo PPP da escola. Mostro em 25 min?"
-P2: "Como vocês identificam quem precisa de apoio antes de virar problema?" — Ideal: "quando o coordenador percebe" ou "quando a família reclama" (reativo). Red flag: "sistema de early warning". Se reativo → "O Pulso Vertho dá leitura do ambiente — antes de virar crise, você vê os sinais. E a trilha atua antes do gestor precisar intervir."
-P3: "O que vocês fazem pra reter bons professores?" — Ideal: "pagamos bem e torcemos" ou "não temos estratégia" (turnover caro). Red flag: "programa de retenção com plano de carreira estruturado". Se sem estratégia → "Desenvolver a pessoa é reter. Quando o professor vê que a escola investe no perfil dele — não num curso genérico — a retenção sobe. O piloto de 2 semanas já entrega essa experiência."
+P2: "Como vocês identificam quem precisa de apoio antes de virar problema?" — Ideal: "quando o coordenador percebe" ou "quando a família reclama" (reativo). Red flag: "sistema de early warning". Se reativo → "O painel de engajamento mostra quem parou e quem precisa de apoio antes do fechamento, e o diagnóstico de cada professor mostra onde ele precisa de desenvolvimento. A trilha atua antes de o coordenador precisar intervir."
+P3: "O que vocês fazem pra reter bons professores?" — Ideal: "pagamos bem e torcemos" ou "não temos estratégia" (turnover caro). Red flag: "programa de retenção com plano de carreira estruturado". Se sem estratégia → "Desenvolver a pessoa é reter. Quando o professor vê que a escola investe no perfil dele — não num curso genérico — a retenção sobe. Uma jornada piloto já entrega essa experiência."
 
 RÉGUA: 2+ verdes → demo 25 min. 1 verde → one-pager + follow-up 7 dias. 0 → nutrir, revisitar em 3 meses.`,
   },
@@ -131,11 +131,11 @@ REGRA DE OURO: se o cliente não tem dor clara (etapa 3), não faça demo (etapa
     description: 'Referência para conduzir a demo no acme-demo: as 4 personas, 3 roteiros (10/25/40 min), o que NÃO falar e o reset.',
     content: `CHEAT SHEET — Ambiente ACME Demo (acme-demo.vertho.ai). Entre no portal como a persona.
 
-AS 4 PERSONAS: Ana (DISC I, nova — só cadastro): mostra a tela inicial e o convite de diagnóstico → "a pessoa recebe um link e em 20 min a plataforma já conhece o perfil dela". Paulo (ID, parcial — 2 comps, trilha ativa): trilha em andamento, conteúdo, tira-dúvidas → "o dia a dia: conteúdo no formato que a pessoa prefere, desafio prático, tira-dúvidas com IA no tom da instituição". Bruna (CS, completa — 5 comps, concluída): DISC, mapa de competências, Evolution Report → "o resultado: delta real por competência. Não é opinião — é evidência". Carla (D, gestora): dashboard, plenária, relatório do liderado → "o que o líder recebe: visão da equipe com dados. Chega na 1:1 com documento".
+AS 4 PERSONAS: Ana (DISC I, nova — só cadastro): mostra a tela inicial e o convite de diagnóstico → "a pessoa recebe um link e a plataforma já conhece o perfil dela". Paulo (ID, parcial — 2 comps, trilha ativa): trilha em andamento, conteúdo, tira-dúvidas → "o dia a dia: conteúdo no formato que a pessoa prefere, desafio prático, tira-dúvidas com IA no tom da instituição". Bruna (CS, completa — 5 comps, concluída): DISC, mapa de competências, Evolution Report → "o resultado: nível de partida, de chegada e avanço por competência. Não é opinião, é evidência". Carla (D, gestora): dashboard, Relatório do Gestor, detalhe do liderado → "o que o líder recebe: visão da equipe com dados. Chega na 1:1 com documento".
 
-3 ROTEIROS: Curta (10 min): Bruna → DISC → mapa competências → Evolution Report → Carla → dashboard gestor. Média (25 min): Ana onboarding → Bruna DISC+DNA → trilha (vídeo+tira-dúvidas) → Evolution Report → Carla dashboard → admin visão RH. Deep (40 min): slide posicionamento → Ana → Paulo trilha ao vivo → Bruna DISC+Evolution → Carla gestor+plenária → admin pipeline+Pulso → piloto. Reserve 5 min pro cliente perguntar. Deep é consultiva, não tour.
+3 ROTEIROS: Curta (10 min): Bruna → DISC → mapa competências → Evolution Report → Carla → dashboard gestor. Média (25 min): Ana onboarding → Bruna DISC+DNA → trilha (vídeo+tira-dúvidas) → Evolution Report → Carla dashboard → admin visão RH. Deep (40 min): slide posicionamento → Ana → Paulo trilha ao vivo → Bruna DISC+Evolution → Carla gestor + Relatório do Gestor → admin pipeline → piloto. Reserve 5 min pro cliente perguntar. Deep é consultiva, não tour.
 
-O QUE NÃO FALAR: não diga "IA revolucionária" (diga "IA que conversa em turnos socráticos e extrai evidência validada por 2ª IA"); não prometa ROI específico (mostre o Evolution Report); não compare por nome ("o Qulture não faz X") — posicione pela pergunta; não mostre admin/pipeline na demo curta.
+O QUE NÃO FALAR: não diga "IA revolucionária" (diga "IA que conversa em turnos socráticos e extrai evidência da fala da pessoa"); não prometa ROI específico (mostre o Evolution Report); não compare por nome ("o Qulture não faz X") — posicione pela pergunta; não mostre admin/pipeline na demo curta.
 
 RESET E ACESSO: antes da demo, acme-demo.vertho.ai/admin/demo → "Resetar demo agora" (~10s). Reset automático toda madrugada (04h BRT). Login = e-mail da persona (ana@/paulo@/bruna@/carla@vertho.ai) via magic link. Plano B: prints/vídeo de backup. NÃO cadastre dados reais, NÃO rode IA1/IA2/IA3. Se 2 RCs usam ao mesmo tempo, resete antes.`,
   },
@@ -143,15 +143,15 @@ RESET E ACESSO: antes da demo, acme-demo.vertho.ai/admin/demo → "Resetar demo 
     title: 'Mapa da jornada Vertho — do setup ao Evolution Report',
     category: 'playbook', segment: 'geral',
     description: 'Visão da jornada completa (Setup → Diagnóstico → Trilha → Fechamento → Resultados) com o "wow" de cada fase.',
-    content: `MAPA DA JORNADA VERTHO — o colaborador é diagnosticado, desenvolve competências com conteúdo personalizado e é reavaliado, tudo na mesma plataforma, com evidência.
+    content: `MAPA DA JORNADA VERTHO: o colaborador é diagnosticado, desenvolve competências com conteúdo personalizado e é reavaliado, tudo na mesma plataforma, com evidência.
 
-0. SETUP (~1 sem) — RH/Admin: planilha de cargos+colaboradores, upload de logo/docs, Vertho configura o tenant. Wow: tenant pronto em 1 dia útil.
-1. DIAGNÓSTICO (1–2 sem) — Colaborador: mapeamento DISC, cenários situacionais (chat IA), mapeamento de competências, DNA + Fit v2. Wow: perfil DISC completo com narrativa rica ("nunca tinham me descrito assim").
-2. TRILHA (14 sem*) — Colaborador: conteúdo semanal personalizado (vídeo/texto/podcast/case), desafio prático, tira-dúvidas com IA, missão aplicada (sem 4/8/12), reflexão com evidências. RH: dashboard de engajamento, Pulso (T0/T2). Wow: conteúdo gerado por IA no formato preferido, contextualizado por cargo e PPP.
-3. FECHAMENTO (sem 14, ou sem 3 no piloto) — Colaborador: cenário B, arguição oral (defesa com IA), reavaliação. RH: Scorer + Check (Dual-IA), Evolution Report. Wow: arguição oral em tempo real — a IA sonda e extrai evidência.
-5. RESULTADOS — Colaborador: Evolution Report pessoal (delta por descritor), próximo ciclo sugerido. RH: plenária institucional, Relatório RH consolidado, dossiê do gestor. Wow: delta real por descritor ("evoluiu de N2 para N3.4 em Negociação").
+0. SETUP (~1 sem). RH/Admin: planilha de cargos+colaboradores, upload de logo/docs, Vertho configura o tenant. Wow: tenant pronto em 1 dia útil.
+1. DIAGNÓSTICO (1 a 2 sem). Colaborador: mapeamento DISC, cenários situacionais (chat IA), mapeamento de competências, DNA + Fit v2. Wow: perfil DISC completo com narrativa rica ("nunca tinham me descrito assim").
+2. TRILHA (sem 1 a 6). Colaborador: conteúdo semanal personalizado (vídeo/texto/podcast/case), desafio prático, tira-dúvidas com IA e conversa de evidências no fim da semana. RH: painel de engajamento. Wow: conteúdo gerado por IA no formato preferido, contextualizado por cargo e PPP.
+3. FECHAMENTO (sem 7). Colaborador: cenário final, arguição oral (defesa com IA) e reavaliação, com as evidências das seis semanas na leitura. A avaliação final passa por uma segunda IA. Wow: arguição em tempo real, em que a IA sonda e extrai evidência.
+4. RESULTADOS. Colaborador: relatório de evolução pessoal (nível de partida, de chegada e avanço por comportamento) e a jornada da competência seguinte. RH: relatório consolidado e PDF executivo de fim de jornada. Gestor: Relatório do Gestor. Wow: evolução com evidência ("de N2 para N3 em Negociação").
 
-*Trilha regular = 14 semanas (2 competências). Piloto = 2 semanas (1 competência, degustação). Onboarding = 10 semanas (5 competências).`,
+PROGRAMAS: Jornada = 7 semanas, uma competência por vez (6 de conteúdo e a avaliação final). Onboarding = 10 semanas em espiral, até 5 competências. Personalizado = uma Jornada com a duração escolhida (1 a 6 semanas de conteúdo por competência), com ou sem fechamento.`,
   },
   {
     title: 'Modelo de proposta comercial',
@@ -161,9 +161,9 @@ RESET E ACESSO: antes da demo, acme-demo.vertho.ai/admin/demo → "Resetar demo 
 DICA: o portal já gera este documento pronto (página + PDF) a partir da proposta aprovada — use "Documento da proposta" no detalhe. Estrutura de referência:
 
 1. Contexto e dor identificada (2–3 frases com a dor real do cliente).
-2. A Vertho (HRTech que entende o perfil de cada pessoa e personaliza as decisões — diagnóstico DISC + competências + cenários avaliados por IA → trilha personalizada → Evolution Report com delta).
-3. Escopo proposto (modalidade piloto 2 sem / completo 14 sem; participantes; cargos; duração; início).
-4. O que está incluso (ambiente dedicado com subdomínio; diagnóstico individual; trilha personalizada; avaliação de fechamento; relatórios: Evolution + Plenária + RH + dossiê; suporte com canal dedicado).
+2. A Vertho (HRTech que entende o perfil de cada pessoa e personaliza as decisões — diagnóstico DISC + competências + cenários avaliados por IA → trilha personalizada → relatório de evolução com nível de partida, de chegada e avanço).
+3. Escopo proposto (formato: Jornada de 7 semanas por competência, Onboarding ou Personalizado; competências; participantes; cargos; duração; início).
+4. O que está incluso (ambiente dedicado com subdomínio; diagnóstico individual; trilha personalizada; avaliação de fechamento; relatórios: evolução por participante, Relatório do Gestor, consolidado de RH e PDF executivo de fim de jornada; suporte com canal dedicado).
 5. O que NÃO está incluso (customizações fora do escopo; diagnóstico clínico/psicológico; pesquisa de clima/eNPS; avaliação de desempenho formal/nine-box/OKR; garantia de ROI financeiro; consultoria presencial; recrutamento/ATS).
 6. Premissas (cliente envia planilha de setup + docs; ponto focal disponível; participantes com smartphone/PC + internet; envio de links por WhatsApp/e-mail).
 7. Investimento (valores + condições: à vista / Pix / boleto).
@@ -181,8 +181,8 @@ QUEM COMPRA: mantenedor(a), diretor(a) geral/pedagógico(a), head de pessoas do 
 A DOR: rotatividade docente alta e cara; formação interna genérica ("mesma pauta BNCC pra 80 professores"); coordenação sobrecarregada sem acompanhar cada professor; diferenciação competitiva (famílias escolhem escola que investe no corpo docente); sem evidência de que a formação gera resultado.
 VOCABULÁRIO: PPP, BNCC, coordenação pedagógica, mantenedora, mensalidade, retenção de alunos, NPS de famílias, formação continuada, plano de carreira docente, turnover docente, diferencial pedagógico.
 FRASE DE ABERTURA: "[Nome], a Vertho ajuda escolas a desenvolver professores e coordenadores com base no perfil de cada um — não numa formação genérica. Diagnóstico individual, trilha personalizada pela realidade da escola (PPP, perfil, cargo) e um relatório que prova a evolução. Isso reduz rotatividade e fortalece a diferenciação. Posso mostrar em 25 minutos?"
-3 OBJEÇÕES: "Já temos coordenação que faz isso." → A coordenação é essencial — a Vertho potencializa: hoje o coordenador acompanha 20-30 professores sem dados; com a Vertho vê o perfil e a evolução de cada um e prioriza. É ferramenta do coordenador, não substituto. | "Escola não tem orçamento de RH corporativo." → O piloto de 2 semanas cabe no orçamento de formação continuada e já entrega o diagnóstico de cada professor. Compare com o custo de perder um bom professor. | "Professores não vão aderir a mais uma plataforma." → Jornada por WhatsApp e conteúdo curto (~20 min/sem), formato escolhido pelo professor, tira-dúvidas no tom da escola. É microlearning, não EAD pesado.
-PRÓXIMO PASSO: piloto de 2 semanas com 10-15 professores/coordenadores de 1 unidade. O diagnóstico já é o entregável. Se fizer sentido, escala pra rede.`,
+3 OBJEÇÕES: "Já temos coordenação que faz isso." → A coordenação é essencial — a Vertho potencializa: hoje o coordenador acompanha 20-30 professores sem dados; com a Vertho vê o perfil e a evolução de cada um e prioriza. É ferramenta do coordenador, não substituto. | "Escola não tem orçamento de RH corporativo." → Um piloto, com uma competência e uma turma pequena, cabe no orçamento de formação continuada e já entrega o diagnóstico de cada professor. Compare com o custo de perder um bom professor. | "Professores não vão aderir a mais uma plataforma." → Jornada por WhatsApp e conteúdo curto, no formato escolhido pelo professor, tira-dúvidas no tom da escola. É microlearning, não EAD pesado.
+PRÓXIMO PASSO: piloto com uma competência e 10 a 15 professores/coordenadores de 1 unidade. O diagnóstico já é o entregável. Se fizer sentido, escala pra rede.`,
   },
   {
     title: 'One-pager — Vertho para Educação Pública',
@@ -191,10 +191,10 @@ PRÓXIMO PASSO: piloto de 2 semanas com 10-15 professores/coordenadores de 1 uni
     content: `VERTHO PARA EDUCAÇÃO PÚBLICA (secretarias municipais, escolas, redes de ensino).
 QUEM COMPRA: secretário(a) de educação, diretor(a) de ensino, coordenação da secretaria. Decisão por licitação/dispensa (até R$ 50k) ou pregão. Ponto focal: assessoria técnica ou setor de formação.
 A DOR: decisões de lotação, formação e seleção de gestores por currículo e indicação política — sem diagnóstico de perfil nem evidência; formação continuada genérica sem personalização por escola/cargo/perfil; não sabem se o investimento gerou evolução.
-VOCABULÁRIO: PPP, BNCC, coordenação pedagógica, lotação, formação continuada, IDEB, gestor escolar, rede municipal, NR-1 (servidores CLT).
-FRASE DE ABERTURA: "Secretário(a), a Vertho ajuda redes de ensino a selecionar e desenvolver gestores e coordenadores com base em perfil e evidência — não em currículo e indicação. Diagnóstico de cada profissional, trilha personalizada pela realidade da escola, e um relatório que prova a evolução. Posso mostrar em 25 minutos?"
-3 OBJEÇÕES: "Já temos formação continuada." → A Vertho não substitui — personaliza e prova o resultado. A formação vira mais eficaz quando cada gestor recebe conteúdo no perfil dele. | "Não temos orçamento / precisa de licitação." → Opera por dispensa de licitação (até R$ 50k — art. 75, Lei 14.133). O piloto de 2 semanas cabe na dispensa e gera o diagnóstico antes de comprometer orçamento maior. | "Como fica a LGPD com dados de servidores?" → LGPD by design: PII nunca toca a IA, dados isolados por tenant (subdomínio da rede), audit log, Pulso com guard n≥7. Detalhamos na proposta técnica.
-PRÓXIMO PASSO: piloto de 2 semanas (kit de setup + briefing). O diagnóstico já é o entregável.`,
+VOCABULÁRIO: PPP, BNCC, coordenação pedagógica, lotação, formação continuada, IDEB, gestor escolar, rede municipal.
+FRASE DE ABERTURA: "Secretário(a), a Vertho ajuda redes de ensino a desenvolver gestores e coordenadores com base em perfil e evidência, não em currículo e indicação. Diagnóstico de cada profissional, trilha personalizada pela realidade da escola, e um relatório que prova a evolução. Posso mostrar em 25 minutos?"
+3 OBJEÇÕES: "Já temos formação continuada." → A Vertho não substitui — personaliza e prova o resultado. A formação vira mais eficaz quando cada gestor recebe conteúdo no perfil dele. | "Não temos orçamento / precisa de licitação." → Opera por dispensa de licitação (até R$ 50k — art. 75, Lei 14.133). Um piloto, com uma competência e uma turma pequena, cabe na dispensa e gera o diagnóstico antes de comprometer orçamento maior. | "Como fica a LGPD com dados de servidores?" → LGPD desde o desenho: o fluxo de dados por provedor de IA está documentado; nas conversas, no mapeamento e no PDI o nome da pessoa vira um identificador antes de ir à IA, e os relatórios ao gestor e ao RH vão com nome e cargo; dados isolados por empresa (subdomínio da rede) e log de auditoria. Detalhamos na proposta técnica.
+PRÓXIMO PASSO: piloto com uma competência e uma turma pequena (kit de setup + briefing). O diagnóstico já é o entregável.`,
   },
   {
     title: 'One-pager — Vertho para Setor Privado (RH/T&D)',
@@ -205,8 +205,8 @@ QUEM COMPRA: diretor(a) de RH, head de T&D, BP de desenvolvimento, CHRO. Em empr
 A DOR: avaliação de desempenho que não desenvolve ("fazemos nine-box todo ano e nada muda"); treinamento genérico sem ROI ("gastamos R$ 500k em LMS e não sabemos se funcionou"); PDI que vira documento morto; promoção/sucessão por opinião do gestor, não por perfil.
 VOCABULÁRIO: PDI, nine-box, ciclo de avaliação, assessment, pipeline de sucessão, engagement, eNPS, OKR, ROI de T&D, people analytics, HRBP, competências core, cultura organizacional.
 FRASE DE ABERTURA: "[Nome], a Vertho é inteligência de pessoas — diagnóstico individual de competências, trilha personalizada e, ao final, um relatório que prova a evolução com evidência. É como fechar o loop que o nine-box abre mas nunca completa. Posso mostrar em 25 minutos?"
-3 OBJEÇÕES: "Já usamos Qulture / Feedz." → Eles medem performance (ONDE a pessoa está); a Vertho desenvolve e leva até onde precisa ir, provando que chegou (trilha + Evolution Report). Complementares. | "Qual a integração com nosso ATS / HRIS?" → Integra por API + SSO; onboarding puxa dados do HRIS. Mas não é ATS — atuamos de quem já entrou pra frente. | "Como escala pra 500+?" → Multi-tenant com branding, conteúdo gerado por IA (sem curadoria manual), envios em massa por WhatsApp/e-mail, dashboards. Custo de IA por chamada, não por licença — escala linear.
-PRÓXIMO PASSO: piloto de 2 semanas com 10-15 pessoas (um cargo/área). O diagnóstico já entrega valor.`,
+3 OBJEÇÕES: "Já usamos Qulture / Feedz." → Eles medem performance (ONDE a pessoa está); a Vertho desenvolve e leva até onde precisa ir, provando que chegou (trilha + Evolution Report). Complementares. | "Qual a integração com nosso ATS / HRIS?" → Hoje os participantes entram por planilha de cargos e colaboradores, e o acesso é por link seguro, sem senha. Integração com HRIS ou SSO não está no escopo padrão: se for requisito, é customização à parte. E não é ATS: atuamos de quem já entrou pra frente. | "Como escala pra 500+?" → Multi-tenant com branding, conteúdo gerado por IA (sem curadoria manual), envios em massa por WhatsApp/e-mail, dashboards. Custo de IA por chamada, não por licença — escala linear.
+PRÓXIMO PASSO: piloto com uma competência e 10 a 15 pessoas (um cargo/área). O diagnóstico já entrega valor.`,
   },
 ];
 
