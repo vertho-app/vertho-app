@@ -26,6 +26,9 @@ export async function exigirAcessoPaginaSimulador(simulador: Exclude<Simulador, 
   // acompanham atendimento e vendas sem depender dela.
   if (!soAcompanhaSimuladores(auth)) {
     const acesso = await acessoSimuladoresDoColaborador(auth.colaborador);
+    // Leitura que falhou NÃO manda a pessoa de volta ao início como se não tivesse acesso
+    // (R-139): o erro chega ao boundary do dashboard, que oferece "tentar de novo".
+    if (acesso.indisponivel) throw new Error('Não foi possível consultar o seu acesso agora. Tente novamente.');
     if (!acesso[simulador]) redirect('/dashboard');
   }
   const habilitado = simulador === 'vendas' ? await vendasHabilitado(auth.empresaId) : await recepcaoHabilitada(auth.empresaId);

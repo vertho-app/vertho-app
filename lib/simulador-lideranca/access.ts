@@ -56,7 +56,14 @@ export async function contexto(
       );
     ownerKey = `admin:${admin.data.id}`;
   } else {
-    if (!(await acessoSimuladoresDoColaborador(auth.colaborador)).lideranca)
+    const acesso = await acessoSimuladoresDoColaborador(auth.colaborador);
+    // Leitura que falhou NÃO é "não liberado para seu cargo" (R-139): 503, tentar de novo.
+    if (acesso.indisponivel)
+      throw new LiderancaError(
+        503,
+        'Não foi possível consultar o seu acesso ao simulador. Tente novamente.',
+      );
+    if (!acesso.lideranca)
       throw new LiderancaError(
         403,
         'O simulador de liderança não está liberado para seu cargo.',

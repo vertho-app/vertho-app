@@ -35,6 +35,8 @@ import BackButton from '@/components/back-button';
 import { SignalJourney } from '@/components/engajamento/signal-journey';
 import { EntregaDaEtapa, QualidadeEvidenciaResumo } from '@/components/engajamento/qualidade-evidencia';
 import { getEngajamentoDoTime } from '../actions';
+import LeituraIndisponivel from '@/components/gestor/leitura-indisponivel';
+import { useTranslations } from 'next-intl';
 import { engagementBlocker, hasEngagementSignal } from '@/lib/engajamento/prioridades';
 
 type Foco = 'todos' | 'atencao' | 'movimento' | 'finalizados';
@@ -305,7 +307,11 @@ function PessoaRow({ pessoa }: { pessoa: any }) {
 export default function EngajamentoDoTimePage() {
   const [dados, setDados] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const tg = useTranslations('ManagerDashboard');
   const [erro, setErro] = useState('');
+  // A leitura falhou (R-139): não é "time sem ninguém", e a tela oferece tentar de novo.
+  const [indisponivel, setIndisponivel] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
   const [semana, setSemana] = useState<number | null>(null);
   const [cargo, setCargo] = useState('');
   const [foco, setFoco] = useState<Foco>('todos');
@@ -329,8 +335,8 @@ export default function EngajamentoDoTimePage() {
       getEngajamentoDoTime(semana, cargo || null)
         .then((resultado: any) => {
           if (!vivo) return;
-          if (!resultado?.ok) setErro(resultado?.error || 'Não foi possível carregar o engajamento');
-          else { setDados(resultado); setErro(''); }
+          if (!resultado?.ok) { setErro(resultado?.error || 'Não foi possível carregar o engajamento'); setIndisponivel(!!resultado?.indisponivel); }
+          else { setDados(resultado); setErro(''); setIndisponivel(false); }
         })
         .finally(() => { if (vivo) setLoading(false); });
     }, 0);
@@ -338,7 +344,7 @@ export default function EngajamentoDoTimePage() {
       vivo = false;
       window.clearTimeout(timer);
     };
-  }, [semana, cargo]);
+  }, [semana, cargo, tentativa]);
 
   useEffect(() => {
     const vindos: string[] = dados?.cargos || [];
@@ -466,7 +472,9 @@ export default function EngajamentoDoTimePage() {
         </GlassCard>
       )}
 
-      {!loading && erro && (
+      {!loading && erro && indisponivel && <LeituraIndisponivel onRetry={() => setTentativa((n) => n + 1)} t={tg} />}
+
+      {!loading && erro && !indisponivel && (
         <GlassCard className="border-red-400/15 bg-red-400/[0.04]">
           <p className="text-sm text-red-300">{erro}</p>
         </GlassCard>

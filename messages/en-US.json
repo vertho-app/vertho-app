@@ -5192,6 +5192,8 @@
   },
   "ManagerDashboard": {
     "loadError": "Error loading",
+    "unavailable": "We could not load the data right now. That does not mean there are no people on the team. Try again in a moment.",
+    "retry": "Try again",
     "reportDashboard": {
       "eyebrow": "Team intelligence",
       "title": "Read to decide and act",

@@ -8,6 +8,8 @@ import { Loader2, Users, TrendingUp, Minus, ChevronRight, Clock, X, FileDown, Do
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
+import LeituraIndisponivel from '@/components/gestor/leitura-indisponivel';
+import { useTranslations } from 'next-intl';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { CONVERGENCIA, rotuloConvergencia, formatarAvanco, formatarValorAvanco, exibeAntesDepois } from '@/lib/season-engine/convergencia';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
@@ -41,6 +43,9 @@ const STATUS_CFG = {
 
 export default function EquipeEvolucaoPage() {
   const sb = getSupabase();
+  const tg = useTranslations('ManagerDashboard');
+  // A leitura falhou (R-139): não é "sem jornada encerrada", e a tela oferece tentar de novo.
+  const [indisponivel, setIndisponivel] = useState(false);
   const [rows, setRows] = useState([]);
   const [resumo, setResumo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -55,8 +60,8 @@ export default function EquipeEvolucaoPage() {
     const [r] = await Promise.all([
       listarEquipeEvolucao(),
     ]);
-    if (r.error) setError(r.error);
-    else { setRows(r.rows); setResumo(r.resumo); setEscopo(r.escopo || 'gestor'); }
+    if (r.error) { setError(r.error); setIndisponivel(!!(r as any).indisponivel); }
+    else { setRows(r.rows); setResumo(r.resumo); setEscopo(r.escopo || 'gestor'); setError(''); setIndisponivel(false); }
     setLoading(false);
   }
 
@@ -81,6 +86,14 @@ export default function EquipeEvolucaoPage() {
     return ordenarPorNome(list);
   }, [rows, filtro]);
 
+  if (error && indisponivel) {
+    return (
+      <PageContainer>
+        <BackButton href="/dashboard" />
+        <LeituraIndisponivel onRetry={() => { setError(''); setIndisponivel(false); carregar(); }} t={tg} />
+      </PageContainer>
+    );
+  }
   if (error) return <Center><p className="text-red-400">{error}</p></Center>;
 
   return (

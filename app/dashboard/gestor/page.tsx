@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
+import LeituraIndisponivel from '@/components/gestor/leitura-indisponivel';
 import { getGestorHomeData, type GestorHomeData, type CheckpointPendenteDetalhado } from './actions';
 import { salvarCheckpointGestor } from './equipe-evolucao/actions';
 
@@ -71,6 +72,15 @@ export default function GestorHomePage() {
         <div className="flex items-center justify-center py-20">
           <Loader2 size={28} className="animate-spin text-brand-400" />
         </div>
+      </PageContainer>
+    );
+  }
+
+  // A leitura que falhou NÃO é "sem liderados" (R-139): diz que não sabe e oferece tentar de novo.
+  if (!data?.ok && data?.indisponivel) {
+    return (
+      <PageContainer>
+        <LeituraIndisponivel onRetry={carregar} t={t} />
       </PageContainer>
     );
   }

@@ -5192,6 +5192,8 @@
   },
   "ManagerDashboard": {
     "loadError": "Erro ao carregar",
+    "unavailable": "Não foi possível carregar os dados agora. Isso não quer dizer que não haja pessoas na equipa. Tente novamente dentro de instantes.",
+    "retry": "Tentar novamente",
     "reportDashboard": {
       "eyebrow": "Inteligência da equipa",
       "title": "Ler para decidir e agir",

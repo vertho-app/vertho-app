@@ -49,8 +49,12 @@ export async function contextoRecepcao(req: Request, solicitada?: string | null,
   const habilitado = config?.habilitado === true;
   if (!habilitado && !auth.isPlatformAdmin) throw new RecepcaoError(403, 'O simulador de atendimento ainda não está habilitado para a sua empresa.');
   // A liberação por cargo diz quem TREINA; quem só acompanha não depende dela.
-  if (!auth.isPlatformAdmin && !soAcompanha && !(await acessoSimuladoresDoColaborador(auth.colaborador)).atendimento)
-    throw new RecepcaoError(403, 'O simulador de atendimento não está liberado para seu cargo.');
+  if (!auth.isPlatformAdmin && !soAcompanha) {
+    const acesso = await acessoSimuladoresDoColaborador(auth.colaborador);
+    // Leitura que falhou NÃO é "não liberado para seu cargo" (R-139): 503, tentar de novo.
+    if (acesso.indisponivel) throw new RecepcaoError(503, 'Não foi possível consultar o seu acesso ao simulador. Tente novamente.');
+    if (!acesso.atendimento) throw new RecepcaoError(403, 'O simulador de atendimento não está liberado para seu cargo.');
+  }
   let ownerKey:string;
   if (auth.isPlatformAdmin) {
     const {data:admin,error} = await sb.from('platform_admins').select('id').eq('email',auth.email.toLowerCase()).maybeSingle();

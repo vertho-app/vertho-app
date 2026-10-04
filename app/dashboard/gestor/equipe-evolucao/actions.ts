@@ -10,6 +10,7 @@ import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competen
 import { isTenantDemo } from '@/lib/demo/envio-guard';
 import { recortarElencoDemo } from '@/lib/demo/elenco-visivel';
 import { ordenarPorNome } from '@/lib/gestor/ordenar-por-nome';
+import { registrarLeituraIndisponivel, MENSAGEM_INDISPONIVEL } from '@/lib/gestor/leitura-indisponivel';
 
 /**
  * Lista os liderados do gestor com temporada (em andamento ou concluída)
@@ -43,7 +44,14 @@ export async function listarEquipeEvolucao() {
     // casava gente que não era a mesma pessoa — listagem mais larga que o gate.
     colabQ = colabQ.ilike('gestor_email', escaparLike(meuEmail));
   }
-  let { data: colabs } = await colabQ;
+  const { data: colabsLidos, error: errColabs } = await colabQ;
+  // Sem checar, a falha virava "nenhum liderado" e a tela dizia que não há evolução a mostrar
+  // (R-139). Indisponível, com a saída de tentar de novo.
+  if (errColabs) {
+    await registrarLeituraIndisponivel(empresaId, 'evolucao-da-equipe-pessoas', errColabs.message);
+    return { error: MENSAGEM_INDISPONIVEL, indisponivel: true };
+  }
+  let colabs = colabsLidos;
   // Segunda trava, em CÓDIGO: o banco filtra por padrão, a igualdade decide.
   colabs = (colabs || []).filter((c: any) => c.role !== 'rh');
   if (isGestor && meuEmail) colabs = (colabs || []).filter((c: any) => mesmoEmail(c.gestor_email, meuEmail));
@@ -54,10 +62,15 @@ export async function listarEquipeEvolucao() {
   if (!colabs?.length) return { ok: true, rows: [], resumo: { total: 0 } };
 
   // Trilhas desses colabs
-  const { data: trilhas } = await sb.from('trilhas')
+  const { data: trilhas, error: errTrilhasEquipe } = await sb.from('trilhas')
     .select('id, colaborador_id, competencia_foco, numero_temporada, status, evolution_report, criado_em')
     .in('colaborador_id', colabs.map(c => c.id))
     .order('criado_em', { ascending: false });
+  // Sem checar, todo liderado virava "sem trilha" e o resumo dizia que ninguém tem jornada.
+  if (errTrilhasEquipe) {
+    await registrarLeituraIndisponivel(empresaId, 'evolucao-da-equipe-trilhas', errTrilhasEquipe.message);
+    return { error: MENSAGEM_INDISPONIVEL, indisponivel: true };
+  }
   const trilhaPorColab = {};
   for (const t of (trilhas || [])) {
     if (!trilhaPorColab[t.colaborador_id]) trilhaPorColab[t.colaborador_id] = t;
@@ -158,7 +171,12 @@ export async function listarCheckpointsPendentes() {
     if (!meuEmailCp) return { ok: true, rows: [] };   // fail-CLOSED
     colabQ = colabQ.ilike('gestor_email', escaparLike(meuEmailCp));
   }
-  let { data: colabs } = await colabQ;
+  const { data: colabsCp, error: errColabsCp } = await colabQ;
+  if (errColabsCp) {
+    await registrarLeituraIndisponivel(empresaId, 'checkpoints-pessoas', errColabsCp.message);
+    return { ok: false, error: MENSAGEM_INDISPONIVEL, indisponivel: true, rows: [] };
+  }
+  let colabs = colabsCp;
   if (isGestor) colabs = (colabs || []).filter((c: any) => mesmoEmail(c.gestor_email, meuEmailCp));
   if (!colabs?.length) return { ok: true, rows: [] };
 
@@ -188,9 +206,14 @@ export async function listarCheckpointsPendentes() {
   if (errProgs) return { ok: false, error: errProgs.message, rows: [] };
 
   // E checkpoints existentes
-  const { data: checkpoints } = await sb.from('checkpoints_gestor')
+  const { data: checkpoints, error: errCheckpoints } = await sb.from('checkpoints_gestor')
     .select('trilha_id, semana, status, avaliacao_gestor')
     .in('trilha_id', trilhas.map(t => t.id));
+  // Sem checar, o checkpoint já validado voltava como pendente e o gestor o avaliava de novo.
+  if (errCheckpoints) {
+    await registrarLeituraIndisponivel(empresaId, 'checkpoints-registrados', errCheckpoints.message);
+    return { ok: false, error: MENSAGEM_INDISPONIVEL, indisponivel: true, rows: [] };
+  }
   const cpMap = {};
   (checkpoints || []).forEach(c => { cpMap[`${c.trilha_id}_${c.semana}`] = c; });
 

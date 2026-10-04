@@ -6,6 +6,7 @@ import { recortarElencoDemo } from '@/lib/demo/elenco-visivel';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
+import { registrarLeituraIndisponivel, MENSAGEM_INDISPONIVEL } from '@/lib/gestor/leitura-indisponivel';
 import { PROGRESSO, TRILHA, TURMA_MEMBRO } from '@/lib/status';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
@@ -128,6 +129,11 @@ export type PerfilColab = {
 export type GestorHomeData = {
   ok: boolean;
   error?: string;
+  /**
+   * A leitura que alimenta a tela falhou (R-139). Não é "sem liderados": a tela mostra
+   * "indisponível" com "tentar de novo", e o que se leria como vazio fica sem afirmar.
+   */
+  indisponivel?: boolean;
   scope?: 'gestor' | 'rh';
   kpis?: GestorKpi;
   alertas?: GestorAlerta[];
@@ -216,7 +222,7 @@ export async function resolverEscopoDoGestor(
     empresaId: string; meuId: string; meuEmail?: string | null;
     isGestor: boolean;
   },
-): Promise<{ liderados: any[]; liderIds: string[] }> {
+): Promise<{ liderados: any[]; liderIds: string[]; indisponivel?: boolean }> {
   const emailNormalizado = meuEmail?.toLowerCase().trim();
   let colabQ = sb.from('colaboradores')
     .select(COLS_LIDERADO)
@@ -227,8 +233,11 @@ export async function resolverEscopoDoGestor(
   }
   const { data: colabs, error } = await colabQ;
   if (error) {
-    console.error('[gestor] escopo indisponível:', error.message);
-    return { liderados: [], liderIds: [] };
+    // Lista vazia aqui era lida como "você não tem liderados" (R-139). Devolve a marca de
+    // que a leitura falhou: quem chama diz "indisponível", e a falha vai para o
+    // `degradacao_log` em vez de morrer num `console.error`.
+    await registrarLeituraIndisponivel(empresaId, 'escopo-do-gestor', error.message);
+    return { liderados: [], liderIds: [], indisponivel: true };
   }
   // `ilike` trata `_` e `%` como curinga — e-mail com underscore (comum) faria a
   // listagem casar gestores que NÃO são o mesmo. Refina em código com igualdade
@@ -302,6 +311,9 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   const escopo = await resolverEscopoDoGestor(sb, {
     empresaId, meuId, meuEmail: ctx.colaborador.email, isGestor,
   });
+  // O escopo que não leu NÃO é "gestor sem liderados" (R-139): a home diria que ele não
+  // tem equipe. Indisponível, com a saída de tentar de novo.
+  if (escopo.indisponivel) return { ok: false, indisponivel: true, error: MENSAGEM_INDISPONIVEL };
   const liderados = escopo.liderados;
   const liderId2obj = new Map(liderados.map((c: any) => [c.id, c]));
   const liderIds = escopo.liderIds;
@@ -331,9 +343,11 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     .select('id, colaborador_id, competencia_foco, numero_temporada, status, evolution_report, criado_em, data_inicio, programa_modo, programa_config')
     .in('colaborador_id', liderIds)
     .order('criado_em', { ascending: false });
-  // Leitura que falha NÃO vira "ninguém tem trilha": a equipe inteira apareceria
-  // "sem trilha" e o gestor cobraria o que já está andando.
-  if (errTrilhas) return { ok: false, error: `Não foi possível ler as trilhas da equipe agora: ${errTrilhas.message}` };
+  // Sem checar, a falha virava "ninguém tem trilha": todo liderado aparecia como SEM TRILHA.
+  if (errTrilhas) {
+    await registrarLeituraIndisponivel(empresaId, 'home-gestor-trilhas', errTrilhas.message);
+    return { ok: false, indisponivel: true, error: MENSAGEM_INDISPONIVEL };
+  }
   const trilhaPorColab = new Map<string, any>();
   for (const t of (trilhas || [])) {
     if (!trilhaPorColab.has(t.colaborador_id)) trilhaPorColab.set(t.colaborador_id, t);
@@ -369,9 +383,14 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     .map(([semana, pessoas]) => ({ semana, pessoas }));
 
   // ── 3. Checkpoints (pendentes + respondidos) ──
-  const { data: cps } = await sb.from('checkpoints_gestor')
+  const { data: cps, error: errCps } = await sb.from('checkpoints_gestor')
     .select('id, trilha_id, semana, status, avaliacao_gestor, criado_em, atualizado_em')
     .in('trilha_id', ativas.map(t => t.id));
+  // Sem checar, a falha virava "nenhum checkpoint pendente" e o card do gestor ficava em dia.
+  if (errCps) {
+    await registrarLeituraIndisponivel(empresaId, 'home-gestor-checkpoints', errCps.message);
+    return { ok: false, indisponivel: true, error: MENSAGEM_INDISPONIVEL };
+  }
   const checkpoints = cps || [];
   const cpPendentes = checkpoints.filter((cp: any) => cp.status === 'pendente');
   const cpRespondidos = checkpoints.filter((cp: any) => cp.status !== 'pendente').length;
@@ -795,6 +814,8 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
 export type EngajamentoDoTime = {
   ok: boolean;
   error?: string;
+  /** A leitura do escopo falhou (R-139): "indisponível", e não um time vazio. */
+  indisponivel?: boolean;
   scope?: 'gestor' | 'rh';
   resumo?: any;
   colaboradores?: any[];
@@ -852,6 +873,9 @@ export async function getEngajamentoDoTime(
     isGestor,
   });
 
+  // O RH olha o tenant inteiro (`recorte` nulo) e não depende do escopo; o gestor sim: sem
+  // ele o recorte seria uma lista vazia, lida como "seu time não tem ninguém" (R-139).
+  if (!isRH && escopo.indisponivel) return { ok: false, indisponivel: true, error: MENSAGEM_INDISPONIVEL };
   const { rollUpEngajamento } = await import('@/lib/engajamento/roll-up');
   const recorte = isRH ? null : escopo.liderIds;
   const rollup: any = await rollUpEngajamento(empresaId, semana ?? null, recorte, cargo ?? null);

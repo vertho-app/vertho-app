@@ -495,10 +495,20 @@ export const DEGRADACAO = {
    * fechada com `resolverDegradacao`. Chave: `<trilha>:<semana>`.
    */
   EXTRACAO_CONVERSA_FALHOU: 'extracao-conversa-falhou',
+  /**
+   * leitura (painel do gestor, evolução da equipe, acesso aos simuladores): a consulta
+   * que alimenta a tela falhou e a tela disse "indisponível" com "tentar de novo", em
+   * vez de mostrar um estado vazio que a pessoa lê como verdade (R-139, 04/10/2026:
+   * "sem liderados", "sem acesso", lista vazia). `detalhe.onde` diz qual leitura. É
+   * `aviso`: nada se perdeu e a tela se recupera sozinha quando o banco volta, mas
+   * antes ficava só num `console.error` e a pessoa saía da tela sem saber que o que
+   * viu era uma falha. Chave: `<onde>:<empresa>`.
+   */
+  LEITURA_INDISPONIVEL: 'leitura-indisponivel',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
-export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo' | 'votacao' | 'ia' | 'assessment';
+export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo' | 'votacao' | 'ia' | 'assessment' | 'leitura';
 export type DegradacaoSeveridade = 'info' | 'aviso' | 'critico';
 
 export interface DegradacaoInput {

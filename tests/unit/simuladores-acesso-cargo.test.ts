@@ -86,8 +86,11 @@ describe('liberação dos simuladores por cargo', () => {
   });
   it.each(['empresas', 'cargos_empresa'])('erro de leitura em %s fecha os acessos', async tabela => {
     sb.falharEm({ tabela, op: 'select', mensagem: 'timeout' });
-    expect(await acessoSimuladoresDoColaborador(auth.colaborador)).toEqual(SEM_ACESSO);
-    expect(sb.escritas).toHaveLength(0);
+    // Continua FECHADO (nunca abre por falha), e agora diz que foi falha de leitura (R-139):
+    // o gate responde "indisponível" em vez de "não liberado para seu cargo".
+    expect(await acessoSimuladoresDoColaborador(auth.colaborador)).toEqual({ ...SEM_ACESSO, indisponivel: true });
+    // Só a telemetria de degradação escreve; nenhuma escrita de acesso.
+    expect(sb.escritas.filter(e => e.tabela !== 'degradacao_log')).toHaveLength(0);
   });
   it('cadastro ausente nunca recebe acesso', async () => {
     expect(await acessoSimuladoresDoColaborador(null)).toEqual(SEM_ACESSO);

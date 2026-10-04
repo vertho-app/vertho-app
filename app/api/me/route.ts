@@ -7,6 +7,7 @@ import { recepcaoHabilitada } from '@/lib/recepcao/flag';
 import { vendasHabilitado } from '@/lib/simulador-vendas/access';
 import { prontidaoLiderancaHabilitada } from '@/lib/prontidao-lideranca/habilitado';
 import { acessoSimuladoresDoColaborador } from '@/lib/simuladores/acesso';
+import { ACESSO_ATUAL } from '@/lib/simuladores/acesso-cargo';
 import { soAcompanhaSimuladores } from '@/lib/simuladores/papel';
 import { resolverTrilhoLideranca } from '@/lib/prontidao-lideranca/trilho';
 
@@ -73,12 +74,16 @@ export async function GET() {
       } catch {}
     }
 
-    const [recepcaoEmpresa, vendasEmpresa, liderancaEmpresa, acessoSimuladores] = await Promise.all([
+    const [recepcaoEmpresa, vendasEmpresa, liderancaEmpresa, acessoLido] = await Promise.all([
       recepcaoHabilitada((data as any)?.empresa_id), vendasHabilitado((data as any)?.empresa_id),
       // Módulo contratado → o menu do RH mostra "Mapeamento de liderança" (antiga Prontidão).
       prontidaoLiderancaHabilitada(sbServico, (data as any)?.empresa_id),
       acessoSimuladoresDoColaborador(data),
     ]);
+    // O menu só EXIBE: com a leitura do acesso falhada (R-139) não esconde o item, porque o
+    // gate de entrada refaz a pergunta e diz "indisponível" em vez de "sem acesso". Antes o
+    // erro de banco virava "sem acesso" e o item sumia do menu em silêncio.
+    const acessoSimuladores = acessoLido.indisponivel ? ACESSO_ATUAL : acessoLido;
     // Gestor e RH ACOMPANHAM atendimento e vendas (17/09/2026): o item do menu
     // aparece com a empresa habilitada, sem depender da liberação por cargo, que
     // diz quem TREINA. O menu troca o nome do item para o de acompanhamento.

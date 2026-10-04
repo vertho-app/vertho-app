@@ -48,8 +48,12 @@ export async function contexto(
   if (!auth.isPlatformAdmin && !config?.habilitado)
     throw new SimuladorError(403, 'O simulador de vendas ainda não está habilitado para sua empresa.');
   // A liberação por cargo diz quem TREINA; quem só acompanha não depende dela.
-  if (!auth.isPlatformAdmin && !soAcompanha && !(await acessoSimuladoresDoColaborador(auth.colaborador)).vendas)
-    throw new SimuladorError(403, 'O simulador de vendas não está liberado para seu cargo.');
+  if (!auth.isPlatformAdmin && !soAcompanha) {
+    const acesso = await acessoSimuladoresDoColaborador(auth.colaborador);
+    // Leitura que falhou NÃO é "não liberado para seu cargo" (R-139): 503, tentar de novo.
+    if (acesso.indisponivel) throw new SimuladorError(503, 'Não foi possível consultar o seu acesso ao simulador. Tente novamente.');
+    if (!acesso.vendas) throw new SimuladorError(403, 'O simulador de vendas não está liberado para seu cargo.');
+  }
   let ownerKey: string;
   if (auth.isPlatformAdmin) {
     const { data, error } = await tdb.raw
