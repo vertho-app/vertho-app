@@ -3,6 +3,7 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { gerarAvaliacaoAcumulada } from '@/actions/avaliacao-acumulada';
+import { resumirAcumulado } from '@/lib/season-engine/acumulado-resumo';
 
 export async function listarAvaliacoesAcumuladas(filtros: any = {}) {
   await requireAdminAction();
@@ -10,15 +11,18 @@ export async function listarAvaliacoesAcumuladas(filtros: any = {}) {
   const sb = await requireAdminSupabase();
   const limit = filtros.limit || 50;
 
+  // Pelo CONTEÚDO, não pela semana (R-127): a acumulada mora na semana 13 só no
+  // formato de 14 semanas. Na Jornada é a 6, no Personalizado a última de
+  // conteúdo, no Onboarding a missão final (mais as parciais). Filtrar por
+  // `semana = 13` escondia a acumulada de todo formato novo.
   let q = sb.from('temporada_semana_progresso')
     .select(`
-      id, trilha_id, colaborador_id, empresa_id, concluido_em, feedback,
+      id, trilha_id, colaborador_id, empresa_id, semana, concluido_em, feedback,
       colaboradores!inner(nome_completo, cargo),
       empresas!inner(nome),
       trilhas!inner(competencia_foco, numero_temporada)
     `)
-    .eq('semana', 13)
-    .not('feedback', 'is', null)
+    .not('feedback->acumulado', 'is', null)
     .order('concluido_em', { ascending: false })
     .limit(limit);
 
@@ -28,7 +32,7 @@ export async function listarAvaliacoesAcumuladas(filtros: any = {}) {
   if (error) return { error: error.message };
 
   const rows = (data || []).map((r: any) => {
-    const acum = r.feedback?.acumulado || null;
+    const resumo = resumirAcumulado(r.feedback?.acumulado);
     return {
       id: r.id,
       trilhaId: r.trilha_id,
@@ -38,12 +42,14 @@ export async function listarAvaliacoesAcumuladas(filtros: any = {}) {
       empresaId: r.empresa_id,
       competencia: r.trilhas?.competencia_foco,
       temporada: r.trilhas?.numero_temporada,
+      semana: r.semana,
+      tipo: resumo.tipo,
       concluidoEm: r.concluido_em,
-      geradoEm: acum?.gerado_em || null,
-      notaMedia: acum?.primaria?.nota_media_acumulada ?? null,
-      auditoriaNota: acum?.auditoria?.nota_auditoria ?? null,
-      auditoriaStatus: acum?.auditoria?.status || (acum ? 'sem_auditoria' : 'nao_gerado'),
-      alertas: acum?.auditoria?.alertas || [],
+      geradoEm: resumo.geradoEm,
+      notaMedia: resumo.notaMedia,
+      auditoriaNota: resumo.auditoriaNota,
+      auditoriaStatus: resumo.auditoriaStatus,
+      alertas: resumo.alertas,
     };
   });
 

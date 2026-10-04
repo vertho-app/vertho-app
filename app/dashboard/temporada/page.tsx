@@ -13,7 +13,7 @@ import { semanaLiberadaPorData, formatarLiberacao, turnosIaNecessarios, contarTu
 import { qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import FirstViewVideo from '@/components/first-view-video';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import { formatarAvanco, formatarValorAvanco, exibeAntesDepois } from '@/lib/season-engine/convergencia';
+import { formatarAvanco, formatarValorAvanco, exibeAntesDepois, relatorioMedeEvolucao } from '@/lib/season-engine/convergencia';
 import { corTela } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 // Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a
@@ -371,6 +371,34 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
   // o nome da primeira. As médias vêm de `agruparPorCompetencia`, a mesma
   // função do PDF, e só entram descritores com as duas notas.
   const consolidados = agruparPorCompetencia(descritores);
+
+  // O relatório da degustação (`modo: 'piloto'`) e o do Personalizado SEM fechamento
+  // guardam só o ponto de partida: não há nota de chegada, então "Estável" por
+  // comportamento seria um veredito de evolução que ninguém mediu, exatamente o que
+  // a variante existe para evitar (R-102). A tela de relatório completo já
+  // tem a variante própria; aqui o card diz que o avanço não é medido e lista só o
+  // que foi trabalhado, sem veredito.
+  if (!relatorioMedeEvolucao(report)) {
+    return (
+      <GlassCard className="mb-6 border-brand-500/30 bg-gradient-to-br from-brand-500/5 to-emerald-500/5">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles size={18} className="text-brand-400" />
+          <h2 className="text-sm uppercase font-bold text-brand-400">{t('report.title')}</h2>
+        </div>
+        <p className="text-sm text-gray-300 mb-3">{t('report.notMeasured')}</p>
+        {descritores.length > 0 && (
+          <>
+            <p className="text-[10px] uppercase tracking-[0.14em] font-bold text-brand-300/80 mb-1">{t('report.worked')}</p>
+            <ul className="space-y-1">
+              {descritores.map((d: any, i: number) => (
+                <li key={i} className="text-xs text-gray-200">{descritorParaHumano(d.descritor)}</li>
+              ))}
+            </ul>
+          </>
+        )}
+      </GlassCard>
+    );
+  }
 
   return (
     <GlassCard className="mb-6 border-brand-500/30 bg-gradient-to-br from-brand-500/5 to-emerald-500/5">

@@ -9,7 +9,7 @@ import { FASE_FORA_DA_DEGUSTACAO, PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
 import { totalDoMapeamento } from '@/lib/demo/convidado-demo';
 import { colaboradorEmDegustacao } from '@/lib/demo/degustacao-mapeamento';
-import { avaliacaoFinalConcluida, ehSemanaDeImplementacao } from '@/lib/season-engine/trilha-runtime';
+import { ehSemanaDeImplementacao, reavaliacaoConcluida } from '@/lib/season-engine/trilha-runtime';
 import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 import { estaAtrasada } from '@/lib/season-engine/atraso';
 import { semanaLiberadaEm, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
@@ -371,12 +371,14 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
   // Antes contava respostas com `rodada = 2`, que nenhum código grava: quem
   // fechava a avaliação final ficava em "4 de 5" para sempre. A medição de
   // evolução pós-capacitação é o Cenário B da trilha, e o sinal é a semana
-  // dele concluída, a mesma régua da tela da temporada e do relatório.
+  // dele concluída, a mesma régua da tela da temporada e do relatório. No
+  // Personalizado SEM fechamento não há Cenário B: a trilha concluída é o fim
+  // do programa e a fase conta como concluída (R-95, `reavaliacaoConcluida`).
   fases.push({
     fase: 5,
     titulo: 'Reavaliação',
     descricao: 'Medição de evolução pós-capacitação',
-    status: temPlano && avaliacaoFinalConcluida(trilha.temporada_plano, progressoTrilha) ? 'completed' : 'pending',
+    status: temPlano && reavaliacaoConcluida(trilha.temporada_plano, progressoTrilha, trilha.status) ? 'completed' : 'pending',
     data: null,
   });
 

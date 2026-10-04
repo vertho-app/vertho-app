@@ -12,6 +12,7 @@ import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { PROGRESSO } from '@/lib/status';
 import { formatarAvanco } from '@/lib/season-engine/convergencia';
+import { leituraDoStatusDaAcumulada } from '@/lib/season-engine/trilha-runtime';
 
 const MIN_CHARS = 20;
 const MIN_CHARS_ARG = 3; // arguição é conversa — respostas curtas são válidas
@@ -108,6 +109,8 @@ export default function Sem14Page() {
   // programa de 2 não tem (R-30).
   const [cenarioBEspelhado, setCenarioBEspelhado] = useState(false);
   const [preparando, setPreparando] = useState(false); // piloto: acumulada em Trigger.dev
+  // A acumulada falhou (ou o acompanhamento esgotou): a tela diz e oferece "Tentar de novo" (R-102).
+  const [preparandoFalhou, setPreparandoFalhou] = useState(false);
   // Pontuação do fechamento (roda no servidor, fora do request): processando | pronto | erro | lento | avaliado
   const [fechamento, setFechamento] = useState(null);
   // Quantas respostas ao cenário já estão gravadas: reenviar essas empurraria falas duplicadas.
@@ -236,11 +239,13 @@ export default function Sem14Page() {
     const data = await initResp.json().catch(() => ({}));
     if (data.processando) {
       setPreparando(true);
+      setPreparandoFalhou(false);
       setStep(-1);
       pollAcumulada(tid, semCB);
       return;
     }
     setPreparando(false);
+    setPreparandoFalhou(false);
     setCenario(data.cenario || '');
     setPerguntas(data.perguntas || []);
     setStep(0);
@@ -258,8 +263,12 @@ export default function Sem14Page() {
       });
       if (!resp.ok) continue;
       const s = await resp.json().catch(() => ({}));
-      if (s.acumulada_status === 'done') { await doInit(tid, semCB); return; }
+      const leitura = leituraDoStatusDaAcumulada(s.acumulada_status);
+      if (leitura === 'pronto') { await doInit(tid, semCB); return; }
+      if (leitura === 'falhou') { setPreparandoFalhou(true); return; }
     }
+    // Esgotou sem `done` nem `error`: não fica girando para sempre.
+    if (pollRef.current) setPreparandoFalhou(true);
   }
 
   /**
@@ -464,13 +473,25 @@ export default function Sem14Page() {
   if (step < 0) return (
     <div className="flex items-center justify-center h-[60dvh]">
       <div className="text-center max-w-sm px-4">
-        <Loader2 size={32} className="animate-spin text-brand-400 mx-auto" />
-        {preparando && (
+        {preparandoFalhou ? (
           <>
-            <p className="text-sm font-semibold text-white mt-4">Preparando sua avaliação…</p>
-            <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
-              Estamos consolidando toda a sua jornada para uma avaliação justa. Isso leva alguns instantes — a tela abre sozinha.
-            </p>
+            <AlertTriangle size={32} className="text-amber-400 mx-auto" />
+            <p className="text-sm font-semibold text-white mt-4">{t('preparing.failedTitle')}</p>
+            <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{t('preparing.failedBody')}</p>
+            <button
+              onClick={() => doInit(trilhaId, semCenarioB)}
+              className="mt-4 w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#091D35] font-bold text-sm"
+            >
+              {t('preparing.retry')}
+            </button>
+          </>
+        ) : (
+          <Loader2 size={32} className="animate-spin text-brand-400 mx-auto" />
+        )}
+        {preparando && !preparandoFalhou && (
+          <>
+            <p className="text-sm font-semibold text-white mt-4">{t('preparing.title')}</p>
+            <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{t('preparing.body')}</p>
           </>
         )}
       </div>

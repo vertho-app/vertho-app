@@ -16,7 +16,7 @@
 import { getProgramaConfigByModo, getProgramaConfigDaTrilha, getProgramaConfigLegado, type ProgramaConfig } from './programa-config';
 import { parseConfigSnapshot, parseProgramaCustom, derivarConfigCustom } from './programa-custom';
 import { avaliarAcessoSemana } from './week-gating';
-import { PROGRESSO } from '@/lib/status';
+import { PROGRESSO, TRILHA } from '@/lib/status';
 
 interface TrilhaRuntime {
   id: string;
@@ -177,6 +177,30 @@ export function avaliacaoFinalConcluida(plano: any, progresso: Array<{ semana?: 
 }
 
 /**
+ * A fase "Reavaliação" da jornada está concluída?
+ *
+ * Com fechamento é a avaliação final concluída (`avaliacaoFinalConcluida`). O
+ * Personalizado SEM fechamento (`semanasAvaliacao: []`) não tem Cenário B, e a
+ * trilha conclui ao fim da última semana de conteúdo (R-95, 04/10/2026): sem
+ * esta regra a fase ficava pendente para sempre, em "4 de 5" também para quem
+ * terminou o programa inteiro. Nesse formato a medição de chegada não existe
+ * por desenho, então a TRILHA concluída é o fim do programa e a fase conta.
+ *
+ * Só vale para plano SEM semana de avaliação: plano com avaliação continua
+ * exigindo a avaliação final, mesmo que o status da trilha diga concluída (o
+ * relatório não pode se antecipar à medição que ele descreve).
+ */
+export function reavaliacaoConcluida(
+  plano: any,
+  progresso: Array<{ semana?: number | string | null; status?: string | null }> | null | undefined,
+  trilhaStatus: string | null | undefined,
+): boolean {
+  if (avaliacaoFinalConcluida(plano, progresso)) return true;
+  const planoSemAvaliacao = Array.isArray(plano) && plano.length > 0 && semanasAvaliacaoDoPlano(plano).length === 0;
+  return planoSemAvaliacao && trilhaStatus === TRILHA.CONCLUIDA;
+}
+
+/**
  * Esta semana de avaliação é a CONVERSA QUALITATIVA (a "sem 13"), e não o
  * fechamento? Verdade só quando o plano tem 2+ slots de avaliação e este não é
  * o último.
@@ -257,6 +281,23 @@ export async function checarGatesSemana(
     };
   }
   return { error: `Conclua a semana ${acesso.semanaPendente} antes.`, status: 403 };
+}
+
+/**
+ * O que a tela do fechamento faz com o status da acumulada que ela espera
+ * (R-102, 04/10/2026). Antes só `done` era lido: com `error` o acompanhamento
+ * seguia perguntando por 6 minutos e a tela ficava em "Preparando sua avaliação"
+ * sem aviso, e só recarregar destravava.
+ *
+ *   - `done`  → `pronto`: abre o fechamento;
+ *   - `error` → `falhou`: para de esperar e oferece "Tentar de novo" (o `init`
+ *     da rota re-dispara a acumulada pelo self-heal do `gateAcumuladaPiloto`);
+ *   - o resto (`processing`, ausente) → `aguardando`.
+ */
+export function leituraDoStatusDaAcumulada(status: string | null | undefined): 'pronto' | 'falhou' | 'aguardando' {
+  if (status === 'done') return 'pronto';
+  if (status === 'error') return 'falhou';
+  return 'aguardando';
 }
 
 /**

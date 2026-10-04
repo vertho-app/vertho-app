@@ -38,7 +38,7 @@ vi.mock('@/lib/degradacao', async (importOriginal) => {
   return { ...mod, registrarDegradacao: vi.fn(async () => {}) };
 });
 
-import { avaliacaoFinalConcluida } from '@/lib/season-engine/trilha-runtime';
+import { avaliacaoFinalConcluida, reavaliacaoConcluida } from '@/lib/season-engine/trilha-runtime';
 import { carregarJornada } from '@/lib/home/loaders';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { loadTemporada } from '@/actions/temporadas';
@@ -61,6 +61,26 @@ describe('avaliacaoFinalConcluida (R-95)', () => {
   it('plano sem avaliação (Personalizado sem fechamento) não tem avaliação final, nem cai no 14', () => {
     const semFechamento = [{ semana: 1, tipo: 'conteudo' }, { semana: 14, tipo: 'conteudo' }];
     expect(avaliacaoFinalConcluida(semFechamento, concluidas(1, 14))).toBe(false);
+  });
+});
+
+describe('reavaliacaoConcluida: Personalizado SEM fechamento (R-95)', () => {
+  // Sem semana de avaliação: a trilha conclui ao fim da última semana de conteúdo.
+  const SEM_FECHAMENTO = [1, 2, 3].map((semana) => ({ semana, tipo: 'conteudo' }));
+
+  it('plano sem avaliação e trilha concluída: a fase conta como concluída', () => {
+    expect(reavaliacaoConcluida(SEM_FECHAMENTO, concluidas(1, 2, 3), 'concluida')).toBe(true);
+  });
+  it('plano sem avaliação e trilha ainda ativa: pendente', () => {
+    expect(reavaliacaoConcluida(SEM_FECHAMENTO, concluidas(1, 2), 'ativa')).toBe(false);
+  });
+  it('plano COM avaliação: trilha concluída sozinha não basta, exige a avaliação final', () => {
+    expect(reavaliacaoConcluida(PLANO_JORNADA, concluidas(1, 2, 3, 4, 5, 6), 'concluida')).toBe(false);
+    expect(reavaliacaoConcluida(PLANO_JORNADA, concluidas(1, 2, 3, 4, 5, 6, 7), 'concluida')).toBe(true);
+  });
+  it('plano ausente ou vazio nunca conta, nem com a trilha concluída', () => {
+    expect(reavaliacaoConcluida([], [], 'concluida')).toBe(false);
+    expect(reavaliacaoConcluida(null, [], 'concluida')).toBe(false);
   });
 });
 
@@ -90,6 +110,18 @@ describe('fase 5 "Reavaliação" da jornada (R-95)', () => {
   it('avaliação final ainda aberta → pendente', async () => {
     progresso = concluidas(1, 2, 3, 4, 5, 6);
     expect((await fase5(trilha('ativa'))).status).toBe('pending');
+  });
+
+  it('Personalizado sem fechamento concluído → Reavaliação CONCLUÍDA (antes: pendente para sempre)', async () => {
+    const semFechamento = { ...trilha('concluida'), temporada_plano: [1, 2, 3].map((semana) => ({ semana, tipo: 'conteudo' })) };
+    progresso = concluidas(1, 2, 3);
+    expect((await fase5(semFechamento)).status).toBe('completed');
+  });
+
+  it('Personalizado sem fechamento ainda em curso → pendente', async () => {
+    const semFechamento = { ...trilha('ativa'), temporada_plano: [1, 2, 3].map((semana) => ({ semana, tipo: 'conteudo' })) };
+    progresso = concluidas(1, 2);
+    expect((await fase5(semFechamento)).status).toBe('pending');
   });
 
   it('não consulta mais `rodada = 2` (coluna sem escritor)', async () => {
