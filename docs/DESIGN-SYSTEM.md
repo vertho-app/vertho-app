@@ -114,6 +114,62 @@ body {
 
 V cyan (`#34C5CC`) sobre navy (`#0F2B54`) — `app/icon.svg`
 
+# Vocabulário canônico do produto
+
+> Decidido em 04/10/2026 (lote 13 da revisão de 02/10, achados R-48 a R-56, R-107 e R-120 a R-123). Um nome por conceito, em todo texto que chega ao cliente: telas, e-mails, PDFs, certificado e proposta. O critério foi o que o `docs/FEATURES-E-BENEFICIOS.md` e as decisões do dono já usam. Teste que trava: `tests/unit/vocabulario-canonico.test.ts`.
+
+## Os conceitos
+
+| Conceito | pt-BR | pt-PT | es-ES | en-US | Não usar no texto do cliente |
+|---|---|---|---|---|---|
+| A unidade de 7 semanas por competência (o formato "Jornada Vertho") | **Jornada** | Jornada | Recorrido | Journey | Temporada, Season, trilha, ciclo, percurso, itinerario, ruta |
+| Passos da jornada (a barra de 5 fases) | Perfil, Mapeamento, PDI, Desenvolvimento, Evolução | igual | Perfil, Mapeo, PDI, Desarrollo, Evolución | Profile, Mapping, PDI, Development, Evolution | Diagnóstico e Avaliação como nome de fase, "Aval", "Temp" |
+| Página das semanas (item do menu) | Semanas | Semanas | Semanas | Weeks | Temporada |
+| Fase 1 | **Perfil** (o questionário se chama Mapeamento Comportamental, é o DISC) | Perfil | Perfil | Profile | "Diagnóstico", "OPQ" (código do instrumento) |
+| Fase 2 | **Mapeamento** (de competências, por cenário) | Mapeamento | Mapeo | Mapping | "avaliação", "assessment", "evaluación" |
+| A 7ª semana | **Avaliação final** (cenário, arguição e segunda IA) | Avaliação final | Evaluación final | Final assessment | "Cenário B" na tela (diga "cenário final"), "reavaliação" como nome da etapa |
+| A tarefa aplicada da semana | **Desafio** (semana de aplicação nas trilhas antigas) | Desafio | Desafío | Challenge | Missão, Prática, Episódio |
+| O registro da semana | **Evidências** (a conversa de evidências) | Evidências | Evidencias | Evidence | "Feedback (Evidências)", "Relato" |
+| O que se estuda na semana | **Conteúdo** | Conteúdo | Contenido | Content | Pílula (e Píldora, Learning pill) |
+| O retorno que a pessoa recebe | **Devolutiva** | Devolutiva | Devolución | Feedback | "feedback" em pt-PT |
+| A plataforma | **Mentor IA** | Mentor IA | Mentor IA | Mentor IA | usar o nome da plataforma para o chat |
+| O assistente em qualquer tela (e no WhatsApp) | **Beto** | Beto | Beto | Beto | "mentor", "Tutor", "Mentora IA", "assistente virtual" na tela |
+| O chat sobre o tema da semana | **Tira-Dúvidas** | Tira-Dúvidas | Tira-Dúvidas | Tira-Dúvidas | "Tutor", "tutor 10" |
+| Quem faz o programa | colaborador | colaborador | colaborador | Employee | User |
+| Experiência real e limitada de um lead | **degustação** | degustação | prueba | trial | demo, demonstração |
+| O plano de 30 dias do PDI | **Plano de 30 dias** | igual | Plan de 30 días | 30-day plan | Sprint de 30 dias |
+| O PDI | Plano de Desenvolvimento Individual (PDI) | igual | Plan de Desarrollo Individual (PDI) | Individual Development Plan (PDI) | "Individualizado" |
+| Relatório da liderança | **Relatório do Gestor** | igual | Informe del Gestor | Manager Report | "Relatório da Liderança" |
+| Volta ao começo | início | início | inicio | home | dashboard |
+| Entrada por e-mail ou WhatsApp | link de acesso | link de acesso | enlace de acceso | access link | Magic Link |
+| Distância até o nível-meta | distância até a meta | distância até à meta | distancia hasta la meta | distance to the goal | gap, brecha |
+| Variação entre início e fim | avanço | avanço | avance | progress | delta, regressão, queda |
+
+## Nível
+
+Um nível se escreve só pelo helper `rotuloNivel` (`lib/nivel-regua.ts`): **"Nível 2"** por extenso em texto corrido, cartão, título, legenda e linha de PDF; **"N2"** só em célula de tabela e eixo de gráfico, onde a coluna ou o eixo já diz "Nível". Em componente com next-intl a frase longa vem do catálogo (`levelValue`, "Nível {n}"), e um teste confere que catálogo e helper escrevem igual nos quatro idiomas. O nível é o ponto de partida da pessoa, não um veredito: nenhum rótulo muda por público ("Bom", "Atenção", "Gap", "Em desenvolvimento"). O N3 é o nível-meta e pode vir marcado como "(meta)".
+
+## Quem libera e quem opera
+
+A Vertho opera o programa e libera as etapas; o RH e o gestor acompanham. Espera de liberação no texto do colaborador diz "a Vertho libera" (nunca "o RH libera"); gestor e RH leem "Fale com a Vertho". Nenhum texto manda o cliente a uma tela que só existe na operação da Vertho (`/admin`) nem imprime nome de coluna (`gestor_email`).
+
+## Estados internos que não chegam ao cliente
+
+"Cenário B" (diga "cenário final"), "auditoria: revisar" e "auditoria pediu revisão" (a porta do RH não entrega o estado da auditoria da segunda IA), códigos de erro e nomes de campo.
+
+## Voz
+
+Sentence case nos rótulos (nome de produto e de documento mantém a maiúscula: Mentor IA, Perfil Organizacional, Relatório do Gestor). Sem travessão (use vírgula, dois pontos, ponto ou parênteses). Sem emoji no chrome (use ícone Lucide). "Para", não "pra". Sem jargão de software em texto do cliente (dashboard, magic link, checklist, sprint, insight, gap, delta).
+
+"Diagnóstico" é só o guarda-chuva comercial que reúne Perfil e Mapeamento (proposta e material de venda); nunca nome de etapa no produto.
+
+## Onde a regra não vale
+
+- `/admin` (operação da Vertho) segue com os termos técnicos: temporada, trilha, ciclo, assignments. É lá que a equipe opera `trilhas` e `temporada_plano`.
+- Rotas, chaves de i18n, tabelas e colunas não mudam: só o texto visível.
+- O Simulador de liderança chama de "jornada" os seus 5 encontros, e o Pulso fica fora (bloco off-line).
+- Templates de WhatsApp aprovados na Meta (`lib/whatsapp/templates.ts`) só mudam por nova versão submetida à Meta. Enquanto isso o texto do WhatsApp ainda diz "trilha", "avaliação" (para o mapeamento) e "missão"; a lista dos que precisam de versão nova está no relatório do lote 13.
+
 ---
 
 # Documento da proposta comercial (tema claro/editorial)

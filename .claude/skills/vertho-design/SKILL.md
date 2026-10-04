@@ -81,7 +81,7 @@ decisão explícita — hoje nenhuma tela de dashboard/admin usa Fraunces. Fora 
 - Pesos, escala e tracking: `tokens/typography.css` (a escala do bundle é referência de marca; nas telas o Tailwind manda).
 - ⚠️ **`--font-mono` (JetBrains Mono) é aspiracional** — não é carregada em lugar nenhum do produto.
 - ⚠️ **Codec Cold não existe em código**: 0 ocorrências em `app/`, `components/`, `lib/`, `public/`. O wordmark entra como **PNG** (`lib/pdf-assets.ts` → `public/logo-vertho*.png`); os `.otf` daqui servem a artefatos de marca fora do app. Codec não tem SemiBold (600 → Bold).
-- ⚠️ **Codec Cold é fonte de DISPLAY, não de texto corrido** (medido 05/08/2026, deck 7 × 2): os glifos de vírgula, ponto e interrogação têm sidebearing largo, então `anterior, as duas` renderiza como `anterior , as duas` e `turma?` vira `turma ?`. Em parágrafo isso pipoca em cada linha. Receita: Codec só em títulos, números, eyebrows e rótulos — **escritos sem pontuação interna** (troque a vírgula por travessão) —, corpo numa sans neutra; para a pontuação inevitável de um título, `<span>` com `margin-left: -0.05em` (−0.16em já cola o glifo na letra).
+- ⚠️ **Codec Cold é fonte de DISPLAY, não de texto corrido** (medido 05/08/2026, deck 7 × 2): os glifos de vírgula, ponto e interrogação têm sidebearing largo, então `anterior, as duas` renderiza como `anterior , as duas` e `turma?` vira `turma ?`. Em parágrafo isso pipoca em cada linha. Receita: Codec só em títulos, números, eyebrows e rótulos — **escritos sem pontuação interna** (reescreva a frase de modo que o título dispense a vírgula) —, corpo numa sans neutra; para a pontuação inevitável de um título, `<span>` com `margin-left: -0.05em` (−0.16em já cola o glifo na letra).
 
 ## Forma, sombra, movimento
 
@@ -94,9 +94,10 @@ decisão explícita — hoje nenhuma tela de dashboard/admin usa Fraunces. Fora 
 - **Arquétipo Sábio ("Sábio"):** sereno, analítico, preciso — um guia confiável, nunca frio. O nome vem de *vertere* ("converter") → transformar informação em sabedoria aplicável.
 - **Pessoa:** "você" / "sua equipe" / "seus alunos"; a empresa é "a Vertho". Segunda pessoa calorosa, nunca "engenheiro-pra-engenheiro".
 - **Caixa:** sentence case; wordmark sempre minúsculo `vertho.ai`; UPPERCASE só em overline/label com tracking largo.
-- **Use:** competências, desenvolvimento, DISC, perfil comportamental, trilhas, autoconhecimento, mentoria, Mentor IA, evolução, jornada, escolas, empresas, RH, representantes.
+- **Use:** competências, desenvolvimento, DISC, perfil comportamental, mapeamento, autoconhecimento, mentoria, Mentor IA, Beto, evolução, jornada, escolas, empresas, RH, representantes. O vocabulário canônico (um nome por conceito, em quatro idiomas) está em `docs/DESIGN-SYSTEM.md`, seção "Vocabulário canônico do produto".
 - **Evite (produto errado):** API, tokens, latência, model ID, completions, endpoint, SDK, uptime, "developer". A Vertho NÃO é infraestrutura de software.
 - Sem emoji no chrome de produto/marketing; use ícones (Lucide, traço 2px).
+- **Sem travessão** em nenhum texto (nem o longo nem o curto): vírgula, dois pontos, ponto ou parênteses, conforme a frase. "Para", não "pra".
 
 ## Logos e ícones
 
