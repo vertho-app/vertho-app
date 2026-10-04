@@ -2077,7 +2077,7 @@
       "releaseAt": "Release {date}",
       "completePrevious": "Complete the previous week"
     },
-    "weekShort": "Without {number}",
+    "weekShort": "Wk {number}",
     "type": {
       "episode": "Content",
       "practice": "Application",
@@ -2100,6 +2100,16 @@
       "incompleteOne": "1 reply left",
       "notStarted": "conversation not started"
     }
+  },
+  "SeasonMapping": {
+    "label": "Mapping",
+    "tileDone": "Done",
+    "title": "Mapping completed",
+    "intro": "{count, plural, one {You mapped your skill} other {You mapped your # skills}} before the journey began. This week already counts as done: the content of the coming weeks starts from what the mapping showed.",
+    "doneOn": "Completed on {date}",
+    "competencies": "Mapped skills",
+    "noContent": "This week has no content or evidence conversation: the mapping is already done.",
+    "cta": "See my mapping"
   },
   "Pdi": {
     "video": {
@@ -5445,12 +5455,12 @@
       "moduloProntidaoOn": "On",
       "moduloProntidaoOff": "Off",
       "title": "Program mode",
-      "desc": "Journey = 7 weeks, one competency at a time (6 content weeks and the assessment). Onboarding = 9 spiral weeks covering up to 5 competencies (new graduates, supervised autonomy). Custom = a Journey with the length you choose.",
+      "desc": "Journey = 7 weeks, one competency at a time (6 content weeks and the assessment). Onboarding = 12 weeks: the mapping, 5 competencies of 2 weeks each and the closing (new graduates, supervised autonomy). Custom = a Journey with the length you choose.",
       "journey": "Journey (7 weeks)",
       "journeyDesc": "6 content weeks + assessment · 1 competency at a time · 1 task per week. When one journey ends, the next competency's journey starts on its own",
-      "onboarding": "Onboarding (9 weeks)",
+      "onboarding": "Onboarding (12 weeks)",
       "onboardingDesc": "5 competencies · target level 2",
-      "onboardingNote": "Onboarding mode is active. Configure <code>sys_config.competencias_onboarding</code> (array of 5 names) or run IA1 for the role; the engine uses the top 5 from <code>top10_cargos</code> as fallback.",
+      "onboardingNote": "Onboarding mode is active. Configure <code>sys_config.competencias_onboarding</code> (array of 5 names) or set the role's Top 5; generation completes it with the role's Top 5 (<code>top5_workshop</code>) and refuses anyone without the mapping.",
       "careerTitle": "Career stage (IA1 bias)",
       "careerDesc": "When set, IA1 biases the Top 10 ranking: <b>junior</b> prioritizes operational/basic competencies; <b>senior</b> prioritizes strategic/relational ones; <b>pleno</b> = no bias.",
       "noBias": "— No bias (default) —",
@@ -5553,7 +5563,7 @@
       "title": "Phase 4 — Weekly cadence",
       "pillDay": "1st pill day",
       "pill2Day": "2nd pill day",
-      "note": "The 2nd pill is only sent in weeks with two contents: every content week of the Journey and Custom formats. Onboarding has one pill per week. The assessment week and the practice mission weeks have no new pill.",
+      "note": "The 2nd pill is only sent in weeks with two contents: every content week of the Journey and Custom formats. Onboarding also has two contents per week. The mapping week, the assessment week and the practice mission weeks have no new content.",
       "evidenceDay": "Evidence day"
     },
     "sends": {

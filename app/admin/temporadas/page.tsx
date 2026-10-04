@@ -25,7 +25,7 @@ const STATUS_COLORS = {
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen, pdf: FileType };
 const FORMAT_COLOR = { video: '#06B6D4', audio: '#A78BFA', texto: '#10B981', case: '#F59E0B', pdf: '#94A3B8' };
 
-const TIPO_COLOR = { conteudo: '#3B82F6', aplicacao: '#F59E0B', avaliacao: '#A78BFA' };
+const TIPO_COLOR = { conteudo: '#3B82F6', aplicacao: '#F59E0B', avaliacao: '#A78BFA', mapeamento: '#34D399' };
 export default function TemporadasAdminPage() {
   const t = useTranslations('AdminSeasons');
   const confirmDialog = useConfirm();
@@ -489,7 +489,7 @@ function SemanaModal({ det, onClose }) {
 
         {!entregas.length ? (
           <div className="p-8 text-center text-gray-500 text-sm">
-            Semana de {s.tipo === 'aplicacao' ? 'aplicação (missão)' : s.tipo === 'avaliacao' ? 'avaliação' : 'sem entregas'} — não há pílulas de conteúdo.
+            Semana de {s.tipo === 'aplicacao' ? 'aplicação (missão)' : s.tipo === 'avaliacao' ? 'avaliação' : s.tipo === 'mapeamento' ? 'mapeamento (já concluído na geração)' : 'sem entregas'} — não há pílulas de conteúdo.
           </div>
         ) : (
           <div className="p-5 space-y-4">

@@ -26,7 +26,7 @@ export const JORNADAS = [
   { rotulo: 'Jornada', detalhe: 'formato atual · 6 sem. de conteúdo + fechamento', cfg: PROGRAMA_JORNADA },
   { rotulo: 'Regular DUO', detalhe: 'descontinuado (segue nas trilhas já geradas) · 2 competências em paralelo', cfg: PROGRAMA_REGULAR_DUO },
   { rotulo: 'Regular single', detalhe: '1 competência aprofundada', cfg: PROGRAMA_REGULAR },
-  { rotulo: 'Onboarding', detalhe: 'espiral · 5 competências', cfg: PROGRAMA_ONBOARDING },
+  { rotulo: 'Onboarding', detalhe: '5 competências em sequência', cfg: PROGRAMA_ONBOARDING },
   { rotulo: 'Piloto', detalhe: 'degustação', cfg: PROGRAMA_PILOTO },
 ];
 /**

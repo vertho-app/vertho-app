@@ -27,6 +27,7 @@ import { chamarConversa, type FalhaDaConversa } from '@/lib/season-engine/falha-
 import ErroDaConversa from '@/components/temporada/erro-da-conversa';
 import FormatoIndisponivel from '@/components/temporada/formato-indisponivel';
 import PlayerPodcast from '@/components/temporada/player-podcast';
+import SemanaMapeamento from '@/components/temporada/semana-mapeamento';
 import { resolverFormatoAtivo, iframeMostrouErroDoApp } from '@/lib/season-engine/formato-ativo';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
@@ -300,6 +301,21 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
   const semana = (data.trilha.temporada_plano || []).find(s => s.semana === semanaNum);
   if (!semana) return <Center><p className="text-gray-400">{t('errors.invalidWeek')}</p></Center>;
+
+  // Onboarding: a semana 1 é o Mapeamento já feito. Nasce concluída (sem gate),
+  // não tem conteúdo nem conversa de Evidências: o cartão diz isso e leva ao que
+  // a pessoa já tem dele.
+  if (semana.tipo === 'mapeamento') {
+    const progressoMapeamento = (data.progresso || []).find(p => p.semana === semanaNum);
+    return (
+      <SemanaMapeamento
+        competencias={Array.isArray(semana.competencias_cobertas) ? semana.competencias_cobertas : []}
+        concluidoEm={progressoMapeamento?.concluido_em}
+        leitura={visaoLeitura}
+        onVerMapeamento={() => router.push('/dashboard/assessment')}
+      />
+    );
+  }
 
   // 🔴 GATE DA SEMANA — a mesma régua que as rotas de conversa aplicam.
   //

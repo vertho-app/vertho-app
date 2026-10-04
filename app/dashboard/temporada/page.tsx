@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText, Headphones, Award, ArrowLeft, Eye, PartyPopper } from 'lucide-react';
+import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText, Headphones, Award, ArrowLeft, Eye, PartyPopper, ClipboardCheck } from 'lucide-react';
 import { loadTemporada, loadTemporadaPorEmail } from '@/actions/temporadas';
 import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { semanaLiberadaPorData, formatarLiberacao, turnosIaNecessarios, contarTurnosIa } from '@/lib/season-engine/week-gating';
@@ -24,7 +24,7 @@ import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 const TIPO_LABEL_KEY = { conteudo: 'episode', aplicacao: 'practice', avaliacao: 'assessment' };
-const TIPO_COR = { conteudo: '#06B6D4', aplicacao: '#F59E0B', avaliacao: '#A78BFA' };
+const TIPO_COR = { conteudo: '#06B6D4', aplicacao: '#F59E0B', avaliacao: '#A78BFA', mapeamento: '#34D399' };
 
 // Fase 4 = Temporada — disciplinado
 const PHASE_NUM = 4;
@@ -42,6 +42,7 @@ const serifStyle: React.CSSProperties = {
 
 export default function TemporadaPage() {
   const t = useTranslations('Season');
+  const tMapeamento = useTranslations('SeasonMapping');
   const router = useRouter();
   const searchParams = useSearchParams();
   const colaboradorAlvo = searchParams.get('colaborador');
@@ -89,7 +90,7 @@ export default function TemporadaPage() {
   // nunca do literal 14. Uma jornada de 7 semanas com plano ausente exibia
   // "2/14", uma barra que contradiz o relatório de evolução logo abaixo dela.
   const totalSemanas = semanas.length || duracaoDaTrilha(trilha);
-  // Última semana de avaliação = onde fica o wizard cenário B (regular=14, onboarding=10).
+  // Última semana de avaliação = onde fica o wizard cenário B (regular=14, jornada=7, onboarding=12).
   // Como a rota é única (/sem14), redireciono pra ela tanto faz o número da semana.
   // `0` quando o plano não tem avaliação (Personalizado SEM fechamento): o fallback era
   // `totalSemanas`, que mandava a última semana de CONTEÚDO para o assistente do
@@ -268,7 +269,8 @@ export default function TemporadaPage() {
               ? Math.max(turnosIaNecessarios(s.semana, s.tipo, p?.feedback?.modo, qualitativaDoPlano(semanas)) - turnosFeitos, 0)
               : 0;
 
-            const Icon = s.tipo === 'aplicacao' ? Target : s.tipo === 'avaliacao' ? Sparkles : (FORMAT_ICON[s.conteudo?.formato_core] || BookOpen);
+            const ehMapeamento = s.tipo === 'mapeamento';
+            const Icon = ehMapeamento ? ClipboardCheck : s.tipo === 'aplicacao' ? Target : s.tipo === 'avaliacao' ? Sparkles : (FORMAT_ICON[s.conteudo?.formato_core] || BookOpen);
             const avaliacaoFinalSomenteLeitura = visaoGestor && s.semana === semCenarioB;
             const urlSemana = `/dashboard/temporada/semana/${s.semana}`;
             const urlConsulta = colaboradorAlvo
@@ -314,11 +316,14 @@ export default function TemporadaPage() {
                 {/* ✅ Semana em andamento ganha nome em serif */}
                 <div
                   className="text-[11px] font-bold text-white truncate"
-                  title={descritorParaHumano(s.descritor) || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`)}
+                  title={ehMapeamento ? tMapeamento('label') : (descritorParaHumano(s.descritor) || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`))}
                   style={emAndamento ? { ...serifStyle, fontSize: 12, fontWeight: 400 } : undefined}
                 >
-                  {descritorParaHumano(s.descritor) || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`)}
+                  {ehMapeamento ? tMapeamento('label') : (descritorParaHumano(s.descritor) || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`))}
                 </div>
+                {ehMapeamento && concluida && (
+                  <div className="text-[9px] text-gray-500 mt-0.5">{tMapeamento('tileDone')}</div>
+                )}
                 {s.conteudo?.formato_core && liberada && (
                   <div className="text-[9px] text-gray-500 mt-0.5">{s.conteudo.formato_core}</div>
                 )}

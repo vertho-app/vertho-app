@@ -2101,6 +2101,16 @@
       "notStarted": "conversa não começou"
     }
   },
+  "SeasonMapping": {
+    "label": "Mapeamento",
+    "tileDone": "Concluído",
+    "title": "Mapeamento concluído",
+    "intro": "{count, plural, one {Fez o mapeamento da sua competência} other {Fez o mapeamento das suas # competências}} antes de a jornada começar. Esta semana já conta como feita: o conteúdo das semanas seguintes parte do que o mapeamento mostrou.",
+    "doneOn": "Concluído em {date}",
+    "competencies": "Competências mapeadas",
+    "noContent": "Nesta semana não há conteúdo nem conversa de evidências: o mapeamento já está feito.",
+    "cta": "Ver o meu mapeamento"
+  },
   "Pdi": {
     "video": {
       "label": "Como funciona o seu PDI",
@@ -5445,12 +5455,12 @@
       "moduloProntidaoOn": "Ligado",
       "moduloProntidaoOff": "Desligado",
       "title": "Modo do programa",
-      "desc": "Jornada = 7 semanas, uma competência de cada vez (6 de conteúdo e a avaliação). Onboarding = 9 semanas em espiral cobrindo até 5 competências (recém-formados, autonomia supervisionada). Personalizado = uma Jornada com a duração que escolher.",
+      "desc": "Jornada = 7 semanas, uma competência de cada vez (6 de conteúdo e a avaliação). Onboarding = 12 semanas: o mapeamento, 5 competências de 2 semanas cada e o encerramento (recém-formados, autonomia supervisionada). Personalizado = uma Jornada com a duração que escolher.",
       "journey": "Jornada (7 semanas)",
       "journeyDesc": "6 semanas de conteúdo + avaliação · 1 competência de cada vez · 1 tarefa por semana. Ao concluir, a jornada da competência seguinte começa automaticamente",
-      "onboarding": "Onboarding (9 semanas)",
+      "onboarding": "Onboarding (12 semanas)",
       "onboardingDesc": "5 competências · nível-meta 2",
-      "onboardingNote": "Modo Onboarding ativo. Configure <code>sys_config.competencias_onboarding</code> (array de 5 nomes) ou rode IA1 pro cargo; a engine usa o top 5 do <code>top10_cargos</code> como fallback.",
+      "onboardingNote": "Modo Onboarding ativo. Configure <code>sys_config.competencias_onboarding</code> (array de 5 nomes) ou defina o Top 5 do cargo; a geração completa com o Top 5 do cargo (<code>top5_workshop</code>) e recusa o que não tiver mapeamento.",
       "careerTitle": "Fase de carreira (viés do IA1)",
       "careerDesc": "Quando setada, o IA1 vieza o ranking Top 10: <b>junior</b> prioriza competências operacionais/básicas; <b>senior</b> prioriza estratégicas/relacionais; <b>pleno</b> = sem viés.",
       "noBias": "— Sem viés (default) —",
@@ -5553,7 +5563,7 @@
       "title": "Fase 4 — Cadência Semanal",
       "pillDay": "Dia da 1ª Pílula",
       "pill2Day": "Dia da 2ª Pílula",
-      "note": "A 2ª pílula só é enviada nas semanas com dois conteúdos: todas as semanas de conteúdo da Jornada e do Personalizado. O Onboarding tem uma pílula por semana. A semana de avaliação e as semanas de missão prática não têm pílula nova.",
+      "note": "A 2ª pílula só é enviada nas semanas com dois conteúdos: todas as semanas de conteúdo da Jornada e do Personalizado. O Onboarding também tem dois conteúdos por semana. A semana de mapeamento, a de avaliação e as semanas de missão prática não têm conteúdo novo.",
       "evidenceDay": "Dia da Evidência"
     },
     "sends": {

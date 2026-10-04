@@ -192,7 +192,7 @@ export default function DashboardHomePage() {
   const competencia = data.competenciaFoco;
   // Trilha pronta, semana 1 ainda trancada (a trilha nasce na PRÓXIMA segunda):
   // o CTA diz quando começa, em vez de "Iniciar atividade de hoje" (R-86).
-  const inicioFuturo = competencia ? inicioDaJornadaAindaFuturo(data?.temporada?.data_inicio) : null;
+  const inicioFuturo = competencia ? inicioDaJornadaAindaFuturo(data?.temporada?.data_inicio, undefined, data?.temporada?.temporada_plano) : null;
   const phaseTokens = PHASE_TOKENS[faseNum] ?? PHASE_TOKENS[2];
 
   // Empresa com fonte externa (OPQ32, Hogan...) NÃO usa DISC nativo:

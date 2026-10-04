@@ -53,7 +53,7 @@ export const JORNADA_COLAB_COLS =
  * D1 (auditoria 22/08): este arquivo já documentava, duas linhas abaixo, que
  * `SEMANAS_IMPLEMENTACAO` era "fallback histórico" e delegava a
  * `ehSemanaDeImplementacao(plano, s)` — e deixava o TOTAL sem delegação
- * nenhuma. Os 5 presets valem 14 (regular), 10 (onboarding), 14 (regular_duo),
+ * nenhuma. Os 5 presets valem 14 (regular), 12 (onboarding), 14 (regular_duo),
  * 3 (piloto) e 7 (jornada): quem está numa jornada lia "Semana 3 de 14" na
  * home, e o card "Próximo marco" anunciava pílulas de semanas que não existem
  * no plano dela.
@@ -433,6 +433,13 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
     for (let n = 1; n <= totalSemanas; n++) {
       if (semanaLiberadaPorData(trilha?.data_inicio, n, agora)) semanaAtual = n;
     }
+    // Onboarding: a semana 1 é o Mapeamento (concluído, sem conteúdo nem
+    // Evidências), e do dia em que a trilha nasce até a segunda em que a semana 2
+    // abre o calendário aponta para ela. Não há pílula a anunciar nem prazo de
+    // evidência a cobrar: os dois cards ficam de fora e o "próximo marco" diz
+    // quando a semana 2 chega.
+    const semanaAtualEhMapeamento = (Array.isArray(trilha?.temporada_plano) ? trilha.temporada_plano : [])
+      .find((s: any) => Number(s?.semana) === semanaAtual)?.tipo === 'mapeamento';
 
     // O progresso da semana CORRENTE — não o da última linha da tabela.
     let progresso: any = null;
@@ -464,7 +471,7 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
     // trilhas.status nem temporada_semana_progresso.status, então ficam
     // literais de propósito (ver config/status-literal-allowlist.json).
     let pilula = null;
-    if (semanaAtual > 0) {
+    if (semanaAtual > 0 && !semanaAtualEhMapeamento) {
       // Tenta achar curso específico da semana; se não houver, usa o índice
       const cursoSemana = cursos[semanaAtual - 1] || null;
       // 🔑 A régua de "consumiu" é UMA só — `consumiuConteudo` (27/08). Aqui
@@ -485,7 +492,7 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
 
     // ── 2. Evidência da semana ──────────────────────────────────────────
     let evidencia = null;
-    if (semanaAtual > 0) {
+    if (semanaAtual > 0 && !semanaAtualEhMapeamento) {
       let evid = null;
       try {
         const { data } = await sb.from('capacitacao')

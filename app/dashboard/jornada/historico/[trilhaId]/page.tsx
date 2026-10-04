@@ -44,7 +44,8 @@ export default function JornadaHistoricaPage({ params }: { params: Promise<{ tri
   if (data?.error || !data?.jornada) return <Center><p className="text-sm text-white/55">{data?.error || t('notFound')}</p></Center>;
 
   const jornada = data.jornada;
-  const semanasConsultaveis = jornada.semanas.filter((semana: any) => semana.tipo !== 'avaliacao');
+  // O Mapeamento (semana 1 do Onboarding) não tem conteúdo a rever, como a avaliação final.
+  const semanasConsultaveis = jornada.semanas.filter((semana: any) => semana.tipo !== 'avaliacao' && semana.tipo !== 'mapeamento');
 
   return (
     <PageContainer>
