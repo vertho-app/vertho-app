@@ -7,6 +7,7 @@ import { calcularParticipacao, cargaHorariaDoCertificado, isTrilhaPiloto } from 
 import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { TRILHA } from '@/lib/status';
 import { fetchPublico } from '@/lib/net-guard';
+import { resolveAppLocale } from '@/lib/i18n';
 
 const LOGO_MAX_BYTES = 3 * 1024 * 1024;
 const LOGO_MAX_DIM = 600; // px — cap da conversão (logo de rodapé é pequeno)
@@ -83,7 +84,7 @@ export async function loadCertificadoData(email: string, trilhaId?: string) {
   if (!email) return { error: 'Não autenticado' };
 
   // findColabByEmail resolve o TENANT (multi-tenant → query direta quebrava).
-  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id') as any;
+  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, empresa_id, locale') as any;
   if (!colab) return { error: 'Colaborador não encontrado' };
   if (!canViewColabJourney(ctx, colab)) return { error: 'Sem permissão' };
 
@@ -168,6 +169,10 @@ export async function loadCertificadoData(email: string, trilhaId?: string) {
       dataConclusao: trilha.evolution_generated_at,
     },
     empresa: { nome: empresa?.nome || '', locale: empresa?.default_locale || 'pt-BR' },
+    // R-67: o certificado é DA PESSOA, então sai no idioma dela; sem idioma no cadastro, no da
+    // empresa. Antes saía sempre no da empresa, e quem escolheu outro idioma recebia o diploma
+    // em um que não é o da tela.
+    idioma: resolveAppLocale(colab.locale, empresa?.default_locale),
     participacao,
     cargaHoraria,
     logoEmpresaBase64,

@@ -6,6 +6,7 @@ import { resolveAppLocale } from '@/lib/i18n';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 import { sendAccessLink, recipientFromLookup } from '@/lib/notifications/access-link-service';
 import { tenantUrl } from '@/lib/domain';
+import { CODIGO_EMAIL_INVALIDO, CODIGO_FALHA_NO_ENVIO } from '@/lib/auth/login-respostas';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
   try {
     const { email, redirectTo, locale: bodyLocale, empresaSlug } = await req.json();
     const locale = resolveAppLocale(bodyLocale, req.cookies.get('vertho-locale')?.value);
-    if (!email) return NextResponse.json({ error: 'Email obrigatório' }, { status: 400 });
+    if (!email) return NextResponse.json({ error: 'Email obrigatório', codigo: CODIGO_EMAIL_INVALIDO }, { status: 400 });
 
     const trimmed = email.trim().toLowerCase();
 
@@ -150,8 +151,9 @@ export async function POST(req: NextRequest) {
       options: { redirectTo: redirect.safeRedirectTo },
     });
     if (linkErr || !linkData?.properties) {
+      // R-67: a mensagem do Supabase (em inglês) fica no log; a tela recebe o código.
       console.error('[magic-link] generateLink failed:', linkErr?.message);
-      return NextResponse.json({ error: `Falha ao gerar link: ${linkErr?.message || 'erro desconhecido'}` });
+      return NextResponse.json({ error: 'Não foi possível gerar o link de acesso.', codigo: CODIGO_FALHA_NO_ENVIO });
     }
 
     const tokenHash = linkData.properties.hashed_token;
@@ -249,12 +251,12 @@ export async function POST(req: NextRequest) {
         result.whatsappReason && `whatsapp: ${result.whatsappReason}`,
       ].filter(Boolean).join('; ');
       console.error('[magic-link] nenhum canal enviado:', motivo);
-      return NextResponse.json({ error: `Não foi possível enviar o link de acesso.${motivo ? ` (${motivo})` : ''}` });
+      return NextResponse.json({ error: 'Não foi possível enviar o link de acesso.', codigo: CODIGO_FALHA_NO_ENVIO });
     }
 
     return NextResponse.json({ success: true, email: result.email, whatsapp: result.whatsapp });
   } catch (err: any) {
     console.error('[magic-link]', err.message);
-    return NextResponse.json({ error: `Erro: ${err.message}` });
+    return NextResponse.json({ error: 'Não foi possível enviar o link de acesso.', codigo: CODIGO_FALHA_NO_ENVIO });
   }
 }

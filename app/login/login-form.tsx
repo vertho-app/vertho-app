@@ -107,12 +107,12 @@ export default function LoginForm({
     }
   }, []);
 
-  // Erro de uma porta de link: pelo código, no idioma da tela; sem código
-  // conhecido, o texto que a rota mandou.
+  // Erro de uma porta de link: pelo código, no idioma da tela. Sem código
+  // conhecido, a frase genérica: o texto da rota é em português (e às vezes
+  // detalhe de fornecedor) e nunca vai para a tela (R-67).
   function erroDoPedido(data: any): string {
     const chave = chaveDoErroDoPedido(data);
-    if (chave) return t(chave);
-    return data?.error || t('errors.sendLink');
+    return chave ? t(chave) : t('errors.sendLink');
   }
 
   function handleLocaleChange(nextLocale: string) {
@@ -188,7 +188,8 @@ export default function LoginForm({
       });
       const check = await checkRes.json();
       if (!checkRes.ok) {
-        setErrorMsg(check?.error || t('errors.checkEmail'));
+        const chaveDoCheck = chaveDoErroDoPedido(check);
+        setErrorMsg(chaveDoCheck ? t(chaveDoCheck) : t('errors.checkEmail'));
         setStatus('error');
         return;
       }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { CODIGO_LIMITE_INICIOS_VENDAS, INICIOS_POR_HORA_VENDAS } from '@/lib/simulador-vendas/limite-inicios';
-import { CODIGO_LIMITE_DESTINO } from '@/lib/auth/login-respostas';
+import { CODIGO_LIMITE_DE_PEDIDOS, CODIGO_LIMITE_DESTINO } from '@/lib/auth/login-respostas';
 
 /**
  * Rate limiter com duas camadas:
@@ -226,7 +226,9 @@ export const readLimiter = createRateLimiter({ maxRequests: 60, windowMs: 60_000
  * Com UPSTASH_REDIS_REST_* configuradas o limite é distribuído de verdade;
  * sem elas, é por-instância (teto grosseiro).
  */
-export const authLimiter = createRateLimiter({ maxRequests: 8, windowMs: 60_000 });
+// O 429 leva o código: a tela de login traduz por ele (R-67), em vez de mostrar
+// o texto em português da rota.
+export const authLimiter = createRateLimiter({ maxRequests: 8, windowMs: 60_000, codigo: CODIGO_LIMITE_DE_PEDIDOS });
 
 // ── Teto por DESTINATÁRIO nas portas de login (R-79, 03/10/2026) ────────────
 //

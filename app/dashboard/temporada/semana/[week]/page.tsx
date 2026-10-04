@@ -30,6 +30,9 @@ import PlayerPodcast from '@/components/temporada/player-podcast';
 import { resolverFormatoAtivo, iframeMostrouErroDoApp } from '@/lib/season-engine/formato-ativo';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
+// Os formatos que têm rótulo traduzido (`SeasonWeek.content.formats`). O chip mostrava a chave crua
+// ("video", "texto"), em minúsculas e igual em todos os idiomas (R-67).
+const FORMATOS_COM_ROTULO = ['video', 'audio', 'texto', 'case', 'pdf'];
 
 /**
  * Remove o título do cenário (cenários antigos vinham com "## Título" ou
@@ -1562,7 +1565,7 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
           const cls = `${base} ${f === ativo ? 'bg-brand-600 text-white' : 'bg-white/5 text-gray-300 hover:bg-white/10'} ${!tem ? 'opacity-40 cursor-not-allowed' : ''}`;
           return (
             <button key={f} onClick={() => abrirFormato(f)} disabled={!tem} className={cls}>
-              <Icon size={12} /> {f}
+              <Icon size={12} /> {FORMATOS_COM_ROTULO.includes(f) ? t(`content.formats.${f}`) : f}
             </button>
           );
         })}
@@ -1589,7 +1592,7 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
           ) : (
             <iframe key={`video-${mediaSession}`} ref={videoIframeRef} src={embedUrl} className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen />
           )}
-          {vid?.isPersonalizado && <p className="text-[10px] text-emerald-400 font-semibold mt-1">· com seu nome</p>}
+          {vid?.isPersonalizado && <p className="text-[10px] text-emerald-400 font-semibold mt-1">· {t('content.withYourName')}</p>}
         </div>
       )}
       {ativo === 'video' && !videoPronto && videoPreparando && (

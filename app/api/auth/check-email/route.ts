@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { authLimiter } from '@/lib/rate-limit';
+import { CODIGO_EMAIL_INVALIDO, CODIGO_FALHA_AO_VERIFICAR } from '@/lib/auth/login-respostas';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,12 +68,12 @@ export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json();
     if (!email || typeof email !== 'string') {
-      return NextResponse.json({ error: 'Email obrigatório' }, { status: 400 });
+      return NextResponse.json({ error: 'Email obrigatório', codigo: CODIGO_EMAIL_INVALIDO }, { status: 400 });
     }
 
     const trimmed = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
+      return NextResponse.json({ error: 'Email inválido', codigo: CODIGO_EMAIL_INVALIDO }, { status: 400 });
     }
 
     const sb = createSupabaseAdmin();
@@ -136,6 +137,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ exists: !!colab, allowSignup });
   } catch (err: any) {
     console.error('[check-email]', err.message);
-    return NextResponse.json({ error: 'Erro ao verificar email' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao verificar email', codigo: CODIGO_FALHA_AO_VERIFICAR }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { lerParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
 import { deveTentarSafari, ehNavegadorEmbutido, ehRoboDePreview, esquemaSafari } from '@/lib/auth/navegador-embutido';
 import AutoEntrar from './AutoEntrar';
@@ -73,6 +74,9 @@ export default async function ConfirmarAcesso({
   searchParams: Promise<{ t?: string; nav?: string }>;
 }) {
   const { t, nav } = await searchParams;
+  // R-67: a tela é a primeira que a pessoa vê, antes do login. O idioma sai do cookie,
+  // do idioma da organização pelo endereço ou do navegador (`i18n/request.ts`).
+  const tr = await getTranslations('AccessLinkConfirm');
   // Mesma régua do `/entrar`: o que não tem forma de parâmetro de acesso não
   // vira link nem aparece na tela.
   const dados = lerParametroAcesso(t);
@@ -95,15 +99,15 @@ export default async function ConfirmarAcesso({
     return (
       <main className="flex min-h-dvh flex-col justify-center bg-[#061526] px-6 py-10 text-white">
         <div className="mx-auto w-full max-w-md">
-          <h1 className="text-[22px] font-semibold">Link inválido ou expirado</h1>
+          <h1 className="text-[22px] font-semibold">{tr('invalidTitle')}</h1>
           <p className="mt-3 text-[14px] leading-relaxed text-slate-300">
-            Peça um novo link de acesso na tela de entrada.
+            {tr('invalidBody')}
           </p>
           <Link
             href="/login"
             className="mt-6 block rounded-lg bg-cyan-300 px-4 py-3 text-center text-[14px] font-semibold text-slate-950"
           >
-            Ir para o login
+            {tr('goToLogin')}
           </Link>
         </div>
       </main>
@@ -133,11 +137,9 @@ export default async function ConfirmarAcesso({
         <div className="mx-auto w-full max-w-md">
           <AutoEntrar url={esquemaSafari(`https://${host}${entrarVia('safari-auto')}`)} modo="navegador" />
 
-          <h1 className="text-[22px] font-semibold leading-tight">Abrindo no Safari…</h1>
+          <h1 className="text-[22px] font-semibold leading-tight">{tr('safariTitle')}</h1>
           <p className="mt-3 text-[14px] leading-relaxed text-slate-300">
-            Seu acesso abre no navegador do iPhone — assim ele vale também quando
-            você voltar depois, fora do WhatsApp. Se não abrir sozinho, use os
-            botões abaixo.
+            {tr('safariBody')}
           </p>
 
           <div className="mt-6">
@@ -148,7 +150,7 @@ export default async function ConfirmarAcesso({
             href={entrarVia('aqui')}
             className="mt-4 block rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-center text-[14px] font-medium text-slate-200"
           >
-            Entrar aqui mesmo, no WhatsApp
+            {tr('enterHere')}
           </a>
         </div>
       </main>
@@ -162,23 +164,17 @@ export default async function ConfirmarAcesso({
         {auto ? <AutoEntrar url={entrarVia('direto')} /> : null}
 
         <h1 className="text-[22px] font-semibold leading-tight">
-          {auto ? 'Entrando na Vertho…' : 'Entrar na Vertho'}
+          {auto ? tr('enteringTitle') : tr('enterTitle')}
         </h1>
         <p className="mt-3 text-[14px] leading-relaxed text-slate-300">
-          {auto ? (
-            <>Isto leva um instante. Se a tela não mudar, toque no botão abaixo.</>
-          ) : (
-            <>
-              Seu link de acesso está válido. Ele só pode ser usado <b>uma vez</b>.
-            </>
-          )}
+          {auto ? tr('enteringBody') : tr.rich('validBody', { b: (chunks) => <b>{chunks}</b> })}
         </p>
 
         <a
           href={entrar}
           className="mt-6 block rounded-lg bg-cyan-300 px-4 py-3.5 text-center text-[15px] font-semibold text-slate-950"
         >
-          Entrar agora
+          {tr('enterNow')}
         </a>
 
         {embutido ? (
@@ -188,12 +184,11 @@ export default async function ConfirmarAcesso({
           <details className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4">
             <summary className="cursor-pointer list-none text-[13px] text-slate-300">
               <span className="underline decoration-slate-600 underline-offset-4">
-                Prefere entrar pelo navegador?
+                {tr('preferBrowser')}
               </span>
             </summary>
             <p className="mt-3 text-[13px] leading-relaxed text-slate-400">
-              Útil se você também usa a Vertho no computador. O link continua
-              intacto — nada foi usado ainda.
+              {tr('preferBrowserBody')}
             </p>
             <div className="mt-3">
               <SairDoWebView urlEntrar={urlEntrarAbsoluta} link={link} />
@@ -203,7 +198,7 @@ export default async function ConfirmarAcesso({
           <details className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4">
             <summary className="cursor-pointer list-none text-[13px] text-slate-300">
               <span className="underline decoration-slate-600 underline-offset-4">
-                Abrir em outro aparelho
+                {tr('otherDevice')}
               </span>
             </summary>
             <p className="mt-3 break-all font-mono text-[12px] text-slate-400">{link}</p>

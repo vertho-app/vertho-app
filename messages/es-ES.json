@@ -602,6 +602,11 @@
       "invalidCode": "Código inválido.",
       "tooManyLinks": "Ya pedimos muchos enlaces para este contacto. Usa el último que recibiste o inténtalo de nuevo más tarde.",
       "whatsappNeedsOrganization": "Desde esta dirección no podemos saber tu organización por el número. Entra con tu correo o por el enlace de acceso que envió tu organización.",
+      "tooManyRequests": "Demasiadas solicitudes en poco tiempo. Espera unos segundos e inténtalo de nuevo.",
+      "whatsappUnavailable": "El envío por WhatsApp no está disponible ahora. Entra con tu correo.",
+      "signupUnavailable": "El registro por cuenta propia no está disponible en esta organización. Contacta con el administrador de la empresa.",
+      "emailAlreadyRegistered": "Este correo ya está registrado en esta organización. Vuelve y pide el enlace de acceso.",
+      "signupFailed": "No fue posible completar el registro. Inténtalo de nuevo.",
       "wrongPassword": "Correo o contraseña incorrectos.",
       "passwordLogin": "No fue posible entrar con contraseña ahora. Inténtalo de nuevo o entra por el enlace de acceso."
     },
@@ -669,6 +674,29 @@
     "description": "La página que buscas no existe, fue movida o puede que no tengas permiso para acceder.",
     "back": "Volver",
     "goDashboard": "Ir al dashboard"
+  },
+  "AccessLinkConfirm": {
+    "invalidTitle": "Enlace no válido o caducado",
+    "invalidBody": "Pide un nuevo enlace de acceso en la pantalla de inicio de sesión.",
+    "goToLogin": "Ir al inicio de sesión",
+    "safariTitle": "Abriendo en Safari…",
+    "safariBody": "Tu acceso se abre en el navegador del iPhone, así sigue siendo válido cuando vuelvas más tarde, fuera de WhatsApp. Si no se abre solo, usa los botones de abajo.",
+    "enterHere": "Entrar aquí mismo, en WhatsApp",
+    "enteringTitle": "Entrando en Vertho…",
+    "enterTitle": "Entrar en Vertho",
+    "enteringBody": "Esto tarda un instante. Si la pantalla no cambia, toca el botón de abajo.",
+    "validBody": "Tu enlace de acceso es válido. Solo se puede usar <b>una vez</b>.",
+    "enterNow": "Entrar ahora",
+    "preferBrowser": "¿Prefieres entrar por el navegador?",
+    "preferBrowserBody": "Útil si también usas Vertho en el ordenador. El enlace sigue intacto: todavía no se ha usado.",
+    "otherDevice": "Abrir en otro dispositivo",
+    "copyLink": "Copiar enlace",
+    "copyAddress": "Copiar dirección",
+    "copied": "Copiado ✓",
+    "openSafari": "Abrir en Safari y entrar",
+    "openChrome": "Abrir en Chrome",
+    "notOpened": "¿No se abrió?",
+    "notOpenedBody": "Toca <b>•••</b> en la esquina superior de esta pantalla y elige <b>Abrir en Safari</b>. El enlace sigue intacto: todavía no se ha usado."
   },
   "DashboardHome": {
     "contentFormats": {
@@ -1747,6 +1775,15 @@
     "content": {
       "done": "Contenido realizado",
       "availableIn": "Disponible en:",
+      "formats": {
+        "video": "Vídeo",
+        "audio": "Audio",
+        "texto": "Artículo",
+        "case": "Caso",
+        "pdf": "PDF"
+      },
+      "withYourName": "con tu nombre",
+      "preparingVideo": "Estamos preparando tu vídeo personalizado. Vuelve en unos minutos.",
       "preparingFormats": "Estamos preparando más formatos para este episodio. Enfócate en el desafío y la reflexión de abajo.",
       "openContent": "Abrir contenido →",
       "openToUnlock": "Abre uno de los formatos de arriba para desbloquear las conversaciones de esta semana."

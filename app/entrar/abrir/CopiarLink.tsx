@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 /** O único pedaço interativo da tela de despacho. */
 export default function CopiarLink({ link }: { link: string }) {
+  const t = useTranslations('AccessLinkConfirm');
   const [copiado, setCopiado] = useState(false);
 
   async function copiar() {
@@ -24,7 +26,7 @@ export default function CopiarLink({ link }: { link: string }) {
       onClick={copiar}
       className="mt-3 w-full rounded-lg bg-cyan-300 px-4 py-3 text-[14px] font-semibold text-slate-950"
     >
-      {copiado ? 'Copiado ✓' : 'Copiar link'}
+      {copiado ? t('copied') : t('copyLink')}
     </button>
   );
 }

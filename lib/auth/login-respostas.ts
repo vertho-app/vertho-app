@@ -6,6 +6,13 @@
  *
  * As rotas mandam um `codigo` estável junto com o texto em português. A tela
  * traduz pelo código; o texto fica como reserva para um bundle antigo.
+ *
+ * R-67 (04/10/2026): TODA falha das portas de login tem código, e a tela nunca
+ * mostra o texto que veio da rota. Antes, "Falha ao gerar link: <mensagem do
+ * Supabase em inglês>", "Erro: <exceção>" e "Não foi possível enviar o link de
+ * acesso (email: ..., whatsapp: ...)" iam crus para a tela, em português ou
+ * em inglês de fornecedor, qualquer que fosse o idioma da pessoa. O detalhe fica
+ * no log do servidor.
  */
 
 /** Teto de pedidos de link para o mesmo e-mail ou telefone (R-79). */
@@ -18,14 +25,52 @@ export const CODIGO_LIMITE_DESTINO = 'limite-destino';
  */
 export const CODIGO_SEM_ORGANIZACAO = 'sem-organizacao';
 
-export type ChaveDeErroDoPedido = 'errors.tooManyLinks' | 'errors.whatsappNeedsOrganization';
+/** E-mail ausente ou sem forma de e-mail. */
+export const CODIGO_EMAIL_INVALIDO = 'email-invalido';
+/** WhatsApp fora do formato (DDD + número). */
+export const CODIGO_TELEFONE_INVALIDO = 'telefone-invalido';
+/** O link não pôde ser gerado ou nenhum canal o entregou. O motivo vai para o log. */
+export const CODIGO_FALHA_NO_ENVIO = 'falha-no-envio';
+/** O canal de WhatsApp não está disponível agora. */
+export const CODIGO_CANAL_INDISPONIVEL = 'canal-indisponivel';
+/** A consulta ao cadastro falhou. */
+export const CODIGO_FALHA_AO_VERIFICAR = 'falha-ao-verificar';
+/** Teto de pedidos por endereço (IP), o mesmo de todas as portas de acesso. */
+export const CODIGO_LIMITE_DE_PEDIDOS = 'limite-de-pedidos';
+/** Auto-cadastro indisponível: sem organização, empresa não encontrada ou não habilitado. */
+export const CODIGO_CADASTRO_INDISPONIVEL = 'cadastro-indisponivel';
+/** O e-mail já tem cadastro na organização. */
+export const CODIGO_EMAIL_JA_CADASTRADO = 'email-ja-cadastrado';
+/** Falta o nome completo no auto-cadastro. */
+export const CODIGO_NOME_OBRIGATORIO = 'nome-obrigatorio';
+/** O cadastro não pôde ser criado. */
+export const CODIGO_FALHA_NO_CADASTRO = 'falha-no-cadastro';
+
+const CHAVE_POR_CODIGO = {
+  [CODIGO_LIMITE_DESTINO]: 'errors.tooManyLinks',
+  [CODIGO_SEM_ORGANIZACAO]: 'errors.whatsappNeedsOrganization',
+  [CODIGO_EMAIL_INVALIDO]: 'errors.invalidEmail',
+  [CODIGO_TELEFONE_INVALIDO]: 'errors.invalidWhatsapp',
+  [CODIGO_FALHA_NO_ENVIO]: 'errors.sendLink',
+  [CODIGO_CANAL_INDISPONIVEL]: 'errors.whatsappUnavailable',
+  [CODIGO_FALHA_AO_VERIFICAR]: 'errors.checkEmail',
+  [CODIGO_LIMITE_DE_PEDIDOS]: 'errors.tooManyRequests',
+  [CODIGO_CADASTRO_INDISPONIVEL]: 'errors.signupUnavailable',
+  [CODIGO_EMAIL_JA_CADASTRADO]: 'errors.emailAlreadyRegistered',
+  [CODIGO_NOME_OBRIGATORIO]: 'signup.errors.fullName',
+  [CODIGO_FALHA_NO_CADASTRO]: 'errors.signupFailed',
+} as const;
+
+export type ChaveDeErroDoPedido = (typeof CHAVE_POR_CODIGO)[keyof typeof CHAVE_POR_CODIGO];
+
+/** Todas as chaves que uma porta de acesso pode pedir à tela (o teste confere que existem nos 4 idiomas). */
+export const CHAVES_DE_ERRO_DO_PEDIDO: readonly ChaveDeErroDoPedido[] = Object.values(CHAVE_POR_CODIGO);
 
 /** Chave de tradução (namespace `Login`) para o erro, ou `null` se não há código conhecido. */
 export function chaveDoErroDoPedido(resposta: unknown): ChaveDeErroDoPedido | null {
   const codigo = resposta && typeof resposta === 'object' ? (resposta as { codigo?: unknown }).codigo : null;
-  if (codigo === CODIGO_LIMITE_DESTINO) return 'errors.tooManyLinks';
-  if (codigo === CODIGO_SEM_ORGANIZACAO) return 'errors.whatsappNeedsOrganization';
-  return null;
+  if (typeof codigo !== 'string' || !Object.prototype.hasOwnProperty.call(CHAVE_POR_CODIGO, codigo)) return null;
+  return CHAVE_POR_CODIGO[codigo as keyof typeof CHAVE_POR_CODIGO];
 }
 
 /**

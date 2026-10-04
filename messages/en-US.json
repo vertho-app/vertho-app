@@ -602,6 +602,11 @@
       "invalidCode": "Invalid code.",
       "tooManyLinks": "Too many links have been requested for this contact. Use the latest one you received or try again later.",
       "whatsappNeedsOrganization": "From this address we cannot tell your organization from the number. Sign in with your email or through the access link your organization sent.",
+      "tooManyRequests": "Too many requests in a short time. Wait a few seconds and try again.",
+      "whatsappUnavailable": "Sending through WhatsApp is unavailable right now. Sign in with your email.",
+      "signupUnavailable": "Self-registration is not available for this organization. Contact your company administrator.",
+      "emailAlreadyRegistered": "This email is already registered in this organization. Go back and request the access link.",
+      "signupFailed": "Could not complete the registration. Please try again.",
       "wrongPassword": "Incorrect email or password.",
       "passwordLogin": "Could not sign in with a password right now. Try again or use the access link."
     },
@@ -669,6 +674,29 @@
     "description": "The page you are looking for does not exist, was moved, or you may not have permission to access it.",
     "back": "Back",
     "goDashboard": "Go to dashboard"
+  },
+  "AccessLinkConfirm": {
+    "invalidTitle": "Invalid or expired link",
+    "invalidBody": "Request a new access link on the sign-in screen.",
+    "goToLogin": "Go to sign in",
+    "safariTitle": "Opening in Safari…",
+    "safariBody": "Your access opens in the iPhone browser, so it stays valid when you come back later, outside WhatsApp. If it doesn't open on its own, use the buttons below.",
+    "enterHere": "Sign in right here, in WhatsApp",
+    "enteringTitle": "Signing you in to Vertho…",
+    "enterTitle": "Sign in to Vertho",
+    "enteringBody": "This takes a moment. If the screen doesn't change, tap the button below.",
+    "validBody": "Your access link is valid. It can be used <b>only once</b>.",
+    "enterNow": "Sign in now",
+    "preferBrowser": "Prefer to sign in through your browser?",
+    "preferBrowserBody": "Useful if you also use Vertho on a computer. The link is intact: it hasn't been used yet.",
+    "otherDevice": "Open on another device",
+    "copyLink": "Copy link",
+    "copyAddress": "Copy address",
+    "copied": "Copied ✓",
+    "openSafari": "Open in Safari and sign in",
+    "openChrome": "Open in Chrome",
+    "notOpened": "Didn't open?",
+    "notOpenedBody": "Tap <b>•••</b> in the top corner of this screen and choose <b>Open in Safari</b>. The link is intact: it hasn't been used yet."
   },
   "DashboardHome": {
     "contentFormats": {
@@ -1743,6 +1771,15 @@
     "content": {
       "done": "Content carried out",
       "availableIn": "Available at:",
+      "formats": {
+        "video": "Video",
+        "audio": "Audio",
+        "texto": "Article",
+        "case": "Case study",
+        "pdf": "PDF"
+      },
+      "withYourName": "with your name",
+      "preparingVideo": "We are preparing your personalized video. Come back in a few minutes.",
       "preparingFormats": "We are preparing more formats for this episode. Focus on the challenge and reflection below.",
       "openContent": "Open content →",
       "openToUnlock": "Open one of the formats above to unlock this week’s conversations."

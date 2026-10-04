@@ -6,6 +6,10 @@ import { resolveAppLocale } from '@/lib/i18n';
 import { authLimiter, limitarPorDestino } from '@/lib/rate-limit';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 import { sendAccessLink } from '@/lib/notifications/access-link-service';
+import {
+  CODIGO_CADASTRO_INDISPONIVEL, CODIGO_EMAIL_INVALIDO, CODIGO_EMAIL_JA_CADASTRADO, CODIGO_FALHA_NO_CADASTRO,
+  CODIGO_NOME_OBRIGATORIO, CODIGO_TELEFONE_INVALIDO,
+} from '@/lib/auth/login-respostas';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,16 +38,16 @@ export async function POST(req: NextRequest) {
     const locale = resolveAppLocale(body?.locale, req.cookies.get('vertho-locale')?.value);
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
+      return NextResponse.json({ error: 'Email inválido', codigo: CODIGO_EMAIL_INVALIDO }, { status: 400 });
     }
     if (!nomeCompleto || nomeCompleto.length < 2) {
-      return NextResponse.json({ error: 'Nome completo obrigatório' }, { status: 400 });
+      return NextResponse.json({ error: 'Nome completo obrigatório', codigo: CODIGO_NOME_OBRIGATORIO }, { status: 400 });
     }
     // Valida e normaliza pra E.164 ("5511912345678" — 13 dígitos com 55). Convenção:
     // SEMPRE salvar com country code, pra Z-API consumir direto sem prefixar em runtime.
     const phoneCheck = validateWhatsApp(telefoneRaw);
     if (phoneCheck.valid === false) {
-      return NextResponse.json({ error: phoneCheck.error }, { status: 400 });
+      return NextResponse.json({ error: phoneCheck.error, codigo: CODIGO_TELEFONE_INVALIDO }, { status: 400 });
     }
     const telefoneE164 = phoneCheck.e164;
 
@@ -57,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     const slug = getTenantSlug(req);
     if (!slug) {
-      return NextResponse.json({ error: 'Tenant não identificado' }, { status: 400 });
+      return NextResponse.json({ error: 'Tenant não identificado', codigo: CODIGO_CADASTRO_INDISPONIVEL }, { status: 400 });
     }
 
     const sb = createSupabaseAdmin();
@@ -69,10 +73,10 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!empresa) {
-      return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 404 });
+      return NextResponse.json({ error: 'Empresa não encontrada', codigo: CODIGO_CADASTRO_INDISPONIVEL }, { status: 404 });
     }
     if (empresa.sys_config?.allow_open_signup !== true) {
-      return NextResponse.json({ error: 'Auto-cadastro não habilitado nesta empresa' }, { status: 403 });
+      return NextResponse.json({ error: 'Auto-cadastro não habilitado nesta empresa', codigo: CODIGO_CADASTRO_INDISPONIVEL }, { status: 403 });
     }
 
     // Garante que email não existe ainda nesse tenant.
@@ -85,7 +89,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      return NextResponse.json({ error: 'Email já cadastrado nessa empresa' }, { status: 409 });
+      return NextResponse.json({ error: 'Email já cadastrado nessa empresa', codigo: CODIGO_EMAIL_JA_CADASTRADO }, { status: 409 });
     }
 
     // Cria colaborador (role mínima — admin promove se necessário).
@@ -99,7 +103,7 @@ export async function POST(req: NextRequest) {
     });
     if (insertErr) {
       console.error('[signup] insert error:', insertErr.message);
-      return NextResponse.json({ error: 'Erro ao criar cadastro' }, { status: 500 });
+      return NextResponse.json({ error: 'Erro ao criar cadastro', codigo: CODIGO_FALHA_NO_CADASTRO }, { status: 500 });
     }
 
     // 🔴 `generateLink` NÃO cria usuário (R-76). Quem se cadastrava aqui era,
@@ -167,6 +171,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, email: result.email, whatsapp: result.whatsapp });
   } catch (err: any) {
     console.error('[signup]', err.message);
-    return NextResponse.json({ error: `Erro: ${err.message}` }, { status: 500 });
+    // R-67: a exceção fica no log; a tela recebe o código.
+    return NextResponse.json({ error: 'Erro ao criar cadastro', codigo: CODIGO_FALHA_NO_CADASTRO }, { status: 500 });
   }
 }

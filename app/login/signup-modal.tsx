@@ -123,7 +123,7 @@ export default function SignupModal({
       const data = await res.json();
       if (!res.ok || data?.error) {
         const chave = chaveDoErroDoPedido(data);
-        setErrorMsg(chave ? tLogin(chave) : data?.error || t('errors.create'));
+        setErrorMsg(chave ? tLogin(chave) : t('errors.create'));
         setStatus('error');
         return;
       }

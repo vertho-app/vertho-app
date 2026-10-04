@@ -7,7 +7,7 @@ import { resolveAppLocale } from '@/lib/i18n';
 import { sendAccessLink } from '@/lib/notifications/access-link-service';
 import { authLimiter, limitarPorDestino } from '@/lib/rate-limit';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
-import { CODIGO_SEM_ORGANIZACAO } from '@/lib/auth/login-respostas';
+import { CODIGO_CANAL_INDISPONIVEL, CODIGO_FALHA_NO_ENVIO, CODIGO_SEM_ORGANIZACAO, CODIGO_TELEFONE_INVALIDO } from '@/lib/auth/login-respostas';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     const check = validateWhatsApp(telefone);
     if (check.valid === false) {
-      return NextResponse.json({ error: check.error }, { status: 400 });
+      return NextResponse.json({ error: check.error, codigo: CODIGO_TELEFONE_INVALIDO }, { status: 400 });
     }
     const e164 = check.e164;
 
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     });
     if (createErr && !/already|registered|exists/i.test(createErr.message)) {
       console.error('[phone-magic-link/request] createUser:', createErr.message);
-      return NextResponse.json({ error: 'Falha ao preparar o acesso.' }, { status: 500 });
+      return NextResponse.json({ error: 'Falha ao preparar o acesso.', codigo: CODIGO_FALHA_NO_ENVIO }, { status: 500 });
     }
 
     // Só sincroniza colaboradores.email quando a identidade é o proxy. NUNCA
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
 
     if (linkErr || !linkData?.properties?.hashed_token) {
       console.error('[phone-magic-link/request] generateLink:', linkErr?.message);
-      return NextResponse.json({ error: 'Falha ao gerar o link de acesso.' }, { status: 500 });
+      return NextResponse.json({ error: 'Falha ao gerar o link de acesso.', codigo: CODIGO_FALHA_NO_ENVIO }, { status: 500 });
     }
 
     const link =
@@ -129,13 +129,13 @@ export async function POST(req: NextRequest) {
       // Preserva os status HTTP: Z-API não configurado → 503; falha de envio → 502.
       const indisponivel = /não configurado|nao configurado/i.test(result.whatsappReason || '');
       return indisponivel
-        ? NextResponse.json({ error: 'Canal WhatsApp indisponível no momento.' }, { status: 503 })
-        : NextResponse.json({ error: 'Não foi possível enviar o link pelo WhatsApp. Tente novamente.' }, { status: 502 });
+        ? NextResponse.json({ error: 'Canal WhatsApp indisponível no momento.', codigo: CODIGO_CANAL_INDISPONIVEL }, { status: 503 })
+        : NextResponse.json({ error: 'Não foi possível enviar o link pelo WhatsApp. Tente novamente.', codigo: CODIGO_FALHA_NO_ENVIO }, { status: 502 });
     }
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     console.error('[phone-magic-link/request]', err.message);
-    return NextResponse.json({ error: 'Erro ao enviar link de acesso.' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao enviar link de acesso.', codigo: CODIGO_FALHA_NO_ENVIO }, { status: 500 });
   }
 }

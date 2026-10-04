@@ -10,7 +10,8 @@
  *
  * Os TOKENS do DS são a verdade (cores/fontes); o .dc.html é referência de layout.
  * Fontes via fontsource CDN — mesmo padrão de components/pdf/styles.ts e ranking-pdf.
- * Idioma pelo `empresas.default_locale` (mapa inline; next-intl não entra no PDF).
+ * Idioma da pessoa (`colaboradores.locale`) e, na falta, o da empresa (`empresas.default_locale`);
+ * mapa inline, porque o next-intl não entra no PDF.
  */
 import {
   Document, Page, View, Text, Image, StyleSheet, Font, renderToBuffer,
@@ -226,6 +227,8 @@ export interface CertificadoDados {
     dataConclusao?: string | null;
   };
   empresa: { nome: string; locale?: string };
+  /** Idioma do certificado: o da pessoa, ou o da empresa na falta dele (R-67). Vence `empresa.locale`. */
+  idioma?: string;
   participacao: { semanasComEntrega: number; totalSemanas: number; pct: number };
   /**
    * Carga horária impressa, proporcional à duração do programa da temporada
@@ -237,7 +240,8 @@ export interface CertificadoDados {
 }
 
 export function CertificadoPDF({ dados }: { dados: CertificadoDados }) {
-  const locale: Locale = (dados.empresa.locale as Locale) in STRINGS ? (dados.empresa.locale as Locale) : 'pt-BR';
+  const pedido = (dados.idioma || dados.empresa.locale) as Locale;
+  const locale: Locale = pedido in STRINGS ? pedido : 'pt-BR';
   const S = STRINGS[locale];
   const comps = sanitize((dados.trilha.competencias || []).filter(Boolean).join(' + '));
   const inicio = fmtData(dados.trilha.dataInicio, locale);
