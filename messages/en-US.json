@@ -590,7 +590,8 @@
     "linkRequestedHint": "Nothing after a few minutes? Check what you typed or talk to HR at your organization.",
     "linkErrors": {
       "expired": "Your access link expired or has already been used — each link works only once. Request a new one below: it arrives on your WhatsApp or email.",
-      "unavailable": "We couldn't validate your link right now. Try again in a moment or request a new one below."
+      "unavailable": "We couldn't validate your link right now. Try again in a moment or request a new one below.",
+      "guestExpired": "This demo access is no longer available. Contact whoever sent you the invitation to get a new one."
     },
     "errors": {
       "invalidEmail": "Enter a valid email address.",
@@ -1698,6 +1699,13 @@
       "turnHint": "Turn {turno} · answer naturally",
       "seeResult": "See assessment result"
     },
+    "preparing": {
+      "title": "Preparing your assessment…",
+      "body": "We are consolidating your whole journey for a fair assessment. It takes a few moments, and the screen opens by itself.",
+      "failedTitle": "We couldn't prepare your assessment right now",
+      "failedBody": "Your answers and your journey are saved. Try again: if it keeps happening, tell whoever follows your program.",
+      "retry": "Try again"
+    },
     "fechamento": {
       "eyebrow": "Final assessment",
       "processingTitle": "Generating your final assessment",
@@ -2004,7 +2012,9 @@
       "stable": "Stable",
       "level": "Level {n}",
       "levelUp": "Congratulations! You improved your level in this competency",
-      "behaviors": "behaviors"
+      "behaviors": "behaviors",
+      "notMeasured": "In this program progress is not measured: the full report shows your starting point and the behaviors you worked on.",
+      "worked": "Behaviors worked on"
     },
     "pilotClosing": "Closing",
     "week": {
@@ -5378,10 +5388,10 @@
       "moduloProntidaoOn": "On",
       "moduloProntidaoOff": "Off",
       "title": "Program mode",
-      "desc": "Journey = 7 weeks, one competency at a time (6 content weeks and the assessment). Onboarding = 10 spiral weeks covering up to 5 competencies (new graduates, supervised autonomy). Custom = a Journey with the length you choose.",
+      "desc": "Journey = 7 weeks, one competency at a time (6 content weeks and the assessment). Onboarding = 9 spiral weeks covering up to 5 competencies (new graduates, supervised autonomy). Custom = a Journey with the length you choose.",
       "journey": "Journey (7 weeks)",
       "journeyDesc": "6 content weeks + assessment · 1 competency at a time · 1 task per week. When one journey ends, the next competency's journey starts on its own",
-      "onboarding": "Onboarding (10 weeks)",
+      "onboarding": "Onboarding (9 weeks)",
       "onboardingDesc": "5 competencies · target level 2",
       "onboardingNote": "Onboarding mode is active. Configure <code>sys_config.competencias_onboarding</code> (array of 5 names) or run IA1 for the role; the engine uses the top 5 from <code>top10_cargos</code> as fallback.",
       "careerTitle": "Career stage (IA1 bias)",
@@ -5614,7 +5624,7 @@
   },
   "AdminAuditorias": {
     "tabs": {
-      "sem13": "Wk 13 — Accumulated Assessment",
+      "sem13": "Accumulated Assessment",
       "sem14": "Wk 14 — Final Audit"
     }
   },

@@ -590,7 +590,8 @@
     "linkRequestedHint": "¿No llegó en unos minutos? Revisa lo que escribiste o habla con recursos humanos de tu organización.",
     "linkErrors": {
       "expired": "Tu enlace de acceso caducó o ya se usó — cada enlace sirve una sola vez. Pide uno nuevo abajo: llega a tu WhatsApp o correo.",
-      "unavailable": "No pudimos validar tu enlace ahora. Inténtalo de nuevo en unos instantes o pide uno nuevo abajo."
+      "unavailable": "No pudimos validar tu enlace ahora. Inténtalo de nuevo en unos instantes o pide uno nuevo abajo.",
+      "guestExpired": "Este acceso a la demostración ya no está disponible. Habla con quien te envió la invitación para recibir uno nuevo."
     },
     "errors": {
       "invalidEmail": "Introduce un correo válido.",
@@ -1698,6 +1699,13 @@
       "turnHint": "Turno {turno} · responde con naturalidad",
       "seeResult": "Ver resultado de la evaluación"
     },
+    "preparing": {
+      "title": "Preparando tu evaluación…",
+      "body": "Estamos consolidando todo tu recorrido para una evaluación justa. Tarda unos instantes y la pantalla se abre sola.",
+      "failedTitle": "No pudimos preparar tu evaluación ahora",
+      "failedBody": "Tus respuestas y tu recorrido están guardados. Inténtalo de nuevo: si sigue igual, avisa a quien acompaña tu programa.",
+      "retry": "Intentar de nuevo"
+    },
     "fechamento": {
       "eyebrow": "Evaluación final",
       "processingTitle": "Generando tu evaluación final",
@@ -2004,7 +2012,9 @@
       "stable": "Estable",
       "level": "Nivel {n}",
       "levelUp": "¡Felicitaciones! Mejoraste tu nivel en esta competencia",
-      "behaviors": "comportamientos"
+      "behaviors": "comportamientos",
+      "notMeasured": "En este programa el avance no se mide: el informe completo muestra tu punto de partida y los comportamientos trabajados.",
+      "worked": "Comportamientos trabajados"
     },
     "pilotClosing": "Cierre",
     "week": {
@@ -5378,10 +5388,10 @@
       "moduloProntidaoOn": "Encendido",
       "moduloProntidaoOff": "Apagado",
       "title": "Modo del programa",
-      "desc": "Jornada = 7 semanas, una competencia a la vez (6 de contenido y la evaluación). Onboarding = 10 semanas en espiral cubriendo hasta 5 competencias (recién graduados, autonomía supervisada). Personalizado = una Jornada con la duración que elijas.",
+      "desc": "Jornada = 7 semanas, una competencia a la vez (6 de contenido y la evaluación). Onboarding = 9 semanas en espiral cubriendo hasta 5 competencias (recién graduados, autonomía supervisada). Personalizado = una Jornada con la duración que elijas.",
       "journey": "Jornada (7 semanas)",
       "journeyDesc": "6 semanas de contenido + evaluación · 1 competencia a la vez · 1 tarea por semana. Al concluir, la jornada de la siguiente competencia empieza sola",
-      "onboarding": "Onboarding (10 semanas)",
+      "onboarding": "Onboarding (9 semanas)",
       "onboardingDesc": "5 competencias · nivel objetivo 2",
       "onboardingNote": "Modo Onboarding activo. Configura <code>sys_config.competencias_onboarding</code> (array de 5 nombres) o ejecuta IA1 para el cargo; la engine usa el top 5 de <code>top10_cargos</code> como fallback.",
       "careerTitle": "Etapa profesional (sesgo de IA1)",
@@ -5614,7 +5624,7 @@
   },
   "AdminAuditorias": {
     "tabs": {
-      "sem13": "Sem 13 — Ev. Acumulada",
+      "sem13": "Ev. Acumulada",
       "sem14": "Sem 14 — Auditoría Final"
     }
   },

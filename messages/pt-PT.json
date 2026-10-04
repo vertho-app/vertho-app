@@ -590,7 +590,8 @@
     "linkRequestedHint": "Não chegou em alguns minutos? Confirme o que escreveu ou fale com os recursos humanos da sua organização.",
     "linkErrors": {
       "expired": "O seu link de acesso expirou ou já foi utilizado — cada link é válido uma única vez. Peça um novo abaixo: chega no seu WhatsApp ou e-mail.",
-      "unavailable": "Não conseguimos validar o seu link agora. Tente novamente dentro de instantes ou peça um novo abaixo."
+      "unavailable": "Não conseguimos validar o seu link agora. Tente novamente dentro de instantes ou peça um novo abaixo.",
+      "guestExpired": "Este acesso à demonstração já não está disponível. Fale com quem enviou o convite para receber um novo."
     },
     "errors": {
       "invalidEmail": "Introduza um e-mail válido.",
@@ -1698,6 +1699,13 @@
       "turnHint": "Turno {turno} · responda com naturalidade",
       "seeResult": "Ver resultado da avaliação"
     },
+    "preparing": {
+      "title": "A preparar a sua avaliação…",
+      "body": "Estamos a consolidar toda a sua jornada para uma avaliação justa. Demora alguns instantes, e o ecrã abre sozinho.",
+      "failedTitle": "Não conseguimos preparar a sua avaliação agora",
+      "failedBody": "As suas respostas e a sua jornada estão guardadas. Tente novamente: se continuar, avise quem acompanha o seu programa.",
+      "retry": "Tentar novamente"
+    },
     "fechamento": {
       "eyebrow": "Avaliação final",
       "processingTitle": "A gerar a sua avaliação final",
@@ -2004,7 +2012,9 @@
       "stable": "Estável",
       "level": "Nível {n}",
       "levelUp": "Parabéns! Melhorou o seu nível nesta competência",
-      "behaviors": "comportamentos"
+      "behaviors": "comportamentos",
+      "notMeasured": "Neste programa o avanço não é medido: o relatório completo mostra o seu ponto de partida e os comportamentos trabalhados.",
+      "worked": "Comportamentos trabalhados"
     },
     "pilotClosing": "Fecho",
     "week": {
@@ -5378,10 +5388,10 @@
       "moduloProntidaoOn": "Ligado",
       "moduloProntidaoOff": "Desligado",
       "title": "Modo do programa",
-      "desc": "Jornada = 7 semanas, uma competência de cada vez (6 de conteúdo e a avaliação). Onboarding = 10 semanas em espiral cobrindo até 5 competências (recém-formados, autonomia supervisionada). Personalizado = uma Jornada com a duração que escolher.",
+      "desc": "Jornada = 7 semanas, uma competência de cada vez (6 de conteúdo e a avaliação). Onboarding = 9 semanas em espiral cobrindo até 5 competências (recém-formados, autonomia supervisionada). Personalizado = uma Jornada com a duração que escolher.",
       "journey": "Jornada (7 semanas)",
       "journeyDesc": "6 semanas de conteúdo + avaliação · 1 competência de cada vez · 1 tarefa por semana. Ao concluir, a jornada da competência seguinte começa automaticamente",
-      "onboarding": "Onboarding (10 semanas)",
+      "onboarding": "Onboarding (9 semanas)",
       "onboardingDesc": "5 competências · nível-meta 2",
       "onboardingNote": "Modo Onboarding ativo. Configure <code>sys_config.competencias_onboarding</code> (array de 5 nomes) ou rode IA1 pro cargo; a engine usa o top 5 do <code>top10_cargos</code> como fallback.",
       "careerTitle": "Fase de carreira (viés do IA1)",
@@ -5614,7 +5624,7 @@
   },
   "AdminAuditorias": {
     "tabs": {
-      "sem13": "Sem 13 — Av. Acumulada",
+      "sem13": "Av. Acumulada",
       "sem14": "Sem 14 — Auditoria Final"
     }
   },
