@@ -394,7 +394,8 @@ function TemporadaCard({ t, expanded, onToggle, onPausar, onLiberar, onPreparar,
                           {s.conteudo.formato_core}{s.conteudo.fallback_gerado ? tr('card.fallbackSuffix') : ''}
                         </div>
                       )}
-                      {s.tipo !== 'avaliacao' && (
+                      {/* Mapeamento e avaliação final não têm desafio nem missão: a regeração recusa as duas. */}
+                      {s.tipo !== 'avaliacao' && s.tipo !== 'mapeamento' && (
                         <button onClick={(e) => { e.stopPropagation(); onRegerar(s.semana); }} disabled={busy}
                           title={tr('card.regenerateWeek', { week: s.semana })}
                           className="p-0.5 rounded hover:bg-white/10 text-purple-400 disabled:opacity-50 ml-auto">

@@ -4354,7 +4354,8 @@
     "types": {
       "conteudo": "Content",
       "aplicacao": "Application",
-      "avaliacao": "Assessment"
+      "avaliacao": "Assessment",
+      "mapeamento": "Mapping"
     },
     "loading": "Loading...",
     "empty": {

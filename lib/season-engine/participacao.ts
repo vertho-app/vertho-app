@@ -67,7 +67,9 @@ function preenchido(v: unknown): boolean {
 function temEntrega(p: ProgressoSemana): boolean {
   if (p.tipo === 'conteudo') return preenchido(p.reflexao);
   // aplicacao / avaliacao (e qualquer tipo futuro): feedback é a entrega;
-  // reflexao preenchida conta como fallback defensivo.
+  // reflexao preenchida conta como fallback defensivo. `mapeamento` cai aqui e
+  // dá `false` (a linha não traz conversa): quem o conta como entregue é o PLANO,
+  // em `calcularParticipacao`, e de propósito não a linha.
   return preenchido(p.feedback) || preenchido(p.reflexao);
 }
 
@@ -81,8 +83,9 @@ export function calcularParticipacao(
   const totalSemanas = semanas.length;
   if (!totalSemanas) return { semanasComEntrega: 0, totalSemanas: 0, pct: 0, elegivel: false };
 
-  // O tipo da semana é o do PLANO: a linha de progresso do mapeamento grava
-  // `avaliacao` (o CHECK da coluna não aceita `mapeamento`) e não traz conversa.
+  // O tipo da semana é o do PLANO, e a linha de progresso do mapeamento não traz
+  // conversa. Desde a mig 275 a linha grava `mapeamento`; as que nasceram antes
+  // (04/10/2026) gravaram `avaliacao`. Decidir pelo plano cobre as duas.
   const mapeamento = new Set((Array.isArray(plano) ? plano : [])
     .filter((s) => s?.tipo === 'mapeamento')
     .map((s) => s?.semana));

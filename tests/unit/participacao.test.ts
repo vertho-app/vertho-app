@@ -70,16 +70,19 @@ describe('calcularParticipacao', () => {
 
 /**
  * Onboarding de 12 semanas (04/10/2026): a semana 1 é o MAPEAMENTO, que a pessoa
- * fez antes de a trilha existir. A linha de progresso dela grava `avaliacao` (o
- * CHECK da coluna não aceita `mapeamento`), sem reflexão nem feedback; quem decide
- * o tipo é o PLANO. Sem contá-la como entregue, quem concluiu tudo leria "11 de 12".
+ * fez antes de a trilha existir. A linha de progresso dela grava `mapeamento`
+ * (desde a mig 275; antes, `avaliacao`, porque a CHECK da coluna não aceitava),
+ * sem reflexão nem feedback; quem decide o tipo é o PLANO. Sem contá-la como
+ * entregue, quem concluiu tudo leria "11 de 12".
  */
 describe('calcularParticipacao: a semana de mapeamento do Onboarding', () => {
   const planoOnboarding = Array.from({ length: 12 }, (_, i) => ({
     semana: i + 1,
     tipo: i === 0 ? 'mapeamento' : i === 11 ? 'avaliacao' : 'conteudo',
   }));
-  const linhaDoMapeamento = { semana: 1, tipo: 'avaliacao', reflexao: null, feedback: null };
+  const linhaDoMapeamento = { semana: 1, tipo: 'mapeamento', reflexao: null, feedback: null };
+  // A que nasceu antes da mig 275 (04/10/2026): mesmo plano, a linha dizia `avaliacao`.
+  const linhaLegadaDoMapeamento = { ...linhaDoMapeamento, tipo: 'avaliacao' };
   const fechamento = { semana: 12, tipo: 'avaliacao', reflexao: null, feedback: { nota: 'x' } };
 
   it('quem concluiu o programa inteiro tem 12 de 12 (o mapeamento conta como entregue)', () => {
@@ -92,6 +95,15 @@ describe('calcularParticipacao: a semana de mapeamento do Onboarding', () => {
     expect(r.semanasComEntrega).toBe(12);
     expect(r.totalSemanas).toBe(12);
     expect(r.pct).toBe(1);
+  });
+
+  it('a linha gravada antes da mig 275 (`avaliacao`) conta do mesmo jeito: quem decide é o plano', () => {
+    const progressos = [
+      linhaLegadaDoMapeamento,
+      ...Array.from({ length: 10 }, (_, i) => conteudo(i + 2)),
+      fechamento,
+    ];
+    expect(calcularParticipacao(planoOnboarding, progressos)).toMatchObject({ semanasComEntrega: 12, totalSemanas: 12, pct: 1 });
   });
 
   it('conta mesmo sem a linha de progresso dela: o mapeamento é do plano', () => {
@@ -113,9 +125,10 @@ describe('calcularParticipacao: a semana de mapeamento do Onboarding', () => {
     expect(r.elegivel).toBe(true);
   });
 
-  it('só o tipo do PLANO vale: a mesma linha `avaliacao` numa semana de conteúdo não conta', () => {
+  it('só o tipo do PLANO vale: a mesma linha, `mapeamento` ou `avaliacao`, numa semana de conteúdo não conta', () => {
     const planoSemMapeamento = planoOnboarding.map((s) => ({ ...s, tipo: s.semana === 12 ? 'avaliacao' : 'conteudo' }));
     expect(calcularParticipacao(planoSemMapeamento, [linhaDoMapeamento]).semanasComEntrega).toBe(0);
+    expect(calcularParticipacao(planoSemMapeamento, [linhaLegadaDoMapeamento]).semanasComEntrega).toBe(0);
   });
 });
 

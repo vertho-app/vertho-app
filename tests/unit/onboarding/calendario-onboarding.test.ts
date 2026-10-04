@@ -76,8 +76,8 @@ const PLANO_ONBOARDING: any[] = [
   ...[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(conteudo),
   { semana: 12, tipo: 'avaliacao', descritor: null, descritores_cobertos: [], status: 'bloqueada' },
 ];
-/** A linha de progresso da semana 1, como o gerador a grava: concluída, tipo `avaliacao` (CHECK da coluna). */
-const MAPEAMENTO_CONCLUIDO = { semana: 1, tipo: 'avaliacao', status: 'concluido', concluido_em: '2026-11-04T18:00:00Z' };
+/** A linha de progresso da semana 1, como o gerador a grava desde a mig 275: concluída, tipo `mapeamento`. */
+const MAPEAMENTO_CONCLUIDO = { semana: 1, tipo: 'mapeamento', status: 'concluido', concluido_em: '2026-11-04T18:00:00Z' };
 const concluida = (semana: number) => ({ semana, tipo: 'conteudo', status: 'concluido' });
 const MON_16_NOV = new Date('2026-11-16T12:00:00Z');
 

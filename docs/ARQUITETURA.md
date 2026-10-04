@@ -1964,6 +1964,8 @@ Z-API: WhatsApp gateway
 
 > Trilhas já persistidas (single-comp) **não são regeradas** — o plano salvo é servido como está; só nova geração usa DUO. Detalhe do DUO em **17.11**.
 
+> **A linha de progresso da semana 1 do Onboarding grava `tipo = 'mapeamento'`** (mig 275, 04/10/2026). Antes a CHECK `temporada_semana_progresso_tipo_check` só aceitava `conteudo`, `aplicacao` e `avaliacao`, e a linha gravava `avaliacao`, que também é o tipo da avaliação final. Quem decide o tipo de uma semana é o `temporada_plano`; os leitores que olham a coluna (evolução do engajamento, roll-up, evidências do fechamento, acumulada) usam lista fechada de `conteudo` e `aplicacao`, então `mapeamento` não é conteúdo, evidência nem avaliação final, e conta como semana concluída no "x de N" pelo `status`. Linhas gravadas como `avaliacao` antes da 275 seguem válidas e leem igual (a regeração da trilha as reescreve). Aplicar a 275 ANTES do deploy do código que grava `mapeamento`. Guard: `tests/unit/onboarding/progresso-tipo-mapeamento.test.ts` (a CHECK vigente, lida das migrations, tem de cobrir todo tipo de slot do plano).
+
 ### 17.2 Arquivos-chave
 
 ```

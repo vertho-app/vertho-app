@@ -4354,7 +4354,8 @@
     "types": {
       "conteudo": "Contenido",
       "aplicacao": "Aplicación",
-      "avaliacao": "Evaluación"
+      "avaliacao": "Evaluación",
+      "mapeamento": "Mapeo"
     },
     "loading": "Cargando...",
     "empty": {

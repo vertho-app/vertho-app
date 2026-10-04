@@ -266,6 +266,9 @@ export function buildEngagementEvolutionDashboard(input: {
     }
     // Semana de APLICAÇÃO concluída também é evidência (relato da missão) — sem
     // ela as semanas 4/8/12 zeravam ativação/consumo/evidência na página B.
+    // Lista fechada: a linha `mapeamento` (semana 1 do Onboarding, concluída ao
+    // nascer) não é conteúdo consumido nem evidência da pessoa, e `avaliacao` é a
+    // avaliação final.
     if ((progress.tipo === 'conteudo' || progress.tipo === 'aplicacao') && progress.status === input.completedStatus) {
       state.activated = true;
       state.consumed = true;

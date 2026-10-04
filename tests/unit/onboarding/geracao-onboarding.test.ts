@@ -256,12 +256,21 @@ describe('Onboarding de 12 semanas: a semana do Mapeamento nasce concluída', ()
     });
   });
 
-  it('a linha dela grava o tipo `avaliacao`: o CHECK da coluna não aceita `mapeamento`', async () => {
+  it('a linha dela grava o tipo `mapeamento` (a CHECK da coluna o aceita desde a mig 275), igual ao do plano', async () => {
     await gerarTemporadaCoreHeadless(sbRaw(), { colaboradorId: 'colab-1' });
-    expect(linhaDaSemana(1)?.tipo).toBe('avaliacao');
-    // O tipo próprio vive no PLANO.
+    expect(linhaDaSemana(1)?.tipo).toBe('mapeamento');
     const plano = upsertTrilha().temporada_plano;
     expect(plano[0].tipo).toBe('mapeamento');
+  });
+
+  it('em TODAS as semanas a linha espelha o tipo do slot do plano (a avaliação final segue `avaliacao`, o resto `conteudo`)', async () => {
+    await gerarTemporadaCoreHeadless(sbRaw(), { colaboradorId: 'colab-1' });
+    const plano = upsertTrilha().temporada_plano;
+    expect(plano).toHaveLength(12);
+    for (const slot of plano) expect(linhaDaSemana(slot.semana)?.tipo, `semana ${slot.semana}`).toBe(slot.tipo);
+    expect(plano.map((s: any) => s.tipo)).toEqual(
+      ['mapeamento', ...Array(10).fill('conteudo'), 'avaliacao'],
+    );
   });
 
   it('a semana 2 nasce em andamento (libera sozinha, como se a 1 tivesse acabado de concluir) e as outras, pendentes', async () => {

@@ -12,7 +12,6 @@ import { parseProgramaCustom, derivarConfigCustom, parseConfigSnapshot, parseSeq
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import type { AIConfig } from '@/actions/ai-client';
 import { PROGRESSO, TRILHA } from '@/lib/status';
-import { tipoDaLinhaDeProgresso } from '@/lib/season-engine/progresso-semana';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { travaRegeracao } from '@/lib/season-engine/trava-regeracao';
 
@@ -1140,9 +1139,12 @@ export async function persistirTrilha(tdb: any, args: {
       trilha_id: trilhaId,
       colaborador_id: colaboradorId,
       semana: sem.semana,
-      // A coluna só aceita conteudo/aplicacao/avaliacao (CHECK do baseline): o
-      // tipo próprio do plano ('mapeamento') vive no `temporada_plano`.
-      tipo: tipoDaLinhaDeProgresso(sem.tipo),
+      // A linha espelha o tipo do slot do plano, inclusive 'mapeamento' (a semana 1
+      // do Onboarding). Até a mig 275 a CHECK da coluna só aceitava
+      // conteudo/aplicacao/avaliacao e a linha do mapeamento gravava 'avaliacao',
+      // que é também o tipo da avaliação FINAL. Aplicar a 275 ANTES do deploy deste
+      // código: sem ela o upsert abaixo falha alto (`progresso (gravação)`).
+      tipo: sem.tipo,
     };
     if (!anterior && nascemConcluidas.has(Number(sem.semana))) {
       // Linha NOVA que nasce concluída: com as datas, num upsert à parte (o

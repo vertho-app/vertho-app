@@ -266,6 +266,9 @@ export async function rollUpEngajamento(
       && t.trilha_id === trilhaAtual?.id
       && Number(t.semana) === semanaDosSinais
     ));
+    // Lista fechada de propósito: a linha `mapeamento` (semana 1 do Onboarding, que
+    // nasce concluída) não é conteúdo nem tem reflexão a classificar, e `avaliacao`
+    // é a avaliação final. Tipo novo não entra aqui sem ser decidido.
     const evidenciasDaEtapa = progressoDaEtapa.filter((p) => (
       (p.tipo === 'conteudo' || p.tipo === 'aplicacao') && p.status === PROGRESSO.CONCLUIDO
     ));
