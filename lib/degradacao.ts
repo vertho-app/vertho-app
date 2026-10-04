@@ -484,6 +484,17 @@ export const DEGRADACAO = {
    * pesa no limite). `aviso`: a resposta chegou. Chave: `<colaborador>:<trilha>:<semana>`.
    */
   TIRA_DUVIDAS_NAO_GRAVADO: 'tira-duvidas-nao-gravado',
+  /**
+   * chat (conversa da semana): a conversa concluiu, mas a extração estruturada do
+   * fim dela falhou (R-92, 04/10/2026). A semana segue concluída e a pessoa
+   * continua, porém sem descritores lidos, insight nem compromisso: justamente o que
+   * o fechamento e o relatório leem. Fica a linha, e a extração é refeita uma vez em
+   * segundo plano (`reextrairEmSegundoPlano`). `detalhe.estado`: `reextraindo` (`aviso`,
+   * a 1ª falha), `desistiu` (`critico`: a 2ª também falhou e alguém precisa refazer
+   * a leitura do transcript, que está inteiro) e, quando a 2ª dá certo, a linha é
+   * fechada com `resolverDegradacao`. Chave: `<trilha>:<semana>`.
+   */
+  EXTRACAO_CONVERSA_FALHOU: 'extracao-conversa-falhou',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
@@ -504,6 +515,15 @@ export interface DegradacaoInput {
 const TABELA = 'degradacao_log';
 
 /**
+ * O client de service-role da telemetria, num lugar só: `registrarDegradacao` e
+ * `resolverDegradacao` escrevem na mesma tabela e o guard de service-role conta uma
+ * chamada de `createSupabaseAdmin()` por arquivo.
+ */
+function clienteDaTelemetria(sb?: any) {
+  return sb ?? createSupabaseAdmin();
+}
+
+/**
  * Registra (ou incrementa) uma degradação. NUNCA lança.
  *
  * `sb` é opcional: o default é o client admin (service_role — a tabela tem RLS
@@ -514,7 +534,7 @@ const TABELA = 'degradacao_log';
  */
 export async function registrarDegradacao(input: DegradacaoInput, sb?: any): Promise<void> {
   try {
-    const client = sb ?? createSupabaseAdmin();
+    const client = clienteDaTelemetria(sb);
     const chave = input.chave ?? '';
     const { data: existente } = await client.from(TABELA)
       .select('ocorrencias, ultima_em')
@@ -542,5 +562,32 @@ export async function registrarDegradacao(input: DegradacaoInput, sb?: any): Pro
     if (error) console.error('[degradacao] upsert falhou (fallback preservado):', error.message);
   } catch (err: any) {
     console.error('[degradacao] registro falhou (fallback preservado):', err?.message || err);
+  }
+}
+
+/**
+ * Marca como RESOLVIDA a linha de uma degradação que o próprio código consertou
+ * depois (a extração refeita em segundo plano, por exemplo). Sem isto a linha ficava
+ * aberta para sempre e a R10 do health a contava como defeito atual. NUNCA lança.
+ *
+ * Só atinge linhas ainda abertas (`resolved_at is null`): uma resolução manual do
+ * admin, com a evidência dele, não é sobrescrita.
+ */
+export async function resolverDegradacao(
+  chave: { fluxo: DegradacaoFluxo; tipo: DegradacaoTipo; chave: string },
+  resolucao: string,
+  sb?: any,
+): Promise<void> {
+  try {
+    const client = clienteDaTelemetria(sb);
+    const { error } = await client.from(TABELA)
+      .update({ resolved_at: new Date().toISOString(), resolution: resolucao })
+      .eq('fluxo', chave.fluxo)
+      .eq('tipo', chave.tipo)
+      .eq('chave', chave.chave)
+      .is('resolved_at', null);
+    if (error) console.error('[degradacao] resolução falhou:', error.message);
+  } catch (err: any) {
+    console.error('[degradacao] resolução falhou:', err?.message || err);
   }
 }

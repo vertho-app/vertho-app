@@ -32,6 +32,7 @@ import { regionOpts } from '@/lib/trigger-region';
 import type { acumuladaPilotoTask } from '@/trigger/acumulada-piloto';
 import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
 import { comContexto } from '@/lib/execucao-contexto';
+import { registrarExtracaoFalhou, reextrairEmSegundoPlano, type ContextoExtracao } from '@/lib/season-engine/extracao-pendente';
 
 // Conclusão de semana pode disparar a acumulada (após IA) e o chat usa callAI —
 // dá margem além dos 60s default. Fluid até 300s.
@@ -468,20 +469,33 @@ export async function POST(request) {
 
     // Persiste
     const novoSlotData = { ...dados, transcript_completo: historico };
-    if (finished) {
-      // Extração estruturada via IA (substitui regex).
+    // O que a falha da extração precisa para ser registrada e refeita (R-92).
+    const ctxExtracao: ContextoExtracao = {
+      sb, empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, trilhaId, semana: Number(semana), slotKey: slot, tipoConversa,
+    };
+    let extracaoFalhou = false;
+    // A extração é uma função só para a 1ª tentativa e para a segunda (em segundo plano):
+    // as duas veem o MESMO transcript, mascarado, e devolvem os campos já desmascarados.
+    const extrair = async () => {
       // 🔴 A extração vê a conversa INTEIRA, inclusive a última fala da IA já
       // desmascarada acima: sem mascarar de novo aqui, o nome e o que a pessoa
       // digitou (e-mail, telefone) iam à IA no último passo da conversa (R-05).
       // O que volta é texto que a pessoa e o RH leem: desmascara antes de gravar.
+      const historicoParaExtracao = historico.map((m) => ({ ...m, content: maskTextPII(m.content, piiMap) }));
+      const extracao = await extrairDadosEstruturados(historicoParaExtracao, tipoConversa, semanaPlan, {
+        empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+      });
+      return unmaskDeepPII(extracao, piiMap);
+    };
+    if (finished) {
+      // Extração estruturada via IA (substitui regex).
       try {
-        const historicoParaExtracao = historico.map((m) => ({ ...m, content: maskTextPII(m.content, piiMap) }));
-        const extracao = await extrairDadosEstruturados(historicoParaExtracao, tipoConversa, semanaPlan, {
-          empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
-        });
-        Object.assign(novoSlotData, unmaskDeepPII(extracao, piiMap));
+        Object.assign(novoSlotData, await extrair());
       } catch (err) {
-        console.error('[VERTHO] extração JSON falhou:', err.message);
+        // A semana conclui mesmo assim (a pessoa terminou e a IA já respondeu), mas a
+        // falha não pode ficar num console.error: registra e a refaz depois da resposta.
+        extracaoFalhou = true;
+        await registrarExtracaoFalhou(ctxExtracao, err);
       }
     }
 
@@ -503,6 +517,9 @@ export async function POST(request) {
     // o catch do handler transforma em 500 — que é o que impede a UI de dar a
     // conversa por encerrada. Mesmo helper da rota gêmea (evaluation).
     await gravarProgressoSemana(sb, upsertPayload, prog?.id);
+
+    // Segunda chance da extração, depois da resposta: o slot já tem o transcript gravado.
+    if (extracaoFalhou) after(() => reextrairEmSegundoPlano(ctxExtracao, extrair));
 
     // Se concluiu, libera próxima semana (status pendente → em_andamento na UI fica visível)
     if (finished && Number(semana) < programaConfig.semanas) {

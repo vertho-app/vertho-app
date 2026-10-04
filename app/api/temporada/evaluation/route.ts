@@ -21,6 +21,7 @@ import { escolherCenarioB } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { PROGRESSO } from '@/lib/status';
 import { comContexto } from '@/lib/execucao-contexto';
+import { registrarExtracaoFalhou, reextrairEmSegundoPlano, type ContextoExtracao } from '@/lib/season-engine/extracao-pendente';
 
 // O turno final da arguição (turno + extração) e a pontuação em `after()`
 // (scorer + check 2ª IA + Evolution Report) dividem esta função. Fluid até 300s.
@@ -286,21 +287,33 @@ export async function POST(request) {
       respostaIA = unmaskPII(respostaIA, piiMapQ);
       historico.push({ role: 'assistant', content: respostaIA, timestamp: new Date().toISOString(), turn: proximoTurnIA });
       const novoSlot = { ...dados, transcript_completo: historico };
-      if (finished) {
+      // Mesma disciplina da gêmea em `reflection` (R-92): a extração é uma função só para
+      // a 1ª tentativa e para a segunda (em segundo plano), e a falha é registrada.
+      const ctxExtracao: ContextoExtracao = {
+        sb, empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, trilhaId, semana: Number(semana), slotKey: slotKey as 'reflexao' | 'feedback', tipoConversa: 'sem13_qualitativa',
+      };
+      let extracaoFalhou = false;
+      const extrair = async () => {
         // Extrai dados estruturados. Mesmo cuidado da gêmea em `reflection`: a
         // conversa vai mascarada (inclusive a última fala da IA, já desmascarada
         // acima) e o que volta é desmascarado antes de gravar (R-05).
+        const transcript = historico
+          .map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${maskTextPII(m.content, piiMapQ)}`)
+          .join('\n\n');
+        const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores, transcript });
+        const r = await callAI(s2, u2, {}, 8000, {
+          taskKey: 'temporada_extracao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+        });
+        const parsed = validateEvolutionExtract(parseJsonIA(r), descritores);
+        return unmaskDeepPII(parsed, piiMapQ);
+      };
+      if (finished) {
         try {
-          const transcript = historico
-            .map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${maskTextPII(m.content, piiMapQ)}`)
-            .join('\n\n');
-          const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores, transcript });
-          const r = await callAI(s2, u2, {}, 8000, {
-            taskKey: 'temporada_extracao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
-          });
-          const parsed = validateEvolutionExtract(parseJsonIA(r), descritores);
-          Object.assign(novoSlot, unmaskDeepPII(parsed, piiMapQ));
-        } catch (e) { console.error('[VERTHO] extract sem13:', e.message); }
+          Object.assign(novoSlot, await extrair());
+        } catch (e) {
+          extracaoFalhou = true;
+          await registrarExtracaoFalhou(ctxExtracao, e);
+        }
       }
 
       await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished });
@@ -312,9 +325,12 @@ export async function POST(request) {
         // after(): fire-and-forget solto MORRE quando a lambda congela após
         // o response — after() mantém a função viva até o trabalho terminar.
         after(async () => {
+          // A leitura desta conversa alimenta a acumulada: a extração que falhou é refeita
+          // ANTES dela, na mesma callback, para a ordem não depender do agendador.
+          if (extracaoFalhou) await reextrairEmSegundoPlano(ctxExtracao, extrair);
           try {
             // Núcleo headless (sem endpoint): o usuário da sessão é o COLAB
-            // (não admin) — a action gatada morreria em FORBIDDEN silencioso.
+            // (não admin), a action gatada morreria em FORBIDDEN silencioso.
             const { gerarAvaliacaoAcumuladaCore } = await import('@/lib/season-engine/avaliacao-acumulada-core');
             await gerarAvaliacaoAcumuladaCore(trilhaId, { empresaId: auth.empresaId });
           } catch (e) {
