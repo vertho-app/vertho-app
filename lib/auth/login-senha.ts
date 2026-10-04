@@ -22,8 +22,13 @@
  *
  * Esconder não é controle de acesso: o `signInWithPassword` segue aberto na API
  * do Auth para quem tem senha. É só não oferecer na tela um caminho que o
- * cliente não tem como usar. Criar definição e reset de senha é decisão de
- * produto do dono.
+ * cliente não tem como usar.
+ *
+ * 🔑 Decisão do dono em 04/10/2026 (senha para clientes, opção A): o cliente
+ * NÃO tem senha, entra por link de uso único. Senha existe só em demonstração
+ * e para a equipe. Não criar definição nem reset de senha para cliente. O
+ * guard `tests/unit/security/senha-fixa-guard.test.ts` falha se um escritor de
+ * senha novo aparecer fora dos três lugares que têm motivo.
  */
 
 /** O destino é o painel da plataforma (`/admin`, `/admin-v2`)? */
