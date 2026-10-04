@@ -10,6 +10,8 @@
 >
 > **Saída ao cliente sem travessão (R-57, 04/10/2026):** `lib/ai-saida-sem-travessao.ts` guarda o sanitizador e o registro `SAIDAS_AO_CLIENTE` (`taskKey` para texto ou json). Para as tarefas do registro o wrapper acrescenta a regra de pontuação ao system e passa a resposta pelo sanitizador (inclusive no fallback de provedor); o lote não passa por aqui. Ficam FORA, de propósito, as tarefas que ecoam nome ou citação e depois comparam com a fonte (`sem14_scorer`, IA4, arguição de avaliação, simuladores); o texto do scorer que a pessoa lê é limpo na LEITURA (`resumoSemTravessao`). Tarefa nova que escreve para o cliente entra no registro, e exemplo de prompt com o caractere é barrado por `tests/unit/prompts-exemplos-sem-travessao.test.ts`.
 >
+> **Idioma da saída (Onda E, 04/10/2026):** a tarefa cujo texto uma pessoa lê passa `locale` explícito ao `callAI`/`callAIChat` (e à request do lote, `BatchReq.locale`): `colaboradores.locale`, senão `empresas.default_locale`, senão pt-BR (`idiomaDaPessoa`, `lib/pdf-locale.ts`). Sem ele o wrapper lê o cookie de quem disparou e, numa task, cai em pt-BR. O texto fixo do prompt continua em português; o que muda é a instrução de idioma de `lib/ai-language.ts` (fora do pt-BR ela acrescenta "não traduza os nomes dos dados", porque o código confere competência e descritor por nome). Quais tarefas passam, quais ficam de fora e por quê: apêndice "Idioma da saída por tarefa", no fim deste catálogo.
+>
 > **Modelos por tarefa (estado em 25/08):** o fallback global continua `claude-sonnet-4-6`; `ia4_avaliacao`, `pdi_individual`, `relatorio_gestor` e `relatorio_rh` estão pinned em **Claude Sonnet 5**; `conteudo_video` usa **Claude Opus 5**; e os auditores `ia3_check`, `ia4_check`, `cenarios_b_check`, `acumulada_check`, `sem14_check`, `pulse_audit`, `modulo_base_auditor` e `pdi_check` estão pinned em **GPT 5.6 Terra**. Override explícito por task continua prevalecendo.
 >
 > **Regeneração nunca destrói a campeã (23/07):** nos cenários A e B, "regenerar com feedback" gera a candidata em memória, audita e **só aplica se a nota for ≥ a atual** (`travaRegeneracao`). O prompt de regeneração tem regras anti-inflação — o gerador tende a responder crítica **adicionando** conteúdo.
@@ -2500,3 +2502,36 @@ Por categoria (esta tabela é a fonte da contagem):
 - Check Cenário B **não** é mais idêntico ao A: tem 8 dimensões próprias de complementaridade/triangulação.
 - `actions/fase5/relatorios-envios.ts::checkCenarios` continua um check geral simplificado; produção individual usa os cores de IA3/Cenário B.
 - `AI_TASKS` em `lib/ai-tasks.ts` é o catálogo da tela de configuração de modelos, **não** um inventário completo dos prompts. Há inclusive uma divergência de chave: a lista expõe `ia4_avaliar`, enquanto os call sites e `DEFAULT_TASK_MODELS` usam `ia4_avaliacao`; por isso esta revisão adotou as chamadas reais como fonte de verdade.
+
+---
+
+## Apêndice: idioma da saída por tarefa (Onda E, 04/10/2026)
+
+Inventário de todo `callAI(` e `callAIChat(` de `actions`, `app`, `lib` e `trigger` (134 call-sites; mais 34 em `scripts/`, ferramentas de medição que não são o produto), com quem lê a saída e o idioma. Regra: a tarefa cujo texto uma PESSOA lê no produto passa `locale` explícito; o valor é `colaboradores.locale`, senão `empresas.default_locale`, senão pt-BR (`idiomaDaPessoa` de `lib/pdf-locale.ts`; relatório de RH e relatórios da empresa seguem o idioma da empresa). O guard `tests/unit/integrations/ai-idioma-guard.test.ts` usa o registro `SAIDAS_AO_CLIENTE` como denominador: tarefa do registro sem `locale` quebra o CI, salvo exceção declarada com motivo.
+
+Por que o JSON interno fica de fora: o código confere por NOME o que o modelo devolve (o PDI casa a competência pelo nome em `alinhar`, o blueprint aplica o nível real pelo nome, o scorer do fechamento e a IA4 casam o descritor pelo nome), então pedir "traduza" convida o modelo a traduzir o nome junto com a prosa. Por isso `lib/ai-language.ts` acrescenta, só fora do pt-BR, "não traduza os nomes dos dados". No pt-BR o prompt segue byte a byte como era.
+
+| Situação | Tarefas (`taskKey`) e onde | Quem lê | Idioma |
+|---|---|---|---|
+| Passa o idioma (Onda E) | `pdi_individual`: `lib/relatorios/individual-core.ts` (síncrono), `trigger/gerar-relatorios-batch.ts` (request do lote e fallback) | a pessoa | pessoa > empresa > pt-BR |
+| Passa o idioma (Onda E) | `blueprint_gerar`: `lib/blueprint/core.ts`, `trigger/gerar-blueprint-batch.ts` | a pessoa (alimenta o PDI) | pessoa > empresa > pt-BR |
+| Passa o idioma (Onda E) | `relatorio_rh`: `lib/relatorios/gestor-rh-core.ts` | o RH da empresa | empresa > pt-BR |
+| Passa o idioma (Onda E) | `conversa_fase3`: `app/api/chat/route.ts` | a pessoa (mapeamento) | pessoa > empresa > pt-BR |
+| Passa o idioma (Onda E) | `evidencias_socratic`, `evidencias_analytic`, `missao_feedback`: `app/api/temporada/reflection/route.ts` (turno e fechamento forçado) | a pessoa | pessoa > empresa > pt-BR |
+| Passa o idioma (Onda E) | `tira_duvidas`: `app/api/temporada/tira-duvidas/route.ts` | a pessoa | pessoa > empresa > pt-BR |
+| Passa o idioma (Onda E) | `relatorio_comportamental`: `lib/relatorio-comportamental/relatorio-core.ts` (cache de 30 dias não carrega idioma) | a pessoa | pessoa > empresa > pt-BR |
+| Passa o idioma (Onda E) | insights executivos (sem `taskKey`): `app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts` | a pessoa | pessoa > empresa > pt-BR |
+| Passa o idioma (Onda E) | missão e cenário da semana de aplicação (sem `taskKey`): `lib/season-engine/build-season.ts` via `colaboradorId` dos 4 caminhos de `trilha-core.ts`; `actions/temporadas.ts` (regerar semana: desafio, missão, cenário) | a pessoa dona da trilha | pessoa > empresa > pt-BR |
+| Já passava | `beto` (R-68), `relatorio_gestor` (R-67) | a pessoa, o gestor | tela/cadastro, gestor > empresa |
+| Fixo pt-BR, de propósito | `devolutiva_comportamental`: `lib/relatorio-comportamental/devolutiva-audio.ts` | a pessoa, em VOZ | a voz é pt-BR (`languageCode: 'pt-BR'` em `lib/gemini-tts.ts`, direção em `lib/tts/elenco.ts`) |
+| Fixo pt-BR, já era | `ipi`; `recepcao_*`; simuladores de liderança e de vendas (`TAREFAS[etapa]`) | equipe Vertho; quem treina | produto em pt-BR |
+| Pendente no lote e-cenb | `sem13_qualitativa` (rota de avaliação), `arguicao_turno` (`lib/season-engine/arguicao.ts`), `sem14_redacao` (`lib/season-engine/fechamento-scorer.ts`) | a pessoa (fechamento) | quando a rota passar o idioma |
+| Fora: nota | `ia4_avaliacao` (+ reavaliação), `chat_fase3_eval`, `acumulada_primaria`, `sem14_scorer`, `arguicao_avaliacao`, `temporada_extracao`, `ia1_top10` | o código; a pessoa lê o `feedback` da IA4 na tela de resultado | cookie de quem disparou, ou pt-BR em lote |
+| Fora: auditoria | `ia4_check`, `chat_fase3_audit`, `pdi_check`, `blueprint_audit`, `acumulada_check`, `sem14_check`, `cenarios_b_check`, `cenarios_lote_check`, `ia3_check`, `modulo_base_auditor` | admin | n/a |
+| Fora: conteúdo reaproveitado | `conteudo_*` (vídeo, podcast, texto, case, expansão, personalização, tags, layout), `kit_nucleo`, `kit_desafio`, `kit_desafio_semana`, `ia2_gabarito`, `ia3_cenarios`, `cenarios_b`, `escola_brief`, `modulo_base_autor`, `video_avatar_grupo`, `conteudo_video` | quem estuda ou responde (muitas pessoas) | decisão de produto à parte (o `locale` é do módulo-base) |
+| Fora: sem leitor no produto | Fase 5 do admin (`evolucao_fusao`, `evolucao_plenaria`, relatório RH manual, plenária formal, dossiê do gestor: gravados em `relatorios` sem tela nem PDF que os leia), `reavaliacao_chat` (sem chamador de tela), `actions/evolucao-granular.ts` (sem chamador), Modo Cena (`cena/core`, só script), `simulador-core`, `simulador-conversas`, `chat_simulador` | ninguém / admin | n/a |
+| Fora: ferramenta comercial ou de plataforma | Portal do Representante (`actions/sales/ai-assistant.ts`), Copiloto (`copiloto_*`), Radar interno e proposta, `fit-v2` (admin), DNA e Adequação (PDF de plataforma com texto fixo em pt-BR, não localizado: a narrativa em outro idioma geraria PDF misto) | equipe Vertho, representante, RH em PDF | pt-BR |
+| Fora: bloco off-line ou fora do escopo | Pulso (`pulse_*`), Seleção, RadarBett, Radar Empresas, `site-palette` (site) | ninguém | n/a |
+| Fora: WhatsApp | `suporte_whatsapp` (`lib/whatsapp/suporte-auto.ts`): a resposta passa por `verificarResposta` (linguagem imprópria e links, em português) e os textos de contenção são fixos em pt-BR (CVV 188) | a pessoa | pt-BR até localizar a conduta |
+
+Lote: `BatchReq.locale` (por request) vence `opts.locale` (do lote), que vence o padrão. O coletor (`createAIBatchCollector`) honra `options.locale` do call-site nos dois caminhos. O fallback síncrono das tasks de PDI e de blueprint leva o mesmo idioma da request, porque numa task o `callAI` não tem cookie.
