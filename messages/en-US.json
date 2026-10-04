@@ -749,11 +749,8 @@
     "preparation": "Preparation",
     "cards": {
       "pill": "Learning pill · Week {week}",
-      "dailyInsight": "Daily insight",
-      "fallbackPillTitle": "New leadership techniques",
       "pillDone": "Completed ✓ — See your progress",
       "pillOpen": "Click to access the week's content",
-      "dailyInsightDescription": "A small step forward can greatly increase your impact.",
       "mentor": "AI Mentor",
       "mentorTitle": "Ask questions about your activity",
       "mentorDescription": "Beto can explain concepts, suggest examples and help you move forward."

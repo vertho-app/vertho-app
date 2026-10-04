@@ -749,11 +749,8 @@
     "preparation": "Preparação",
     "cards": {
       "pill": "Pílula · Semana {week}",
-      "dailyInsight": "Insight do dia",
-      "fallbackPillTitle": "Novas técnicas de liderança",
       "pillDone": "Concluída ✓ — Veja seu progresso",
       "pillOpen": "Clique para acessar o conteúdo da semana",
-      "dailyInsightDescription": "Um pequeno avanço pode aumentar muito seu impacto.",
       "mentor": "Mentor IA",
       "mentorTitle": "Tire dúvidas sobre sua atividade",
       "mentorDescription": "O Beto pode explicar conceitos, sugerir exemplos e ajudar você a avançar."

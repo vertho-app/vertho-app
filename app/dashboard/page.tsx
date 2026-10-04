@@ -539,28 +539,31 @@ export default function DashboardHomePage() {
 
         {/* Secondary cards */}
         <section className="space-y-3">
-          <button onClick={() => router.push('/dashboard/praticar')}
-            className="w-full text-left rounded-[22px] p-4 flex items-start gap-4 transition-all active:scale-[0.99]"
-            style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid color-mix(in oklab, var(--phase-accent) 22%, transparent)` }}>
-              <Zap size={18} style={{ color: 'var(--phase-accent)' }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--phase-accent)' }}>
-                {kpis?.pilula ? t('cards.pill', { week: kpis.pilula.semana }) : t('cards.dailyInsight')}
-              </p>
-              {/* ✅ título da pílula em serif */}
-              <h4 className="mb-1 line-clamp-1" style={{ ...serifStyle, fontSize: 17, color: '#fff' }}>
-                {kpis?.pilula?.titulo || t('cards.fallbackPillTitle')}
-              </h4>
-              <p className="text-sm text-white/55 leading-relaxed line-clamp-2">
-                {kpis?.pilula
-                  ? (kpis.pilula.status === 'concluida' ? t('cards.pillDone') : t('cards.pillOpen'))
-                  : t('cards.dailyInsightDescription')}
-              </p>
-            </div>
-          </button>
+          {/* R-128: sem pílula na semana (trilha sem curso, semana 0) o card não tem o que
+              mostrar. Ele caía num título fixo, "Novas técnicas de liderança", igual para
+              todas as pessoas e sem relação com a trilha de ninguém: some em vez de inventar. */}
+          {kpis?.pilula && (
+            <button onClick={() => router.push('/dashboard/praticar')}
+              className="w-full text-left rounded-[22px] p-4 flex items-start gap-4 transition-all active:scale-[0.99]"
+              style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid color-mix(in oklab, var(--phase-accent) 22%, transparent)` }}>
+                <Zap size={18} style={{ color: 'var(--phase-accent)' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--phase-accent)' }}>
+                  {t('cards.pill', { week: kpis.pilula.semana })}
+                </p>
+                {/* ✅ título da pílula em serif */}
+                <h4 className="mb-1 line-clamp-1" style={{ ...serifStyle, fontSize: 17, color: '#fff' }}>
+                  {kpis.pilula.titulo}
+                </h4>
+                <p className="text-sm text-white/55 leading-relaxed line-clamp-2">
+                  {kpis.pilula.status === 'concluida' ? t('cards.pillDone') : t('cards.pillOpen')}
+                </p>
+              </div>
+            </button>
+          )}
 
           <button onClick={() => {
               const betoBtn = document.querySelector('[data-beto-trigger]') as HTMLButtonElement;
