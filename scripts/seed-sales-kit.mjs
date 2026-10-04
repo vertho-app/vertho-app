@@ -151,7 +151,7 @@ RESET E ACESSO: antes da demo, acme-demo.vertho.ai/admin/demo → "Resetar demo 
 3. FECHAMENTO (sem 7). Colaborador: cenário final, arguição oral (defesa com IA) e reavaliação, com as evidências das seis semanas na leitura. A avaliação final passa por uma segunda IA. Wow: arguição em tempo real, em que a IA sonda e extrai evidência.
 4. RESULTADOS. Colaborador: relatório de evolução pessoal (nível de partida, de chegada e avanço por comportamento) e a jornada da competência seguinte. RH: relatório consolidado e PDF executivo de fim de jornada. Gestor: Relatório do Gestor. Wow: evolução com evidência ("de N2 para N3 em Negociação").
 
-PROGRAMAS: Jornada = 7 semanas, uma competência por vez (6 de conteúdo e a avaliação final). Onboarding = 10 semanas em espiral, até 5 competências. Personalizado = uma Jornada com a duração escolhida (1 a 6 semanas de conteúdo por competência), com ou sem fechamento.`,
+PROGRAMAS: Jornada = 7 semanas, uma competência por vez (6 de conteúdo e a avaliação final). Onboarding = 12 semanas: o mapeamento, 5 competências de 2 semanas cada e o encerramento. Personalizado = uma Jornada com a duração escolhida (1 a 6 semanas de conteúdo por competência), com ou sem fechamento.`,
   },
   {
     title: 'Modelo de proposta comercial',

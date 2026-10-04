@@ -894,7 +894,7 @@
 
 ## Motor de Temporadas (duração configurável)
 
-> **Modos atuais:** a mesma cadeia atende Regular/DUO (14 sem), Onboarding (10), Jornada (7) e Piloto (2 semanas de evidência + fechamento). Duração e marcos vêm do plano/carimbo da trilha (`programa_modo` + `programa_config`), não de literais `14`. Os prompts de fechamento recebem `semanaFinal` e `semanasEvidencia`.
+> **Modos atuais:** a mesma cadeia atende Regular/DUO (14 sem), Onboarding (12), Jornada (7) e Piloto (2 semanas de evidência + fechamento). Duração e marcos vêm do plano/carimbo da trilha (`programa_modo` + `programa_config`), não de literais `14`. Os prompts de fechamento recebem `semanaFinal` e `semanasEvidencia`.
 
 ### 6.1 Prompt Desafio Semanal (conteúdo)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
@@ -1069,7 +1069,7 @@
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/evolution-qualitative.ts::promptEvolutionQualitative` + `promptEvolutionQualitativeExtract`
-- **Callers**: `app/api/temporada/evaluation/route.ts` quando `semana = programaConfig.semanaAcumulada` (13 Regular/DUO, 9 Onboarding e 6 Jornada; Piloto não tem esta conversa) e `lib/season-engine/simulador-core.ts::simularQualitativa`.
+- **Callers**: `app/api/temporada/evaluation/route.ts` quando `semana = programaConfig.semanaAcumulada` (13 Regular/DUO, 11 Onboarding e 6 Jornada; Piloto não tem esta conversa) e `lib/season-engine/simulador-core.ts::simularQualitativa`.
 - **Max tokens**: 4000 (conversa), 8000 (extração)
 - **Max turnos IA**: 12
 - **System prompt** (resumo editorial do prompt real em `evolution-qualitative.ts`):
@@ -1142,7 +1142,7 @@
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/season-engine/prompts/evolution-scenario.ts::promptEvolutionScenarioScore`
-- **Execução**: `lib/season-engine/fechamento-scorer.ts::pontuarFechamento`; callers em `app/api/temporada/evaluation/route.ts` (sem = `semanaCenarioB` da config: 14 regular · 10 onboarding · **3 piloto**) e `app/admin/vertho/auditoria-sem14/actions.ts::regerarScoringComFeedback`.
+- **Execução**: `lib/season-engine/fechamento-scorer.ts::pontuarFechamento`; callers em `app/api/temporada/evaluation/route.ts` (sem = `semanaCenarioB` da config: 14 regular · 12 onboarding · **3 piloto**) e `app/admin/vertho/auditoria-sem14/actions.ts::regerarScoringComFeedback`.
 - **Params de régua temporal** (02/07): `semanaFinal`/`semanasEvidencia` (defaults 14/13 = regular byte-idêntico) + `notaPrograma` (piloto injeta contexto: "demonstra o método, NÃO mede evolução; janela curta não é falha do colaborador")
 - **Pós-processamento piloto-only**: após `validateEvolutionScenarioScore`, o branch piloto aplica `aplicarTravaPiloto` (lib/season-engine/piloto-trava.ts): `nota_pos = max(bruto, baseline)`, `nota_pos_bruto`+`piso_aplicado` preservados, `spec_version='piloto-v1'` no snapshot — o prompt e o output dos demais modos ficam intocados
 - **Max tokens**: 11000 (era 10000 até 17/09/2026; `SCORER_MAX_TOKENS`. `Medido:` 14 execuções ok em

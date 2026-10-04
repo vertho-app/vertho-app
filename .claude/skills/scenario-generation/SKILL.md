@@ -26,7 +26,7 @@ Um cenário é uma situação **realista do dia-a-dia do cargo** que força uma 
 
 - Os cenários de **conteúdo/aplicação** saem por (cargo × competência × descritor) durante a trilha, com complexidade crescente.
 - O **fechamento** usa um **Cenário B** (`banco_cenarios.tipo_cenario = 'cenario_b'`) que **integra os descritores** da competência — é a base da avaliação final por triangulação.
-- Modos da trilha: **Regular DUO (14 sem)**, **Onboarding (10)**, **Piloto (2 + fechamento)**. O fechamento é na **semana 14** (regular) / **espelho** no piloto — **não existe "semana 15-16"**.
+- Modos da trilha: **Regular DUO (14 sem)**, **Onboarding (12: mapeamento + 5 competências x 2 semanas + encerramento)**, **Piloto (2 + fechamento)**. O fechamento é na **semana 14** (regular) / **espelho** no piloto — **não existe "semana 15-16"**.
 
 ### Cenário B (fechamento)
 Testa os MESMOS descritores com **contexto diferente** (o colaborador não reconhece, mas é avaliado nos mesmos critérios). Mesma complexidade do original; trocar setting/personagens/fato gerador, manter competência + descritores.

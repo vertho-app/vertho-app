@@ -64,7 +64,7 @@ export type EquipeRow = {
   cargo: string | null;
   status: 'em_andamento' | 'pausada' | 'concluida' | 'sem_trilha' | 'arquivada';
   competenciaFoco: string | null;
-  semana: number | null; // 1..N do PROGRAMA dela (jornada 7, onboarding 10…) ou null
+  semana: number | null; // 1..N do PROGRAMA dela (jornada 7, onboarding 12…) ou null
   /** Duração do programa DESTA pessoa — o teto da barra de progresso (D1). */
   totalSemanas: number | null;
   /**
@@ -373,7 +373,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     if (!t.data_inicio) continue;
     const inicio = new Date(t.data_inicio).getTime();
     const dias = Math.max(1, Math.floor((Date.now() - inicio) / (24 * 3600 * 1000)));
-    // D1: o teto é o do PROGRAMA da pessoa (jornada 7, onboarding 10, piloto 3),
+    // D1: o teto é o do PROGRAMA da pessoa (jornada 7, onboarding 12, piloto 3),
     // não o 14 do formato regular.
     const semana = Math.min(duracaoDaTrilha(t), Math.ceil(dias / 7));
     porSemana.set(semana, (porSemana.get(semana) || 0) + 1);

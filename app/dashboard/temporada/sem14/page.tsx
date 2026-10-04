@@ -97,7 +97,7 @@ function PainelFechamento({ estado, onGerar, onVerResultado, t }) {
 }
 
 /**
- * Avaliação Final da Temporada (semana do cenário B — regular=14, onboarding=10).
+ * Avaliação Final da Temporada (semana do cenário B: regular=14, jornada=7, onboarding=12).
  * Wizard com cenário + 4 perguntas + botões anterior/próxima + submit final.
  *
  * O número da semana é derivado do `temporada_plano` (última semana com
@@ -169,7 +169,7 @@ export default function Sem14Page() {
       const slotCB = plano.find(s => s?.semana === semCB);
       setCenarioBEspelhado(slotCB?.calendario_semana != null && slotCB.calendario_semana !== slotCB.semana);
 
-      // Cenário B fora da sem 14 (piloto=3, onboarding=10): rebusca com o
+      // Cenário B fora da sem 14 (piloto=3, jornada=7, onboarding=12): rebusca com o
       // transcript da semana certa — senão feedback vem vazio e o wizard
       // perde cenário/respostas parciais já persistidos.
       if (semCB !== 14) {

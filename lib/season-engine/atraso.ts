@@ -10,7 +10,7 @@
  * As duas metades vêm de onde já existiam:
  *  · a da PESSOA é a mesma de `lib/home/loaders.ts` — semana atual é a próxima
  *    depois das concluídas, limitada pelo total do plano DELA (jornada 7,
- *    onboarding 10, piloto 3 — nunca 14 cravado);
+ *    onboarding 12, piloto 3, nunca 14 cravado);
  *  · a do CALENDÁRIO é `semanaLiberadaEm`, que já decide o que a pessoa pode
  *    abrir (06:00 UTC do dia de início + 7 dias por semana).
  *

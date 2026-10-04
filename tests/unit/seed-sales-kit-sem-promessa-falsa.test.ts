@@ -83,7 +83,7 @@ describe('seed do kit comercial: sem promessa que o produto não cumpre', () => 
     expect(mapa.content).toMatch(/TRILHA \(sem 1 a 6\)/);
     expect(mapa.content).toMatch(/FECHAMENTO \(sem 7\)/);
     expect(mapa.content).toMatch(/Jornada = 7 semanas/);
-    expect(mapa.content).toMatch(/Onboarding = 10 semanas/);
+    expect(mapa.content).toMatch(/Onboarding = 12 semanas/);
     expect(mapa.content).toMatch(/Personalizado = /);
   });
 });

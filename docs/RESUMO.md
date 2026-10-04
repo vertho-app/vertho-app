@@ -172,7 +172,7 @@ rastreavel (mig 169). ACME Demo: reset canonico unico.
   Modos: **Jornada de 7 semanas** (o formato em uso e o que o orçamento precifica: 1 competência,
   6 semanas de conteúdo e fechamento na 7ª; DUO = 2 jornadas em sequência, a 2ª montada sozinha) ·
   **Regular DUO** (14 sem; ainda é o default do código quando a empresa não escolhe modo) ·
-  **Onboarding** (9 sem; configurado, sem turma em produção) · **Piloto** (2 sem) ·
+  **Onboarding** (12 sem; configurado, sem turma em produção) · **Piloto** (2 sem) ·
   **Personalizado** (1-4 sem, configuravel). Modo por empresa E por colaborador, com carimbo na trilha.
 - **Simuladores (módulos contratados)**: de vendas (método PACE), de atendimento (4 segmentos) e de
   liderança (5 encontros), com devolutiva por competência e evidência literal; e o **Mapeamento de
