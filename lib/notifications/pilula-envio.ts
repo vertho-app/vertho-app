@@ -11,8 +11,10 @@
  * Canais: WhatsApp (texto) + e-mail (SES/Resend). Ambos com o mesmo tema/formato.
  */
 
+import type { AppLocale } from '@/i18n/routing';
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import { emailConfigurationError, emailProviderName, sendEmail } from '@/lib/email-provider';
+import { copiaEmail, preencher, primeiroNomeEmail } from '@/lib/i18n-email-templates';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { rodapePrivacidadeHtml } from '@/lib/notifications/rodape-privacidade';
 import { APLICACAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
@@ -34,23 +36,27 @@ export function labelFormato(formato?: string | null): string {
 }
 
 // O e-mail não leva emoji (R-123): o nome do formato sem o ícone do WhatsApp.
-const LABEL_FORMATO_EMAIL: Record<string, string> = {
-  video: 'vídeo',
-  audio: 'áudio',
-  texto: 'texto',
-  case: 'estudo de caso',
-};
-
-export function labelFormatoEmail(formato?: string | null): string {
-  return LABEL_FORMATO_EMAIL[formato || ''] || 'conteúdo';
+// O nome vem do idioma do DESTINATÁRIO (Onda D, 04/10/2026); sem locale sai em
+// pt-BR, como sempre saiu. Os textos moram em `lib/i18n-email-templates.ts`.
+export function labelFormatoEmail(formato?: string | null, locale?: AppLocale | null): string {
+  const rotulos: Record<string, string> = copiaEmail(locale).formatos;
+  const chave = formato || '';
+  // `outro` é o texto de reserva, não um formato: "outro" vindo do banco cai nele
+  // do mesmo jeito que um formato desconhecido.
+  return chave !== 'outro' && Object.prototype.hasOwnProperty.call(rotulos, chave) ? rotulos[chave] : rotulos.outro;
 }
 
-/** Tema do conteúdo ("competência · descritor") a partir de um item de conteudos_dia. */
-export function temaPilula(e: any): string {
+/**
+ * Tema do conteúdo ("competência · descritor") a partir de um item de conteudos_dia.
+ *
+ * `padrao` é o texto de quando o item não traz nada. O WhatsApp e o push seguem
+ * com o default em pt-BR (fora desta onda); o e-mail passa o do idioma da pessoa.
+ */
+export function temaPilula(e: any, padrao: string = 'novo conteúdo da semana'): string {
   const comp = e?.competencia ? String(e.competencia).trim() : '';
   const desc = e?.descritor ? descritorParaHumano(String(e.descritor).trim()) : '';
   const titulo = e?.conteudo?.core_titulo || e?.conteudo?.titulo || '';
-  return [comp, desc].filter(Boolean).join(' · ') || titulo || 'novo conteúdo da semana';
+  return [comp, desc].filter(Boolean).join(' · ') || titulo || padrao;
 }
 
 /**
@@ -86,7 +92,11 @@ export function deepLinkSemana(
   return `${baseUrl}/dashboard/temporada/semana/${semana}${qs ? `?${qs}` : ''}`;
 }
 
-type PilulaOpts = { formato?: string | null; semana: number; baseUrl: string; pilula?: number | null };
+/**
+ * `locale` é o idioma do DESTINATÁRIO do e-mail (Onda D): só os builders de e-mail
+ * o leem; o texto do WhatsApp segue em pt-BR por decisão da onda. Ausente, pt-BR.
+ */
+type PilulaOpts = { formato?: string | null; semana: number; baseUrl: string; pilula?: number | null; locale?: AppLocale | null };
 
 /** Corpo (sem saudação) do texto WhatsApp da pílula, com deep-link no formato preferido. */
 export function textoPilulaWhatsapp(e: any, opts: PilulaOpts): string {
@@ -96,18 +106,21 @@ export function textoPilulaWhatsapp(e: any, opts: PilulaOpts): string {
 
 /** Assunto + HTML do e-mail da pílula (espelho do WhatsApp, com botão pro deep-link). */
 export function emailPilula(nome: string, e: any, opts: PilulaOpts): { subject: string; html: string } {
-  const tema = temaPilula(e);
+  const c = copiaEmail(opts.locale);
+  const tema = temaPilula(e, c.temaPadrao);
   const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula, 'email');
-  const primeiro = (nome || 'Colaborador').split(' ')[0];
-  const subject = `Seu conteúdo da semana ${opts.semana}: ${tema}`;
+  const primeiro = primeiroNomeEmail(nome, c);
+  const v = { semana: opts.semana, tema };
+  // Assunto é texto (sem escape); o corpo é HTML e o `preencher` escapa o que vem do banco.
+  const subject = preencher(c.pilula.assunto, v, 'texto');
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
-<p>Olá, ${primeiro}!</p>
-<p>Seu <strong>conteúdo da semana ${opts.semana}</strong> já está disponível.</p>
-<p>Seu <strong>${labelFormatoEmail(opts.formato)}</strong> de hoje: <strong>${tema}</strong>.</p>
-<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir meu conteúdo →</a></p>
-<p style="color:#666;font-size:14px">Os conteúdos e o desafio da semana ficam na plataforma.</p>
-<p style="color:#666;font-size:14px">Equipe Vertho</p>
-${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
+<p>${preencher(c.saudacao, { nome: primeiro })}</p>
+<p>${preencher(c.pilula.intro, v)}</p>
+<p>${preencher(c.pilula.formatoDoDia, { ...v, formato: labelFormatoEmail(opts.formato, opts.locale) })}</p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">${c.pilula.cta}</a></p>
+<p style="color:#666;font-size:14px">${c.pilula.nota}</p>
+<p style="color:#666;font-size:14px">${c.assinatura}</p>
+${rodapePrivacidadeHtml(opts.baseUrl, opts.locale)}</div>`;
   return { subject, html };
 }
 
@@ -126,19 +139,21 @@ ${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
  */
 export function emailEvidencia(
   nome: string,
-  opts: { semana: number; baseUrl: string },
+  opts: { semana: number; baseUrl: string; locale?: AppLocale | null },
 ): { subject: string; html: string } {
+  const c = copiaEmail(opts.locale);
   const link = deepLinkSemana(opts.baseUrl, opts.semana);
-  const primeiro = (nome || 'Colaborador').split(' ')[0];
-  const subject = `Evidências da semana ${opts.semana}: pendente`;
+  const primeiro = primeiroNomeEmail(nome, c);
+  const v = { semana: opts.semana };
+  const subject = preencher(c.evidencia.assunto, v, 'texto');
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
-<p>Olá, ${primeiro}.</p>
-<p>Você está na <strong>semana ${opts.semana}</strong> da sua jornada.</p>
-<p>O registro de evidências desta semana está <strong>pendente</strong>.</p>
-<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Registrar minha evidência →</a></p>
-<p style="color:#666;font-size:14px">As evidências registradas são usadas para ajustar as próximas semanas da sua jornada.</p>
-<p style="color:#666;font-size:14px">Equipe Vertho</p>
-${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
+<p>${preencher(c.saudacaoPonto, { nome: primeiro })}</p>
+<p>${preencher(c.evidencia.intro, v)}</p>
+<p>${c.evidencia.pendente}</p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">${c.evidencia.cta}</a></p>
+<p style="color:#666;font-size:14px">${c.evidencia.nota}</p>
+<p style="color:#666;font-size:14px">${c.assinatura}</p>
+${rodapePrivacidadeHtml(opts.baseUrl, opts.locale)}</div>`;
   return { subject, html };
 }
 
@@ -159,22 +174,23 @@ ${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
  */
 export function emailAvaliacaoFinal(
   nome: string,
-  opts: { semana: number; baseUrl: string; momento: 'abertura' | 'cobranca' },
+  opts: { semana: number; baseUrl: string; momento: 'abertura' | 'cobranca'; locale?: AppLocale | null },
 ): { subject: string; html: string } {
+  const c = copiaEmail(opts.locale);
   const link = deepLinkSemana(opts.baseUrl, opts.semana);
-  const primeiro = (nome || 'Colaborador').split(' ')[0];
+  const primeiro = primeiroNomeEmail(nome, c);
   const abertura = opts.momento === 'abertura';
-  const subject = abertura ? 'Sua avaliação final está aberta' : 'Avaliação final pendente';
-  const estado = abertura
-    ? 'e a <strong>avaliação final</strong> já está aberta.'
-    : 'e a <strong>avaliação final</strong> continua <strong>pendente</strong>.';
+  const subject = abertura ? c.avaliacaoFinal.assuntoAbertura : c.avaliacaoFinal.assuntoCobranca;
+  // As duas frases são inteiras em cada idioma (não um começo comum mais um
+  // final): a ordem das palavras muda de língua para língua.
+  const estado = abertura ? c.avaliacaoFinal.introAbertura : c.avaliacaoFinal.introCobranca;
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
-<p>Olá, ${primeiro}.</p>
-<p>As semanas de conteúdo da sua jornada foram concluídas, ${estado}</p>
-<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a avaliação final</a></p>
-<p style="color:#666;font-size:14px">O Relatório de Evolução é gerado quando a avaliação final é concluída.</p>
-<p style="color:#666;font-size:14px">Equipe Vertho</p>
-${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
+<p>${preencher(c.saudacaoPonto, { nome: primeiro })}</p>
+<p>${estado}</p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">${c.avaliacaoFinal.cta}</a></p>
+<p style="color:#666;font-size:14px">${c.avaliacaoFinal.nota}</p>
+<p style="color:#666;font-size:14px">${c.assinatura}</p>
+${rodapePrivacidadeHtml(opts.baseUrl, opts.locale)}</div>`;
   return { subject, html };
 }
 
@@ -242,6 +258,8 @@ export type MissaoOpts = {
   baseUrl: string;
   /** `missao.acao_principal` (já normalizada) — entra como resumo quando existe. */
   acaoPrincipal?: string | null;
+  /** Idioma do destinatário do E-MAIL (o WhatsApp da missão segue em pt-BR). */
+  locale?: AppLocale | null;
 };
 
 /** Página pública do vídeo tutorial da missão (preview rico no WhatsApp via OG). */
@@ -271,24 +289,27 @@ Na quinta a Mentora IA vai querer saber como foi. Boa prática!
 
 /** Assunto + HTML do e-mail da missão (botão pro deep-link + thumbnail do vídeo). */
 export function emailMissao(nome: string, opts: MissaoOpts): { subject: string; html: string } {
+  const c = copiaEmail(opts.locale);
   const link = deepLinkSemana(opts.baseUrl, opts.semana);
   const video = videoUrlMissao(opts.baseUrl);
   const thumb = `${opts.baseUrl}/api/bunny-thumb/${APLICACAO_VIDEO_ID}`;
-  const primeiro = (nome || 'Colaborador').split(' ')[0];
-  const subject = `Semana ${opts.semana}: seu desafio de aplicação`;
+  const primeiro = primeiroNomeEmail(nome, c);
+  const v = { semana: opts.semana };
+  const subject = preencher(c.missao.assunto, v, 'texto');
+  // O resumo vem do plano (IA/banco): fica no idioma em que foi gerado e é escapado.
   const resumo = opts.acaoPrincipal
-    ? `<p>Seu desafio, em resumo: <em>${opts.acaoPrincipal}</em></p>` : '';
+    ? `<p>${preencher(c.missao.resumo, { acao: opts.acaoPrincipal })}</p>` : '';
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
-<p>Olá, ${primeiro}!</p>
-<p>Chegou a <strong>semana ${opts.semana}: desafio de aplicação</strong>.</p>
-<p>Esta semana não tem conteúdo novo: é hora de colocar em prática o que você vem aprendendo, com um <strong>desafio</strong> feito para o seu dia a dia.</p>
+<p>${preencher(c.saudacao, { nome: primeiro })}</p>
+<p>${preencher(c.missao.intro, v)}</p>
+<p>${c.missao.semConteudoNovo}</p>
 ${resumo}
-<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Ver meu desafio →</a></p>
-<p>E este vídeo explica como a semana funciona:</p>
-<p style="margin:16px 0"><a href="${video}"><img src="${thumb}" alt="Vídeo explicativo da semana" width="480" style="width:100%;max-width:480px;border-radius:8px;display:block" /></a></p>
-<p style="color:#666;font-size:14px">Na quinta, a conversa de evidências na plataforma vai perguntar como foi. Boa prática!</p>
-<p style="color:#666;font-size:14px">Equipe Vertho</p>
-${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">${c.missao.cta}</a></p>
+<p>${c.missao.videoIntro}</p>
+<p style="margin:16px 0"><a href="${video}"><img src="${thumb}" alt="${c.missao.videoAlt}" width="480" style="width:100%;max-width:480px;border-radius:8px;display:block" /></a></p>
+<p style="color:#666;font-size:14px">${c.missao.nota}</p>
+<p style="color:#666;font-size:14px">${c.assinatura}</p>
+${rodapePrivacidadeHtml(opts.baseUrl, opts.locale)}</div>`;
   return { subject, html };
 }
 
@@ -315,6 +336,8 @@ export type SemanaPendenteOpts = {
   /** Semana que precisa ser concluída para destravar — o destino do link. */
   semanaPendente: number;
   baseUrl: string;
+  /** Idioma do destinatário do e-mail. */
+  locale?: AppLocale | null;
 };
 
 /**
@@ -343,18 +366,20 @@ export function emailPilulaPendente(
   e: any,
   opts: PilulaOpts,
 ): { subject: string; html: string } {
-  const tema = temaPilula(e);
+  const c = copiaEmail(opts.locale);
+  const tema = temaPilula(e, c.temaPadrao);
   const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula);
-  const primeiro = (nome || 'Colaborador').split(' ')[0];
-  const subject = `Semana ${opts.semana}: ${tema} (pendente)`;
+  const primeiro = primeiroNomeEmail(nome, c);
+  const v = { semana: opts.semana, tema };
+  const subject = preencher(c.pilulaPendente.assunto, v, 'texto');
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
-<p>Olá, ${primeiro}.</p>
-<p>O conteúdo da <strong>semana ${opts.semana}</strong> da sua jornada está disponível.</p>
-<p>Tema: <strong>${tema}</strong>.</p>
-<p>Esta semana continua <strong>pendente</strong>: ela somente é concluída na <strong>conversa de evidências</strong>: abrir o conteúdo não conclui a semana.</p>
-<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a semana ${opts.semana} →</a></p>
-<p style="color:#666;font-size:14px">Equipe Vertho</p>
-${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
+<p>${preencher(c.saudacaoPonto, { nome: primeiro })}</p>
+<p>${preencher(c.pilulaPendente.intro, v)}</p>
+<p>${preencher(c.pilulaPendente.tema, v)}</p>
+<p>${c.pilulaPendente.explicacao}</p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">${preencher(c.pilulaPendente.cta, v)}</a></p>
+<p style="color:#666;font-size:14px">${c.assinatura}</p>
+${rodapePrivacidadeHtml(opts.baseUrl, opts.locale)}</div>`;
   return { subject, html };
 }
 
@@ -362,15 +387,17 @@ export function emailSemanaPendente(
   nome: string,
   opts: SemanaPendenteOpts,
 ): { subject: string; html: string } {
+  const c = copiaEmail(opts.locale);
   const link = deepLinkSemana(opts.baseUrl, opts.semanaPendente);
-  const primeiro = (nome || 'Colaborador').split(' ')[0];
-  const subject = `Semana ${opts.semanaPendente}: pendente na sua jornada`;
+  const primeiro = primeiroNomeEmail(nome, c);
+  const v = { semana: opts.semana, semanaPendente: opts.semanaPendente };
+  const subject = preencher(c.semanaPendente.assunto, v, 'texto');
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
-<p>Olá, ${primeiro}.</p>
-<p>Sua jornada está na <strong>semana ${opts.semana}</strong>, e a <strong>semana ${opts.semanaPendente}</strong> continua pendente.</p>
-<p>Ela somente é concluída na <strong>conversa de evidências</strong>: abrir o conteúdo não conclui a semana. A explicação em vídeo está na página da semana.</p>
-<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a semana ${opts.semanaPendente} →</a></p>
-<p style="color:#666;font-size:14px">Equipe Vertho</p>
-${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
+<p>${preencher(c.saudacaoPonto, { nome: primeiro })}</p>
+<p>${preencher(c.semanaPendente.intro, v)}</p>
+<p>${c.semanaPendente.explicacao}</p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">${preencher(c.semanaPendente.cta, v)}</a></p>
+<p style="color:#666;font-size:14px">${c.assinatura}</p>
+${rodapePrivacidadeHtml(opts.baseUrl, opts.locale)}</div>`;
   return { subject, html };
 }

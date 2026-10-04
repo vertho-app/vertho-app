@@ -42,6 +42,8 @@ export function urlPrivacidade(baseUrl?: string | null): string {
  * Parágrafo de rodapé (HTML) com o link. Estilo discreto, na mesma família de
  * cinza do resto do rodapé dos e-mails de texto simples.
  */
-export function rodapePrivacidadeHtml(baseUrl?: string | null, locale: AppLocale = 'pt-BR'): string {
-  return `<p style="color:#666;font-size:12px;margin-top:20px"><a href="${urlPrivacidade(baseUrl)}" style="color:#666;text-decoration:underline">${ROTULO_PRIVACIDADE[locale]}</a></p>`;
+export function rodapePrivacidadeHtml(baseUrl?: string | null, locale?: AppLocale | null): string {
+  // `locale` ausente ou nulo (e-mail de quem não tem idioma resolvido) é pt-BR, como sempre foi.
+  const rotulo = ROTULO_PRIVACIDADE[locale && Object.prototype.hasOwnProperty.call(ROTULO_PRIVACIDADE, locale) ? locale : 'pt-BR'];
+  return `<p style="color:#666;font-size:12px;margin-top:20px"><a href="${urlPrivacidade(baseUrl)}" style="color:#666;text-decoration:underline">${rotulo}</a></p>`;
 }

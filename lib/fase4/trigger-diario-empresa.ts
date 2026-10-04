@@ -42,6 +42,7 @@ import { pushPilula, pushPilulaPendente, pushMissao, pushEvidencia, pushSemanaPe
 import { temaPilula } from '@/lib/notifications/pilula-envio';
 import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
 import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
+import { carregarIdiomasDaEmpresa } from '@/lib/idioma-do-destinatario';
 
 const TOTAL_SEMANAS = 14;
 const SEMANAS_IMPL = [4, 8, 12]; // Semanas de implementação (sem pílula nova)
@@ -201,6 +202,26 @@ export async function processarEmpresaDiario(
     .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_evidencia_whatsapp_em, ultima_evidencia_email_em, ultima_evidencia_push_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
     .eq('status', ENVIO.ATIVO);
   if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, pendenciasPosFim };
+
+  /**
+   * IDIOMA DO E-MAIL (Onda D, 04/10/2026): o do DESTINATÁRIO, não o do tenant. Lido
+   * UMA vez por empresa (duas leituras pequenas), não por pessoa: `colaboradores.locale`,
+   * senão `empresas.default_locale`, senão pt-BR, a régua de `actions/certificado.ts` e
+   * de `app/api/me`. Só o e-mail o lê: o WhatsApp (template da Meta) e o push seguem em
+   * pt-BR por decisão da onda. Falha de leitura não derruba a empresa: o e-mail sai no
+   * padrão (o que saía antes) e a degradação fica registrada.
+   */
+  const idiomas = await carregarIdiomasDaEmpresa(tdb.raw, empresa.id);
+  if (idiomas.falhou) {
+    await registrarDegradacao({
+      fluxo: 'envio',
+      tipo: DEGRADACAO.IDIOMA_DO_EMAIL_INDISPONIVEL,
+      chave: `idioma:${empresa.id}`,
+      empresaId: empresa.id,
+      severidade: 'aviso',
+      detalhe: { motivo: idiomas.motivo },
+    });
+  }
 
   // Trilha mais recente de CADA colaborador em UMA query (era 1 query por
   // envio — N+1). Ordenada por numero_temporada desc, a PRIMEIRA ocorrência
@@ -577,6 +598,11 @@ export async function processarEmpresaDiario(
     // Telefone: coluna `whatsapp` ou, no fallback, `telefone` (muitos tenants só têm este).
     const telefone = envio.colaboradores.whatsapp || envio.colaboradores.telefone;
     const email = !ehDemo ? (envio.colaboradores.email || null) : null;
+    // Idioma desta pessoa no e-mail (lido acima, uma vez por empresa). `nomeEmail` vai CRU
+    // (sem o 'Colaborador' de `nome`) para o builder usar o nome-padrão do idioma dela
+    // quando o cadastro não tem nome.
+    const idioma = idiomas.de(envio.colaborador_id);
+    const nomeEmail = envio.colaboradores.nome_completo || '';
     // Preferência DECLARADA. Vira promessa só depois de cruzar com o que o
     // conteúdo do dia realmente tem — ver `enviarPilulaDia`.
     const formatoPref = derivarPrioridadeFormatos(envio.colaboradores)[0];
@@ -757,7 +783,9 @@ export async function processarEmpresaDiario(
         } catch { erros++; }
       }
       if (email && !jaNoSlot(envio[mailCol], slotDaPilula)) {
-        const { subject, html } = pendente ? emailPilulaPendente(nome, item, opts) : emailPilula(nome, item, opts);
+        // O `opts` do WhatsApp segue intacto (guard em p1-conteudo-pendente); o idioma entra só no e-mail.
+        const optsEmail = { ...opts, locale: idioma };
+        const { subject, html } = pendente ? emailPilulaPendente(nomeEmail, item, optsEmail) : emailPilula(nomeEmail, item, optsEmail);
         const r = await enviarEmailPilula(email, subject, html, {
           // `kind` segue 'pilula': a mensagem ENTREGA conteúdo (com tema e link
           // de formato), e é isso que a contagem de cadência mede. A pendência
@@ -844,7 +872,7 @@ export async function processarEmpresaDiario(
     const enviarSemanaPendente = async (semanaDoRelogioNaMensagem: number = semanaCalendario) => {
       // `semanaDoRelogioNaMensagem`: depois do fim do plano o relógio passa do total, e "sua trilha está na
       // semana 9" numa jornada de 7 não faz sentido; a pendência de pós-fim manda o teto do plano (R-94).
-      const opts = { semana: semanaDoRelogioNaMensagem, semanaPendente: semana, baseUrl };
+      const opts = { semana: semanaDoRelogioNaMensagem, semanaPendente: semana, baseUrl, locale: idioma };
       const agora = new Date().toISOString();
       const stamp: Record<string, string> = {};
 
@@ -879,7 +907,7 @@ export async function processarEmpresaDiario(
       }
 
       if (email && !jaNoSlot(envio.ultima_pilula2_email_em, 'p2')) {
-        const { subject, html } = emailSemanaPendente(nome, opts);
+        const { subject, html } = emailSemanaPendente(nomeEmail, opts);
         // Kind próprio: pendência NÃO é pílula. Reaproveitar o kind faria a
         // contagem de cadência somar uma cobrança como se fosse entrega de
         // conteúdo — e é justamente essa contagem que diz se a trilha anda.
@@ -958,7 +986,7 @@ export async function processarEmpresaDiario(
         } catch { erros++; }
       }
       if (email && !jaNoSlot(envio.ultima_pilula1_email_em, 'p1')) {
-        const { subject, html } = emailAvaliacaoFinal(nome, { semana, baseUrl, momento: 'abertura' });
+        const { subject, html } = emailAvaliacaoFinal(nomeEmail, { semana, baseUrl, momento: 'abertura', locale: idioma });
         const r = await enviarEmailPilula(email, subject, html, {
           kind: 'avaliacao_final',
           empresaId: empresa.id,
@@ -1067,7 +1095,7 @@ export async function processarEmpresaDiario(
         const planNorm = planoNorm.find((s: any) => Number(s.semana) === Number(semana)) || planoNorm[semana - 1];
         acaoPrincipal = planNorm?.missao?.acao_principal || null;
       } catch (e: any) { console.warn('[triggerDiario] missão normalize:', e?.message); }
-      const optsMissao = { semana, baseUrl, acaoPrincipal };
+      const optsMissao = { semana, baseUrl, acaoPrincipal, locale: idioma };
       const agora = new Date().toISOString();
       const stamp: Record<string, string> = {};
       let whatsappEnfileirado = false;
@@ -1104,7 +1132,7 @@ export async function processarEmpresaDiario(
         } catch { erros++; }
       }
       if (email && !jaNoSlot(envio.ultima_pilula1_email_em, 'p1')) {
-        const { subject, html } = emailMissao(nome, optsMissao);
+        const { subject, html } = emailMissao(nomeEmail, optsMissao);
         // Kind próprio: a missão da semana de aplicação NÃO é pílula. Reaproveitar
         // o kind faria a contagem de cadência incluir um evento de outra natureza.
         const r = await enviarEmailPilula(email, subject, html, {
@@ -1329,8 +1357,8 @@ export async function processarEmpresaDiario(
 
       if (!concluiuSemanaAcessivel && email && !ehDemo && !jaNoSlot(envio.ultima_evidencia_email_em, 'ev')) {
         const { subject, html } = ehAvaliacaoFinal
-          ? emailAvaliacaoFinal(nome, { semana, baseUrl, momento: 'cobranca' })
-          : emailEvidencia(nome, { semana, baseUrl });
+          ? emailAvaliacaoFinal(nomeEmail, { semana, baseUrl, momento: 'cobranca', locale: idioma })
+          : emailEvidencia(nomeEmail, { semana, baseUrl, locale: idioma });
         const r = await enviarEmailPilula(email, subject, html, {
           kind: ehAvaliacaoFinal ? 'avaliacao_final' : 'evidencia',
           empresaId: empresa.id,

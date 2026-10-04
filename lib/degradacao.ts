@@ -122,6 +122,14 @@ export const DEGRADACAO = {
    */
   TELEMETRIA_ENTREGA_FALHOU: 'telemetria-entrega-falhou',
   /**
+   * envio: a leitura do idioma de quem recebe o e-mail falhou (Onda D, 04/10/2026),
+   * então a cadência do dia mandou o e-mail no idioma da empresa ou, no pior caso,
+   * em pt-BR, mesmo para quem tem outro idioma no cadastro. A mensagem sai (era o
+   * comportamento de antes da onda); o que se perde é o idioma certo. `aviso`.
+   * Chave: `idioma:<empresa>`.
+   */
+  IDIOMA_DO_EMAIL_INDISPONIVEL: 'idioma-do-email-indisponivel',
+  /**
    * envio: o teto de volume por disparo (lib/whatsapp/cadencia) cortou a cauda
    * do lote — as mensagens NÃO foram enfileiradas. No cron diário elas não se
    * perdem (sem carimbo de canal, o dia seguinte tenta de novo), mas o corte
