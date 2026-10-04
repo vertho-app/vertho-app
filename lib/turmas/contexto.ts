@@ -16,6 +16,7 @@
 
 import { resolverConfigEfetiva, type ConfigEfetiva, type FontesConfig } from './config-efetiva';
 import { TURMA_MEMBRO, TURMA_ENCERRADAS, type TurmaStatus } from '@/lib/status';
+import { lerTudoPaginado } from '@/lib/paginacao';
 
 export interface ContextoTurma {
   turmaId: string | null;
@@ -73,12 +74,19 @@ export async function carregarParticipacaoAtiva(
  *
  * @param sysConfigEmpresa opcional — passe quando já tiver a config em mãos,
  *        para poupar a query. O resultado é idêntico.
+ * @param opcoes.colaboradorLegado o `programa_modo` gravado NA PESSOA, que entra
+ *        na precedência no lugar dele (abaixo da turma e da participação, acima
+ *        da empresa). Quem decide o formato de uma GERAÇÃO passa o colaborador
+ *        aqui, e não como "empresa" de uma segunda resolução: aplicar o legado
+ *        por cima da config JÁ resolvida fazia o override da pessoa vencer a
+ *        turma, ao contrário do que o resolvedor documenta (R-101).
  */
 export async function carregarContextoTurma(
   sb: any,
   empresaId: string,
   colaboradorId: string,
   sysConfigEmpresa?: any,
+  opcoes: { colaboradorLegado?: FontesConfig['colaboradorLegado'] } = {},
 ): Promise<ContextoTurma> {
   let empresaCfg = sysConfigEmpresa;
   if (empresaCfg === undefined) {
@@ -92,6 +100,7 @@ export async function carregarContextoTurma(
     empresa: empresaCfg,
     turma: turma?.sys_config,
     participacao: configOverride,
+    colaboradorLegado: opcoes.colaboradorLegado,
   };
   const { config } = resolverConfigEfetiva(fontes);
 
@@ -123,6 +132,56 @@ export async function configEfetivaDoColaborador(
 ): Promise<ConfigEfetiva> {
   const ctx = await carregarContextoTurma(sb, empresaId, colaboradorId, sysConfigEmpresa);
   return ctx.config;
+}
+
+/**
+ * Config efetiva de VÁRIAS pessoas da empresa, em duas leituras paginadas (por
+ * pessoa seriam duas queries cada). É para quem varre a população e precisa da
+ * MESMA precedência da geração (participação → turma → override do colaborador
+ * → empresa): a prontidão da trilha dizia "quem resolveria para piloto" pela
+ * empresa e pelo override, ignorando a turma, que a geração respeita (R-101).
+ *
+ * Falha de leitura LANÇA, como em `carregarParticipacaoAtiva`: "não consegui ler
+ * as turmas" virando "ninguém está em turma" mostraria um veredito sobre a
+ * config da empresa para quem está numa turma com outra.
+ */
+export async function carregarConfigsEfetivasEmLote(
+  sb: any,
+  empresaId: string,
+  colabs: Array<{ id: string; programa_modo?: string | null }>,
+  sysConfigEmpresa: any,
+): Promise<Map<string, ConfigEfetiva>> {
+  const [membros, turmas] = await Promise.all([
+    lerTudoPaginado((de, ate) => sb.from('turma_membros')
+      .select('colaborador_id, turma_id, config_override')
+      .eq('empresa_id', empresaId)
+      .eq('status', TURMA_MEMBRO.ATIVO)
+      .order('colaborador_id')
+      .range(de, ate)),
+    lerTudoPaginado((de, ate) => sb.from('turmas')
+      .select('id, sys_config')
+      .eq('empresa_id', empresaId)
+      .order('id')
+      .range(de, ate)),
+  ]);
+  if (membros.error) throw new Error(`não foi possível ler as participações nas turmas: ${membros.error}`);
+  if (turmas.error) throw new Error(`não foi possível ler as turmas: ${turmas.error}`);
+
+  const turmaPorId = new Map<string, any>(turmas.data.map((t: any) => [t.id, t]));
+  const membroPorColab = new Map<string, any>(membros.data.map((m: any) => [m.colaborador_id, m]));
+
+  const out = new Map<string, ConfigEfetiva>();
+  for (const colab of colabs) {
+    const membro = membroPorColab.get(colab.id);
+    const turma = membro ? turmaPorId.get(membro.turma_id) : null;
+    out.set(colab.id, resolverConfigEfetiva({
+      empresa: sysConfigEmpresa || {},
+      turma: turma?.sys_config,
+      participacao: membro?.config_override || {},
+      colaboradorLegado: colab,
+    }).config);
+  }
+  return out;
 }
 
 /** Turmas ATIVAS de uma empresa — base do fail-closed das ações em lote. */

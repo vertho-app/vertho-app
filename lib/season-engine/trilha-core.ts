@@ -4,8 +4,8 @@ import { buildSeason } from '@/lib/season-engine/build-season';
 import { blueprintToTrilhaInputs, type BlueprintTrilhaInputs } from '@/lib/blueprint/to-descriptors';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
-import { getProgramaConfigByModo, type ProgramaConfig, type ProgramaModoLabel, type SequenciaPersonalizado } from '@/lib/season-engine/programa-config';
-import { carregarContextoTurma, resolverModoDaTurma } from '@/lib/turmas';
+import { getProgramaConfigByModo, normalizarModoPrograma, type ProgramaConfig, type ProgramaModoLabel, type SequenciaPersonalizado } from '@/lib/season-engine/programa-config';
+import { carregarContextoTurma } from '@/lib/turmas';
 import { parseProgramaCustom, derivarConfigCustom, parseConfigSnapshot, parseSequenciaPersonalizado } from '@/lib/season-engine/programa-custom';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import type { AIConfig } from '@/actions/ai-client';
@@ -15,8 +15,9 @@ import { travaRegeracao } from '@/lib/season-engine/trava-regeracao';
 
 /**
  * Gera uma temporada pra um colaborador, focada em 1 competência.
- * Duração e cadência vêm de `empresas.sys_config` via `getProgramaConfig`
- * (default = regular 14 semanas). CORE legado — contrato {ok|error,codigo};
+ * Duração e cadência vêm da config efetiva (empresa, turma, participação e o
+ * override da pessoa: `carregarContextoTurma`); o padrão é a Jornada de 7 semanas
+ * (`PROGRAMA_MODO_PADRAO`). CORE legado, contrato {ok|error,codigo};
  * o export público (`actions/temporadas.ts`) aplica o gate e delega aqui.
  *
  * Núcleo SEM gate de sessão (o client admin `sbRaw` vem por parâmetro): pode
@@ -93,7 +94,10 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
 
     // Contexto de TURMA (mig 210): resolve UMA vez a participação ativa, o
     // calendário da safra e a config efetiva — e propaga para todos os modos.
-    const ctxTurma = await carregarContextoTurma(sbRaw, colab.empresa_id, colab.id, empresa?.sys_config || {});
+    // O override do colaborador (`colaboradores.programa_modo`, legado) entra
+    // AQUI, como fonte própria: aplicá-lo depois, por cima da config já
+    // resolvida, o fazia vencer a turma (R-101).
+    const ctxTurma = await carregarContextoTurma(sbRaw, colab.empresa_id, colab.id, empresa?.sys_config || {}, { colaboradorLegado: colab });
     const cfg = ctxTurma.config;
     const turma: ContextoGeracaoTurma = {
       turmaMembroId: ctxTurma.turmaMembroId,
@@ -103,13 +107,14 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
 
     // Precedência de GERAÇÃO (fonte única): participação → turma → override do
     // colaborador (legado) → default da empresa → Jornada (padrão desde
-    // 03/10/2026, `PROGRAMA_MODO_PADRAO`). O rótulo resolvido é
-    // CARIMBADO na trilha (programa_modo) — o runtime passa a ler de lá,
-    // congelando as regras. Sem turma, `cfg` é a sys_config da empresa e o
-    // resultado é byte-igual ao `resolverModoColab` anterior.
+    // 03/10/2026, `PROGRAMA_MODO_PADRAO`). A precedência já está em `cfg` (as
+    // fontes entraram separadas, acima); aqui só se normaliza o rótulo. O rótulo
+    // resolvido é CARIMBADO na trilha (programa_modo): o runtime passa a ler de
+    // lá, congelando as regras. Sem turma, o resultado é byte-igual ao
+    // `resolverModoColab` anterior.
     const modoResolvido = (configPersonalizado
       ? 'custom'
-      : resolverModoDaTurma({ empresa: cfg, colaboradorLegado: colab })) as ProgramaModoLabel;
+      : normalizarModoPrograma(cfg.programa_modo)) as ProgramaModoLabel;
 
     // Trava de regeração ANTES de qualquer IA (lib/season-engine/trava-regeracao.ts):
     // regerar não reabre trilha concluída, não apaga snapshot de plano próprio e

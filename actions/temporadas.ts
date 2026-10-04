@@ -8,7 +8,9 @@ import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada
 import { entregaEhReal } from '@/lib/season-engine/week-gating';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { topDoisFormatos } from '@/lib/season-engine/kit/formatos-por-preferencia';
-import { getProgramaConfigByModo, getProgramaConfigDaTrilha, resolverModoColab } from '@/lib/season-engine/programa-config';
+import { getProgramaConfigByModo, getProgramaConfigDaTrilha, normalizarModoPrograma } from '@/lib/season-engine/programa-config';
+import { conteudosServiveisPorCargo } from '@/lib/season-engine/build-season';
+import { carregarConfigsEfetivasEmLote } from '@/lib/turmas';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
 import { gerarTemporadaCoreHeadless, normalizarSemanas, resolverCompetenciasDoPersonalizado } from '@/lib/season-engine/trilha-core';
 import type { AIConfig } from './ai-client';
@@ -102,23 +104,22 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
       .select('id, nome_completo, cargo, programa_modo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso');
     if (!todosColabs?.length) throw new Error('Sem colaboradores');
 
-    // O modo é por COLABORADOR (override) com default da empresa — o check
-    // cobre quem RESOLVERIA pra degustação na geração (fonte única de
-    // precedência): 'piloto' (preset) OU 'custom' (builder).
+    // O modo é o que a GERAÇÃO resolveria para cada pessoa, na MESMA precedência
+    // (participação → turma → override do colaborador → empresa → Jornada): o
+    // check cobre quem resolveria pra degustação, 'piloto' (preset) OU 'custom'
+    // (builder). Lia só o override e a empresa, e dizia "pronto" ou "sem alvo"
+    // sobre uma config que a turma da pessoa pode ter trocado (R-101).
+    const configPorColab = await carregarConfigsEfetivasEmLote(sbRaw, empresaId, todosColabs as any[], empresa?.sys_config || {});
     const modoPorColab = new Map<string, string>(
-      (todosColabs as any[]).map(c => [c.id, resolverModoColab(c, empresa?.sys_config)]),
+      (todosColabs as any[]).map(c => [c.id, normalizarModoPrograma(configPorColab.get(c.id)?.programa_modo)]),
     );
     const colabs = (todosColabs as any[]).filter(
       c => modoPorColab.get(c.id) === 'piloto' || modoPorColab.get(c.id) === 'custom',
     );
     if (!colabs.length) {
-      throw new Error(`Nenhum colaborador resolveria pra piloto/personalizado (default da empresa: ${empresa?.sys_config?.programa_modo || 'jornada, o padrão'}; nenhum override individual). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
+      throw new Error(`Nenhum colaborador resolveria pra piloto/personalizado (default da empresa: ${empresa?.sys_config?.programa_modo || 'jornada, o padrão'}; nenhum override individual nem de turma). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
     }
     const configPiloto = getProgramaConfigByModo('piloto');
-    // Config do modo custom (builder) — derivada uma vez do sys_config da
-    // empresa. Inválida/ausente → bloqueador por colaborador custom (abaixo).
-    const inputsCustom = parseProgramaCustom(empresa?.sys_config?.programa_custom);
-    const configCustom = inputsCustom ? derivarConfigCustom(inputsCustom) : null;
 
     // Cenários B disponíveis por cargo (fechamento)
     const { data: cenariosB } = await tdb.from('banco_cenarios')
@@ -161,7 +162,11 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
 
     for (const colab of colabs as any[]) {
       const modoColab = modoPorColab.get(colab.id);
-      const cfg = modoColab === 'custom' ? configCustom : configPiloto;
+      // Config do modo custom (builder) da PESSOA: a efetiva dela, não a da
+      // empresa. Inválida/ausente → bloqueador por colaborador custom.
+      const cfgEfetiva = configPorColab.get(colab.id) || {};
+      const inputsCustom = modoColab === 'custom' ? parseProgramaCustom(cfgEfetiva.programa_custom) : null;
+      const cfg = modoColab === 'custom' ? (inputsCustom ? derivarConfigCustom(inputsCustom) : null) : configPiloto;
       if (!cfg) {
         resultados.push({ colaborador: colab.nome_completo, pronto: false, bloqueadores: ['Modo Personalizado sem configuração válida (sys_config.programa_custom) — defina em Configurações → Programa'] });
         continue;
@@ -191,7 +196,7 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
         if ((inputsCustom?.numCompetencias || 1) >= 2) {
           const chave = `${colab.cargo || ''}|${ancora}`;
           if (!competenciasPorCargoAncora.has(chave)) {
-            competenciasPorCargoAncora.set(chave, await resolverCompetenciasDoPersonalizado(tdb, colab, ancora, empresa?.sys_config));
+            competenciasPorCargoAncora.set(chave, await resolverCompetenciasDoPersonalizado(tdb, colab, ancora, cfgEfetiva));
           }
           const resolvidas = competenciasPorCargoAncora.get(chave)!;
           if (resolvidas.length < 2) {
@@ -222,15 +227,20 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
 
       for (const alvo of alvos) {
         const comp = alvo.competencia;
-        // Conteúdos da competência (empresa OU global), 1 query por competência
+        // Conteúdos da competência (empresa OU global), 1 query por competência.
+        // Os MESMOS filtros da geração (`montarSemanaConteudo`): ativo, fora de
+        // KIT (`kit_id` e `disc` nulos: conteúdo de kit é de um DISC e sai só
+        // pelo overlay) e, abaixo, só o que serve ao CARGO da pessoa. Sem eles a
+        // prontidão contava como pronto o que a geração não serviria.
         if (!conteudoCache[comp]) {
-          const { data: conteudos } = await sbRaw.from('micro_conteudos')
-            .select('descritor, formato')
-            .eq('ativo', true).eq('competencia', comp)
+          const { data: conteudos, error: errConteudos } = await sbRaw.from('micro_conteudos')
+            .select('descritor, formato, cargo')
+            .eq('ativo', true).is('kit_id', null).is('disc', null).eq('competencia', comp)
             .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+          if (errConteudos) throw new Error(`Falha ao ler os conteúdos de "${comp}": ${errConteudos.message}`);
           conteudoCache[comp] = conteudos || [];
         }
-        const pool = conteudoCache[comp];
+        const pool = conteudosServiveisPorCargo(conteudoCache[comp], colab.cargo);
         const formatosPool = new Set(pool.map((c: any) => c.formato));
 
         for (const descritor of alvo.descritores) {

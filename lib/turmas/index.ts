@@ -8,6 +8,7 @@ export { resolverConfigEfetiva, configEfetiva, resolverModoDaTurma } from './con
 export type { ConfigEfetiva, FontesConfig, ResultadoConfig, ProcedenciaConfig } from './config-efetiva';
 export {
   carregarContextoTurma,
+  carregarConfigsEfetivasEmLote,
   carregarParticipacaoAtiva,
   configEfetivaDoColaborador,
   contarTurmasAtivas,
