@@ -2025,10 +2025,7 @@ Em `/api/temporada/reflection/route.ts`: ao concluir a semana 11 (a última de c
 > 1. **`after()` de next/server**, nunca IIFE solta — `(async () => {...})()` morre quando a lambda da Vercel congela após o response (a acumulada/report automáticos do REGULAR nunca rodavam por isso). **Se o trabalho precisa de retry/status rastreável** (não pode se perder num freeze/race), promova pra uma **task Trigger.dev** com status persistido em tabela + **gate/polling no client** + `after()` só como **fallback/self-heal**. Ex.: a acumulada do PILOTO (`trigger/acumulada-piloto.ts`, mig 169) — a reflection da sem 2 marca `temporada_semana_progresso.acumulada_status='processing'` e dispara a task (`retry 3×`); o fechamento (sem 3) só abre com `acumulada_status='done'`, com self-heal inline se travou. *(Deploy das tasks Trigger.dev é MANUAL — não sai no git push.)*
 > 2. **Flag `internal`** em action service-role com gate de admin chamada por rota com sessão de colaborador (`gerarEvolutionReport`) — senão morre em FORBIDDEN silencioso. **É `internal?: { empresaId }` (não mais boolean)**: a action REVALIDA que a trilha pertence a esse tenant antes de rodar (B5 — defense-in-depth contra `trilhaId` forjado de outro tenant), em vez de confiar cegamente no caller. **Padrão NOVO preferido (23/07)**: em vez da flag, extrair o núcleo headless pra `lib/` e deixar a action sempre gatada — foi o que `gerarAvaliacaoAcumulada`/`Parcial` viraram (`lib/season-engine/avaliacao-acumulada-core.ts`); `gerarEvolutionReport` segue na allowlist como dívida.
 
-Janela cumulativa vem de `programaConfig.competenciasNaMissao`:
-- Sem 4 → Comps 0-1 (índices)
-- Sem 7 → Comps 0-3
-- Sem 9 → todas (`[-1]`)
+O Onboarding de 12 semanas não tem semana de missão (04/10/2026): a parcial roda uma vez, ao concluir a semana 11, e cobre as 5 competências. A semana 1 é o Mapeamento e a 12 é o Encerramento (Cenário B integrador).
 
 ### 17.7 Push WhatsApp pro Tutor (removido em 22/09/2026)
 
