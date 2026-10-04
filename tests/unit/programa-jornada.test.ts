@@ -24,11 +24,13 @@ import {
  */
 
 /**
- * Semanas que de propósito não recebem conteúdo selecionado, missão nem
- * avaliação. Nenhum modo tem uma: o onboarding tinha a semana 1 de "calibragem",
- * que nascia como semana de conteúdo vazia, nunca concluía e trancava as demais
- * (R-20, 04/10/2026); hoje ele começa no fundamento. O `buildSeason` classifica
- * por exclusão, então um buraco vira uma semana de conteúdo sem descritor.
+ * Semanas que de propósito não recebem conteúdo selecionado, missão, avaliação
+ * nem mapeamento. Nenhum modo tem uma: o onboarding tinha a semana 1 de
+ * "calibragem", que nascia como semana de conteúdo vazia, nunca concluía e
+ * trancava as demais (R-20, 04/10/2026). Hoje a semana 1 dele é o MAPEAMENTO,
+ * um tipo DECLARADO (`semanasMapeamento`) com caminho de conclusão real: ela nasce
+ * concluída. O `buildSeason` classifica por exclusão, então um buraco vira uma
+ * semana de conteúdo sem descritor.
  *
  * A lista é explícita e VAZIA para que um buraco NOVO (slot esquecido num modo
  * novo) falhe aqui, em vez de virar uma semana muda na trilha de alguém.
@@ -49,9 +51,18 @@ const MODOS: Array<[string, ProgramaConfig]> = [
   ['piloto', PROGRAMA_PILOTO],
 ];
 
+/** As semanas de mapeamento declaradas por modo: só o Onboarding tem, e é a primeira. */
+const MAPEAMENTO_DECLARADO: Record<string, number[]> = {
+  jornada: [],
+  regular: [],
+  regular_duo: [],
+  onboarding: [1],
+  piloto: [],
+};
+
 describe('forma do plano — vale para todo modo', () => {
   it.each(MODOS)('%s: nenhuma semana é classificada duas vezes', (nome, cfg) => {
-    const todas = [...cfg.slotsConteudo, ...cfg.semanasMissao, ...cfg.semanasAvaliacao];
+    const todas = [...cfg.slotsConteudo, ...cfg.semanasMissao, ...cfg.semanasAvaliacao, ...(cfg.semanasMapeamento ?? [])];
     expect(new Set(todas).size, `${nome}: semana em duas listas`).toBe(todas.length);
     for (const s of todas) {
       expect(s, `${nome}: semana ${s} fora de 1..${cfg.semanas}`).toBeGreaterThanOrEqual(1);
@@ -60,9 +71,17 @@ describe('forma do plano — vale para todo modo', () => {
   });
 
   it.each(MODOS)('%s: as semanas sem conteúdo são as declaradas', (nome, cfg) => {
-    const cobertas = new Set([...cfg.slotsConteudo, ...cfg.semanasMissao, ...cfg.semanasAvaliacao]);
+    const cobertas = new Set([...cfg.slotsConteudo, ...cfg.semanasMissao, ...cfg.semanasAvaliacao, ...(cfg.semanasMapeamento ?? [])]);
     const buracos = Array.from({ length: cfg.semanas }, (_, i) => i + 1).filter((s) => !cobertas.has(s));
     expect(buracos, `${nome}: semana sem papel definido`).toEqual(SEM_CONTEUDO_DECLARADO[nome] ?? []);
+  });
+
+  it.each(MODOS)('%s: a semana de mapeamento é a declarada (só o Onboarding tem, e é a primeira)', (nome, cfg) => {
+    expect(cfg.semanasMapeamento ?? [], `${nome}: semana de mapeamento não declarada neste guard`).toEqual(MAPEAMENTO_DECLARADO[nome]);
+    // O mapeamento é anterior ao conteúdo: o calendário recua por ele (`persistirTrilha`).
+    for (const s of cfg.semanasMapeamento ?? []) {
+      expect(s, `${nome}: mapeamento depois do conteúdo`).toBeLessThan(Math.min(...cfg.slotsConteudo));
+    }
   });
 
   it.each(MODOS)('%s: o fechamento acontece numa semana de avaliação', (nome, cfg) => {

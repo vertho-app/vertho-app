@@ -14,7 +14,7 @@ import { conteudosServiveisPorCargo } from '@/lib/season-engine/build-season';
 import { carregarConfigsEfetivasEmLote } from '@/lib/turmas';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
 import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
-import { gerarTemporadaCoreHeadless, normalizarSemanas, resolverCompetenciasDoOnboarding, resolverCompetenciasDoPersonalizado } from '@/lib/season-engine/trilha-core';
+import { gerarTemporadaCoreHeadless, normalizarSemanas, resolverCompetenciasDoOnboarding, resolverCompetenciasDoPersonalizado, descritoresInsuficientesDoOnboarding } from '@/lib/season-engine/trilha-core';
 import type { AIConfig } from './ai-client';
 import { z } from 'zod';
 import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction, assertTenantAccessAction } from '@/lib/auth/action-context';
@@ -205,7 +205,10 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
         if ('error' in resolvido) {
           bloqueadores.push(resolvido.error);
         } else {
-          const sel = selectDescriptorsMulti(resolvido.assessments, cfg.semanaParaCompetenciaIdx!, cfg.nivelMetaAlvo);
+          const sel = selectDescriptorsMulti(resolvido.assessments, cfg.semanaParaCompetenciaIdx!, cfg.nivelMetaAlvo, cfg.conteudosPorSemana || 1);
+          // A mesma presença que a geração exige: 4 descritores distintos por competência.
+          const insuficiente = descritoresInsuficientesDoOnboarding(cfg, resolvido.assessments, sel);
+          if (insuficiente) bloqueadores.push(insuficiente);
           for (const comp of resolvido.competencias) {
             alvos.push({ competencia: comp, descritores: sel.filter(d => d.competencia === comp).map(d => d.descritor) });
           }
@@ -532,6 +535,10 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
       // Era "Semana de avaliação não pode ser regerada" — mensagem enganosa:
       // este ramo é semana de CONTEÚDO sem descritor (a de avaliação cai no else).
       throw new Error('Semana de conteúdo sem descritor definido — sem base pra regerar o desafio');
+    } else if (slot.tipo === 'mapeamento') {
+      // Onboarding: a semana 1 é o Mapeamento já feito. Não tem desafio, missão nem
+      // cenário, e a linha de progresso dela nasceu concluída: nada a reabrir.
+      throw new Error('Semana de mapeamento não tem desafio nem conteúdo para regerar');
     } else {
       throw new Error('Semana de avaliação não pode ser regerada');
     }
@@ -814,6 +821,9 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
     if (!ctx.colaborador?.id || t.colaborador_id !== ctx.colaborador.id) {
       return { error: 'não autorizado' };
     }
+    // Semana de mapeamento (Onboarding): nasce concluída e não tem conteúdo a
+    // abrir. Não há o que marcar, e a linha dela não pode ser tocada por aqui.
+    if ((t.temporada_plano || []).find((s: any) => s.semana === semana)?.tipo === 'mapeamento') return { ok: true };
     const { data: existente, error: errLeitura } = await sb.from('temporada_semana_progresso')
       .select('id, status, iniciado_em, conteudo_consumido').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
     // O supabase-js RETORNA `{ error }`. Aqui a leitura NÃO é opcional: o valor

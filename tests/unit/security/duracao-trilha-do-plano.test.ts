@@ -8,7 +8,7 @@ import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
  * D1 (auditoria 22/08) e R-29 (revisão de 02/10/2026): a duração da trilha vem de
  * UMA função (`duracaoDaTrilha`), não do literal 14 nem de uma conta por peça.
  *
- * Os 5 presets valem 14 (regular), 9 (onboarding), 14 (regular_duo), 3
+ * Os 5 presets valem 14 (regular), 12 (onboarding), 14 (regular_duo), 3
  * (piloto) e 7 (jornada). Três telas ignoravam os dois helpers que já existiam
  * para responder isso — e o mesmo arquivo `lib/home/loaders.ts` documentava
  * `SEMANAS_IMPLEMENTACAO` como "fallback histórico", delegando corretamente a
@@ -177,7 +177,7 @@ describe('D1 · os helpers respondem por programa, não por formato', () => {
   it.each([
     ['jornada', 7],
     ['piloto', 3],
-    ['onboarding', 9],
+    ['onboarding', 12],
   ])('programa %s tem %i semanas', (modo, esperado) => {
     expect(getProgramaConfigDaTrilha({ programa_modo: modo }).semanas).toBe(esperado);
     expect(duracaoDaTrilha({ programa_modo: modo })).toBe(esperado);

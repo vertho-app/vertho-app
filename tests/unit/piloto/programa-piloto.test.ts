@@ -51,11 +51,15 @@ describe('Piloto — programa-config', () => {
   });
 
   it('espelho de calendário NÃO existe nos outros modos (vanilla inalterado)', () => {
-    for (const cfg of [PROGRAMA_REGULAR, PROGRAMA_REGULAR_DUO, PROGRAMA_ONBOARDING]) {
+    for (const cfg of [PROGRAMA_REGULAR, PROGRAMA_REGULAR_DUO]) {
       expect(cfg.semanaEspelhoCalendario).toBeUndefined();
       expect(cfg.conteudosPorSemana).toBeUndefined();
       expect(semanaCalendario(cfg, 14)).toBe(14);
     }
+    // O Onboarding (12 semanas, 2 conteúdos por semana desde 04/10/2026) também não
+    // espelha calendário: o deslocamento dele está no `data_inicio`, não na config.
+    expect(PROGRAMA_ONBOARDING.semanaEspelhoCalendario).toBeUndefined();
+    expect(semanaCalendario(PROGRAMA_ONBOARDING, 12)).toBe(12);
   });
 });
 

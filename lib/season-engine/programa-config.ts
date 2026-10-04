@@ -83,12 +83,32 @@ export const CONCLUSAO_VIDEO_ID: string | null = JORNADA_VIDEO_ID;
 
 export interface ProgramaConfig {
   modo: ProgramaModo;
-  /** Duração total da trilha em semanas. Regular=14, Onboarding=9. */
+  /** Duração total da trilha em semanas. Regular=14, Jornada=7, Onboarding=12. */
   semanas: number;
-  /** Semanas em que ocorre missão prática (aplicação). Regular=[4,8,12], Onboarding=[3,6,8]. */
+  /** Semanas em que ocorre missão prática (aplicação). Regular=[4,8,12]; Jornada e Onboarding não têm. */
   semanasMissao: number[];
-  /** Semanas reservadas para avaliação final. Regular=[13,14], Onboarding=[9]. */
+  /** Semanas reservadas para avaliação final. Regular=[13,14], Jornada=[7], Onboarding=[12]. */
   semanasAvaliacao: number[];
+  /**
+   * Semanas de MAPEAMENTO: o Mapeamento das competências, que a pessoa fez ANTES
+   * da trilha existir (a geração recusa quem não o fez). A semana nasce
+   * CONCLUÍDA, com a data em que o mapeamento acabou: conta no "x de N", libera
+   * o gate da semana seguinte, não tem conteúdo, não tem Evidências e não
+   * dispara cadência. Só o Onboarding tem (`[1]`, desde 04/10/2026); nos demais
+   * modos o campo não existe.
+   *
+   * É um TIPO declarado (`tipo: 'mapeamento'` no plano), e não um buraco: o
+   * defeito do R-20 era uma semana de conteúdo SEM conteúdo, que nunca
+   * concluía e trancava as seguintes. Aqui a semana tem caminho de conclusão
+   * real (o mapeamento que já aconteceu).
+   *
+   * ⚠️ O calendário também sabe delas: a trilha nasce com `data_inicio` uma
+   * semana ANTES do início do conteúdo para cada semana de mapeamento
+   * (`persistirTrilha`), de modo que a invariante "a semana N abre em
+   * `data_inicio` + (N-1)*7 dias" continua valendo para TODAS as peças (gate,
+   * cadência, painéis) sem que nenhuma precise saber do deslocamento.
+   */
+  semanasMapeamento?: number[];
   /**
    * Semanas em que o GESTOR faz o checkpoint do liderado.
    *
@@ -101,9 +121,13 @@ export interface ProgramaConfig {
    * vezes em qualquer programa.
    */
   semanasCheckpoint: number[];
-  /** Semana do wizard Cenário B / avaliação final. Regular=14, Onboarding=9. */
+  /** Semana do wizard Cenário B / avaliação final. Regular=14, Jornada=7, Onboarding=12. */
   semanaCenarioB: number;
-  /** Semana em que a Avaliação Acumulada é disparada. Regular=13. Em Onboarding, fica embutida nas missões. */
+  /**
+   * Semana em que a Avaliação Acumulada é lida. Regular=13, Jornada=6. No
+   * Onboarding é a 11, a última de conteúdo: a leitura parcial das 5 competências
+   * roda ao concluí-la (como o piloto faz na sua última semana de conteúdo).
+   */
   semanaAcumulada: number;
   /**
    * Turnos de IA da conversa qualitativa. Ausente = 12
@@ -118,7 +142,7 @@ export interface ProgramaConfig {
    * e dispara pelo simples fato de a semana ser concluída.
    */
   turnosQualitativa?: number;
-  /** Slots de conteúdo (semanas que NÃO são missão nem avaliação). Regular=9 slots. */
+  /** Slots de conteúdo (semanas que NÃO são missão, avaliação nem mapeamento). Regular=9 slots, Onboarding=10. */
   slotsConteudo: number[];
   /**
    * Quantos descritores cada semana de missão cobre.
@@ -130,20 +154,21 @@ export interface ProgramaConfig {
   complexidadeMap: Record<number, ComplexidadeMissao>;
   /** Nível-meta na régua de maturidade. Regular=3 (meta proficiente), Onboarding=2 (em desenvolvimento). */
   nivelMetaAlvo: 2 | 3;
-  /** Quantas competências cabem em uma trilha. Regular=1 (aprofundada), Onboarding=5 (espiral). */
+  /** Quantas competências cabem em uma trilha. Regular=1 (aprofundada), Onboarding=5 (2 semanas por competência, em sequência). */
   numCompetencias: number;
   /** Default usado pela IA1 quando nenhum override por cargo é dado. */
   faseCarreiraDefault?: FaseCarreira;
   /**
-   * Multi-competência (Onboarding): mapeia semana de fundamento → índice no
-   * array de competências da trilha. Quando undefined, engine usa modo
-   * single-competência (regular).
+   * Multi-competência (Onboarding): mapeia semana de conteúdo → índice no
+   * array de competências da trilha (2 semanas por competência). Quando
+   * undefined, engine usa modo single-competência (regular).
    */
   semanaParaCompetenciaIdx?: Record<number, number>;
   /**
-   * Multi-competência (Onboarding): para cada semana de missão, lista os
-   * índices das competências já trabalhadas até ali (acumulativo).
-   * -1 (em qualquer posição) = todas. Default regular: undefined.
+   * Missões integradoras multi-competência: para cada semana de missão, lista
+   * os índices das competências já trabalhadas até ali (acumulativo). -1 (em
+   * qualquer posição) = todas. Só o Regular DUO usa; o Onboarding deixou de ter
+   * missão em 04/10/2026.
    */
   competenciasNaMissao?: Record<number, number[]>;
   /**
@@ -220,55 +245,73 @@ export const PROGRAMA_REGULAR: ProgramaConfig = Object.freeze({
 }) as ProgramaConfig;
 
 /**
- * Onboarding: trilha de 9 semanas em espiral cobrindo 5 competências.
- * Missões integradoras nas semanas 3 (Comps 1+2), 6 (1+2+3+4) e 8 (todas).
- * Cenário B na semana 9. Nível-meta 2 (funcional / autonomia supervisionada).
+ * Onboarding: trilha de 12 semanas, 5 competências em sequência. Decisão do dono
+ * (04/10/2026): 10 semanas de conteúdo, 12 no total; a semana 1 é o Mapeamento e
+ * a 12 é o Encerramento.
  *
- * Cadência detalhada:
- *   1,2 — Fundamento Comp 1 e 2
- *   3   — Missão Integradora 1 (Comp 1+2)
- *   4,5 — Fundamento Comp 3 e 4
- *   6   — Missão Integradora 2 (Comp 1..4)
- *   7   — Fundamento Comp 5
- *   8   — Missão Integradora 3 (todas) + acumulada embutida
- *   9   — Cenário B + Evolution Report
+ *   1       Mapeamento (tipo próprio): nasce CONCLUÍDO, com a data em que a
+ *             pessoa terminou o mapeamento das competências
+ *   2 e 3   Competência 1 (2 conteúdos por semana)
+ *   4 e 5   Competência 2
+ *   6 e 7   Competência 3
+ *   8 e 9   Competência 4
+ *   10 e 11 Competência 5
+ *   12      Encerramento: Cenário B + arguição + Evolution Report + certificado
  *
- * ⚠️ 9 semanas, e não 10, desde 04/10/2026 (R-20). O desenho original abria com
- * uma semana 1 de "calibragem" (DISC + diagnóstico + onboarding institucional)
- * que NUNCA teve implementação: nascia como semana de conteúdo sem conteúdo,
- * sem botão de evidências, e o gate sequencial trancava as semanas 2 a 10 para
- * sempre. A calibragem já acontece ANTES da trilha: o perfil DISC é a fase 1 da
- * home, e a geração recusa quem ainda não tem o mapeamento das competências
- * (fase 2), então a semana 1 repetiria o que a pessoa já fez. Em vez de
- * inventar uma tela de calibragem, o programa começa no fundamento e todas as
- * semanas seguintes subiram uma posição. Nenhuma trilha, empresa, turma ou
- * colaborador usa este modo em produção (medido 04/10/2026), então não há plano
- * de 10 semanas para migrar. Alternativa que o dono pode escolher no lugar:
- * manter 10 e dar à semana 1 um tipo próprio com caminho de conclusão (tela,
- * ação e copy novas).
+ * No modelo da Jornada: 2 conteúdos por semana (descritores distintos da MESMA
+ * competência), UM desafio por semana (`desafioUnicoPorCompetencia`) e nenhuma
+ * semana dedicada de missão (`semanasMissao: []`). A ordem das competências é a
+ * do Top 5 do cargo. Nível-meta 2 (funcional / autonomia supervisionada): o
+ * scorer segue na régua absoluta, decisão do dono.
+ *
+ * ⚠️ A SEMANA 1 NÃO É A "CALIBRAGEM" QUE O R-20 REMOVEU. Aquela era uma semana
+ * de CONTEÚDO sem conteúdo: sem botão de Evidências ela nunca concluía e o gate
+ * sequencial trancava as demais para sempre. Esta é um tipo declarado
+ * (`semanasMapeamento`) com caminho de conclusão real: a geração recusa quem
+ * não tem o Perfil e o Mapeamento das 5 competências, então a semana já nasce
+ * concluída. Não tem conteúdo, não tem botão de Evidências, não dispara
+ * cadência; o cartão dela diz que o Mapeamento está concluído e leva ao que a
+ * pessoa já tem dele.
+ *
+ * CALENDÁRIO: a semana 2 abre na data de início da trilha (a pessoa acabou de
+ * mapear; não fica uma semana inteira parada), e as seguintes a cada 7 dias.
+ * Para isso a trilha grava `data_inicio` uma semana ANTES (`persistirTrilha`):
+ * a invariante "a semana N abre em `data_inicio` + (N-1)*7 dias" segue valendo
+ * para o gate, a cadência, o painel do gestor e a "semana atual", sem que
+ * nenhum deles precise conhecer o deslocamento.
+ *
+ * Acumulada na semana 11 (a última de conteúdo): a leitura parcial das 5
+ * competências roda ao concluí-la, como a do piloto na sua última semana de
+ * conteúdo. O Cenário B INTEGRADOR da semana 12 (a escolha do cenário e o
+ * gerador) é do lote `d-cenb`: aqui só a config.
+ *
+ * `semanasCheckpoint` fica VAZIO: eram `[3, 6]`, as semanas das missões
+ * integradoras, que deixaram de existir. A Jornada não tem checkpoint do gestor
+ * (dono, 04/09/2026) e ninguém definiu um para este formato; preencher por
+ * analogia com o outro modelo seria inventar regra de produto.
+ *
+ * Nenhuma trilha, empresa, turma ou colaborador usa este modo em produção
+ * (medido 04/10/2026): não há plano de 9 semanas para migrar.
  */
 export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
   modo: 'onboarding',
-  semanas: 9,
-  semanasMissao: [3, 6, 8],
-  semanasAvaliacao: [9],
-  semanasCheckpoint: [3, 6],
-  semanaCenarioB: 9,
-  semanaAcumulada: 8, // embutida na última missão integradora
-  slotsConteudo: [1, 2, 4, 5, 7], // 5 fundamentos, um por competência
-  blocosCobertos: { 3: 2, 6: 4, 8: -1 }, // 2 comps, 4 comps, todas as 5
-  complexidadeMap: { 3: 'simples', 6: 'intermediario', 8: 'completo' },
+  semanas: 12,
+  semanasMissao: [],
+  semanasAvaliacao: [12],
+  semanasMapeamento: [1],
+  semanasCheckpoint: [],
+  semanaCenarioB: 12,
+  semanaAcumulada: 11, // a última semana de conteúdo
+  slotsConteudo: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11], // 5 competências x 2 semanas
+  blocosCobertos: {},
+  complexidadeMap: {},
   nivelMetaAlvo: 2,
   numCompetencias: 5,
-  // Sem 1 = Comp[0], Sem 2 = Comp[1], Sem 4 = Comp[2], Sem 5 = Comp[3], Sem 7 = Comp[4]
-  semanaParaCompetenciaIdx: { 1: 0, 2: 1, 4: 2, 5: 3, 7: 4 },
-  // Conjunto CANDIDATO por missão — a cobertura efetiva é filtrada pela janela
-  // de entrega (28/07, em montarSemanaAplicacao): M1 (sem 3) cobre Comps 0+1
-  // (entregues sem 1-2); M2 (sem 6) cobre só Comps 2+3 (bloco fechado sem 4-5,
-  // desde a missão anterior); M3 (sem 8, última) é cumulativa = todas.
-  competenciasNaMissao: { 3: [0, 1], 6: [0, 1, 2, 3], 8: [-1] },
-  // Fase D+ (03/07): arguição LIGADA no onboarding (maxTurnos 6, janela mais
-  // curta pra recém-formados). Todos os modos agora ON.
+  conteudosPorSemana: 2,
+  desafioUnicoPorCompetencia: true,
+  // Sem 2 e 3 = Comp[0], 4 e 5 = Comp[1], 6 e 7 = Comp[2], 8 e 9 = Comp[3], 10 e 11 = Comp[4]
+  semanaParaCompetenciaIdx: { 2: 0, 3: 0, 4: 1, 5: 1, 6: 2, 7: 2, 8: 3, 9: 3, 10: 4, 11: 4 },
+  // Arguição LIGADA (maxTurnos 6, janela mais curta pra recém-formados).
   arguicao: { ativa: true, maxTurnos: 6 },
 }) as ProgramaConfig;
 
@@ -312,7 +355,7 @@ export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
   competenciasNaMissao: { 4: [-1], 8: [-1], 12: [-1] },
   // SEM semanaParaCompetenciaIdx: a competência de cada semana de conteúdo
   // vem do descritor (selectDescriptorsDuo grava .competencia). O mapa
-  // semana→comp é exclusivo do onboarding (espiral raso).
+  // semana→comp é exclusivo do onboarding (2 semanas por competência, em sequência).
   // Fase D+ (03/07): arguição LIGADA no Regular DUO (default global) — validada
   // no piloto. Onboarding segue OFF (modo à parte; ligar sob demanda).
   arguicao: { ativa: true, maxTurnos: 8 },
@@ -508,7 +551,7 @@ export function getProgramaConfigByModo(modo?: string | null): ProgramaConfig {
  * avaliação do PDI) e o fallback das trilhas antigas.
  *
  *   - 'jornada'         → PROGRAMA_JORNADA (7 sem: 6 conteúdo + avaliação)
- *   - 'onboarding'      → PROGRAMA_ONBOARDING (9 sem, 5 comps, espiral)
+ *   - 'onboarding'      → PROGRAMA_ONBOARDING (12 sem: mapeamento, 5 comps x 2 sem, encerramento)
  *   - 'custom'          → derivada de `sys_config.programa_custom` (a config de
  *                         UMA competência; `derivarConfigCustom`)
  *   - 'regular_duo' / 'regular' / 'regular_single' / 'piloto' → as constantes
@@ -643,4 +686,45 @@ export function descritoresCobertosNaMissao<T>(
   if (n === undefined) return [];
   if (n === -1) return [...descritoresSelecionados];
   return descritoresSelecionados.slice(0, n);
+}
+
+/**
+ * A semana é de MAPEAMENTO neste programa (`ProgramaConfig.semanasMapeamento`)?
+ * Só o Onboarding tem; nos demais modos é sempre `false`.
+ */
+export function ehSemanaDeMapeamento(config: Pick<ProgramaConfig, 'semanasMapeamento'>, semana: number): boolean {
+  return (config.semanasMapeamento ?? []).includes(Number(semana));
+}
+
+/**
+ * Quantas semanas de mapeamento abrem o programa (0 fora do Onboarding). É
+ * quanto o calendário da trilha anda para trás ao nascer: ver
+ * `ProgramaConfig.semanasMapeamento` e `persistirTrilha`.
+ */
+export function semanasDeMapeamentoDoPrograma(config: Pick<ProgramaConfig, 'semanasMapeamento'>): number {
+  return (config.semanasMapeamento ?? []).length;
+}
+
+/**
+ * Concluir ESTA semana dispara a acumulada parcial do Onboarding?
+ *
+ * Sim quando o programa é o Onboarding, a semana é de conteúdo e é a da
+ * acumulada (`semanaAcumulada`, a 11: a última de conteúdo). A leitura cobre as 5
+ * competências da trilha e o fechamento (semana 12) lê o resultado na linha
+ * desta semana. Até 04/10/2026 ela rodava ao fim de cada missão integradora
+ * (3/6/8); as missões deixaram de existir.
+ *
+ * Função PURA, para a rota e o teste decidirem pela mesma regra: a mutação que
+ * troca a semana ou o modo tem que derrubar o caso.
+ */
+export function deveRodarAcumuladaParcialDoOnboarding(
+  config: Pick<ProgramaConfig, 'modo' | 'semanaAcumulada'>,
+  semanaPlan: { tipo?: string | null } | null | undefined,
+  semana: number | string,
+  concluiu: boolean,
+): boolean {
+  return concluiu
+    && config.modo === 'onboarding'
+    && semanaPlan?.tipo === 'conteudo'
+    && Number(semana) === config.semanaAcumulada;
 }

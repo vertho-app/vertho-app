@@ -551,6 +551,45 @@ export async function processarEmpresaDiario(
       }
     } catch (e: any) { console.warn('[triggerDiario] plano:', e?.message); }
 
+    /**
+     * 🔴 SEMANA DE MAPEAMENTO: nada a entregar nem a cobrar (Onboarding,
+     * 04/10/2026). A semana 1 é o Mapeamento que a pessoa já fez e nasce
+     * concluída; a trilha nasce com `data_inicio` uma semana antes do início do
+     * conteúdo, então do dia em que ela é gerada até a segunda em que a semana 2
+     * abre o calendário aponta para a semana 1. Sem este pulo a quinta cobraria
+     * "registro de evidências" de uma semana sem conteúdo e a segunda anunciaria
+     * uma pílula que não existe. Conta junto com quem aguarda o início: é a
+     * mesma espera.
+     *
+     * O RELÓGIO, esse, ANDA: a quinta avança `semana_atual` em silêncio, como em
+     * toda semana, para que na segunda em que a semana 2 abre o relógio gravado
+     * já esteja na 2 (quem lê o relógio sem alinhá-lo pela data, como o lote
+     * manual e o painel, não pode ver a semana 1). Quem foi gerado depois dessa
+     * quinta fica com o relógio na 1 até a quinta seguinte; o cron, por sua vez,
+     * alinha pela data (R-15) e entrega a semana 2 normalmente.
+     */
+    if (plan?.tipo === 'mapeamento') {
+      aguardandoInicio++;
+      if (agendado('ev') && !jaNoSlot(envio.ultima_evidencia_em, 'ev')) {
+        const { error: errAvanco } = await tdb.from('fase4_envios')
+          .update({ ultima_evidencia_em: new Date().toISOString(), semana_atual: semanaCalendario + 1 })
+          .eq('id', envio.id);
+        if (errAvanco) {
+          // O avanço volta na quinta seguinte; é entrega, então degrada, mas registrando.
+          erros++;
+          await registrarDegradacao({
+            fluxo: 'envio',
+            tipo: DEGRADACAO.TELEMETRIA_ENTREGA_FALHOU,
+            chave: `avanco-mapeamento:${empresa.id}`,
+            empresaId: empresa.id,
+            severidade: 'aviso',
+            detalhe: { motivo: errAvanco.message, envioId: envio.id, onde: 'avanço do relógio na semana de mapeamento' },
+          });
+        }
+      }
+      continue;
+    }
+
     // Fim da temporada é do CALENDÁRIO: usar a semana de entrega aqui deixaria
     // quem está travado na 1 rodando para sempre, sem nunca concluir o envio.
     //

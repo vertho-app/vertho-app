@@ -18,6 +18,7 @@ import {
 import { maskColaborador, maskTextPII, unmaskPII, unmaskDeepPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { deveRodarAcumuladaParcialDoOnboarding } from '@/lib/season-engine/programa-config';
 import { resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
 import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, fechamentoSeguro } from '@/lib/season-engine/fechamento-conversa';
 import { normalizarCompromisso } from '@/lib/season-engine/compromisso';
@@ -249,6 +250,11 @@ export async function POST(request) {
     const planoNormalizado = normalizeTemporadaPlano(trilha.temporada_plano);
     const semanaPlan = planoNormalizado.find(s => s.semana === Number(semana));
     if (!semanaPlan) return NextResponse.json({ error: 'semana fora do plano' }, { status: 400 });
+    // A semana de mapeamento do Onboarding nasce concluída e não tem conversa:
+    // a tela nunca a oferece, e um pedido forjado não pode abrir uma sobre ela.
+    if (semanaPlan.tipo === 'mapeamento') {
+      return NextResponse.json({ error: 'semana de mapeamento não tem conversa', codigo: 'semana-sem-conversa' }, { status: 400 });
+    }
     const competenciaSemana = resolveCompetenciaSemana(trilha, semanaPlan);
 
     // Config pela FONTE ÚNICA (carimbo da trilha → fallback sys_config).
@@ -583,28 +589,21 @@ export async function POST(request) {
       }
     }
 
-    // Modo Onboarding: ao concluir missão integradora (3/6/8), dispara acumulada
-    // parcial em background — agrega evidências das comps cobertas até aqui.
-    // Com STATUS (`acumulada_status` na linha da missão) e a falha registrada em
+    // Modo Onboarding: ao concluir a ÚLTIMA semana de conteúdo (`semanaAcumulada`,
+    // a 11), dispara a acumulada parcial das 5 competências em background: agrega
+    // as evidências de todas elas até aqui, e o fechamento (semana 12) lê o
+    // resultado na linha desta semana. Era disparada ao fim de cada missão
+    // integradora (3/6/8); as missões deixaram de existir em 04/10/2026.
+    // Com STATUS (`acumulada_status` na linha da semana) e a falha registrada em
     // `degradacao_log` (R-100): antes o `after()` rodava no escuro.
-    if (
-      finished &&
-      programaConfig.modo === 'onboarding' &&
-      semanaPlan.tipo === 'aplicacao' &&
-      programaConfig.semanasMissao.includes(Number(semana)) &&
-      programaConfig.competenciasNaMissao
-    ) {
-      const idxs = programaConfig.competenciasNaMissao[Number(semana)] || [];
+    if (deveRodarAcumuladaParcialDoOnboarding(programaConfig, semanaPlan, semana, finished)) {
       // As competências da trilha já vieram no select do topo da rota.
       const compsTrilha: string[] = Array.isArray(trilha.competencias_foco) ? trilha.competencias_foco : [];
-      const compsCobertas = idxs.includes(-1)
-        ? compsTrilha
-        : idxs.map(i => compsTrilha[i]).filter(Boolean);
-      if (compsCobertas.length) {
+      if (compsTrilha.length) {
         // after(): idem — o IIFE solto morre no freeze pós-response da Vercel.
         after(async () => {
           const { rodarAcumuladaParcialComStatus } = await import('@/lib/season-engine/avaliacao-acumulada-core');
-          await rodarAcumuladaParcialComStatus(trilhaId, compsCobertas, Number(semana), { empresaId: trilha.empresa_id });
+          await rodarAcumuladaParcialComStatus(trilhaId, compsTrilha, Number(semana), { empresaId: trilha.empresa_id });
         });
       }
     }

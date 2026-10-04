@@ -43,7 +43,7 @@ export async function competenciasDoOnboardingDoCargo(
   }
   if (competencias.length < n) {
     return {
-      error: `O Onboarding cobre ${n} competências em espiral e o cargo "${cargo || 'sem cargo'}" tem ${competencias.length} (${competencias.join(', ')}). Complete o Top 5 do cargo ou defina sys_config.competencias_onboarding. Nada foi gerado.`,
+      error: `O Onboarding cobre ${n} competências em sequência e o cargo "${cargo || 'sem cargo'}" tem ${competencias.length} (${competencias.join(', ')}). Complete o Top 5 do cargo ou defina sys_config.competencias_onboarding. Nada foi gerado.`,
       codigo: 'onboarding_competencias_insuficientes',
     };
   }

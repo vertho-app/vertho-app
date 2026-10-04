@@ -87,3 +87,19 @@ export async function liberarProximaSemana(
 export function statusAoTocarSemana(atual: string | null | undefined): string {
   return atual === PROGRESSO.CONCLUIDO ? PROGRESSO.CONCLUIDO : PROGRESSO.EM_ANDAMENTO;
 }
+
+/**
+ * O `tipo` a gravar na LINHA de progresso para um slot do plano.
+ *
+ * `temporada_semana_progresso.tipo` tem um CHECK que só aceita `conteudo`,
+ * `aplicacao` e `avaliacao` (baseline do banco), e a semana de MAPEAMENTO do
+ * Onboarding (04/10/2026) é um tipo novo do PLANO (`temporada_plano` é JSONB
+ * livre). Sem migration, a linha dela grava `avaliacao`, o mais próximo do que
+ * ela é (um mapeamento é uma avaliação já feita) e o único que não conta como
+ * semana de conteúdo no engajamento (`roll-up` e `engagement-evolution` só somam
+ * `conteudo` e `aplicacao`). Quem decide o tipo de uma semana é o PLANO, nunca
+ * esta coluna; ampliar o CHECK é decisão do dono (zona de migration).
+ */
+export function tipoDaLinhaDeProgresso<T extends string | null | undefined>(tipoDoPlano: T): T | 'avaliacao' {
+  return tipoDoPlano === 'mapeamento' ? 'avaliacao' : tipoDoPlano;
+}

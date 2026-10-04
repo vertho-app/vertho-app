@@ -143,6 +143,9 @@ function exigirCadencia(c: ColaboradorAlvo, ctx: ContextoEnvio): ContextoCadenci
   if (!cadencia) return { excluir: 'sem cadência ativa ou trilha gerada' };
   if (cadencia.statusTrilha !== TRILHA.ATIVA) return { excluir: 'trilha não está ativa' };
   if (!cadencia.planoDaSemana) return { excluir: 'sem plano para a semana acessível' };
+  // Onboarding: a semana 1 é o Mapeamento já concluído, sem conteúdo, desafio nem
+  // avaliação a anunciar. Vale até a segunda em que a semana 2 abre.
+  if (cadencia.planoDaSemana.tipo === 'mapeamento') return { excluir: 'semana de mapeamento: ainda não há conteúdo a anunciar' };
   return cadencia;
 }
 

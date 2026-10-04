@@ -61,6 +61,8 @@ let sysConfig: any = {};
 let cenariosB: any[] = [];
 let avaliadas: string[] = TOP5;
 let top5: string[] = TOP5;
+/** Competência com poucos descritores avaliados (default: 6 em todas). */
+let comPoucosDescritores: { competencia: string; quantos: number } | null = null;
 
 const COLAB = {
   id: 'c1', nome_completo: 'Pessoa Teste', cargo: 'Professor', programa_modo: null,
@@ -84,7 +86,9 @@ function montar() {
       if (tabela === 'colaboradores') return [COLAB];
       if (tabela === 'cargos_empresa') return [{ nome: 'Professor', competencia_foco: 'Comp A' }];
       if (tabela === 'descriptor_assessments') {
-        return avaliadas.flatMap((competencia) => [1, 2, 3, 4, 5, 6].map((n) => ({ colaborador_id: 'c1', competencia, descritor: `${competencia} D${n}`, nota: 1.2 + n * 0.3 })));
+        return avaliadas.flatMap((competencia) => [1, 2, 3, 4, 5, 6]
+          .slice(0, comPoucosDescritores?.competencia === competencia ? comPoucosDescritores.quantos : 6)
+          .map((n) => ({ colaborador_id: 'c1', competencia, descritor: `${competencia} D${n}`, nota: 1.2 + n * 0.3 })));
       }
       return [];
     },
@@ -101,6 +105,7 @@ beforeEach(() => {
   cenariosB = [];
   avaliadas = TOP5;
   top5 = TOP5;
+  comPoucosDescritores = null;
   sysConfig = {};
   montar();
 });
@@ -159,7 +164,8 @@ describe('prontidão: Onboarding (fecha nas 5 competências)', () => {
     const r = await prontidao();
     expect(r.modo).toBe('onboarding');
     expect(r.competencia).toBe(TOP5.join(' + '));
-    expect(r.descritores).toHaveLength(5);
+    // 4 descritores distintos por competência (2 por semana, 2 semanas): 20 no programa.
+    expect(r.descritores).toHaveLength(20);
   });
 
   it('um B por competência (o que o lote gera) NÃO basta: falta o integrador das 5', async () => {
@@ -207,7 +213,23 @@ describe('prontidão: Onboarding (fecha nas 5 competências)', () => {
     montar();
     const r = await prontidao();
     expect(r.pronto).toBe(false);
-    expect(r.bloqueadores[0]).toContain('cobre 5 competências em espiral');
+    expect(r.bloqueadores[0]).toContain('cobre 5 competências em sequência');
+  });
+
+  it('competência com só 3 descritores avaliados: bloqueador com a MESMA conta da geração (4 por competência)', async () => {
+    comPoucosDescritores = { competencia: 'Comp E', quantos: 3 };
+    montar();
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    expect(r.bloqueadores.join(' ')).toContain('Comp E (3 de 4)');
+    expect(r.bloqueadores.join(' ')).not.toContain('Comp A (');
+  });
+
+  it('com 4 descritores por competência (o mínimo) a conta fecha e nenhum bloqueador de descritor aparece', async () => {
+    comPoucosDescritores = { competencia: 'Comp E', quantos: 4 };
+    montar();
+    const r = await prontidao();
+    expect(r.bloqueadores.join(' ')).not.toContain('descritores distintos');
   });
 
   it('competência do Top 5 sem avaliação: bloqueador diz qual', async () => {

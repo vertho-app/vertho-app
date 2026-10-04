@@ -38,8 +38,8 @@ describe('duracaoDaTrilha: a config do snapshot ou do carimbo', () => {
     expect(duracaoDaTrilha({ programa_modo: 'jornada', programa_config: null, temporada_plano: plano(7) })).toBe(7);
   });
 
-  it('Onboarding: 9 (começa no fundamento desde 04/10/2026, R-20)', () => {
-    expect(duracaoDaTrilha({ programa_modo: 'onboarding' })).toBe(9);
+  it('Onboarding: 12 (10 de conteúdo, o Mapeamento na 1 e o Encerramento na 12, 04/10/2026)', () => {
+    expect(duracaoDaTrilha({ programa_modo: 'onboarding' })).toBe(12);
   });
 
   it('🔴 a Ibipeba (regular_duo com snapshot de 9) é 9, e não os 14 do rótulo', () => {

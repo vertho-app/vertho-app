@@ -173,6 +173,18 @@ describe('regerarSemana · reparo de conteúdo + normalização (F-I2)', () => {
     expect(res.error).not.toContain('avaliação');
   });
 
+  it('semana de MAPEAMENTO (Onboarding): recusada, com a mensagem dela e sem chamar a IA nem tocar o progresso', async () => {
+    h.state.trilha.temporada_plano = [{
+      semana: 1, tipo: 'mapeamento', descritor: null, descritores_cobertos: [], competencias_cobertas: ['Autocuidado'], status: 'disponivel',
+    }];
+    const { regerarSemana } = await import('@/actions/temporadas');
+    const res = await regerarSemana({ trilhaId: 't1', semana: 1 });
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('mapeamento');
+    expect(res.error).not.toContain('avaliação');
+    expect(h.state.progressoGravado).toBeUndefined();
+  });
+
   it('semana de avaliação: segue recusada, com a mensagem certa', async () => {
     h.state.trilha.temporada_plano = [{
       semana: 7, tipo: 'avaliacao', descritor: null, descritores_cobertos: [], status: 'bloqueada',
@@ -189,11 +201,23 @@ describe('regerarSemana · a complexidade da missão vem da CONFIG da trilha (R-
     semana, tipo: 'aplicacao', competencia: 'Autocuidado', descritor: null,
     descritores_cobertos: ['D1', 'D2'], competencias_cobertas: ['Autocuidado'], status: 'disponivel',
   });
-  const trilhaCom = (programa_modo: string | null, semana: number) => ({
+  /**
+   * Snapshot de uma trilha com missões nas semanas 3/6/8 (o desenho do Onboarding
+   * até 04/10/2026, que já não existe como preset). O snapshot vale para qualquer
+   * rótulo (`getProgramaConfigDaTrilha`), e é ele que prova que a complexidade vem
+   * da CONFIG DA TRILHA: nenhum preset de hoje tem missão fora de 4/8/12.
+   */
+  const SNAPSHOT_MISSOES_3_6_8 = {
+    modo: 'onboarding', semanas: 9, semanasMissao: [3, 6, 8], semanasAvaliacao: [9], semanaCenarioB: 9, semanaAcumulada: 8,
+    slotsConteudo: [1, 2, 4, 5, 7], blocosCobertos: { 3: 2, 6: 4, 8: -1 },
+    complexidadeMap: { 3: 'simples', 6: 'intermediario', 8: 'completo' }, nivelMetaAlvo: 2, numCompetencias: 5,
+    arguicao: { ativa: true, maxTurnos: 6 },
+  };
+  const trilhaCom = (programa_modo: string | null, semana: number, programa_config: unknown = null) => ({
     id: 't1', colaborador_id: 'c1', empresa_id: 'e1',
     competencia_foco: 'Autocuidado', competencias_foco: ['Autocuidado'],
     descritores_selecionados: [{ descritor: 'D1', competencia: 'Autocuidado' }, { descritor: 'D2', competencia: 'Autocuidado' }],
-    programa_modo, programa_config: null,
+    programa_modo, programa_config,
     temporada_plano: [slotMissao(semana)],
   });
   const complexidadeGravada = () => h.state.planoGravado[0].cenario.complexidade;
@@ -205,9 +229,9 @@ describe('regerarSemana · a complexidade da missão vem da CONFIG da trilha (R-
   });
 
   it.each([[3, 'simples'], [6, 'intermediario'], [8, 'completo']])(
-    'Onboarding, missão da semana %i: %s (as semanas 3/6/8 da config, não as 4/8/12 do formato de 14)',
+    'trilha com missões em 3/6/8, semana %i: %s (as semanas da config gravada, não as 4/8/12 do formato de 14)',
     async (semana, esperada) => {
-      h.state.trilha = trilhaCom('onboarding', semana);
+      h.state.trilha = trilhaCom('onboarding', semana, SNAPSHOT_MISSOES_3_6_8);
       const { regerarSemana } = await import('@/actions/temporadas');
       const res = await regerarSemana({ trilhaId: 't1', semana });
       expect(res.success).toBe(true);
@@ -227,7 +251,7 @@ describe('regerarSemana · a complexidade da missão vem da CONFIG da trilha (R-
   );
 
   it('semana de missão fora do mapa da config: intermediária (o padrão que já existia)', async () => {
-    h.state.trilha = trilhaCom('onboarding', 5);
+    h.state.trilha = trilhaCom('onboarding', 5, SNAPSHOT_MISSOES_3_6_8);
     const { regerarSemana } = await import('@/actions/temporadas');
     await regerarSemana({ trilhaId: 't1', semana: 5 });
     expect(complexidadeGravada()).toBe('intermediario');

@@ -126,9 +126,10 @@ export async function gerarAvaliacaoAcumuladaCore(trilhaId: string, opts?: { emp
 }
 
 /**
- * Acumulada PARCIAL — usada no Modo Onboarding após cada missão integradora
- * (sems 4/7/9). Filtra `descritores_selecionados` pelas `competencias` passadas,
- * roda a 1ª/2ª IA só nesse subset e persiste em `progresso.semana === semFim`.
+ * Acumulada PARCIAL — usada no Modo Onboarding ao concluir a última semana de
+ * conteúdo (a 11; até 04/10/2026 era após cada missão integradora). Filtra
+ * `descritores_selecionados` pelas `competencias` passadas, roda a 1ª IA só
+ * nesse subset e persiste em `progresso.semana === semFim`.
  *
  * Comportamento: idêntico à acumulada completa, mas com escopo reduzido. Não
  * dispara em modo regular.
@@ -225,7 +226,7 @@ export async function gerarAvaliacaoAcumuladaParcialCore(trilhaId: string, compe
 }
 
 /**
- * A acumulada PARCIAL de uma missão integradora do Onboarding, COM STATUS
+ * A acumulada PARCIAL do Onboarding (ao concluir a semana 11), COM STATUS
  * (R-100, 04/10/2026). É o que a rota `/reflection` chama dentro do `after()`.
  *
  * Antes o `after()` rodava o núcleo "no escuro": sem status, sem registro de

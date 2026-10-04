@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /**
  * O PLANO de um Onboarding inteiro, montado pelo `buildSeason` de verdade
@@ -8,18 +8,26 @@ import { describe, it, expect, vi } from 'vitest';
  * nunca teve implementação. O `buildSeason` classifica por exclusão, então ela
  * nascia como semana de CONTEÚDO sem descritor e sem conteúdo: sem nada para
  * abrir, o botão de Evidências ficava desabilitado, a semana nunca concluía e o
- * gate sequencial trancava as semanas seguintes para sempre. O programa agora
- * começa no fundamento. Este teste olha o plano que sai do motor, não só as
- * constantes da config: é o que a pessoa recebe.
+ * gate sequencial trancava as semanas seguintes para sempre.
+ *
+ * Decisão do dono (04/10/2026): 10 semanas de conteúdo, 12 no total. A semana 1 é
+ * o MAPEAMENTO (um tipo declarado, que nasce concluído), as semanas 2 a 11 são 5
+ * competências de 2 semanas cada (2 conteúdos por semana, no modelo da Jornada,
+ * sem missão) e a 12 é o Encerramento. Este teste olha o plano que sai do motor,
+ * não só as constantes da config: é o que a pessoa recebe.
  */
 
 const COMPETENCIAS = ['Comp A', 'Comp B', 'Comp C', 'Comp D', 'Comp E'];
+const SIGLAS = ['A', 'B', 'C', 'D', 'E'];
 
-// Um conteúdo por descritor (o mock não filtra por competência: a seleção casa
-// pelo descritor, que aqui é único por competência).
-const MICRO_CONTEUDOS = COMPETENCIAS.map((comp, i) => ({
-  id: `c${i}`, titulo: `Vídeo ${comp}`, formato: 'video', competencia: comp, descritor: `D${i}`, ativo: true, url: `u${i}`,
-}));
+// 4 descritores por competência (2 por semana x 2 semanas), notas distintas, e um
+// conteúdo por descritor (o mock não filtra por competência: a seleção casa pelo
+// descritor, que aqui é único no programa inteiro).
+const NOTAS = [1.2, 1.5, 1.8, 2.1];
+const ASSESSMENTS_DE = (i: number) => NOTAS.map((nota, n) => ({ descritor: `${SIGLAS[i]}${n + 1}`, nota: nota + i * 0.05 }));
+const MICRO_CONTEUDOS = COMPETENCIAS.flatMap((comp, i) => ASSESSMENTS_DE(i).map((a) => ({
+  id: `c-${a.descritor}`, titulo: `Vídeo ${a.descritor}`, formato: 'video', competencia: comp, descritor: a.descritor, ativo: true, url: `u-${a.descritor}`,
+})));
 
 /** O `lte('nivel_min', x)` de cada busca de conteúdo: `x` é o nível que o motor mirou. */
 const niveisBuscados: number[] = [];
@@ -35,22 +43,24 @@ function chainable(result: any[]) {
 }
 
 const mockSb = { from: vi.fn((table: string) => chainable(table === 'micro_conteudos' ? MICRO_CONTEUDOS : [])) };
+const callAI = vi.hoisted(() => vi.fn(async () => '{}'));
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => mockSb }));
-vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn(async () => '{}') }));
+vi.mock('@/actions/ai-client', () => ({ callAI }));
 
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { PROGRAMA_ONBOARDING, PROGRAMA_JORNADA } from '@/lib/season-engine/programa-config';
-import { selectDescriptorsMulti, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
+import { selectDescriptors, selectDescriptorsMulti, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
 
-const ASSESSMENTS: AssessmentPorCompetencia[] = COMPETENCIAS.map((competencia, i) => ({
-  competencia, assessment: [{ descritor: `D${i}`, nota: 1.5 + i * 0.2 }],
-}));
+const ASSESSMENTS: AssessmentPorCompetencia[] = COMPETENCIAS.map((competencia, i) => ({ competencia, assessment: ASSESSMENTS_DE(i) }));
+
+function selecionados(nivelMeta = PROGRAMA_ONBOARDING.nivelMetaAlvo) {
+  return selectDescriptorsMulti(ASSESSMENTS, PROGRAMA_ONBOARDING.semanaParaCompetenciaIdx!, nivelMeta, PROGRAMA_ONBOARDING.conteudosPorSemana);
+}
 
 async function planoDoOnboarding() {
-  const descritores = selectDescriptorsMulti(ASSESSMENTS, PROGRAMA_ONBOARDING.semanaParaCompetenciaIdx!);
   const semanas = await buildSeason({
-    descritoresSelecionados: descritores,
+    descritoresSelecionados: selecionados(),
     competencia: COMPETENCIAS[0],
     competencias: COMPETENCIAS,
     cargo: 'Professor',
@@ -59,67 +69,120 @@ async function planoDoOnboarding() {
   return semanas as any[];
 }
 
+beforeEach(() => callAI.mockClear());
+
 describe('nível-meta 2 no plano do Onboarding (R-100)', () => {
   it('o conteúdo mira o meio entre a nota e o N2, e o alvo gravado no plano é 2', async () => {
     niveisBuscados.length = 0;
     const plano = await planoDoOnboarding();
-    // Nota 1,5 (D0), 1,7 (D1)...: (nota + 2) / 2. Com a meta 3 seria (nota + 3) / 2.
-    expect(niveisBuscados.slice(0, 5)).toEqual([1.75, 1.85, 1.95, 2.05, 2.15].map((n) => expect.closeTo(n, 5)));
-    expect(plano.filter((s) => s.tipo === 'conteudo').map((s) => s.nivel_alvo)).toEqual([2, 2, 2, 2, 2]);
+    // (nota + 2) / 2 para cada entrega, na ordem das semanas. Com a meta 3 seria (nota + 3) / 2.
+    const esperados = selecionados().map((d) => (d.nota_atual + 2) / 2);
+    expect(niveisBuscados).toHaveLength(20);
+    expect(niveisBuscados).toEqual(esperados.map((n) => expect.closeTo(n, 5)));
+    expect(plano.filter((s) => s.tipo === 'conteudo').map((s) => s.nivel_alvo)).toEqual(Array(10).fill(2));
   });
 
   it('a Jornada segue na meta 3: o mesmo motor, outro alvo, byte a byte como antes', async () => {
     niveisBuscados.length = 0;
-    const descritores = selectDescriptorsMulti(ASSESSMENTS, PROGRAMA_ONBOARDING.semanaParaCompetenciaIdx!, 3);
+    const assessment = ASSESSMENTS_DE(0);
     const plano = (await buildSeason({
-      descritoresSelecionados: descritores.map((d) => ({ ...d, semanas_ids: d.semanas_ids })),
+      descritoresSelecionados: selectDescriptors(assessment, [1, 2]),
       competencia: COMPETENCIAS[0],
       cargo: 'Professor',
       programaConfig: { ...PROGRAMA_JORNADA, conteudosPorSemana: 1, semanas: 2, slotsConteudo: [1, 2], semanasAvaliacao: [], desafioUnicoPorCompetencia: false },
     })) as any[];
-    expect(niveisBuscados[0]).toBeCloseTo((1.5 + 3) / 2, 5);
+    expect(niveisBuscados[0]).toBeCloseTo((assessment[0].nota + 3) / 2, 5);
     expect(plano[0].nivel_alvo).toBe(3);
   });
 });
 
-describe('plano do Onboarding (R-20)', () => {
-  it('tem 9 semanas, e a primeira já é fundamento COM conteúdo para abrir', async () => {
+describe('plano do Onboarding de 12 semanas', () => {
+  it('tem 12 semanas: mapeamento, 10 de conteúdo e a avaliação final', async () => {
     const plano = await planoDoOnboarding();
-    expect(plano).toHaveLength(9);
+    expect(plano).toHaveLength(12);
+    expect(plano.map((s) => s.tipo)).toEqual([
+      'mapeamento', 'conteudo', 'conteudo', 'conteudo', 'conteudo', 'conteudo', 'conteudo', 'conteudo', 'conteudo', 'conteudo', 'conteudo', 'avaliacao',
+    ]);
+    expect(plano.map((s) => s.semana)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  });
+
+  it('a semana 1 é o Mapeamento: um tipo próprio, sem conteúdo, sem descritor e sem IA', async () => {
+    const plano = await planoDoOnboarding();
     const s1 = plano[0];
-    expect(s1.semana).toBe(1);
-    expect(s1.tipo).toBe('conteudo');
-    expect(s1.descritor).toBe('D0');
-    expect(s1.competencia).toBe('Comp A');
-    expect(s1.conteudo?.core_id).toBe('c0');
+    expect(s1.tipo).toBe('mapeamento');
+    expect(s1.descritor).toBeNull();
+    expect(s1.descritores_cobertos).toEqual([]);
+    expect(s1.competencias_cobertas).toEqual(COMPETENCIAS);
+    expect(s1.conteudo).toBeUndefined();
+    expect(s1.conteudos_dia).toBeUndefined();
     expect(s1.status).toBe('disponivel');
+    // Nenhuma chamada de IA em todo o build: sem missão, sem desafio por IA, sem cenário.
+    expect(callAI).not.toHaveBeenCalled();
   });
 
-  it('nenhuma semana de conteúdo nasce vazia (sem descritor ou sem conteúdo)', async () => {
+  it('nenhuma semana de conteúdo nasce vazia: 2 conteúdos, 2 descritores, cada um com o seu conteúdo', async () => {
     const plano = await planoDoOnboarding();
-    const vazias = plano.filter((s) => s.tipo === 'conteudo' && (!s.descritor || !s.conteudo));
-    expect(vazias.map((s) => s.semana)).toEqual([]);
+    const conteudos = plano.filter((s) => s.tipo === 'conteudo');
+    expect(conteudos).toHaveLength(10);
+    for (const s of conteudos) {
+      expect(s.conteudos_dia, `semana ${s.semana}`).toHaveLength(2);
+      expect(s.descritores_cobertos, `semana ${s.semana}`).toHaveLength(2);
+      expect(new Set(s.descritores_cobertos).size, `semana ${s.semana}: descritores distintos`).toBe(2);
+      for (const e of s.conteudos_dia) {
+        expect(e.conteudo?.core_id, `semana ${s.semana}`).toBeTruthy();
+        expect(e.conteudo?.fallback_gerado, `semana ${s.semana}`).toBe(false);
+      }
+    }
   });
 
-  it('cada fundamento é de uma competência, na ordem do Top 5', async () => {
+  it('cada competência ocupa 2 semanas seguidas, na ordem do Top 5, com os de maior gap primeiro', async () => {
     const plano = await planoDoOnboarding();
     const porSemana = Object.fromEntries(plano.filter((s) => s.tipo === 'conteudo').map((s) => [s.semana, s.competencia]));
-    expect(porSemana).toEqual({ 1: 'Comp A', 2: 'Comp B', 4: 'Comp C', 5: 'Comp D', 7: 'Comp E' });
+    expect(porSemana).toEqual({
+      2: 'Comp A', 3: 'Comp A', 4: 'Comp B', 5: 'Comp B', 6: 'Comp C', 7: 'Comp C', 8: 'Comp D', 9: 'Comp D', 10: 'Comp E', 11: 'Comp E',
+    });
+    // Os conteúdos da semana são da competência DELA (e não da âncora, a 1ª da trilha).
+    for (const s of plano.filter((p) => p.tipo === 'conteudo')) {
+      for (const e of s.conteudos_dia) expect(e.competencia).toBe(s.competencia);
+    }
+    expect(plano[1].descritores_cobertos).toEqual(['A1', 'A2']); // notas 1.2 e 1.5
+    expect(plano[2].descritores_cobertos).toEqual(['A3', 'A4']);
   });
 
-  it('missões integradoras em 3, 6 e 8; avaliação final na 9', async () => {
+  it('o mesmo conteúdo nunca aparece duas vezes no programa', async () => {
     const plano = await planoDoOnboarding();
-    expect(plano.map((s) => s.tipo)).toEqual([
-      'conteudo', 'conteudo', 'aplicacao', 'conteudo', 'conteudo', 'aplicacao', 'conteudo', 'aplicacao', 'avaliacao',
-    ]);
-    expect(plano[8].descritores_cobertos).toEqual(['D0', 'D1', 'D2', 'D3', 'D4']);
+    const cores = plano.filter((s) => s.tipo === 'conteudo').flatMap((s) => s.conteudos_dia.map((e: any) => e.conteudo.core_id));
+    expect(cores).toHaveLength(20);
+    expect(new Set(cores).size).toBe(20);
   });
 
-  it('a missão só cobra o que já foi entregue: 1+2, depois 3+4, e a última cumulativa', async () => {
+  it('não há semana de missão nem de aplicação: a tarefa é o desafio da semana', async () => {
     const plano = await planoDoOnboarding();
-    const cobertas = (n: number) => plano.find((s) => s.semana === n).competencias_cobertas;
-    expect(cobertas(3)).toEqual(['Comp A', 'Comp B']);
-    expect(cobertas(6)).toEqual(['Comp C', 'Comp D']);
-    expect(cobertas(8)).toEqual(COMPETENCIAS);
+    expect(plano.some((s) => s.tipo === 'aplicacao')).toBe(false);
+    expect(plano.some((s) => s.missao || s.cenario)).toBe(false);
+  });
+
+  it('a avaliação final (semana 12) cobre os 20 descritores do programa', async () => {
+    const plano = await planoDoOnboarding();
+    const final = plano[11];
+    expect(final.tipo).toBe('avaliacao');
+    expect(final.semana).toBe(12);
+    expect(final.descritores_cobertos).toHaveLength(20);
+    expect(final.status).toBe('bloqueada');
+  });
+
+  it('só a semana 1 nasce disponível; as demais, bloqueadas até a progressão', async () => {
+    const plano = await planoDoOnboarding();
+    expect(plano.filter((s) => s.status === 'disponivel').map((s) => s.semana)).toEqual([1]);
+  });
+
+  it('outros modos NÃO ganham semana de mapeamento (a Jornada segue com 7 semanas de 1 a 7)', async () => {
+    const plano = (await buildSeason({
+      descritoresSelecionados: selectDescriptors(ASSESSMENTS_DE(0), [1, 2]),
+      competencia: COMPETENCIAS[0],
+      cargo: 'Professor',
+      programaConfig: { ...PROGRAMA_JORNADA, conteudosPorSemana: 1, semanas: 3, slotsConteudo: [1, 2], semanasAvaliacao: [3], desafioUnicoPorCompetencia: false },
+    })) as any[];
+    expect(plano.map((s) => s.tipo)).toEqual(['conteudo', 'conteudo', 'avaliacao']);
   });
 });

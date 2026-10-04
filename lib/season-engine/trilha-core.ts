@@ -1,17 +1,18 @@
 import { tenantDb } from '@/lib/tenant-db';
-import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, selectDescriptorsPiloto, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
+import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, selectDescriptorsPiloto, descritoresEsperadosNoOnboarding, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { blueprintToTrilhaInputs, type BlueprintTrilhaInputs } from '@/lib/blueprint/to-descriptors';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import { chaveMapeamento } from '@/lib/mapeamento-competencias';
 import { competenciasDoOnboardingDoCargo } from './onboarding-competencias';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
-import { getProgramaConfigByModo, normalizarModoPrograma, type ProgramaConfig, type ProgramaModoLabel, type SequenciaPersonalizado } from '@/lib/season-engine/programa-config';
+import { getProgramaConfigByModo, normalizarModoPrograma, semanasDeMapeamentoDoPrograma, type ProgramaConfig, type ProgramaModoLabel, type SequenciaPersonalizado } from '@/lib/season-engine/programa-config';
 import { carregarContextoTurma } from '@/lib/turmas';
 import { parseProgramaCustom, derivarConfigCustom, parseConfigSnapshot, parseSequenciaPersonalizado } from '@/lib/season-engine/programa-custom';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import type { AIConfig } from '@/actions/ai-client';
 import { PROGRESSO, TRILHA } from '@/lib/status';
+import { tipoDaLinhaDeProgresso } from '@/lib/season-engine/progresso-semana';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { travaRegeracao } from '@/lib/season-engine/trava-regeracao';
 
@@ -365,8 +366,8 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
  * a pessoa nunca respondeu, e o gerador aceitava menos de 5 (só recusava zero).
  *
  * Falha ALTO (régua de 28/07: na construção, nunca rebaixar calado):
- *  - menos de `n` competências: o espiral tem um slot por competência, e slot
- *    sem competência vira semana de conteúdo vazia, a mesma que o R-20 tirou;
+ *  - menos de `n` competências: o programa reserva 2 semanas por competência, e
+ *    semana sem competência vira semana de conteúdo vazia, a mesma que o R-20 tirou;
  *  - competência sem avaliação: antes entrava com o descritor "Descritor padrão"
  *    e nota 1,5 inventada, que decidia o conteúdo de uma semana inteira.
  *
@@ -380,7 +381,7 @@ export async function resolverCompetenciasDoOnboarding(
   cfg: Record<string, any> | null | undefined,
   n: number,
 ): Promise<
-  | { competencias: string[]; assessments: AssessmentPorCompetencia[] }
+  | { competencias: string[]; assessments: AssessmentPorCompetencia[]; mapeamentoConcluidoEm: string | null }
   | { error: string; codigo: string }
 > {
   const doCargo = await competenciasDoOnboardingDoCargo(tdb, colab.cargo, cfg, n);
@@ -388,16 +389,18 @@ export async function resolverCompetenciasDoOnboarding(
   const { competencias } = doCargo;
 
   const { data: linhas, error: errAssess } = await tdb.from('descriptor_assessments')
-    .select('competencia, descritor, nota')
+    .select('competencia, descritor, nota, assessment_date')
     .eq('colaborador_id', colab.id);
   if (errAssess) return { error: `Falha ao ler as avaliações do colaborador: ${errAssess.message}`, codigo: 'onboarding_assessment_leitura' };
 
-  const porChave = new Map<string, { competencia: string; assessment: Array<{ descritor: string; nota: number }> }>();
+  const porChave = new Map<string, { competencia: string; assessment: Array<{ descritor: string; nota: number }>; avaliadaEm: number }>();
   for (const l of (linhas || []) as any[]) {
     const chave = chaveMapeamento(l.competencia);
     if (!chave) continue;
-    const grupo = porChave.get(chave) ?? { competencia: String(l.competencia), assessment: [] };
+    const grupo = porChave.get(chave) ?? { competencia: String(l.competencia), assessment: [], avaliadaEm: 0 };
     grupo.assessment.push({ descritor: l.descritor, nota: l.nota });
+    const quando = l.assessment_date ? Date.parse(String(l.assessment_date)) : NaN;
+    if (Number.isFinite(quando) && quando > grupo.avaliadaEm) grupo.avaliadaEm = quando;
     porChave.set(chave, grupo);
   }
 
@@ -414,18 +417,58 @@ export async function resolverCompetenciasDoOnboarding(
       codigo: 'sem_assessment',
     };
   }
-  return { competencias: assessments.map((a) => a.competencia), assessments };
+  // O Mapeamento terminou quando a ÚLTIMA das competências do Top 5 foi avaliada:
+  // é a data da semana 1 do Onboarding. Sem data em nenhuma linha (avaliação
+  // importada sem carimbo), `null`: a semana nasce concluída "agora".
+  const quandoTerminou = Math.max(0, ...competencias.map((c) => porChave.get(chaveMapeamento(c))?.avaliadaEm ?? 0));
+  return {
+    competencias: assessments.map((a) => a.competencia),
+    assessments,
+    mapeamentoConcluidoEm: quandoTerminou > 0 ? new Date(quandoTerminou).toISOString() : null,
+  };
 }
 
 /**
- * Modo Onboarding: trilha de 9 semanas em espiral cobrindo 5 competências.
+ * Cada competência do Onboarding precisa de um descritor DISTINTO por entrega
+ * (2 por semana, 2 semanas: 4). Falta de descritor viraria semana de conteúdo
+ * sem conteúdo (o R-20), e repetir descritor para encher a vaga é decisão de
+ * produto que ninguém tomou: erro explícito, com a conta de cada competência.
+ * Devolve a mensagem, ou `null` quando todas têm o que precisam. FONTE ÚNICA do
+ * gerador e da prontidão (`verificarProntidaoPiloto`).
+ */
+export function descritoresInsuficientesDoOnboarding(
+  cfg: Pick<ProgramaConfig, 'semanaParaCompetenciaIdx' | 'conteudosPorSemana'>,
+  assessments: AssessmentPorCompetencia[],
+  selecionados: Array<{ competencia?: string }>,
+): string | null {
+  if (!cfg.semanaParaCompetenciaIdx) return null;
+  const porSemana = cfg.conteudosPorSemana || 1;
+  const faltas: string[] = [];
+  for (const [idx, esperado] of descritoresEsperadosNoOnboarding(cfg.semanaParaCompetenciaIdx, porSemana)) {
+    const nome = assessments[idx]?.competencia;
+    if (!nome) continue; // competência sem avaliação: quem a recusa é `resolverCompetenciasDoOnboarding`
+    const tem = selecionados.filter((d) => d.competencia === nome).length;
+    if (tem < esperado) faltas.push(`${nome} (${tem} de ${esperado})`);
+  }
+  if (faltas.length === 0) return null;
+  return `O Onboarding precisa de ${porSemana} descritores distintos por semana em cada competência, e faltam descritores avaliados em: ${faltas.join('; ')}. Complete o mapeamento ou cadastre mais descritores. Nada foi gerado.`;
+}
+
+/**
+ * Modo Onboarding: trilha de 12 semanas, 5 competências em sequência (2 semanas
+ * por competência, 2 conteúdos por semana), com o Mapeamento como semana 1 e o
+ * Encerramento na 12.
  *
  * Estratégia:
  *  1. Resolve as N competências e as avaliações (`resolverCompetenciasDoOnboarding`:
  *     override da config efetiva, depois o Top 5 do cargo; falha alto)
- *  2. selectDescriptorsMulti aloca 1 descritor/competência nos slots [1,2,4,5,7]
- *  3. buildSeason recebe `competencias` array + plano monta missões integradoras
- *  4. Persiste em `trilhas.competencias_foco TEXT[]` (migration 091)
+ *  2. selectDescriptorsMulti aloca, por competência, 4 descritores DISTINTOS (2 por
+ *     semana) nas semanas dela de `semanaParaCompetenciaIdx`; competência com
+ *     menos descritores do que isso FALHA ALTO (semana vazia é o R-20)
+ *  3. buildSeason monta o plano (semana 1 = mapeamento, sem IA)
+ *  4. Persiste em `trilhas.competencias_foco TEXT[]` (migration 091), com a semana
+ *     do Mapeamento já CONCLUÍDA na data em que a pessoa terminou o mapeamento e o
+ *     calendário deslocado uma semana (a semana 2 abre na data de início da trilha)
  */
 export async function gerarTemporadaOnboarding(args: {
   turma?: ContextoGeracaoTurma;
@@ -442,20 +485,26 @@ export async function gerarTemporadaOnboarding(args: {
     tdb, colab, args.turma?.config ?? empresa?.sys_config ?? {}, N,
   );
   if ('error' in resolvido) return resolvido;
-  const { competencias, assessments } = resolvido;
+  const { competencias, assessments, mapeamentoConcluidoEm } = resolvido;
 
-  // 3) Distribui 1 descritor por competência nos slots de fundamento (um por
-  //    competência, `semanaParaCompetenciaIdx`), com o gap medido contra o
+  // 2) Descritores por competência nas semanas dela, com o gap medido contra o
   //    nível-meta do programa (2 no Onboarding)
   if (!programaConfig.semanaParaCompetenciaIdx) {
     return { error: 'ProgramaConfig sem semanaParaCompetenciaIdx — não dá pra rodar Onboarding.' };
   }
-  const descritoresSelecionados = selectDescriptorsMulti(assessments, programaConfig.semanaParaCompetenciaIdx, programaConfig.nivelMetaAlvo);
+  const porSemana = programaConfig.conteudosPorSemana || 1;
+  const descritoresSelecionados = selectDescriptorsMulti(
+    assessments, programaConfig.semanaParaCompetenciaIdx, programaConfig.nivelMetaAlvo, porSemana,
+  );
   if (descritoresSelecionados.length === 0) {
     return { error: 'Nenhum descritor selecionado — verifique assessments das competências do Onboarding.' };
   }
+  // Verifica por PRESENÇA (régua do piloto), com a MESMA conta da prontidão.
+  const insuficiente = descritoresInsuficientesDoOnboarding(programaConfig, assessments, descritoresSelecionados);
+  if (insuficiente) return { error: insuficiente, codigo: 'onboarding_descritores_insuficientes' };
 
-  // 4) Monta plano (com IA pra missões integradoras + cenários)
+  // 3) Monta plano (a semana de mapeamento não usa IA; as de conteúdo, só o
+  //    banco de conteúdos)
   const prioridadeFormatos = derivarPrioridadeFormatos(colab);
   const semanas = await buildSeason({
     descritoresSelecionados,
@@ -469,7 +518,8 @@ export async function gerarTemporadaOnboarding(args: {
     programaConfig,
   });
 
-  // 5) Persiste em `trilhas` (UPDATE se existir, INSERT senão)
+  // 4) Persiste em `trilhas` (UPDATE se existir, INSERT senão). A semana de
+  //    mapeamento nasce concluída, na data em que o mapeamento terminou.
   const persist = await persistirTrilha(tdb, {
     colaboradorId: colab.id,
     competenciaFoco: competencias[0],
@@ -479,6 +529,8 @@ export async function gerarTemporadaOnboarding(args: {
     descritoresSelecionados,
     turmaMembroId: args.turma?.turmaMembroId ?? null,
     dataInicioTurma: args.turma?.dataInicioTurma ?? null,
+    semanasJaConcluidas: (programaConfig.semanasMapeamento ?? []).map((semana: number) => ({ semana, concluidoEm: mapeamentoConcluidoEm })),
+    semanasDeMapeamento: semanasDeMapeamentoDoPrograma(programaConfig),
   });
   if ('error' in persist) return { error: persist.error };
   const { trilhaId, numeroTemporada } = persist;
@@ -914,6 +966,12 @@ export async function planejarTrilhaPersonalizada(args: {
  * O progresso é gravado por UPSERT que PRESERVA o trabalho do colaborador
  * (reflexão, feedback, tira-dúvidas, consumo) — antes era delete+insert, que
  * apagava tudo isso a cada regeneração, sem backup e sem aviso.
+ *
+ * ONBOARDING (04/10/2026): a semana de mapeamento (`semanasJaConcluidas`) NASCE
+ * concluída, com a data em que o mapeamento terminou, e a primeira semana
+ * jogável nasce `em_andamento` (é o que `liberarProximaSemana` faria). O
+ * calendário recua `semanasDeMapeamento` semanas: a semana 2 abre no início da
+ * trilha e `data_inicio` passa a ser a segunda da semana 1, a do Mapeamento.
  */
 export async function persistirTrilha(tdb: any, args: {
   colaboradorId: string;
@@ -935,8 +993,23 @@ export async function persistirTrilha(tdb: any, args: {
    * diferentes, que é a coorte se desfazendo sozinha.
    */
   dataInicioTurma?: string | null;
+  /**
+   * Semanas que NASCEM concluídas, com a data da conclusão (a semana de
+   * mapeamento do Onboarding). Só vale para a linha de progresso NOVA: quem já
+   * existe mantém o status e as datas que tem.
+   */
+  semanasJaConcluidas?: Array<{ semana: number; concluidoEm?: string | null }>;
+  /**
+   * Quantas semanas de mapeamento antecedem o início do conteúdo (0 fora do
+   * Onboarding). O `data_inicio` NOVO (da próxima segunda ou da turma) é o da
+   * primeira semana de conteúdo; a trilha grava essa data recuada uma semana por
+   * semana de mapeamento, para a semana N seguir abrindo em `data_inicio` +
+   * (N-1)*7 dias. O `data_inicio` de uma trilha que já existe NÃO é recuado de
+   * novo: já foi gravado assim.
+   */
+  semanasDeMapeamento?: number;
 }): Promise<{ trilhaId: string; numeroTemporada: number; dataInicio: string } | { error: string }> {
-  const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados, programaConfig, novaJornada, turmaMembroId, dataInicioTurma } = args;
+  const { colaboradorId, competenciaFoco, competenciasFoco, programaModo, semanas, descritoresSelecionados, programaConfig, novaJornada, turmaMembroId, dataInicioTurma, semanasJaConcluidas = [], semanasDeMapeamento = 0 } = args;
 
   // Normaliza campos DERIVADOS de conteudos_dia antes de salvar (chokepoint dos 4
   // modos): garante que descritores_cobertos/descritor/label/dia SEMPRE reflitam os
@@ -975,8 +1048,11 @@ export async function persistirTrilha(tdb: any, args: {
   const numeroTemporada = criarNova
     ? (existente?.numero_temporada || 0) + 1
     : (existente?.numero_temporada || 1);
-  const { nextMondayISO } = await import('@/lib/season-engine/week-gating');
+  const { nextMondayISO, recuarSemanasISO } = await import('@/lib/season-engine/week-gating');
   const proximaSegunda = nextMondayISO();
+  // Onboarding: a semana de mapeamento já passou quando a trilha nasce, então o
+  // calendário começa por ela (ver o docstring). Sem mapeamento, identidade.
+  const comMapeamento = (inicio: string): string => recuarSemanasISO(inicio, semanasDeMapeamento);
   // empresa_id é injetado pelo tdb.upsert — não precisa repetir aqui.
   const payload = {
     colaborador_id: colaboradorId,
@@ -1006,10 +1082,10 @@ export async function persistirTrilha(tdb: any, args: {
     // liberadas por data. Com `novaJornada`, o calendário é a próxima segunda,
     // ou a da turma se ela ainda estiver no futuro (datas ISO comparam por texto).
     data_inicio: novaJornada
-      ? (dataInicioTurma && dataInicioTurma > proximaSegunda ? dataInicioTurma : proximaSegunda)
+      ? comMapeamento(dataInicioTurma && dataInicioTurma > proximaSegunda ? dataInicioTurma : proximaSegunda)
       : criarNova
-        ? (dataInicioTurma || proximaSegunda)
-        : (existente?.data_inicio || dataInicioTurma || proximaSegunda),
+        ? comMapeamento(dataInicioTurma || proximaSegunda)
+        : (existente?.data_inicio || comMapeamento(dataInicioTurma || proximaSegunda)),
     turma_membro_id: turmaMembroId ?? null,     // carimbo da participação (mig 210)
     cursos: [],                                 // legado — conteúdo vive em temporada_plano
   };
@@ -1046,17 +1122,41 @@ export async function persistirTrilha(tdb: any, args: {
   if (errLer) return { error: `progresso (leitura): ${errLer.message}` };
   const jaExiste = new Map<number, any>((existentes || []).map((r: any) => [Number(r.semana), r]));
 
-  const progressos = semanas.map((sem: any) => {
+  // A primeira semana que a pessoa joga (a menor que não nasce concluída) é a que
+  // nasce em andamento: com o mapeamento concluído é a 2, e sem ele a 1 de sempre.
+  const nascemConcluidas = new Map<number, string | null>(
+    semanasJaConcluidas.map((c) => [Number(c.semana), c.concluidoEm ?? null]),
+  );
+  const primeiraJogavel = Math.min(
+    ...semanas.map((s: any) => Number(s.semana)).filter((n: number) => !nascemConcluidas.has(n)),
+  );
+  const agoraISO = new Date().toISOString();
+
+  const progressos: any[] = [];
+  const progressosConcluidosNoNascimento: any[] = [];
+  for (const sem of semanas) {
     const anterior = jaExiste.get(Number(sem.semana));
-    return {
+    const base = {
       trilha_id: trilhaId,
       colaborador_id: colaboradorId,
       semana: sem.semana,
-      tipo: sem.tipo,
-      // Semana nova nasce com o status inicial; semana que já existe mantém o dela.
-      status: anterior ? anterior.status : (sem.semana === 1 ? PROGRESSO.EM_ANDAMENTO : PROGRESSO.PENDENTE),
+      // A coluna só aceita conteudo/aplicacao/avaliacao (CHECK do baseline): o
+      // tipo próprio do plano ('mapeamento') vive no `temporada_plano`.
+      tipo: tipoDaLinhaDeProgresso(sem.tipo),
     };
-  });
+    if (!anterior && nascemConcluidas.has(Number(sem.semana))) {
+      // Linha NOVA que nasce concluída: com as datas, num upsert à parte (o
+      // outro não grava datas, e as linhas de um lote levam as mesmas colunas).
+      const quando = nascemConcluidas.get(Number(sem.semana)) ?? agoraISO;
+      progressosConcluidosNoNascimento.push({ ...base, status: PROGRESSO.CONCLUIDO, iniciado_em: quando, concluido_em: quando });
+      continue;
+    }
+    // Semana nova nasce com o status inicial; semana que já existe mantém o dela.
+    progressos.push({
+      ...base,
+      status: anterior ? anterior.status : (Number(sem.semana) === primeiraJogavel ? PROGRESSO.EM_ANDAMENTO : PROGRESSO.PENDENTE),
+    });
+  }
 
   // F-C2: o erro é PROPAGADO — antes os statements de progresso ignoravam `error`,
   // em contraste com os `if (error) return` da mesma função. Num interleave de
@@ -1065,6 +1165,11 @@ export async function persistirTrilha(tdb: any, args: {
   const { error: errUpsert } = await tdb.from('temporada_semana_progresso')
     .upsert(progressos, { onConflict: 'trilha_id,semana' });
   if (errUpsert) return { error: `progresso (gravação): ${errUpsert.message}` };
+  if (progressosConcluidosNoNascimento.length > 0) {
+    const { error: errConcluidas } = await tdb.from('temporada_semana_progresso')
+      .upsert(progressosConcluidosNoNascimento, { onConflict: 'trilha_id,semana' });
+    if (errConcluidas) return { error: `progresso (semana de mapeamento): ${errConcluidas.message}` };
+  }
 
   // Semanas que sumiram do plano (plano encolheu — ex.: 14 → 2 no modo piloto).
   // Só se apagam as VAZIAS: uma semana órfã que guarda reflexão vale mais preservada

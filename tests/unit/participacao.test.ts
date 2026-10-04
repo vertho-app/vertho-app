@@ -68,6 +68,57 @@ describe('calcularParticipacao', () => {
   });
 });
 
+/**
+ * Onboarding de 12 semanas (04/10/2026): a semana 1 é o MAPEAMENTO, que a pessoa
+ * fez antes de a trilha existir. A linha de progresso dela grava `avaliacao` (o
+ * CHECK da coluna não aceita `mapeamento`), sem reflexão nem feedback; quem decide
+ * o tipo é o PLANO. Sem contá-la como entregue, quem concluiu tudo leria "11 de 12".
+ */
+describe('calcularParticipacao: a semana de mapeamento do Onboarding', () => {
+  const planoOnboarding = Array.from({ length: 12 }, (_, i) => ({
+    semana: i + 1,
+    tipo: i === 0 ? 'mapeamento' : i === 11 ? 'avaliacao' : 'conteudo',
+  }));
+  const linhaDoMapeamento = { semana: 1, tipo: 'avaliacao', reflexao: null, feedback: null };
+  const fechamento = { semana: 12, tipo: 'avaliacao', reflexao: null, feedback: { nota: 'x' } };
+
+  it('quem concluiu o programa inteiro tem 12 de 12 (o mapeamento conta como entregue)', () => {
+    const progressos = [
+      linhaDoMapeamento,
+      ...Array.from({ length: 10 }, (_, i) => conteudo(i + 2)),
+      fechamento,
+    ];
+    const r = calcularParticipacao(planoOnboarding, progressos);
+    expect(r.semanasComEntrega).toBe(12);
+    expect(r.totalSemanas).toBe(12);
+    expect(r.pct).toBe(1);
+  });
+
+  it('conta mesmo sem a linha de progresso dela: o mapeamento é do plano', () => {
+    const r = calcularParticipacao(planoOnboarding, [conteudo(2)]);
+    expect(r.semanasComEntrega).toBe(2);
+  });
+
+  it('o mapeamento ajuda, mas não emite sozinho: 8 de 12 (66,7%) continua inelegível', () => {
+    const progressos = [...Array.from({ length: 7 }, (_, i) => conteudo(i + 2))];
+    const r = calcularParticipacao(planoOnboarding, progressos);
+    expect(r.semanasComEntrega).toBe(8);
+    expect(r.elegivel).toBe(false);
+  });
+
+  it('com 8 semanas de conteúdo feitas, 9 de 12 (75%) fecha a fronteira', () => {
+    const progressos = [...Array.from({ length: 8 }, (_, i) => conteudo(i + 2))];
+    const r = calcularParticipacao(planoOnboarding, progressos);
+    expect(r.semanasComEntrega).toBe(9);
+    expect(r.elegivel).toBe(true);
+  });
+
+  it('só o tipo do PLANO vale: a mesma linha `avaliacao` numa semana de conteúdo não conta', () => {
+    const planoSemMapeamento = planoOnboarding.map((s) => ({ ...s, tipo: s.semana === 12 ? 'avaliacao' : 'conteudo' }));
+    expect(calcularParticipacao(planoSemMapeamento, [linhaDoMapeamento]).semanasComEntrega).toBe(0);
+  });
+});
+
 describe('isTrilhaPiloto', () => {
   it('piloto pelo carimbo programa_modo', () => {
     expect(isTrilhaPiloto({ programa_modo: 'piloto' })).toBe(true);
@@ -95,8 +146,9 @@ describe('cargaHorariaDoCertificado', () => {
     expect(cargaHorariaDoCertificado(getProgramaConfigByModo('jornada').semanas)).toBe(24);
     expect(cargaHorariaDoCertificado(getProgramaConfigByModo('regular_duo').semanas)).toBe(48);
     expect(cargaHorariaDoCertificado(getProgramaConfigByModo('regular_single').semanas)).toBe(48);
-    // 9 semanas desde 04/10/2026 (R-20): 48 x 9 / 14 = 30,86, arredondado para 31.
-    expect(cargaHorariaDoCertificado(getProgramaConfigByModo('onboarding').semanas)).toBe(31);
+    // 12 semanas desde 04/10/2026 (10 de conteúdo, o Mapeamento e o Encerramento):
+    // 48 x 12 / 14 = 41,14, arredondado para 41 (eram 31 com 9 semanas).
+    expect(cargaHorariaDoCertificado(getProgramaConfigByModo('onboarding').semanas)).toBe(41);
   });
 
   it('Personalizado de 1 a 4 semanas arredonda 48N/14', () => {

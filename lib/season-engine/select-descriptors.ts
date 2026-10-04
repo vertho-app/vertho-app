@@ -136,15 +136,21 @@ export interface AssessmentPorCompetencia {
 }
 
 /**
- * Multi-competência: para cada competência alocada a uma semana de fundamento,
- * pega o descritor mais relevante (maior gap, fallback 1º registrado) e gera
- * 1 SelectedDescriptor com `competencia` preenchida.
+ * Multi-competência (Modo Onboarding): reparte os descritores de cada competência
+ * pelas semanas dela, `porSemana` descritores DISTINTOS em cada uma, do de MAIOR
+ * gap (nota mais baixa) para o de menor. Cada descritor ocupa UMA semana: a
+ * primeira semana da competência recebe os de maior gap.
  *
- * `semanaParaCompetenciaIdx` mapeia semana de fundamento → índice no array
- * de competências. Ex: Onboarding tem { 1: 0, 2: 1, 4: 2, 5: 3, 7: 4 }.
+ * `semanaParaCompetenciaIdx` mapeia semana de conteúdo → índice no array de
+ * competências. O Onboarding de 12 semanas tem 2 semanas por competência
+ * (`{ 2: 0, 3: 0, 4: 1, 5: 1, ... }`) e 2 conteúdos por semana, ou seja, 4
+ * descritores distintos por competência. Antes (9 semanas) era 1 semana e 1
+ * descritor por competência (`porSemana = 1`, o default, byte a byte como era).
  *
- * Não usa contiguidade — cada competência tem exatamente 1 slot. Diferente
- * do regular, que aloca 2 semanas por descritor com gap profundo.
+ * Não usa contiguidade nem reforço: se a competência tem MENOS descritores do que
+ * as semanas pedem, devolve só os que existem, e quem chama valida por PRESENÇA
+ * (`descritoresEsperadosNoOnboarding`): semana sem descritor é a semana vazia que
+ * o R-20 tirou, e repetir descritor para encher a vaga seria decisão de produto.
  *
  * `nivelMeta` é o nível-meta do programa (`ProgramaConfig.nivelMetaAlvo`): o
  * Onboarding mira o N2, e o gap de cada descritor é medido contra ele (R-100).
@@ -154,28 +160,69 @@ export function selectDescriptorsMulti(
   competenciasOrdenadas: AssessmentPorCompetencia[],
   semanaParaCompetenciaIdx: Record<number, number>,
   nivelMeta: number = 3.0,
+  porSemana: number = 1,
 ): SelectedDescriptor[] {
   const selecionados: SelectedDescriptor[] = [];
-  for (const [semStr, idx] of Object.entries(semanaParaCompetenciaIdx)) {
-    const semana = Number(semStr);
+  const porCompetencia = semanasPorCompetencia(semanaParaCompetenciaIdx);
+  for (const [idx, semanas] of porCompetencia) {
     const comp = competenciasOrdenadas[idx];
     if (!comp) continue;
     const lista = Array.isArray(comp.assessment) ? comp.assessment : [];
-    // Escolhe descritor de maior gap (nota mais baixa); fallback = primeiro
+    // Maior gap primeiro (nota mais baixa); empate fica na ordem do assessment.
     const ordenados = [...lista].sort((a, b) => Number(a.nota) - Number(b.nota));
-    const escolhido = ordenados[0];
-    if (!escolhido) continue;
-    const nota = Number(escolhido.nota);
-    selecionados.push({
-      descritor: escolhido.descritor,
-      competencia: comp.competencia,
-      nota_atual: nota,
-      gap: Math.max(0, nivelMeta - nota),
-      semanas_alocadas: 1,
-      semanas_ids: [semana],
+    // Dedupe defensivo: o assessment deveria ser único por descritor, e a mesma
+    // pílula nunca pode aparecer duas vezes na mesma competência.
+    const vistos = new Set<string>();
+    const unicos = ordenados.filter((d) => {
+      if (vistos.has(d.descritor)) return false;
+      vistos.add(d.descritor);
+      return true;
+    });
+    semanas.forEach((semana, i) => {
+      for (const escolhido of unicos.slice(i * porSemana, (i + 1) * porSemana)) {
+        const nota = Number(escolhido.nota);
+        selecionados.push({
+          descritor: escolhido.descritor,
+          competencia: comp.competencia,
+          nota_atual: nota,
+          gap: Math.max(0, nivelMeta - nota),
+          semanas_alocadas: 1,
+          semanas_ids: [semana],
+        });
+      }
     });
   }
   return selecionados;
+}
+
+/** Competência (índice) → suas semanas de conteúdo, em ordem crescente, e as competências em ordem. */
+function semanasPorCompetencia(semanaParaCompetenciaIdx: Record<number, number>): Array<[number, number[]]> {
+  const mapa = new Map<number, number[]>();
+  for (const [semStr, idx] of Object.entries(semanaParaCompetenciaIdx)) {
+    const lista = mapa.get(idx) ?? [];
+    lista.push(Number(semStr));
+    mapa.set(idx, lista);
+  }
+  return [...mapa.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([idx, semanas]): [number, number[]] => [idx, semanas.sort((a, b) => a - b)]);
+}
+
+/**
+ * Quantos descritores distintos cada competência do Onboarding precisa para que
+ * nenhuma semana saia sem conteúdo: `semanas da competência x porSemana`. Chave
+ * = índice da competência. Fonte única da regra de PRESENÇA do gerador e da
+ * prontidão (`gerarTemporadaOnboarding`, `verificarProntidao`).
+ */
+export function descritoresEsperadosNoOnboarding(
+  semanaParaCompetenciaIdx: Record<number, number>,
+  porSemana: number,
+): Map<number, number> {
+  const esperado = new Map<number, number>();
+  for (const [idx, semanas] of semanasPorCompetencia(semanaParaCompetenciaIdx)) {
+    esperado.set(idx, semanas.length * porSemana);
+  }
+  return esperado;
 }
 
 // ── Piloto (degustação 2 semanas) ───────────────────────────────────────────

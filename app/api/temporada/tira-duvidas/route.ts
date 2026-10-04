@@ -99,6 +99,10 @@ export async function POST(request) {
 
     const semanaPlan = (trilha.temporada_plano || []).find(s => s.semana === Number(semana));
     if (!semanaPlan) return NextResponse.json({ error: 'semana fora do plano' }, { status: 400 });
+    // Onboarding: a semana de mapeamento não tem conteúdo sobre o que tirar dúvida.
+    if (semanaPlan.tipo === 'mapeamento') {
+      return NextResponse.json({ error: 'semana de mapeamento não tem conteúdo', codigo: 'semana-sem-conversa' }, { status: 400 });
+    }
     const competenciaSemana = resolveCompetenciaSemana(trilha, semanaPlan);
 
     // Carrega progresso — exige conteudo_consumido.

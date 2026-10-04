@@ -4,7 +4,11 @@
  * Regra (produto, 23/07/2026): certificado só para temporada CONCLUÍDA com
  * ≥ 75% das semanas do plano com pelo menos 1 entrega real:
  *   - semana de CONTEÚDO  → entrega = `reflexao` preenchida;
- *   - semana de APLICAÇÃO (missão) / AVALIAÇÃO (cenário B) → entrega = `feedback`.
+ *   - semana de APLICAÇÃO (missão) / AVALIAÇÃO (cenário B) → entrega = `feedback`;
+ *   - semana de MAPEAMENTO (Onboarding, 04/10/2026) → entrega = o próprio
+ *     mapeamento, que a pessoa fez antes de a trilha existir (a geração recusa
+ *     quem não o fez): conta como entregue, senão quem concluiu o programa
+ *     inteiro leria "11 de 12 semanas".
  *
  * O denominador é o nº de semanas do `temporada_plano`, NUNCA hardcoded. Esse
  * tamanho NÃO é a duração do programa (medido 22/09/2026: jornada 7, regular_duo
@@ -23,8 +27,8 @@ export const PARTICIPACAO_MINIMA = 0.75;
  * Até essa data eram 48h fixas por temporada, calibradas quando temporada = 14
  * semanas. Com a Jornada de 7 semanas a mesma pessoa saía com 2 × 48h no período
  * que antes valia 48h. Agora: Jornada 7 = 24h, programa de 14 = 48h, Onboarding
- * 9 = 31h (eram 10 semanas e 34h até 04/10/2026), Personalizado de N semanas =
- * 48N/14 arredondado.
+ * 12 = 41h (eram 34h com 10 semanas e 31h com 9, até 04/10/2026),
+ * Personalizado de N semanas = 48N/14 arredondado.
  *
  * A duração vem da CONFIG do programa (`ProgramaConfig.semanas`, pelo carimbo ou
  * pelo snapshot do Personalizado), não do `temporada_plano`: nas trilhas
@@ -68,7 +72,7 @@ function temEntrega(p: ProgressoSemana): boolean {
 }
 
 export function calcularParticipacao(
-  plano: Array<{ semana?: number } | null> | null | undefined,
+  plano: Array<{ semana?: number; tipo?: string | null } | null> | null | undefined,
   progressos: ProgressoSemana[] | null | undefined,
 ): Participacao {
   const semanas = (Array.isArray(plano) ? plano : [])
@@ -77,7 +81,15 @@ export function calcularParticipacao(
   const totalSemanas = semanas.length;
   if (!totalSemanas) return { semanasComEntrega: 0, totalSemanas: 0, pct: 0, elegivel: false };
 
-  const entregues = new Set((progressos || []).filter(temEntrega).map((p) => p.semana));
+  // O tipo da semana é o do PLANO: a linha de progresso do mapeamento grava
+  // `avaliacao` (o CHECK da coluna não aceita `mapeamento`) e não traz conversa.
+  const mapeamento = new Set((Array.isArray(plano) ? plano : [])
+    .filter((s) => s?.tipo === 'mapeamento')
+    .map((s) => s?.semana));
+  const entregues = new Set([
+    ...(progressos || []).filter(temEntrega).map((p) => p.semana),
+    ...mapeamento,
+  ]);
   const semanasComEntrega = semanas.filter((s) => entregues.has(s)).length;
   const pct = semanasComEntrega / totalSemanas;
   return { semanasComEntrega, totalSemanas, pct, elegivel: pct >= PARTICIPACAO_MINIMA };

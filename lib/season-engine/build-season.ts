@@ -13,7 +13,7 @@ import { promptDesafio, parseDesafioResponse } from '@/lib/season-engine/prompts
 import { promptCenario, parseCenarioResponse, cenarioToMarkdown } from '@/lib/season-engine/prompts/scenario';
 import { promptMissao, parseMissaoResponse, missaoToMarkdown } from '@/lib/season-engine/prompts/missao';
 import type { SelectedDescriptor } from './select-descriptors';
-import { PROGRAMA_REGULAR, descritoresCobertosNaMissao, type ProgramaConfig } from './programa-config';
+import { PROGRAMA_REGULAR, descritoresCobertosNaMissao, ehSemanaDeMapeamento, type ProgramaConfig } from './programa-config';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { carregarFichaCargo } from '@/lib/cargo-contexto';
 import { tenantDb } from '@/lib/tenant-db';
@@ -111,11 +111,27 @@ interface SemanaAvaliacao {
 }
 
 /**
+ * A semana de MAPEAMENTO do Onboarding (04/10/2026). Sem conteúdo, sem desafio,
+ * sem conversa: ela representa o Mapeamento das competências que a pessoa já fez
+ * antes de a trilha existir, e nasce CONCLUÍDA (`persistirTrilha`). É um tipo
+ * declarado (`ProgramaConfig.semanasMapeamento`), não uma semana de conteúdo vazia.
+ * `competencias_cobertas` são as competências mapeadas, na ordem do programa.
+ */
+interface SemanaMapeamento {
+  semana: number;
+  tipo: 'mapeamento';
+  descritor: null;
+  descritores_cobertos: string[];
+  competencias_cobertas: string[];
+  status: 'disponivel' | 'bloqueada';
+}
+
+/**
  * Binding com o PDI (Fase 1, Estágio 3): quando a trilha é dirigida pelo
  * blueprint, cada semana carrega o objetivo pedagógico e a ação do PDI que ela
  * sustenta. Opcional/aditivo — ausente no caminho legado (backward-compat).
  */
-export type SemanaPlan = (SemanaConteudo | SemanaAplicacao | SemanaAvaliacao) & BlueprintBindingSemana;
+export type SemanaPlan = (SemanaConteudo | SemanaAplicacao | SemanaAvaliacao | SemanaMapeamento) & BlueprintBindingSemana;
 
 export interface AIConfigOpt {
   model?: string;
@@ -380,7 +396,7 @@ export async function buildSeason({
   // O nível-meta do programa decide o nível do conteúdo escolhido e o alvo gravado
   // no plano (R-100): 3 em todos os modos, 2 no Onboarding.
   const nivelMeta = programaConfig.nivelMetaAlvo ?? 3.0;
-  // Multi-comp dispara quando há mapa semana→comp (Onboarding espiral) OU
+  // Multi-comp dispara quando há mapa semana→comp (Onboarding, 2 semanas por competência) OU
   // missões integradoras configuradas (Regular DUO) — sempre com >1 comp.
   const isMulti = (!!programaConfig.semanaParaCompetenciaIdx || !!programaConfig.competenciasNaMissao)
     && Array.isArray(competencias) && competencias.length > 1;
@@ -407,7 +423,18 @@ export async function buildSeason({
   const idsJaUsados = new Set<string>();
   for (let semana = 1; semana <= programaConfig.semanas; semana++) {
     let plan: SemanaPlan;
-    if (programaConfig.semanasMissao.includes(semana)) {
+    if (ehSemanaDeMapeamento(programaConfig, semana)) {
+      // Onboarding: a semana 1 é o Mapeamento já feito. Sem IA, sem seleção de
+      // conteúdo: o que a pessoa vê é o cartão "Mapeamento concluído".
+      plan = {
+        semana,
+        tipo: 'mapeamento',
+        descritor: null,
+        descritores_cobertos: [],
+        competencias_cobertas: compsArray,
+        status: 'disponivel',
+      };
+    } else if (programaConfig.semanasMissao.includes(semana)) {
       plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig, compsArray, empresaId, fichaCargo);
     } else if (programaConfig.semanasAvaliacao.includes(semana)) {
       const espelho = programaConfig.semanaEspelhoCalendario?.[semana];
@@ -465,7 +492,10 @@ export async function buildSeason({
         plan = {
           semana,
           tipo: 'conteudo',
-          competencia,
+          // Programa de várias competências em sequência (Onboarding): a semana
+          // é da competência DAS ENTREGAS, não da âncora (a 1ª da trilha). Nos
+          // programas de uma competência `competencia` é a única que há.
+          competencia: isMulti ? (primeiro?.competencia || competencia) : competencia,
           descritor: primeiro?.descritor || null,
           descritores_cobertos: entregas.map(e => e.descritor).filter(Boolean) as string[],
           nivel_alvo: nivelMeta,

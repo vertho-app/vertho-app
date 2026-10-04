@@ -24,6 +24,35 @@ export function nextMondayISO(now: Date = new Date()): string {
 }
 
 /**
+ * A data ('YYYY-MM-DD') `semanas` semanas ANTES de `iso`. É a conta do recuo do
+ * calendário do Onboarding: a semana de mapeamento já passou quando a trilha
+ * nasce, então o `data_inicio` gravado é o da primeira semana de conteúdo menos
+ * uma semana por semana de mapeamento. Data inválida ou recuo 0 devolve `iso`.
+ * Aritmética em UTC sobre a data pura: o calendário de SP não tem horário de
+ * verão, e subtrair 7 dias de uma segunda dá a segunda anterior.
+ */
+export function recuarSemanasISO(iso: string, semanas: number): string {
+  if (!semanas) return iso;
+  const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number);
+  const recuada = Date.UTC(y, m - 1, d - 7 * semanas);
+  return Number.isFinite(recuada) ? new Date(recuada).toISOString().slice(0, 10) : iso;
+}
+
+/**
+ * A primeira semana do plano que traz CONTEÚDO: a menor que não é de
+ * mapeamento. 1 em todo plano que não abre com o Mapeamento (todos, menos o
+ * Onboarding, em que é a 2). É a semana cuja data é "o início da jornada" para
+ * quem a vive: a de mapeamento nasce concluída, antes de qualquer data.
+ */
+export function primeiraSemanaDeConteudo(plano: any[] | null | undefined): number {
+  const semanas = (Array.isArray(plano) ? plano : [])
+    .filter((s: any) => s?.tipo !== 'mapeamento')
+    .map((s: any) => Number(s?.semana))
+    .filter((n: number) => Number.isFinite(n) && n >= 1);
+  return semanas.length ? Math.min(...semanas) : 1;
+}
+
+/**
  * Momento de liberação da semana N (Date UTC).
  * @param {string} dataInicio 'YYYY-MM-DD' (a segunda da semana 1, em SP)
  * @param {number} n semana (1..14)
