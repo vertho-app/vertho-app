@@ -1,6 +1,7 @@
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { resumoSemTratamentoDeGenero } from '@/lib/redacao-sem-genero';
 import { resumoSemTravessao } from '@/lib/ai-saida-sem-travessao';
+import { cenariosDoSlot, posicaoNoFechamento } from '@/lib/season-engine/fechamento-por-competencia';
 
 /**
  * Em que ponto está o FECHAMENTO (semana do Cenário B) de uma trilha.
@@ -55,9 +56,23 @@ export interface LeituraFechamento {
   erro?: string | null;
 }
 
+/**
+ * Quantas respostas o fechamento já tem. No Onboarding (`feedback.cenarios`) é a
+ * soma dos cinco cenários, cada um limitado às suas perguntas; no formato de uma
+ * competência, as falas da pessoa no `transcript_completo`, como sempre.
+ */
 export function respostasDoCenario(feedback: any): number {
+  const cenarios = cenariosDoSlot(feedback);
+  if (cenarios) return posicaoNoFechamento(cenarios).totalRespostas;
   const transcript = Array.isArray(feedback?.transcript_completo) ? feedback.transcript_completo : [];
   return transcript.filter((m: any) => m?.role === 'user').length;
+}
+
+/** Quantas perguntas o fechamento tem: a soma dos cenários, ou as do cenário único. */
+export function perguntasDoFechamento(feedback: any): number {
+  const cenarios = cenariosDoSlot(feedback);
+  if (cenarios) return posicaoNoFechamento(cenarios).totalPerguntas;
+  return Array.isArray(feedback?.perguntas) ? feedback.perguntas.length : 0;
 }
 
 export function estadoDoFechamento(
@@ -66,12 +81,13 @@ export function estadoDoFechamento(
   agoraMs: number,
 ): LeituraFechamento {
   const fb = prog?.feedback || {};
-  const perguntas = Array.isArray(fb.perguntas) ? fb.perguntas.length : 0;
+  const perguntas = perguntasDoFechamento(fb);
   const respostas = respostasDoCenario(fb);
   const base = { respostas, perguntas };
+  const iniciado = cenariosDoSlot(fb) ? true : !!fb.cenario;
 
   if (prog?.status === PROGRESSO.CONCLUIDO) return { estado: 'avaliado', ...base };
-  if (!fb.cenario || perguntas === 0) return { estado: 'nao-iniciado', ...base };
+  if (!iniciado || perguntas === 0) return { estado: 'nao-iniciado', ...base };
   if (respostas < perguntas) return { estado: 'respondendo', ...base };
   if (opts.arguicaoAtiva && !fb.arguicao?.concluida) return { estado: 'arguindo', ...base };
 

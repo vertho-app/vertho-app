@@ -17,7 +17,13 @@ import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha, qualita
 import { TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating';
 import { semanasDeDesenvolvimentoDoPlano } from '@/lib/season-engine/duracao-trilha';
 import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, fechamentoSeguro } from '@/lib/season-engine/fechamento-conversa';
-import { escolherCenarioB } from '@/lib/season-engine/cenario-b';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
+import type { AppLocale } from '@/i18n/routing';
+import { escolherCenarioB, escolherCenariosBPorCompetencia, fechamentoPorCompetencia, perguntasDoCenarioB } from '@/lib/season-engine/cenario-b';
+import {
+  cenariosDoSlot, posicaoNoFechamento, respostasDoCenarioN, respostasDosCenarios, textoDosCenarios,
+  type CenarioDoFechamento,
+} from '@/lib/season-engine/fechamento-por-competencia';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { PROGRESSO } from '@/lib/status';
 import { comContexto } from '@/lib/execucao-contexto';
@@ -43,6 +49,8 @@ const ACOES_DE_LEITURA = new Set(['status', 'fechamento_status']);
  *
  * Semana da acumulada (regular=13): conversa qualitativa aberta (12 turns).
  * Semana do cenário B (regular=14): cenário → 4 perguntas → pontuação via IA.
+ * No Onboarding (12) são 5 cenários em sequência, um por competência, com 4
+ * perguntas cada: o slot guarda `feedback.cenarios` e a pontuação roda por competência.
  * generate_report: consolida ambas em Evolution Report.
  *
  * Quais semanas correspondem a quê vem de `empresas.sys_config` via
@@ -50,13 +58,18 @@ const ACOES_DE_LEITURA = new Set(['status', 'fechamento_status']);
  * missões e o cenário B fica na sem 10.
  */
 /** Monta o contexto da arguição a partir do estado do fechamento na rota:
- *  agrega as 4 respostas do cenário como a "tese" a ser defendida. */
+ *  agrega as respostas do cenário (ou dos 5 cenários do Onboarding, uma arguição só
+ *  sobre o conjunto) como a "tese" a ser defendida. */
 function montarCtxArguicao(opts: {
   cenario: string; perguntas: any[]; historico: any[];
   colab: any; competenciasLabel: string; descritores: any[]; isPiloto: boolean;
+  /** Onboarding: os cenários do slot. Presentes, substituem `cenario`/`perguntas`/`historico`. */
+  cenarios?: CenarioDoFechamento[] | null;
+  /** O idioma da pessoa: a arguição é uma conversa com ela. */
+  locale?: AppLocale;
 }): ArguicaoContexto {
   const respostasUser = opts.historico.filter((m: any) => m.role === 'user');
-  const respostaCenario = opts.perguntas.map((p: any, i: number) =>
+  const respostaCenario = opts.cenarios ? respostasDosCenarios(opts.cenarios) : opts.perguntas.map((p: any, i: number) =>
     `[${p.dimensao}] ${p.texto}\n\u2192 ${respostasUser[i]?.content || '(sem resposta)'}`
   ).join('\n\n');
   return {
@@ -64,10 +77,20 @@ function montarCtxArguicao(opts: {
     cargo: opts.colab?.cargo,
     competencia: opts.competenciasLabel,
     perfilDominante: opts.colab?.perfil_dominante,
-    cenario: opts.cenario,
+    cenario: opts.cenarios ? textoDosCenarios(opts.cenarios) : opts.cenario,
     respostaCenario,
     descritores: opts.descritores,
     isPiloto: opts.isPiloto,
+    ...(opts.cenarios && opts.cenarios.length > 1 ? { cenarios: opts.cenarios.length } : {}),
+    ...(opts.locale ? { locale: opts.locale } : {}),
+  };
+}
+
+/** A pergunta que o servidor abre para a pessoa (sem IA: o texto vem do banco). */
+function aberturaDaPergunta(p: { dimensao?: string; texto?: string } | undefined, turn: number) {
+  return {
+    role: 'assistant', content: `**${p?.dimensao || 'SITUAÇÃO'}**\n\n${p?.texto || ''}`,
+    timestamp: new Date().toISOString(), turn, dimensao: p?.dimensao,
   };
 }
 
@@ -119,6 +142,13 @@ export async function POST(request) {
       const dono = assertDonoDaTrilha(auth, trilha.colaborador_id);
       if (dono) return dono;
     }
+
+    // O idioma da PESSOA dona da trilha (`colaboradores.locale`, senão `empresas.default_locale`, senão
+    // pt-BR): a conversa da acumulada, a arguição e a devolutiva final saem nele, como opção EXPLÍCITA e
+    // não pelo cookie da request. Só as ações que escrevem usam (as de leitura são o polling da tela,
+    // a cada poucos segundos, e não chamam IA). O scorer, o auditor e as extrações são JSON interno que
+    // o código lê por nome: não recebem idioma.
+    const idioma = ACOES_DE_LEITURA.has(action) ? undefined : await idiomaDaPessoa(trilha.empresa_id, trilha.colaborador_id);
 
     if (action === 'generate_report') {
       /**
@@ -245,7 +275,7 @@ export async function POST(request) {
       if (proximoTurnIA === 1 && messages.length === 0) {
         messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme o TURN 1]' });
       }
-      let respostaIA = (await callAIChat(system, messages, {}, 4000, { taskKey: 'sem13_qualitativa', systemSuffix, empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id })).trim();
+      let respostaIA = (await callAIChat(system, messages, {}, 4000, { taskKey: 'sem13_qualitativa', systemSuffix, empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, locale: idioma })).trim();
 
       const finished = proximoTurnIA >= TOTAL;
 
@@ -264,6 +294,7 @@ export async function POST(request) {
           const forcado = (await callAIChat(system, messages, {}, 4000, {
             taskKey: 'sem13_qualitativa',
             empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+            locale: idioma,
             systemSuffix: fechamentoSuffix ? reforcoDeFechamento(fechamentoSuffix) : systemSuffix,
           })).trim();
           if (forcado && pareceFechamento(forcado, { marcadores: false })) respostaIA = forcado;
@@ -344,14 +375,9 @@ export async function POST(request) {
       return NextResponse.json({ message: respostaIA, turnIA: proximoTurnIA, finished, history: historico });
     }
 
-    // Semana do cenário B (regular=14): cenário + 4 perguntas → pontuação
+    // Semana do cenário B (regular=14): cenário + 4 perguntas → pontuação.
+    // Onboarding (12): 5 cenários, um por competência, 4 perguntas cada (`feedback.cenarios`).
     if (Number(semana) === semCenarioB) {
-      const DIMENSOES = [
-        { key: 'p1', label: 'SITUAÇÃO' },
-        { key: 'p2', label: 'AÇÃO' },
-        { key: 'p3', label: 'RACIOCÍNIO' },
-        { key: 'p4', label: 'AUTOSSENSIBILIDADE' },
-      ];
 
       // PII masking compartilhado por arguição (chat) e scorer (pontuação).
       const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
@@ -379,7 +405,7 @@ export async function POST(request) {
         const token = reserva.token;
         after(async () => {
           const r = await finalizarFechamentoCore(trilhaId, {
-            empresaId: trilha.empresa_id, token, prazoMs: inicioMs + PRAZO_FECHAMENTO_MS,
+            empresaId: trilha.empresa_id, token, prazoMs: inicioMs + PRAZO_FECHAMENTO_MS, locale: idioma,
           });
           if ('erro' in r) console.error('[VERTHO] fechamento sem nota:', trilhaId, r.erro);
         });
@@ -456,17 +482,62 @@ export async function POST(request) {
             }, { status: 202 });
           }
         }
+        // O B tem que ser da competência da trilha (lib/season-engine/cenario-b.ts).
+        // Uma vez servido, fica gravado no slot abaixo: retomar usa o mesmo.
+        const competenciasDaTrilha = Array.isArray((trilha as any).competencias_foco) && (trilha as any).competencias_foco.length
+          ? (trilha as any).competencias_foco
+          : [trilha.competencia_foco];
+
+        // ONBOARDING: 5 cenários em sequência, um por competência, 4 perguntas cada. O B de
+        // cada uma é o que o lote da Fase 5 gera por célula, escolhido pela MESMA régua.
+        // Um slot que já tem `cenarios` (retomada) é servido como está.
+        let cenariosSlot = cenariosDoSlot(dados);
+        if (cenariosSlot || fechamentoPorCompetencia(programaConfig.modo, competenciasDaTrilha)) {
+          if (!cenariosSlot) {
+            const cargoColab = colab?.cargo || 'todos';
+            const escolha = await escolherCenariosBPorCompetencia(sb, trilha.empresa_id, cargoColab, competenciasDaTrilha, {
+              colaboradorId: trilha.colaborador_id, trilhaId,
+            });
+            if (escolha.faltantes.length) {
+              return NextResponse.json({
+                error: `Cenário B não cadastrado para ${escolha.faltantes.join(' + ')} + cargo ${cargoColab}.`,
+              }, { status: 424 });
+            }
+            cenariosSlot = escolha.itens.map(({ competencia, cenario: b }) => ({
+              competencia,
+              cenario_b_id: b!.id,
+              cenario: `## ${b!.titulo || 'Cenário final'}\n\n${b!.descricao}`,
+              perguntas: perguntasDoCenarioB(b!.alternativas),
+              transcript_completo: [] as any[],
+            }));
+            const semPerguntas = cenariosSlot.filter((c) => c.perguntas.length === 0).map((c) => c.competencia);
+            if (semPerguntas.length) {
+              return NextResponse.json({
+                error: `Cenário B encontrado mas sem perguntas (alternativas.p1..p4 ausentes) em ${semPerguntas.join(' + ')}. Regere o cenário B.`,
+              }, { status: 424 });
+            }
+          }
+          // Abre a 1ª pergunta do cenário em que a pessoa está, se ainda não foi aberta
+          // (sem IA: o texto vem do banco). Os seguintes abrem quando o anterior fecha.
+          const pos = posicaoNoFechamento(cenariosSlot);
+          const atual = pos.cenarioAtual === null ? null : cenariosSlot[pos.cenarioAtual];
+          if (atual && atual.transcript_completo.length === 0) {
+            atual.transcript_completo.push(aberturaDaPergunta(atual.perguntas[0], 1));
+          }
+          // A conversa vive em cada cenário: o `transcript_completo` vazio que o default de `dados`
+          // traz (slot ainda sem linha) não vai para o slot do Onboarding.
+          const { transcript_completo: _semConversaSolta, ...restoDoSlot } = dados;
+          const novoSlot = { ...restoDoSlot, cenarios: cenariosSlot };
+          await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
+          return NextResponse.json({ cenarios: cenariosSlot, finished: false });
+        }
+
         let cenario = dados.cenario;
         let perguntas = dados.perguntas;
         let cenario_b_id = dados.cenario_b_id || null;
 
         if (!cenario || !perguntas) {
           const cargoColab = colab?.cargo || 'todos';
-          // O B tem que ser da competência da trilha (lib/season-engine/cenario-b.ts).
-          // Uma vez servido, fica gravado no slot abaixo: retomar usa o mesmo.
-          const competenciasDaTrilha = Array.isArray((trilha as any).competencias_foco) && (trilha as any).competencias_foco.length
-            ? (trilha as any).competencias_foco
-            : [trilha.competencia_foco];
           const escolha = await escolherCenarioB(sb, trilha.empresa_id, cargoColab, competenciasDaTrilha, {
             colaboradorId: trilha.colaborador_id, trilhaId,
           });
@@ -481,8 +552,7 @@ export async function POST(request) {
           }
           cenario = `## ${cenB.titulo || 'Cenário final'}\n\n${cenB.descricao}`;
           cenario_b_id = cenB.id;
-          const alt = cenB.alternativas || {};
-          perguntas = DIMENSOES.map(d => ({ dimensao: d.label, texto: alt[d.key] || '' })).filter(p => p.texto);
+          perguntas = perguntasDoCenarioB(cenB.alternativas);
           if (perguntas.length === 0) {
             return NextResponse.json({
               error: 'Cenário B encontrado mas sem perguntas (alternativas.p1..p4 ausentes). Regere o cenário B.',
@@ -512,7 +582,7 @@ export async function POST(request) {
         if (!message) return NextResponse.json({ error: 'message obrigatório' }, { status: 400 });
         const estadoArg = dados.arguicao as ArguicaoEstado | undefined;
         if (!estadoArg || estadoArg.concluida) return NextResponse.json({ error: 'arguição não está em andamento' }, { status: 400 });
-        const ctxArg = montarCtxArguicao({ cenario: dados.cenario, perguntas: dados.perguntas || [], historico, colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto' });
+        const ctxArg = montarCtxArguicao({ cenario: dados.cenario, perguntas: dados.perguntas || [], historico, colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto', cenarios: cenariosDoSlot(dados), locale: idioma });
         const { estado, reply, concluida } = await turnoArguicao(ctxArg, estadoArg, message, programaConfig.arguicao.maxTurnos, aiConfig, piiArg);
         const arguicao: any = estado;
         if (concluida) arguicao.extracao = await extrairEvidenciasArguicao(ctxArg, estado, aiConfig, piiArg);
@@ -533,6 +603,55 @@ export async function POST(request) {
 
       // action === 'send': colab respondeu. Pode ser pergunta 1-3 (faz próxima) ou pergunta 4 (scorer).
       if (!message) return NextResponse.json({ error: 'message obrigatório' }, { status: 400 });
+
+      // ONBOARDING: a resposta entra no cenário em que a pessoa está (o primeiro com pergunta
+      // sem resposta), e a próxima pergunta é a do mesmo cenário ou a 1ª do seguinte. Quando a
+      // última pergunta do último cenário é respondida, vale o caminho de sempre: arguição
+      // (uma só, sobre o conjunto) ou pontuação.
+      const cenariosEnvio = cenariosDoSlot(dados);
+      if (cenariosEnvio) {
+        const pos = posicaoNoFechamento(cenariosEnvio);
+        if (pos.cenarioAtual === null) {
+          if (!(programaConfig.arguicao?.ativa && !dados.arguicao)) {
+            const leitura = estadoDoFechamento(prog, { arguicaoAtiva: !!programaConfig.arguicao?.ativa }, Date.now());
+            return NextResponse.json({ error: 'As respostas do cenário já foram registradas.', fechamento: leitura.estado }, { status: 409 });
+          }
+        } else {
+          const atual = cenariosEnvio[pos.cenarioAtual];
+          atual.transcript_completo.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
+          const respondidas = respostasDoCenarioN(atual);
+          if (respondidas < atual.perguntas.length) {
+            const abertura = aberturaDaPergunta(atual.perguntas[respondidas], respondidas + 1);
+            atual.transcript_completo.push(abertura);
+            await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot: { ...dados, cenarios: cenariosEnvio }, finished: false });
+            return NextResponse.json({
+              message: abertura.content, history: atual.transcript_completo, finished: false, dimensao: abertura.dimensao,
+              cenarioIndex: pos.cenarioAtual, perguntaIndex: respondidas,
+            });
+          }
+          const seguinte = cenariosEnvio[pos.cenarioAtual + 1];
+          if (seguinte) {
+            // Fechou um cenário: abre a 1ª pergunta do próximo (se ainda não estiver aberta).
+            if (seguinte.transcript_completo.length === 0) seguinte.transcript_completo.push(aberturaDaPergunta(seguinte.perguntas[0], 1));
+            await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot: { ...dados, cenarios: cenariosEnvio }, finished: false });
+            return NextResponse.json({
+              message: seguinte.transcript_completo[0]?.content, history: seguinte.transcript_completo, finished: false,
+              dimensao: seguinte.perguntas[0]?.dimensao, cenarioConcluido: pos.cenarioAtual,
+              cenarioIndex: pos.cenarioAtual + 1, perguntaIndex: 0,
+            });
+          }
+        }
+        if (programaConfig.arguicao?.ativa && !dados.arguicao) {
+          const ctxArg = montarCtxArguicao({ cenario: '', perguntas: [], historico: [], colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto', cenarios: cenariosEnvio, locale: idioma });
+          const { estado, reply } = await abrirArguicao(ctxArg, programaConfig.arguicao.maxTurnos, aiConfig, piiArg);
+          await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot: { ...dados, cenarios: cenariosEnvio, arguicao: estado }, finished: false });
+          return NextResponse.json({ arguindo: true, arguicaoConcluida: false, message: reply, turno: 1, finished: false });
+        }
+        await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot: { ...dados, cenarios: cenariosEnvio }, finished: false });
+        const r = await dispararFinalizacao();
+        return NextResponse.json({ finalizando: r.estado === 'processando', fechamento: r.estado, finished: false });
+      }
+
       const cenario = dados.cenario;
       const perguntas = dados.perguntas || [];
       if (!cenario || !perguntas.length) return NextResponse.json({ error: 'cenário não iniciado — chame action=init primeiro' }, { status: 400 });
@@ -569,7 +688,7 @@ export async function POST(request) {
       // oral ANTES de pontuar (Fase A: só a conversa; a fusão é Fase B). Gate
       // off (default) → cai direto no scorer, fechamento atual byte-igual.
       if (programaConfig.arguicao?.ativa && !dados.arguicao) {
-        const ctxArg = montarCtxArguicao({ cenario, perguntas, historico, colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto' });
+        const ctxArg = montarCtxArguicao({ cenario, perguntas, historico, colab, competenciasLabel, descritores, isPiloto: programaConfig.modo === 'piloto', locale: idioma });
         const { estado, reply } = await abrirArguicao(ctxArg, programaConfig.arguicao.maxTurnos, aiConfig, piiArg);
         const novoSlot = { ...dados, transcript_completo: historico, cenario, perguntas, arguicao: estado };
         await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });

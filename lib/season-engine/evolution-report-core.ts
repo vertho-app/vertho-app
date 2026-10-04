@@ -20,6 +20,19 @@ async function encadear(sbRaw: any, tdb: any, trilhaId: string): Promise<void> {
 }
 
 /**
+ * Casa a saída do scorer com o descritor da trilha, pelo NOME e, quando a saída traz a
+ * competência, por ela também. O fechamento do Onboarding (5 competências, scorer por
+ * competência) grava a `competencia` de cada descritor, porque o mesmo nome pode existir
+ * em duas competências; as saídas de uma competência só não têm o campo e casam pelo
+ * nome, como sempre.
+ */
+const nomeDaCompetencia = (s: unknown) => String(s ?? '').trim().toLowerCase();
+function doDescritor(saida: any, d: any): boolean {
+  if (saida?.descritor !== d?.descritor) return false;
+  return !saida?.competencia || !d?.competencia || nomeDaCompetencia(saida.competencia) === nomeDaCompetencia(d.competencia);
+}
+
+/**
  * Núcleo HEADLESS do Evolution Report — SEM gate de auth e SEM endpoint HTTP.
  * Extraído de actions/evolution-report.ts (que tinha a flag `internal`, dívida do
  * config/use-server-internal-allowlist.json): em arquivo 'use server' todo export
@@ -110,7 +123,7 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
     // bruto + piso_aplicado preservados — nunca mutação silenciosa.
     if (isPiloto) {
       const consolidadoPiloto = descritores.map((d: any) => {
-        const n = quantitativa.find((x: any) => x.descritor === d.descritor) || {};
+        const n = quantitativa.find((x: any) => doDescritor(x, d)) || {};
         return {
           competencia: d.competencia || trilha.competencia_foco,
           descritor: d.descritor,
@@ -148,7 +161,7 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
 
     const consolidado = descritores.map((d: any) => {
       const q = qualitativa.find((x: any) => x.descritor === d.descritor) || {};
-      const n = quantitativa.find((x: any) => x.descritor === d.descritor) || {};
+      const n = quantitativa.find((x: any) => doDescritor(x, d)) || {};
       const nota_pre = n.nota_pre ?? d.nota_atual ?? 1.5;
       const notaCenarioBruta = typeof n.nota_cenario === 'number' ? n.nota_cenario : nota_pre;
       // O relatório nunca rebaixa o patamar já demonstrado. A nota bruta do

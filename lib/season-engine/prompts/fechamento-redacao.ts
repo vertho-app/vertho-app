@@ -58,6 +58,12 @@ export interface PromptRedacaoFechamentoParams {
    * dessas seis semanas" e "o ponto mais forte da jornada".
    */
   evidenciasSemanas?: string | null;
+  /**
+   * O fechamento do Onboarding avalia várias competências, cada uma lida num
+   * cenário próprio, e o rascunho traz o texto de cada uma. Liga o bloco que pede
+   * UMA devolutiva sobre o conjunto. Ausente = o prompt de sempre, byte a byte.
+   */
+  variasCompetencias?: boolean;
 }
 
 export interface ResumoRedigido {
@@ -142,7 +148,10 @@ REGRAS DA REESCRITA:
 7. Só diga o que ${p.nomeColab} fez ou construiu ao longo das semanas se estiver nas EVIDÊNCIAS DAS SEMANAS. Se elas vierem vazias, fale só do que apareceu no cenário e na defesa oral, diga em linguagem simples que a leitura se apoia nesses dois momentos, e a regra de citar evidência das semanas não se aplica.
 8. Se o rascunho reconhece um limite da leitura, mantenha o reconhecimento em linguagem simples.
 9. Não compare ${p.nomeColab} com outras pessoas nem use superlativo sem base ("raro", "excepcional", "o ponto mais forte da jornada").
-
+${p.variasCompetencias ? `
+VÁRIAS COMPETÊNCIAS:
+A avaliação cobre mais de uma competência, cada uma lida num cenário próprio, e o rascunho traz o texto de cada uma. Escreva UMA devolutiva só, sobre o conjunto: o que ${p.nomeColab} fez de mais sólido, o que segue pedindo prática e o que leva daqui. Cite a competência pelo nome quando isso ajudar a pessoa a se situar, sem listar todas uma a uma.
+` : ''}
 ${regras}
 
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;

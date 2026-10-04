@@ -4,7 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
 import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsPiloto } from '@/lib/season-engine/select-descriptors';
-import { escolherCenarioB } from '@/lib/season-engine/cenario-b';
+import { escolherCenarioB, escolherCenariosBPorCompetencia, fechamentoPorCompetencia } from '@/lib/season-engine/cenario-b';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { entregaEhReal } from '@/lib/season-engine/week-gating';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
@@ -96,8 +96,9 @@ async function gerarTemporadaCore(params: GerarTemporadaParams = {}) {
  *     'cenario_b' DA COMPETÊNCIA da trilha → fechamento retornaria 424. Gerar via
  *     Fase 5. A régua é a MESMA do fechamento (`escolherCenarioB`, R-21): antes
  *     olhava só o cargo, e a pessoa aparecia "pronta" com o B de outra
- *     competência, ou com B só por competência num Onboarding que precisa de um
- *     que cubra as 5.
+ *     competência. No Onboarding o fechamento serve um B por competência
+ *     (`escolherCenariosBPorCompetencia`), e cada competência sem B usável é
+ *     bloqueio, com o nome dela.
  */
 const ProntidaoInput = z.object({ empresaId: z.string().min(1) });
 
@@ -283,23 +284,34 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
       // Fechamento: o Cenário B tem que ser DA COMPETÊNCIA da trilha, pela MESMA
       // escolha que o fechamento faz (`escolherCenarioB`, R-21). Cada trilha do
       // Piloto e do Personalizado fecha em UMA competência; o Onboarding fecha
-      // nas 5 de uma vez e precisa de um B que cubra todas (integrador). Modo SEM
+      // nas 5, um cenário por competência (4 perguntas cada). Modo SEM
       // fechamento (custom, semanasAvaliacao=[]) não precisa de Cenário B.
       if (cfg.semanasAvaliacao.length > 0 && alvos.length > 0) {
         const cargoB = colab.cargo || 'todos';
-        const grupos = modoColab === 'onboarding' ? [alvos.map(a => a.competencia)] : alvos.map(a => [a.competencia]);
-        for (const comps of grupos) {
-          let escolha: Awaited<ReturnType<typeof escolherCenarioB>>;
+        const nomesAlvo = alvos.map(a => a.competencia);
+        if (fechamentoPorCompetencia(modoColab, nomesAlvo)) {
+          // Onboarding: o fechamento serve UM B por competência (5 cenários, um por vez), pela
+          // MESMA escolha do fechamento. Cada competência sem B usável aparece pelo nome.
           try {
-            escolha = await escolherCenarioB(sbRaw, empresaId, cargoB, comps, { registrar: false });
+            const r = await escolherCenariosBPorCompetencia(sbRaw, empresaId, cargoB, nomesAlvo, { registrar: false });
+            if (r.faltantes.length) {
+              bloqueadores.push(`Fechamento sem Cenário B de ${r.faltantes.map(c => `"${c}"`).join(', ')} pro cargo "${cargoB}": o fechamento do Onboarding serve um cenário por competência, e o B de cada uma vem do lote da Fase 5 (Cenários B em lote). O B de outra competência não serve, o fechamento avaliaria a coisa errada`);
+            }
           } catch (e: any) {
             bloqueadores.push(`Fechamento: não consegui conferir o Cenário B (${e?.message || e})`);
-            continue;
           }
-          if (escolha.cenario) continue;
-          bloqueadores.push(comps.length > 1
-            ? `Fechamento sem Cenário B que cubra as ${comps.length} competências do programa (${comps.join(', ')}): o lote de Cenários B gera um por competência, e o fechamento do Onboarding precisa de um B integrador que cubra todas. Cadastre-o antes da semana do fechamento`
-            : `Fechamento sem Cenário B da competência "${comps[0]}" pro cargo "${cargoB}": gere na Fase 5 (Cenários B em lote). O B de outra competência não serve, o fechamento avaliaria a coisa errada`);
+        } else {
+          for (const comps of alvos.map(a => [a.competencia])) {
+            let escolha: Awaited<ReturnType<typeof escolherCenarioB>>;
+            try {
+              escolha = await escolherCenarioB(sbRaw, empresaId, cargoB, comps, { registrar: false });
+            } catch (e: any) {
+              bloqueadores.push(`Fechamento: não consegui conferir o Cenário B (${e?.message || e})`);
+              continue;
+            }
+            if (escolha.cenario) continue;
+            bloqueadores.push(`Fechamento sem Cenário B da competência "${comps[0]}" pro cargo "${cargoB}": gere na Fase 5 (Cenários B em lote). O B de outra competência não serve, o fechamento avaliaria a coisa errada`);
+          }
         }
       }
 

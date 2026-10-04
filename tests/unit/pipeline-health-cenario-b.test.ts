@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { checarCenarioBHorizonte, CENARIO_B_CRITICO_DIAS, type LacunaCenarioB } from '@/lib/pipeline-health/regras';
 import { coletarCenarioBHorizonte } from '@/lib/pipeline-health/coleta';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
+import { semanaLiberadaEm } from '@/lib/season-engine/week-gating';
 
 // R21 nasceu de um caso real (18/09/2026): Macaé com 38 diretores a 10 dias da
 // semana 7 e 0 Cenários B no tenant, sem nada no sistema apontando.
@@ -100,5 +101,114 @@ describe('R21 coletarCenarioBHorizonte (coleta)', () => {
     const sb = mock();
     sb.falharEm({ tabela: 'trilhas', op: 'select', mensagem: 'pool esgotado' });
     await expect(coletarCenarioBHorizonte(sb.client, 'emp', 28, HOJE)).rejects.toThrow(/pool esgotado/);
+  });
+});
+
+// ── ONBOARDING (04/10/2026): o fechamento serve um B por competência ───────────
+describe('R21 coletarCenarioBHorizonte: o Onboarding vira uma célula por competência', () => {
+  const HOJE = new Date('2026-09-18T12:00:00Z');
+  const COMPS = ['Comp A', 'Comp B', 'Comp C', 'Comp D', 'Comp E'];
+  const plano12 = [
+    { semana: 1, tipo: 'mapeamento' },
+    ...[2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((semana) => ({ semana, tipo: 'conteudo' })),
+    { semana: 12, tipo: 'avaliacao' },
+  ];
+  // a semana 12 abre em 28/09 às 06:00 UTC (o helper de calendário da semana): ~10 dias
+  const onb = (id: string, colaborador_id: string, extra: Record<string, unknown> = {}) => ({
+    id, colaborador_id, competencia_foco: COMPS[0], competencias_foco: COMPS, temporada_plano: plano12,
+    data_inicio: '2026-07-13', programa_modo: 'onboarding', ...extra,
+  });
+  const COLABS = [{ id: 'p1', cargo: 'Professor' }, { id: 'p2', cargo: 'Professor' }];
+  const compsDoBanco = COMPS.map((nome, i) => ({ id: `c${i}`, nome }));
+  const bDe = (i: number) => ({
+    id: `b${i}`, titulo: 't', descricao: 'd', cargo: 'Professor', competencia_id: `c${i}`,
+    created_at: '2026-09-10T00:00:00Z', alternativas: { p1: 'x', p2: 'y', p3: 'z', p4: 'w' },
+  });
+  const mock = (trilhas: any[], bRows: any[] = [], comNoSlot: any[] = []) => criarSupabaseMock({
+    lista: (tabela) => ({
+      trilhas, temporada_semana_progresso: comNoSlot, colaboradores: COLABS, banco_cenarios: bRows, competencias: compsDoBanco,
+    } as Record<string, any[]>)[tabela] ?? [],
+  });
+
+  it('sem nenhum B: cada competência é uma lacuna própria (o alarme diz QUAL falta), com as pessoas e os dias', async () => {
+    const lacunas = await coletarCenarioBHorizonte(mock([onb('t1', 'p1'), onb('t2', 'p2')]).client, 'emp', 28, HOJE);
+    expect(lacunas.map((l) => l.competencias)).toEqual(COMPS.map((c) => [c]));
+    expect(lacunas.every((l) => l.pessoas === 2 && l.diasAte === 10 && l.semana === 12 && l.cargo === 'Professor')).toBe(true);
+  });
+
+  it('com o B de 3 das 5 competências, só as 2 que faltam aparecem (a mesma régua do fechamento)', async () => {
+    const lacunas = await coletarCenarioBHorizonte(mock([onb('t1', 'p1')], [bDe(0), bDe(1), bDe(2)]).client, 'emp', 28, HOJE);
+    expect(lacunas.map((l) => l.competencias)).toEqual([['Comp D'], ['Comp E']]);
+  });
+
+  it('o rótulo do alarme nomeia a competência que falta, na ordem da trilha', async () => {
+    const lacunas = await coletarCenarioBHorizonte(mock([onb('t1', 'p1')], [bDe(0), bDe(1), bDe(2)]).client, 'emp', 28, HOJE);
+    const [urgente] = checarCenarioBHorizonte(lacunas);
+    expect(urgente.contagem).toBe(2);
+    expect(urgente.amostra).toEqual([
+      '10d · sem12 · Professor · Comp D · 1p',
+      '10d · sem12 · Professor · Comp E · 1p',
+    ]);
+  });
+
+  it('as 5 com B: nenhuma lacuna', async () => {
+    expect(await coletarCenarioBHorizonte(mock([onb('t1', 'p1')], COMPS.map((_, i) => bDe(i))).client, 'emp', 28, HOJE)).toEqual([]);
+  });
+
+  it('fechamento já aberto com os cenários gravados no slot (`feedback.cenarios`): fica de fora, e a leitura existe', async () => {
+    // só a leitura de `feedback->cenarios` devolve a trilha: apagar essa leitura (ou não
+    // somar o resultado dela) faria a trilha com os 5 cenários já gravados voltar a acusar lacuna
+    const sb = criarSupabaseMock({
+      lista: (tabela, _cols, cadeia) => {
+        if (tabela === 'temporada_semana_progresso') {
+          return cadeia.some((c) => c.metodo === 'not' && c.args[0] === 'feedback->cenarios') ? [{ trilha_id: 't1' }] : [];
+        }
+        return ({ trilhas: [onb('t1', 'p1')], colaboradores: COLABS, banco_cenarios: [], competencias: compsDoBanco } as Record<string, any[]>)[tabela] ?? [];
+      },
+    });
+    expect(await coletarCenarioBHorizonte(sb.client, 'emp', 28, HOJE)).toEqual([]);
+    expect(sb.chamadas.some((c) => c.tabela === 'temporada_semana_progresso' && c.metodo === 'not' && c.args[0] === 'feedback->cenarios')).toBe(true);
+    expect(sb.chamadas.some((c) => c.tabela === 'temporada_semana_progresso' && c.metodo === 'not' && c.args[0] === 'feedback->>cenario_b_id')).toBe(true);
+  });
+
+  it('erro ao ler os cenários gravados LANÇA, não vira "sem lacuna"', async () => {
+    const sb = mock([onb('t1', 'p1')]);
+    sb.falharEm({ tabela: 'temporada_semana_progresso', op: 'select', mensagem: 'pool esgotado' });
+    await expect(coletarCenarioBHorizonte(sb.client, 'emp', 28, HOJE)).rejects.toThrow(/pool esgotado/);
+  });
+
+  it('o DUO de Ibipeba (2 competências) e a Jornada seguem como UMA célula, como sempre', async () => {
+    const duo = { ...onb('t1', 'p1'), competencias_foco: ['Comp A', 'Comp B'], programa_modo: 'regular_duo' };
+    const jornada = { ...onb('t2', 'p2'), competencias_foco: ['Comp C'], competencia_foco: 'Comp C', programa_modo: 'jornada' };
+    const lacunas = await coletarCenarioBHorizonte(mock([duo, jornada]).client, 'emp', 28, HOJE);
+    expect(lacunas.map((l) => l.competencias)).toEqual([['Comp A', 'Comp B'], ['Comp C']]);
+  });
+
+  it('a data de abertura vem do helper de calendário da semana (semanaLiberadaEm), não de (semana-1)*7 à mão', async () => {
+    const aberturaDoHelper = semanaLiberadaEm('2026-07-13', 12)!;
+    const esperado = Math.round((aberturaDoHelper.getTime() - HOJE.getTime()) / 86400_000);
+    const [l] = await coletarCenarioBHorizonte(mock([onb('t1', 'p1')]).client, 'emp', 28, HOJE);
+    expect(l.diasAte).toBe(esperado);
+    // o helper abre a semana às 06:00 UTC; à mão (00:00 UTC) seriam 9,4 dias e arredondaria para 9
+    const aMeioDoDia = new Date('2026-09-18T14:24:00Z');
+    const [m] = await coletarCenarioBHorizonte(mock([onb('t1', 'p1')]).client, 'emp', 28, aMeioDoDia);
+    expect(m.diasAte).toBe(10);
+  });
+
+  it('slot com calendário espelhado (o fechamento do piloto herda o da semana 2): conta pela semana que o governa', async () => {
+    const piloto = {
+      id: 't9', colaborador_id: 'p1', competencia_foco: 'Comp A', competencias_foco: ['Comp A'], programa_modo: 'piloto',
+      temporada_plano: [{ semana: 1, tipo: 'conteudo' }, { semana: 2, tipo: 'conteudo' }, { semana: 3, tipo: 'avaliacao', calendario_semana: 2 }],
+      data_inicio: '2026-09-14',
+    };
+    const [l] = await coletarCenarioBHorizonte(mock([piloto]).client, 'emp', 28, HOJE);
+    // espelhada na semana 2: abre em 21/09 às 06:00 UTC (2,75 dias), e não em 28/09 (a semana 3 "à mão")
+    expect(l.diasAte).toBe(Math.round((semanaLiberadaEm('2026-09-14', 2)!.getTime() - HOJE.getTime()) / 86400_000));
+    expect(l.diasAte).toBe(3);
+  });
+
+  it('sem data_inicio não dá para datar: 0 dias (crítico), como a R15', async () => {
+    const [l] = await coletarCenarioBHorizonte(mock([onb('t1', 'p1', { data_inicio: null })]).client, 'emp', 28, HOJE);
+    expect(l.diasAte).toBe(0);
   });
 });

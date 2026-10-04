@@ -15,7 +15,7 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 const h = vi.hoisted(() => ({
   sb: null as any,
-  estado: { atual: null as any, relatorio: null as any },
+  estado: { atual: null as any, relatorio: null as any, trilha: null as any, locale: null as string | null },
   pontuar: vi.fn(),
   redigir: vi.fn(),
   report: vi.fn(),
@@ -108,10 +108,12 @@ beforeEach(() => {
   h.acumulado = null;
   h.estado.atual = progHelmar();
   h.estado.relatorio = null;
+  h.estado.trilha = null;
+  h.estado.locale = null;
   h.sb = criarSupabaseMock({
     resolver: (tabela, cols) => {
-      if (tabela === 'trilhas') return cols === 'evolution_report' ? { evolution_report: h.estado.relatorio } : TRILHA;
-      if (tabela === 'colaboradores') return { nome_completo: 'Helmar Miranda da Silva', cargo: 'Gestão Escolar', perfil_dominante: 'S' };
+      if (tabela === 'trilhas') return cols === 'evolution_report' ? { evolution_report: h.estado.relatorio } : (h.estado.trilha ?? TRILHA);
+      if (tabela === 'colaboradores') return { nome_completo: 'Helmar Miranda da Silva', cargo: 'Gestão Escolar', perfil_dominante: 'S', locale: h.estado.locale };
       if (tabela === 'temporada_semana_progresso') {
         if (cols === 'feedback') return { feedback: { acumulado: null } }; // semana da acumulada
         return h.estado.atual;
@@ -548,5 +550,174 @@ describe('refazerRedacaoFechamento', () => {
     const r = await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1', aplicar: true });
     expect(r).toMatchObject({ ok: true, aplicado: false, status: 'falhou' });
     expect(h.sb.escritas).toHaveLength(0);
+  });
+});
+
+describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um por competência)', () => {
+  const COMPS = ['Comp A', 'Comp B', 'Comp C', 'Comp D', 'Comp E'];
+  const TRILHA_ONB = {
+    id: 'tr-1', colaborador_id: 'col-1', empresa_id: 'emp-1', competencia_foco: COMPS[0], competencias_foco: COMPS,
+    descritores_selecionados: COMPS.flatMap((c) => [1, 2].map((n) => ({ competencia: c, descritor: `${c.slice(-1)}-d${n}` }))),
+    programa_modo: 'onboarding', programa_config: {},
+  };
+  const cenarios = () => COMPS.map((competencia, i) => ({
+    competencia, cenario_b_id: `b-${i}`, cenario: `## Caso ${competencia}\n\ntexto do caso`, perguntas: PERGUNTAS,
+    transcript_completo: transcript([`${competencia} r1`, `${competencia} r2`, `${competencia} r3`, `${competencia} r4`]),
+  }));
+  const slotOnb = (extra: any = {}) => ({
+    id: 'prog-9', status: 'em_andamento', iniciado_em: '2026-10-04T17:46:46Z',
+    feedback: {
+      cenarios: cenarios(), finalizacao: { status: 'processando', iniciada_em: TOKEN },
+      arguicao: { turno: 6, concluida: true, historico: [], extracao: { classificacao: 'sustentou' } }, ...extra,
+    },
+  });
+  const PARSED_ONB = {
+    avaliacao_por_descritor: COMPS.flatMap((c) => [1, 2].map((n) => ({ competencia: c, descritor: `${c.slice(-1)}-d${n}`, nota_pre: 2, nota_pos: 2.5, justificativa: 'j' }))),
+    nota_media_pre: 2, nota_media_pos: 2.5, delta_medio: 0.5, resumo_avaliacao: { mensagem_geral: 'mensagem' },
+  };
+  const ok = () => h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED_ONB }, auditoria: { nota_auditoria: 90 }, meta: { warnings: [], tentativas: 5 } });
+
+  beforeEach(() => {
+    h.estado.trilha = TRILHA_ONB;
+    h.estado.atual = slotOnb();
+  });
+
+  it('entrega ao scorer uma entrada por competência (os descritores, o cenário e as respostas DELA) e o conjunto para o auditor', async () => {
+    ok();
+    const r = await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN, prazoMs: AGORA + 285_000 });
+    expect(r.ok).toBe(true);
+    const a = h.pontuar.mock.calls[0][0];
+    expect(a.porCompetencia.map((e: any) => e.competencia)).toEqual(COMPS);
+    expect(a.porCompetencia[2].descritores.map((d: any) => d.descritor)).toEqual(['C-d1', 'C-d2']);
+    expect(a.porCompetencia[2].cenario).toBe('## Caso Comp C\n\ntexto do caso');
+    expect(a.porCompetencia[2].resposta).toContain('→ Comp C r4');
+    expect(a.porCompetencia[2].resposta).not.toContain('Comp B r1');
+    expect(a.porCompetencia[2].evidenciasAcumuladas).toBe('evidências');
+    // o conjunto: os 5 cenários, as 20 respostas, os 10 descritores e o rótulo de sempre (`A + B`)
+    expect(a.competencia).toBe(COMPS.join(' + '));
+    expect(a.descritores).toHaveLength(10);
+    expect(a.cenario.split('### Competência: ').length - 1).toBe(5);
+    expect((a.resposta.match(/→ /g) || []).length).toBe(20);
+    expect(a.resposta).toContain('### Comp E');
+    expect(a.evidenciasAcumuladas).toBe(Array(5).fill('evidências').join('\n\n'));
+    expect(a.prazoMs).toBe(AGORA + 285_000);
+    expect(a.evidenciasArguicao).toEqual({ classificacao: 'sustentou' });
+  });
+
+  it('grava o slot com os cenários, o cenário e a resposta dos cinco juntos, e SEM transcript_completo solto', async () => {
+    ok();
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN, prazoMs: AGORA + 285_000 });
+    const concluiu = escritasProgresso().find((e: any) => e.payload.status === 'concluido');
+    const fb = concluiu.payload.feedback;
+    expect(fb.cenarios).toHaveLength(5);
+    expect(fb.cenarios[4].transcript_completo.filter((m: any) => m.role === 'user')).toHaveLength(4);
+    expect(fb.cenario.split('### Competência: ').length - 1).toBe(5);
+    expect(fb.cenario_resposta).toContain('### Comp B');
+    expect(fb.cenario_resposta).toContain('→ Comp B r2'); // as respostas gravadas ficam com o texto real, sem máscara
+    expect(fb).not.toHaveProperty('transcript_completo');
+    expect(fb.avaliacao_por_descritor).toHaveLength(10);
+    expect(fb.finalizacao).toBeUndefined();
+    expect(h.report).toHaveBeenCalledWith('tr-1', { empresaId: 'emp-1' });
+  });
+
+  it('descritor da trilha sem cenário (competência fora da lista): erro explícito, degradação crítica, NÃO conclui', async () => {
+    h.estado.trilha = { ...TRILHA_ONB, descritores_selecionados: [...TRILHA_ONB.descritores_selecionados, { competencia: 'Outra', descritor: 'X-d1' }] };
+    ok();
+    const r = await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(r).toMatchObject({ ok: false });
+    expect((r as any).erro).toContain('sem cenário no fechamento');
+    expect((r as any).erro).toContain('X-d1');
+    expect(h.pontuar).not.toHaveBeenCalled();
+    expect(escritasProgresso().some((e: any) => e.payload.status === 'concluido')).toBe(false);
+    expect(h.degradacao.mock.calls[0][0]).toMatchObject({ tipo: 'fechamento-scorer-falhou', severidade: 'critico' });
+  });
+
+  it('descritores com o mesmo nome em competências diferentes: segue, com aviso no resultado', async () => {
+    h.estado.trilha = { ...TRILHA_ONB, descritores_selecionados: [{ competencia: 'Comp A', descritor: 'Escuta' }, { competencia: 'Comp B', descritor: 'Escuta' }, { competencia: 'Comp C', descritor: 'C-d1' }, { competencia: 'Comp D', descritor: 'D-d1' }, { competencia: 'Comp E', descritor: 'E-d1' }] };
+    ok();
+    const r: any = await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(r.ok).toBe(true);
+    expect(r.warnings).toContain('descritores com o mesmo nome em competências diferentes: escuta');
+  });
+
+  it('o scorer devolve ok:false numa competência: mesmo tratamento do aborto (erro no slot, degradação, sem concluir)', async () => {
+    h.pontuar.mockResolvedValue({ ok: false, erro: 'A avaliação automática falhou ao processar a resposta (parse/narrativa inválida) em: Comp D.', meta: { warnings: [], tentativas: 6 } });
+    const r = await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(r).toMatchObject({ ok: false });
+    expect((r as any).erro).toContain('Comp D');
+    expect(escritasProgresso().find((e: any) => e.payload.feedback?.finalizacao?.status === 'erro').payload.feedback.cenarios).toHaveLength(5);
+    expect(escritasProgresso().some((e: any) => e.payload.status === 'concluido')).toBe(false);
+  });
+
+  it('refazer a redação: o rascunho junta uma devolutiva por competência, e o prompt é avisado', async () => {
+    h.estado.atual = { ...slotOnb(), status: 'concluido', feedback: {
+      cenarios: cenarios(), avaliacao_por_descritor: PARSED_ONB.avaliacao_por_descritor,
+      resumo_avaliacao_rascunho: { mensagem_geral: 'Comp A: a\n\nComp B: b' }, redacao_final: { status: 'falhou' },
+      arguicao: { concluida: true, extracao: null },
+    } };
+    h.redigir.mockResolvedValue({ status: 'reescrita', resumo: { mensagem_geral: 'Helmar, texto novo.' }, tentativas: 1, sanitizacaoAplicada: false, warnings: [] });
+    await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1' });
+    expect(h.redigir.mock.calls[0][0].variasCompetencias).toBe(true);
+    expect(h.redigir.mock.calls[0][0].competencia).toBe(COMPS.join(' + '));
+  });
+});
+
+describe('finalizarFechamentoCore: o fechamento de UMA competência não muda', () => {
+  const reservado = () => progHelmar({ finalizacao: { status: 'processando', iniciada_em: TOKEN } });
+
+  it('a pontuação recebe os args de sempre (sem porCompetencia) e o slot guarda o transcript_completo e a resposta agregada', async () => {
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1 } });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    const a = h.pontuar.mock.calls[0][0];
+    expect(a).not.toHaveProperty('porCompetencia');
+    expect(a.cenario).toBe('## Cenário');
+    expect(a.evidenciasAcumuladas).toBe('evidências');
+    const fb = escritasProgresso().find((e: any) => e.payload.status === 'concluido').payload.feedback;
+    expect(fb.cenario).toBe('## Cenário');
+    expect(fb.transcript_completo).toHaveLength(8);
+    expect(fb.cenario_resposta).toBe('[SITUAÇÃO] pergunta SITUAÇÃO\n→ r1\n\n[AÇÃO] pergunta AÇÃO\n→ r2\n\n[RACIOCÍNIO] pergunta RACIOCÍNIO\n→ r3\n\n[AUTOSSENSIBILIDADE] pergunta AUTOSSENSIBILIDADE\n→ r4');
+    expect(fb).not.toHaveProperty('cenarios');
+  });
+
+  it('refazer a redação não liga o aviso de várias competências', async () => {
+    h.estado.atual = { ...progHelmar({ avaliacao_por_descritor: PARSED.avaliacao_por_descritor, resumo_avaliacao_rascunho: { mensagem_geral: 'r' }, redacao_final: { status: 'falhou' } }), status: 'concluido' };
+    h.redigir.mockResolvedValue({ status: 'falhou', resumo: null, tentativas: 2, sanitizacaoAplicada: false, warnings: [] });
+    await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1' });
+    expect(h.redigir.mock.calls[0][0]).not.toHaveProperty('variasCompetencias');
+  });
+});
+
+describe('o idioma da pessoa chega só à redação final (o scorer e o auditor não o recebem)', () => {
+  const reservado = () => progHelmar({ finalizacao: { status: 'processando', iniciada_em: TOKEN } });
+  const ok = () => h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1 } });
+
+  it('o que a rota resolveu vale: `opts.locale` vai ao `pontuarFechamento`', async () => {
+    h.estado.atual = reservado();
+    ok();
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN, locale: 'en-US' });
+    expect(h.pontuar.mock.calls[0][0].locale).toBe('en-US');
+  });
+
+  it('o script de resgate não passa idioma: o núcleo resolve o da pessoa (colaboradores.locale), com pt-BR de último recurso', async () => {
+    h.estado.atual = reservado();
+    ok();
+    h.estado.locale = 'es-ES';
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(h.pontuar.mock.calls[0][0].locale).toBe('es-ES');
+
+    h.pontuar.mockClear();
+    h.estado.atual = reservado();
+    h.estado.locale = null;
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(h.pontuar.mock.calls[0][0].locale).toBe('pt-BR');
+  });
+
+  it('refazer a redação (recuperação) escreve no idioma da pessoa', async () => {
+    h.estado.atual = { ...progHelmar({ avaliacao_por_descritor: PARSED.avaliacao_por_descritor, resumo_avaliacao_rascunho: { mensagem_geral: 'r' }, redacao_final: { status: 'falhou' } }), status: 'concluido' };
+    h.estado.locale = 'pt-PT';
+    h.redigir.mockResolvedValue({ status: 'falhou', resumo: null, tentativas: 2, sanitizacaoAplicada: false, warnings: [] });
+    await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1' });
+    expect(h.redigir.mock.calls[0][0].locale).toBe('pt-PT');
   });
 });

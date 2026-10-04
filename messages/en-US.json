@@ -2281,7 +2281,7 @@
       "startWeek": "Error starting week {week}"
     },
     "alerts": {
-      "allQuestions": "All 4 questions need to be answered with at least {min} characters.",
+      "allQuestions": "All {total} questions need to be answered with at least {min} characters.",
       "error": "Error: {error}",
       "sendFailure": "Failed to send"
     },
@@ -2289,6 +2289,12 @@
       "done": "Assessment completed",
       "finalCompetency": "Final assessment · {competency}",
       "weekCompetency": "Week {week} · {competency}"
+    },
+    "scenario": {
+      "counter": "Scenario {current} of {total}",
+      "progressLine": "Scenario {current} of {total} · {competency}",
+      "finish": "Complete scenario →",
+      "previousDone": "Scenario {done} completed. This is the next one."
     },
     "question": {
       "counter": "Question {current} from {total}",

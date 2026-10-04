@@ -7,9 +7,10 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
  *
  * Antes ela só olhava o cargo: a pessoa aparecia "pronta" com o Cenário B de
  * OUTRA competência na estante, e o fechamento, semanas depois, respondia 424.
- * No Onboarding o fechamento é nas 5 competências de uma vez, e o gerador de
- * Cenário B faz UM por competência: sem um B integrador que cubra as 5, ninguém
- * fecha. O Onboarding também não era verificado por esta tela.
+ * No Onboarding o fechamento serve UM cenário por competência (5 cenários, 4
+ * perguntas cada), e é o B por célula que o lote da Fase 5 gera: cada competência
+ * sem B usável é bloqueio, com o nome dela. O Onboarding também não era verificado
+ * por esta tela.
  *
  * Mutação: ver o relatório do lote 11.
  */
@@ -160,27 +161,54 @@ describe('prontidão: Onboarding (fecha nas 5 competências)', () => {
     expect(r.descritores).toHaveLength(20);
   });
 
-  it('um B por competência (o que o lote gera) NÃO basta: falta o integrador das 5', async () => {
+  it('um B por competência (o que o lote da Fase 5 gera) é o que o fechamento serve: pronto', async () => {
     cenariosB = TOP5.map((_, i) => B(`b-${i}`, `comp-${i}`));
-    montar();
-    const r = await prontidao();
-    expect(r.pronto).toBe(false);
-    expect(r.bloqueadores.join(' ')).toContain('cubra as 5 competências');
-    expect(r.bloqueadores.join(' ')).toContain('integrador');
-  });
-
-  it('um B integrador que cobre as 5: pronto', async () => {
-    cenariosB = [B('b-int', 'comp-0', { competencias_integradas: TOP5 })];
     montar();
     const r = await prontidao();
     expect(r.bloqueadores).toEqual([]);
     expect(r.pronto).toBe(true);
   });
 
-  it('integrador que cobre só 4 das 5: não serve', async () => {
-    cenariosB = [B('b-int', 'comp-0', { competencias_integradas: TOP5.slice(0, 4) })];
+  it('falta o B de duas das 5: bloqueador com o NOME de cada uma (e só delas)', async () => {
+    cenariosB = [B('b-0', 'comp-0'), B('b-2', 'comp-2'), B('b-3', 'comp-3')];
     montar();
-    expect((await prontidao()).pronto).toBe(false);
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    const aviso = r.bloqueadores.join(' ');
+    expect(aviso).toContain('"Comp B", "Comp E"');
+    for (const presente of ['"Comp A"', '"Comp C"', '"Comp D"']) expect(aviso).not.toContain(presente);
+    expect(aviso).toContain('um cenário por competência');
+    expect(aviso).not.toContain('integrador');
+  });
+
+  it('sem nenhum B: as 5 aparecem pelo nome', async () => {
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    for (const c of TOP5) expect(r.bloqueadores.join(' ')).toContain(`"${c}"`);
+  });
+
+  it('o B de OUTRA competência do cargo não conta como o B de uma das 5', async () => {
+    cenariosB = [...TOP5.slice(0, 4).map((_, i) => B(`b-${i}`, `comp-${i}`)), B('b-fora', 'comp-9')];
+    montar();
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    expect(r.bloqueadores.join(' ')).toContain('"Comp E"');
+  });
+
+  it('B sem texto ou sem perguntas não vale (a mesma régua do fechamento)', async () => {
+    cenariosB = TOP5.map((_, i) => B(`b-${i}`, `comp-${i}`));
+    cenariosB[3] = { ...cenariosB[3], alternativas: {} };
+    montar();
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    expect(r.bloqueadores.join(' ')).toContain('"Comp D"');
+  });
+
+  it('falha ao ler o B: bloqueador com a causa, nunca "pronto"', async () => {
+    h.sbRaw.falharEm({ tabela: 'banco_cenarios', op: 'select', mensagem: 'timeout no pool' });
+    const r = await prontidao();
+    expect(r.pronto).toBe(false);
+    expect(r.bloqueadores.join(' ')).toContain('timeout no pool');
   });
 
   it('o Top 5 do cargo tem 3 competências: bloqueador com a MESMA mensagem da geração', async () => {

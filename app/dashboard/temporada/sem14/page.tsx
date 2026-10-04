@@ -14,9 +14,16 @@ import { PROGRESSO } from '@/lib/status';
 import { formatarAvanco } from '@/lib/season-engine/convergencia';
 import { leituraDoStatusDaAcumulada } from '@/lib/season-engine/trilha-runtime';
 import { nivelDaNotaOuNull } from '@/lib/nivel-da-nota-ou-nulo';
+import { aplicarEnvio, cenariosDoSlot, posicaoNoFechamento } from '@/lib/season-engine/fechamento-por-competencia';
 
 const MIN_CHARS = 20;
 const MIN_CHARS_ARG = 3; // arguição é conversa — respostas curtas são válidas
+
+/** As respostas já gravadas, uma por pergunta (as que faltam vazias). A contagem é a das perguntas do cenário, nunca um 4 escrito à mão. */
+function respostasDoTranscript(perguntas, transcript) {
+  const feitas = (transcript || []).filter(m => m.role === 'user').map(m => m.content);
+  return (perguntas || []).map((_, i) => feitas[i] ?? '');
+}
 
 /** Remove o bloco [META] das falas da IA (só a mensagem visível fica). */
 const stripMetaCli = (s) => String(s || '').replace(/\[META\][\s\S]*?\[\/META\]/g, '').trim();
@@ -99,8 +106,16 @@ export default function Sem14Page() {
   const [competencia, setCompetencia] = useState('');
   const [cenario, setCenario] = useState('');
   const [perguntas, setPerguntas] = useState([]);
-  const [respostas, setRespostas] = useState(['', '', '', '']);
-  const [step, setStep] = useState(-1); // -1 = loading, 0 = cenário, 1..4 = pergunta, 6 = finalizada, 7 = arguição (chat), 8 = pontuação (gerando / retomar)
+  const [respostas, setRespostas] = useState([]);
+  const [step, setStep] = useState(-1); // -1 = loading, 0 = cenário, 1..N = pergunta (N <= 4), 6 = finalizada, 7 = arguição (chat), 8 = pontuação (gerando / retomar)
+  const totalPerguntas = perguntas.length;
+  // Onboarding (5 cenários, um por competência): a lista do slot e o cenário em andamento. Nesse
+  // modo `cenario`, `perguntas`, `respostas` e `respostasSalvas` são os do cenário em andamento;
+  // nulo = o formato de sempre (um cenário).
+  const [cenarios, setCenarios] = useState(null);
+  const [idxCenario, setIdxCenario] = useState(0);
+  const [cenarioRecemConcluido, setCenarioRecemConcluido] = useState(false);
+  const multi = Array.isArray(cenarios) && cenarios.length > 0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [avaliacao, setAvaliacao] = useState(null);
@@ -121,7 +136,7 @@ export default function Sem14Page() {
   const [relatorio, setRelatorio] = useState(null);
   const [tentativaRelatorio, setTentativaRelatorio] = useState(0);
 
-  // Arguição (defesa oral) — modo CHAT turn-by-turn após as 4 perguntas.
+  // Arguição (defesa oral): modo CHAT turn-by-turn, depois da última pergunta.
   const [argMsgs, setArgMsgs] = useState([]); // { role: 'assistant'|'user', content }
   const [argInput, setArgInput] = useState('');
   const [argTurno, setArgTurno] = useState(0);
@@ -176,6 +191,29 @@ export default function Sem14Page() {
         return;
       }
 
+      // ONBOARDING: o slot guarda os 5 cenários. Retomar volta ao cenário e à pergunta em que a
+      // pessoa parou; com tudo respondido, vale o mesmo que no cenário único (arguição ou pontuação).
+      const lista = cenariosDoSlot(fb);
+      if (lista) {
+        setCenarios(lista);
+        const pos = posicaoNoFechamento(lista);
+        if (pos.cenarioAtual === null) {
+          abrirCenario(lista, lista.length - 1);
+          if (fb.arguicao && !fb.arguicao.concluida) {
+            setArgMsgs(argMsgsFromHistorico(fb.arguicao.historico));
+            setArgTurno(fb.arguicao.turno || 1);
+            setStep(7);
+            return;
+          }
+          setStep(8);
+          const estado = await acompanharFechamento(r.trilha.id, semCB);
+          if (estado === 'avaliado') setStep(6);
+          return;
+        }
+        abrirCenario(lista, pos.cenarioAtual);
+        return;
+      }
+
       // Tudo respondido (e a arguição, se houve, concluída) sem nota: a
       // pontuação está rodando, falhou ou nunca foi pedida. 🔴 Antes este caso
       // caía no formulário das 4 respostas (o ramo `fb.cenario && fb.perguntas`
@@ -196,8 +234,7 @@ export default function Sem14Page() {
       if (fb.arguicao && !fb.arguicao.concluida && prog?.status !== PROGRESSO.CONCLUIDO) {
         setCenario(fb.cenario || '');
         setPerguntas(fb.perguntas || []);
-        const respostasExistentes = (fb.transcript_completo || []).filter(m => m.role === 'user').map(m => m.content);
-        setRespostas(prev => { const next = [...prev]; respostasExistentes.forEach((r, i) => { if (i < 4) next[i] = r; }); return next; });
+        setRespostas(respostasDoTranscript(fb.perguntas, fb.transcript_completo));
         setArgMsgs(argMsgsFromHistorico(fb.arguicao.historico));
         setArgTurno(fb.arguicao.turno || 1);
         setStep(7);
@@ -209,13 +246,8 @@ export default function Sem14Page() {
         setCenario(fb.cenario);
         setPerguntas(fb.perguntas);
         // recupera respostas parciais se existirem no transcript
-        const respostasExistentes = (fb.transcript_completo || []).filter(m => m.role === 'user').map(m => m.content);
-        setRespostas(prev => {
-          const next = [...prev];
-          respostasExistentes.forEach((r, i) => { if (i < 4) next[i] = r; });
-          return next;
-        });
-        setRespostasSalvas(Math.min(respostasExistentes.length, 4));
+        setRespostas(respostasDoTranscript(fb.perguntas, fb.transcript_completo));
+        setRespostasSalvas(Math.min(respostasFeitas, fb.perguntas.length));
         setStep(0);
       } else {
         await doInit(r.trilha.id, semCB);
@@ -247,9 +279,33 @@ export default function Sem14Page() {
     }
     setPreparando(false);
     setPreparandoFalhou(false);
+    // Onboarding: a rota devolve os 5 cenários, e a pessoa começa no primeiro sem resposta.
+    const lista = cenariosDoSlot(data);
+    if (lista) {
+      setCenarios(lista);
+      abrirCenario(lista, posicaoNoFechamento(lista).cenarioAtual ?? 0);
+      return;
+    }
     setCenario(data.cenario || '');
     setPerguntas(data.perguntas || []);
+    setRespostas((data.perguntas || []).map(() => ''));
     setStep(0);
+  }
+
+  /**
+   * Onboarding: abre o cenário `idx` da lista. Volta à pergunta em que a pessoa parou (o
+   * cenário de contexto, se ainda não respondeu nada) e deixa as já enviadas só para leitura.
+   */
+  function abrirCenario(lista, idx) {
+    const c = lista[idx];
+    const feitas = (c.transcript_completo || []).filter(m => m.role === 'user').length;
+    const salvas = Math.min(feitas, c.perguntas.length);
+    setIdxCenario(idx);
+    setCenario(c.cenario);
+    setPerguntas(c.perguntas);
+    setRespostas(respostasDoTranscript(c.perguntas, c.transcript_completo));
+    setRespostasSalvas(salvas);
+    setStep(salvas > 0 ? Math.min(salvas + 1, c.perguntas.length) : 0);
   }
 
   // Polling do status da acumulada (o gate self-heal já re-dispara se travar).
@@ -373,13 +429,84 @@ export default function Sem14Page() {
     setRespostas(prev => prev.map((r, idx) => idx === i ? val : r));
   }
 
+  /**
+   * A última resposta foi gravada: a arguição abre (a pessoa passa para o modo chat) ou a
+   * pontuação foi disparada no servidor (a tela acompanha até a nota sair).
+   */
+  async function aposUltimaResposta(data) {
+    // Arguição ligada: a última resposta ABRE a defesa oral (não pontua ainda).
+    // Troca do formulário para o modo CHAT turn-by-turn.
+    if (data.arguindo) {
+      setArgMsgs([{ role: 'assistant', content: stripMetaCli(data.message) }]);
+      setArgTurno(data.turno || 1);
+      setBusy(false);
+      setStep(7);
+      return;
+    }
+    // Arguição desligada: a pontuação foi disparada no servidor.
+    setBusy(false);
+    setStep(8);
+    if (data.finalizando || data.fechamento === 'avaliado') {
+      setFechamento('processando');
+      const estado = await acompanharFechamento(trilhaId, semCenarioB);
+      if (estado === 'avaliado') setStep(6);
+    } else {
+      setFechamento('erro');
+    }
+  }
+
+  /**
+   * Onboarding: envia a resposta da pergunta atual (cada uma é gravada na hora, então retomar
+   * volta à pergunta em que a pessoa parou). Ao fechar o cenário, abre o próximo; ao fechar o
+   * último, vale o caminho de sempre (arguição ou pontuação).
+   */
+  async function enviarRespostaAtual() {
+    const i = step - 1;
+    if (respostas[i].trim().length < MIN_CHARS) { alert(t('question.minAlert', { min: MIN_CHARS })); return; }
+    micRef.current?.stop();
+    // Já enviada (a pessoa voltou para reler): só navega, sem empurrar fala nova.
+    if (i < respostasSalvas) { if (step < totalPerguntas) setStep(step + 1); return; }
+    setBusy(true);
+    const r = await fetchAuth('/api/temporada/evaluation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trilhaId, semana: semCenarioB, action: 'send', message: respostas[i] }),
+    }).catch(() => null);
+    if (!r || !r.ok) {
+      const err = r ? await r.json().catch(() => ({})) : {};
+      alert(t('alerts.error', { error: err.error || t('alerts.sendFailure') }));
+      setBusy(false);
+      return;
+    }
+    const data = await r.json().catch(() => ({}));
+    // A lista local acompanha o servidor: o cenário seguinte já vem com a 1ª pergunta aberta.
+    const resposta = { role: 'user', content: respostas[i], timestamp: new Date().toISOString() };
+    const apos = aplicarEnvio(cenarios, idxCenario, resposta, data);
+    setCenarios(apos.lista);
+    if (apos.tipo === 'ultima-resposta') {
+      // Última resposta do último cenário.
+      setRespostasSalvas(i + 1);
+      await aposUltimaResposta(data);
+      return;
+    }
+    setBusy(false);
+    if (apos.tipo === 'proximo-cenario') {
+      // Fechou o cenário: o próximo abre no card de contexto.
+      setCenarioRecemConcluido(true);
+      abrirCenario(apos.lista, apos.idx);
+      return;
+    }
+    setRespostasSalvas(i + 1);
+    setStep(step + 1);
+  }
+
   async function finalizar() {
     if (respostas.some(r => r.trim().length < MIN_CHARS)) {
-      alert(t('alerts.allQuestions', { min: MIN_CHARS }));
+      alert(t('alerts.allQuestions', { min: MIN_CHARS, total: totalPerguntas }));
       return;
     }
     setBusy(true);
-    // Envia as 4 respostas em sequência (pedagogicamente correto — o backend
+    // Envia as 4 respostas em sequência (pedagogicamente correto: o backend
     // espera 4 mensagens antes do scorer). Reusa o fluxo send existente.
     for (let i = respostasSalvas; i < respostas.length; i++) {
       const r = await fetchAuth('/api/temporada/evaluation', {
@@ -394,26 +521,8 @@ export default function Sem14Page() {
       }
       if (i === respostas.length - 1) {
         const data = await r.json();
-        // Arguição ligada: a última resposta ABRE a defesa oral (não pontua ainda).
-        // Troca do formulário para o modo CHAT turn-by-turn.
-        if (data.arguindo) {
-          setArgMsgs([{ role: 'assistant', content: stripMetaCli(data.message) }]);
-          setArgTurno(data.turno || 1);
-          setBusy(false);
-          setStep(7);
-          return;
-        }
-        // Arguição desligada: a pontuação foi disparada no servidor.
-        setRespostasSalvas(respostas.length);
-        setBusy(false);
-        setStep(8);
-        if (data.finalizando || data.fechamento === 'avaliado') {
-          setFechamento('processando');
-          const estado = await acompanharFechamento(trilhaId, semCenarioB);
-          if (estado === 'avaliado') setStep(6);
-        } else {
-          setFechamento('erro');
-        }
+        if (!data.arguindo) setRespostasSalvas(respostas.length);
+        await aposUltimaResposta(data);
         return;
       }
     }
@@ -499,6 +608,17 @@ export default function Sem14Page() {
     </div>
   );
 
+  // Quanto do fechamento já foi respondido. No Onboarding conta as perguntas de TODOS os
+  // cenários (os anteriores inteiros mais as já enviadas do atual), e não só as do atual.
+  const totalGlobal = multi ? cenarios.reduce((s, c) => s + c.perguntas.length, 0) : totalPerguntas;
+  const respondidasAntes = multi ? cenarios.slice(0, idxCenario).reduce((s, c) => s + c.perguntas.length, 0) : 0;
+  const progressoPct = step >= 6 ? 100
+    : multi ? Math.round(((respondidasAntes + respostasSalvas) / Math.max(1, totalGlobal)) * 100)
+      : step <= 0 ? 0 : Math.round(((step - 1) / Math.max(1, totalPerguntas)) * 100);
+  const ultimoCenario = multi && idxCenario === cenarios.length - 1;
+  // Onboarding: a resposta já enviada fica só para leitura (reenviar empurraria fala duplicada).
+  const respostaTravada = multi && step >= 1 && step - 1 < respostasSalvas;
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <BackButton href="/dashboard/temporada" />
@@ -510,42 +630,56 @@ export default function Sem14Page() {
             <p className="text-base font-bold text-white">{colabNome}</p>
             <p className="text-xs text-gray-400">{cargo}</p>
           </div>
-          <p className="text-xs font-bold text-brand-400">
-            {step <= 0 ? '0%' : (step >= 6) ? '100%' : `${Math.round(((step - 1) / 4) * 100)}%`}
-          </p>
+          <p className="text-xs font-bold text-brand-400">{progressoPct}%</p>
         </div>
         <div className="mt-3 h-1.5 rounded-full bg-white/5 overflow-hidden">
           <div className="h-full bg-gradient-to-r from-brand-500 to-emerald-500 transition-all"
-            style={{ width: (step >= 6) ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
+            style={{ width: `${progressoPct}%` }} />
         </div>
         <p className="text-[10px] text-gray-500 mt-2">
-          {step === 7 ? t('arguicao.badge') : step === 6 ? t('progress.done') : step === 8 ? t('fechamento.eyebrow') : cenarioBEspelhado ? t('progress.finalCompetency', { competency: competencia }) : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
+          {step === 7 ? t('arguicao.badge') : step === 6 ? t('progress.done') : step === 8 ? t('fechamento.eyebrow') : multi ? t('scenario.progressLine', { current: idxCenario + 1, total: cenarios.length, competency: cenarios[idxCenario]?.competencia || '' }) : cenarioBEspelhado ? t('progress.finalCompetency', { competency: competencia }) : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
         </p>
       </div>
 
       {/* STEP 0 — Cenário */}
       {step === 0 && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          {multi && (
+            <div className="mb-4">
+              <p className="text-xs uppercase tracking-widest text-emerald-400 font-bold">
+                {t('scenario.counter', { current: idxCenario + 1, total: cenarios.length })}
+              </p>
+              <p className="text-base font-bold text-white mt-1">{cenarios[idxCenario]?.competencia}</p>
+              {cenarioRecemConcluido && (
+                <p className="text-[11px] text-gray-400 mt-1">{t('scenario.previousDone', { done: idxCenario })}</p>
+              )}
+            </div>
+          )}
           <p className="text-xs uppercase tracking-widest text-brand-400 font-bold mb-3">{t('context')}</p>
           <div className="prose prose-invert prose-sm max-w-none text-gray-200 mb-5">
             <ReactMarkdown>{cenario}</ReactMarkdown>
           </div>
-          <button onClick={() => setStep(1)}
+          <button onClick={() => { setCenarioRecemConcluido(false); setStep(1); }}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-[#091D35] font-bold text-sm">
             <Play size={14} fill="currentColor" /> {t('startAssessment')}
           </button>
         </div>
       )}
 
-      {/* STEPS 1..4 — Perguntas */}
-      {step >= 1 && step <= 4 && perguntas[step - 1] && (
+      {/* STEPS 1..N: Perguntas (N = as do cenário; no Onboarding, as do cenário em andamento) */}
+      {step >= 1 && step <= totalPerguntas && perguntas[step - 1] && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          {multi && (
+            <p className="text-[11px] text-gray-400 mb-3">
+              {t('scenario.counter', { current: idxCenario + 1, total: cenarios.length })} · {cenarios[idxCenario]?.competencia}
+            </p>
+          )}
           <div className="flex items-center justify-between mb-4">
             <p className="text-xs uppercase tracking-widest text-brand-400 font-bold">
-              {t('question.counter', { current: step, total: 4 })}
+              {t('question.counter', { current: step, total: totalPerguntas })}
             </p>
             <div className="flex gap-1">
-              {[1, 2, 3, 4].map(i => (
+              {perguntas.map((_, k) => k + 1).map(i => (
                 <div key={i} className={`h-1 w-12 rounded-full transition-all ${
                   i <= step ? 'bg-brand-400' : 'bg-white/10'
                 }`} />
@@ -563,14 +697,14 @@ export default function Sem14Page() {
               {t.rich('question.voiceTip', { strong: (chunks) => <b className="text-brand-400">{chunks}</b> })}
             </p>
             <MicInput ref={micRef} value={respostas[step - 1]}
-              onChange={val => setResposta(step - 1, val)} disabled={busy} />
+              onChange={val => setResposta(step - 1, val)} disabled={busy || respostaTravada} />
           </div>
 
           <textarea value={respostas[step - 1]}
             onChange={e => setResposta(step - 1, e.target.value)}
             placeholder={t('question.placeholder')}
             rows={6}
-            disabled={busy}
+            disabled={busy || respostaTravada}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500 resize-vertical" />
 
           <div className="flex items-center justify-between mt-2 mb-4">
@@ -584,7 +718,16 @@ export default function Sem14Page() {
               className="flex-1 py-3 rounded-xl border border-white/10 hover:border-white/30 text-sm text-gray-300 disabled:opacity-50">
               {t('question.previous')}
             </button>
-            {step < 4 ? (
+            {multi ? (
+              /* Onboarding: cada resposta é enviada na hora (retomar volta à pergunta em que parou). */
+              <button onClick={enviarRespostaAtual} disabled={busy}
+                className={`flex-1 py-3 rounded-xl font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2 ${
+                  step < totalPerguntas ? 'bg-brand-500 hover:bg-brand-400 text-[#091D35]' : 'bg-emerald-500 hover:bg-emerald-400 text-[#091D35]'}`}>
+                {busy ? <><Loader2 size={14} className="animate-spin" /> {t('question.processing')}</>
+                  : step < totalPerguntas ? t('question.next')
+                    : ultimoCenario ? t('question.finish') : t('scenario.finish')}
+              </button>
+            ) : step < totalPerguntas ? (
               <button onClick={() => {
                 if (respostas[step - 1].trim().length < MIN_CHARS) { alert(t('question.minAlert', { min: MIN_CHARS })); return; }
                 micRef.current?.stop(); setStep(step + 1);
@@ -602,7 +745,7 @@ export default function Sem14Page() {
         </div>
       )}
 
-      {/* STEP 7 — Arguição (defesa oral, chat turn-by-turn) */}
+      {/* STEP 7: Arguição (defesa oral, chat turn-by-turn) */}
       {step === 7 && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
           <div className="flex items-center gap-2 mb-1">
@@ -670,7 +813,7 @@ export default function Sem14Page() {
         </div>
       )}
 
-      {/* STEP 6 — Concluída */}
+      {/* STEP 6: Concluída */}
       {step === 6 && avaliacao && (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-5">
           <div className="flex items-center gap-2 mb-4">

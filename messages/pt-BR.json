@@ -2281,7 +2281,7 @@
       "startWeek": "Erro ao iniciar semana {week}"
     },
     "alerts": {
-      "allQuestions": "Todas as 4 perguntas precisam ser respondidas com pelo menos {min} caracteres.",
+      "allQuestions": "Todas as {total} perguntas precisam ser respondidas com pelo menos {min} caracteres.",
       "error": "Erro: {error}",
       "sendFailure": "Falha ao enviar"
     },
@@ -2289,6 +2289,12 @@
       "done": "Avaliação concluída",
       "finalCompetency": "Avaliação final · {competency}",
       "weekCompetency": "Semana {week} · {competency}"
+    },
+    "scenario": {
+      "counter": "Cenário {current} de {total}",
+      "progressLine": "Cenário {current} de {total} · {competency}",
+      "finish": "Concluir cenário →",
+      "previousDone": "Cenário {done} concluído. Este é o próximo."
     },
     "question": {
       "counter": "Pergunta {current} de {total}",

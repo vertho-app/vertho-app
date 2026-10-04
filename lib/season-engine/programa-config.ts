@@ -282,8 +282,10 @@ export const PROGRAMA_REGULAR: ProgramaConfig = Object.freeze({
  *
  * Acumulada na semana 11 (a última de conteúdo): a leitura parcial das 5
  * competências roda ao concluí-la, como a do piloto na sua última semana de
- * conteúdo. O Cenário B INTEGRADOR da semana 12 (a escolha do cenário e o
- * gerador) é do lote `d-cenb`: aqui só a config.
+ * conteúdo. O Cenário B da semana 12 são 5 cenários em sequência, um por
+ * competência, com 4 perguntas cada, como o Cenário A do Mapeamento
+ * (`fechamento-por-competencia.ts`): cada um é o B por célula que o lote da
+ * Fase 5 gera, e a pontuação roda uma vez por competência.
  *
  * `semanasCheckpoint` fica VAZIO: eram `[3, 6]`, as semanas das missões
  * integradoras, que deixaram de existir. A Jornada não tem checkpoint do gestor

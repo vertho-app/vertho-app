@@ -227,3 +227,26 @@ describe('arguição — PII masking (Fase C)', () => {
     expect(estado.historico[0].content).toContain('rodrigo@acme.com');
   });
 });
+
+// ── ONBOARDING (04/10/2026): vários cenários numa arguição só ───────────────
+describe('arguição: o aviso de vários cenários (Onboarding)', () => {
+  it('sem `cenarios` (ou com 1), o prompt é byte a byte o de sempre', () => {
+    const sempre = buildArguicaoSystemPrompt(CTX, 8, 1);
+    expect(buildArguicaoSystemPrompt({ ...CTX, cenarios: 1 }, 8, 1)).toBe(sempre);
+    expect(buildArguicaoSystemPrompt({ ...CTX, cenarios: undefined }, 8, 1)).toBe(sempre);
+    expect(sempre).not.toContain('VÁRIOS CENÁRIOS');
+  });
+
+  it('com 5 cenários: UMA arguição sobre o conjunto, sondando os trechos de maior risco e dizendo a competência', () => {
+    const p = buildArguicaoSystemPrompt({ ...CTX, cenarios: 5 }, 6, 1);
+    expect(p).toContain('═══ VÁRIOS CENÁRIOS ═══');
+    expect(p).toContain('Rodrigo respondeu 5 cenários, um por competência, e esta é UMA arguição só, sobre o conjunto.');
+    expect(p).toContain('Não tente cobrir todos');
+    expect(p).toContain('Diga de qual competência está falando');
+    // o bloco entra entre as regras e o "como sondar", sem tirar nada
+    expect(p.indexOf('VÁRIOS CENÁRIOS')).toBeGreaterThan(p.indexOf('REGRAS INEGOCIÁVEIS'));
+    expect(p.indexOf('VÁRIOS CENÁRIOS')).toBeLessThan(p.indexOf('COMO SONDAR'));
+    expect(p.slice(p.indexOf('VÁRIOS CENÁRIOS'), p.indexOf('COMO SONDAR'))).not.toMatch(/[\u2014\u2013]/);
+    expect(p.replace(/\n═══ VÁRIOS CENÁRIOS ═══\n[^\n]*\n/, '')).toBe(buildArguicaoSystemPrompt(CTX, 6, 1));
+  });
+});

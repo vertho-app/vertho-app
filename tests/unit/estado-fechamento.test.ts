@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  estadoDoFechamento, FINALIZACAO_JANELA_MS, respostasDoCenario, resumoDaAvaliacao,
+  estadoDoFechamento, FINALIZACAO_JANELA_MS, perguntasDoFechamento, respostasDoCenario, resumoDaAvaliacao,
 } from '@/lib/season-engine/estado-fechamento';
 
 /**
@@ -110,5 +110,53 @@ describe('helpers', () => {
   it('resumoDaAvaliacao recorta os campos da tela', () => {
     expect(resumoDaAvaliacao({ nota_media_pre: 2, nota_media_pos: 2.5, delta_medio: 0.5, resumo_avaliacao: { mensagem_geral: 'm' }, spec_version: null, outro: 1 }))
       .toEqual({ nota_media_pre: 2, nota_media_pos: 2.5, delta_medio: 0.5, resumo_avaliacao: { mensagem_geral: 'm' }, spec_version: null });
+  });
+});
+
+describe('estadoDoFechamento: o fechamento do Onboarding (5 cenários, um por competência)', () => {
+  const COMPS = ['Comp A', 'Comp B', 'Comp C', 'Comp D', 'Comp E'];
+  const cenarios = (respondidas: number[]) => COMPS.map((competencia, i) => ({
+    competencia, cenario_b_id: `b${i}`, cenario: `## ${competencia}`, perguntas: PERGUNTAS,
+    transcript_completo: respondidas[i] > 0 || i === respondidas.findIndex((n) => n < 4) ? transcript(respondidas[i]) : [],
+  }));
+  const onb = (respondidas: number[], extra: Record<string, unknown> = {}, status = 'em_andamento') => ({
+    status, feedback: { cenarios: cenarios(respondidas), ...extra },
+  });
+
+  it('contagem: 20 perguntas no total e as respostas somadas dos cenários', () => {
+    const r = estadoDoFechamento(onb([4, 4, 2, 0, 0]), { arguicaoAtiva: true }, AGORA);
+    expect(r).toMatchObject({ estado: 'respondendo', respostas: 10, perguntas: 20 });
+  });
+
+  it('slot sem cenários e sem cenário único: nao-iniciado', () => {
+    expect(estadoDoFechamento({ status: 'em_andamento', feedback: {} }, { arguicaoAtiva: true }, AGORA).estado).toBe('nao-iniciado');
+    expect(estadoDoFechamento({ status: 'em_andamento', feedback: { cenarios: [] } }, { arguicaoAtiva: true }, AGORA).estado).toBe('nao-iniciado');
+  });
+
+  it('as 20 respondidas com a arguição ligada e ainda não aberta: arguindo (uma só, sobre o conjunto)', () => {
+    expect(estadoDoFechamento(onb([4, 4, 4, 4, 4]), { arguicaoAtiva: true }, AGORA).estado).toBe('arguindo');
+  });
+
+  it('as 20 respondidas e a arguição concluída, sem nota: pronto-para-pontuar; com a reserva vigente: processando', () => {
+    expect(estadoDoFechamento(onb([4, 4, 4, 4, 4], { arguicao: ARGUICAO_CONCLUIDA }), { arguicaoAtiva: true }, AGORA).estado).toBe('pronto-para-pontuar');
+    const reserva = { status: 'processando', iniciada_em: new Date(AGORA - 30_000).toISOString() };
+    expect(estadoDoFechamento(onb([4, 4, 4, 4, 4], { arguicao: ARGUICAO_CONCLUIDA, finalizacao: reserva }), { arguicaoAtiva: true }, AGORA).estado).toBe('processando');
+  });
+
+  it('arguição desligada: as 20 respondidas já estão prontas para pontuar', () => {
+    expect(estadoDoFechamento(onb([4, 4, 4, 4, 4]), { arguicaoAtiva: false }, AGORA).estado).toBe('pronto-para-pontuar');
+  });
+
+  it('semana concluída: avaliado', () => {
+    expect(estadoDoFechamento(onb([4, 4, 4, 4, 4], {}, 'concluido'), { arguicaoAtiva: true }, AGORA).estado).toBe('avaliado');
+  });
+
+  it('respostasDoCenario e perguntasDoFechamento: a soma dos cenários, e o formato de uma competência intacto', () => {
+    expect(respostasDoCenario(onb([4, 1, 0, 0, 0]).feedback)).toBe(5);
+    expect(perguntasDoFechamento(onb([0, 0, 0, 0, 0]).feedback)).toBe(20);
+    // o cenário único: as falas do `transcript_completo` e as perguntas do slot, como sempre
+    expect(respostasDoCenario({ transcript_completo: transcript(3) })).toBe(3);
+    expect(perguntasDoFechamento({ perguntas: PERGUNTAS })).toBe(4);
+    expect(perguntasDoFechamento({})).toBe(0);
   });
 });

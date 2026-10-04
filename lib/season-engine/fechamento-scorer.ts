@@ -29,8 +29,11 @@ import { aplicarTravaPiloto, sanitizarNarrativaPiloto } from './piloto-trava';
 import { anotarAjusteArguicao, fundirArguicao } from './fusao-arguicao';
 import { parseJsonIA } from '@/lib/ai-json';
 import { DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
+import { mapComLimite } from '@/lib/concurrency';
 import type { ProgramaConfig } from './programa-config';
 import type { ArguicaoExtracao } from './arguicao';
+import type { AppLocale } from '@/i18n/routing';
+import { mesclarPontuacoes, type EntradaPorCompetencia } from './fechamento-por-competencia';
 
 export interface PontuarFechamentoArgs {
   competencia: string;
@@ -39,6 +42,22 @@ export interface PontuarFechamentoArgs {
   cenario: string;
   /** Já mascarada de PII pelo caller. */
   resposta: string;
+  /**
+   * O fechamento do ONBOARDING (04/10/2026): 5 cenários, um por competência. O scorer
+   * roda UMA vez por competência, com o cenário, as respostas e a régua dela (30
+   * descritores numa chamada só estourariam o teto de saída), e as saídas são juntadas
+   * no formato de uma competência só (`mesclarPontuacoes`). Tudo que vem depois (fusão
+   * da arguição, redação, auditor) roda UMA vez sobre o conjunto, com `competencia`,
+   * `descritores`, `cenario` e `resposta` do conjunto. Ausente (ou uma só) = o
+   * fechamento de sempre, byte a byte.
+   */
+  porCompetencia?: EntradaPorCompetencia[];
+  /**
+   * O idioma da PESSOA: vai SÓ à redação final (`sem14_redacao`), o texto que ela lê. O scorer
+   * (`sem14_scorer`), o auditor (`sem14_check`) e a extração são JSON interno que o código lê
+   * por nome de descritor, e não recebem idioma. O núcleo é puro: quem resolve é o caller.
+   */
+  locale?: AppLocale;
   /** Já mascarado de PII pelo caller. */
   nomeColab: string;
   perfilDominante?: string | null;
@@ -167,6 +186,8 @@ export interface PontuarFechamentoMeta {
   specVersion: string | null;
   /** Quantos descritores a arguição modulou (Fase B). 0 = sem arguição/sem ajuste. */
   arguicaoAjustados?: number;
+  /** Presente só no fechamento por competência (Onboarding): quantas chamadas do scorer, uma por competência. */
+  competenciasPontuadas?: number;
   /** Ausente só quando o scorer falhou (não houve texto a reescrever). */
   redacao?: StatusRedacao;
   /** Chamadas feitas à redação final (0 quando não precisou ou não coube). */
@@ -212,6 +233,10 @@ export interface RedigirDevolutivaArgs {
   evidenciasArguicao?: ArguicaoExtracao | null;
   /** Evidências das semanas JÁ MASCARADAS (as mesmas do scorer). */
   evidenciasSemanas?: string | null;
+  /** Fechamento do Onboarding: o rascunho junta uma devolutiva por competência (ver o prompt). */
+  variasCompetencias?: boolean;
+  /** O idioma da pessoa: a devolutiva é o texto que ela lê. Ausente, a IA cai no idioma do cookie, como antes. */
+  locale?: AppLocale;
   prazoMs?: number;
   ledger?: { empresaId?: string | null; colaboradorId?: string | null };
 }
@@ -241,6 +266,7 @@ export async function redigirDevolutivaFinal(a: RedigirDevolutivaArgs): Promise<
     rascunho: a.rascunho,
     arguicao: a.evidenciasArguicao?.resumo ?? null,
     evidenciasSemanas: a.evidenciasSemanas ?? null,
+    ...(a.variasCompetencias ? { variasCompetencias: true } : {}),
   });
 
   for (let tentativa = 1; tentativa <= REDACAO_MAX_TENTATIVAS; tentativa++) {
@@ -260,6 +286,7 @@ export async function redigirDevolutivaFinal(a: RedigirDevolutivaArgs): Promise<
         taskKey: 'sem14_redacao',
         ...(timeoutMs != null ? { timeoutMs } : {}),
         empresaId: a.ledger?.empresaId ?? null, colaboradorId: a.ledger?.colaboradorId ?? null,
+        ...(a.locale ? { locale: a.locale } : {}),
       });
       const redigido = validarRedacao(parseJsonIA(r), a.rascunho);
       if (!redigido) throw new Error('a resposta veio sem os quatro textos da devolutiva');
@@ -349,9 +376,65 @@ EXPECTATIVA DESTA RODADA:
 - Não seja complacente só porque houve reprocessamento
 - Reconheça melhora real quando ela aconteceu`;
 
+interface RodadaDoScorer {
+  parsed: any;
+  tentativas: number;
+  narrativaPilotoOk: boolean;
+  sanitizacaoAplicada: boolean;
+  warnings: string[];
+}
+
+/**
+ * Uma rodada do scorer (1ª IA) sobre UM cenário: até 2 tentativas, a 2ª só se o
+ * parse falhou OU (piloto) a narrativa saiu com régua temporal errada e a
+ * sanitização cirúrgica não resolveu. O fechamento de uma competência chama uma
+ * vez; o do Onboarding, uma por competência. `rotulo` só prefixa os avisos, para
+ * dizer de qual competência veio cada um. Erro da chamada de IA PROPAGA.
+ */
+async function rodarScorer(a: {
+  system: string; user: string; config: ProgramaConfig; prazoMs?: number;
+  ledger?: { empresaId?: string | null; colaboradorId?: string | null }; rotulo?: string;
+}): Promise<RodadaDoScorer> {
+  const { isPiloto } = reguaTemporalDoPrograma(a.config);
+  const prefixo = a.rotulo ? `${a.rotulo}: ` : '';
+  const out: RodadaDoScorer = { parsed: {}, tentativas: 0, narrativaPilotoOk: true, sanitizacaoAplicada: false, warnings: [] };
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    const timeoutMs = timeoutDoScorer(a.prazoMs, Date.now());
+    if (timeoutMs == null) {
+      out.warnings.push(`${prefixo}scorer: sem tempo no prazo do fechamento para a tentativa ${tentativa}`);
+      break;
+    }
+    out.tentativas = tentativa;
+    const r = await callAI(a.system, a.user, {}, SCORER_MAX_TOKENS, {
+      taskKey: 'sem14_scorer', timeoutMs,
+      empresaId: a.ledger?.empresaId ?? null, colaboradorId: a.ledger?.colaboradorId ?? null,
+    });
+    try {
+      out.parsed = validateEvolutionScenarioScore(parseJsonIA(r));
+    } catch (e: any) {
+      out.warnings.push(`${prefixo}parse do scorer falhou (tentativa ${tentativa}): ${e?.message}`);
+      out.parsed = {};
+      continue;
+    }
+    if (isPiloto) {
+      const san = sanitizarNarrativaPiloto(out.parsed, a.config.slotsConteudo?.length || 2);
+      out.parsed = san.parsed;
+      out.narrativaPilotoOk = san.ok;
+      if (san.alterou) out.sanitizacaoAplicada = true;
+      if (!san.ok) {
+        out.warnings.push(`${prefixo}narrativa piloto com régua temporal errada (tentativa ${tentativa})`);
+        continue;
+      }
+    }
+    break;
+  }
+  return out;
+}
+
 export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<PontuarFechamentoResultado> {
-  const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao, evidenciasArguicao, checkModel, prazoMs, ledger } = args;
+  const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao, evidenciasArguicao, checkModel, prazoMs, ledger, porCompetencia, locale } = args;
   const { isPiloto, semanaFinal, semanasEvidencia, notaPrograma } = reguaTemporalDoPrograma(config);
+  const porCompetenciaAtivo = (porCompetencia?.length ?? 0) > 1;
 
   const meta: PontuarFechamentoMeta = {
     tentativas: 0,
@@ -364,43 +447,60 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
   // ── Scorer (1ª IA) — até 2 tentativas: a 2ª só roda se o parse falhou OU
   // (piloto) a narrativa saiu com régua temporal errada e a sanitização
   // cirúrgica não resolveu ("14 semanas" numa degustação de 2). ──
-  const { system, user } = promptEvolutionScenarioScore({
-    competencia, descritores, cenario, resposta, nomeColab, perfilDominante,
-    evidenciasAcumuladas, acumuladoPrimaria,
-    semanaFinal, semanasEvidencia, notaPrograma,
-  });
-  const systemScore = regeracao ? system + APPENDIX_SCORER_REGEN(nomeColab, regeracao.feedbackAuditoria) : system;
-
   let parsed: any = {};
-  for (let tentativa = 1; tentativa <= 2; tentativa++) {
-    const timeoutMs = timeoutDoScorer(prazoMs, Date.now());
-    if (timeoutMs == null) {
-      meta.warnings.push(`scorer: sem tempo no prazo do fechamento para a tentativa ${tentativa}`);
-      break;
-    }
-    meta.tentativas = tentativa;
-    const r = await callAI(systemScore, user, {}, SCORER_MAX_TOKENS, {
-      taskKey: 'sem14_scorer', timeoutMs,
-      empresaId: ledger?.empresaId ?? null, colaboradorId: ledger?.colaboradorId ?? null,
-    });
-    try {
-      parsed = validateEvolutionScenarioScore(parseJsonIA(r));
-    } catch (e: any) {
-      meta.warnings.push(`parse do scorer falhou (tentativa ${tentativa}): ${e?.message}`);
-      parsed = {};
-      continue;
-    }
-    if (isPiloto) {
-      const san = sanitizarNarrativaPiloto(parsed, config.slotsConteudo?.length || 2);
-      parsed = san.parsed;
-      meta.narrativaPilotoOk = san.ok;
-      if (san.alterou) meta.sanitizacaoAplicada = true;
-      if (!san.ok) {
-        meta.warnings.push(`narrativa piloto com régua temporal errada (tentativa ${tentativa})`);
-        continue;
+  if (porCompetenciaAtivo) {
+    // Onboarding: uma rodada do scorer por competência, em paralelo (cada uma é uma
+    // chamada de ~3.000 tokens; as cinco juntas levam o tempo da mais lenta), e as
+    // saídas juntadas no formato de uma competência só.
+    const rodadas = await mapComLimite(porCompetencia!, porCompetencia!.length, async (e) => {
+      const { system, user } = promptEvolutionScenarioScore({
+        competencia: e.competencia, descritores: e.descritores, cenario: e.cenario, resposta: e.resposta,
+        nomeColab, perfilDominante,
+        evidenciasAcumuladas: e.evidenciasAcumuladas, acumuladoPrimaria: e.acumuladoPrimaria,
+        semanaFinal, semanasEvidencia, notaPrograma,
+      });
+      const systemScore = regeracao ? system + APPENDIX_SCORER_REGEN(nomeColab, regeracao.feedbackAuditoria) : system;
+      // Nada é gravado de dentro do pool, e o erro de uma chamada só é relançado
+      // DEPOIS de todas terminarem: uma que seguisse pagando em segundo plano
+      // enquanto o caller marca o erro e a pessoa tenta de novo dobraria o custo.
+      try {
+        return { rodada: await rodarScorer({ system: systemScore, user, config, prazoMs, ledger, rotulo: e.competencia }), erro: null as unknown };
+      } catch (erro) {
+        return { rodada: null, erro };
       }
+    });
+    const quebrada = rodadas.find((r) => r.erro != null);
+    if (quebrada) throw quebrada.erro;
+
+    meta.competenciasPontuadas = rodadas.length;
+    for (const { rodada } of rodadas) {
+      meta.tentativas += rodada!.tentativas;
+      meta.warnings.push(...rodada!.warnings);
+      if (!rodada!.narrativaPilotoOk) meta.narrativaPilotoOk = false;
+      if (rodada!.sanitizacaoAplicada) meta.sanitizacaoAplicada = true;
     }
-    break;
+    // Tudo ou nada: sem a nota de uma competência o conjunto sairia incompleto.
+    const vazias = porCompetencia!.filter((_, i) => {
+      const lista = rodadas[i].rodada!.parsed?.avaliacao_por_descritor;
+      return !Array.isArray(lista) || lista.length === 0;
+    }).map((e) => e.competencia);
+    if (vazias.length || !meta.narrativaPilotoOk) {
+      return { ok: false, erro: `A avaliação automática falhou ao processar a resposta (parse/narrativa inválida)${vazias.length ? ` em: ${vazias.join(', ')}` : ''}.`, meta };
+    }
+    parsed = mesclarPontuacoes(porCompetencia!.map((e, i) => ({ competencia: e.competencia, parsed: rodadas[i].rodada!.parsed })));
+  } else {
+    const { system, user } = promptEvolutionScenarioScore({
+      competencia, descritores, cenario, resposta, nomeColab, perfilDominante,
+      evidenciasAcumuladas, acumuladoPrimaria,
+      semanaFinal, semanasEvidencia, notaPrograma,
+    });
+    const systemScore = regeracao ? system + APPENDIX_SCORER_REGEN(nomeColab, regeracao.feedbackAuditoria) : system;
+    const rodada = await rodarScorer({ system: systemScore, user, config, prazoMs, ledger });
+    meta.tentativas = rodada.tentativas;
+    meta.narrativaPilotoOk = rodada.narrativaPilotoOk;
+    if (rodada.sanitizacaoAplicada) meta.sanitizacaoAplicada = true;
+    meta.warnings.push(...rodada.warnings);
+    parsed = rodada.parsed;
   }
 
   // Guard: avaliação vazia ou narrativa piloto ainda inválida → NUNCA publica.
@@ -443,7 +543,10 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
   });
   let rascunhoSubstituido: unknown = null;
   let textoPublicado: TextoPublicado = 'scorer';
-  if (mudaram.length === 0) {
+  // Fechamento por competência: o "texto do scorer" são cinco devolutivas coladas, e
+  // ninguém lê isso. A redação final escreve a devolutiva UMA vez, sobre o conjunto,
+  // mesmo quando nenhuma nota mudou depois do scorer.
+  if (mudaram.length === 0 && !porCompetenciaAtivo) {
     meta.redacao = 'desnecessaria';
   } else {
     const rascunho = parsed.resumo_avaliacao;
@@ -464,6 +567,8 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
       rascunho,
       evidenciasArguicao,
       evidenciasSemanas: evidenciasAcumuladas ?? null,
+      ...(porCompetenciaAtivo ? { variasCompetencias: true } : {}),
+      ...(locale ? { locale } : {}),
       prazoMs,
       ledger,
     });

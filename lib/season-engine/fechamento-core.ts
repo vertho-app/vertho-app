@@ -4,6 +4,12 @@ import {
   type RedigirDevolutivaResultado,
 } from '@/lib/season-engine/fechamento-scorer';
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
+import {
+  cenariosDoSlot, respostasDosCenarios, textoDosCenarios, type EntradaPorCompetencia,
+} from '@/lib/season-engine/fechamento-por-competencia';
+import { montarEntradasPorCompetencia } from '@/lib/season-engine/fechamento-entradas';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
+import type { AppLocale } from '@/i18n/routing';
 import { maskColaborador, maskTextPII, maskDeepPII } from '@/lib/pii-masker';
 import { desmascararResultadoFechamento, mascararExtracaoArguicao, mascararResumo } from '@/lib/season-engine/fechamento-pii';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
@@ -127,7 +133,7 @@ export type ResultadoFinalizacao =
 
 export async function finalizarFechamentoCore(
   trilhaId: string,
-  opts: { empresaId: string; token: string; prazoMs?: number },
+  opts: { empresaId: string; token: string; prazoMs?: number; locale?: AppLocale },
 ): Promise<ResultadoFinalizacao> {
   const t0 = Date.now();
   const warnings: string[] = [];
@@ -176,7 +182,13 @@ export async function finalizarFechamentoCore(
     const competenciasLabel = Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 1
       ? trilha.competencias_foco.join(' + ')
       : trilha.competencia_foco;
-    const cenario: string = dados.cenario;
+    // O idioma da PESSOA, só para a redação final (o texto que ela lê). A rota passa o que já
+    // resolveu; o script de resgate não passa, e o núcleo resolve. O scorer e o auditor não recebem.
+    const idioma = opts.locale ?? await idiomaDaPessoa(trilha.empresa_id, trilha.colaborador_id);
+    // Onboarding: a lista dos 5 cenários (um por competência). O formato de uma
+    // competência segue como sempre; quem decide é a presença de `cenarios` no slot.
+    const cenarios = cenariosDoSlot(dados);
+    const cenario: string = cenarios ? textoDosCenarios(cenarios) : dados.cenario;
     const perguntas: any[] = Array.isArray(dados.perguntas) ? dados.perguntas : [];
     const historico: any[] = Array.isArray(dados.transcript_completo) ? dados.transcript_completo : [];
 
@@ -184,9 +196,11 @@ export async function finalizarFechamentoCore(
     // As N PRIMEIRAS de propósito: o reenvio antigo deixou falas duplicadas
     // depois delas (um caso real tem 5), e elas não são resposta a pergunta nenhuma.
     const respostasUser = historico.filter((m: any) => m.role === 'user');
-    const respostaAgregada = perguntas.map((p: any, i: number) =>
-      `[${p.dimensao}] ${p.texto}\n→ ${respostasUser[i]?.content || '(sem resposta)'}`,
-    ).join('\n\n');
+    const respostaAgregada = cenarios
+      ? respostasDosCenarios(cenarios)
+      : perguntas.map((p: any, i: number) =>
+        `[${p.dimensao}] ${p.texto}\n→ ${respostasUser[i]?.content || '(sem resposta)'}`,
+      ).join('\n\n');
 
     const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
 
@@ -205,10 +219,29 @@ export async function finalizarFechamentoCore(
     const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
 
     // A nota_pos NUNCA sai só do cenário: evidências de todas as semanas até a acumulada.
-    const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(
-      tdb, trilhaId, descritoresComRegua, config.semanaAcumulada,
-      { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
-    );
+    // Onboarding: o scorer roda por competência, cada uma com o cenário, as respostas e as
+    // evidências dos seus descritores; o conjunto (auditor, redação) lê as de todas.
+    let evidenciasParaIA: string;
+    let porCompetencia: EntradaPorCompetencia[] | undefined;
+    if (cenarios) {
+      const montado = await montarEntradasPorCompetencia({
+        db: tdb, trilhaId, cenarios, descritoresComRegua, acumuladoPrimaria,
+        semanaAcumulada: config.semanaAcumulada,
+        mascarar: (texto) => maskTextPII(texto, piiMap),
+        mascararProfundo: (valor) => maskDeepPII(valor, piiMap),
+        degradacao: { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
+      });
+      // `in`, e não `.ok`: com `strict: false` a união por booleano não estreita.
+      if ('erro' in montado) return await marcarErro(montado.erro);
+      if (montado.homonimos.length) warnings.push(`descritores com o mesmo nome em competências diferentes: ${montado.homonimos.join(', ')}`);
+      porCompetencia = montado.entradas;
+      evidenciasParaIA = montado.evidencias;
+    } else {
+      evidenciasParaIA = maskTextPII(await agregarEvidenciasAteAcumulada(
+        tdb, trilhaId, descritoresComRegua, config.semanaAcumulada,
+        { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
+      ), piiMap);
+    }
 
     const resultado = await pontuarFechamento({
       competencia: competenciasLabel,
@@ -217,7 +250,9 @@ export async function finalizarFechamentoCore(
       resposta: maskTextPII(respostaAgregada, piiMap),
       nomeColab: colabMasked.nome,
       perfilDominante: colab?.perfil_dominante,
-      evidenciasAcumuladas: maskTextPII(evidenciasAcumuladas, piiMap),
+      evidenciasAcumuladas: evidenciasParaIA,
+      ...(porCompetencia ? { porCompetencia } : {}),
+      locale: idioma,
       // 🔴 O acumulado está GRAVADO desmascarado (resumo e justificativas com o
       // primeiro nome, para a pessoa ler). Ia assim ao scorer e ao auditor até
       // 03/10/2026 (R-05): mascara de novo antes de devolver à IA.
@@ -252,11 +287,16 @@ export async function finalizarFechamentoCore(
       .select('id, iniciado_em, feedback').eq('id', prog.id).maybeSingle();
     if (errAtual) return await marcarErro(`falha ao reler o slot antes de gravar a nota: ${errAtual.message}`);
     const { finalizacao: _descartada, ...slotSemReserva } = atual?.feedback || dados;
-    const novoSlot = {
-      ...slotSemReserva, ...parsed,
-      auditoria,
-      cenario, transcript_completo: historico, cenario_resposta: respostaAgregada,
-    };
+    // Onboarding: o slot guarda a conversa de cada cenário em `cenarios`; `cenario` e
+    // `cenario_resposta` são os cinco juntos (o que a tela do admin, a auditoria e a página
+    // de conclusão leem), sem um `transcript_completo` solto por cima.
+    const novoSlot = cenarios
+      ? { ...slotSemReserva, ...parsed, auditoria, cenario, cenario_resposta: respostaAgregada }
+      : {
+        ...slotSemReserva, ...parsed,
+        auditoria,
+        cenario, transcript_completo: historico, cenario_resposta: respostaAgregada,
+      };
 
     try {
       await gravarProgressoSemana(tdb, {
@@ -426,6 +466,9 @@ export async function refazerRedacaoFechamento(
     rascunho: mascararResumo(rascunho, map),
     evidenciasArguicao: extracao,
     evidenciasSemanas: mascarar(evidencias),
+    // Onboarding: o rascunho junta uma devolutiva por competência, e a redação a refaz como uma só.
+    ...(cenariosDoSlot(fb) ? { variasCompetencias: true } : {}),
+    locale: await idiomaDaPessoa(trilha.empresa_id, trilha.colaborador_id),
     ledger: { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
   });
   if (red.status !== 'reescrita' || !red.resumo) {

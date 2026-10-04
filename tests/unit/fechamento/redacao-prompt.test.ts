@@ -129,3 +129,21 @@ describe('anotarAjusteArguicao', () => {
     expect(out.avaliacao_por_descritor[1].justificativa).toBe('intacta');
   });
 });
+
+describe('promptRedacaoFechamento: várias competências (Onboarding)', () => {
+  it('sem `variasCompetencias` (ou false), o prompt é byte a byte o de sempre', () => {
+    const sempre = promptRedacaoFechamento(base as any);
+    expect(promptRedacaoFechamento({ ...base, variasCompetencias: false } as any)).toEqual(sempre);
+    expect(sempre.system).not.toContain('VÁRIAS COMPETÊNCIAS');
+  });
+
+  it('com várias competências, pede UMA devolutiva sobre o conjunto, e não muda o resto do prompt', () => {
+    const sempre = promptRedacaoFechamento(base as any);
+    const varias = promptRedacaoFechamento({ ...base, variasCompetencias: true } as any);
+    expect(varias.system).toContain('VÁRIAS COMPETÊNCIAS:');
+    expect(varias.system).toContain('Escreva UMA devolutiva só, sobre o conjunto');
+    expect(varias.system).not.toMatch(/[\u2014\u2013]/);
+    expect(varias.user).toBe(sempre.user);
+    expect(varias.system.replace(/\nVÁRIAS COMPETÊNCIAS:\n[^\n]*\n/, '')).toBe(sempre.system);
+  });
+});

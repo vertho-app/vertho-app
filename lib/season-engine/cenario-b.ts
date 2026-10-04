@@ -21,6 +21,11 @@
  *   o integrador que também a cobre); depois o mais recente.
  * - Sem elegível: devolve `null` e registra degradação CRÍTICA. Servir o B de
  *   outra competência não é degradar, é avaliar a coisa errada.
+ * - ONBOARDING (04/10/2026): o fechamento serve UM B por competência da trilha
+ *   (5 cenários, 4 perguntas cada, como o Cenário A do Mapeamento), e não um caso
+ *   único que integre todas. `escolherCenariosBPorCompetencia` aplica esta MESMA
+ *   régua a cada competência, lendo `banco_cenarios` uma vez. A régua de "elegível"
+ *   não muda: o B de cada competência é o que o lote da Fase 5 gera por célula.
  *
  * Por que casar pelo NOME e não por id: `competencias` tem uma linha por
  * descritor (em Macaé, "Gerenciamento de Conflitos" tem 9), e a trilha guarda a
@@ -59,13 +64,50 @@ export interface EscolhaCenarioB {
   candidatos: number;
 }
 
-const PERGUNTAS = ['p1', 'p2', 'p3', 'p4'];
+/**
+ * As quatro perguntas do B por célula, na ordem em que a pessoa responde: o rótulo
+ * (dimensão) é o que a rota serve e o scorer lê como `[DIMENSÃO] pergunta`.
+ */
+const DIMENSOES_DO_B = [
+  { key: 'p1', label: 'SITUAÇÃO' },
+  { key: 'p2', label: 'AÇÃO' },
+  { key: 'p3', label: 'RACIOCÍNIO' },
+  { key: 'p4', label: 'AUTOSSENSIBILIDADE' },
+];
+const PERGUNTAS = DIMENSOES_DO_B.map((d) => d.key);
 
 /** B sem texto ou sem nenhuma pergunta não serve ao fechamento, seja de qual competência for. */
 export function cenarioBUsavel(row: Pick<CenarioBRow, 'descricao' | 'alternativas'>): boolean {
   if (!String(row?.descricao || '').trim()) return false;
   const alt = row?.alternativas && typeof row.alternativas === 'object' ? row.alternativas : {};
   return PERGUNTAS.some((k) => String(alt[k] || '').trim().length > 0);
+}
+
+export interface PerguntaDoB {
+  dimensao: string;
+  texto: string;
+}
+
+/**
+ * As perguntas de um B, na ordem de resposta, como a rota do fechamento as serve
+ * (só as que têm texto). Fonte única das duas pontas do fechamento: o cenário de
+ * uma competência (Jornada, Personalizado, legado) e cada um dos cenários do
+ * Onboarding. A contagem real é o `.length` do que volta, nunca um 4 escrito à mão.
+ */
+export function perguntasDoCenarioB(alternativas: any): PerguntaDoB[] {
+  const alt = alternativas || {};
+  return DIMENSOES_DO_B.map((d) => ({ dimensao: d.label, texto: alt[d.key] || '' })).filter((p) => p.texto);
+}
+
+/**
+ * O fechamento serve UM Cenário B por competência (um cenário por vez, cada um com
+ * as suas perguntas)? Só o Onboarding, que fecha em várias competências de uma vez.
+ * Jornada, Personalizado e o legado fecham numa competência (ou num integrador
+ * cadastrado, como o de Ibipeba) e seguem no formato de sempre.
+ */
+export function fechamentoPorCompetencia(modo: string | null | undefined, competencias: ReadonlyArray<unknown>): boolean {
+  if (modo !== 'onboarding') return false;
+  return new Set((competencias || []).map(normalizarComp).filter(Boolean)).size > 1;
 }
 
 /** Competências (normalizadas) cobertas por um B: a da âncora + as integradas. */
@@ -109,17 +151,10 @@ export interface OpcoesEscolhaCenarioB {
 }
 
 /**
- * Escolhe o Cenário B de uma trilha. `competenciasDaTrilha` = `competencias_foco`
- * (ou `[competencia_foco]` nas trilhas antigas), pelo nome.
+ * Lê os B usáveis do cargo e de `todos`, com o nome da competência de cada âncora.
+ * Erro de leitura LANÇA (a rota devolve 500): falha de banco não vira "não há B".
  */
-export async function escolherCenarioB(
-  sb: any,
-  empresaId: string,
-  cargo: string,
-  competenciasDaTrilha: Array<string | null | undefined>,
-  opts: OpcoesEscolhaCenarioB = {},
-): Promise<EscolhaCenarioB> {
-  const alvo = [...new Set((competenciasDaTrilha || []).map(normalizarComp).filter(Boolean))];
+async function carregarBUsaveis(sb: any, empresaId: string, cargo: string): Promise<{ usaveis: CenarioBRow[]; nomePorId: Map<string, string> }> {
   const cargos = cargo && normalizarComp(cargo) !== 'todos' ? [cargo, 'todos'] : ['todos'];
 
   const { data: rows, error } = await sb.from('banco_cenarios')
@@ -142,6 +177,22 @@ export async function escolherCenarioB(
     if (errComp) throw new Error(`Cenário B: leitura de competencias falhou (${errComp.message})`);
     for (const c of comps || []) if (c?.id && c?.nome) nomePorId.set(c.id, c.nome);
   }
+  return { usaveis, nomePorId };
+}
+
+/**
+ * Escolhe o Cenário B de uma trilha. `competenciasDaTrilha` = `competencias_foco`
+ * (ou `[competencia_foco]` nas trilhas antigas), pelo nome.
+ */
+export async function escolherCenarioB(
+  sb: any,
+  empresaId: string,
+  cargo: string,
+  competenciasDaTrilha: Array<string | null | undefined>,
+  opts: OpcoesEscolhaCenarioB = {},
+): Promise<EscolhaCenarioB> {
+  const alvo = [...new Set((competenciasDaTrilha || []).map(normalizarComp).filter(Boolean))];
+  const { usaveis, nomePorId } = await carregarBUsaveis(sb, empresaId, cargo);
 
   if (!alvo.length) return { cenario: null, motivo: 'sem-competencia-na-trilha', candidatos: usaveis.length };
 
@@ -169,6 +220,79 @@ export async function escolherCenarioB(
     }, sb);
   }
   return { cenario: null, motivo: 'sem-elegivel', candidatos: candidatos.length };
+}
+
+export interface EscolhaDeUmaCompetencia {
+  /** O nome como veio da trilha (a ordem da trilha é a ordem de resposta). */
+  competencia: string;
+  cenario: CenarioBRow | null;
+}
+
+export interface EscolhaPorCompetencia {
+  /** Uma por competência da trilha, na ordem dela e sem repetir o nome. */
+  itens: EscolhaDeUmaCompetencia[];
+  /** Os nomes sem B elegível, na ordem da trilha. */
+  faltantes: string[];
+  /** B usáveis (com texto e ao menos uma pergunta) do cargo e de `todos`. */
+  candidatos: number;
+}
+
+/**
+ * Um Cenário B POR competência da trilha (o fechamento do Onboarding, 04/10/2026),
+ * pela MESMA régua de `escolherCenarioB` aplicada a cada uma: `banco_cenarios` é lido
+ * uma vez, e cada competência escolhe entre os mesmos candidatos. A prontidão e o
+ * health perguntam por aqui (com `registrar: false`), então o que eles acusam é o que
+ * a pessoa encontraria na semana do fechamento. Sem elegível numa competência: ela
+ * entra em `faltantes` e, com `registrar`, vira degradação CRÍTICA própria (a chave
+ * é por competência: o alarme diz QUAL B falta).
+ */
+export async function escolherCenariosBPorCompetencia(
+  sb: any,
+  empresaId: string,
+  cargo: string,
+  competenciasDaTrilha: Array<string | null | undefined>,
+  opts: OpcoesEscolhaCenarioB = {},
+): Promise<EscolhaPorCompetencia> {
+  const vistas = new Set<string>();
+  const nomes: string[] = [];
+  for (const c of competenciasDaTrilha || []) {
+    const chave = normalizarComp(c);
+    if (!chave || vistas.has(chave)) continue;
+    vistas.add(chave);
+    nomes.push(String(c).trim());
+  }
+  const { usaveis, nomePorId } = await carregarBUsaveis(sb, empresaId, cargo);
+  const candidatos: CandidatoCenarioB[] = usaveis.map((r) => ({ ...r, cobertas: competenciasCobertas(r, nomePorId) }));
+
+  const itens: EscolhaDeUmaCompetencia[] = [];
+  const faltantes: string[] = [];
+  for (const competencia of nomes) {
+    const escolhido = escolherEntreCandidatos(candidatos, [competencia], cargo);
+    if (escolhido) {
+      const { cobertas: _cobertas, ...cenario } = escolhido;
+      itens.push({ competencia, cenario });
+      continue;
+    }
+    itens.push({ competencia, cenario: null });
+    faltantes.push(competencia);
+    if (opts.registrar !== false) {
+      await registrarDegradacao({
+        fluxo: 'trilha',
+        tipo: DEGRADACAO.CENARIO_B_SEM_ELEGIVEL,
+        chave: `${empresaId}:${normalizarComp(cargo)}:${normalizarComp(competencia)}`,
+        empresaId,
+        colaboradorId: opts.colaboradorId ?? null,
+        severidade: 'critico',
+        detalhe: {
+          cargo,
+          competencias: [competencia],
+          trilhaId: opts.trilhaId ?? null,
+          candidatos: candidatos.map((c) => ({ id: c.id, cargo: c.cargo, cobertas: c.cobertas })),
+        },
+      }, sb);
+    }
+  }
+  return { itens, faltantes, candidatos: candidatos.length };
 }
 
 /** B integrador: cobre mais de uma competência (Ibipeba, 01/09/2026). */

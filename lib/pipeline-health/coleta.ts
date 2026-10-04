@@ -20,8 +20,9 @@ import { levantarPlanoKitsCoorte, SEM_TURMA } from '@/lib/season-engine/kit/plan
 import { TURMA_ENCERRADAS, TURMA_MEMBRO, TRILHA } from '@/lib/status';
 import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
 import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro, CelulaVideoSemDeck, PushDiario, LacunaCenarioB } from './regras';
-import { escolherCenarioB } from '@/lib/season-engine/cenario-b';
-import { semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { escolherCenarioB, fechamentoPorCompetencia } from '@/lib/season-engine/cenario-b';
+import { semanaCenarioBDoPlano, semanaCalendarioDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { semanaLiberadaEm } from '@/lib/season-engine/week-gating';
 import { normalizarComp } from '@/lib/workshop-competencias';
 
 /** Dia da semana no fuso do envio (1=segunda … 7=domingo), como o cron calcula. */
@@ -348,6 +349,13 @@ async function recortesDeHorizonte(
  * gravado) e a que só chega ao B depois da janela. Semana já aberta pelo
  * calendário continua dentro: quem está atrasado chega lá quando concluir a
  * semana anterior, e é exatamente aí que o 424 aconteceria.
+ *
+ * A data de abertura é a do helper de calendário da semana (`semanaLiberadaEm`, a
+ * mesma do gate), sobre a semana que governa o slot (`semanaCalendarioDoPlano`),
+ * e não um `(semana - 1) * 7` escrito à mão.
+ *
+ * ONBOARDING (04/10/2026): o fechamento serve um B por competência, então a trilha
+ * vira uma célula por competência (cargo x competência), e o alarme diz QUAL B falta.
  */
 export async function coletarCenarioBHorizonte(
   sb: any,
@@ -356,19 +364,27 @@ export async function coletarCenarioBHorizonte(
   hoje: Date = new Date(),
 ): Promise<LacunaCenarioB[]> {
   const { data: trilhas, error: errT } = await sb.from('trilhas')
-    .select('id, colaborador_id, competencia_foco, competencias_foco, temporada_plano, data_inicio')
+    .select('id, colaborador_id, competencia_foco, competencias_foco, temporada_plano, data_inicio, programa_modo')
     .eq('empresa_id', empresaId)
     .eq('status', TRILHA.ATIVA);
   if (errT) throw new Error(`R21: leitura de trilhas falhou (${errT.message})`);
   if (!trilhas?.length) return [];
 
+  const idsDasTrilhas = trilhas.map((t: any) => t.id);
   const { data: congeladas, error: errP } = await sb.from('temporada_semana_progresso')
     .select('trilha_id')
     .eq('empresa_id', empresaId)
-    .in('trilha_id', trilhas.map((t: any) => t.id))
+    .in('trilha_id', idsDasTrilhas)
     .not('feedback->>cenario_b_id', 'is', null);
   if (errP) throw new Error(`R21: leitura do progresso falhou (${errP.message})`);
-  const jaTemB = new Set((congeladas || []).map((p: any) => p.trilha_id));
+  // Onboarding: os 5 B servidos ficam em `feedback.cenarios`, não num `cenario_b_id` solto.
+  const { data: congeladasPorCompetencia, error: errPc } = await sb.from('temporada_semana_progresso')
+    .select('trilha_id')
+    .eq('empresa_id', empresaId)
+    .in('trilha_id', idsDasTrilhas)
+    .not('feedback->cenarios', 'is', null);
+  if (errPc) throw new Error(`R21: leitura do progresso (cenários) falhou (${errPc.message})`);
+  const jaTemB = new Set([...(congeladas || []), ...(congeladasPorCompetencia || [])].map((p: any) => p.trilha_id));
 
   const colabIds = [...new Set(trilhas.map((t: any) => t.colaborador_id).filter(Boolean))];
   const { data: colabs, error: errC } = await sb.from('colaboradores')
@@ -383,22 +399,29 @@ export async function coletarCenarioBHorizonte(
     if (jaTemB.has(t.id)) continue;
     const semana = semanaCenarioBDoPlano(t.temporada_plano);
     // Sem `data_inicio` não dá para datar: 0 dias (crítico). Preferir o alarme
-    // falso ao silêncio, como a R15.
-    const inicio = t.data_inicio ? new Date(`${t.data_inicio}T00:00:00Z`) : null;
-    const diasAte = inicio
-      ? Math.round((inicio.getTime() + (semana - 1) * 7 * 86400_000 - hoje.getTime()) / 86400_000)
+    // falso ao silêncio, como a R15. A abertura é a do helper de calendário da semana
+    // (a do gate), sobre a semana que governa o slot do fechamento.
+    const abre = semanaLiberadaEm(t.data_inicio, semanaCalendarioDoPlano(t, semana));
+    const diasAte = abre
+      ? Math.round((abre.getTime() - hoje.getTime()) / 86400_000)
       : 0;
     if (diasAte > janelaDias) continue;
     const competencias: string[] = Array.isArray(t.competencias_foco) && t.competencias_foco.length
       ? t.competencias_foco
       : [t.competencia_foco].filter(Boolean);
     const cargo = cargoDe.get(t.colaborador_id) || 'todos';
-    const chave = `${normalizarComp(cargo)}|${competencias.map(normalizarComp).sort().join('+')}`;
-    const atual = porCelula.get(chave);
-    if (!atual) porCelula.set(chave, { cargo, competencias, pessoas: 1, diasAte, semana });
-    else {
-      atual.pessoas += 1;
-      if (diasAte < atual.diasAte) { atual.diasAte = diasAte; atual.semana = semana; }
+    // Onboarding: um B por competência, então cada uma é uma célula (o alarme diz qual falta).
+    const celulas: string[][] = fechamentoPorCompetencia(t.programa_modo, competencias)
+      ? competencias.map((c) => [c])
+      : [competencias];
+    for (const comps of celulas) {
+      const chave = `${normalizarComp(cargo)}|${comps.map(normalizarComp).sort().join('+')}`;
+      const atual = porCelula.get(chave);
+      if (!atual) porCelula.set(chave, { cargo, competencias: comps, pessoas: 1, diasAte, semana });
+      else {
+        atual.pessoas += 1;
+        if (diasAte < atual.diasAte) { atual.diasAte = diasAte; atual.semana = semana; }
+      }
     }
   }
 

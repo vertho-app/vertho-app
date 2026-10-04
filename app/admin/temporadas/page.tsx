@@ -758,6 +758,12 @@ function SemanaDetalhe({ semana, progresso }) {
               )}
               {p.feedback.sintese_bloco && <Block titulo={t('detail.blockSummary')} content={p.feedback.sintese_bloco} />}
               {p.feedback.transcript_completo?.length > 0 && <Transcript title={t('detail.feedbackConversation')} items={p.feedback.transcript_completo} />}
+              {/* Onboarding: a conversa de cada um dos 5 cenários (um por competência). */}
+              {Array.isArray(p.feedback.cenarios) && p.feedback.cenarios.map((c, i) => (
+                c?.transcript_completo?.length > 0
+                  ? <Transcript key={i} title={`${t('detail.feedbackConversation')} · ${c.competencia}`} items={c.transcript_completo} />
+                  : null
+              ))}
             </>
           )}
         </div>

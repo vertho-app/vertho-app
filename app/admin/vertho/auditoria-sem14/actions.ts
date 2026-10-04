@@ -6,6 +6,9 @@ import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
 import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
+import { cenariosDoSlot, respostasDosCenarios, textoDosCenarios, type EntradaPorCompetencia } from '@/lib/season-engine/fechamento-por-competencia';
+import { montarEntradasPorCompetencia } from '@/lib/season-engine/fechamento-entradas';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import { maskColaborador, maskTextPII, maskDeepPII } from '@/lib/pii-masker';
 import { desmascararResultadoFechamento, mascararExtracaoArguicao } from '@/lib/season-engine/fechamento-pii';
 
@@ -136,7 +139,10 @@ export async function regerarScoringComFeedback(progressoId) {
   const { data: progAcum } = await sb.from('temporada_semana_progresso')
     .select('feedback').eq('trilha_id', trilha.id).eq('semana', programaConfig.semanaAcumulada).maybeSingle();
   const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
-  const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(
+  // Onboarding: o slot tem os 5 cenários (`fb.cenarios`) e o scorer roda por competência,
+  // como no fechamento da pessoa (`finalizarFechamentoCore`); as evidências vêm de lá.
+  const cenarios = cenariosDoSlot(fb);
+  const evidenciasAcumuladas = cenarios ? '' : await agregarEvidenciasAteAcumulada(
     sb, trilha.id, descritoresComRegua, programaConfig.semanaAcumulada,
     { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
   );
@@ -161,18 +167,34 @@ ${ajustesTexto}`;
   // PII masking — a regeneração agora segue a MESMA política do fluxo normal
   // (antes mandava nome/resposta crus pra IA externa).
   const { masked: colabMasked, map: piiMap } = maskColaborador(colab);
-  const respostaMasked = maskTextPII(fb.cenario_resposta || '', piiMap);
-  const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
+  const respostaMasked = maskTextPII(cenarios ? respostasDosCenarios(cenarios) : (fb.cenario_resposta || ''), piiMap);
+  let evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
+  let porCompetencia: EntradaPorCompetencia[] | undefined;
+  if (cenarios) {
+    const montado = await montarEntradasPorCompetencia({
+      db: sb, trilhaId: trilha.id, cenarios, descritoresComRegua, acumuladoPrimaria,
+      semanaAcumulada: programaConfig.semanaAcumulada,
+      mascarar: (texto) => maskTextPII(texto, piiMap),
+      mascararProfundo: (valor) => maskDeepPII(valor, piiMap),
+      degradacao: { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
+    });
+    if ('erro' in montado) return { error: montado.erro };
+    porCompetencia = montado.entradas;
+    evidenciasMasked = montado.evidencias;
+  }
 
   // Núcleo compartilhado com a rota /evaluation — scorer + trava + check
   const resultado = await pontuarFechamento({
     competencia: competenciasLabel,
     descritores: descritoresComRegua,
-    cenario: fb.cenario,
+    cenario: cenarios ? textoDosCenarios(cenarios) : fb.cenario,
     resposta: respostaMasked,
     nomeColab: colabMasked.nome,
     perfilDominante: colab?.perfil_dominante,
     evidenciasAcumuladas: evidenciasMasked,
+    ...(porCompetencia ? { porCompetencia } : {}),
+    // O idioma da pessoa, só para a redação final (o texto que ela lê): o scorer e o auditor não recebem.
+    locale: await idiomaDaPessoa(trilha.empresa_id, trilha.colaborador_id),
     // O acumulado e a auditoria anterior estão GRAVADOS desmascarados (com o
     // primeiro nome): mascarar de novo antes de devolver à IA (R-05).
     acumuladoPrimaria: maskDeepPII(acumuladoPrimaria, piiMap),
