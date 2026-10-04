@@ -292,7 +292,7 @@ describe('PDF do relatório de RH: sem "Média"', () => {
 
   it('percentual somado não vaza ponto flutuante (15.83 + 4.17 = 20, não 20.000000000000004)', () => {
     const texto = textoDoPdf({ indicadores: { total_avaliados: 1, total_avaliacoes: 1, pct_nivel_1: 15.83, pct_nivel_2: 4.17, pct_nivel_3: 15.83, pct_nivel_4: 4.17 } });
-    expect(texto).toContain('N3-N4: 20%');
+    expect(texto).toContain('Nível 3 e Nível 4: 20%');
     expect(texto).not.toMatch(/\d{2}\.\d{6,}/);
   });
 

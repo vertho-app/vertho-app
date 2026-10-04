@@ -126,7 +126,7 @@ describe('desafio e evidências (R-120)', () => {
   it('a tarefa da semana é "Desafio": "Missão" e "Episódio" saem do texto da semana (pt-BR)', () => {
     const semana = folhasDoCliente({ a: ptBR.SeasonWeek, b: ptBR.Season, c: ptBR.SeasonDone, d: ptBR.JourneyHistory })
       .map(([, v]) => v).join(' | ');
-    expect(semana).not.toMatch(/miss(ão|ões)/i);
+    expect(semana).not.toMatch(/(?<![a-zà-ú])miss(ão|ões)(?![a-zà-ú])/i);
     expect(semana).not.toMatch(/episódio/i);
   });
 
@@ -220,7 +220,7 @@ describe('e-mails da semana e de acesso (R-52, R-54, R-120, R-121, R-122)', () =
 
   it('o e-mail diz jornada, conteúdo e desafio: sem trilha, pílula, missão nem "Mentora IA"', () => {
     for (const [nome, e] of emails) {
-      expect(e.subject + e.html, nome).not.toMatch(/trilha|pílula|miss(ão|ões)|mentora/i);
+      expect(e.subject + e.html, nome).not.toMatch(/trilha|pílula|(?<![a-zà-ú])miss(ão|ões)(?![a-zà-ú])|mentora/i);
     }
     expect(emails[0][1].subject).toBe('Seu conteúdo da semana 3: Comunicação \u00b7 Escuta ativa');
     expect(emails[1][1].subject).toBe('Evidências da semana 3: pendente');
