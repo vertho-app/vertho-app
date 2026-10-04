@@ -292,6 +292,10 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // Incumbentes tornados explícitos (antes: FALLBACK_GLOBAL por omissão).
   arguicao_turno:      'claude-sonnet-4-6',
   arguicao_avaliacao:  'claude-sonnet-4-6',
+  // Tira-Dúvidas (R-124, 04/10/2026): a rota tinha o modelo escrito no código e o
+  // seletor da tela de IA da empresa era config sem consumidor. Agora ela resolve
+  // por aqui, e o incumbente continua sendo o Sonnet 4.6 (também em PINNED_TASKS).
+  tira_duvidas:        'claude-sonnet-4-6',
   pulse_audit:         'gpt-5.6-terra',
   // Blueprint (25/08/2026): o auditor semântico (`lib/blueprint/audit.ts`) roda
   // sobre o que `BLUEPRINT_SYSTEM` gerou. Sem esta linha os dois lados caíam em
@@ -390,6 +394,9 @@ export const PINNED_TASKS = new Set([
   'ia4_avaliacao',
   // IA3: sem o pino o `modelo_padrao` do tenant (4.6 nas 10 empresas) venceria o default acima.
   'ia3_cenarios',
+  // Tira-Dúvidas: o incumbente era uma constante na rota e passa a ser a decisão da task; sem o
+  // pino, o `modelo_padrao` de um tenant trocaria o modelo (e o custo) do tutor sem ninguém decidir.
+  'tira_duvidas',
   // Incumbentes do fluxo completo: o modelo é decisão, não herança do `modelo_padrao` do tenant.
   'blueprint_gerar',
   'temporada_desafio',

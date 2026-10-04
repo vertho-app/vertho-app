@@ -5,7 +5,10 @@ import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { assertDonoDaTrilha } from '@/lib/auth/dono-da-trilha';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
-import { checarGatesSemana } from '@/lib/season-engine/trilha-runtime';
+import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
+import { getModelForTask } from '@/lib/ai-tasks';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { promptTiraDuvidas } from '@/lib/season-engine/prompts/tira-duvidas';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
@@ -18,6 +21,22 @@ import { comContexto } from '@/lib/execucao-contexto';
 
 // callAIChat por pergunta pode levar dezenas de segundos (com retry, mais).
 export const maxDuration = 300;
+
+/** Perguntas por dia e por pessoa. Vai também no corpo do 429, para a tela dizer o número no idioma dela. */
+const LIMITE_DIARIO = 10;
+
+/**
+ * Falha de LEITURA não é "não encontrado" nem "sem permissão": é a consulta que
+ * não respondeu. 503 com código, para a tela oferecer "tentar de novo" em vez de
+ * dizer à pessoa que a semana dela não existe.
+ */
+function leituraIndisponivel(onde: string, error: { message?: string } | null | undefined) {
+  console.error(`[tira-duvidas] leitura de ${onde} falhou:`, error?.message);
+  return NextResponse.json(
+    { error: 'Não foi possível ler os dados agora. Tente de novo em instantes.', codigo: 'indisponivel' },
+    { status: 503 },
+  );
+}
 
 /**
  * POST /api/temporada/tira-duvidas
@@ -53,9 +72,10 @@ export async function POST(request) {
 
     const sb = createSupabaseAdmin();
 
-    const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, descritores_selecionados, temporada_plano, data_inicio')
+    const { data: trilha, error: errTrilha } = await sb.from('trilhas')
+      .select('id, colaborador_id, empresa_id, competencia_foco, descritores_selecionados, temporada_plano, data_inicio, programa_modo, programa_config')
       .eq('id', trilhaId).maybeSingle();
+    if (errTrilha) return leituraIndisponivel('trilha', errTrilha);
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
 
     if (colabBody && colabBody !== trilha.colaborador_id) {
@@ -72,8 +92,9 @@ export async function POST(request) {
     const gate = await checarGatesSemana(sb, trilha, semana);
     if (gate) return NextResponse.json({ error: gate.error }, { status: gate.status });
 
-    const { data: colab } = await sb.from('colaboradores')
+    const { data: colab, error: errColab } = await sb.from('colaboradores')
       .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
+    if (errColab) return leituraIndisponivel('colaborador', errColab);
     if (!colab) return NextResponse.json({ error: 'colab não encontrado' }, { status: 404 });
 
     const semanaPlan = (trilha.temporada_plano || []).find(s => s.semana === Number(semana));
@@ -81,26 +102,40 @@ export async function POST(request) {
     const competenciaSemana = resolveCompetenciaSemana(trilha, semanaPlan);
 
     // Carrega progresso — exige conteudo_consumido.
-    const { data: prog } = await sb.from('temporada_semana_progresso')
+    const { data: prog, error: errProg } = await sb.from('temporada_semana_progresso')
       .select('*').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
+    if (errProg) return leituraIndisponivel('progresso da semana', errProg);
     // Régua ÚNICA (`consumiuConteudo`): isto é catraca de ROTA, não rótulo de
     // tela — com o truthy cru, um array vazio abria o tira-dúvidas para quem o
     // painel de engajamento contava como não-consumido.
+    //
+    // A mensagem NÃO manda "marcar como realizado": esse botão saiu em 27/08 e a
+    // pessoa que a lia procurava o que não existe (R-124). O que abre o consumo é
+    // abrir um dos formatos do conteúdo; o `codigo` deixa a tela dizer isso no
+    // idioma dela e tentar gravar a abertura de novo.
     if (!consumiuConteudo(prog?.conteudo_consumido)) {
-      return NextResponse.json({ error: 'Marque o conteúdo como realizado antes de tirar dúvidas.' }, { status: 403 });
+      return NextResponse.json({
+        error: 'Abra um dos formatos do conteúdo desta semana antes de tirar dúvidas.',
+        codigo: 'conteudo-nao-aberto',
+      }, { status: 403 });
     }
 
     // Rate limit: máx 10 perguntas por dia por colab (feature=tira_duvidas).
     // Evita abuso + custo descontrolado. Janela de 24h.
-    const { count: usoHoje } = await sb.from('ia_usage_log')
+    const { count: usoHoje, error: errUso } = await sb.from('ia_usage_log')
       .select('id', { count: 'exact', head: true })
       .eq('colaborador_id', trilha.colaborador_id)
       .eq('feature', 'tira_duvidas')
       .is('source', null) // conta só as linhas do próprio route (1/resposta); a do wrapper é source='wrapper'
       .gte('created_at', new Date(Date.now() - 24 * 3600 * 1000).toISOString());
-    if ((usoHoje || 0) >= 10) {
+    // Sem checar, a falha da contagem virava "0 perguntas hoje" e o teto diário
+    // deixava de valer justamente quando o banco está instável.
+    if (errUso) return leituraIndisponivel('perguntas do dia', errUso);
+    if ((usoHoje || 0) >= LIMITE_DIARIO) {
       return NextResponse.json({
-        error: 'Você atingiu o limite diário (10 perguntas) do Tira-Dúvidas. Tente de novo amanhã.',
+        error: `Você atingiu o limite diário (${LIMITE_DIARIO} perguntas) do Tira-Dúvidas. Tente de novo amanhã.`,
+        codigo: 'limite-diario',
+        limite: LIMITE_DIARIO,
       }, { status: 429 });
     }
 
@@ -112,15 +147,55 @@ export async function POST(request) {
     // para falar a mesma linguagem. Junta o enquadramento da semana + (best-effort)
     // o corpo real do micro-conteúdo consumido (via core_id).
     const c = semanaPlan.conteudo || {};
+
+    // O DESAFIO REAL da semana (R-124). `conteudo.desafio_texto` gravado no plano é
+    // o PLACEHOLDER do build ("Aplique {descritor}..."): o desafio de verdade vem do
+    // kit, por (DISC x cargo), e é o que a pessoa lê no card da semana. Esta rota
+    // montava o contexto do tutor com o texto gravado, então ele explicava uma tarefa
+    // que a tela não mostra. A fonte é a mesma da conversa de Evidências
+    // (`resolverDesafiosDaSemana`, com a unificação por competência da Jornada).
+    // Falha aqui degrada para o texto do plano, como os outros blocos de contexto.
+    let desafios: Array<{ competencia: string; desafio_texto: string; acao_observavel?: string; criterio_de_execucao?: string }> | null = null;
+    try {
+      const programaConfig = await resolverConfigDaTrilha(sb, trilha);
+      desafios = await resolverDesafiosDaSemana(sb, semanaPlan, {
+        empresaId: trilha.empresa_id,
+        disc: String(colab.perfil_dominante || '').trim().charAt(0).toUpperCase(),
+        cargo: colab.cargo,
+        competenciaFallback: competenciaSemana,
+        desafioUnicoPorCompetencia: programaConfig.desafioUnicoPorCompetencia,
+        // Os gates de semana já passaram: uma tarefa de par ausente aqui é
+        // experiência de alguém, e vai para o degradacao_log.
+        colaboradorId: trilha.colaborador_id,
+      });
+    } catch (err) {
+      console.warn('[tira-duvidas] desafio do kit falhou (usando o do plano):', err?.message);
+    }
+    const blocoDesafio = desafios?.length
+      ? desafios.map((d) => [
+          desafios!.length > 1 && d.competencia ? `Desafio (${d.competencia}): ${d.desafio_texto}` : `Desafio: ${d.desafio_texto}`,
+          d.acao_observavel && `Ação observável: ${d.acao_observavel}`,
+          d.criterio_de_execucao && `Critério de execução: ${d.criterio_de_execucao}`,
+        ].filter(Boolean).join('\n')).join('\n')
+      : null;
+
     const enquadramento = Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length > 0
-      ? semanaPlan.conteudos_dia
-          .map((e: any) => [e.label, e.competencia, e.descritor, e.conteudo?.core_titulo, e.conteudo?.desafio_texto].filter(Boolean).join(' — '))
-          .join('\n')
+      ? [
+          ...semanaPlan.conteudos_dia.map((e: any) => [
+            e.label, e.competencia, e.descritor, e.conteudo?.core_titulo,
+            // Sem o desafio do kit, o do plano segue como antes.
+            blocoDesafio ? null : e.conteudo?.desafio_texto,
+          // O separador é o mesmo de sempre (travessão), por escape: o texto que o tutor lê não muda.
+          ].filter(Boolean).join(' — ')),
+          blocoDesafio,
+        ].filter(Boolean).join('\n')
       : [
           c.core_titulo && `Título: ${c.core_titulo}`,
-          c.desafio_texto && `Desafio: ${c.desafio_texto}`,
-          c.acao_observavel && `Ação observável: ${c.acao_observavel}`,
-          c.criterio_de_execucao && `Critério de execução: ${c.criterio_de_execucao}`,
+          blocoDesafio || [
+            c.desafio_texto && `Desafio: ${c.desafio_texto}`,
+            c.acao_observavel && `Ação observável: ${c.acao_observavel}`,
+            c.criterio_de_execucao && `Critério de execução: ${c.criterio_de_execucao}`,
+          ].filter(Boolean).join('\n'),
           c.por_que_cabe_na_semana && `Por que importa: ${c.por_que_cabe_na_semana}`,
         ].filter(Boolean).join('\n');
 
@@ -231,14 +306,21 @@ export async function POST(request) {
       conteudosRelacionados,
     });
 
+    // O modelo da TAREFA, não uma constante (R-124). O seletor "Tira-Dúvidas da
+    // semana" da tela de IA da empresa grava em `sys_config.ai`, e esta rota o
+    // ignorava: a config existia sem consumidor. Sem nada configurado o resultado é
+    // o de sempre, Sonnet 4.6 (o `FALLBACK_GLOBAL` de `lib/ai-tasks`). O ledger
+    // grava o modelo que RODOU, não o que se imagina que roda.
+    const modelo = await getModelForTask(trilha.empresa_id, 'tira_duvidas');
+
     let respostaIA;
     try {
-      // Sonnet 4.6: mais capaz para ancorar a explicação no conhecimento do
-      // descritor + conteúdo recebido + módulo-base, mantendo o escopo.
+      // Sonnet 4.6 por padrão: mais capaz para ancorar a explicação no conhecimento
+      // do descritor + conteúdo recebido + módulo-base, mantendo o escopo.
       // HISTORY CACHING (S3/L1) ligado 20/07 — system (conteúdo da semana) +
       // histórico lidos a 0,1× nos turnos seguintes da MESMA conversa. Kill
       // switch sem deploy: IA_CACHE_HISTORY=0.
-      respostaIA = (await callAIChat(system, messages as any, { model: 'claude-sonnet-4-6' }, 1500, {
+      respostaIA = (await callAIChat(system, messages as any, { model: modelo }, 1500, {
         taskKey: 'tira_duvidas', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
         cacheHistory: process.env.IA_CACHE_HISTORY !== '0',
       })).trim();
@@ -252,26 +334,49 @@ export async function POST(request) {
 
     historico.push({ role: 'assistant', content: respostaIA, timestamp: new Date().toISOString() });
 
+    // O que a gravação perdida significa (R-140): a IA JÁ respondeu e foi paga. Não
+    // dá para falhar a rota e mandar a pessoa perguntar de novo (pagaria outra
+    // resposta, e a que ela vai ler seria outra), e não dá para dizer 200 como se
+    // tudo tivesse ficado guardado. Responde com a resposta e com `salvo: false`; a
+    // tela avisa que ela não ficará no histórico. É ENTREGA, então degrada, mas
+    // registrando.
+    const chaveDeg = `${trilha.colaborador_id}:${trilhaId}:${semana}`;
+    const perdeu = async (oQue: 'historico' | 'contagem', motivo: string) => {
+      console.error(`[tira-duvidas] gravação de ${oQue} falhou:`, motivo);
+      await registrarDegradacao({
+        fluxo: 'chat',
+        tipo: DEGRADACAO.TIRA_DUVIDAS_NAO_GRAVADO,
+        chave: chaveDeg,
+        empresaId: trilha.empresa_id,
+        colaboradorId: trilha.colaborador_id,
+        severidade: 'aviso',
+        detalhe: { o_que: oQue, semana: Number(semana), motivo },
+      }, sb);
+    };
+
     // Persiste APENAS no campo tira_duvidas. Não mexe em status/reflexao/feedback.
     const novoDados = { ...dados, transcript_completo: historico };
-    await sb.from('temporada_semana_progresso')
+    const { error: errHistorico } = await sb.from('temporada_semana_progresso')
       .update({ tira_duvidas: novoDados })
       .eq('id', prog.id).eq('empresa_id', trilha.empresa_id);
+    if (errHistorico) await perdeu('historico', errHistorico.message);
 
-    // Telemetria — log da chamada pra rate limit futuro + custo
-    await sb.from('ia_usage_log').insert({
+    // Telemetria — log da chamada pra rate limit futuro + custo. É ela que o teto
+    // diário conta: sem a linha, a pergunta não pesa no limite.
+    const { error: errLog } = await sb.from('ia_usage_log').insert({
       empresa_id: trilha.empresa_id,
       colaborador_id: trilha.colaborador_id,
       feature: 'tira_duvidas',
       trilha_id: trilhaId,
       semana: Number(semana),
-      model: 'claude-sonnet-4-6',
+      model: modelo,
       // tokens aprox: sistema+histórico médio; valores precisos precisariam parse da response
       input_tokens: Math.round((system.length + JSON.stringify(messages).length) / 4),
       output_tokens: Math.round(respostaIA.length / 4),
     });
+    if (errLog) await perdeu('contagem', errLog.message);
 
-    return NextResponse.json({ message: respostaIA, history: historico });
+    return NextResponse.json({ message: respostaIA, history: historico, salvo: !errHistorico });
   } catch (err) {
     console.error('[tira-duvidas]', err);
     return NextResponse.json({ error: err?.message || 'Erro' }, { status: 500 });

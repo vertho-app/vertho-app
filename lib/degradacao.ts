@@ -476,6 +476,14 @@ export const DEGRADACAO = {
    * sai, só pode citar um formato que a tela não abre. Chave: `diario:<empresa>`.
    */
   FORMATO_ANUNCIADO_SEM_KIT: 'formato-anunciado-sem-kit',
+  /**
+   * chat (Tira-Dúvidas): a IA respondeu, mas uma gravação do turno falhou (R-140,
+   * 04/10/2026). `detalhe.o_que` diz qual: `historico` (a pergunta e a resposta não
+   * ficam guardadas: a tela avisa a pessoa e ela recarrega sem a conversa) ou
+   * `contagem` (a linha de `ia_usage_log` que o teto diário conta: a pergunta não
+   * pesa no limite). `aviso`: a resposta chegou. Chave: `<colaborador>:<trilha>:<semana>`.
+   */
+  TIRA_DUVIDAS_NAO_GRAVADO: 'tira-duvidas-nao-gravado',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

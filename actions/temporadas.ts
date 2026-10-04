@@ -836,15 +836,20 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
       status: statusAoTocarSemana(existente?.status),
       iniciado_em: existente?.iniciado_em || new Date().toISOString(),
     };
-    if (existente) {
-      await sb.from('temporada_semana_progresso').update(payload).eq('id', existente.id).eq('empresa_id', t.empresa_id);
-    } else {
-      const tipo = (t.temporada_plano || []).find((s: any) => s.semana === semana)?.tipo || 'conteudo';
-      await sb.from('temporada_semana_progresso').insert({
-        trilha_id: trilhaId, empresa_id: t.empresa_id, colaborador_id: t.colaborador_id,
-        semana, tipo, ...payload,
-      });
-    }
+    // Checar a escrita (R-140): sem isto a action devolvia `ok` com a marcação
+    // perdida, a tela liberava o Tira-Dúvidas e a primeira pergunta tomava um 403.
+    // Falha ALTO, e é seguro: é a própria pessoa tocando num formato, a tela sabe
+    // dizer que a abertura não foi registrada e ela pode tentar de novo. NUNCA
+    // `ok: true` por um update que não gravou.
+    const { error: errGravacao } = existente
+      ? await sb.from('temporada_semana_progresso').update(payload).eq('id', existente.id).eq('empresa_id', t.empresa_id)
+      : await sb.from('temporada_semana_progresso').insert({
+          trilha_id: trilhaId, empresa_id: t.empresa_id, colaborador_id: t.colaborador_id,
+          semana,
+          tipo: (t.temporada_plano || []).find((s: any) => s.semana === semana)?.tipo || 'conteudo',
+          ...payload,
+        });
+    if (errGravacao) return { error: `Não consegui registrar a abertura do conteúdo: ${errGravacao.message}` };
     return { ok: true };
   } catch (err: any) {
     return { error: err?.message || 'Erro' };
