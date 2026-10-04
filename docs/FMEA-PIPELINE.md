@@ -1290,8 +1290,11 @@ Mapeamento. O integrador saiu por inteiro (gerador, task `cenarios_b_integrador`
   (`feedback.cenarios`); o formato de uma competência (Jornada, Personalizado, DUO de Ibipeba) não muda, e quem
   lê o slot decide pela presença de `cenarios`, não pelo modo.
 - Pontuação: o scorer roda uma vez por competência, sobre os 6 descritores dela (os que o Cenário A avaliou; 30 numa chamada estourariam o teto de saída) e as
-  saídas são juntadas no formato de uma competência (`mesclarPontuacoes`); a redação final escreve UMA devolutiva
-  e o auditor audita o conjunto. O Evolution Report itera o mesmo conjunto (`descritoresCompletosDoOnboarding`) e casa o descritor pelo nome E pela competência (o nome pode
+  saídas são juntadas no formato de uma competência (`mesclarPontuacoes`). A arguição segue o padrão da Jornada,
+  repetido por cenário: depois das 4 respostas de cada cenário abre a defesa oral DAQUELA competência (sondando os 6
+  descritores dela) e só depois vem o cenário seguinte; a fusão na nota roda por competência, com a extração da defesa
+  dela. A redação final escreve UMA devolutiva e o auditor audita o conjunto, lendo as defesas juntas. Retomar volta ao
+  cenário e à etapa (respondendo ou arguindo) que `estadoDoFechamento` diz. O Evolution Report itera o mesmo conjunto (`descritoresCompletosDoOnboarding`) e casa o descritor pelo nome E pela competência (o nome pode
   se repetir entre competências; o fechamento acusa o homônimo em `warnings`).
 - Prontidão e health exigem o B de CADA competência, com o nome da que falta (`R21` vira uma lacuna por competência).
   O horizonte do health usa o helper de calendário da semana (`semanaLiberadaEm` sobre a semana que governa o slot).
