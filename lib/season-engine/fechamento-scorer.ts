@@ -24,6 +24,7 @@ import { promptEvolutionScenarioScore, validateEvolutionScenarioScore } from './
 import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from './prompts/evolution-scenario-check';
 import { promptRedacaoFechamento, validarRedacao, type DescritorParaRedacao, type ResumoRedigido } from './prompts/fechamento-redacao';
 import { devolutivaMinima } from './devolutiva-minima';
+import { vocabularioProibidoNoResumo } from './relatorio-texto';
 import { aplicarTravaPiloto, sanitizarNarrativaPiloto } from './piloto-trava';
 import { anotarAjusteArguicao, fundirArguicao } from './fusao-arguicao';
 import { parseJsonIA } from '@/lib/ai-json';
@@ -170,6 +171,12 @@ export interface PontuarFechamentoMeta {
   redacao?: StatusRedacao;
   /** Chamadas feitas à redação final (0 quando não precisou ou não coube). */
   redacaoTentativas?: number;
+  /**
+   * Vocabulário que o produto não usa com a pessoa ("regressão", "queda", número de
+   * nota) no texto PUBLICADO, quando apareceu. Ausente = limpo. É alarme: o texto
+   * segue gravado e o caller registra a degradação (R-37, 04/10/2026).
+   */
+  vocabularioProibido?: string[];
   warnings: string[];
 }
 
@@ -502,6 +509,15 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
       tentativas: meta.redacaoTentativas ?? 0,
     },
   };
+
+  // Alarme de vocabulário (R-37): o texto PRONTO, depois da redação final ou da
+  // devolutiva mínima, não pode falar em "regressão" nem trazer nota numérica. A
+  // regra do prompt é a 1ª camada; esta olha o que de fato saiu.
+  const termosProibidos = vocabularioProibidoNoResumo(parsed.resumo_avaliacao);
+  if (termosProibidos.length) {
+    meta.vocabularioProibido = termosProibidos;
+    meta.warnings.push(`vocabulário proibido na devolutiva: ${termosProibidos.join(', ')}`);
+  }
 
   // Validação-aviso: resumo deve falar com o colaborador, não com personagens
   const resumoText = parsed.resumo_avaliacao?.mensagem_geral || '';

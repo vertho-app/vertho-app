@@ -44,6 +44,7 @@ vi.mock('@/lib/degradacao', () => ({
   DEGRADACAO: {
     FECHAMENTO_SCORER_FALHOU: 'fechamento-scorer-falhou',
     FECHAMENTO_REDACAO_FALHOU: 'fechamento-redacao-falhou',
+    FECHAMENTO_VOCABULARIO_PROIBIDO: 'fechamento-vocabulario-proibido',
     FECHAMENTO_RELATORIO_FALHOU: 'fechamento-relatorio-falhou',
   },
   registrarDegradacao: h.degradacao,
@@ -346,6 +347,37 @@ describe('finalizarFechamentoCore', () => {
     h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1, redacao: status } });
     await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
     expect(h.degradacao).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Alarme de vocabulário (R-37, 04/10/2026): o texto publicado falou em "regressão"
+   * ou trouxe nota numérica. A nota e o texto ficam gravados; a degradação (aviso)
+   * diz os TERMOS, nunca o texto.
+   */
+  it('vocabulário proibido no texto publicado: a nota é gravada e a degradação (aviso) leva os termos', async () => {
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({
+      ok: true, parsed: { ...PARSED, redacao_final: { texto_publicado: 'scorer' } }, auditoria: null,
+      meta: { warnings: ['vocabulário proibido na devolutiva: regressão'], tentativas: 1, vocabularioProibido: ['regressão', 'nota numérica'] },
+    });
+    const r = await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(r.ok).toBe(true);
+    expect(escritasProgresso().some((e: any) => e.payload.status === 'concluido')).toBe(true);
+    expect(h.degradacao).toHaveBeenCalledTimes(1);
+    const d = h.degradacao.mock.calls[0][0];
+    expect(d).toMatchObject({
+      tipo: 'fechamento-vocabulario-proibido', severidade: 'aviso', chave: 'tr-1',
+      empresaId: 'emp-1', colaboradorId: 'col-1',
+      detalhe: { termos: ['regressão', 'nota numérica'], texto_publicado: 'scorer' },
+    });
+    expect(JSON.stringify(d)).not.toContain('mensagem');
+  });
+
+  it('texto limpo: nenhuma degradação de vocabulário', async () => {
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1 } });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(h.degradacao.mock.calls.some((c: any[]) => c[0]?.tipo === 'fechamento-vocabulario-proibido')).toBe(false);
   });
 
   it('a extração da arguição vai MASCARADA para o scorer; a gravada fica como está', async () => {

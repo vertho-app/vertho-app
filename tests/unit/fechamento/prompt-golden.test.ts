@@ -10,6 +10,14 @@
  *   · o prompt do auditor, quando NÃO houve arguição, é byte a byte o de antes.
  *
  * O JSON foi gerado com o código de `92c7f0ae`, antes da mudança.
+ *
+ * 🔴 ATUALIZADO em 04/10/2026 (R-37), de propósito: o golden do SCORER foi gerado
+ * de novo porque o prompt mudou em três linhas, todas sobre o TEXTO que a pessoa
+ * lê, nenhuma sobre como a nota é decidida. O `user` de cada caso e o golden do
+ * auditor seguem byte a byte os de 92c7f0ae (conferido com um diff do JSON antigo
+ * contra o novo: só o `system` dos 5 casos do scorer mudou, 1 linha trocada e 2
+ * acrescentadas, iguais nos 5). Qualquer outra mudança no prompt do scorer volta
+ * a quebrar este teste, que é o que ele existe para fazer.
  */
 import { describe, expect, it, vi } from 'vitest';
 
@@ -37,5 +45,25 @@ describe('golden do auditor do fechamento sem arguição', () => {
     expect(esperado, `caso ${caso.nome} fora do golden`).toBeDefined();
     expect(atual.system).toBe(esperado.system);
     expect(atual.user).toBe(esperado.user);
+  });
+});
+
+/**
+ * O que mudou no prompt do scorer em 04/10/2026 (R-37), linha a linha. O princípio 3
+ * dizia "Regressão é possível" e a devolutiva só tinha as proibições de falar em
+ * "regressão" e em nota no piloto: a palavra e o número vazavam para o texto que a
+ * pessoa lê. A semântica da NOTA não mudou ("a nota final pode ficar igual ou abaixo
+ * da inicial" diz o mesmo que "regressão é possível").
+ */
+describe('R-37: o texto da pessoa tem as proibições do fecho em todos os modos', () => {
+  it.each(CASOS_SCORER.map((c) => [c.nome, c] as const))('%s', (_nome, caso) => {
+    const { system } = promptEvolutionScenarioScore(caso.params as any);
+    expect(system).not.toContain('Regressão é possível');
+    expect(system).toContain('3. A nota final pode ficar igual ou abaixo da nota inicial; não force evolução.');
+    expect(system).toContain('PROIBIDO em qualquer texto que COLAB_A1B2 lê: "regressão", "regrediu", "queda", "caiu", "piora", "retrocesso"');
+    expect(system).toContain('PROIBIDO escrever número de nota (como 2,3 ou 3.0), média, "X de 4", porcentagem ou "N1" a "N4"');
+    // as proibições ficam no bloco da devolutiva, antes do fecho
+    expect(system.indexOf('PROIBIDO em qualquer texto')).toBeGreaterThan(system.indexOf('DEVOLUTIVA (resumo_avaliacao):'));
+    expect(system.indexOf('PROIBIDO em qualquer texto')).toBeLessThan(system.indexOf('FECHO (mensagem_final)'));
   });
 });

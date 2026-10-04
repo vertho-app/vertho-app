@@ -289,6 +289,22 @@ export async function finalizarFechamentoCore(
       });
     }
 
+    // O texto saiu com vocabulário que o produto não usa com a pessoa ("regressão",
+    // "queda", nota numérica): a nota e o texto ficam gravados, mas não é calado
+    // (R-37, 04/10/2026). `detalhe.termos` diz o que apareceu, nunca o texto.
+    const termosProibidos = resultado.meta.vocabularioProibido;
+    if (termosProibidos?.length) {
+      await registrarDegradacao({
+        fluxo: 'trilha',
+        tipo: DEGRADACAO.FECHAMENTO_VOCABULARIO_PROIBIDO,
+        chave: trilhaId,
+        empresaId: trilha.empresa_id,
+        colaboradorId: trilha.colaborador_id,
+        severidade: 'aviso',
+        detalhe: { termos: termosProibidos, semana: config.semanaCenarioB, texto_publicado: parsed?.redacao_final?.texto_publicado ?? null },
+      });
+    }
+
     // Relatório: consolidação programática (sem IA). A semana JÁ está concluída;
     // falha aqui não desfaz a nota, mas não pode ser silenciosa.
     // 🔴 Até 03/10/2026 (R-137) era só um `console.warn`: a trilha ficava ativa,

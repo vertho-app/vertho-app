@@ -3,6 +3,7 @@ import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/render
 import { colors, pageStyles } from './styles';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
+import { nivelMaisFrequente } from '@/lib/nivel-frequente';
 // SectionTitle → ReportSectionTitle (Fraunces) e PageBackground → PageHeader fino, de PdfReportCover
 
 const s = StyleSheet.create({
@@ -15,9 +16,10 @@ const s = StyleSheet.create({
   // Evolução
   evolBox: { backgroundColor: '#E8F5E9', padding: 10, borderRadius: 6, marginBottom: 3, borderLeftWidth: 3, borderLeftColor: '#2E7D32' },
   evolItem: { fontFamily: 'NotoSans', fontSize: 10, color: '#2E7D32', marginBottom: 2 },
-  // Ranking
-  rankUrgente: { backgroundColor: '#FEF2F2', borderLeftWidth: 3, borderLeftColor: '#B91C1C' },
-  rankImportante: { backgroundColor: '#FFFBEB', borderLeftWidth: 3, borderLeftColor: '#D97706' },
+  // Pontos de atenção (R-36, 04/10/2026): sem vermelho nem selo de alarme sobre
+  // pessoas nomeadas. A prioridade da CONVERSA vai de âmbar a azul a verde.
+  rankUrgente: { backgroundColor: '#FFFBEB', borderLeftWidth: 3, borderLeftColor: '#D97706' },
+  rankImportante: { backgroundColor: '#EFF6FF', borderLeftWidth: 3, borderLeftColor: '#2563EB' },
   rankOutro: { backgroundColor: '#F0FDF4', borderLeftWidth: 3, borderLeftColor: '#16A34A' },
   rankCard: { borderRadius: 6, padding: 10, marginBottom: 6 },
   rankName: { fontFamily: 'NotoSans', fontSize: 10, fontWeight: 700, color: colors.textPrimary, marginBottom: 2 },
@@ -112,13 +114,33 @@ function getDestaque(v: any) {
   };
 }
 
-function urgenciaLabel(v: any): string {
+/**
+ * A prioridade da CONVERSA com a pessoa, em palavras que não alarmam (R-36,
+ * 04/10/2026). O selo "URGENTE" sobre uma pessoa nomeada, em vermelho, lia como
+ * uma nota de gravidade dela. O campo `urgencia` do relatório segue como veio
+ * (relatórios gravados e o prompt usam `alta|media|baixa`); só o rótulo mudou, e
+ * o legado `urgente|importante` cai nos mesmos três degraus.
+ */
+export function urgenciaLabel(v: any): string {
   const raw = String(v || '').trim().toLowerCase();
-  if (!raw) return 'ATENCAO';
-  if (raw === 'urgente' || raw === 'alta') return 'URGENTE';
-  if (raw === 'importante' || raw === 'media' || raw === 'média') return 'IMPORTANTE';
+  if (!raw) return 'CONVERSA';
+  if (raw === 'urgente' || raw === 'alta') return 'PRIORIDADE ALTA';
+  if (raw === 'importante' || raw === 'media' || raw === 'média') return 'PRIORIDADE MÉDIA';
   if (raw === 'baixa' || raw === 'baixo') return 'ACOMPANHAR';
   return String(v).toUpperCase();
+}
+
+/** Em ordem alfabética pelo nome (pt-BR, sem acento nem caixa), nunca pela ordem do ranking antigo. */
+export function emOrdemAlfabetica<T>(lista: T[], nomeDe: (x: T) => unknown): T[] {
+  const nome = (x: T) => String(nomeDe(x) ?? '');
+  return [...lista].sort((a, b) => nome(a).localeCompare(nome(b), 'pt-BR', { sensitivity: 'base' }));
+}
+
+/** "N2", o nível em que mais pessoas estão, ou `null` sem distribuição. */
+export function nivelMaisFrequenteDe(distribuicao: any): string | null {
+  if (!distribuicao || typeof distribuicao !== 'object') return null;
+  const nivel = nivelMaisFrequente([1, 2, 3, 4].map((level) => ({ level, peso: Number(distribuicao[`n${level}`]) || 0 })));
+  return nivel != null ? `N${nivel}` : null;
 }
 
 export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { data: any; empresaNome?: string; logoBase64?: string }) {
@@ -150,7 +172,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
             <View style={s.box}>
               <Text style={s.text}>{textOf(resumoExecutivo?.leitura || c.resumo_executivo)}</Text>
               {(resumoExecutivo?.principalAvanco || c.resumo_executivo?.principal_avanco) && (
-                <Text style={{ ...s.text, color: '#2E7D32', marginTop: 4 }}>Avanço: {textOf(resumoExecutivo?.principalAvanco || c.resumo_executivo?.principal_avanco)}</Text>
+                <Text style={{ ...s.text, color: '#2E7D32', marginTop: 4 }}>Ponto forte: {textOf(resumoExecutivo?.principalAvanco || c.resumo_executivo?.principal_avanco)}</Text>
               )}
               {(resumoExecutivo?.principalPontoAtencao || c.resumo_executivo?.principal_ponto_de_atencao) && (
                 <Text style={{ ...s.text, color: '#E65100', marginTop: 2 }}>Atenção: {textOf(resumoExecutivo?.principalPontoAtencao || c.resumo_executivo?.principal_ponto_de_atencao)}</Text>
@@ -161,9 +183,11 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.destaques_evolucao?.length > 0 && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>{c.leitura_base ? 'Pontos fortes a reconhecer' : 'Destaques de Evolu\u00e7\u00e3o'}</ReportSectionTitle>
+            {/* Sempre "Pontos fortes": o relat\u00f3rio recebe s\u00f3 o n\u00edvel ATUAL, sem hist\u00f3rico, e
+                "Destaques de Evolu\u00e7\u00e3o" afirmava uma evolu\u00e7\u00e3o que ningu\u00e9m mediu (R-36). */}
+            <ReportSectionTitle>{'Pontos fortes a reconhecer'}</ReportSectionTitle>
             <View style={s.evolBox}>
-              {c.destaques_evolucao.map((d: any, i: number) => (
+              {emOrdemAlfabetica<any>(c.destaques_evolucao, (d) => getDestaque(d)?.nome).map((d: any, i: number) => (
                 <View key={i} style={{ marginBottom: 4 }}>
                   <Text style={s.evolItem}>
                     + {(() => {
@@ -181,20 +205,23 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {(c.ranking_atencao || c.ranking_qualificado)?.length > 0 && (
           <View style={s.section}>
-            <ReportSectionTitle>{'Ranking de Aten\u00e7\u00e3o'}</ReportSectionTitle>
-            {(c.ranking_atencao || c.ranking_qualificado).map((r: any, i: number) => {
+            {/* "Pontos de Aten\u00e7\u00e3o", em ordem alfab\u00e9tica (R-36, 04/10/2026). Era "Ranking de
+                Aten\u00e7\u00e3o": pessoas nomeadas, selo "URGENTE" em vermelho. A decis\u00e3o do dono \u00e9
+                que o gestor v\u00ea n\u00edvel e conversa a ter, sem ranking nem alarme. */}
+            <ReportSectionTitle>{'Pontos de Aten\u00e7\u00e3o'}</ReportSectionTitle>
+            {emOrdemAlfabetica<any>(c.ranking_atencao || c.ranking_qualificado, (r) => r?.nome).map((r: any, i: number) => {
               const urg = urgenciaLabel(r.urgencia);
-              const bgStyle = urg === 'URGENTE' ? s.rankUrgente : urg === 'IMPORTANTE' ? s.rankImportante : s.rankOutro;
+              const bgStyle = urg === 'PRIORIDADE ALTA' ? s.rankUrgente : urg === 'PRIORIDADE M\u00c9DIA' ? s.rankImportante : s.rankOutro;
               return (
                 <View key={i} style={{ ...s.rankCard, ...bgStyle }} wrap={false}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={s.rankName}>{textOf(r.nome)} {'\u2014'} {textOf(r.competencia)} (N{textOf(r.nivel || r.nivel_fase3)})</Text>
-                    <View style={{ ...s.badge, backgroundColor: urg === 'URGENTE' ? '#FEE2E2' : urg === 'IMPORTANTE' ? '#FEF3C7' : '#ECFDF3' }}>
-                      <Text style={{ ...s.badgeText, color: urg === 'URGENTE' ? '#991B1B' : urg === 'IMPORTANTE' ? '#92400E' : '#166534' }}>{urg}</Text>
+                    <View style={{ ...s.badge, backgroundColor: urg === 'PRIORIDADE ALTA' ? '#FEF3C7' : urg === 'PRIORIDADE M\u00c9DIA' ? '#DBEAFE' : '#ECFDF3' }}>
+                      <Text style={{ ...s.badgeText, color: urg === 'PRIORIDADE ALTA' ? '#92400E' : urg === 'PRIORIDADE M\u00c9DIA' ? '#1E40AF' : '#166534' }}>{urg}</Text>
                     </View>
                   </View>
                   {(r.motivo || r.motivo_curto) && <Text style={s.rankMotivo}>{textOf(r.motivo || r.motivo_curto)}</Text>}
-                  {r.risco_se_nao_agir && <Text style={{ ...s.rankMotivo, color: '#991B1B' }}>Risco: {textOf(r.risco_se_nao_agir)}</Text>}
+                  {r.risco_se_nao_agir && <Text style={{ ...s.rankMotivo, color: '#92400E' }}>Risco: {textOf(r.risco_se_nao_agir)}</Text>}
                 </View>
               );
             })}
@@ -213,8 +240,11 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
             <ReportSectionTitle>{'An\u00e1lise por Compet\u00eancia'}</ReportSectionTitle>
             {c.analise_por_competencia.map((a: any, i: number) => (
               <View key={i} wrap={false} style={{ marginBottom: 10 }}>
-                <Text style={s.h3}>{a.competencia} {'\u2014'} {'M\u00e9dia'}: {a.media_nivel || a.media}</Text>
-                {a.distribuicao && <Text style={s.textIt}>{'Distribui\u00e7\u00e3o'}: N1:{a.distribuicao.n1} | N2:{a.distribuicao.n2} | N3:{a.distribuicao.n3} | N4:{a.distribuicao.n4}</Text>}
+                {/* Sem a "M\u00e9dia" (R-36, 04/10/2026): o relat\u00f3rio mostrava "M\u00e9dia: 2.3" por
+                    compet\u00eancia. Fica o n\u00edvel mais frequente, da mesma distribui\u00e7\u00e3o de
+                    pessoas que vem logo abaixo. */}
+                <Text style={s.h3}>{a.competencia}{nivelMaisFrequenteDe(a.distribuicao) ? ` \u2014 N\u00edvel mais frequente: ${nivelMaisFrequenteDe(a.distribuicao)}` : ''}</Text>
+                {a.distribuicao && <Text style={s.textIt}>{'Pessoas por n\u00edvel'}: N1:{a.distribuicao.n1} | N2:{a.distribuicao.n2} | N3:{a.distribuicao.n3} | N4:{a.distribuicao.n4}</Text>}
                 <Text style={s.text}>{a.padrao_observado}</Text>
                 {a.acao_gestor && (
                   <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 6, padding: 10, marginTop: 4 }}>

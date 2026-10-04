@@ -327,6 +327,16 @@ export const DEGRADACAO = {
    */
   FECHAMENTO_REDACAO_FALHOU: 'fechamento-redacao-falhou',
   /**
+   * fechamento-scorer: o texto que a pessoa vai ler (devolutiva, pontos de
+   * atenção, fecho, próximos passos) saiu com vocabulário que o produto não usa
+   * com ela: "regressão", "queda", "piora" e afins, ou número de nota ("2,5 de
+   * 4", "nota 3,2"). R-37, 04/10/2026: a regra existia só no piloto e o prompt
+   * chegava a dizer "regressão é possível". Alarme, não bloqueio: a nota e o
+   * texto ficam gravados, e `detalhe.termos` diz o que apareceu. `aviso`. Chave:
+   * trilha. Ver `vocabularioProibidoNoResumo` (relatorio-texto.ts).
+   */
+  FECHAMENTO_VOCABULARIO_PROIBIDO: 'fechamento-vocabulario-proibido',
+  /**
    * fechamento-core: a nota foi gravada (semana do Cenário B concluída), mas o
    * Relatório de Evolução não: a trilha seguiu `ativa`, sem relatório, sem
    * certificado e sem encadeamento (R-137, 03/10/2026). Antes era só um

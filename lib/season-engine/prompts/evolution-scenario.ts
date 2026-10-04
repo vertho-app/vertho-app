@@ -95,6 +95,8 @@ export function regrasDaDevolutiva({ nomeColab, semanasEvidencia, notaPrograma, 
 - Conteúdo NUNCA muda por perfil — o que muda é a forma.
 - Cite ao menos 1 evidência das ${semanasEvidencia} semanas além do cenário.
 - Seja honesto, construtivo e não inflado.
+- PROIBIDO em qualquer texto que ${nomeColab} lê: "regressão", "regrediu", "queda", "caiu", "piora", "retrocesso" e qualquer frase dizendo que ${nomeColab} piorou ou desaprendeu. Se um aspecto terminou igual ou abaixo do ponto de partida, diga que o patamar de partida se manteve e o que segue pedindo prática.
+- PROIBIDO escrever número de nota (como 2,3 ou 3.0), média, "X de 4", porcentagem ou "N1" a "N4": ${nomeColab} lê o nível e o avanço nas telas do relatório, e o texto fala do que ${nomeColab} fez.
 - A duração REAL do programa é ${semanasEvidencia} semanas de jornada + fechamento — NUNCA mencione outra duração.${notaPrograma ? `
 - PROIBIDO na devolutiva: falar em "evolução", "regressão", "avanço" ou "estagnação" DA PESSOA, ou comparar antes→depois — a janela não mede evolução. Enquadre como DEMONSTRAÇÃO da avaliação e leitura do PONTO DE PARTIDA. Não trate a base curta de evidências como falha do colaborador.` : ''}
 
@@ -149,7 +151,7 @@ Determinar, por descritor, qual é a leitura final mais defensável do estado at
 PRINCÍPIOS INEGOCIÁVEIS:
 1. Ancore EXCLUSIVAMENTE na régua de maturidade.
 2. Use granularidade 0.1 (ex: 1.8, 2.3, 2.7).
-3. Regressão é possível — não force evolução.
+3. A nota final pode ficar igual ou abaixo da nota inicial; não force evolução.
 4. Evidência demonstrada pesa mais do que fala bonita.
 5. Resposta ao cenário NÃO invalida automaticamente o acumulado.
 6. Acumulado forte NÃO pode ser ignorado por um cenário fraco isolado.

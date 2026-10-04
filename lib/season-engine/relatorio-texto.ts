@@ -58,6 +58,61 @@ export function semAbreviacaoColab<T>(texto: T): T {
 }
 
 /**
+ * ALARME DE VOCABULÁRIO do texto que a pessoa lê (R-37, 04/10/2026).
+ *
+ * A devolutiva do fechamento abre o relatório da pessoa. No modo regular ela só
+ * tinha a regra de "não citar o instrumento" no fecho; "regressão", "queda" e o
+ * número da nota só eram proibidos no piloto, e o prompt do scorer chegava a dizer
+ * "Regressão é possível". A decisão do dono é que a evolução é só avanço e que
+ * ninguém do cliente vê nota decimal. A regra do PROMPT é a primeira camada; esta
+ * é a segunda: um detector puro que olha o texto PRONTO e diz o que apareceu, para
+ * o fechamento registrar a degradação em vez de a frase passar calada.
+ *
+ * `Medido: 04/10/2026` (leitura no banco): 0 de 15 devolutivas gravadas e 0 de 62
+ * relatórios de evolução têm esse vocabulário. É prevenção, não reparo.
+ *
+ * O texto é comparado SEM acento e em minúsculas, e as fronteiras de palavra são
+ * as do ASCII (depois da normalização `\b` serve: ver a regra do `\b` em CLAUDE.md).
+ * Falso positivo é aceitável (alarme, não bloqueio); falso negativo não.
+ */
+const VOCABULARIO_PROIBIDO: Array<[string, RegExp]> = [
+  ['regressão', /\bregress(?:ao|oes)\b|\bregred(?:iu|iram|ir|indo)\b/],
+  ['queda', /\bquedas?\b|\bcaiu\b|\bcairam\b/],
+  ['piora', /\bpior(?:a|ar|am|aram|ando|ou)\b/],
+  ['retrocesso', /\bretrocess(?:o|os)\b|\bretrocedeu\b/],
+  ['desaprendeu', /\bdesaprend(?:eu|eram|er)\b/],
+  [
+    'nota numérica',
+    /\bnota\s+(?:final\s+|inicial\s+)?(?:de\s+)?[1-4](?:[.,]\d+)?\b|\bmedia\s+(?:geral\s+)?(?:de\s+)?[1-4][.,]\d|\b[1-4][.,]\d{1,2}\s*(?:\/|de)\s*4\b/,
+  ],
+];
+
+/** Os termos proibidos que aparecem nos textos (cada um uma vez, na ordem da lista). */
+export function vocabularioProibido(...textos: unknown[]): string[] {
+  const alvo = textos
+    .flatMap((t) => (Array.isArray(t) ? t : [t]))
+    .filter((t): t is string => typeof t === 'string')
+    .join('\n')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase();
+  return VOCABULARIO_PROIBIDO.filter(([, padrao]) => padrao.test(alvo)).map(([rotulo]) => rotulo);
+}
+
+/**
+ * Os termos proibidos no `resumo_avaliacao` PUBLICADO. Só os textos AUTORAIS (devolutiva,
+ * avanço, atenção, fecho, passos): `evidencias_citadas` são trechos da fala da
+ * própria pessoa e não entram, ela pode ter escrito "queda" sobre o cenário dela.
+ */
+export function vocabularioProibidoNoResumo(resumo: any): string[] {
+  if (!resumo || typeof resumo !== 'object') return typeof resumo === 'string' ? vocabularioProibido(resumo) : [];
+  return vocabularioProibido(
+    resumo.mensagem_geral, resumo.principal_avanco, resumo.principal_ponto_de_atencao,
+    resumo.mensagem_final, resumo.proximos_passos,
+  );
+}
+
+/**
  * Os dados do relatório com os textos de IA já legíveis. Só os campos que viram
  * TEXTO para a pessoa; o resto passa intacto.
  */

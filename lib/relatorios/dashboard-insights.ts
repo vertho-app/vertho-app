@@ -335,6 +335,29 @@ export function normalizeRhReportInsight(value: unknown): RhReportInsight | null
   };
 }
 
+function ordemPorNome(sinais: ManagerPersonSignal[]): ManagerPersonSignal[] {
+  return [...sinais].sort((a, b) => a.person.localeCompare(b.person, 'pt-BR', { sensitivity: 'base' }));
+}
+
+/**
+ * As ações do relatório do gestor. O card "Próxima decisão" lê `acao_principal`
+ * (R-36, 04/10/2026), campo que o schema do prompt NÃO pedia até hoje: em cliente
+ * real o card mostrava sempre o texto de reserva (2 relatórios reais, nenhum com o
+ * campo). Os relatórios já gravados não são regerados, então, sem `acao_principal`,
+ * a primeira ação da semana ocupa o card e SAI da lista logo abaixo, para a mesma
+ * frase não aparecer duas vezes. A forma antiga `{ titulo }` também vale (o PDF a lê).
+ */
+function acoesDoGestor(acoes: any) {
+  const semana = asStringList(acoes?.esta_semana);
+  const explicita = asText(acoes?.acao_principal) ?? asText(acoes?.acao_principal?.titulo);
+  return {
+    primary: explicita ?? semana[0] ?? null,
+    thisWeek: explicita ? semana : semana.slice(1),
+    nextWeeks: asStringList(acoes?.proximas_semanas),
+    mediumTerm: asStringList(acoes?.medio_prazo),
+  };
+}
+
 function normalizePersonSignal(value: any, attention = false): ManagerPersonSignal {
   return {
     person: asText(value?.nome ?? value?.colaborador) || '—',
@@ -366,19 +389,16 @@ export function normalizeManagerReportInsight(value: unknown): ManagerReportInsi
         risk: asText(item?.impacto_se_nao_agir ?? item?.impacto),
       };
     }),
-    highlights: asArray(content.destaques_evolucao).map((item) => normalizePersonSignal(item)),
-    attention: asArray(content.ranking_atencao).map((item) => normalizePersonSignal(item, true)),
+    // Em ordem ALFABÉTICA, não na ordem em que a IA os ranqueou (R-36, 04/10/2026):
+    // "Ranking de atenção" com pessoas nomeadas é o ranking que o dono tirou das telas.
+    highlights: ordemPorNome(asArray(content.destaques_evolucao).map((item) => normalizePersonSignal(item))),
+    attention: ordemPorNome(asArray(content.ranking_atencao).map((item) => normalizePersonSignal(item, true))),
     teamProfile: {
       description: asText(content.perfil_disc_equipe?.descricao),
       strength: asText(content.perfil_disc_equipe?.forca_coletiva),
       risk: asText(content.perfil_disc_equipe?.risco_coletivo),
     },
-    actions: {
-      primary: asText(content.acoes?.acao_principal),
-      thisWeek: asStringList(content.acoes?.esta_semana),
-      nextWeeks: asStringList(content.acoes?.proximas_semanas),
-      mediumTerm: asStringList(content.acoes?.medio_prazo),
-    },
+    actions: acoesDoGestor(content.acoes),
     managerCadence: {
       weekly: asText(content.papel_do_gestor?.semanal),
       biweekly: asText(content.papel_do_gestor?.quinzenal),
