@@ -193,7 +193,7 @@
     "reviewAi": "Avaliação da IA",
     "reviewNoReport": "Este atendimento ainda não tem relatório.",
     "evolutionTitle": "A sua evolução",
-    "evolutionHelp": "Maior nível alcançado por competência nas suas 20 sessões mais recentes. Treinos fora dessa janela não entram neste resumo.",
+    "evolutionHelp": "Maior nível alcançado por competência nos seus 20 atendimentos avaliados mais recentes. Os anteriores não entram neste resumo.",
     "trainingDetails": "Consultar ficha e conversa"
   },
   "SimuladoresRelatorio": {
@@ -438,6 +438,7 @@
     "matrixScaleHelp": "O Nível 3 é a meta. Os níveis resultam do que fez no plano e na conversa.",
     "legacyScaleHelp": "Avaliação anterior à matriz atual. O resultado foi convertido da escala de 0 a 10 para a de 1 a 4; os critérios originais foram preservados.",
     "priority": "Prioridade para o próximo treino",
+    "priorityNextPlan": "Volta como foco sugerido no plano do seu próximo treino.",
     "planningField1": "O que sabe do cliente e o que precisa de confirmar",
     "planningField2": "Objetivo da reunião e alternativa se não for possível",
     "planningField3": "Hipóteses e perguntas para as testar",

@@ -33,7 +33,9 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [abrindo, setAbrindo] = useState('');
-  const base = `/api/simulador-lideranca/equipe${empresaId ? `?empresaId=${empresaId}` : ''}`;
+  // Repetir a leitura do painel sem recarregar a página (revisão de 04/10/2026).
+  const [tentativa, setTentativa] = useState(0);
+  const base =`/api/simulador-lideranca/equipe${empresaId ? `?empresaId=${empresaId}` : ''}`;
   const sep = base.includes('?') ? '&' : '?';
 
   async function ler<T>(url: string): Promise<T> {
@@ -57,7 +59,7 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
     };
     // `ler` só depende de `t`, estável por locale.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base]);
+  }, [base, tentativa]);
 
   async function abrir(id: string) {
     setAbrindo(id);
@@ -267,6 +269,17 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
       {erro && (
         <div className={styles.error} role="alert">
           <p>{erro}</p>
+          {/* Só a leitura do painel se repete aqui; a de uma pessoa se repete
+              abrindo a pessoa de novo. */}
+          {!painel && (
+            <button
+              type="button"
+              disabled={carregando}
+              onClick={() => setTentativa((n) => n + 1)}
+            >
+              {t('refresh')}
+            </button>
+          )}
         </div>
       )}
       {painel && (

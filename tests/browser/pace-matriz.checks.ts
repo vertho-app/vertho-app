@@ -102,18 +102,27 @@ export async function verificarMatrizUI(page: Page, origin: string, dir: string)
   // V-11 (27/09/2026): o desfecho é rotulado e a média geral vem antes das
   // recomendações e do desfecho (no celular ela ficava a ~1.260 px).
   const y = (l: import('@playwright/test').Locator) => l.boundingBox().then((b) => b!.y);
-  const mediaGeral = devolutiva.getByText('Média geral', { exact: true });
+  // Desde 04/10/2026 (R-35) o rótulo é "Nível geral".
+  const mediaGeral = devolutiva.getByText('Nível geral', { exact: true });
   const recomendacoes = page.getByRole('heading', { name: 'Para a próxima conversa', exact: true });
   const desfecho = page.getByText('Resultado da negociação', { exact: true });
   await desfecho.waitFor();
   await page.getByText('Inconclusivo', { exact: true }).waitFor();
   assert.ok((await y(mediaGeral)) < (await y(recomendacoes)), 'média geral antes das recomendações');
   assert.ok((await y(mediaGeral)) < (await y(desfecho)), 'média geral antes do desfecho da negociação');
+  // Revisão de 04/10/2026: a prioridade vem antes das competências e não se repete na lista.
+  const prioridade = page.getByText('Prioridade para o próximo treino', { exact: true });
+  assert.ok((await y(prioridade)) < (await y(devolutiva)), 'prioridade antes das competências');
+  await expect(page.getByText('Confirme o diagnóstico', { exact: true })).toHaveCount(1);
+  await expect(recomendacoes).toBeVisible();
   await expect(page.getByRole('list', { name: 'Etapas PACE', exact: true })).toHaveCount(0);
   await page.screenshot({ path: `${dir}/matriz-relatorio-pace7-desktop.png`, fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   const topoMedia = await mediaGeral.evaluate((el) => el.getBoundingClientRect().top + scrollY);
   assert.ok(topoMedia < 1000, `média geral no celular a ${Math.round(topoMedia)} px`);
+  const topoPrioridade = await prioridade.evaluate((el) => el.getBoundingClientRect().top + scrollY);
+  assert.ok(topoPrioridade < topoMedia, `prioridade no celular a ${Math.round(topoPrioridade)} px`);
+  console.log(`[pace-ui] celular: prioridade a ${Math.round(topoPrioridade)} px, média a ${Math.round(topoMedia)} px`);
   await page.screenshot({ path: `${dir}/matriz-relatorio-pace7-mobile.png`, fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1080 });
   checks++;
@@ -125,7 +134,7 @@ export async function verificarMatrizUI(page: Page, origin: string, dir: string)
   await devolutiva.waitFor();
   await page
     .getByText(
-      'A média geral aparece quando pelo menos 3 competências têm nível. Cada competência tem nível quando pelo menos dois terços dos seus comportamentos são observados.',
+      'O nível geral aparece quando pelo menos 3 competências têm nível. Cada competência tem nível quando pelo menos dois terços dos seus comportamentos são observados.',
       { exact: true },
     )
     .waitFor();

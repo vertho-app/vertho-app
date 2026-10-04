@@ -37,7 +37,7 @@ describe('históricos demonstrativos dos simuladores', () => {
   });
   it('vendas tem relatório legível, pesquisa, evolução e pós-venda sem nota indevida', () => {
     const sessoes = pessoas.slice(0, 3).flatMap((p, i) => [0, 1].map((tentativa) => ({ pessoa: p, estado: treinoVendasDemo(idDemoSimulador(`vendas:${i}:${tentativa}`), p.nome, i, tentativa, dataDemo(agora, tentativa ? 2 : 12)) })));
-    const painel = agregarPainel(pessoas, sessoes.map(({ pessoa, estado: s }) => ({ colaboradorId: pessoa.id, criadoEm: s.criadoEm, status: s.status, competencias: s.relatorio!, feedback: s.feedback })));
+    const painel = agregarPainel(pessoas, sessoes.map(({ pessoa, estado: s }) => ({ colaboradorId: pessoa.id, criadoEm: s.criadoEm, status: s.status, conversou: s.mensagens.length > 0, competencias: s.relatorio!, feedback: s.feedback })));
     expect(painel.resumo.concluiram).toBe(3);
     expect(painel.resumo.naoComecaram).toBe(1);
     expect(painel.pesquisa.respostas).toBe(6);

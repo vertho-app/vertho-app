@@ -193,7 +193,7 @@
     "reviewAi": "Evaluación de la IA",
     "reviewNoReport": "Esta atención aún no tiene informe.",
     "evolutionTitle": "Tu evolución",
-    "evolutionHelp": "Mayor nivel por competencia en tus 20 sesiones más recientes. Las prácticas anteriores no se incluyen en este resumen.",
+    "evolutionHelp": "Mayor nivel por competencia en tus 20 prácticas evaluadas más recientes. Las anteriores no se incluyen en este resumen.",
     "trainingDetails": "Consultar ficha y conversación"
   },
   "SimuladoresRelatorio": {
@@ -438,6 +438,7 @@
     "matrixScaleHelp": "El Nivel 3 es la meta. Los niveles salen de lo que hiciste en el plan y en la conversación.",
     "legacyScaleHelp": "Esta evaluación es anterior a la matriz actual. El resultado se convirtió de la escala de 0 a 10 a la de 1 a 4; se conservaron los criterios originales.",
     "priority": "Prioridad para la próxima práctica",
+    "priorityNextPlan": "Vuelve como enfoque sugerido en el plan de tu próxima práctica.",
     "planningField1": "Qué sabes del cliente y qué necesitas confirmar",
     "planningField2": "Objetivo de la reunión y alternativa si no es posible",
     "planningField3": "Hipótesis y preguntas para ponerlas a prueba",

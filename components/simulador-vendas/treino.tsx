@@ -822,6 +822,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                   <Relatorio
                     relatorio={sessao.relatorio}
                     versao={sessao.versaoRegua}
+                    focoSugerido={focoSugerido}
                   />
                 </div>
               )}

@@ -9,7 +9,7 @@ import { catalogoInicial } from '../../lib/recepcao/catalogo';
 import { catalogoDesafiador } from '../../lib/recepcao/catalogo-desafiador';
 import { catalogoLimites } from '../../lib/recepcao/catalogo-limites';
 import { aplicarMatrizAtendimento } from '../../lib/recepcao/matriz-avaliacao';
-import { abrirSessao, consolidar, fichaPublica, ordenarPorNivel, visaoPublica } from '../../lib/recepcao/core';
+import { abrirSessao, consolidar, fichaPublica, ordenarPorNivel, visaoEquipe, visaoPublica } from '../../lib/recepcao/core';
 import { dominioAtendimento } from '../../lib/recepcao/dominio';
 import { visaoPorCompetencia } from '../../lib/recepcao/painel';
 import { competenciasAtendimento } from '../../lib/recepcao/matriz';
@@ -274,10 +274,13 @@ w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
       return Response.json({
         dominio: dominioEmpresa,
         cenarios: [{ id: 'reg-catalogo', empresa_id: null, estado: 'publicado', versao: cenario.versao, revisao: 0, conteudo: cenario }],
+        // Como a rota real (`simulador.casos.manage`, 03/10/2026): quem abre aqui edita.
+        podeEditar: true,
       });
     if (q.get('visao') === 'competencias') return Response.json({ competencias: [] });
     if (q.has('sessaoId'))
-      return Response.json({ sessao: visaoPublica(sessoesEquipe.find((r) => r.id === q.get('sessaoId'))!.estado) });
+      // A projeção do servidor (`detalheEquipe`): sem a conversa, só as referências (R-10, 03/10/2026).
+      return Response.json({ sessao: visaoEquipe(sessoesEquipe.find((r) => r.id === q.get('sessaoId'))!.estado) });
     return Response.json(painel());
   }
   if ((!init.method || init.method === 'GET') && url.includes('pagina=')) {

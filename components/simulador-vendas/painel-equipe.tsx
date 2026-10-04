@@ -45,6 +45,9 @@ export default function PainelEquipe({ empresaId }: { empresaId: string }) {
   const [dados, setDados] = useState<PainelVendas | null>(null);
   const [erro, setErro] = useState('');
   const [filtro, setFiltro] = useState('');
+  // Repetir a leitura sem recarregar a página (revisão de 04/10/2026): a falha
+  // da primeira consulta deixava só a mensagem, sem nada a fazer na tela.
+  const [tentativa, setTentativa] = useState(0);
   useEffect(() => {
     let vivo = true;
     setDados(null);
@@ -70,7 +73,7 @@ export default function PainelEquipe({ empresaId }: { empresaId: string }) {
     return () => {
       vivo = false;
     };
-  }, [empresaId]);
+  }, [empresaId, tentativa]);
   const nivel = (n: number | null) =>
     n === null ? '—' : t('evolutionLevel', { n });
   const data = (iso: string | null) =>
@@ -118,9 +121,12 @@ export default function PainelEquipe({ empresaId }: { empresaId: string }) {
       </h2>
       <p className="text-sm text-slate-400 mb-4">{t('teamOverviewHelp')}</p>
       {erro && (
-        <p role="alert" className="text-amber-200 my-3">
-          {erro}
-        </p>
+        <div role="alert" className="text-amber-200 my-3">
+          <p className="mb-2">{erro}</p>
+          <button type="button" onClick={() => setTentativa((n) => n + 1)}>
+            {t('refresh')}
+          </button>
+        </div>
       )}
       {!dados && !erro && (
         <p role="status" className="text-sm text-slate-400">

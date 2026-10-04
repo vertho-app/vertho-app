@@ -165,6 +165,11 @@ try {
   await cabecalho.getByText('Nível geral do atendimento', { exact: true }).waitFor();
   await cabecalho.getByText(/^Nível \d$/).waitFor();
   await cabecalho.getByText(/sustentar a recusa com respeito/).waitFor();
+  // Revisão de 04/10/2026: o nível geral aparece uma vez, no cabeçalho; o bloco de
+  // competências de quem treinou não o repete como "Nível geral".
+  const competenciasDaPessoa = page.getByRole('region', { name: 'Devolutiva por competência', exact: true });
+  await competenciasDaPessoa.locator('details').first().waitFor();
+  assert.equal(await competenciasDaPessoa.getByText('Nível geral', { exact: true }).count(), 0, 'nível geral repetido abaixo do cabeçalho');
   await page.screenshot({ path: `${dir}/relatorio-cabecalho-desktop.png` });
   await page.getByRole('button', { name: 'Praticar novamente' }).click();
   await campoEscada.waitFor();
@@ -342,13 +347,18 @@ try {
   assert.ok(csvEquipe.includes('Ana Souza') && csvEquipe.includes('Acolhimento'), 'CSV por pessoa');
   // A-6 (27/09/2026): treino concluído sem média geral não é "Em andamento".
   const semMedia = page.locator('tr', { hasText: '10/09/2026' });
-  await expect(semMedia.getByText(/Sem nota/)).toBeVisible();
+  // Desde 04/10/2026 (R-35) a tabela diz o nível, e "Sem nível" no lugar de "Sem nota".
+  await expect(semMedia.getByText('Sem nível', { exact: true }).first()).toBeVisible();
   assert.equal(await page.getByText('Em andamento', { exact: true }).count(), 0, 'concluído sem média aparece como "Em andamento"');
   await page.getByRole('button', { name: 'Abrir atendimento', exact: true }).first().click();
   const detalhe = page.getByRole('region', { name: 'Detalhe do atendimento', exact: true });
   await detalhe.getByText('Desfecho:', { exact: true }).waitFor();
-  await detalhe.getByText('Média geral:', { exact: true }).waitFor();
+  await detalhe.getByText('Nível geral:', { exact: true }).waitFor();
   await detalhe.getByText('O que funcionou', { exact: true }).waitFor();
+  // R-10 (03/10/2026): a conversa fica com quem treinou; as citações seguem situadas
+  // ("1ª resposta de quem atende") dentro de cada competência, que abre recolhida.
+  await detalhe.getByText('A conversa fica com quem treinou', { exact: true }).waitFor();
+  await detalhe.locator('details > summary').first().click();
   await detalhe.getByText(/1ª resposta de quem atende/).first().waitFor();
   // Sem revisão humana (decisão do dono, 22/09/2026): o detalhe é só leitura.
   assert.equal(await page.getByRole('button', { name: 'Registrar revisão' }).count(), 0, 'botão de revisão no detalhe');
@@ -417,7 +427,8 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   checks++;
   await page.goto(`${origin}/?locale=en-US`);
-  await page.getByText('Service simulator · Clinic reception', { exact: true }).waitFor();
+  // Nome do produto nos 4 idiomas desde 04/10/2026 (`7242ab05`, um nome por conceito).
+  await page.getByText('Customer service simulator · Clinic reception', { exact: true }).waitFor();
   checks++;
 
   assert.deepEqual(errors, []);

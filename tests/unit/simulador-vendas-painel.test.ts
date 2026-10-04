@@ -100,6 +100,7 @@ const sessoes = [
     colaborador_id: 'ana',
     created_at: '2026-09-10T12:00:00Z',
     resumo: { status: 'concluida', versaoRegua: 'pace-7' },
+    primeira: 'vendedor',
     pl: 2.5,
     p: 2.6,
     a: 3.1,
@@ -119,6 +120,7 @@ const sessoes = [
     colaborador_id: 'ana',
     created_at: '2026-09-12T12:00:00Z',
     resumo: { status: 'concluida', versaoRegua: 'pace-7' },
+    primeira: 'vendedor',
     pl: 3.2,
     p: 3.0,
     a: 2.4,
@@ -131,6 +133,7 @@ const sessoes = [
     colaborador_id: 'davi',
     created_at: '2026-09-11T12:00:00Z',
     resumo: { status: 'concluida', versaoRegua: 'pace-5' },
+    primeira: 'vendedor',
     pl: null,
     p: 7.5,
     a: 7.5,
@@ -146,6 +149,21 @@ const sessoes = [
     },
   },
 ];
+/** Linhas a mais por teste, na forma da projeção (`primeira` = autor da 1ª mensagem). */
+let extras: Array<(typeof sessoes)[number] | Record<string, unknown>> = [];
+const aberta = (id: string, colaborador_id: string, primeira: string | null) => ({
+  id,
+  colaborador_id,
+  created_at: '2026-09-13T12:00:00Z',
+  resumo: { status: 'em_andamento', versaoRegua: 'pace-7' },
+  primeira,
+  pl: null,
+  p: null,
+  a: null,
+  c: null,
+  e: null,
+  feedback: null,
+});
 
 const c = (role = 'gestor', admin = false) =>
   ({
@@ -183,7 +201,9 @@ function mock(sysConfig: Record<string, unknown> | null = null) {
         );
       if (t === 'sim_vendas_sessoes') {
         const ids = (valorDe(cadeia, 'in', 'colaborador_id') as string[]) || [];
-        return sessoes.filter((s) => ids.includes(s.colaborador_id));
+        return [...sessoes, ...extras].filter((s) =>
+          ids.includes(String(s.colaborador_id)),
+        );
       }
       return [];
     },
@@ -192,6 +212,7 @@ function mock(sysConfig: Record<string, unknown> | null = null) {
 
 describe('painelEquipe: população, escopo e leitura', () => {
   beforeEach(() => {
+    extras = [];
     mock({
       simuladores_por_cargo: {
         'cargo-vendas': { vendas: true },
@@ -217,6 +238,26 @@ describe('painelEquipe: população, escopo e leitura', () => {
     const painel = await painelEquipe(c('rh'));
     expect(painel.pessoas.map((p) => p.id)).toEqual(['ana', 'bia', 'davi']);
     expect(painel.naoComecaram.map((p) => p.id)).toEqual(['bia']);
+  });
+
+  it('começar = conversar: sessão aberta sem mensagem não tira de "Não começaram" (04/10/2026)', async () => {
+    // Bia abriu e saiu; Davi abriu outra e falou com o cliente.
+    extras = [aberta('s4', 'bia', null), aberta('s5', 'davi', 'vendedor')];
+    const painel = await painelEquipe(c('rh'));
+    expect(painel.naoComecaram.map((p) => p.id)).toEqual(['bia']);
+    expect(painel.resumo).toMatchObject({ comecaram: 2, naoComecaram: 1 });
+    expect(painel.pessoas.find((p) => p.id === 'davi')).toMatchObject({
+      treinos: 2,
+      emAndamento: true,
+    });
+    // O alias da fixture é o que a consulta pede: só o autor, nunca a conversa.
+    const colunas = String(
+      sb.chamadas.find(
+        (x) => x.tabela === 'sim_vendas_sessoes' && x.metodo === 'select',
+      )?.args[0],
+    );
+    expect(colunas).toContain('primeira:estado->mensagens->0->>autor');
+    expect(colunas).not.toMatch(/estado->mensagens(,|$)/);
   });
 
   it('nunca lê outro tenant, nem como administrador da plataforma', async () => {
@@ -294,15 +335,16 @@ describe('agregarPainel', () => {
     colaboradorId,
     criadoEm,
     status,
+    conversou: false,
     competencias: null,
     feedback: null,
     ...extra,
   });
 
-  it('descartado não conta como treino; em andamento conta e aparece', () => {
+  it('descartado sem conversa não conta como treino; em andamento com conversa conta e aparece', () => {
     const p = agregarPainel(pessoas, [
       s('a', '2026-09-01', 'abandonada'),
-      s('b', '2026-09-02', 'em_andamento'),
+      s('b', '2026-09-02', 'em_andamento', { conversou: true }),
     ]);
     expect(p.naoComecaram.map((x) => x.id)).toEqual(['a', 'c']);
     expect(p.pessoas.find((x) => x.id === 'b')).toMatchObject({
@@ -312,15 +354,32 @@ describe('agregarPainel', () => {
     });
   });
 
+  it('começar = conversar com o cliente, a régua do atendimento (04/10/2026)', () => {
+    const p = agregarPainel(pessoas, [
+      // Abriu a tela: a sessão nasce em `preparando`, sem mensagem.
+      s('a', '2026-09-01', 'preparando'),
+      // Cenário pronto (e talvez o plano), mas nenhuma fala ao cliente.
+      s('a', '2026-09-02', 'em_andamento'),
+      // Conversou e o treino foi encerrado sem relatório: treinou.
+      s('b', '2026-09-03', 'abandonada', { conversou: true }),
+      // Concluído sempre teve conversa, mesmo se a projeção não vier.
+      s('c', '2026-09-04', 'concluida'),
+    ]);
+    expect(p.naoComecaram.map((x) => x.id)).toEqual(['a']);
+    expect(p.resumo).toEqual({ pessoas: 3, comecaram: 2, concluiram: 1, naoComecaram: 1 });
+    expect(p.pessoas.find((x) => x.id === 'a')).toMatchObject({ treinos: 0, emAndamento: false, ultimo: null });
+    expect(p.pessoas.find((x) => x.id === 'b')).toMatchObject({ treinos: 1, concluidos: 0, emAndamento: false });
+  });
+
   it('V-10: treino aberto sem atividade há mais de 3 dias é "parado", com a data da última atividade', () => {
     const agora = Date.parse('2026-09-27T12:00:00Z');
     const p = agregarPainel(
       pessoas,
       [
-        s('a', '2026-09-16T12:00:00Z', 'em_andamento', { atualizadoEm: '2026-09-20T12:00:00Z' }),
-        s('b', '2026-09-16T12:00:00Z', 'em_andamento', { atualizadoEm: '2026-09-27T09:00:00Z' }),
+        s('a', '2026-09-16T12:00:00Z', 'em_andamento', { atualizadoEm: '2026-09-20T12:00:00Z', conversou: true }),
+        s('b', '2026-09-16T12:00:00Z', 'em_andamento', { atualizadoEm: '2026-09-27T09:00:00Z', conversou: true }),
         // Sem `atualizadoEm`, vale a criação.
-        s('c', '2026-09-23T11:00:00Z', 'preparando'),
+        s('c', '2026-09-23T11:00:00Z', 'em_andamento', { conversou: true }),
       ],
       Math.random,
       agora,
@@ -394,6 +453,7 @@ describe('V-2: comentário da pesquisa sem identificação', () => {
     colaboradorId,
     criadoEm,
     status: 'concluida',
+    conversou: true,
     competencias: null,
     feedback: { realismo: 3, desafio: 3, interacao: 3, utilidade: 3, aprendizado: 3, comentario },
   });
@@ -453,7 +513,7 @@ it('inclui quem concluiu sem cobertura em Sem nível, sem misturar não iniciado
     nome: id,
     cargo: null,
   }));
-  const base = { criadoEm: '2026-09-19', status: 'concluida', feedback: null };
+  const base = { criadoEm: '2026-09-19', status: 'concluida', conversou: true, feedback: null };
   const r = agregarPainel(pessoas, [
     {
       ...base,

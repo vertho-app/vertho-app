@@ -25,9 +25,16 @@ export default function Relatorio({
   relatorio: original,
   versao,
   modo = 'participante',
+  focoSugerido = null,
 }: {
   relatorio: Saidas['gerente'];
   versao?: string;
+  /**
+   * Foco que o próximo plano vai sugerir (`consultarEvolucao`). A prioridade
+   * desta devolutiva só diz que "volta no próximo plano" quando é ele: uma
+   * devolutiva antiga do histórico não volta.
+   */
+  focoSugerido?: string | null;
   /**
    * `equipe`: quem lê é o gestor ou o RH, não a pessoa que treinou. Até
    * 27/09/2026 a gestão lia "Sua devolutiva PACE", "seu PDI", "seu plano"
@@ -61,6 +68,17 @@ export default function Relatorio({
     : null;
   // Só a primeira prioritária ganha o selo: versões antigas marcavam várias.
   const prioridade = r.Recomendacoes.findIndex((item) => item.prioritaria);
+  const destaque = prioridade >= 0 ? r.Recomendacoes[prioridade] : null;
+  const demais = r.Recomendacoes.filter((_, i) => i !== prioridade);
+  const referencia = (item: (typeof r.Recomendacoes)[number]) =>
+    documental && 'descritor' in item ? (
+      <p className="text-xs text-slate-400 mt-1">
+        {t('documentReference', {
+          descriptor: nomeDoDescritor(item.descritor),
+          section: MANUAL_PACE.trechos[item.referencia_manual].secao,
+        })}
+      </p>
+    ) : null;
   return (
     <section aria-label={t('report')}>
       <div className="flex items-baseline justify-between gap-4 mb-4">
@@ -72,6 +90,21 @@ export default function Relatorio({
         )}
       </div>
       <p className="text-sm text-slate-300 leading-relaxed mb-5">{r.Resumo}</p>
+      {/* Revisão de 04/10/2026: a prioridade vem antes das competências. No
+          celular ela só aparecia depois das cinco, abaixo de toda a matriz. */}
+      {destaque && (
+        <div className="mb-5 rounded-xl border border-brand-400/40 bg-brand-400/10 p-4 text-sm text-slate-300">
+          <p className="text-xs font-semibold uppercase tracking-wider text-brand-200 mb-1">
+            {t('priority')}
+          </p>
+          <strong className="text-white">{destaque.titulo}</strong>
+          <p>{destaque.descricao}</p>
+          {referencia(destaque)}
+          {!equipe && !!focoSugerido && destaque.titulo.trim() === focoSugerido && (
+            <p className="text-xs text-slate-400 mt-2">{t('priorityNextPlan')}</p>
+          )}
+        </div>
+      )}
       {/* V-11 (27/09/2026): a média e os níveis vêm logo depois do resumo. No
           celular a média geral só aparecia a cerca de 1.260 px, depois das
           recomendações e do resultado da negociação. */}
@@ -109,28 +142,21 @@ export default function Relatorio({
           </div>
         </>
       )}
-      <h3 className="font-semibold mt-6 mb-2">{t('recommendations')}</h3>
-      <ol className="space-y-3 list-decimal pl-5">
-        {r.Recomendacoes.map((item, i) => (
-          <li key={i} className="text-sm text-slate-300">
-            {i === prioridade && (
-              <span className="block text-xs font-semibold uppercase tracking-wider text-brand-200 mb-1">
-                {t('priority')}
-              </span>
-            )}
-            <strong className="text-white">{item.titulo}</strong>
-            <p>{item.descricao}</p>
-            {documental && 'descritor' in item && (
-              <p className="text-xs text-slate-400 mt-1">
-                {t('documentReference', {
-                  descriptor: nomeDoDescritor(item.descritor),
-                  section: MANUAL_PACE.trechos[item.referencia_manual].secao,
-                })}
-              </p>
-            )}
-          </li>
-        ))}
-      </ol>
+      {/* As demais recomendações; a prioritária já está no topo. */}
+      {demais.length > 0 && (
+        <>
+          <h3 className="font-semibold mt-6 mb-2">{t('recommendations')}</h3>
+          <ol className="space-y-3 list-decimal pl-5">
+            {demais.map((item, i) => (
+              <li key={i} className="text-sm text-slate-300">
+                <strong className="text-white">{item.titulo}</strong>
+                <p>{item.descricao}</p>
+                {referencia(item)}
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
       {/* Rotulado: "Resultado inconclusivo" solto, em negrito, acima da média
           geral, parecia o veredito do treino (V-11). */}
       <div className="mt-6 border-t border-white/10 pt-4 text-sm text-slate-300">

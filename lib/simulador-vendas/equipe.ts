@@ -223,8 +223,11 @@ async function populacaoDoVendas(c: Contexto): Promise<PessoaPainel[]> {
   }
 }
 
-const COLUNAS_PAINEL =
+// `primeira`: só o autor da primeira mensagem, para saber se houve conversa sem
+// trazer a conversa (a mesma projeção de lib/simuladores/treinos-parados.ts).
+export const COLUNAS_PAINEL =
   'id,colaborador_id,created_at,updated_at,resumo,feedback:estado->feedback' +
+  ',primeira:estado->mensagens->0->>autor' +
   ',pl:estado->relatorio->PL,p:estado->relatorio->P,a:estado->relatorio->A,c:estado->relatorio->C,e:estado->relatorio->E';
 const notaOuNulo = (n: unknown) => (typeof n === 'number' ? n : null);
 
@@ -259,6 +262,7 @@ export async function painelEquipe(c: Contexto): Promise<PainelVendas> {
           criadoEm: r.created_at,
           atualizadoEm: r.updated_at ?? null,
           status: String(r.resumo?.status ?? ''),
+          conversou: r.primeira != null,
           competencias: nativa
             ? {
                 PL: notaOuNulo(r.pl),

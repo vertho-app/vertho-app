@@ -56,8 +56,10 @@ const publico = (row: any) => ({
   processando: !!row.lock_until && Date.parse(row.lock_until) > Date.now(),
 });
 
-/** Página do histórico de quem treina; a sugestão de degrau e a evolução leem a primeira. */
+/** Página do histórico de quem treina. */
 export const PAGINA_HISTORICO = 20;
+/** Avaliações que a sugestão de degrau e a evolução leem: as concluídas mais recentes. */
+export const JANELA_AVALIACOES = 20;
 // Sessão aberta e abandonada sem resposta, marcada ao iniciar outra (27/09/2026): fora da tela.
 const semDescartadas = (c: Ctx) =>
   owned(c, COLUNAS_RESUMO).neq('estado->>status', RECEPCAO_SESSAO.DESCARTADA);
@@ -87,6 +89,25 @@ export async function consultarHistorico(c: Ctx, pagina: number) {
     historico: (data || []).slice(0, PAGINA_HISTORICO).map(itemDoHistorico),
     temMais: (data || []).length > PAGINA_HISTORICO,
   };
+}
+
+/**
+ * As `JANELA_AVALIACOES` conclusões mais recentes (revisão de 04/10/2026). Até aqui
+ * a sugestão de degrau e a evolução liam a primeira página do histórico, onde o
+ * atendimento aberto ou encerrado sem relatório também ocupa vaga: a janela de
+ * navegação decidia a janela de avaliação. Só lê de novo quando a página não
+ * garante as mais recentes (há outra página e nem tudo nela foi concluído).
+ */
+async function avaliacoesRecentes(c: Ctx, pagina: any[], haMais: boolean): Promise<any[]> {
+  const concluidas = pagina.filter((r) => r.status === RECEPCAO_SESSAO.CONCLUIDA);
+  if (!haMais || concluidas.length >= JANELA_AVALIACOES) return concluidas.slice(0, JANELA_AVALIACOES);
+  const { data, error } = await semDescartadas(c)
+    .eq('estado->>status', RECEPCAO_SESSAO.CONCLUIDA)
+    .order('created_at', { ascending: false })
+    .order('id')
+    .limit(JANELA_AVALIACOES);
+  banco(error);
+  return data || [];
 }
 
 /**
@@ -128,13 +149,14 @@ async function descartarVazias(c: Ctx, manter: string) {
 }
 
 export async function consultar(c: Ctx, id?: string | null) {
-  // A página 0 do histórico (+1 para saber se há mais); a sugestão e a evolução leem as 20.
+  // A página 0 do histórico (+1 para saber se há mais).
   const { data: lidas, error } = await semDescartadas(c)
     .order('created_at', { ascending: false })
     .order('id')
     .limit(PAGINA_HISTORICO + 1);
   banco(error);
   const rows: any[] = (lidas || []).slice(0, PAGINA_HISTORICO);
+  const avaliadas = await avaliacoesRecentes(c, rows, (lidas || []).length > PAGINA_HISTORICO);
   // A sessão na tela vem inteira, numa leitura de UMA linha: a do pedido ou a mais recente.
   const alvo = id || rows[0]?.id;
   let row = null;
@@ -145,11 +167,10 @@ export async function consultar(c: Ctx, id?: string | null) {
     row = result.data;
   }
   const cenarios = await catalogo(c);
-  // A sugestão lê os 20 treinos mais recentes (mesma janela do histórico exibido).
+  // A sugestão lê as 20 avaliações mais recentes (`avaliacoesRecentes`).
   // Com o porquê (27/09/2026): a tela explica a sugestão e diz se há caso daquele degrau.
   const sugestao = sugerirNivelComMotivo(
-    rows
-      .filter((r) => r.status === RECEPCAO_SESSAO.CONCLUIDA)
+    avaliadas
       .map((r) => ({
         nivel: r.nivel ?? null,
         nota: r.nota ?? null,
@@ -158,15 +179,10 @@ export async function consultar(c: Ctx, id?: string | null) {
   );
   const nivelSugerido = sugestao.nivel;
   // Evolução por competência de quem treina (18/09/2026): maior nível alcançado, só avanço
-  // (régua comum, lib/simuladores/evolucao.ts), nos treinos recentes com matriz. A partir de 2.
+  // (régua comum, lib/simuladores/evolucao.ts), nas avaliações recentes com matriz. A partir de 2.
   const competencias = competenciasAtendimento(c.dominio);
-  const comMatriz = rows
-    .filter(
-      (r) =>
-        r.status === RECEPCAO_SESSAO.CONCLUIDA &&
-        r.escala === '1-4' &&
-        r.competencias?.length,
-    )
+  const comMatriz = avaliadas
+    .filter((r) => r.escala === '1-4' && r.competencias?.length)
     .map((r) => ({
       competencias: Object.fromEntries(
         r.competencias.map((x: { codigo: string; nota: number | null }) => [x.codigo, x.nota]),

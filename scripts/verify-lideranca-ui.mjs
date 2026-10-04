@@ -260,7 +260,8 @@ try {
   // ... e diz, numa frase, o que falta demonstrar.
   await expect(page.getByText(/^Falta (demonstrar|chegar ao Nível 3 em) /)).toBeVisible();
   // E a jornada é onde a média vive (ou diz o que falta para ela existir).
-  await expect(page.getByText(/Média da jornada: Nível|A média aparece quando/)).toBeVisible();
+  // Desde 04/10/2026 (R-35) o rótulo é "Nível geral da jornada".
+  await expect(page.getByText(/Nível geral da jornada: Nível|O nível geral aparece quando/)).toBeVisible();
   const ySintese = (await page.getByText('Sua jornada completa').boundingBox()).y;
   const yDevolutiva = (await page.getByRole('heading', { name: 'O que sua atuação mostrou' }).boundingBox()).y;
   assert(ySintese < yDevolutiva, 'a síntese do fim da jornada fica acima da devolutiva');
@@ -331,6 +332,20 @@ try {
   await expect(tabelaEquipe.getByRole('cell', { name: 'ainda não avaliada' }).first()).toBeVisible();
   await expect(tabelaEquipe.getByRole('cell', { name: 'evidência insuficiente' }).first()).toBeVisible();
   assert(!(await tabelaEquipe.innerText()).includes('—'), 'traço na tabela da equipe');
+  // Revisão de 04/10/2026: a falha da primeira leitura do painel tem "Atualizar" ali
+  // mesmo; antes só restava recarregar a página.
+  {
+    const falha = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    falha.on('pageerror', (e) => errors.push(e.message));
+    await falha.goto(`${origin}?equipe=1&painelFalha=1`);
+    await falha.getByRole('button', { name: 'Equipe', exact: true }).click();
+    await expect(falha.getByRole('alert').getByText('Não foi possível consultar a equipe.', { exact: true })).toBeVisible();
+    await falha.screenshot({ path: `${dir}/equipe-falha-desktop.png`, fullPage: false });
+    await falha.getByRole('alert').getByRole('button', { name: 'Atualizar', exact: true }).click();
+    await expect(falha.getByRole('table')).toBeVisible();
+    assert.equal(await falha.getByRole('alert').count(), 0, 'o aviso de falha sai depois de atualizar');
+    await falha.close();
+  }
   // Celular (27/09/2026): um cartão por pessoa, com "Ver devolutivas" dentro da tela.
   // A tabela tinha 919 px numa caixa de 318, e o botão ficava fora dela.
   await page.setViewportSize({ width: 390, height: 844 });

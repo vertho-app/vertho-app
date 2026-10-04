@@ -126,6 +126,27 @@ describe('A-8: a tela de quem treina lê a lista projetada', () => {
     expect(d.sessao.id).toBe('s-aberta');
     expect(d.sessao.historico).toHaveLength(11);
   });
+
+  it('sugestão e evolução leem as avaliações concluídas, não a página do histórico (04/10/2026)', async () => {
+    // Vinte atendimentos abertos, todos mais novos que as avaliações: a página 0
+    // do histórico fica só com eles, e as avaliações vão para a página seguinte.
+    const inicio = Date.parse('2026-09-23T00:00:00.000Z');
+    for (let i = 0; i < 20; i++)
+      linhas.push(sessaoReal(`s-aberta-${i}`, 'ana', new Date(inicio + i * 3_600_000).toISOString(), 'aberta'));
+    const d = await consultar(ctx());
+    expect(d.historico.every((h: any) => h.status === 'em_andamento')).toBe(true);
+    expect(d.evolucao?.competencias.find((c: any) => c.codigo === 'clareza')).toMatchObject({ nivelAlcancado: 2 });
+    // Antes, a página sem conclusões fazia a sugestão dizer "sem histórico".
+    expect(d.sugestao.motivo).not.toBe('sem_historico');
+    // A segunda leitura pede só as concluídas, na projeção do resumo.
+    expect(banco.selects('recepcao_sessoes').filter((s) => s === COLUNAS_RESUMO).length).toBe(3);
+  });
+
+  it('sem outra página, as avaliações saem da própria página, sem segunda leitura', async () => {
+    await consultar(ctx());
+    // Página e atendimentos abertos; nenhuma leitura a mais para as avaliações.
+    expect(banco.selects('recepcao_sessoes').filter((s) => s === COLUNAS_RESUMO)).toHaveLength(2);
+  });
 });
 
 describe('A-8: o painel da equipe lê a projeção', () => {

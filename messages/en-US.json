@@ -193,7 +193,7 @@
     "reviewAi": "AI assessment",
     "reviewNoReport": "This session has no report yet.",
     "evolutionTitle": "Your progress",
-    "evolutionHelp": "Highest level per competency across your 20 most recent sessions. Older training sessions are not included in this summary.",
+    "evolutionHelp": "Highest level per competency across your 20 most recent assessed sessions. Earlier ones are not included in this summary.",
     "trainingDetails": "View case sheet and conversation"
   },
   "SimuladoresRelatorio": {
@@ -438,6 +438,7 @@
     "matrixScaleHelp": "Level 3 is the target. Levels come from what you did in your plan and in the conversation.",
     "legacyScaleHelp": "This assessment predates the current competency matrix. The result was converted from the 0 to 10 scale to the 1 to 4 scale; the original criteria were preserved.",
     "priority": "Priority for your next session",
+    "priorityNextPlan": "It comes back as the suggested focus in your next session's plan.",
     "planningField1": "What you know about the client and what you need to confirm",
     "planningField2": "Meeting goal and a fallback if it is not possible",
     "planningField3": "Hypotheses and questions to test them",

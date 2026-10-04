@@ -15,6 +15,7 @@ export default function MatrizAtendimento({
   nomePersona,
   dominio,
   publico = 'voce',
+  comMedia = true,
 }: {
   relatorio: NonNullable<Estado['relatorio']>;
   historico: Array<{ id: string; role: 'user' | 'assistant' }>;
@@ -22,6 +23,12 @@ export default function MatrizAtendimento({
   dominio?: string;
   /** `voce` fala com quem treinou; `equipe` é a revisão de quem acompanha. */
   publico?: 'voce' | 'equipe';
+  /**
+   * `false` quando a tela já mostra o nível geral acima (devolutiva de quem
+   * treinou, revisão de 04/10/2026): o mesmo nível aparecia no cabeçalho e de
+   * novo aqui, como "Nível geral".
+   */
+  comMedia?: boolean;
 }) {
   const t = useTranslations('SimuladorAtendimento');
   const rotulo = ({ mensagemId }: { mensagemId: string }) => {
@@ -34,7 +41,7 @@ export default function MatrizAtendimento({
   return (
     <RelatorioCompetencias
       competencias={competencias}
-      media={media}
+      media={comMedia ? media : undefined}
       regra={regra}
       tema="claro"
       acento="var(--teal)"

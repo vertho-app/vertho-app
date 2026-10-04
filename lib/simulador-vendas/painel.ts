@@ -54,6 +54,12 @@ export interface SessaoPainel {
   /** Última gravação do treino (`updated_at`); sem ela, vale a criação. */
   atualizadoEm?: string | null;
   status: string;
+  /**
+   * O vendedor mandou ao menos uma mensagem ao cliente. A conversa sempre abre
+   * com a fala dele (`responder` grava a do vendedor antes da do cliente), então
+   * existir a primeira mensagem é o mesmo que ter conversado.
+   */
+  conversou: boolean;
   /** Notas 1 a 4 por competência; `null` fora da escala nativa ou sem relatório. */
   competencias: NotasPorCompetencia | null;
   feedback:
@@ -111,12 +117,21 @@ const ABERTOS: string[] = [
   VENDAS_SESSAO.PREPARANDO,
   VENDAS_SESSAO.EM_ANDAMENTO,
 ];
-/** Descartado (abandonada) não conta como treino. */
-const CONTAM_COMO_TREINO: string[] = [
-  ...ABERTOS,
-  VENDAS_SESSAO.CONCLUIDA,
-  VENDAS_SESSAO.INTERROMPIDA,
-];
+
+/**
+ * "Treinou" = conversou com o cliente ao menos uma vez (revisão de 04/10/2026),
+ * a mesma régua do atendimento desde 27/09 (`respondeu`, lib/recepcao/painel.ts).
+ * A sessão nasce em `preparando` no clique que inicia o treino: contar a sessão
+ * aberta tirava de "Não começaram" quem só abriu e saiu (medido 04/10: 2 das 3
+ * sessões abertas do banco, todas de demonstração, sem nenhuma mensagem). O
+ * plano sozinho não conta: é a
+ * preparação, e o texto dele fica com a pessoa (R-42). Encerrado sem relatório
+ * (`abandonada`) com conversa conta, como o interrompido com resposta no
+ * atendimento; concluído sempre teve conversa.
+ */
+export function conversou(s: Pick<SessaoPainel, 'status' | 'conversou'>) {
+  return s.status === VENDAS_SESSAO.CONCLUIDA || s.conversou;
+}
 
 /** Embaralha sem viés (Fisher-Yates); `aleatorio` é injetável para teste. */
 function embaralhar<T>(itens: T[], aleatorio: () => number): T[] {
@@ -143,7 +158,7 @@ export function agregarPainel(
   const linhas: LinhaPessoa[] = pessoas.map((p) => {
     // Mais recente primeiro, como o histórico que a evolução espera.
     const minhas = (porPessoa.get(p.id) || [])
-      .filter((s) => CONTAM_COMO_TREINO.includes(s.status))
+      .filter(conversou)
       .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
     const concluidas = minhas.filter(
       (s) => s.status === VENDAS_SESSAO.CONCLUIDA,

@@ -27,6 +27,7 @@ import {
 import { humanizarReferencias } from '@/lib/recepcao/texto';
 import { registroDaSessao, tituloDoCaso } from '@/lib/recepcao/caso-da-sessao';
 import { nivelDaNota } from '@/lib/nivel-regua';
+import { REGRA_COBERTURA } from '@/lib/simuladores/cobertura';
 import styles from './treino.module.css';
 import MatrizAtendimento from './matriz-relatorio';
 import GestaoRecepcao from './gestao';
@@ -798,6 +799,17 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                         )}
                       </p>
                     )}
+                    {/* Sem nível geral, o porquê (antes só no bloco repetido abaixo). */}
+                    {relatorio.competencias &&
+                      relatorio.nota === null &&
+                      relatorio.regraCobertura && (
+                        <p className={styles.small}>
+                          {tRelatorio('overallUnavailable', {
+                            min: REGRA_COBERTURA.minCompetencias,
+                            desc: REGRA_COBERTURA.minDescritores,
+                          })}
+                        </p>
+                      )}
                     <div className={styles.desfecho}>
                       <p>
                         <strong>{t('reviewOutcome')}</strong> {desfecho(relatorio.desfecho.tipo)}.{' '}
@@ -884,11 +896,13 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                 ) : null}
                 {relatorio.competencias ? (
                   <div className={styles.matriz}>
+                    {/* O nível geral já está no cabeçalho: aqui só as competências. */}
                     <MatrizAtendimento
                       relatorio={relatorio}
                       historico={sessao.historico}
                       nomePersona={nomePersona}
                       dominio={dominio}
+                      comMedia={false}
                     />
                   </div>
                 ) : (

@@ -444,6 +444,11 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
     });
   }
   if (url.includes('/gestao')) {
+    // `painelFalha`: a PRIMEIRA leitura do painel falha, a seguinte responde (04/10/2026).
+    if (q.has('painel') && params.has('painelFalha') && !(window as any).__painelFalhou) {
+      (window as any).__painelFalhou = true;
+      return Response.json({ error: 'Não foi possível consultar os treinos da equipe.' }, { status: 503 });
+    }
     // Visão da equipe: a agregação real sobre pessoas e treinos fictícios.
     if (q.has('painel'))
       return Response.json(
@@ -465,6 +470,7 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
               colaboradorId: `p-${nome}`,
               criadoEm: `2026-09-2${i}T12:00:00Z`,
               status: 'concluida',
+              conversou: true,
               competencias: null,
               feedback: {
                 realismo: 4,
@@ -479,6 +485,7 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
               colaboradorId: 'p-ana',
               criadoEm: '2026-09-10T12:00:00Z',
               status: 'concluida',
+              conversou: true,
               competencias: { PL: 2.4, P: 2.8, A: 3.1, C: 2.5, E: 3.2 },
               feedback: {
                 realismo: 4,
@@ -493,6 +500,7 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
               colaboradorId: 'p-ana',
               criadoEm: '2026-09-15T12:00:00Z',
               status: 'concluida',
+              conversou: true,
               competencias: { PL: 3.2, P: 3.0, A: 2.9, C: null, E: 3.6 },
               feedback: {
                 realismo: 5,
@@ -507,6 +515,16 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
               colaboradorId: 'p-bruno',
               criadoEm: '2026-09-16T12:00:00Z',
               status: 'em_andamento',
+              conversou: true,
+              competencias: null,
+              feedback: null,
+            },
+            // Abriu a tela e saiu sem falar com o cliente: segue em "Não começaram".
+            {
+              colaboradorId: 'p-carla',
+              criadoEm: '2026-09-17T12:00:00Z',
+              status: 'em_andamento',
+              conversou: false,
               competencias: null,
               feedback: null,
             },

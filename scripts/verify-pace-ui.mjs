@@ -126,7 +126,9 @@ try {
   assert.equal(await page.getByRole('list', { name: 'Etapas para receber a devolutiva' }).count(), 0, 'cartão grande depois do envio');
   assert.equal(await page.getByRole('list', { name: 'Etapas PACE', exact: true }).count(), 0, 'trilho P A C E depois do fim');
   // Escala comum 1 a 4 desde 17/09 (pace-6); a leitura pública converte toda versão.
-  assert.equal(await page.locator('meter').first().getAttribute('min'), '1');
+  // Desde 04/10/2026 (R-35, `7b1c1a7b`) a tela mostra o nível, sem barra de nota.
+  assert.equal(await page.locator('meter').count(), 0, 'barra de nota na devolutiva');
+  await expect(page.getByText(/^Nível [1-4]$/).first()).toBeVisible();
   await page.screenshot({ path: `${dir}/relatorio-desktop.png`, fullPage: true });
   checks += 2;
   await page.goto(`${origin}/?active=1&completed=1&rated=1&zero=1`);
@@ -223,7 +225,8 @@ try {
   await page.getByRole('heading', { name: 'Conte como foi a experiência', exact: true }).waitFor();
   const meusTreinos = page.getByRole('navigation', { name: 'Seus treinos', exact: true });
   await meusTreinos.getByText('Pesquisa pendente', { exact: true }).waitFor();
-  assert.equal(await meusTreinos.getByText(/Nota PACE/).count(), 0, 'nota antes da pesquisa');
+  // Desde 04/10/2026 (R-35) a lista mostra o nível, não a nota PACE.
+  assert.equal(await meusTreinos.getByText(/^Nível d$/).count(), 0, 'nível antes da pesquisa');
   await page.getByText(/^Sua devolutiva está pronta e abre depois da pesquisa de experiência/).waitFor();
   const fundo = (nome) =>
     page.getByRole('button', { name: nome, exact: true }).evaluate((b) => getComputedStyle(b).backgroundColor);
@@ -234,7 +237,7 @@ try {
   // Enviado pelo teclado: é quando o navegador desenha o anel de foco
   // (`:focus-visible`) no relatório que recebe o foco (V-11).
   await page.getByRole('button', { name: 'Enviar avaliação e abrir devolutiva', exact: true }).press('Enter');
-  await meusTreinos.getByText('Nota PACE 3', { exact: true }).waitFor();
+  await meusTreinos.getByText('Nível 3', { exact: true }).waitFor();
   await page.getByRole('region', { name: 'Devolutiva por competência', exact: true }).waitFor();
   await expect
     .poll(() => page.evaluate(() => document.activeElement?.querySelector('[aria-label="Relatório PACE"]') !== null))
@@ -290,7 +293,8 @@ try {
   await page.goto(`${origin}/?history=1`);
   await expect(page.getByRole('button', { name: 'Nova simulação', exact: true })).toBeEnabled();
   await page.getByText('Dificuldade: Baixo', { exact: true }).first().waitFor();
-  await page.getByText('Nota PACE 2,95', { exact: true }).first().waitFor();
+  await page.getByRole('navigation', { name: 'Seus treinos', exact: true }).getByText('Nível 2', { exact: true }).first().waitFor();
+  assert.equal(await page.getByText(/Nota PACE|d,d+ de 4/).count(), 0, 'nota decimal no histórico');
   await page.screenshot({ path: `${dir}/historico-dificuldade-nota-desktop.png`, fullPage: true });
   await page.getByRole('button', { name: 'Carregar mais', exact: true }).click();
   await page.getByRole('button', { name: /Cliente 31/ }).click();
@@ -301,6 +305,7 @@ try {
   // Visão da equipe (18/09): quem não começou, níveis por pessoa e a pesquisa.
   const visao = page.getByRole('region', { name: 'Visão da equipe', exact: true });
   await visao.waitFor();
+  // Carla abriu um treino e não falou com o cliente: segue entre quem não começou (04/10/2026).
   await visao.getByText('Ainda não começaram (2)', { exact: true }).waitFor();
   await visao.getByText('Carla', { exact: true }).first().waitFor();
   const linhaAna = visao.locator('tr', { hasText: 'Ana Souza' });
@@ -332,15 +337,33 @@ try {
   await page.screenshot({ path: `${dir}/visao-equipe-mobile.png`, fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1080 });
   checks++;
+  // Revisão de 04/10/2026: a falha da primeira leitura do painel tem "Atualizar"
+  // ali mesmo; antes só restava recarregar a página.
+  {
+    const falha = await browser.newPage({ viewport: { width: 1440, height: 1080 }, timezoneId: 'America/Sao_Paulo' });
+    falha.setDefaultTimeout(15000);
+    falha.on('pageerror', (e) => errors.push(e.message));
+    await falha.goto(`${origin}/?admin=1&empresa=${empresaA}&history=1&painelFalha=1`);
+    await falha.getByRole('button', { name: 'Acompanhamento da equipe', exact: true }).click();
+    const visaoFalha = falha.getByRole('region', { name: 'Visão da equipe', exact: true });
+    await visaoFalha.getByRole('alert').getByText('Não foi possível consultar os treinos da equipe.', { exact: true }).waitFor();
+    await falha.screenshot({ path: `${dir}/visao-equipe-falha-desktop.png`, fullPage: false });
+    await visaoFalha.getByRole('button', { name: 'Atualizar', exact: true }).click();
+    await visaoFalha.getByText('Ainda não começaram (2)', { exact: true }).waitFor();
+    assert.equal(await visaoFalha.getByRole('alert').count(), 0, 'o aviso de falha sai depois de atualizar');
+    await falha.close();
+    checks++;
+  }
   // V-7 (27/09/2026): a gestão recebe o relatório como a produção gera (pace-7,
   // matriz) e a nota da lista é a nota da devolutiva. O harness antigo mandava
   // um relatório 0 a 10 marcado como pace-7 e a tela mostrava "10 / 4".
   const linhaTreino = page.locator('tr', { has: page.getByRole('button', { name: 'Ver relatório', exact: true }) }).first();
-  assert.equal((await linhaTreino.locator('td').nth(3).innerText()).trim(), '2,8', 'nota da lista');
+  // Desde 04/10/2026 (R-35) a lista e a devolutiva dizem o mesmo NÍVEL (2,8 é Nível 2).
+  assert.equal((await linhaTreino.locator('td').nth(3).innerText()).trim(), 'Nível 2', 'nível da lista');
   await linhaTreino.getByRole('button', { name: 'Ver relatório', exact: true }).click();
   await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
   const devolutivaEquipe = page.getByRole('region', { name: 'Devolutiva por competência', exact: true });
-  await devolutivaEquipe.getByText('2,8 de 4', { exact: true }).waitFor();
+  assert.equal(await devolutivaEquipe.getByText(/d,d+ de 4/).count(), 0, 'nota decimal na devolutiva da equipe');
   await expect(devolutivaEquipe.getByText('Nível 2', { exact: true }).first()).toBeVisible();
   assert.equal(await page.getByText(/\d+ \/ 4$/).count(), 0, 'nota 0 a 10 exibida como se fosse 1 a 4');
   // V-10 (27/09/2026): o relatório abre à vista (a tela rola e o foca) e fala

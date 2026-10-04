@@ -55,6 +55,11 @@ w.__liderancaFetch = async (url: string, options?: RequestInit) => {
         encontros: [...s.concluidos, ...repeticoes()].map(paraEquipe),
         sintese: sintese(),
       });
+    // `painelFalha`: a PRIMEIRA leitura do painel falha, a seguinte responde (04/10/2026).
+    if (params.has('painelFalha') && !w.__painelFalhou) {
+      w.__painelFalhou = true;
+      return Response.json({ error: 'Não foi possível consultar a equipe.' }, { status: 503 });
+    }
     return Response.json({
       empresaId: '10000000-0000-4000-8000-000000000001',
       empresaNome: 'Empresa de demonstração',
