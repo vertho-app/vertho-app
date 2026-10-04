@@ -4,6 +4,7 @@ import { canViewColabJourney, findColabByEmail, getUserContext } from '@/lib/aut
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from '@/actions/ai-client';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import { derivarArquetipo, derivarTagsExecutivas, insightsHardcoded } from '@/lib/disc-arquetipos';
 import { buildInsightsExecutivosPrompt } from '@/lib/prompts/insights-executivos-prompt';
 import { isPerfilComportamentalLiberado } from '@/lib/votacao/status';
@@ -224,9 +225,12 @@ export async function gerarInsightsExecutivos(opts: any = {}) {
     // insights ficavam null silenciosamente, sem nova tentativa. Tokens 800 →
     // 1500 evita truncar os 3 insights no meio (o que invalidava o JSON).
     let insights: string[] | null = null;
+    // Os insights são da PESSOA e ficam no cadastro dela (cache de 30 dias): o idioma dela, e não o do cookie
+    // da sessão que abriu a tela. Resolvido uma vez, fora do laço de tentativas.
+    const locale = await idiomaDaPessoa(colab.empresa_id, colab.id);
     for (let attempt = 1; attempt <= 2 && !insights; attempt++) {
       try {
-        const raw = await callAI(system, prompt, { model }, 1500);
+        const raw = await callAI(system, prompt, { model }, 1500, { locale });
         insights = extractInsights(raw);
         if (!insights) console.warn(`[gerarInsightsExecutivos] tentativa ${attempt}: resposta sem JSON de insights válido`);
       } catch (e: any) {

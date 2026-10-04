@@ -6,6 +6,8 @@ import { buildBehavioralReportPrompt } from '@/lib/prompts/behavioral-report-pro
 import { callAI } from '@/actions/ai-client';
 import { BEHAVIORAL_REPORT_SCHEMA_VERSION, isCurrentBehavioralReport } from '@/lib/behavioral-report-schema';
 import { storageSlug } from '@/lib/storage-slug';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
+import type { AppLocale } from '@/i18n/routing';
 
 /**
  * Núcleo HEADLESS do relatório comportamental — SEM gate e SEM endpoint HTTP.
@@ -38,8 +40,13 @@ export const BUCKET = 'relatorios-pdf';
  *
  * O `empresaId` já estava no escopo, usado na LINHA DE CIMA para escolher o
  * modelo — a mesma forma do achado que criou o guard de 07/09.
+ *
+ * `locale`: o idioma da PESSOA a quem o relatório pertence (Onda E, 04/10/2026), resolvido por quem chama
+ * (`idiomaDaPessoa`). Sem ele o `callAI` lê o cookie de quem disparou; no `after()` do mapeamento não há cookie
+ * e o texto saía em pt-BR para quem lê em outro idioma. A chave do cache (`report_texts`) não carrega idioma:
+ * quem troca de idioma recebe o texto novo quando o cache de 30 dias vencer.
  */
-export async function gerarTextosLLM(raw, empresaId) {
+export async function gerarTextosLLM(raw, empresaId, locale?: AppLocale) {
   const prompt = buildBehavioralReportPrompt(raw);
   const system = 'Você é um analista comportamental sênior da Vertho. DISC é tendência, não sentença. Nunca use linguagem determinista. Responda APENAS com JSON válido, sem markdown nem comentários.';
   const { getModelForTask } = await import('@/lib/ai-tasks');
@@ -47,6 +54,7 @@ export async function gerarTextosLLM(raw, empresaId) {
   const rawAnswer = await callAI(system, prompt, { model }, 4096, {
     taskKey: 'relatorio_comportamental',
     empresaId,
+    ...(locale ? { locale } : {}),
   });
 
   const cleaned = String(rawAnswer || '')
@@ -161,7 +169,7 @@ export async function gerarEsalvarRelatorioComportamentalCore({ colab: inputCola
     let texts = null;
     if (isFreshReportCache(colab.report_texts, colab.report_generated_at)) texts = colab.report_texts;
     if (!texts) {
-      texts = await gerarTextosLLM(raw, colab.empresa_id);
+      texts = await gerarTextosLLM(raw, colab.empresa_id, await idiomaDaPessoa(colab.empresa_id, colab.id));
       await persistReportTexts(sb, colab.id, texts, colab.empresa_id);
     }
 

@@ -95,7 +95,8 @@ export const gerarRelatoriosBatchTask = task({
       for (const id of colabIds) {
         const r = await buildRelatorioIndividualReq(sb, { empresaId, colaboradorId: id });
         if ('error' in r) { resultados.push({ colab: nome(id), ok: false, error: r.error }); buildErr.add(id); continue; }
-        reqs.push({ customId: id, system: r.system, user: r.user, model, maxTokens: r.maxTokens });
+        // `locale`: o idioma de quem lê o PDI, por request. O lote junta pessoas de idiomas diferentes.
+        reqs.push({ customId: id, system: r.system, user: r.user, model, maxTokens: r.maxTokens, locale: r.locale });
       }
 
       // 2) Batch destacado. Falha total → mapa vazio → cada um cai no síncrono.
@@ -145,8 +146,10 @@ export const gerarRelatoriosBatchTask = task({
         let texto = respostas.get(id);
         if (!texto || !texto.trim()) {
           try {
+            // Fora de uma request o `callAI` não tem cookie: sem `locale` o fallback sairia sempre em pt-BR,
+            // mesmo para quem o lote atendeu no idioma dele.
             texto = await callAI(req.system, req.user, aiConfig, req.maxTokens, {
-              taskKey: 'pdi_individual', empresaId, colaboradorId: id, source: 'batch-sync',
+              taskKey: 'pdi_individual', empresaId, colaboradorId: id, source: 'batch-sync', locale: req.locale,
             });
           } catch (e: any) {
             resultados.push({ colab: nome(id), ok: false, error: 'IA falhou: ' + (e?.message || e) });

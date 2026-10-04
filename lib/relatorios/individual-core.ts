@@ -90,6 +90,8 @@ export interface RelatorioIndividualReq {
   system: string;
   user: string;
   maxTokens: number;
+  /** O idioma de quem LÊ o PDI (a pessoa): vai na request do lote e no fallback síncrono. */
+  locale: AppLocale;
 }
 
 /**
@@ -107,7 +109,11 @@ export async function buildRelatorioIndividualReq(
 ): Promise<RelatorioIndividualReq | { error: string }> {
   const built = await buildRelatorioIndividualPrompt(sbRaw, { empresaId, colaboradorId });
   if ('error' in built) return { error: built.error };
-  return { customId: colaboradorId, system: built.system, user: built.user, maxTokens: PDI_MAX_TOKENS };
+  // O PDI é da PESSOA: o texto sai no idioma dela (`colaboradores.locale`, senão o da empresa, senão pt-BR),
+  // o mesmo que o PDF usa mais abaixo. Sem isto o lote ia todo no padrão (pt-BR) e o síncrono no cookie de quem
+  // disparou.
+  const locale = await idiomaDaPessoa(empresaId, colaboradorId);
+  return { customId: colaboradorId, system: built.system, user: built.user, maxTokens: PDI_MAX_TOKENS, locale };
 }
 
 /**
@@ -358,6 +364,8 @@ export async function gerarRelatorioIndividualCore(
     // trabalho já pago. O documento é longo por desenho; o teto acompanha.
     const resultado = await callAI(built.system, built.user, aiConfig, PDI_MAX_TOKENS, {
       taskKey: 'pdi_individual', empresaId, colaboradorId, timeoutMs: 300000,
+      // O PDI é da pessoa: o idioma dela, não o do cookie de quem clicou em "gerar" (a operação, em geral).
+      locale: await idiomaDaPessoa(empresaId, colaboradorId),
     });
 
     // `built` passado adiante: o síncrono já pagou a leitura, não há por que

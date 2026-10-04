@@ -332,8 +332,12 @@ ${JSON.stringify(cargosData, null, 2)}
 REGISTROS INDIVIDUAIS:
 ${JSON.stringify(registros, null, 2)}`;
 
+    // O relatório de RH é da EMPRESA: a IA escreve no idioma dela (`empresas.default_locale`, senão pt-BR), o
+    // mesmo do texto fixo do PDF. Sem `locale`, o `callAI` lia o cookie de quem DISPAROU (a operação da Vertho),
+    // e o RH de uma empresa em outro idioma abria o relatório com a prosa no idioma errado.
+    const locale = await idiomaDaPessoa(empresaId, null);
     const resultado = await callAI(RELATORIO_RH_SYSTEM, user, aiConfig, 64000, {
-      taskKey: 'relatorio_rh', empresaId,
+      taskKey: 'relatorio_rh', empresaId, locale,
     });
     const relatorio: any = await extractJSON(resultado);
 
@@ -342,8 +346,7 @@ ${JSON.stringify(registros, null, 2)}`;
     let pdfPath: string | null = null;
     try {
       const pdfData = { conteudo: relatorio, gerado_em: new Date().toISOString() };
-      // O relatório de RH é da EMPRESA: o texto fixo do papel sai no idioma dela (quem baixa em outro idioma recebe uma versão própria na rota).
-      const locale = await idiomaDaPessoa(empresaId, null);
+      // O texto fixo do papel sai no idioma da empresa (quem baixa em outro idioma recebe uma versão própria na rota).
       const buffer = await gerarPDFBuffer('rh', pdfData, empresa.nome, locale);
       if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'rh', empresa.nome, buffer, locale);
     } catch (e: any) { console.error('[PDF Gen RH]', e.message); }

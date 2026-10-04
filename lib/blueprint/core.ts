@@ -26,6 +26,8 @@ import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
 import { nivelDaNota } from '@/lib/nivel-regua';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
+import type { AppLocale } from '@/i18n/routing';
 
 export const BLUEPRINT_SPEC_VERSION = 1;
 
@@ -132,6 +134,8 @@ export interface BlueprintReqBuilt {
   maxTokens: number;
   empresaId: string;
   competenciasFoco: BlueprintCompetenciaInput[];
+  /** O idioma de quem LÊ o blueprint (a pessoa): vai na request do lote e no fallback síncrono. */
+  locale: AppLocale;
 }
 
 /**
@@ -206,7 +210,10 @@ export async function buildBlueprintReq(
     perfilComportamental, competenciasFoco,
     duracaoSemanas: cfg.semanas, semanasMissao: cfg.semanasMissao, semanasAvaliacao: cfg.semanasAvaliacao,
   });
-  return { customId: colaboradorId, system, user, maxTokens: 64000, empresaId, competenciasFoco };
+  // O blueprint é da PESSOA (alimenta o PDI dela): o idioma dela (`colaboradores.locale`, senão o da empresa,
+  // senão pt-BR). Sem isto o lote ia todo no padrão (pt-BR) e o síncrono no cookie de quem disparou.
+  const locale = await idiomaDaPessoa(empresaId, colaboradorId);
+  return { customId: colaboradorId, system, user, maxTokens: 64000, empresaId, competenciasFoco, locale };
 }
 
 /**
@@ -259,7 +266,7 @@ export async function gerarBlueprintCore(
     const req = await buildBlueprintReq(sbRaw, { colaboradorId, empresaIdEsperado });
     if ('error' in req) return req;
     const text = await callAI(req.system, req.user, aiConfig || {}, req.maxTokens, {
-      taskKey: 'blueprint_gerar', empresaId: req.empresaId, colaboradorId,
+      taskKey: 'blueprint_gerar', empresaId: req.empresaId, colaboradorId, locale: req.locale,
     });
     if (dryRun) {
       const { extractJSON } = await import('@/actions/utils');

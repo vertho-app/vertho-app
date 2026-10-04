@@ -7,6 +7,7 @@ import { CIS_COLUMNS, mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfi
 import { callAI } from '@/actions/ai-client';
 import { isCurrentBehavioralReport } from '@/lib/behavioral-report-schema';
 import { storageSlug } from '@/lib/storage-slug';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import {
   CACHE_MAX_AGE_MS,
   BUCKET,
@@ -71,7 +72,8 @@ async function loadBehavioralReportForColab(colab: any, force = false) {
 
   let texts;
   try {
-    texts = await gerarTextosLLM(raw, colab.empresa_id);
+    // O texto é da PESSOA a quem o relatório pertence (quem abre pode ser o gestor dela): o idioma dela.
+    texts = await gerarTextosLLM(raw, colab.empresa_id, await idiomaDaPessoa(colab.empresa_id, colab.id));
   } catch (e) {
     console.error('[loadBehavioralReport] Falha ao parsear JSON do LLM:', e);
     return { error: 'Erro ao interpretar resposta do modelo. Tente novamente.' };
@@ -261,7 +263,7 @@ async function _ensureTextos(colab: any) {
   let texts = null;
   if (isFreshReportCache(colab.report_texts, colab.report_generated_at)) texts = colab.report_texts;
   if (!texts) {
-    texts = await gerarTextosLLM(raw, colab.empresa_id);
+    texts = await gerarTextosLLM(raw, colab.empresa_id, await idiomaDaPessoa(colab.empresa_id, colab.id));
     const sb = createSupabaseAdmin();
     const reportGeneratedAt = await persistReportTexts(sb, colab.id, texts, colab.empresa_id);
     colab.report_texts = texts;

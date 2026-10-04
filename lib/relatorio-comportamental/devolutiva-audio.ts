@@ -86,6 +86,11 @@ export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb, sobDem
   const roteiro = await callAI(system, user, { model }, 1500, {
     taskKey: 'devolutiva_comportamental',
     empresaId: colab.empresa_id,
+    // O roteiro vai para a VOZ, e a voz é pt-BR: `languageCode: 'pt-BR'` e a direção "Narre em português do
+    // Brasil" estão fixos em `lib/gemini-tts.ts` e `lib/tts/elenco.ts`, e o portão de deriva foi calibrado nela.
+    // Sem `locale` o idioma do roteiro era o do cookie de quem clicou em "Ouvir": um roteiro em inglês lido por
+    // voz pt-BR. Fica pt-BR de propósito até a voz ser localizada; é a decisão do produto, não esquecimento.
+    locale: 'pt-BR',
   });
   if (!roteiro?.trim()) return { error: 'Roteiro vazio' };
 
