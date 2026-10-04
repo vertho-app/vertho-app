@@ -5,6 +5,7 @@ import { nivelDaNota, type Nivel } from '@/lib/nivel-regua';
 import { fechoDoRelatorio } from '@/lib/season-engine/resumo-avaliacao';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { CARGO_SEM_NOME_NA_EVOLUCAO, COMPETENCIA_SEM_NOME, PARTICIPANTE_SEM_NOME } from '@/lib/relatorios/evolucao-rotulos';
 
 /**
  * Painel executivo de EVOLUÇÃO do RH — a resposta para "quem evoluiu, em quê e
@@ -294,7 +295,7 @@ export function agregarEvolucao(
       const notaPos = notaFinalDoCenario(trilha, d, notaPre);
       return {
         colaboradorId: trilha.colaborador_id,
-        competencia: d.competencia || trilha.competencia_foco || 'Competência',
+        competencia: d.competencia || trilha.competencia_foco || COMPETENCIA_SEM_NOME,
         // Este centro é uma projeção de leitura: o código interno segue intacto
         // no evolution_report, mas não vaza para tela ou PDF executivo.
         descritor: descritorParaHumano(d.descritor || 'Descritor'),
@@ -327,7 +328,7 @@ export function agregarEvolucao(
         colaboradorId: trilha.colaborador_id,
         // Pessoa fora da lista de participantes (desligada, ou fora do recorte de
         // turma) ainda tem jornada concluída: some do nome, não do número.
-        nome: pessoa?.nome_completo || 'Participante',
+        nome: pessoa?.nome_completo || PARTICIPANTE_SEM_NOME,
         cargo: pessoa?.cargo || null,
         area: pessoa?.area_depto || null,
         competencia,
@@ -398,7 +399,7 @@ export function agregarEvolucao(
     // das evidências pode ser analisada internamente, mas não muda esta lista.
     .filter((p) => p.delta === 0));
 
-  const rotuloCargo = (cargo: string | null) => cargo?.trim() || 'Cargo não informado';
+  const rotuloCargo = (cargo: string | null) => cargo?.trim() || CARGO_SEM_NOME_NA_EVOLUCAO;
   const cargos = [...new Set(pessoas.map((p) => rotuloCargo(p.cargo)))]
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const porCargo: EvolucaoRecorteCargo[] = cargos.map((cargo) => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { ArrowLeft } from 'lucide-react';
 
 export function PageContainer({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -22,6 +23,8 @@ interface PageHeroProps {
 
 export function PageHero({ eyebrow, title, subtitle, showBack = true, actions, titleAccent }: PageHeroProps) {
   const router = useRouter();
+  // O "Voltar" estava escrito em português: aparecia assim para quem lê em outro idioma (R-67).
+  const t = useTranslations('Common');
   return (
     <header className="mb-8 md:mb-12">
       {showBack && (
@@ -29,7 +32,7 @@ export function PageHero({ eyebrow, title, subtitle, showBack = true, actions, t
           onClick={() => router.back()}
           className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400 hover:text-white transition-colors mb-3 md:mb-5"
         >
-          <ArrowLeft size={16} /> Voltar
+          <ArrowLeft size={16} /> {t('actions.back')}
         </button>
       )}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">

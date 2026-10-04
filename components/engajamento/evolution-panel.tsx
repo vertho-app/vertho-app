@@ -179,14 +179,14 @@ export function AreaHeatmap({ areas, weeks }: { areas: EngagementAreaMetric[]; w
                         ? t('evolution.heatmap.cellNoEligible', { week: week.semana })
                         : t('evolution.heatmap.cell', { week: week.semana, index: week.indice, eligible: week.elegiveis })}
                     >
-                      {week.indice == null ? '—' : num(week.indice)}
+                      {week.indice == null ? '\u2014' : num(week.indice)}
                     </div>
                   </td>
                 ))}
                 <td className={`px-2 py-2 text-right font-mono tabular-nums ${
                   (area.tendencia ?? 0) < 0 ? 'text-rose-300' : 'text-emerald-300'
                 }`}>
-                  {area.tendencia == null ? '—' : `${area.tendencia >= 0 ? '↑' : '↓'} ${num(Math.abs(area.tendencia))}`}
+                  {area.tendencia == null ? '\u2014' : `${area.tendencia >= 0 ? '↑' : '↓'} ${num(Math.abs(area.tendencia))}`}
                 </td>
               </tr>
             ))}

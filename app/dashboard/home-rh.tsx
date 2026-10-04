@@ -14,7 +14,7 @@
  * decisão de 24/08, configuração, conteúdo e disparo são da Vertho.
  */
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Users2, Brain, Route, ListOrdered, TrendingUp, ArrowRight, ClipboardCheck, CalendarCheck, CalendarClock, FileText, Eye } from 'lucide-react';
 
 const serifStyle: React.CSSProperties = {
@@ -30,7 +30,9 @@ type RelatoriosGerenciais = { rh: Relatorio; perfilOrg: Relatorio; dna: Relatori
 
 /** Um documento pronto: entra na leitura interna, com a data da geração. */
 function Documento({ titulo, descricao, em, onOpen }: { titulo: string; descricao: string; em: string | null; onOpen: () => void }) {
-  const quando = em ? new Date(em).toLocaleDateString('pt-BR') : null;
+  // A data da geração no formato do idioma de quem lê (era `toLocaleDateString('pt-BR')`, R-67).
+  const locale = useLocale();
+  const quando = em ? new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(em)) : null;
   return (
     <button type="button" onClick={onOpen}
       className="w-full text-left rounded-[22px] p-4 flex items-start gap-4 transition-all active:scale-[0.99] block"
@@ -71,6 +73,7 @@ type Panorama = {
 function Degrau({
   valor, total, label, icon: Icon, indisponivel, cor = ACCENT, nota,
 }: { valor: number; total: number; label: string; icon: any; indisponivel: boolean; cor?: string; nota?: string }) {
+  const locale = useLocale();
   const pct = total > 0 ? Math.round((valor / total) * 100) : 0;
   return (
     <div className="rounded-[18px] p-3.5" style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -78,12 +81,12 @@ function Degrau({
         <Icon size={15} style={{ color: cor }} className="shrink-0" />
         <span className="leading-none tabular-nums" style={{ ...serifStyle, fontSize: 26, color: '#fff' }}>
           {/* Erro de banco não vira "0" na tela — 0 é um estado real da empresa. */}
-          {indisponivel ? '—' : valor}
+          {indisponivel ? '\u2014' : new Intl.NumberFormat(locale).format(valor)}
         </span>
         <span className="text-[12px] text-white/60 flex-1 min-w-0 whitespace-normal">{label}</span>
         {!indisponivel && total > 0 && (
           <span className="text-[10px] text-white/35 tabular-nums shrink-0" style={{ fontFamily: 'var(--font-mono, monospace)' }}>
-            {pct}%
+            {new Intl.NumberFormat(locale, { style: 'percent' }).format(pct / 100)}
           </span>
         )}
       </div>

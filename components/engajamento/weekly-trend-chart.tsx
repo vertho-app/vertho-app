@@ -66,7 +66,7 @@ export default function WeeklyTrendChart({ weeks, illustrative = false }: {
               {t(`trend.series.${item.chave}`)}
             </p>
             <p className="mt-1 font-mono text-[22px] leading-tight tabular-nums sm:text-[26px]" style={{ color: item.color }}>
-              {current ? pctTexto(current[item.field]) : '—'}
+              {current ? pctTexto(current[item.field]) : '\u2014'}
             </p>
           </div>
         ))}

@@ -18,6 +18,7 @@ import { rotuloNivel } from '@/lib/nivel-regua';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
 import { baixarPdf } from '@/lib/relatorios/baixar-pdf';
+import { COMPETENCIA_SEM_NOME, PARTICIPANTE_SEM_NOME } from '@/lib/relatorios/evolucao-rotulos';
 
 type DashboardTab = 'overview' | 'evolution' | 'roles' | 'priorities' | 'documents';
 type DocumentSection = 'organization' | 'managers' | 'people';
@@ -67,6 +68,17 @@ function normalize(value: unknown): string {
 function formatDate(value: string | null, locale: string): string | null {
   if (!value) return null;
   return new Intl.DateTimeFormat(locale, { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
+}
+
+/**
+ * Os valores de reserva da leitura de evolução ("Participante", "Competência")
+ * chegam em português do servidor; aqui viram o rótulo do idioma de quem lê (R-67).
+ * `t` é o tradutor de `EngagementWorkspace`.
+ */
+export function rotuloReserva(valor: string, t: any): string {
+  if (valor === PARTICIPANTE_SEM_NOME) return t('fallbacks.person');
+  if (valor === COMPETENCIA_SEM_NOME) return t('fallbacks.competency');
+  return valor;
 }
 
 function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -361,10 +373,11 @@ function NiveisBar({ pre, pos }: { pre: number; pos: number }) {
 }
 
 function EvolutionAggregateRow({ item, t, aninhado = false }: { item: EvolucaoAgregadoTela; t: any; aninhado?: boolean }) {
+  const tw = useTranslations('EngagementWorkspace');
   return (
     <div className={`grid items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_180px_120px] ${aninhado ? '' : 'border-b border-white/[0.05] last:border-b-0'}`}>
       <div className="min-w-0">
-        <p className={`truncate ${aninhado ? 'text-[13px] text-white/70' : 'text-sm text-white/85'}`}>{item.chave}</p>
+        <p className={`truncate ${aninhado ? 'text-[13px] text-white/70' : 'text-sm text-white/85'}`}>{rotuloReserva(item.chave, tw)}</p>
         <p className="mt-0.5 text-[11px] text-white/35">
           {t('dashboard.evolution.peopleCount', { n: item.n })}
         </p>
@@ -430,7 +443,8 @@ function CompetencyRow({ item, descritores, t }: { item: EvolucaoAgregadoTela; d
   );
 }
 
-function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
+export function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
+  const tw = useTranslations('EngagementWorkspace');
   const evolucao = reports.dashboard.evolucao;
   const scope = reports.scope;
 
@@ -614,11 +628,11 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
               {pessoas.map((pessoa, i) => (
                 <tr key={`${pessoa.colaboradorId}::${pessoa.competencia}::${pessoa.concluidoEm || i}`} className="border-t border-white/[0.05] align-top">
                   <td className="px-4 py-3">
-                    <p className="text-white/90">{pessoa.nome}</p>
+                    <p className="text-white/90">{rotuloReserva(pessoa.nome, tw)}</p>
                     {pessoa.cargo && <p className="mt-0.5 text-[11px] text-white/35">{pessoa.cargo}</p>}
                   </td>
                   <td className="px-4 py-3 text-white/60">
-                    <p>{pessoa.competencia}</p>
+                    <p>{rotuloReserva(pessoa.competencia, tw)}</p>
                     <p className="mt-0.5 text-[11px] text-white/30">{t('dashboard.evolution.descriptorCount', { n: pessoa.n })}</p>
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-white/55 tabular-nums">{t('dashboard.evolution.level', { nivel: pessoa.nivelPre })}</td>
@@ -653,7 +667,7 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
                 {proximasAcoes.precisamApoio.map((pessoa, i) => (
                   <li key={`${pessoa.colaboradorId}::${pessoa.competencia}::${i}`} className="border-b border-white/[0.05] pb-3 last:border-b-0 last:pb-0">
                     <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-sm text-white/85">{pessoa.nome}</span>
+                      <span className="text-sm text-white/85">{rotuloReserva(pessoa.nome, tw)}</span>
                       <VerdictPill veredito={pessoa.veredito} t={t} />
                     </div>
                     {pessoa.proximoPasso && (
@@ -673,8 +687,8 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
               {proximasAcoes.proximoCiclo.map((item) => (
                 <li key={item.chave} className="flex items-baseline justify-between gap-3 border-b border-white/[0.05] pb-3 last:border-b-0 last:pb-0">
                   <span className="min-w-0">
-                    <span className="block truncate text-sm text-white/85">{item.chave}</span>
-                    {item.competencia && <span className="block text-[11px] text-white/30">{item.competencia}</span>}
+                    <span className="block truncate text-sm text-white/85">{rotuloReserva(item.chave, tw)}</span>
+                    {item.competencia && <span className="block text-[11px] text-white/30">{rotuloReserva(item.competencia, tw)}</span>}
                   </span>
                   <strong className="shrink-0 font-mono text-sm tabular-nums" style={{ color: item.delta > 0 ? '#34D399' : 'rgba(255,255,255,.5)' }}>
                     {formatarValorAvanco(item.delta)}
@@ -943,12 +957,12 @@ function DescriptorAnalysis({
           <footer className="grid gap-2 border-t border-white/[0.08] bg-black/10 p-4 sm:grid-cols-2 md:px-6">
             {competency.strength && (
               <div className="rounded-xl border border-emerald-400/12 bg-emerald-400/[0.045] px-3 py-2.5 text-xs leading-relaxed text-emerald-100/70">
-                <strong className="text-emerald-300">{t('dashboard.roles.descriptors.strength')}:</strong> {competency.strength.descriptor} — {t('dashboard.roles.descriptors.strengthValue', { percentage: competency.strength.percentage })}
+                <strong className="text-emerald-300">{t('dashboard.roles.descriptors.strength')}:</strong> {competency.strength.descriptor} ({t('dashboard.roles.descriptors.strengthValue', { percentage: competency.strength.percentage })})
               </div>
             )}
             {competency.opportunity && (
               <div className="rounded-xl border border-rose-400/12 bg-rose-400/[0.045] px-3 py-2.5 text-xs leading-relaxed text-rose-100/70">
-                <strong className="text-rose-300">{t('dashboard.roles.descriptors.opportunity')}:</strong> {competency.opportunity.descriptor} — {t('dashboard.roles.descriptors.opportunityValue', { percentage: competency.opportunity.percentage })}
+                <strong className="text-rose-300">{t('dashboard.roles.descriptors.opportunity')}:</strong> {competency.opportunity.descriptor} ({t('dashboard.roles.descriptors.opportunityValue', { percentage: competency.opportunity.percentage })})
               </div>
             )}
           </footer>
@@ -1175,7 +1189,7 @@ function ReportReader({ document: report, t, onBack }: { document: RhReportDocum
           <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">{t('viewer.eyebrow')}</p><h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={serifStyle}>{title}{report.recipient ? ` · ${report.recipient}` : ''}</h2></div>
           <BotaoBaixarPdf url={report.downloadUrl || report.url} reserva={`vertho-${report.kind}.pdf`} t={t} ariaLabel={t('viewer.download')} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"><span className="hidden sm:inline">{t('viewer.download')}</span></BotaoBaixarPdf>
         </header>
-        <div className="p-2 sm:p-4"><InAppPdfDocument src={report.url} title={`${title}${report.recipient ? ` — ${report.recipient}` : ''}`} loadingLabel={t('viewer.loading')} errorLabel={t('viewer.error')} retryLabel={t('viewer.retry')} /></div>
+        <div className="p-2 sm:p-4"><InAppPdfDocument src={report.url} title={`${title}${report.recipient ? `: ${report.recipient}` : ''}`} loadingLabel={t('viewer.loading')} errorLabel={t('viewer.error')} retryLabel={t('viewer.retry')} /></div>
       </div>
     </section>
   );
