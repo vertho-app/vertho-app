@@ -190,10 +190,9 @@ export async function gerarRelatorioGestorCore(
 
         const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})\nGESTOR: ${gestorNome} (${gestorEmail})\nTOTAL EQUIPE: ${membros.length}\nDISC: D=${discDist.D} I=${discDist.I} S=${discDist.S} C=${discDist.C}\n${groundingBlock ? `\n${groundingBlock}\n` : ''}\nDADOS DA EQUIPE:\n${JSON.stringify(membros, null, 2)}`;
 
-        // Um idioma só para o relatório do gestor: o texto da IA e o texto fixo do PDF.
-        const idiomaDoGestor = resolveAppLocale(gestorColab ? idiomaPorColab.get(gestorColab.id) : null, idiomaDaEmpresa);
         const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 64000, {
-          taskKey: 'relatorio_gestor', empresaId, locale: idiomaDoGestor,
+          taskKey: 'relatorio_gestor', empresaId,
+          locale: resolveAppLocale(gestorColab ? idiomaPorColab.get(gestorColab.id) : null, idiomaDaEmpresa),
         });
         const relatorio: any = await extractJSON(resultado);
 
@@ -204,8 +203,9 @@ export async function gerarRelatorioGestorCore(
         try {
           const pdfData = { conteudo: relatorio, gestor_nome: gestorNome, gerado_em: new Date().toISOString() };
           // O relatório é do GESTOR: o texto fixo do papel sai no idioma dele (gestor sem cadastro no tenant: o da empresa).
-          const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome, idiomaDoGestor);
-          if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer, idiomaDoGestor);
+          const locale = await idiomaDaPessoa(empresaId, gestorColab?.id);
+          const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome, locale);
+          if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer, locale);
         } catch (e: any) { console.error('[PDF Gestor]', e.message); }
 
         // empresa_id é injetado pelo tdb.upsert
