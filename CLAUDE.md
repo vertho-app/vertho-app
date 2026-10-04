@@ -383,14 +383,20 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   nos botões. Detalhe: `docs/ARQUITETURA.md` §3.6. 🔑 E gate de ETAPA tem dois donos: a flag da
   empresa/turma e o estado da PESSOA (02/10: com as duas flags ligadas a 4Life abria o Diagnóstico
   sem Perfil — `lib/access-gates/diagnostico-ordem.ts`).
-- NÃO prometer confidencialidade que depende do **tamanho da turma** sem um piso de N. A tela do
-  assessment diz "Confidencial · RH vê apenas dados agregados" — verdade com 200 pessoas, falsa com
-  2: agregado de 2 não anonimiza ninguém. E **não existe limiar no código** que segure isso
-  (`lib/dna-organizacional/aggregate.ts` e `lib/perfil-organizacional/aggregate.ts` não têm piso; o
-  único `N_MINIMO`, 10, está em `lib/scoring/colinearidade.ts:18` e é de outra medida). Medido em
-  06/08 numa demo de 2 participantes — e a frase tinha sido copiada da tela para a mensagem de
-  convite antes de alguém perceber. Antes de repetir a promessa em piloto/demo, ou põe piso de N ou
-  troca a frase. Vale pra qualquer garantia cuja validade some quando o N encolhe.
+- NÃO prometer confidencialidade que o produto não entrega, nem uma que depende do **tamanho da
+  turma** sem um piso de N. A tela do assessment dizia "Confidencial · RH vê apenas dados
+  agregados", e a frase era falsa em qualquer tamanho: o RH e a liderança veem o NÍVEL de cada
+  pessoa (R-07, 03/10/2026: virou "o RH e a sua liderança veem seu nível em cada competência", nos
+  4 idiomas, com teste em `tests/unit/mapeamento-promessa-visibilidade.test.ts`). A lição de
+  tamanho segue valendo para qualquer promessa verdadeira só com N grande: agregado de 2 não
+  anonimiza ninguém, e o único piso do código é por RECORTE, não por promessa (`MIN_POR_CARGO_DNA`
+  e `MIN_POR_CARGO`: cargo com menos de 3 avaliados não vira seção, em
+  `lib/dna-organizacional/aggregate.ts` e `lib/perfil-organizacional/aggregate.ts`; o `N_MINIMO`,
+  10, de `lib/scoring/colinearidade.ts:18` é de outra medida). Medido em 06/08 numa demo de 2
+  participantes, a frase tinha sido copiada da tela para a mensagem de convite antes de alguém
+  perceber. Antes de repetir uma promessa de confidencialidade em piloto/demo, ou ela vale para o
+  menor N em uso (piso de N) ou troque a frase. Vale pra qualquer garantia cuja validade some
+  quando o N encolhe.
 - NÃO tratar **importar colaborador** como "dar acesso". `colaboradores` e `auth.users` são tabelas
   diferentes e **nenhum import cria a segunda**: em 06/08 os 156 professores de Macaé entraram com
   **0 contas** e o convite ia sair para 155 pessoas que bateriam na porta. Pior, os dois caminhos de
