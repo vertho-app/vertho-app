@@ -136,7 +136,7 @@ export async function persistRelatorioIndividualFromText(
   try {
     const built = args.built ?? await buildRelatorioIndividualPrompt(sbRaw, { empresaId, colaboradorId });
     if ('error' in built) return { success: false, error: built.error };
-    const { user, dadosComps, blueprint, colab, empresa, cenarioERespostas, pii } = built;
+    const { user, dadosComps, blueprint, colab, empresa, cenarioERespostas, pii, duracaoSemanas } = built;
 
     const doGerador: any = await extractJSON(texto);
 
@@ -216,6 +216,11 @@ export async function persistRelatorioIndividualFromText(
         if (temas.length) blueprintConteudos[comp.nome] = temas;
       }
       relatorio.blueprint_conteudos = blueprintConteudos;
+    } else if (duracaoSemanas) {
+      // Sem blueprint não há mapa de semanas de onde o PDF tire a duração, e ele
+      // caía em "14" para todos, inclusive para quem está na Jornada de 7 (R-28).
+      // A duração é gravada aqui, pela fonte única, e o PDF a lê.
+      relatorio.total_semanas = duracaoSemanas;
     }
 
     // ── AUDITORIA (o check que faltava no bloco C) ─────────────────────────

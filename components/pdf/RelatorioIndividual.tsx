@@ -190,10 +190,28 @@ function ProgressBar({ nivel }: { nivel: number | null }) {
 
 export type TrilhaFasePdi = { fase: string; titulo: string; detalhe: string };
 
-/** Timeline de fallback para PDIs sem o mapa detalhado do blueprint. */
-export function montarTrilhaFasesPdi(competencias: any[], totalSemanas: number): TrilhaFasePdi[] {
+/**
+ * Timeline de fallback para PDIs sem o mapa detalhado do blueprint.
+ *
+ * `totalSemanas` é a duração do programa da pessoa (`conteudo.total_semanas`,
+ * gravada na geração), ou `null` quando o PDI não a trouxe (15 dos 171, medido
+ * 03/10/2026). Só a Jornada de 7 e o formato de 14 têm desenho de semanas aqui;
+ * qualquer outra duração, ou nenhuma, vira ciclos sem número de semana: o
+ * desenho de 14 semanas num programa de 7, 9 ou 10 afirma o que não existe (R-28).
+ */
+export function montarTrilhaFasesPdi(competencias: any[], totalSemanas: number | null): TrilhaFasePdi[] {
   const acaoDe = (comp: any): string =>
     (comp?.sprint?.acao_principal || comp?.melhorar?.[0] || 'mapear e praticar os comportamentos prioritários');
+
+  if (totalSemanas !== 7 && totalSemanas !== 14) {
+    return competencias.map((comp: any, i: number) => ({
+      fase: `Ciclo ${i + 1}`,
+      titulo: comp.nome,
+      detalhe: i === 0
+        ? `Aprender, praticar e registrar evidências: ${acaoDe(comp)}`
+        : 'Começa depois do fechamento do ciclo anterior, na sequência da trilha.',
+    }));
+  }
 
   if (totalSemanas === 7 && competencias.length >= 1) {
     const fases: TrilhaFasePdi[] = [
@@ -257,11 +275,15 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
   const nome = data.colaborador_nome || '';
   // Duração REAL da trilha. Era "14 semanas" fixo na capa — desde a jornada de
   // 7 (05/08/2026), isso imprimia a duração de outro programa no PDF da pessoa.
-  // Fonte: o mapa da trilha; sem ele, o default histórico.
+  // Fonte: `conteudo.total_semanas`, gravada na geração pela fonte única de
+  // duração (`duracaoDaTrilha`/`getProgramaConfigDaGeracao`); sem ela, o mapa
+  // da trilha do blueprint; sem nenhum dos dois, NÃO há número: o `14` de
+  // fallback imprimia "jornada de 14 semanas" para quem está na de 7 (R-28).
   const semanasDoMapa: number[] = (Array.isArray(c.trilha_mapa?.semanas) ? c.trilha_mapa.semanas : [])
     .map((s: any) => Number(s?.semana) || 0)
     .filter((n: number) => n > 0);
-  const totalSemanas = Number(c.total_semanas) || (semanasDoMapa.length ? Math.max(...semanasDoMapa) : 14);
+  const totalSemanas: number | null = Number(c.total_semanas) || (semanasDoMapa.length ? Math.max(...semanasDoMapa) : null);
+  const duracaoEmTexto = totalSemanas ? `${totalSemanas} semanas` : null;
   const headerLabel = `Plano de Desenvolvimento Individual${nome ? ` · ${(nome.split(' ')[0]) || nome}` : ''}`;
 
   // Competências que já têm sprint (novo modelo) — dirige o one-pager.
@@ -363,7 +385,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
         titulo={['Plano de Desenvolvimento Individual', '(PDI)']}
         overline={null}
         mentorLabel={null}
-        jornada={`Uma jornada de ${totalSemanas} semanas de aprendizagem`}
+        jornada={duracaoEmTexto ? `Uma jornada de ${duracaoEmTexto} de aprendizagem` : null}
         nome={nome}
         cargo={data.colaborador_cargo}
         empresa={empresaNome}
@@ -470,7 +492,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
           <ReportSectionTitle>Seu plano, ciclo a ciclo</ReportSectionTitle>
           <Text style={s.mapIntro}>
-            {`Sua trilha tem ${totalSemanas} semanas e você trabalha uma competência por vez. Abaixo, o foco de cada ciclo — comece pelo primeiro; o segundo entra na sequência.`}
+            {`${duracaoEmTexto ? `Sua trilha tem ${duracaoEmTexto} e você` : 'Na sua trilha você'} trabalha uma competência por vez. Abaixo, o foco de cada ciclo: comece pelo primeiro; o segundo entra na sequência.`}
           </Text>
           {sprintComps.map((comp: any, i: number) => (
             <View key={i} style={s.mapCard} wrap={false}>
@@ -532,7 +554,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
           <ReportSectionTitle>{hasBinding ? 'Sua jornada, ciclo a ciclo' : 'Como este PDI vira trilha'}</ReportSectionTitle>
           <Text style={s.trilhaIntro}>
             {hasBinding
-              ? `Sua trilha tem ${totalSemanas} semanas, uma competência por vez. Cada ciclo tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica — o objetivo é o destino, as atividades semanais são o caminho até ele, não trabalho a mais. Você recebe o conteúdo resumido toda semana (microaprendizagem), não precisa buscar por conta própria. Comece pelo Ciclo 1: o segundo só começa quando ele terminar, e a trilha te guia semana a semana.`
+              ? `${duracaoEmTexto ? `Sua trilha tem ${duracaoEmTexto}, uma` : 'Na sua trilha é uma'} competência por vez. Cada ciclo tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica: o objetivo é o destino, as atividades semanais são o caminho até ele, não trabalho a mais. Você recebe o conteúdo resumido toda semana (microaprendizagem), não precisa buscar por conta própria. Comece pelo Ciclo 1: o segundo só começa quando ele terminar, e a trilha te guia semana a semana.`
               : 'O que está no seu PDI é exatamente o que você vai aprender e praticar na trilha. Cada ciclo tem conteúdo (o que você estuda) e prática (o que você aplica).'}
           </Text>
           {hasBinding ? (

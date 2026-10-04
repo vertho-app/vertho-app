@@ -11,6 +11,9 @@ import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { nivelDaNota, nivelOuNull } from '@/lib/nivel-regua';
 import { maskColaborador, maskTextPII, maskDeepPII, type PIIMapas } from '@/lib/pii-masker';
+import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
+import { getProgramaConfigDaGeracao } from '@/lib/season-engine/programa-config';
+import { carregarContextoTurma } from '@/lib/turmas';
 
 export interface DadoComp {
   competencia: string;
@@ -157,6 +160,44 @@ export interface PdiPromptBuilt {
    * o identificador da pessoa, e quem grava o PDI desmascara com estes mapas.
    */
   pii: PIIMapas;
+  /**
+   * Duração, em semanas, do programa que este PDI descreve (R-28); `null` quando
+   * não se consegue dizer. Vira `conteudo.total_semanas` quando não há blueprint
+   * (com blueprint, o número é o do mapa da trilha dele).
+   */
+  duracaoSemanas?: number | null;
+}
+
+/**
+ * O programa DESTA pessoa, em semanas, pela fonte única de duração: a trilha que
+ * ela já tem (`duracaoDaTrilha`: snapshot ou carimbo) ou, sem trilha, o programa
+ * que uma geração nova aplicaria (`getProgramaConfigDaGeracao`, sobre a config
+ * efetiva: empresa, turma, participação e o override da pessoa).
+ *
+ * Falha de leitura da turma NÃO derruba o PDI (já pago e longe de depender disso):
+ * devolve `null`, e o PDF omite o número em vez de imprimir o de outro programa.
+ */
+export async function duracaoDoProgramaDaPessoa(
+  sbRaw: SupabaseClient,
+  args: {
+    empresaId: string;
+    colaboradorId: string;
+    programaModoDaPessoa?: string | null;
+    sysConfigEmpresa?: any;
+    trilha?: { programa_modo?: string | null; programa_config?: unknown } | null;
+  },
+): Promise<number | null> {
+  if (args.trilha) return duracaoDaTrilha(args.trilha);
+  try {
+    const ctx = await carregarContextoTurma(
+      sbRaw, args.empresaId, args.colaboradorId, args.sysConfigEmpresa || {},
+      { colaboradorLegado: { programa_modo: args.programaModoDaPessoa ?? null } },
+    );
+    return getProgramaConfigDaGeracao(ctx.config).semanas;
+  } catch (e: any) {
+    console.warn('[pdi] duração do programa indisponível:', e?.message ?? e);
+    return null;
+  }
 }
 
 export async function buildRelatorioIndividualPrompt(
@@ -164,14 +205,18 @@ export async function buildRelatorioIndividualPrompt(
   { empresaId, colaboradorId }: { empresaId: string; colaboradorId: string },
 ): Promise<PdiPromptBuilt | { error: string }> {
   const tdb = tenantDb(empresaId);
-  const { data: colab } = await tdb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, d_natural, i_natural, s_natural, c_natural, perfil_dominante, lid_executivo, lid_motivador, lid_metodico, lid_sistematico')
+  const { data: colab, error: errColab } = await tdb.from('colaboradores')
+    .select('id, nome_completo, cargo, email, programa_modo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, lid_executivo, lid_motivador, lid_metodico, lid_sistematico')
     .eq('id', colaboradorId).single();
+  // `.single()` devolve PGRST116 quando não há linha: isso é "não encontrado", e
+  // qualquer outro erro é falha de leitura (não pode virar "não encontrado").
+  if (errColab && errColab.code !== 'PGRST116') return { error: `Falha ao ler o colaborador: ${errColab.message}` };
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   // empresas: id é o tenant — sem empresa_id; usar raw
-  const { data: empresa } = await sbRaw.from('empresas')
-    .select('nome, segmento').eq('id', empresaId).single();
+  const { data: empresa, error: errEmpresa } = await sbRaw.from('empresas')
+    .select('nome, segmento, sys_config').eq('id', empresaId).single();
+  if (errEmpresa && errEmpresa.code !== 'PGRST116') return { error: `Falha ao ler a empresa: ${errEmpresa.message}` };
   if (!empresa) return { error: 'Empresa não encontrada' };
 
   // Buscar TODAS respostas do colab (avaliadas ou não). Aceita match
@@ -205,11 +250,13 @@ export async function buildRelatorioIndividualPrompt(
   // competências que a trilha do colaborador trabalha. Lê competencias_foco
   // (par DUO, mig 091) ou competencia_foco (single). Sem trilha → cai no
   // top5/respostas. Garante que o que está no PDI é o que a pessoa vai praticar.
-  const { data: trilhaColab } = await tdb.from('trilhas')
-    .select('competencias_foco, competencia_foco, criado_em')
+  const { data: trilhaColab, error: errTrilhaColab } = await tdb.from('trilhas')
+    .select('competencias_foco, competencia_foco, criado_em, programa_modo, programa_config')
     .eq('colaborador_id', colaboradorId)
     .order('criado_em', { ascending: false })
     .limit(1).maybeSingle();
+  // Sem ler a trilha o PDI sairia sem o foco dela e sem a duração do programa.
+  if (errTrilhaColab) return { error: `Falha ao ler a trilha da pessoa: ${errTrilhaColab.message}` };
   const focoTrilha: string[] = (
     Array.isArray(trilhaColab?.competencias_foco) && trilhaColab!.competencias_foco.length
       ? trilhaColab!.competencias_foco
@@ -476,5 +523,14 @@ export async function buildRelatorioIndividualPrompt(
 
   // `cenarioERespostas` sai à parte para a auditoria estrutural: jargão que a
   // fonte já usa (o "feedback escrito" do cenário) não é jargão do gerador.
-  return { system: RELATORIO_IND_SYSTEM, user, dadosComps, blueprint, colab, empresa, cenarioERespostas: respostasTexto, pii };
+  // Só quem não tem blueprint precisa do número no PDI: com blueprint, a duração é
+  // a do mapa da trilha dele, que o PDF lê. Poupa a leitura da turma no caso comum.
+  const duracaoSemanas = blueprint ? null : await duracaoDoProgramaDaPessoa(sbRaw, {
+    empresaId, colaboradorId,
+    programaModoDaPessoa: colab.programa_modo,
+    sysConfigEmpresa: empresa.sys_config,
+    trilha: trilhaColab,
+  });
+
+  return { system: RELATORIO_IND_SYSTEM, user, dadosComps, blueprint, colab, empresa, cenarioERespostas: respostasTexto, pii, duracaoSemanas };
 }
