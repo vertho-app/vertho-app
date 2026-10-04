@@ -580,6 +580,10 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
               </div>
             ))}
           </dl>
+          {/* Como a régua fecha o resultado da PESSOA numa competência (maioria dos
+              comportamentos). O quadro acima descreve o comportamento; sem esta
+              nota, a coluna Resultado da tabela nominal parece contradizer o avanço. */}
+          <p className="mt-3 text-[11px] leading-relaxed text-white/35">{t('dashboard.evolution.criteriaNote')}</p>
         </div>
       </Panel>
 

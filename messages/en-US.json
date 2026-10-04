@@ -968,10 +968,11 @@
         "criteriaTitle": "How each result is defined",
         "toggleDescriptors": "Show behaviors",
         "criteria": {
-          "confirmed": "a gain of 0.5 or more AND evidence that the change was noticed.",
-          "partial": "a gain from 0.2 up, or positive evidence the score does not yet confirm.",
-          "stable": "change up to +0.2: held the starting level."
-        }
+          "confirmed": "a gain of 0.5 or more between the start and the close.",
+          "partial": "a gain of 0.2 to 0.4.",
+          "stable": "a gain of up to 0.1: held the starting level."
+        },
+        "criteriaNote": "Each behavior's gain is measured between the initial and the final scenario. A person's result in a competency is confirmed when half or more of the behaviors are confirmed, partial when any behavior gained 0.2 or more, and stable otherwise."
       }
     },
     "sections": {
@@ -5087,8 +5088,8 @@
       "paceText": "~10 min per skill",
       "questionsTitle": "4 questions",
       "questionsText": "real scenario, answer how you would act",
-      "confidentialTitle": "Confidential",
-      "confidentialText": "HR only sees aggregated data",
+      "confidentialTitle": "Who follows it",
+      "confidentialText": "HR and your manager see your level in each skill",
       "authenticTitle": "Be authentic",
       "authenticText": "no right or wrong answer",
       "start": "Start review →"

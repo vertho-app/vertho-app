@@ -57,3 +57,55 @@ describe('descrição dos vereditos', () => {
     expect(copias).toEqual([]);
   });
 });
+
+/**
+ * R-33 (04/10/2026): o quadro "Como cada resultado é definido" e as frases dos
+ * cartões descreviam a régua QUALITATIVA removida em 17/09/2026 ("+0,5 E evidência
+ * percebida", "Estável até +0,2"). A régua de hoje é só o avanço entre o cenário
+ * inicial e o final (`classificarConvergencia`). Estes testes amarram o TEXTO aos
+ * cortes do código: quem mexer em `CORTE_PARCIAL` ou `CORTE_CONFIRMADA` sem
+ * reescrever a copy vê o vermelho aqui.
+ */
+import { CORTE_CONFIRMADA, CORTE_PARCIAL, classificarConvergencia } from '@/lib/season-engine/convergencia';
+
+const LOCALES = ['pt-BR', 'pt-PT', 'es-ES', 'en-US'] as const;
+const msgs = (locale: string) => JSON.parse(readFileSync(path.join(RAIZ, 'messages', `${locale}.json`), 'utf8'));
+/** Como cada idioma escreve 0,5 / 0.5 (o avanço aparece com uma casa). */
+const numero = (n: number, locale: string) => (locale === 'en-US' ? n.toFixed(1) : n.toFixed(1).replace('.', ','));
+const maisUm = (n: number) => Math.round((n + 0.1) * 10) / 10;
+const menosUm = (n: number) => Math.round((n - 0.1) * 10) / 10;
+
+describe('a régua escrita nas telas é a de hoje (R-33)', () => {
+  it('as frases dos cartões da Evolução da equipe saem dos cortes do código', () => {
+    expect(DICA_VEREDITO[CONVERGENCIA.CONFIRMADA]).toContain(numero(CORTE_CONFIRMADA, 'pt-BR'));
+    expect(DICA_VEREDITO[CONVERGENCIA.PARCIAL]).toContain(numero(CORTE_PARCIAL, 'pt-BR'));
+    expect(DICA_VEREDITO[CONVERGENCIA.PARCIAL]).toContain(numero(menosUm(CORTE_CONFIRMADA), 'pt-BR'));
+    expect(DICA_VEREDITO[CONVERGENCIA.ESTAVEL]).toContain(numero(menosUm(CORTE_PARCIAL), 'pt-BR'));
+  });
+
+  it('nenhuma frase fala dos critérios qualitativos que saíram da régua', () => {
+    for (const frase of Object.values(DICA_VEREDITO)) {
+      expect(frase).not.toMatch(/induzid|restri[cç][aã]o|estrutura da conversa|caso real|evid[eê]ncia|nota/i);
+    }
+  });
+
+  it.each(LOCALES)('%s: o quadro do RH descreve o avanço e não cita nota nem evidência', (locale) => {
+    const c = msgs(locale).RhReports.dashboard.evolution.criteria;
+    expect(c.confirmed).toContain(numero(CORTE_CONFIRMADA, locale));
+    expect(c.partial).toContain(numero(CORTE_PARCIAL, locale));
+    expect(c.partial).toContain(numero(menosUm(CORTE_CONFIRMADA), locale));
+    expect(c.stable).toContain(numero(menosUm(CORTE_PARCIAL), locale));
+    for (const texto of Object.values<string>(c)) {
+      expect(texto).not.toMatch(/\bnota\b|\bscore\b|evid[eê]ncia|evidence|percebid|noticed|percibi/i);
+    }
+  });
+
+  it('o corte do texto é o corte do motor: avanço 0,4 é parcial, 0,5 confirma, 0,1 é estável', () => {
+    const avanco = (a: number) => classificarConvergencia({ nota_pre: 2, nota_pos: 2 + a });
+    expect(avanco(CORTE_CONFIRMADA)).toBe(CONVERGENCIA.CONFIRMADA);
+    expect(avanco(menosUm(CORTE_CONFIRMADA))).toBe(CONVERGENCIA.PARCIAL);
+    expect(avanco(CORTE_PARCIAL)).toBe(CONVERGENCIA.PARCIAL);
+    expect(avanco(menosUm(CORTE_PARCIAL))).toBe(CONVERGENCIA.ESTAVEL);
+    expect(maisUm(CORTE_PARCIAL)).toBeLessThan(CORTE_CONFIRMADA);
+  });
+});

@@ -968,10 +968,11 @@
         "criteriaTitle": "Cómo se define cada resultado",
         "toggleDescriptors": "Ver comportamientos",
         "criteria": {
-          "confirmed": "ganancia de 0,5 o más Y evidencia de que el cambio se percibió.",
-          "partial": "ganancia desde 0,2, o evidencia positiva que la nota aún no confirma.",
-          "stable": "variación hasta +0,2: mantuvo el nivel de partida."
-        }
+          "confirmed": "avance de 0,5 o más entre el inicio y el cierre.",
+          "partial": "avance de 0,2 a 0,4.",
+          "stable": "avance de hasta 0,1: mantuvo el nivel de partida."
+        },
+        "criteriaNote": "El avance de cada comportamiento se mide entre el escenario inicial y el final. El resultado de la persona en una competencia es confirmado cuando la mitad o más de los comportamientos se confirman, parcial cuando alguno avanzó 0,2 o más, y estable en los demás casos."
       }
     },
     "sections": {
@@ -4203,8 +4204,8 @@
       "paceText": "~10 min por competencia",
       "questionsTitle": "4 preguntas",
       "questionsText": "escenario real, responde cómo actuarías",
-      "confidentialTitle": "Confidencial",
-      "confidentialText": "RR. HH. ve solo datos agregados",
+      "confidentialTitle": "Quién lo sigue",
+      "confidentialText": "RR. HH. y tu liderazgo ven tu nivel en cada competencia",
       "authenticTitle": "Sé auténtico(a)",
       "authenticText": "sin respuesta correcta o incorrecta",
       "start": "Comenzar evaluación →"

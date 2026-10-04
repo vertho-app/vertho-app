@@ -968,10 +968,11 @@
         "criteriaTitle": "Como cada resultado é definido",
         "toggleDescriptors": "Ver comportamentos",
         "criteria": {
-          "confirmed": "ganho de 0,5 ou mais na nota E evidência de que a mudança foi percebida.",
-          "partial": "ganho a partir de 0,2, ou evidência positiva que a nota ainda não confirma.",
-          "stable": "variação até +0,2: manteve o patamar de partida."
-        }
+          "confirmed": "avanço de 0,5 ou mais entre o início e o fecho.",
+          "partial": "avanço de 0,2 a 0,4.",
+          "stable": "avanço até 0,1: manteve o patamar de partida."
+        },
+        "criteriaNote": "O avanço de cada comportamento mede-se entre o cenário inicial e o final. O resultado da pessoa numa competência é confirmado quando metade ou mais dos comportamentos confirmam, parcial quando algum avançou 0,2 ou mais, e estável nos restantes casos."
       }
     },
     "sections": {
@@ -4203,8 +4204,8 @@
       "paceText": "~10 min por competência",
       "questionsTitle": "4 perguntas",
       "questionsText": "cenário real, responda como agiria",
-      "confidentialTitle": "Confidencial",
-      "confidentialText": "RH vê apenas dados agregados",
+      "confidentialTitle": "Quem acompanha",
+      "confidentialText": "o RH e a sua liderança veem o seu nível em cada competência",
       "authenticTitle": "Seja autêntico(a)",
       "authenticText": "sem resposta certa ou errada",
       "start": "Começar avaliação →"
