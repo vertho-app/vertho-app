@@ -340,7 +340,7 @@ describe('prepararLoteTemplate', () => {
     ['Jornada', { programa_modo: 'jornada', programa_config: null }, 7, '7'],
     ['Ibipeba (regular_duo com snapshot de 9)', { programa_modo: 'regular_duo', programa_config: { modo: 'regular', semanas: 9, slotsConteudo: [1, 2, 3], semanasAvaliacao: [8, 9], semanasMissao: [4], semanaCenarioB: 9, semanaAcumulada: 8 } }, 9, '9'],
     ['DUO de 14', { programa_modo: 'regular_duo', programa_config: null }, 14, '14'],
-    ['Onboarding', { programa_modo: 'onboarding', programa_config: null }, 10, '10'],
+    ['Onboarding', { programa_modo: 'onboarding', programa_config: null }, 9, '9'],
   ])('trilha liberada: %s diz a duração do PROGRAMA', async (_nome, carimbo, semanasDoPlano, esperado) => {
     const sb = mock({
       trilhas: [{

@@ -127,11 +127,11 @@ describe('geração: o PDI sem blueprint grava a duração do programa da pessoa
     expect(conteudo.total_semanas).toBe(7);
   });
 
-  it('sem trilha, na empresa em Onboarding: 10', async () => {
+  it('sem trilha, na empresa em Onboarding: 9 (R-20)', async () => {
     sysConfigEmpresa = { programa_modo: 'onboarding' };
     montar();
     const { conteudo } = await totalGravado();
-    expect(conteudo.total_semanas).toBe(10);
+    expect(conteudo.total_semanas).toBe(9);
   });
 
   it('🔴 sem trilha, a TURMA decide: empresa na Jornada e turma no Personalizado de 3 semanas', async () => {
@@ -149,7 +149,7 @@ describe('geração: o PDI sem blueprint grava a duração do programa da pessoa
     montar();
     try {
       const { conteudo } = await totalGravado();
-      expect(conteudo.total_semanas).toBe(10);
+      expect(conteudo.total_semanas).toBe(9);
     } finally {
       COLAB.programa_modo = null;
     }

@@ -125,7 +125,7 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
       c => ['piloto', 'custom', 'onboarding'].includes(modoPorColab.get(c.id) as string),
     );
     if (!colabs.length) {
-      throw new Error(`Nenhum colaborador resolveria pra piloto, personalizado ou onboarding (default da empresa: ${empresa?.sys_config?.programa_modo || 'jornada, o padrão'}; nenhum override individual). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
+      throw new Error(`Nenhum colaborador resolveria pra piloto, personalizado ou onboarding (default da empresa: ${empresa?.sys_config?.programa_modo || 'jornada, o padrão'}; nenhum override individual nem de turma). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
     }
     const configPiloto = getProgramaConfigByModo('piloto');
     const configOnboarding = getProgramaConfigByModo('onboarding');
