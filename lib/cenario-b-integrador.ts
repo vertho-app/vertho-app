@@ -553,6 +553,7 @@ export async function gerarCenarioBIntegradorCore(sbRaw: any, args: {
   const competencias = [...new Map((args.competencias || []).map((c) => [normalizarComp(c), String(c).trim()] as const).filter(([k]) => k)).values()];
   if (!empresaId || !cargo) return { ok: false, motivo: 'entrada', erro: 'Informe a empresa e o cargo' };
   if (competencias.length < 2) return { ok: false, motivo: 'entrada', erro: 'O integrador cobre duas ou mais competências' };
+  const tdb = tenantDb(empresaId);
 
   const jaExiste = async (): Promise<ResultadoIntegrador | null> => {
     try {
@@ -609,7 +610,7 @@ export async function gerarCenarioBIntegradorCore(sbRaw: any, args: {
     // `p1..p4` e `alternativas` são sobrescritos por inteiro; sobra só o que o
     // integrador novo não preenche (ex.: a coluna p4 de um integrador com 3 perguntas).
     const colunas = { p1: null, p2: null, p3: null, p4: null, ...linha };
-    const { error: errUp } = await tenantDb(empresaId).from('banco_cenarios')
+    const { error: errUp } = await tdb.from('banco_cenarios')
       .update(colunas).eq('id', existente.cenarioId).eq('tipo_cenario', 'cenario_b');
     if (errUp) return { ok: false, motivo: 'gravacao', erro: `Não foi possível substituir o cenário: ${errUp.message}`, tentativas };
     return { ok: true, status: 'gerado', cenarioId: existente.cenarioId, titulo: normalizado.titulo, perguntas: normalizado.perguntas.length, tentativas };
@@ -620,7 +621,7 @@ export async function gerarCenarioBIntegradorCore(sbRaw: any, args: {
   const depois = await jaExiste();
   if (depois) return depois;
 
-  const { data, error } = await tenantDb(empresaId).from('banco_cenarios')
+  const { data, error } = await tdb.from('banco_cenarios')
     .insert(linha)
     .select('id, titulo').single();
   if (error || !data) return { ok: false, motivo: 'gravacao', erro: `Não foi possível gravar o cenário: ${error?.message || 'sem retorno'}`, tentativas };
