@@ -392,7 +392,7 @@ nextjs-app/
 │   ├── beto-chat.tsx             # Chat flutuante; envia pathname atual (hidden em rotas imersivas)
 │   ├── mic-input.tsx             # Web Speech API (forwardRef + stop on send)
 │   ├── page-shell.tsx            # PageContainer, PageHero, GlassCard, SectionHeader
-│   ├── preferencias-ranking.tsx
+│   ├── admin/preferencias-ranking.tsx  # só no /admin: média da PREFERÊNCIA de formato (escala 1 a 5), não nota de competência
 │   ├── video-modal.tsx           # Bunny iframe + postMessage tracking
 │   ├── dashboard/
 │   │   ├── RHView.tsx

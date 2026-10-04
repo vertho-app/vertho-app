@@ -20,6 +20,11 @@ describe('normalização dos relatórios para dashboards', () => {
     // médio de mapeamento para aparecer na visão por cargo.
     expect(insight?.roles).toHaveLength(3);
     expect(insight?.roles.map((item) => item.role)).not.toContain('Gerente Comercial');
+    // Lote 5b: a demonstração segue o formato novo do relatório (nível mais frequente e
+    // distribuição por cargo), e nada de média chega ao painel.
+    expect(insight?.roles.map((item) => item.level)).toEqual([3, 3, 3]);
+    expect(insight?.roles[0].distribution?.map((item) => item.count)).toEqual([7, 17, 19, 7]);
+    expect(JSON.stringify(insight)).not.toContain('average');
     expect(insight?.roleFocus[0]).toMatchObject({
       role: 'Representante Comercial',
       competency: 'Negociação e Fechamento',

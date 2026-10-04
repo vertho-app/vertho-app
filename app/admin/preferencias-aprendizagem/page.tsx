@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Loader2, GraduationCap, Building2 } from 'lucide-react';
 import { loadPreferenciasGlobais } from '@/actions/preferencias-aprendizagem';
-import PreferenciasRanking from '@/components/preferencias-ranking';
+import PreferenciasRanking from '@/components/admin/preferencias-ranking';
 import BackButton from '@/components/back-button';
 
 export default function PreferenciasGlobaisPage() {

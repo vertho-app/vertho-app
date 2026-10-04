@@ -12,6 +12,7 @@ import PdfReportCover from '@/components/pdf/PdfReportCover'; // capa editorial 
 import { getLogoCoverBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { DnaAggregate, CompetenciaStat, Dist } from './dna-organizacional/aggregate';
 import type { DnaNarrative } from './dna-organizacional/narrative';
+import { nivelDaDistribuicao } from '@/lib/relatorios/niveis-do-rh';
 
 const C = {
   navy: '#142F57', cyan: '#34C5CC', gold: '#C8941F', white: '#FFFFFF',
@@ -111,13 +112,16 @@ interface Params { empresaNome: string; dataRef: string; segmento?: string | nul
 function CompetenciaBlock({ c }: { c: CompetenciaStat }) {
   const headerBg = c.prioridade ? C.n1Bg : C.cardTeal;
   const accent = c.prioridade ? C.n1Tx : '#0F6B70';
+  // O nível em que mais gente está, da MESMA distribuição impressa logo abaixo. O PDF vai para o
+  // cliente e não imprime a média decimal da competência (lote 5b, 04/10/2026; decisão do dono).
+  const nivelFrequente = nivelDaDistribuicao(c.pct);
   return (
     <View wrap={false} style={{ marginBottom: 6 }}>
       <View style={[s.compBox, { backgroundColor: headerBg, borderLeftWidth: 4, borderLeftColor: accent }]}>
         <Text style={[s.compNome, { color: C.navy }]}>{c.nome.toUpperCase()}</Text>
         <View style={s.compMediaRow}>
-          <Text style={s.compMediaLbl}>Média:</Text>
-          <Text style={[s.compMedia, { color: accent }]}>{c.media.toFixed(2)}</Text>
+          <Text style={s.compMediaLbl}>Nível mais frequente:</Text>
+          <Text style={[s.compMedia, { color: accent }]}>{nivelFrequente != null ? `N${nivelFrequente}` : '\u2014'}</Text>
           {c.prioridade ? <Text style={{ fontSize: 8.5, fontWeight: 700, color: C.n1Tx }}>PRIORIDADE</Text> : null}
         </View>
         <Text style={s.compDistLine}>Nível 1: {c.pct.n1}%  |  Nível 2: {c.pct.n2}%  |  Nível 3: {c.pct.n3}%  |  Nível 4: {c.pct.n4}%</Text>

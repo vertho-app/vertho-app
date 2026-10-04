@@ -14,7 +14,6 @@ import type { RhReportDocument, RhReportKind, RhReportsCenter, RhReportsScope } 
 import type { EvolucaoAgregadoTela } from '@/lib/relatorios/evolucao-center';
 import { formatarValorAvanco } from '@/lib/season-engine/convergencia';
 import { nivelMaisFrequente } from '@/lib/nivel-frequente';
-import { nivelDaNota } from '@/lib/nivel-regua';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
 import { baixarPdf } from '@/lib/relatorios/baixar-pdf';
@@ -986,13 +985,19 @@ function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
           <div className="grid gap-3 lg:grid-cols-[.75fr_1.25fr]">
             <Panel className="p-5 md:p-6">
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35">{t('dashboard.roles.average')}</p>
-            <div className="mt-3 flex items-end gap-2"><span className="text-[54px] leading-none text-white" style={serifStyle}>{nivelDe(role.average != null ? nivelDaNota(role.average) : null)}</span></div>
+            <div className="mt-3 flex items-end gap-2"><span className="text-[54px] leading-none text-white" style={serifStyle}>{nivelDe(role.level)}</span></div>
             <p className="mt-3 text-[10px] leading-relaxed text-white/32">{t('dashboard.roles.averageDescription')}</p>
             <div className="mt-4 grid grid-cols-4 gap-1">
               {[1, 2, 3, 4].map((level) => (
-                <div key={level} className="h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full" style={{ width: role.average != null && nivelDaNota(role.average) >= level ? '100%' : '0%', background: LEVEL_COLORS[level - 1] }} /></div>
+                <div key={level} className="h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full" style={{ width: role.level != null && role.level >= level ? '100%' : '0%', background: LEVEL_COLORS[level - 1] }} /></div>
               ))}
             </div>
+            {/* Avaliações por nível, só quando o relatório traz (os gravados antes da mudança não trazem). */}
+            {role.distribution && (
+              <p className="mt-3 font-mono text-[10px] text-white/40">
+                {t('dashboard.roles.distribution', Object.fromEntries(role.distribution.map(({ level, count }) => [`n${level}`, count])))}
+              </p>
+            )}
             {focus && (
               <div className="mt-6 rounded-2xl border border-violet-400/20 bg-violet-400/[0.07] p-4">
                 <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-violet-300"><Target size={13} /> {t('dashboard.roles.focus')}</p>

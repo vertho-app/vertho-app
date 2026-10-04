@@ -7,6 +7,17 @@
  */
 
 import type { DnaAggregate, Dist } from '@/lib/dna-organizacional/aggregate';
+import { leituraDoCargo } from '@/lib/relatorios/niveis-do-rh';
+
+/*
+ * SEM NOTA DECIMAL NA FRONTEIRA (lote 5b, 04/10/2026). Estes tipos são o que o
+ * Server Component entrega ao navegador, e o que está no payload está no
+ * navegador, mesmo que nenhuma tela o desenhe. O RH e o gestor veem nível e
+ * distribuição, nunca média: por isso nenhum tipo abaixo tem `average`, e a média
+ * que o relatório gravado ainda traz (`media_geral`, `media_nivel`, `media`) é lida
+ * aqui no servidor e sai só como NÍVEL (`level`). Mesma regra de `evolucaoParaTela`.
+ * Teste: `tests/unit/relatorios/rh-sem-media.test.ts`.
+ */
 
 export type ExecutiveReading = {
   reading: string | null;
@@ -16,7 +27,13 @@ export type ExecutiveReading = {
 
 export type RhRoleReading = {
   role: string;
-  average: number | null;
+  /**
+   * N1 a N4 do cargo: o nível mais frequente (relatório novo) ou o nível da média
+   * que um relatório antigo gravou. Nunca a nota.
+   */
+  level: 1 | 2 | 3 | 4 | null;
+  /** Avaliações por nível, quando o relatório traz (os gravados antes não trazem). */
+  distribution: Array<{ level: 1 | 2 | 3 | 4; count: number }> | null;
   reading: string | null;
   strengths: string[];
   risks: string[];
@@ -29,14 +46,12 @@ export type RhDescriptorLevel = {
 
 export type RhDescriptorReading = {
   descriptor: string;
-  average: number;
   evaluated: number;
   levels: RhDescriptorLevel[];
 };
 
 export type RhCompetencyDescriptorReading = {
   competency: string;
-  average: number;
   priority: boolean;
   levels: RhDescriptorLevel[];
   descriptors: RhDescriptorReading[];
@@ -87,7 +102,6 @@ export type RhReportInsight = {
   indicators: {
     evaluated: number | null;
     assessments: number | null;
-    average: number | null;
     levels: Array<{ level: 1 | 2 | 3 | 4; percentage: number }>;
   };
   comparison: {
@@ -113,7 +127,6 @@ export type RhReportInsight = {
 
 export type ManagerCompetencyReading = {
   competency: string;
-  average: number | null;
   distribution: Array<{ level: 1 | 2 | 3 | 4; people: number }>;
   pattern: string | null;
   managerAction: string | null;
@@ -211,12 +224,10 @@ function descriptorScope(dna: DnaAggregate, role: string | null): RhDescriptorSc
     evaluated: Math.max(0, dna.avaliados),
     competencies: dna.competencias.map((competency) => ({
       competency: competency.nome,
-      average: competency.media,
       priority: competency.prioridade,
       levels: descriptorLevels(competency.pct),
       descriptors: competency.descritores.map((descriptor) => ({
         descriptor: descriptor.descritor,
-        average: descriptor.media,
         evaluated: descriptor.totalColabs,
         levels: descriptorLevels(descriptor.pct),
       })),
@@ -274,7 +285,6 @@ export function normalizeRhReportInsight(value: unknown): RhReportInsight | null
     indicators: {
       evaluated: asNumber(indicators.total_avaliados),
       assessments: asNumber(indicators.total_avaliacoes),
-      average: asNumber(indicators.media_geral),
       levels: ([1, 2, 3, 4] as const).map((level) => ({
         level,
         percentage: Math.max(0, Math.min(100, asNumber(indicators[`pct_nivel_${level}`]) ?? 0)),
@@ -285,13 +295,20 @@ export function normalizeRhReportInsight(value: unknown): RhReportInsight | null
       positive: asText(content.comparativo_f1_f3?.destaque_positivo),
       attention: asText(content.comparativo_f1_f3?.destaque_atencao),
     },
-    roles: asArray(content.visao_por_cargo).map((item) => ({
-      role: asText(item?.cargo) || '—',
-      average: asNumber(item?.media_nivel ?? item?.media),
-      reading: asText(item?.leitura ?? item?.analise),
-      strengths: asStringList(item?.principais_forcas ?? item?.ponto_forte),
-      risks: asStringList(item?.principais_riscos ?? item?.ponto_critico),
-    })),
+    roles: asArray(content.visao_por_cargo).map((item) => {
+      // O nível sai da distribuição (ou do legado); a média gravada não passa daqui.
+      const leitura = leituraDoCargo(item);
+      return {
+        role: asText(item?.cargo) || '\u2014',
+        level: leitura.nivel,
+        distribution: leitura.distribuicao
+          ? ([1, 2, 3, 4] as const).map((level) => ({ level, count: leitura.distribuicao![`n${level}`] }))
+          : null,
+        reading: asText(item?.leitura ?? item?.analise),
+        strengths: asStringList(item?.principais_forcas ?? item?.ponto_forte),
+        risks: asStringList(item?.principais_riscos ?? item?.ponto_critico),
+      };
+    }),
     roleFocus: asArray(content.competencia_foco_por_cargo).map((item) => ({
       role: asText(item?.cargo) || '—',
       competency: asText(item?.competencia_recomendada) || '—',
@@ -379,7 +396,6 @@ export function normalizeManagerReportInsight(value: unknown): ManagerReportInsi
       const distribution = asObject(item?.distribuicao);
       return {
         competency: asText(item?.competencia) || '—',
-        average: asNumber(item?.media_nivel ?? item?.media),
         distribution: ([1, 2, 3, 4] as const).map((level) => ({
           level,
           people: Math.max(0, asNumber(distribution[`n${level}`]) ?? 0),

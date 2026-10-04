@@ -10,6 +10,7 @@
  */
 import { callAI, type AIConfig } from '@/actions/ai-client';
 import type { DnaAggregate } from './aggregate';
+import { nivelDaDistribuicao } from '@/lib/relatorios/niveis-do-rh';
 
 export interface DnaForca { titulo: string; destaque: string; descricao: string; reforco: string }
 export interface DnaPadrao { titulo: string; texto: string }
@@ -33,10 +34,14 @@ function vocab(segmento: string | null | undefined) {
 
 function resumoDados(dna: DnaAggregate, empresaNome: string, segmento: string | null | undefined): string {
   const v = vocab(segmento);
-  const comps = dna.competencias.slice(0, 6).map((c) =>
-    `- ${c.nome}: média ${c.media} (N1=${c.pct.n1}% N2=${c.pct.n2}% N3=${c.pct.n3}% N4=${c.pct.n4}%)${c.prioridade ? ' [PRIORITÁRIA]' : ''}` +
-    `\n    descritores: ${c.descritores.slice(0, 4).map((d) => `${d.descritor} (N1=${d.pct.n1}%)`).join('; ')}`,
-  ).join('\n');
+  // Lote 5b (04/10/2026): a linha da competência trazia `média 2.4` e a regra mandava a IA "citar
+  // médias que estão nos dados", e o texto da IA vai para o PDF do cliente. Agora a linha traz o
+  // NÍVEL MAIS FREQUENTE (o mesmo que o PDF imprime) e os percentuais, e a regra proíbe média.
+  const comps = dna.competencias.slice(0, 6).map((c) => {
+    const frequente = nivelDaDistribuicao(c.pct);
+    return `- ${c.nome}: nível mais frequente ${frequente != null ? `N${frequente}` : 'indisponível'} (N1=${c.pct.n1}% N2=${c.pct.n2}% N3=${c.pct.n3}% N4=${c.pct.n4}%)${c.prioridade ? ' [PRIORITÁRIA]' : ''}` +
+    `\n    descritores: ${c.descritores.slice(0, 4).map((d) => `${d.descritor} (N1=${d.pct.n1}%)`).join('; ')}`;
+  }).join('\n');
   return [
     `${v.org.toUpperCase()}: ${empresaNome} | segmento: ${segmento || 'corporativo'}`,
     `Pessoas com ao menos uma competência avaliada (avaliação iniciada, não necessariamente concluída): ${dna.avaliados} de ${dna.totalColaboradores} (${dna.participacaoPct}% de participação) · ${dna.totalAvaliacoes} avaliações de descritores`,
@@ -56,7 +61,8 @@ function resumoDados(dna: DnaAggregate, empresaNome: string, segmento: string | 
 const SYSTEM = `Você é um consultor sênior de desenvolvimento organizacional da Vertho. Escreve o "Retrato de Competências" (DNA Organizacional): um diagnóstico COLETIVO, ANÔNIMO e MOBILIZADOR de uma equipe, em português do Brasil.
 
 REGRAS INVIOLÁVEIS:
-- NUNCA invente números. Use APENAS as estatísticas fornecidas. Pode citar percentuais e médias que estão nos dados.
+- NUNCA invente números. Use APENAS as estatísticas fornecidas. Pode citar percentuais e níveis (N1 a N4) que estão nos dados.
+- NUNCA escreva média, nota decimal, pontuação nem "X de 4": o leitor vê o nível mais frequente e a distribuição por nível.
 - NUNCA identifique pessoas. O tom é coletivo ("nosso grupo", "a equipe"). Reconhecer quem já chegou ao nível é feito por CONTAGEM + cargo + competência ("3 profissionais de Gestão Escolar em Planejamento e Organização"), nunca por nome.
 - NUNCA afirme que existem profissionais num nível que os dados não mostram. Se N4=0%, não cite N4 como algo já alcançado.
 - Tom: encorajador, honesto, profissional — celebra forças reais e nomeia gaps sem culpar. Gaps são "degraus", não fracassos.

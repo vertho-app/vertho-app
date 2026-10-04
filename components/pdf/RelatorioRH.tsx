@@ -3,6 +3,7 @@ import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/render
 import { colors, pageStyles } from './styles';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
+import { leituraDoCargo, nivelGeralDosIndicadores } from '@/lib/relatorios/niveis-do-rh';
 // SectionTitle → ReportSectionTitle (Fraunces) e PageBackground → PageHeader fino, de PdfReportCover
 
 const s = StyleSheet.create({
@@ -113,6 +114,9 @@ function parseJsonLike(v: any): any {
   }
 }
 
+// Percentual com no máximo uma casa: 15.83 + 4.17 em ponto flutuante vira 20.000000000000004.
+const arredondaPct = (n: number) => Math.round(n * 10) / 10;
+
 function getResumoExecutivo(v: any) {
   const parsed = typeof v === 'object' && v !== null ? v : parseJsonLike(v);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
@@ -143,6 +147,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
   const talentos = (c?.decisoes_chave || []).filter(ehTalento);
   if (!c) return null;
   const resumoExecutivo = getResumoExecutivo(c.resumo_executivo);
+  const nivelGeral = nivelGeralDosIndicadores(c.indicadores);
 
   return (
     <Document>
@@ -179,9 +184,11 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
           <View style={s.section} wrap={false}>
             <ReportSectionTitle>Indicadores Quantitativos</ReportSectionTitle>
             <View style={{ borderWidth: 1, borderColor: colors.gray200, borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
+              {/* Sem a "Média geral" (lote 5b, 04/10/2026): o nível mais frequente sai dos
+                  percentuais por nível, que existem nos relatórios novos e nos antigos. */}
               {[['Colaboradores avaliados', c.indicadores.total_avaliados],
                 ['Avalia\u00e7\u00f5es realizadas', c.indicadores.total_avaliacoes],
-                ['M\u00e9dia geral', c.indicadores.media_geral],
+                ['N\u00edvel mais frequente', nivelGeral != null ? `N${nivelGeral}` : '\u2014'],
               ].map(([label, val]: [any, any], i: number) => (
                 <View key={i} style={i % 2 === 0 ? s.kpiRow : s.kpiRowAlt}>
                   <Text style={s.kpiLabel}>{label}</Text>
@@ -191,13 +198,13 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
             </View>
             <View>
               <View style={{ ...s.levelBar, backgroundColor: '#F0FDF4' }}>
-                <Text style={{ ...s.levelText, color: '#166534' }}>N3-N4: {(c.indicadores.pct_nivel_3 || 0) + (c.indicadores.pct_nivel_4 || 0)}%</Text>
+                <Text style={{ ...s.levelText, color: '#166534' }}>N3-N4: {arredondaPct((c.indicadores.pct_nivel_3 || 0) + (c.indicadores.pct_nivel_4 || 0))}%</Text>
               </View>
               <View style={{ ...s.levelBar, backgroundColor: '#FFFBEB' }}>
-                <Text style={{ ...s.levelText, color: '#92400E' }}>N2: {c.indicadores.pct_nivel_2 || 0}%</Text>
+                <Text style={{ ...s.levelText, color: '#92400E' }}>N2: {arredondaPct(c.indicadores.pct_nivel_2 || 0)}%</Text>
               </View>
               <View style={{ ...s.levelBar, backgroundColor: '#FEF2F2' }}>
-                <Text style={{ ...s.levelText, color: '#991B1B' }}>N1: {c.indicadores.pct_nivel_1 || 0}%</Text>
+                <Text style={{ ...s.levelText, color: '#991B1B' }}>N1: {arredondaPct(c.indicadores.pct_nivel_1 || 0)}%</Text>
               </View>
             </View>
           </View>
@@ -220,15 +227,19 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
           <View style={s.section}>
             <ReportSectionTitle>{'Vis\u00e3o por Cargo'}</ReportSectionTitle>
             {c.visao_por_cargo.map((v: any, i: number) => {
-              // A IA renomeou os campos (media_nivel/leitura/principais_forcas/
-              // principais_riscos); mantemos fallback pros nomes antigos.
-              const mediaRaw = v.media_nivel ?? v.media;
-              const media = mediaRaw == null ? '\u2014' : (typeof mediaRaw === 'number' ? mediaRaw.toFixed(1) : String(mediaRaw));
+              // O nível do cargo, sem a média (lote 5b, 04/10/2026): o relatório novo traz a
+              // distribuição de avaliações por nível e o nível mais frequente; o antigo só trazia
+              // `media_nivel` ou `media`, e dela sai apenas o nível. A IA também renomeou os
+              // campos (leitura/principais_forcas/principais_riscos); mantemos fallback pros antigos.
+              const leituraCargo = leituraDoCargo(v);
+              const dist = leituraCargo.distribuicao;
+              const rotuloNivel = leituraCargo.origem === 'media' ? 'N\u00edvel geral' : 'N\u00edvel mais frequente';
               const forte = v.ponto_forte || (Array.isArray(v.principais_forcas) ? v.principais_forcas.join(' \u00b7 ') : v.principais_forcas);
               const critico = v.ponto_critico || (Array.isArray(v.principais_riscos) ? v.principais_riscos.join(' \u00b7 ') : v.principais_riscos);
               return (
               <View key={i} style={s.cargoCard} wrap={false}>
-                <Text style={s.cargoTitle}>{v.cargo} {'\u2014'} {'M\u00e9dia'}: {media}</Text>
+                <Text style={s.cargoTitle}>{v.cargo}{leituraCargo.nivel != null ? ` \u00b7 ${rotuloNivel}: N${leituraCargo.nivel}` : ''}</Text>
+                {dist && <Text style={s.textIt}>{'Avalia\u00e7\u00f5es por n\u00edvel'}: N1:{dist.n1} | N2:{dist.n2} | N3:{dist.n3} | N4:{dist.n4}</Text>}
                 <Text style={s.text}>{v.leitura || v.analise}</Text>
                 {forte && <View style={s.hlPositive}><Text style={{ ...s.hlText, color: '#166534' }}>+ {forte}</Text></View>}
                 {critico && <View style={s.hlAttention}><Text style={{ ...s.hlText, color: '#92400E' }}>! {critico}</Text></View>}

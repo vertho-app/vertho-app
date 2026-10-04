@@ -255,8 +255,8 @@ export function criarRelatorioGestorAcmeDemo(
     destaques_evolucao: [{ nome: destaque.nome_completo, competencia, nivel: 3, motivo_destaque: 'Aplicou o feedback em uma situação real e trouxe evidência do resultado.' }],
     ranking_atencao: [{ nome: atencao.nome_completo, competencia, nivel: 1, urgencia: 'IMPORTANTE', motivo: 'Precisa transformar intenção em ação observável e acompanhada.', risco_se_nao_agir: 'Perda de previsibilidade e repetição dos mesmos gargalos.' }],
     analise_por_competencia: [
-      { competencia, media_nivel: 2.4, distribuicao: { n1: 1, n2: 2, n3: 3, n4: 1 }, padrao_observado: 'A equipe reconhece o comportamento esperado, mas ainda oscila sob pressão.', acao_gestor: 'Usar uma situação real por semana para praticar decisão, comunicação e registro.', impacto_se_nao_agir: 'A aprendizagem fica conceitual e não altera a rotina.' },
-      { competencia: 'Responsabilidade sobre acordos', media_nivel: 3.1, distribuicao: { n1: 0, n2: 1, n3: 4, n4: 2 }, padrao_observado: 'Os combinados são cumpridos quando há definição clara de dono e prazo.', acao_gestor: 'Manter o fechamento das reuniões com responsável, prazo e evidência esperada.' },
+      { competencia, distribuicao: { n1: 1, n2: 2, n3: 3, n4: 1 }, padrao_observado: 'A equipe reconhece o comportamento esperado, mas ainda oscila sob pressão.', acao_gestor: 'Usar uma situação real por semana para praticar decisão, comunicação e registro.', impacto_se_nao_agir: 'A aprendizagem fica conceitual e não altera a rotina.' },
+      { competencia: 'Responsabilidade sobre acordos', distribuicao: { n1: 0, n2: 1, n3: 4, n4: 2 }, padrao_observado: 'Os combinados são cumpridos quando há definição clara de dono e prazo.', acao_gestor: 'Manter o fechamento das reuniões com responsável, prazo e evidência esperada.' },
     ],
     perfil_disc_equipe: {
       descricao: 'O grupo combina ritmo de execução com necessidade de clareza e estrutura. A liderança ganha tração quando antecipa prioridades e reduz ambiguidades.',
@@ -289,7 +289,7 @@ export function criarRelatorioRhAcmeDemo() {
     indicadores: {
       total_avaliados: ACME_DEMO_TEAM_SIZE,
       total_avaliacoes: ACME_DEMO_TEAM_SIZE * 5,
-      media_geral: 2.7,
+      nivel_mais_frequente: 3,
       pct_nivel_1: 12,
       pct_nivel_2: 31,
       pct_nivel_3: 39,
@@ -301,9 +301,9 @@ export function criarRelatorioRhAcmeDemo() {
       destaque_atencao: 'Financeiro precisa de mais espaço para praticar comunicação de risco e negociação de prioridades.',
     },
     visao_por_cargo: [
-      { cargo: 'Representante Comercial', media_nivel: 2.6, leitura: 'Boa orientação a resultado, com oportunidade de ampliar a qualidade da negociação de valor.', principais_forcas: ['Relacionamento com clientes'], principais_riscos: ['Concessões precoces sob pressão'] },
-      { cargo: 'Analista Financeiro', media_nivel: 2.8, leitura: 'Base técnica confiável e oportunidade de antecipar a comunicação de riscos.', principais_forcas: ['Precisão e responsabilidade'], principais_riscos: ['Escalada tardia de dependências'] },
-      { cargo: 'Coordenador de Operações', media_nivel: 2.7, leitura: 'Boa resposta a urgências, com necessidade de preservar prioridade e aprendizagem após a resolução.', principais_forcas: ['Execução e solução de problemas'], principais_riscos: ['Recorrência de gargalos'] },
+      { cargo: 'Representante Comercial', nivel_mais_frequente: 3, distribuicao: { n1: 7, n2: 17, n3: 19, n4: 7 }, leitura: 'Boa orientação a resultado, com oportunidade de ampliar a qualidade da negociação de valor.', principais_forcas: ['Relacionamento com clientes'], principais_riscos: ['Concessões precoces sob pressão'] },
+      { cargo: 'Analista Financeiro', nivel_mais_frequente: 3, distribuicao: { n1: 5, n2: 14, n3: 21, n4: 10 }, leitura: 'Base técnica confiável e oportunidade de antecipar a comunicação de riscos.', principais_forcas: ['Precisão e responsabilidade'], principais_riscos: ['Escalada tardia de dependências'] },
+      { cargo: 'Coordenador de Operações', nivel_mais_frequente: 3, distribuicao: { n1: 6, n2: 15, n3: 20, n4: 9 }, leitura: 'Boa resposta a urgências, com necessidade de preservar prioridade e aprendizagem após a resolução.', principais_forcas: ['Execução e solução de problemas'], principais_riscos: ['Recorrência de gargalos'] },
     ],
     competencia_foco_por_cargo: [
       { cargo: 'Representante Comercial', competencia_recomendada: 'Negociação e Fechamento', horizonte_sugerido: 'próximo ciclo', justificativa: 'É o maior ponto de alavancagem para receita com margem e previsibilidade.', expectativa_impacto: 'Melhor conversão sem ampliar descontos.' },

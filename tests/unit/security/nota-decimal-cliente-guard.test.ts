@@ -25,14 +25,14 @@ import { semComentarios } from '../../helpers/fonte';
  *
  * ALLOWLIST: dívida declarada, SÓ PODE ENCOLHER. Entrada nova aqui é exatamente o bug
  * que o guard existe para pegar; entrada que já não acusa também reprova (limpe-a).
- * As três de hoje são o PDF de RH gerado por IA (`media_nivel` do relatório), o PDF do
- * DNA organizacional e o ranking de preferências de aprendizagem.
+ * VAZIA desde 04/10/2026 (lote 5b). Eram três: o PDF de RH gerado por IA e o PDF do DNA
+ * organizacional passaram a imprimir o nível mais frequente (e o DNA parou de mandar a
+ * média à IA que escreve o texto do PDF); e o ranking de preferências de aprendizagem,
+ * que só o admin da Vertho abre e mostra a média de PREFERÊNCIA de formato (escala de 1 a
+ * 5, não nota de competência), foi para `components/admin`, que o guard já exclui, em vez
+ * de ficar como dívida.
  */
-const ALLOWLIST: Record<string, number> = {
-  'components/pdf/RelatorioRH.tsx': 1,
-  'lib/dna-organizacional-pdf.tsx': 1,
-  'components/preferencias-ranking.tsx': 1,
-};
+const ALLOWLIST: Record<string, number> = {};
 
 const FORA = [
   'app/admin', 'components/admin', 'lib/demo', 'lib/radar', 'lib/sales', 'components/radar',
@@ -64,10 +64,12 @@ describe('guard: código do cliente sem nota decimal', () => {
     const arquivos = arquivosDoCliente();
     // Medido em 04/10/2026: 132 arquivos. Um piso de 100 pega a lista que esvazia por erro de pathspec.
     expect(arquivos.length).toBeGreaterThan(100);
-    for (const esperado of ['app/dashboard/gestor/page.tsx', 'components/pdf/RelatorioEvolucao.tsx', 'components/pdf/RelatorioIndividual.tsx', 'app/dashboard/relatorios/relatorios-rh-view.tsx', 'components/simuladores/relatorio-competencias.tsx']) {
+    for (const esperado of ['app/dashboard/gestor/page.tsx', 'components/pdf/RelatorioEvolucao.tsx', 'components/pdf/RelatorioIndividual.tsx', 'components/pdf/RelatorioRH.tsx', 'lib/dna-organizacional-pdf.tsx', 'app/dashboard/relatorios/relatorios-rh-view.tsx', 'components/simuladores/relatorio-competencias.tsx']) {
       expect(arquivos, esperado).toContain(esperado);
     }
     expect(arquivos.some((f) => f.startsWith('app/admin'))).toBe(false);
+    // O ranking de preferências é do admin (média de preferência, não nota): vive onde o guard não varre.
+    expect(arquivos).not.toContain('components/preferencias-ranking.tsx');
   });
 
   it('nenhuma tela ou PDF novo imprime nota; a dívida declarada só encolhe', () => {
@@ -86,7 +88,9 @@ describe('guard: código do cliente sem nota decimal', () => {
 
 describe('guard: texto do cliente sem "{nota} de 4" nem "nota média"', () => {
   const LOCALES = ['pt-BR', 'pt-PT', 'es-ES', 'en-US'];
-  const PADRAO_TEXTO = /\{\w+\}\s*(?:de|of|out of|\/)\s*4(?:[.,]0)?\b|\bnota m[eé]dia\b|\baverage (?:score|grade)\b|\bm[eé]dia geral\b|\boverall average\b/i;
+  // Lote 5b: a liderança ainda dizia "Média da jornada" e "sem média" (a mesma conta que o resto do
+  // produto chama de "Nível geral"). "Nível médio" é a mesma média com outro nome.
+  const PADRAO_TEXTO = /\{\w+\}\s*(?:de|of|out of|\/)\s*4(?:[.,]0)?\b|\bnota m[eé]dia\b|\baverage (?:score|grade)\b|\bm[eé]dia geral\b|\boverall average\b|\bm[eé]dia d[ao] jornada\b|\bsem m[eé]dia\b|\bn[ií]vel m[eé]dio\b|\bmedia del recorrido\b|\bsin promedio\b|\bnivel medio\b|\bjourney average\b|\bno average\b|\baverage level\b/i;
   const EXCLUIDOS = /^(?:Admin|Pulse|Radar)/;
 
   function* folhas(obj: any, caminho = ''): Generator<[string, unknown]> {
@@ -97,10 +101,10 @@ describe('guard: texto do cliente sem "{nota} de 4" nem "nota média"', () => {
   }
 
   it('o padrão pega os textos de antes', () => {
-    for (const velho of ['{score} de 4', '{score} out of 4', '{value} de 4.0', 'Nota média atual', 'Média geral:', 'Overall average:']) {
+    for (const velho of ['{score} de 4', '{score} out of 4', '{value} de 4.0', 'Nota média atual', 'Média geral:', 'Overall average:', 'Média da jornada: Nível {level}', 'sem média', 'Nível médio', 'Media del recorrido: Nivel {level}', 'sin promedio', 'Nivel medio', 'Journey average: Level {level}', 'no average', 'Average level']) {
       expect(PADRAO_TEXTO.test(velho), velho).toBe(true);
     }
-    for (const bom of ['Nível geral', 'Nível {n}', '{count} de {total} competências', 'cobertura {coverage}%']) {
+    for (const bom of ['Nível geral', 'Nível {n}', '{count} de {total} competências', 'cobertura {coverage}%', 'Nível geral da jornada: {level}', 'Avanço médio', 'Overall journey level: {level}']) {
       expect(PADRAO_TEXTO.test(bom), bom).toBe(false);
     }
   });

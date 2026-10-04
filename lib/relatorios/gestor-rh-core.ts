@@ -20,6 +20,7 @@ import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { RELATORIO_GESTOR_SYSTEM, RELATORIO_RH_SYSTEM } from '@/lib/relatorios/prompts';
+import { cargosParaOPrompt, linhasDeNiveisParaOPrompt } from '@/lib/relatorios/niveis-do-rh';
 
 export interface ResultadoRelatorio<T = unknown> {
   success: boolean;
@@ -245,31 +246,28 @@ export async function gerarRelatorioRHCore(
       (comps || []).forEach((c: any) => { compMap[c.id] = c; });
     }
 
-    // Indicadores
+    // Indicadores. Lote 5b (04/10/2026): o prompt recebia `MEDIA GERAL` e, por cargo, `media`,
+    // e devolvia as duas no relatório que o cliente lê. Agora recebe o NÍVEL MAIS FREQUENTE e a
+    // distribuição de avaliações por nível (geral e por cargo), já calculados aqui: a IA copia, não
+    // faz a conta. A nota decimal não sai do servidor (`lib/relatorios/niveis-do-rh.ts`).
     const niveis: number[] = respostas.map((r: any) => {
       const av = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
       return av?.consolidacao?.nivel_geral || r.nivel_ia4 || 0;
     }).filter((n: number) => n > 0);
 
-    const media = niveis.length ? Math.round((niveis.reduce((a, b) => a + b, 0) / niveis.length) * 100) / 100 : 0;
-    const dist: Record<string, number> = { n1: 0, n2: 0, n3: 0, n4: 0 };
-    niveis.forEach(n => { if (dist[`n${n}`] !== undefined) dist[`n${n}`]++; });
-
-    // Dados por cargo
-    const porCargo: Record<string, { nivel: number }[]> = {};
+    // Dados por cargo (a pessoa fica junto da avaliação para contar as pessoas distintas)
+    const avaliacoesPorCargo: Array<{ cargo: string; colaboradorId: string; nivel: number }> = [];
     respostas.forEach((r: any) => {
       const c = colabMap[r.colaborador_id];
       if (!c) return;
-      const cargo = c.cargo || '—';
-      if (!porCargo[cargo]) porCargo[cargo] = [];
       const av = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
-      porCargo[cargo].push({ nivel: av?.consolidacao?.nivel_geral || r.nivel_ia4 || 0 });
+      avaliacoesPorCargo.push({
+        cargo: c.cargo || '\u2014',
+        colaboradorId: r.colaborador_id,
+        nivel: av?.consolidacao?.nivel_geral || r.nivel_ia4 || 0,
+      });
     });
-
-    const cargosData = Object.entries(porCargo).map(([cargo, items]) => {
-      const ns = items.map(i => i.nivel).filter(n => n > 0);
-      return { cargo, total: items.length, media: ns.length ? Math.round((ns.reduce((a, b) => a + b, 0) / ns.length) * 100) / 100 : 0 };
-    });
+    const cargosData = cargosParaOPrompt(avaliacoesPorCargo);
 
     // Todos os registros
     const registros = respostas.map((r: any) => {
@@ -296,8 +294,7 @@ export async function gerarRelatorioRHCore(
     const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})
 TOTAL AVALIADOS: ${colabIds.length}
 TOTAL AVALIACOES: ${respostas.length}
-MEDIA GERAL: ${media}
-DISTRIBUICAO: N1=${dist.n1} N2=${dist.n2} N3=${dist.n3} N4=${dist.n4}
+${linhasDeNiveisParaOPrompt(niveis)}
 DISC ORGANIZACIONAL: D=${discOrg.D} I=${discOrg.I} S=${discOrg.S} C=${discOrg.C}
 ${groundingBlock ? `\n${groundingBlock}\n` : ''}
 POR CARGO:

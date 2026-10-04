@@ -15,10 +15,18 @@ const espiao = vi.hoisted(() => ({ panorama: [] as any[] }));
 
 const TURMA = { id: 'turma-a', nome: 'Turma A', status: 'em_jornada' };
 
+/** Relatório de RH GRAVADO antes do lote 5b: traz a média geral e a média de cada cargo. */
+const RH_GRAVADO = {
+  resumo_executivo: { leitura_geral: 'Leitura.' },
+  indicadores: { total_avaliados: 24, total_avaliacoes: 120, media_geral: 3.2641, pct_nivel_1: 4, pct_nivel_2: 16, pct_nivel_3: 45, pct_nivel_4: 35 },
+  visao_por_cargo: [{ cargo: 'Representante Comercial', media_nivel: 3.2417, leitura: 'x', principais_forcas: ['a'], principais_riscos: ['b'] }],
+};
+
 const sb = criarSupabaseMock({
   resolver: (table) => {
     if (table === 'empresas') return { nome: 'Empresa Teste' };
     if (table === 'turmas') return TURMA;
+    if (table === 'relatorios') return { conteudo: RH_GRAVADO, gerado_em: '2026-08-29T10:00:00Z' };
     return null;
   },
   lista: (table, cols) => {
@@ -82,8 +90,19 @@ describe('central de relatórios do RH', () => {
     });
     expect(result.dashboard.descriptorAnalysis?.organization.competencies[0]).toMatchObject({
       competency: 'Comunicação para Decisão',
-      average: 3.2,
     });
+    // A nota média do descritor (3,2 no mock) fica no servidor: o navegador recebe só a distribuição (lote 5b).
+    expect(result.dashboard.descriptorAnalysis?.organization.competencies[0]).not.toHaveProperty('average');
+  });
+
+  it('o que a central entrega ao navegador não traz média nenhuma, nem a do relatório gravado nem a do descritor (lote 5b)', async () => {
+    const result = await carregarCentralRelatoriosRH(EMPRESA_ID);
+    const insight = result.dashboard.insight!;
+    // O relatório gravado diz média 3,2417 no cargo: sai só o nível (N3), marcado sem distribuição.
+    expect(insight.roles[0]).toMatchObject({ role: 'Representante Comercial', level: 3, distribution: null });
+    const payload = JSON.stringify({ insight, descriptorAnalysis: result.dashboard.descriptorAnalysis });
+    expect(payload).not.toContain('average');
+    for (const nota of ['3.2641', '3.2417', '3.2']) expect(payload, nota).not.toContain(nota);
   });
 
   it('não pede à consulta os tipos do Pulso enquanto o bloco está off-line (R-31)', async () => {

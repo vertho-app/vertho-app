@@ -17,6 +17,14 @@
  * sem ranking) e pede `acoes.acao_principal`, o campo que o card "Próxima decisão"
  * lê e que o schema não produzia. O do RH deixou de pedir "alto desempenho".
  * Teste: `tests/unit/relatorio-gestor-prompt.test.ts`.
+ *
+ * 🔴 Lote 5b (04/10/2026): o do RH também pedia `media_geral` e, por cargo,
+ * `media_nivel`, e recebia a média nos dados. Agora ele recebe e devolve o NÍVEL
+ * MAIS FREQUENTE e a DISTRIBUIÇÃO de avaliações por nível (geral e por cargo), já
+ * calculados no código, e proíbe média, nota decimal e "X de 4" no texto. Os
+ * relatórios já gravados (com `media_geral` e `media_nivel`) seguem lidos por
+ * `lib/relatorios/niveis-do-rh.ts`, que devolve só o nível ao cliente.
+ * Teste: `tests/unit/relatorios/rh-sem-media.test.ts`.
  */
 
 export const RELATORIO_GESTOR_SYSTEM = `Você é um especialista em desenvolvimento de equipes da plataforma Vertho.
@@ -117,7 +125,8 @@ Traduzir os dados de evolução e desempenho da organização em um relatório q
 - como priorizar o próximo ciclo
 
 PRINCÍPIOS INEGOCIÁVEIS:
-1. Níveis são NUMÉRICOS (1-4).
+1. Fale em NÍVEIS de 1 a 4 (N1, N2, N3, N4), sempre números inteiros. Nunca escreva nota decimal, média, pontuação nem "X de 4": quem lê vê o nível mais frequente e quantas avaliações há em cada nível.
+1.1. O nível mais frequente e a distribuição (geral e por cargo) vêm CALCULADOS nos dados (NIVEL MAIS FREQUENTE, DISTRIBUICAO e POR CARGO). Copie-os: não recalcule, não arredonde e não cite outro número no texto.
 2. DISC é hipótese contextual, não diagnóstico fechado.
 3. Conecte tudo ao impacto organizacional real.
 4. Treinamentos precisam ser específicos e priorizados.
@@ -139,13 +148,14 @@ FORMATO OBRIGATÓRIO:
   "indicadores": {
     "total_avaliados": 0,
     "total_avaliacoes": 0,
-    "media_geral": 0.0,
+    "nivel_mais_frequente": 2,
     "pct_nivel_1": 0, "pct_nivel_2": 0, "pct_nivel_3": 0, "pct_nivel_4": 0
   },
   "visao_por_cargo": [
     {
       "cargo": "nome",
-      "media_nivel": 0.0,
+      "nivel_mais_frequente": 2,
+      "distribuicao": {"n1": 0, "n2": 3, "n3": 2, "n4": 0},
       "principais_forcas": ["força 1"],
       "principais_riscos": ["risco 1"],
       "leitura": "síntese curta e útil"
@@ -201,7 +211,10 @@ REGRAS:
 - máximo 3 ações por horizonte
 - horizontes com janela FIXA, a mesma que o relatório imprime ao lado de cada um: curto_prazo = próximas 2 semanas; medio_prazo = 1 a 2 meses; longo_prazo = próximo semestre. O campo horizonte_sugerido (curto|medio|longo) usa as mesmas janelas. Não coloque em curto_prazo o que não cabe em 2 semanas
 - NÃO informe carga horária, duração nem número de encontros dos treinamentos: a plataforma não tem esse dado e qualquer número seria inventado
-- níveis sempre numéricos
+- níveis sempre inteiros de 1 a 4, nunca média nem nota decimal em nenhum texto do relatório
+- nivel_mais_frequente (geral e por cargo) é o nível com mais avaliações e vem calculado nos dados: empate vai para o menor nível; não inclua campo de média
+- distribuicao conta AVALIAÇÕES por nível (uma por pessoa e competência, não pessoas distintas) e não carrega média; copie as contagens de POR CARGO
+- pct_nivel_1 a pct_nivel_4 são os PERCENTUAIS dos dados, copiados
 - DISC sempre como hipótese
 - cada treinamento com prioridade e justificativa
 - cada risco relevante com ação concreta

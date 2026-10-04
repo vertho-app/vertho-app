@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { nivelDaNota } from '@/lib/nivel-regua';
+import { contarNiveis, nivelDaDistribuicao } from '@/lib/relatorios/niveis-do-rh';
 import { chaveMapeamento, colaboradoresComMapeamentoCompleto, type CargoMapeamento } from '@/lib/mapeamento-competencias';
 import { rosterDemo } from '@/lib/demo/rosters';
 
@@ -8,7 +9,6 @@ export type NotaLeituraDemo = { colaborador_id: string; competencia: string; des
 type Avaliacao = { pessoa: PessoaLeituraDemo; competencia: string; nota: number; nivel: number };
 const media = (xs: number[]) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0;
 const decimal = (n: number) => Number(n.toFixed(2));
-const notaPt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** Uma única fonte para narrativa, cartões, distribuição e PDF; sem pontuação inventada. */
 export function construirLeiturasDemo(marca: string, pessoas: PessoaLeituraDemo[], cargos: CargoMapeamento[], notas: NotaLeituraDemo[]) {
@@ -25,7 +25,8 @@ export function construirLeiturasDemo(marca: string, pessoas: PessoaLeituraDemo[
   }
   const avaliacoes: Avaliacao[] = [...grupos.values()].map(g => ({ pessoa: g.pessoa, competencia: g.competencia, nota: media(g.notas), nivel: nivelDaNota(media(g.notas)) }))
     .sort((a, b) => a.pessoa.nome_completo.localeCompare(b.pessoa.nome_completo, 'pt-BR') || a.competencia.localeCompare(b.competencia, 'pt-BR'));
-  const frase = (a: Avaliacao) => `${a.pessoa.nome_completo}: ${a.competencia} em N${a.nivel}, nota ${notaPt(a.nota)}.`;
+  // Só o NÍVEL: a demonstração também é lida como cliente, e o cliente não vê nota decimal (lote 5b).
+  const frase = (a: Avaliacao) => `${a.pessoa.nome_completo}: ${a.competencia} em N${a.nivel}.`;
   const destaque = (a: Avaliacao) => ({ nome: a.pessoa.nome_completo, competencia: a.competencia, nivel: a.nivel,
     motivo_destaque: `${frase(a)} Ponto forte no mapeamento inicial; a evolução será comparada após a reavaliação.` });
   const distribuicao = (xs: Avaliacao[]) => Object.fromEntries([1, 2, 3, 4].map(n => [`n${n}`, xs.filter(a => a.nivel === n).length]));
@@ -38,8 +39,8 @@ export function construirLeiturasDemo(marca: string, pessoas: PessoaLeituraDemo[
     const menores = [...medidas].sort((a, b) => a.nota - b.nota).slice(0, 3);
     const porComp = [...new Set(medidas.map(a => a.competencia))].sort().map(competencia => {
       const grupo = medidas.filter(a => a.competencia === competencia);
-      return { competencia, media_nivel: decimal(media(grupo.map(a => a.nota))), distribuicao: distribuicao(grupo),
-        padrao_observado: `${grupo.length} pessoas com esta competência avaliada. Média ${notaPt(media(grupo.map(a => a.nota)))} no mapeamento inicial.`,
+      return { competencia, distribuicao: distribuicao(grupo),
+        padrao_observado: `${grupo.length} pessoas com esta competência avaliada no mapeamento inicial.`,
         acao_gestor: 'Combinar uma aplicação prática e uma evidência observável para a próxima conversa.',
         impacto_se_nao_agir: 'Sem acompanhamento, o diagnóstico não se transforma em prática.' };
     });
@@ -60,7 +61,8 @@ export function construirLeiturasDemo(marca: string, pessoas: PessoaLeituraDemo[
   const porCargo = [...new Set(base.map(a => a.pessoa.cargo))].sort().map(cargo => {
     const grupo = base.filter(a => a.pessoa.cargo === cargo);
     const porComp = [...new Set(grupo.map(a => a.competencia))].map(competencia => ({ competencia, nota: media(grupo.filter(a => a.competencia === competencia).map(a => a.nota)) })).sort((a,b) => a.nota-b.nota);
-    return { cargo, media_nivel: decimal(media(grupo.map(a => a.nota))), leitura: `${new Set(grupo.map(a => a.pessoa.id)).size} pessoas com mapeamento completo; prioridade: ${porComp[0]?.competencia || 'acompanhar a jornada'}.`, principais_forcas: porComp.at(-1) ? [porComp.at(-1)!.competencia] : [], principais_riscos: porComp[0] ? [porComp[0].competencia] : [] };
+    const niveis = contarNiveis(grupo.map(a => a.nivel));
+    return { cargo, nivel_mais_frequente: nivelDaDistribuicao(niveis), distribuicao: niveis, leitura: `${new Set(grupo.map(a => a.pessoa.id)).size} pessoas com mapeamento completo; prioridade: ${porComp[0]?.competencia || 'acompanhar a jornada'}.`, principais_forcas: porComp.at(-1) ? [porComp.at(-1)!.competencia] : [], principais_riscos: porComp[0] ? [porComp[0].competencia] : [] };
   });
   const rh = { colaboradorId: null, tipo: 'rh', conteudo: {
     demo_fixture: true, leitura_base: true,
@@ -68,9 +70,9 @@ export function construirLeiturasDemo(marca: string, pessoas: PessoaLeituraDemo[
       leitura_geral: `A leitura de ${marca} considera o elenco demonstrativo de ${pessoas.length} pessoas. ${completos.size} concluíram o mapeamento do cargo, totalizando ${base.length} avaliações de competências. Os indicadores abaixo usam apenas esse grupo completo; convidados da degustação e avaliações parciais ficam fora deste recorte.`,
       principal_forca_organizacional: 'O mapeamento permite comparar competências avaliadas com a mesma régua e orientar o apoio por cargo.',
       principal_risco_organizacional: 'O diagnóstico exige acompanhamento para se transformar em aplicação no trabalho. A evolução depende da comparação com a reavaliação.' },
-    indicadores: { total_avaliados: completos.size, total_avaliacoes: base.length, media_geral: decimal(media(base.map(a => a.nota))), ...Object.fromEntries([1,2,3,4].map(n => [`pct_nivel_${n}`, base.length ? decimal(100*base.filter(a=>a.nivel===n).length/base.length) : 0])) },
+    indicadores: { total_avaliados: completos.size, total_avaliacoes: base.length, nivel_mais_frequente: nivelDaDistribuicao(contarNiveis(base.map(a => a.nivel))), ...Object.fromEntries([1,2,3,4].map(n => [`pct_nivel_${n}`, base.length ? decimal(100*base.filter(a=>a.nivel===n).length/base.length) : 0])) },
     visao_por_cargo: porCargo,
-    competencia_foco_por_cargo: porCargo.map(c => ({ cargo: c.cargo, competencia_recomendada: c.principais_riscos[0], horizonte_sugerido: 'próximo ciclo', justificativa: 'Menor média no mapeamento completo deste cargo.', expectativa_impacto: 'Direcionar prática e acompanhamento para a necessidade observada.' })),
+    competencia_foco_por_cargo: porCargo.map(c => ({ cargo: c.cargo, competencia_recomendada: c.principais_riscos[0], horizonte_sugerido: 'próximo ciclo', justificativa: 'Competência com o menor resultado no mapeamento completo deste cargo.', expectativa_impacto: 'Direcionar prática e acompanhamento para a necessidade observada.' })),
     competencias_criticas: porCargo.map(c => ({ competencia: c.principais_riscos[0], criticidade: 'ATENCAO', justificativa: `Prioridade identificada para ${c.cargo}.`, impacto_organizacional: 'Orientar o desenvolvimento com base no diagnóstico.' })),
     treinamentos_sugeridos: porCargo.map(c => ({ competencia: c.principais_riscos[0], titulo: `Prática de ${c.principais_riscos[0]}`, prioridade: 'IMPORTANTE', publico: c.cargo, formato: 'Jornada prática', justificativa: 'Aplicar a competência em situações de trabalho e discutir evidências com a liderança.' })),
     plano_acao: { curto_prazo: ['Validar as prioridades por cargo e combinar evidências de aplicação.'], medio_prazo: ['Acompanhar engajamento, prática e conversas de desenvolvimento.'], longo_prazo: ['Comparar o diagnóstico com a reavaliação ao concluir cada jornada.'] },

@@ -1362,7 +1362,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Grounding RAG**: **Sim** — `retrieveContext(empresaId, 'valores cultura organizacional políticas treinamento desenvolvimento estrategia', 5)`.
 - **System prompt** (resumo editorial do prompt real em `actions/relatorios.ts`):
   "Você é um especialista em desenvolvimento organizacional da plataforma Vertho." Gera relatório consolidado de RH, analítico e orientado a decisão. Princípios-chave:
-  1. Níveis NUMÉRICOS (1-4)
+  1. Níveis inteiros de 1 a 4 (N1 a N4); nunca nota decimal, média nem "X de 4" (desde 04/10/2026, lote 5b: o prompt recebia `MEDIA GERAL` e devolvia `media_geral` e `media_nivel`; agora recebe e devolve o nível mais frequente e a distribuição de avaliações por nível, calculados no código, e a IA os copia). Relatórios gravados antes seguem lidos por `lib/relatorios/niveis-do-rh.ts`, que devolve só o nível
   2. DISC é hipótese contextual, não diagnóstico fechado
   3. Conecte tudo ao impacto organizacional real
   4. Treinamentos específicos e priorizados (com custo, formato, `entra_se_orcamento_curto`; sem carga horária desde 03/10/2026, R-116: a IA inventava o número e o prompt agora o proíbe)
@@ -1373,8 +1373,8 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
   9. Máximo 3 ações por horizonte, com janela fixa (curto = próximas 2 semanas, médio = 1 a 2 meses, longo = próximo semestre: as mesmas que o PDF e o painel imprimem; R-116)
   10. Evitar linguagem genérica que serviria para qualquer empresa
 
-- **Output**: JSON `{ resumo_executivo:{leitura_geral, principal_forca_organizacional, principal_risco_organizacional}, indicadores:{total_avaliados, total_avaliacoes, media_geral, pct_nivel_1..4}, visao_por_cargo[{cargo, media_nivel, principais_forcas, principais_riscos, leitura}], competencias_criticas[{competencia, criticidade, justificativa, impacto_organizacional}], competencia_foco_por_cargo[{cargo, competencia_recomendada, justificativa, expectativa_impacto, horizonte_sugerido}], treinamentos_sugeridos[{titulo, competencia, publico, custo, prioridade, formato, justificativa, entra_se_orcamento_curto}], perfil_disc_organizacional:{descricao, forca_coletiva, risco_coletivo}, decisoes_chave[{colaborador, situacao, acao, criterio_reavaliacao}], plano_acao:{curto_prazo, medio_prazo, longo_prazo}, mensagem_final, alertas_metodologicos }`.
-- **Inputs user**: Empresa, indicadores gerais (total avaliados, média, distribuição N1-N4), DISC organizacional, grounding block, dados por cargo, registros individuais (nome, cargo, competência, nível).
+- **Output**: JSON `{ resumo_executivo:{leitura_geral, principal_forca_organizacional, principal_risco_organizacional}, indicadores:{total_avaliados, total_avaliacoes, nivel_mais_frequente, pct_nivel_1..4}, visao_por_cargo[{cargo, nivel_mais_frequente, distribuicao:{n1,n2,n3,n4}, principais_forcas, principais_riscos, leitura}], competencias_criticas[{competencia, criticidade, justificativa, impacto_organizacional}], competencia_foco_por_cargo[{cargo, competencia_recomendada, justificativa, expectativa_impacto, horizonte_sugerido}], treinamentos_sugeridos[{titulo, competencia, publico, custo, prioridade, formato, justificativa, entra_se_orcamento_curto}], perfil_disc_organizacional:{descricao, forca_coletiva, risco_coletivo}, decisoes_chave[{colaborador, situacao, acao, criterio_reavaliacao}], plano_acao:{curto_prazo, medio_prazo, longo_prazo}, mensagem_final, alertas_metodologicos }`.
+- **Inputs user**: Empresa, indicadores gerais (total avaliados, nível mais frequente, distribuição e percentuais N1-N4, sem média), DISC organizacional, grounding block, dados por cargo (pessoas, distribuição de avaliações por nível e nível mais frequente, sem média), registros individuais (nome, cargo, competência, nível).
 - **Consumido por**: `relatorios` tipo='rh' + PDF.
 
 ---
@@ -2240,7 +2240,7 @@ Cinco prompts migrados do simulador RNaves, sem alteração intencional do texto
 
 - **Arquivo**: `lib/dna-organizacional/narrative.ts::gerarNarrativaDna`.
 - **Modelo default**: `claude-sonnet-4-6`; max tokens 4096; temperatura 0,6.
-- **Tarefa/output**: transforma agregado anônimo de competências em intro, 3 forças, leitura geral, padrões, 3 prioridades, 3 ações de 30 dias, referências por contagem/cargo e fecho. Nunca inventa números nem identifica pessoas.
+- **Tarefa/output**: transforma agregado anônimo de competências em intro, 3 forças, leitura geral, padrões, 3 prioridades, 3 ações de 30 dias, referências por contagem/cargo e fecho. Nunca inventa números nem identifica pessoas. Desde 04/10/2026 (lote 5b) recebe o nível mais frequente por competência, não a média, e a regra proíbe média, nota decimal e "X de 4" no texto, que vai para o PDF do cliente (o PDF também não imprime mais a média da competência).
 
 ### 20.4 Narrativas de adequação pessoa-cargo
 > `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**

@@ -11,7 +11,9 @@ describe('leituras demonstrativas derivadas do mesmo diagnóstico', () => {
     const gestor: any = rows[0].conteudo, rh: any = rows.at(-1)!.conteudo;
     expect(gestor.resumo_executivo.leitura_geral).toContain('2 pessoas');
     expect(gestor.destaques_evolucao[0]).toMatchObject({ nome: 'Marina', nivel: 3 });
-    expect(gestor.resumo_executivo.principal_avanco).toContain('N3, nota 3,10');
+    expect(gestor.resumo_executivo.principal_avanco).toContain('Marina: Aprendizagem em N3.');
+    // A demonstração também é lida como cliente: nenhuma nota decimal, média ou "nota" no texto (lote 5b).
+    expect(JSON.stringify(gestor)).not.toMatch(/\d,\d\d|nota \d|Média \d/);
     expect(rh.indicadores).toMatchObject({ total_avaliados: 1, total_avaliacoes: 2 });
     expect(gestor.analise_por_competencia[0].distribuicao).toEqual({n1:0,n2:0,n3:1,n4:0});
   });
@@ -20,7 +22,14 @@ describe('leituras demonstrativas derivadas do mesmo diagnóstico', () => {
       [nota('completo','Aprendizagem',3.51),nota('completo','Didática',2.99),nota('parcial','Aprendizagem',4),nota('externo','Didática',1),nota('completo','Outro simulador',1)]);
     const rh: any = rows.at(-1)!.conteudo;
     expect(rh.indicadores).toMatchObject({ total_avaliados:1,total_avaliacoes:2,pct_nivel_2:50,pct_nivel_4:50 });
-    expect(rh.indicadores.media_geral).toBe(3.25);
+    // Sem `media_geral` (lote 5b): o nível mais frequente. Empate (N2 e N4, 1 avaliação cada) vai para o menor.
+    expect(rh.indicadores).not.toHaveProperty('media_geral');
+    expect(rh.indicadores.nivel_mais_frequente).toBe(2);
+    for (const cargo of rh.visao_por_cargo) {
+      expect(cargo).not.toHaveProperty('media_nivel');
+      expect(cargo.distribuicao).toEqual({ n1: 0, n2: 1, n3: 0, n4: 1 });
+      expect(cargo.nivel_mais_frequente).toBe(2);
+    }
   });
   it('personalização da marca é idempotente inclusive com ACME no nome final', () => {
     for(const input of ['A ACME Demo', 'Rede ACME', 'Rede de Escolas ACME', 'Rede Rede de Escolas ACME']) {
