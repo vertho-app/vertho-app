@@ -231,7 +231,9 @@ describe('WhatsApp · a cadência do lote é política, não literal', () => {
     // Se este número cair, ou alguém removeu um caminho de envio (ótimo, mas
     // intencional?) ou a varredura parou de enxergar — e uma guarda que varre
     // zero passa verde para sempre.
-    expect(publishers.length).toBeGreaterThanOrEqual(6);
+    // Eram 6; `actions/whatsapp-lote.ts` saiu em 04/10/2026 (código morto, sem
+    // chamador de tela), e o piso desceu para 5 de propósito.
+    expect(publishers.length).toBeGreaterThanOrEqual(5);
   });
 
   it('todo publisher do webhook importa a política de cadência', () => {

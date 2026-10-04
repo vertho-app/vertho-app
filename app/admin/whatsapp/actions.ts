@@ -83,33 +83,6 @@ export async function loadEmpresas() {
   return { success: true, data };
 }
 
-export async function loadWhatsappStatus(empresaId) {
-  await requireAdminAction();
-  const sb = await requireAdminSupabase();
-  try {
-    const [enviosRes, relatoriosRes] = await Promise.all([
-      sb.from('envios_diagnostico')
-        .select('id, status', { count: 'exact' })
-        .eq('empresa_id', empresaId)
-        .eq('status', 'pendente'),
-      sb.from('relatorios')
-        .select('id', { count: 'exact' })
-        .eq('empresa_id', empresaId)
-        .eq('tipo', 'individual'),
-    ]);
-
-    return {
-      success: true,
-      data: {
-        pendingCIS: enviosRes.count || 0,
-        totalRelatorios: relatoriosRes.count || 0,
-      },
-    };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
 // ── Helpers de anexo ────────────────────────────────────────────────────────
 
 // Busca o PDF do relatório individual (buffer + nome) para anexar ao e-mail.

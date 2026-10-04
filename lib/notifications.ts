@@ -11,13 +11,6 @@
 import { TEMPLATES, renderTemplate } from '@/lib/whatsapp/templates';
 
 /**
- * WhatsApp text for behavioral profile link.
- */
-export function templateWhatsAppCIS(nome, link) {
-  return renderTemplate(TEMPLATES.perfil_disponivel, [nome, link]);
-}
-
-/**
  * WhatsApp text for weekly learning pill.
  */
 export function templateWhatsAppPilula(nome, semana, conteudo) {

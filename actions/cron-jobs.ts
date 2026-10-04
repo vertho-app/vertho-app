@@ -494,7 +494,7 @@ export async function conarhReenvioT0() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Helper: Publicar no QStash (reutilizado de whatsapp-lote.js)
+// Helper: Publicar no QStash
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Mantida para os triggers legados (segunda/quinta); o corpo vive em

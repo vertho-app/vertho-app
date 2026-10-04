@@ -1,6 +1,6 @@
 /**
- * Publish no QStash via FETCH CRU (nunca o SDK — padrão do repo, ver gêmeos em
- * actions/whatsapp-lote.ts e app/radar/actions.ts).
+ * Publish no QStash via FETCH CRU (nunca o SDK, padrão do repo; ver o gêmeo em
+ * app/radar/actions.ts).
  *
  * Vive em `lib/` porque num arquivo `'use server'` todo export vira endpoint
  * HTTP — e o núcleo do trigger diário (lib/fase4/trigger-diario-empresa.ts)

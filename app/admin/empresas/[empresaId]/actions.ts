@@ -761,7 +761,6 @@ import { listarPendentesCheck as _listarCheck } from '@/actions/check-ia4';
 import { rechecarResposta as _recheckUma } from '@/actions/fase3';
 import { montarTrilhasLote as _trilhas, criarEstruturaFase4 as _estrutura, iniciarFase4ParaTodos as _iniciar, triggerSegundaFase4 as _trigSeg, triggerQuintaFase4 as _trigQui, getStatusFase4 as _statusF4, salvarCompetenciaFoco as _salvarFoco, loadCompetenciasFoco as _loadFoco } from '@/actions/fase4';
 import { gerarCenariosBLote as _cenB, checkCenariosBLote as _checkCenB, checkCenarioBUm as _checkCenBUm, regenerarCenarioB as _regenCenB, regenerarERecheckarCenariosBLote as _regenLote, listarAlvosCenarioBIntegrador as _listarAlvosInt, gerarCenarioBIntegrador as _gerarInt, iniciarReavaliacaoLote as _reav, gerarRelatoriosEvolucaoLote as _evolucao, gerarPlenariaEvolucao as _plenaria, gerarRelatorioRHManual as _rhManual, gerarRelatorioPlenaria as _rhPlen, enviarLinksPerfil as _links, gerarDossieGestor as _dossie, checkCenarios as _checkCen } from '@/actions/fase5';
-import { dispararLinksCIS as _dispCIS, dispararRelatoriosLote as _dispLote } from '@/actions/whatsapp-lote';
 
 export async function rodarIA1(e, c) { await requireAdminAction('ai.audit.regenerate'); return _ia1(e, c); }
 export async function rodarIA2(e, c, opts?: { cargoNome?: string }) { await requireAdminAction('ai.audit.regenerate'); return _ia2(e, c, opts); }
@@ -811,5 +810,3 @@ export async function gerarRelatorioPlenaria(e, c) { await requireAdminAction('a
 export async function enviarLinksPerfil(e) { await requireAdminAction('assessments.dispatch'); return _links(e); }
 export async function gerarDossieGestor(e, c) { await requireAdminAction('ai.audit.regenerate'); return _dossie(e, c); }
 export async function checkCenarios(e, c) { await requireAdminAction('ai.audit.regenerate'); return _checkCen(e, c); }
-export async function dispararRelatoriosLote(e) { await requireAdminAction('assessments.dispatch'); return _dispLote(e); }
-export async function dispararLinksCIS(e) { await requireAdminAction('assessments.dispatch'); return _dispCIS(e); }

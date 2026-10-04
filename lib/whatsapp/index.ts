@@ -202,10 +202,9 @@ export async function assertWhatsappAvailable(opts?: { maxFilaPendente?: number 
  * motivo para barrar um lote que sairia pelo outro. E `null` ("não sei") nunca
  * bloqueia — ver `pendingQueue` em `types.ts`.
  *
- * Exportada porque há dois caminhos de lote com gates diferentes
- * (`actions/whatsapp-lote.ts` usa `assertWhatsappAvailable`;
- * `app/admin/whatsapp/actions.ts` ainda usa `assertZapiConnected`, porque o
- * ramo de ≤50 destinatários fala com a Z-API crua). Uma implementação só.
+ * Exportada porque quem dispara lote pode pedir a trava direto (o pulso e o
+ * trigger diário a usam) ou por `assertWhatsappAvailable({ maxFilaPendente })`.
+ * Uma implementação só.
  */
 export async function assertFilaDoProvedorLimpa(
   maxFilaPendente: number,

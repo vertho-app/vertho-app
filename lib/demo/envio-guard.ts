@@ -2,8 +2,8 @@
 // ambientes de demonstração/treinamento.
 //
 // Fonte de verdade: coluna empresas.is_demo (mig 160), NÃO os flags cosméticos
-// do sys_config. Todo ponto de disparo em lote (whatsapp-lote, fase2 e-mails,
-// pulso, relatórios) e o caminho de magic link/signup consultam este guard e
+// do sys_config. Todo ponto de disparo em lote (envios do admin, pulso,
+// relatórios) e o caminho de magic link/signup consultam este guard e
 // param ANTES de mandar qualquer mensagem quando o tenant é demo.
 // Exceção: `sys_config.demo_acesso_allowlist` libera o link de ACESSO real
 // para destinatários específicos (degustação self-service) — ver
