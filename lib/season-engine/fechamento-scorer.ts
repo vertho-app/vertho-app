@@ -44,8 +44,8 @@ export interface PontuarFechamentoArgs {
   resposta: string;
   /**
    * O fechamento do ONBOARDING (04/10/2026): 5 cenários, um por competência. O scorer
-   * roda UMA vez por competência, com o cenário, as respostas e a régua dela (30
-   * descritores numa chamada só estourariam o teto de saída), e as saídas são juntadas
+   * roda UMA vez por competência, com o cenário, as respostas e a régua dela (os 6
+   * descritores da competência: 30 numa chamada só estourariam o teto de saída), e as saídas são juntadas
    * no formato de uma competência só (`mesclarPontuacoes`). Tudo que vem depois (fusão
    * da arguição, redação, auditor) roda UMA vez sobre o conjunto, com `competencia`,
    * `descritores`, `cenario` e `resposta` do conjunto. Ausente (ou uma só) = o
@@ -450,8 +450,8 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
   let parsed: any = {};
   if (porCompetenciaAtivo) {
     // Onboarding: uma rodada do scorer por competência, em paralelo (cada uma é uma
-    // chamada de ~3.000 tokens; as cinco juntas levam o tempo da mais lenta), e as
-    // saídas juntadas no formato de uma competência só.
+    // chamada com os 6 descritores da competência; as cinco juntas levam o tempo da mais
+    // lenta), e as saídas juntadas no formato de uma competência só.
     const rodadas = await mapComLimite(porCompetencia!, porCompetencia!.length, async (e) => {
       const { system, user } = promptEvolutionScenarioScore({
         competencia: e.competencia, descritores: e.descritores, cenario: e.cenario, resposta: e.resposta,

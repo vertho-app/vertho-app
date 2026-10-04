@@ -15,8 +15,9 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 const h = vi.hoisted(() => ({
   sb: null as any,
-  estado: { atual: null as any, relatorio: null as any, trilha: null as any, locale: null as string | null },
+  estado: { atual: null as any, relatorio: null as any, trilha: null as any, locale: null as string | null, mapeamento: [] as any[] },
   pontuar: vi.fn(),
+  evidencias: vi.fn(async (..._args: any[]) => 'evidências'),
   redigir: vi.fn(),
   report: vi.fn(),
   degradacao: vi.fn(),
@@ -37,7 +38,7 @@ vi.mock('@/lib/season-engine/regua', () => ({
   sobreporNotaFresh: async (_db: any, _c: string, _comp: string, d: any[]) => d,
 }));
 vi.mock('@/lib/season-engine/evidencias-fechamento', () => ({
-  agregarEvidenciasAteAcumulada: async () => 'evidências',
+  agregarEvidenciasAteAcumulada: (...args: any[]) => h.evidencias(...args),
   normalizarAcumuladoPrimaria: () => h.acumulado,
 }));
 vi.mock('@/lib/degradacao', () => ({
@@ -110,7 +111,10 @@ beforeEach(() => {
   h.estado.relatorio = null;
   h.estado.trilha = null;
   h.estado.locale = null;
+  h.estado.mapeamento = [];
+  h.evidencias.mockClear();
   h.sb = criarSupabaseMock({
+    lista: (tabela) => (tabela === 'descriptor_assessments' ? h.estado.mapeamento : []),
     resolver: (tabela, cols) => {
       if (tabela === 'trilhas') return cols === 'evolution_report' ? { evolution_report: h.estado.relatorio } : (h.estado.trilha ?? TRILHA);
       if (tabela === 'colaboradores') return { nome_completo: 'Helmar Miranda da Silva', cargo: 'Gestão Escolar', perfil_dominante: 'S', locale: h.estado.locale };
@@ -555,11 +559,14 @@ describe('refazerRedacaoFechamento', () => {
 
 describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um por competência)', () => {
   const COMPS = ['Comp A', 'Comp B', 'Comp C', 'Comp D', 'Comp E'];
+  const NOTAS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5]; // d1..d4 são os 4 de menor nota (os selecionados)
   const TRILHA_ONB = {
     id: 'tr-1', colaborador_id: 'col-1', empresa_id: 'emp-1', competencia_foco: COMPS[0], competencias_foco: COMPS,
-    descritores_selecionados: COMPS.flatMap((c) => [1, 2].map((n) => ({ competencia: c, descritor: `${c.slice(-1)}-d${n}` }))),
+    // a trilha seleciona 4 por competência (o conteúdo); o mapeamento (Cenário A) avaliou 6
+    descritores_selecionados: COMPS.flatMap((c) => [1, 2, 3, 4].map((n) => ({ competencia: c, descritor: `${c.slice(-1)}-d${n}`, nota_atual: NOTAS[n - 1] }))),
     programa_modo: 'onboarding', programa_config: {},
   };
+  const MAPEAMENTO = COMPS.flatMap((c) => [1, 2, 3, 4, 5, 6].map((n) => ({ competencia: c, descritor: `${c.slice(-1)}-d${n}`, nota: NOTAS[n - 1] })));
   const cenarios = () => COMPS.map((competencia, i) => ({
     competencia, cenario_b_id: `b-${i}`, cenario: `## Caso ${competencia}\n\ntexto do caso`, perguntas: PERGUNTAS,
     transcript_completo: transcript([`${competencia} r1`, `${competencia} r2`, `${competencia} r3`, `${competencia} r4`]),
@@ -572,7 +579,7 @@ describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um p
     },
   });
   const PARSED_ONB = {
-    avaliacao_por_descritor: COMPS.flatMap((c) => [1, 2].map((n) => ({ competencia: c, descritor: `${c.slice(-1)}-d${n}`, nota_pre: 2, nota_pos: 2.5, justificativa: 'j' }))),
+    avaliacao_por_descritor: COMPS.flatMap((c) => [1, 2, 3, 4, 5, 6].map((n) => ({ competencia: c, descritor: `${c.slice(-1)}-d${n}`, nota_pre: 2, nota_pos: 2.5, justificativa: 'j' }))),
     nota_media_pre: 2, nota_media_pos: 2.5, delta_medio: 0.5, resumo_avaliacao: { mensagem_geral: 'mensagem' },
   };
   const ok = () => h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED_ONB }, auditoria: { nota_auditoria: 90 }, meta: { warnings: [], tentativas: 5 } });
@@ -580,6 +587,7 @@ describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um p
   beforeEach(() => {
     h.estado.trilha = TRILHA_ONB;
     h.estado.atual = slotOnb();
+    h.estado.mapeamento = MAPEAMENTO;
   });
 
   it('entrega ao scorer uma entrada por competência (os descritores, o cenário e as respostas DELA) e o conjunto para o auditor', async () => {
@@ -588,20 +596,68 @@ describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um p
     expect(r.ok).toBe(true);
     const a = h.pontuar.mock.calls[0][0];
     expect(a.porCompetencia.map((e: any) => e.competencia)).toEqual(COMPS);
-    expect(a.porCompetencia[2].descritores.map((d: any) => d.descritor)).toEqual(['C-d1', 'C-d2']);
+    expect(a.porCompetencia[2].descritores.map((d: any) => d.descritor)).toEqual(['C-d1', 'C-d2', 'C-d3', 'C-d4', 'C-d5', 'C-d6']);
     expect(a.porCompetencia[2].cenario).toBe('## Caso Comp C\n\ntexto do caso');
     expect(a.porCompetencia[2].resposta).toContain('→ Comp C r4');
     expect(a.porCompetencia[2].resposta).not.toContain('Comp B r1');
     expect(a.porCompetencia[2].evidenciasAcumuladas).toBe('evidências');
-    // o conjunto: os 5 cenários, as 20 respostas, os 10 descritores e o rótulo de sempre (`A + B`)
+    // o conjunto: os 5 cenários, as 20 respostas, os 30 descritores (6 por competência) e o rótulo de sempre (`A + B`)
     expect(a.competencia).toBe(COMPS.join(' + '));
-    expect(a.descritores).toHaveLength(10);
+    expect(a.descritores).toHaveLength(30);
     expect(a.cenario.split('### Competência: ').length - 1).toBe(5);
     expect((a.resposta.match(/→ /g) || []).length).toBe(20);
     expect(a.resposta).toContain('### Comp E');
     expect(a.evidenciasAcumuladas).toBe(Array(5).fill('evidências').join('\n\n'));
     expect(a.prazoMs).toBe(AGORA + 285_000);
     expect(a.evidenciasArguicao).toEqual({ classificacao: 'sustentou' });
+  });
+
+  it('o B pontua os 6 descritores de cada competência (os do Cenário A), não só os 4 selecionados para o conteúdo', async () => {
+    ok();
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN, prazoMs: AGORA + 285_000 });
+    const a = h.pontuar.mock.calls[0][0];
+    for (const [i, e] of a.porCompetencia.entries()) {
+      const L = COMPS[i].slice(-1);
+      expect(e.descritores, COMPS[i]).toHaveLength(6);
+      expect(e.descritores.map((d: any) => d.descritor)).toEqual([1, 2, 3, 4, 5, 6].map((n) => `${L}-d${n}`));
+      // os 4 da trilha chegam como a trilha os guarda; os 2 só do mapeamento, com a nota do mapeamento
+      expect(e.descritores[3]).toEqual({ competencia: COMPS[i], descritor: `${L}-d4`, nota_atual: 2.5 });
+      expect(e.descritores[4]).toEqual({ competencia: COMPS[i], descritor: `${L}-d5`, nota_atual: 3 });
+      expect(e.descritores[5]).toEqual({ competencia: COMPS[i], descritor: `${L}-d6`, nota_atual: 3.5 });
+    }
+    expect(a.descritores.map((d: any) => d.descritor)).toEqual(a.porCompetencia.flatMap((e: any) => e.descritores.map((d: any) => d.descritor)));
+  });
+
+  it('as evidências das semanas são pedidas para os 6 descritores de cada competência', async () => {
+    ok();
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN, prazoMs: AGORA + 285_000 });
+    expect(h.evidencias).toHaveBeenCalledTimes(5);
+    for (const [i, chamada] of h.evidencias.mock.calls.entries()) {
+      expect(chamada[2].map((d: any) => d.descritor), COMPS[i]).toEqual([1, 2, 3, 4, 5, 6].map((n) => `${COMPS[i].slice(-1)}-d${n}`));
+    }
+  });
+
+  it('o mapeamento não pode ser lido: erro explícito, degradação crítica, NÃO conclui e NÃO paga o scorer', async () => {
+    h.sb.falharEm({ tabela: 'descriptor_assessments', op: 'select', mensagem: 'pool esgotado' });
+    ok();
+    const r = await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(r).toMatchObject({ ok: false });
+    expect((r as any).erro).toContain('pool esgotado');
+    expect(h.pontuar).not.toHaveBeenCalled();
+    expect(escritasProgresso().some((e: any) => e.payload.status === 'concluido')).toBe(false);
+    expect(escritasProgresso().find((e: any) => e.payload.feedback?.finalizacao?.status === 'erro')).toBeTruthy();
+    expect(h.degradacao.mock.calls[0][0]).toMatchObject({ tipo: 'fechamento-scorer-falhou', severidade: 'critico' });
+  });
+
+  it('competência sem avaliação no mapeamento: pontua só com os selecionados dela e AVISA no resultado', async () => {
+    h.estado.mapeamento = MAPEAMENTO.filter((l) => l.competencia !== 'Comp C');
+    ok();
+    const r: any = await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(r.ok).toBe(true);
+    const a = h.pontuar.mock.calls[0][0];
+    expect(a.porCompetencia[2].descritores).toHaveLength(4);
+    expect(a.porCompetencia[1].descritores).toHaveLength(6);
+    expect(r.warnings).toContain('sem avaliação do mapeamento (Cenário A) em: Comp C; pontuadas só com os descritores da trilha');
   });
 
   it('grava o slot com os cenários, o cenário e a resposta dos cinco juntos, e SEM transcript_completo solto', async () => {
@@ -615,7 +671,7 @@ describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um p
     expect(fb.cenario_resposta).toContain('### Comp B');
     expect(fb.cenario_resposta).toContain('→ Comp B r2'); // as respostas gravadas ficam com o texto real, sem máscara
     expect(fb).not.toHaveProperty('transcript_completo');
-    expect(fb.avaliacao_por_descritor).toHaveLength(10);
+    expect(fb.avaliacao_por_descritor).toHaveLength(30);
     expect(fb.finalizacao).toBeUndefined();
     expect(h.report).toHaveBeenCalledWith('tr-1', { empresaId: 'emp-1' });
   });
@@ -659,6 +715,8 @@ describe('finalizarFechamentoCore: o fechamento do Onboarding (5 cenários, um p
     await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1' });
     expect(h.redigir.mock.calls[0][0].variasCompetencias).toBe(true);
     expect(h.redigir.mock.calls[0][0].competencia).toBe(COMPS.join(' + '));
+    // as evidências são as dos descritores PONTUADOS (os 30 gravados), não só os selecionados
+    expect(h.evidencias.mock.calls[0][2]).toHaveLength(30);
   });
 });
 
@@ -671,6 +729,7 @@ describe('finalizarFechamentoCore: o fechamento de UMA competência não muda', 
     await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
     const a = h.pontuar.mock.calls[0][0];
     expect(a).not.toHaveProperty('porCompetencia');
+    expect(a.descritores).toEqual(TRILHA.descritores_selecionados);
     expect(a.cenario).toBe('## Cenário');
     expect(a.evidenciasAcumuladas).toBe('evidências');
     const fb = escritasProgresso().find((e: any) => e.payload.status === 'concluido').payload.feedback;
@@ -680,11 +739,22 @@ describe('finalizarFechamentoCore: o fechamento de UMA competência não muda', 
     expect(fb).not.toHaveProperty('cenarios');
   });
 
+  it('os 6 descritores do mapeamento NÃO entram numa trilha de uma ou duas competências (quem decide é o slot com `cenarios`)', async () => {
+    // a pessoa tem 6 linhas no mapeamento da competência, e o slot é o de sempre: só o selecionado é pontuado
+    h.estado.mapeamento = [1, 2, 3, 4, 5, 6].map((n) => ({ competencia: 'Planejamento', descritor: `D${n}`, nota: 1 + n / 4 }));
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1 } });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(h.pontuar.mock.calls[0][0].descritores).toEqual([{ descritor: 'D1', competencia: 'Planejamento' }]);
+    expect(h.evidencias.mock.calls[0][2]).toEqual([{ descritor: 'D1', competencia: 'Planejamento' }]);
+  });
+
   it('refazer a redação não liga o aviso de várias competências', async () => {
     h.estado.atual = { ...progHelmar({ avaliacao_por_descritor: PARSED.avaliacao_por_descritor, resumo_avaliacao_rascunho: { mensagem_geral: 'r' }, redacao_final: { status: 'falhou' } }), status: 'concluido' };
     h.redigir.mockResolvedValue({ status: 'falhou', resumo: null, tentativas: 2, sanitizacaoAplicada: false, warnings: [] });
     await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1' });
     expect(h.redigir.mock.calls[0][0]).not.toHaveProperty('variasCompetencias');
+    expect(h.evidencias.mock.calls[0][2]).toEqual(TRILHA.descritores_selecionados); // as evidências de sempre: os selecionados
   });
 });
 

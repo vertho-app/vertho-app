@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  acumuladoDaCompetencia, cenariosDoSlot, descritoresHomonimos, descritoresPorCompetencia, mesclarPontuacoes,
+  acumuladoDaCompetencia, cenariosDoSlot, descritoresDoFechamento, descritoresHomonimos, descritoresPorCompetencia, mesclarPontuacoes,
   posicaoNoFechamento, respostaDoCenario, respostasDosCenarios, rotuloDasCompetencias, textoDosCenarios,
   type CenarioDoFechamento,
 } from '@/lib/season-engine/fechamento-por-competencia';
@@ -259,5 +259,95 @@ describe('mesclarPontuacoes: o mesmo formato de uma competência só', () => {
     semNota.avaliacao_por_descritor[0].nota_pos = null;
     const m = mesclarPontuacoes([{ competencia: 'A', parsed: saidaDoScorer([['a', 2.0, 3.0, 3.0]]) }, { competencia: 'B', parsed: semNota }]);
     expect(m.nota_media_pos).toBe(3);
+  });
+});
+
+// ── O conjunto de descritores que o B pontua (decisão do dono: os 6 da competência) ─────────
+describe('descritoresDoFechamento: os descritores que o Cenário A avaliou, não só os 4 do conteúdo', () => {
+  const sel = (competencia: string, descritor: string, nota_atual: number) => ({
+    competencia, descritor, nota_atual, gap: 1, semanas_alocadas: 1, semanas_ids: [2],
+  });
+  const linha = (competencia: string, descritor: string, nota: number | string) => ({ competencia, descritor, nota });
+  /** Seis linhas do mapeamento da competência: d1..d4 são os 4 de menor nota (os selecionados), d5 e d6 sobram. */
+  const mapa = (competencia: string) => [
+    linha(competencia, 'd1', 1.0), linha(competencia, 'd2', 1.5), linha(competencia, 'd3', 2.0),
+    linha(competencia, 'd4', 2.5), linha(competencia, 'd5', 3.0), linha(competencia, 'd6', 3.5),
+  ];
+  const selecionadosDe = (competencia: string) => ['d1', 'd2', 'd3', 'd4'].map((d, i) => sel(competencia, d, [1.0, 1.5, 2.0, 2.5][i]));
+
+  it('6 por competência (4 da trilha + 2 só do mapeamento): 30 nas 5, na ordem das competências', () => {
+    const { descritores, semMapeamento } = descritoresDoFechamento(
+      COMPETENCIAS.flatMap(selecionadosDe), COMPETENCIAS.flatMap(mapa), COMPETENCIAS,
+    );
+    expect(descritores).toHaveLength(30);
+    expect(semMapeamento).toEqual([]);
+    expect(descritores.map((d) => d.competencia)).toEqual(COMPETENCIAS.flatMap((c) => Array(6).fill(c)));
+    expect(descritores.slice(0, 6).map((d) => d.descritor)).toEqual(['d1', 'd2', 'd3', 'd4', 'd5', 'd6']);
+  });
+
+  it('os da trilha entram INTACTOS (gap, semanas), e os do mapeamento entram só com o que a seleção guarda', () => {
+    const { descritores } = descritoresDoFechamento(selecionadosDe('Comp A'), mapa('Comp A'), ['Comp A']);
+    expect(descritores[0]).toEqual({ competencia: 'Comp A', descritor: 'd1', nota_atual: 1, gap: 1, semanas_alocadas: 1, semanas_ids: [2] });
+    expect(descritores[4]).toEqual({ competencia: 'Comp A', descritor: 'd5', nota_atual: 3 });
+    expect(descritores[5]).toEqual({ competencia: 'Comp A', descritor: 'd6', nota_atual: 3.5 });
+  });
+
+  it('os que só o mapeamento tem vêm do menor nível para o maior, e no empate por nome (ordem estável)', () => {
+    const linhas = [linha('Comp A', 'zeta', 3.0), linha('Comp A', 'beta', 2.0), linha('Comp A', 'alfa', 2.0), linha('Comp A', 'omega', '1.5')];
+    const { descritores } = descritoresDoFechamento([], linhas, ['Comp A']);
+    expect(descritores.map((d) => d.descritor)).toEqual(['omega', 'alfa', 'beta', 'zeta']);
+    expect(descritores[0].nota_atual).toBe(1.5); // `numeric` do banco pode chegar como texto
+  });
+
+  it('a mesma lista, embaralhada, dá o mesmo resultado (não depende da ordem de leitura do banco)', () => {
+    const a = descritoresDoFechamento(selecionadosDe('Comp A'), mapa('Comp A'), ['Comp A']).descritores;
+    const b = descritoresDoFechamento(selecionadosDe('Comp A'), [...mapa('Comp A')].reverse(), ['Comp A']).descritores;
+    expect(b).toEqual(a);
+  });
+
+  it('descritor repetido no mapeamento, ou já selecionado (caixa e espaços), não entra duas vezes', () => {
+    const { descritores } = descritoresDoFechamento(
+      selecionadosDe('Comp A'),
+      [...mapa('Comp A'), linha('Comp A', ' D1 ', 1.0), linha('Comp A', 'd5', 3.0)],
+      ['Comp A'],
+    );
+    expect(descritores.map((d) => d.descritor)).toEqual(['d1', 'd2', 'd3', 'd4', 'd5', 'd6']);
+  });
+
+  it('a competência casa sem diferença de caixa e espaços; o nome gravado é o da trilha', () => {
+    const { descritores } = descritoresDoFechamento(selecionadosDe('Comp A'), mapa(' comp a '), ['Comp A']);
+    expect(descritores).toHaveLength(6);
+    expect(descritores[5].competencia).toBe('Comp A');
+  });
+
+  it('as linhas do mapeamento de OUTRA competência não entram', () => {
+    const { descritores } = descritoresDoFechamento(selecionadosDe('Comp A'), [...mapa('Comp A'), ...mapa('Comp X')], ['Comp A']);
+    expect(descritores).toHaveLength(6);
+    expect(descritores.every((d) => d.competencia === 'Comp A')).toBe(true);
+  });
+
+  it('competência SEM linha no mapeamento: fica só com os da trilha e vem listada em `semMapeamento`', () => {
+    const r = descritoresDoFechamento(
+      [...selecionadosDe('Comp A'), ...selecionadosDe('Comp B')], mapa('Comp A'), ['Comp A', 'Comp B'],
+    );
+    expect(r.descritores).toHaveLength(10);
+    expect(r.semMapeamento).toEqual(['Comp B']);
+  });
+
+  it('descritor da trilha de competência fora da lista vai para o FIM, intacto (quem monta as entradas o recusa)', () => {
+    const orfao = sel('Outra', 'x1', 2);
+    const { descritores } = descritoresDoFechamento([...selecionadosDe('Comp A'), orfao], mapa('Comp A'), ['Comp A']);
+    expect(descritores).toHaveLength(7);
+    expect(descritores[6]).toBe(orfao);
+    const { grupos, semCenario } = descritoresPorCompetencia(descritores, ['Comp A']);
+    expect(grupos[0].descritores).toHaveLength(6);
+    expect(semCenario).toEqual([orfao]);
+  });
+
+  it('o mapeamento NÃO muda quem foi selecionado: o que a trilha tem fica, mesmo que o mapeamento tenha mudado de nota', () => {
+    const { descritores } = descritoresDoFechamento(
+      [sel('Comp A', 'd1', 1.0)], [linha('Comp A', 'd1', 3.9), linha('Comp A', 'd2', 2.0)], ['Comp A'],
+    );
+    expect(descritores.map((d) => [d.descritor, d.nota_atual])).toEqual([['d1', 1], ['d2', 2]]);
   });
 });

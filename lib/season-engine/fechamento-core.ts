@@ -7,7 +7,7 @@ import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/li
 import {
   cenariosDoSlot, respostasDosCenarios, textoDosCenarios, type EntradaPorCompetencia,
 } from '@/lib/season-engine/fechamento-por-competencia';
-import { montarEntradasPorCompetencia } from '@/lib/season-engine/fechamento-entradas';
+import { descritoresCompletosDoOnboarding, montarEntradasPorCompetencia } from '@/lib/season-engine/fechamento-entradas';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import type { AppLocale } from '@/i18n/routing';
 import { maskColaborador, maskTextPII, maskDeepPII } from '@/lib/pii-masker';
@@ -178,7 +178,7 @@ export async function finalizarFechamentoCore(
       .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
     if (errColab) return await marcarErro(`falha ao ler o colaborador: ${errColab.message}`);
 
-    const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+    const selecionados = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
     const competenciasLabel = Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 1
       ? trilha.competencias_foco.join(' + ')
       : trilha.competencia_foco;
@@ -189,6 +189,21 @@ export async function finalizarFechamentoCore(
     // competência segue como sempre; quem decide é a presença de `cenarios` no slot.
     const cenarios = cenariosDoSlot(dados);
     const cenario: string = cenarios ? textoDosCenarios(cenarios) : dados.cenario;
+    // Onboarding: o B pontua os descritores de cada competência que o Cenário A avaliou (os 6,
+    // `descriptor_assessments`), não só os que a trilha selecionou para o conteúdo (os 4): o
+    // fechamento compara B contra A descritor a descritor. Uma competência só: os selecionados.
+    let descritores = selecionados;
+    if (cenarios) {
+      const completo = await descritoresCompletosDoOnboarding({
+        db: tdb, colaboradorId: trilha.colaborador_id, selecionados, competencias: cenarios.map((c) => c.competencia),
+      });
+      // `in`, e não `.ok`: com `strict: false` a união por booleano não estreita.
+      if ('erro' in completo) return await marcarErro(completo.erro);
+      descritores = completo.descritores;
+      if (completo.semMapeamento.length) {
+        warnings.push(`sem avaliação do mapeamento (Cenário A) em: ${completo.semMapeamento.join(', ')}; pontuadas só com os descritores da trilha`);
+      }
+    }
     const perguntas: any[] = Array.isArray(dados.perguntas) ? dados.perguntas : [];
     const historico: any[] = Array.isArray(dados.transcript_completo) ? dados.transcript_completo : [];
 
@@ -432,10 +447,13 @@ export async function refazerRedacaoFechamento(
   const { masked, map } = maskColaborador(colab);
   const mascarar = (s: unknown) => (typeof s === 'string' ? maskTextPII(s, map) : null);
 
-  // A mesma leitura das semanas que o scorer teve; só o NOME de cada descritor é usado.
+  // A mesma leitura das semanas que o scorer teve; só o NOME de cada descritor é usado. No
+  // Onboarding o conjunto pontuado é o dos 6 por competência (já gravado em `avaliados`).
   const evidencias = await agregarEvidenciasAteAcumulada(
     tdb, trilhaId,
-    Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [],
+    cenariosDoSlot(fb)
+      ? avaliados
+      : Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [],
     config.semanaAcumulada,
     { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
   );

@@ -7,7 +7,7 @@ import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
 import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
 import { cenariosDoSlot, respostasDosCenarios, textoDosCenarios, type EntradaPorCompetencia } from '@/lib/season-engine/fechamento-por-competencia';
-import { montarEntradasPorCompetencia } from '@/lib/season-engine/fechamento-entradas';
+import { descritoresCompletosDoOnboarding, montarEntradasPorCompetencia } from '@/lib/season-engine/fechamento-entradas';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import { maskColaborador, maskTextPII, maskDeepPII } from '@/lib/pii-masker';
 import { desmascararResultadoFechamento, mascararExtracaoArguicao } from '@/lib/season-engine/fechamento-pii';
@@ -115,8 +115,22 @@ export async function regerarScoringComFeedback(progressoId) {
   const { data: colab } = await sb.from('colaboradores')
     .select('nome_completo, cargo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
 
-  const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
-  if (!descritores.length) return { error: 'Trilha sem descritores_selecionados' };
+  const selecionados = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+  if (!selecionados.length) return { error: 'Trilha sem descritores_selecionados' };
+  // Onboarding: o slot tem os 5 cenários (`fb.cenarios`) e o scorer roda por competência, como
+  // no fechamento da pessoa (`finalizarFechamentoCore`), sobre o MESMO conjunto de descritores:
+  // os de cada competência que o Cenário A avaliou, não só os selecionados para o conteúdo.
+  const cenarios = cenariosDoSlot(fb);
+  let descritores = selecionados;
+  if (cenarios) {
+    const completo = await descritoresCompletosDoOnboarding({
+      db: sb, colaboradorId: trilha.colaborador_id, empresaId: trilha.empresa_id, selecionados,
+      competencias: cenarios.map((c) => c.competencia),
+    });
+    // `in`, e não `.ok`: com `strict: false` a união por booleano não estreita.
+    if ('erro' in completo) return { error: completo.erro };
+    descritores = completo.descritores;
+  }
 
   // Config pela FONTE ÚNICA (carimbo da trilha) — a regeneração passa a usar
   // as semanas certas do modo (antes: 13 HARDCODED, quebraria piloto/onboarding)
@@ -139,9 +153,7 @@ export async function regerarScoringComFeedback(progressoId) {
   const { data: progAcum } = await sb.from('temporada_semana_progresso')
     .select('feedback').eq('trilha_id', trilha.id).eq('semana', programaConfig.semanaAcumulada).maybeSingle();
   const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
-  // Onboarding: o slot tem os 5 cenários (`fb.cenarios`) e o scorer roda por competência,
-  // como no fechamento da pessoa (`finalizarFechamentoCore`); as evidências vêm de lá.
-  const cenarios = cenariosDoSlot(fb);
+  // Onboarding: as evidências vêm das entradas por competência (`montarEntradasPorCompetencia`).
   const evidenciasAcumuladas = cenarios ? '' : await agregarEvidenciasAteAcumulada(
     sb, trilha.id, descritoresComRegua, programaConfig.semanaAcumulada,
     { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },

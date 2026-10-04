@@ -6,8 +6,8 @@
  */
 import { agregarEvidenciasAteAcumulada } from './evidencias-fechamento';
 import {
-  acumuladoDaCompetencia, descritoresHomonimos, descritoresPorCompetencia, respostaDoCenario,
-  type CenarioDoFechamento, type EntradaPorCompetencia,
+  acumuladoDaCompetencia, descritoresDoFechamento, descritoresHomonimos, descritoresPorCompetencia, respostaDoCenario,
+  type CenarioDoFechamento, type EntradaPorCompetencia, type LinhaDoMapeamento,
 } from './fechamento-por-competencia';
 
 export type EntradasPorCompetencia =
@@ -60,4 +60,34 @@ export async function montarEntradasPorCompetencia(a: {
     });
   }
   return { ok: true, entradas, evidencias: evidencias.join('\n\n'), homonimos: descritoresHomonimos(grupos) };
+}
+
+export type DescritoresDoFechamento =
+  | { ok: true; descritores: any[]; semMapeamento: string[] }
+  | { ok: false; erro: string };
+
+/**
+ * Os descritores que o fechamento do Onboarding pontua: os da trilha MAIS os que o
+ * Cenário A avaliou na mesma competência (`descriptor_assessments`), o conjunto inteiro de
+ * cada competência (ver `descritoresDoFechamento`). Fonte única do fechamento da pessoa, da
+ * regeração do admin e do Evolution Report: os três precisam iterar o MESMO conjunto, ou a
+ * média mostrada deixa de bater com a do relatório.
+ *
+ * Falha de leitura RETORNA erro (não vira "só os da trilha" calado: a nota de dois
+ * descritores por competência sumiria do relatório sem nada acusar). `empresaId` é o filtro
+ * explícito para quem lê com o client raw; com `tenantDb` já vem escopado.
+ */
+export async function descritoresCompletosDoOnboarding(a: {
+  db: any;
+  colaboradorId: string;
+  empresaId?: string | null;
+  selecionados: any[];
+  competencias: string[];
+}): Promise<DescritoresDoFechamento> {
+  let q = a.db.from('descriptor_assessments').select('competencia, descritor, nota').eq('colaborador_id', a.colaboradorId);
+  if (a.empresaId) q = q.eq('empresa_id', a.empresaId);
+  const { data, error } = await q;
+  if (error) return { ok: false, erro: `falha ao ler as avaliações do mapeamento (Cenário A): ${error.message}` };
+  const { descritores, semMapeamento } = descritoresDoFechamento(a.selecionados, (data || []) as LinhaDoMapeamento[], a.competencias);
+  return { ok: true, descritores, semMapeamento };
 }

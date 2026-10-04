@@ -200,6 +200,65 @@ export function acumuladoDaCompetencia(acumulado: any, descritores: any[], compe
   };
 }
 
+// ── O conjunto de descritores que o fechamento pontua ────────────────────────
+
+/** Uma linha do mapeamento da pessoa (o Cenário A): `descriptor_assessments`. */
+export interface LinhaDoMapeamento {
+  competencia: string;
+  descritor: string;
+  nota: number | string | null;
+}
+
+/**
+ * O conjunto de descritores que o fechamento do Onboarding PONTUA em cada competência.
+ *
+ * Decisão do dono (04/10/2026): o B passa pelos 6 descritores de cada competência, "da
+ * mesma forma que o Cenário A": o MESMO conjunto que o A avaliou em
+ * `descriptor_assessments`, para o fechamento comparar B contra A descritor a descritor.
+ * A trilha só selecionou 4 por competência (os de maior distância até a meta) para o
+ * CONTEÚDO das semanas; pontuar só esses deixaria dois descritores de cada competência
+ * fora da comparação.
+ *
+ * Por competência, na ordem dada: primeiro os descritores da trilha (com a nota, a ordem
+ * e os campos de sempre), depois os que só o mapeamento tem, do menor para o maior nível
+ * e, no empate, por nome (ordem estável). Os do mapeamento entram como a seleção os
+ * guarda (`descritor`, `competencia`, `nota_atual`). Um descritor da trilha cuja
+ * competência não está na lista vai para o FIM, intacto: quem monta as entradas o recusa
+ * ("sem cenário"), em vez de a pontuação deixá-lo cair calada.
+ *
+ * `semMapeamento` lista as competências sem nenhuma linha no mapeamento: elas seguem só
+ * com os descritores da trilha, e o chamador avisa.
+ */
+export function descritoresDoFechamento(
+  selecionados: any[],
+  mapeamento: LinhaDoMapeamento[],
+  competencias: string[],
+): { descritores: any[]; semMapeamento: string[] } {
+  const descritores: any[] = [];
+  const semMapeamento: string[] = [];
+  const chaves = new Set(competencias.map((c) => normalizarComp(c)));
+  for (const competencia of competencias) {
+    const chave = normalizarComp(competencia);
+    const daTrilha = (selecionados || []).filter((d) => normalizarComp(d?.competencia) === chave);
+    descritores.push(...daTrilha);
+    const jaTem = new Set(daTrilha.map(nomeDoDescritor));
+    const doMapa = (mapeamento || []).filter((l) => normalizarComp(l?.competencia) === chave && nomeDoDescritor(l));
+    if (doMapa.length === 0) semMapeamento.push(competencia);
+    const extras: Array<{ nome: string; descritor: string; nota: number | null }> = [];
+    for (const l of doMapa) {
+      const nome = nomeDoDescritor(l);
+      if (jaTem.has(nome)) continue;
+      jaTem.add(nome);
+      const nota = Number(l.nota);
+      extras.push({ nome, descritor: String(l.descritor).trim(), nota: Number.isFinite(nota) ? nota : null });
+    }
+    extras.sort((a, b) => (a.nota ?? Infinity) - (b.nota ?? Infinity) || a.nome.localeCompare(b.nome, 'pt-BR'));
+    for (const e of extras) descritores.push({ descritor: e.descritor, competencia, nota_atual: e.nota });
+  }
+  descritores.push(...(selecionados || []).filter((d) => !chaves.has(normalizarComp(d?.competencia))));
+  return { descritores, semMapeamento };
+}
+
 // ── Juntar as pontuações ────────────────────────────────────────────────────
 
 export interface PartePontuada {

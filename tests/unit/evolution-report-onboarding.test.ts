@@ -23,10 +23,11 @@ import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-c
 
 const porNome = (r: any, competencia: string, descritor: string) => r.descritores.find((d: any) => d.competencia === competencia && d.descritor === descritor);
 
-function montar(trilha: any, feedback: any) {
+function montar(trilha: any, feedback: any, mapeamento: any[] = []) {
   h.trilha = trilha;
   h.prog14 = { status: 'concluido', feedback };
   h.sb = criarSupabaseMock({
+    lista: (tabela) => (tabela === 'descriptor_assessments' ? mapeamento : []),
     resolver: (tabela, cols) => {
       if (tabela === 'trilhas') return h.trilha;
       if (tabela === 'temporada_semana_progresso') return cols.includes('reflexao') ? { reflexao: { evolucao_percebida: [] } } : h.prog14;
@@ -82,5 +83,66 @@ describe('gerarEvolutionReportCore com os 5 resultados juntos', () => {
     const r: any = await gerarEvolutionReportCore('tr-1', { empresaId: 'emp-1' });
     expect(r.success).toBe(true);
     expect(porNome(r.evolution_report, 'Comp B', 'D9')).toMatchObject({ nota_pre: 2, nota_pos: 2, nota_cenario_bruta: 2 });
+  });
+});
+
+// ── O B pontua os 6 descritores de cada competência, e o relatório itera o MESMO conjunto ──────
+describe('gerarEvolutionReportCore no Onboarding: itera os descritores que o fechamento pontuou (6 por competência)', () => {
+  const NOTAS = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5]; // d1..d4: os 4 selecionados para o conteúdo
+  const COMPS = ['Comp A', 'Comp B'];
+  const nome = (c: string, n: number) => `${c.slice(-1)}-d${n}`;
+  const selecionados = COMPS.flatMap((c) => [1, 2, 3, 4].map((n) => D(c, nome(c, n), NOTAS[n - 1])));
+  const mapeamento = COMPS.flatMap((c) => [1, 2, 3, 4, 5, 6].map((n) => ({ competencia: c, descritor: nome(c, n), nota: NOTAS[n - 1] })));
+  const saidas = COMPS.flatMap((c) => [1, 2, 3, 4, 5, 6].map((n) => S(nome(c, n), NOTAS[n - 1], NOTAS[n - 1] + 1, NOTAS[n - 1] + 1, c)));
+  const cenarios = COMPS.map((competencia) => ({ competencia, cenario: 'caso', perguntas: [], transcript_completo: [] }));
+
+  it('o conjunto inteiro (6 por competência; aqui, 2 competências: 12): os 4 da trilha e os 2 só do mapeamento, cada um com a SUA nota', async () => {
+    montar(TRILHA(selecionados), { cenarios, avaliacao_por_descritor: saidas }, mapeamento);
+    const r: any = await gerarEvolutionReportCore('tr-1', { empresaId: 'emp-1' });
+    expect(r.success).toBe(true);
+    const ds = r.evolution_report.descritores;
+    expect(ds).toHaveLength(12);
+    expect(ds.map((d: any) => d.descritor)).toEqual(COMPS.flatMap((c) => [1, 2, 3, 4, 5, 6].map((n) => nome(c, n))));
+    // o descritor que só o mapeamento tem (o 5 e o 6) é um descritor como os outros no relatório
+    expect(porNome(r.evolution_report, 'Comp A', 'A-d5')).toMatchObject({ nota_pre: 3, nota_pos: 4, nota_cenario_bruta: 4, justificativa_cenario: 'j A-d5' });
+    expect(porNome(r.evolution_report, 'Comp B', 'B-d6')).toMatchObject({ nota_pre: 3.5, nota_pos: 4.5, nota_cenario_bruta: 4.5 });
+    expect(porNome(r.evolution_report, 'Comp B', 'B-d1')).toMatchObject({ nota_pre: 1, nota_pos: 2 });
+    // sem leitura qualitativa para quem não foi discutido nas semanas, e o formato do descritor é o de sempre
+    expect(porNome(r.evolution_report, 'Comp A', 'A-d6')).toMatchObject({ nivel_percebido: null, antes: null, depois: null });
+    expect(Object.keys(porNome(r.evolution_report, 'Comp A', 'A-d6')).sort()).toEqual(Object.keys(porNome(r.evolution_report, 'Comp A', 'A-d1')).sort());
+    // a média e o resumo saem sobre o conjunto inteiro
+    expect(r.evolution_report.nota_media_pos).toBe(Number((saidas.reduce((t, x) => t + x.nota_pos, 0) / 12).toFixed(2)));
+    expect(r.evolution_report.resumo.confirmadas + r.evolution_report.resumo.parciais + r.evolution_report.resumo.estagnacoes).toBe(12);
+  });
+
+  it('a pontuação e o relatório iteram o MESMO conjunto: o scorer devolveu 12 e o relatório mostra 12', async () => {
+    montar(TRILHA(selecionados), { cenarios, avaliacao_por_descritor: saidas }, mapeamento);
+    const r: any = await gerarEvolutionReportCore('tr-1', { empresaId: 'emp-1' });
+    const doRelatorio = r.evolution_report.descritores.map((d: any) => `${d.competencia}|${d.descritor}`).sort();
+    expect(doRelatorio).toEqual(saidas.map((x) => `${x.competencia}|${x.descritor}`).sort());
+  });
+
+  it('descritor do mapeamento sem saída do scorer fica com a nota de partida (e o relatório sai)', async () => {
+    montar(TRILHA(selecionados), { cenarios, avaliacao_por_descritor: saidas.filter((x) => x.descritor !== 'A-d6') }, mapeamento);
+    const r: any = await gerarEvolutionReportCore('tr-1', { empresaId: 'emp-1' });
+    expect(r.success).toBe(true);
+    expect(porNome(r.evolution_report, 'Comp A', 'A-d6')).toMatchObject({ nota_pre: 3.5, nota_pos: 3.5, nota_cenario_bruta: 3.5 });
+  });
+
+  it('o mapeamento não pode ser lido: o relatório NÃO sai (nada de relatório com menos descritores calado) e a trilha segue aberta', async () => {
+    montar(TRILHA(selecionados), { cenarios, avaliacao_por_descritor: saidas }, mapeamento);
+    h.sb.falharEm({ tabela: 'descriptor_assessments', op: 'select', mensagem: 'pool esgotado' });
+    const r: any = await gerarEvolutionReportCore('tr-1', { empresaId: 'emp-1' });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('pool esgotado');
+    expect(h.sb.escritas.some((e: any) => e.tabela === 'trilhas')).toBe(false);
+  });
+
+  it('o slot de UMA competência (sem `cenarios`) segue iterando só os selecionados, com o mapeamento no banco', async () => {
+    montar(TRILHA(selecionados), { avaliacao_por_descritor: saidas }, mapeamento);
+    const r: any = await gerarEvolutionReportCore('tr-1', { empresaId: 'emp-1' });
+    expect(r.success).toBe(true);
+    expect(r.evolution_report.descritores).toHaveLength(8);
+    expect(h.sb.usou('descriptor_assessments', 'eq', 'colaborador_id')).toBe(false);
   });
 });

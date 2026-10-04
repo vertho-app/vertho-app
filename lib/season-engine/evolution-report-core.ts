@@ -7,6 +7,8 @@ import { encadearAposConclusao } from './encadear-jornada';
 // Régua de convergência em FONTE ÚNICA — o fixture da demo classifica pela
 // mesma função, senão a vitrine mostraria um veredito que o motor não produz.
 import { CONVERGENCIA, classificarConvergencia } from './convergencia';
+import { descritoresCompletosDoOnboarding } from './fechamento-entradas';
+import { cenariosDoSlot } from './fechamento-por-competencia';
 
 /**
  * Fim de trilha = começo da próxima, quando o modo encadeia (Jornada, desde
@@ -96,7 +98,7 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
 
     const qualitativa = prog13?.reflexao?.evolucao_percebida || [];
     const quantitativa = prog14?.feedback?.avaliacao_por_descritor || [];
-    const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
+    const selecionados = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
 
     // GUARDS — o report é o ato que marca a trilha como TRILHA.CONCLUIDA; nunca
     // concluir sobre fechamento inexistente/incompleto (generate_report é
@@ -109,6 +111,20 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
     }
     if (isPiloto && prog14?.feedback?.spec_version !== PILOTO_SPEC_VERSION) {
       return { success: false, error: `Fechamento do piloto sem spec_version='${PILOTO_SPEC_VERSION}' (trava não aplicada?) — report não gerado.` };
+    }
+    // Onboarding: o relatório itera o MESMO conjunto que o fechamento pontuou, os descritores de
+    // cada competência que o Cenário A avaliou (6), e não só os selecionados para o conteúdo
+    // (4). Uma competência só: os selecionados, como sempre.
+    let descritores = selecionados;
+    const cenariosDoFechamento = cenariosDoSlot(prog14?.feedback);
+    if (cenariosDoFechamento) {
+      const completo = await descritoresCompletosDoOnboarding({
+        db: tdb, colaboradorId: trilha.colaborador_id, selecionados,
+        competencias: cenariosDoFechamento.map((c) => c.competencia),
+      });
+      // `in`, e não `.ok`: com `strict: false` a união por booleano não estreita.
+      if ('erro' in completo) return { success: false, error: completo.erro };
+      descritores = completo.descritores;
     }
     // B4: NÃO bloqueia mais se o scorer avaliou N-1 descritores. Antes isso
     // PRENDIA a trilha (o colab via a avaliação mas a temporada nunca concluía,
