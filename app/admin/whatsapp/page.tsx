@@ -285,7 +285,7 @@ export default function EnviosPage() {
     .replace(/\{\{nome\}\}/g, 'Maria')
     .replace(/\{\{cargo\}\}/g, 'Consultor de Vendas')
     .replace(/\{\{empresa\}\}/g, empresaNome || 'Empresa')
-    .replace(/\{\{link\}\}/g, 'https://ibipeba.vertho.ai/avaliacao/abc123')
+    .replace(/\{\{link\}\}/g, 'https://ibipeba.vertho.ai/login')
     .replace(/\{\{link_disc\}\}/g, 'https://ibipeba.vertho.ai/dashboard/perfil-comportamental/mapeamento');
 
   // Ref para inserir placeholders na posição do cursor
