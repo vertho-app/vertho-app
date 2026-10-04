@@ -1799,6 +1799,22 @@
       "generic": "Não foi possível enviar sua mensagem. Tente de novo.",
       "retry": "Tentar de novo"
     },
+    "formats": {
+      "names": {
+        "video": "vídeo",
+        "audio": "podcast",
+        "texto": "texto",
+        "case": "estudo de caso"
+      },
+      "pdfFailed": "Não conseguimos abrir este material agora.",
+      "audioFailed": "Não conseguimos carregar o áudio agora.",
+      "audioGenerating": "Estamos gerando o seu podcast com o seu nome. Na primeira vez isso pode levar até 2 minutos.",
+      "requestedUnavailable": "O formato {requested} não está disponível nesta semana. Abrimos o formato {opened}.",
+      "videoLate": "O vídeo está demorando mais do que o previsto para ficar pronto. Abrimos o formato {opened} enquanto isso.",
+      "videoPreparing": "Estamos preparando seu vídeo personalizado. Volte em alguns minutos.",
+      "retry": "Tentar de novo",
+      "tryOther": "Abrir em outro formato:"
+    },
     "evidence": {
       "title": "Evidências",
       "closingConversation": "Conversa de fechamento",

@@ -25,6 +25,9 @@ import { APLICACAO_VIDEO_ID, CONCLUSAO_VIDEO_ID } from '@/lib/season-engine/prog
 import { descritorParaHumano, descritoresParaHumano } from '@/lib/descritor-humano';
 import { chamarConversa, type FalhaDaConversa } from '@/lib/season-engine/falha-da-conversa';
 import ErroDaConversa from '@/components/temporada/erro-da-conversa';
+import FormatoIndisponivel from '@/components/temporada/formato-indisponivel';
+import PlayerPodcast from '@/components/temporada/player-podcast';
+import { resolverFormatoAtivo, iframeMostrouErroDoApp } from '@/lib/season-engine/formato-ativo';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 
@@ -1413,6 +1416,10 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
   // aos outros. Não dispara geração (gerar=false) — só reusa pronto/em-preparo.
   const [vid, setVid] = useState<any>(null);
   const [mediaSession, setMediaSession] = useState(0);
+  // O PDF que abriu uma página de ERRO em vez do arquivo (R-93): guarda de qual fonte foi, e
+  // `tentativaPdf` remonta o quadro no "tentar de novo".
+  const [pdfFalhou, setPdfFalhou] = useState<string | null>(null);
+  const [tentativaPdf, setTentativaPdf] = useState(0);
   const videoIframeRef = useRef(null);
   useEffect(() => {
     if (!competencia) return;
@@ -1426,19 +1433,35 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
     return () => { alive = false; };
   }, [colaboradorAlvo, competencia, descritor, conteudo?.core_id, somenteLeitura]);
   const videoPronto = !!(vid?.available && vid?.status === 'done' && vid?.bunny_video_id && vid?.bunny_library);
-  const videoPreparando = !!(vid?.available && ['processing', 'render_queued', 'rendering'].includes(vid?.status));
+  // `preso`: em processamento além do prazo (o mesmo do health, `video-stale`). Um vídeo preso
+  // dizia "volte em alguns minutos" para sempre (R-93): passa a ser dado por indisponível, e a
+  // tela abre outro formato dizendo por quê.
+  const videoPresoNoPrazo = !!(vid?.available && vid?.preso);
+  const videoPreparando = !!(vid?.available && !vid?.preso && ['processing', 'render_queued', 'rendering'].includes(vid?.status));
   // Kit novo: o vídeo só aparece para quem o tem entre os 2 primeiros formatos (`video_permitido`, vindo do overlay).
   const temVideo = (videoPronto || videoPreparando) && conteudo?.video_permitido !== false;
 
   // Formatos: conteúdo do kit (case/texto/audio) + vídeo da célula (quando há).
   const formatos = [...Object.keys(conteudo.formatos_disponiveis || {}).filter((f) => f !== 'video'), ...(temVideo ? ['video'] : [])];
-  let ativo = formatoAtivo || conteudo.formato_core;
-  if (ativo === 'video' && !temVideo) ativo = formatos[0]; // core era vídeo mas não há → 1º disponível
-  const item = conteudo.formatos_disponiveis?.[ativo] || (ativo === conteudo.formato_core ? { url: conteudo.core_url, titulo: conteudo.core_titulo } : null);
+  // O formato aberto é SEMPRE um dos que existem (R-93). Antes só o vídeo era conferido, e um
+  // `?formato=audio` numa semana sem áudio abria o player com o id do núcleo (de outro formato):
+  // a rota do podcast respondia 400 "Conteúdo não é podcast" e o player ficava mudo.
+  const { ativo, pedidoIndisponivel } = resolverFormatoAtivo({
+    pedido: formatoAtivo || conteudo.formato_core,
+    formatoCore: conteudo.formato_core,
+    formatos,
+    videoResolvendo: !!competencia && vid === null,
+  });
+  // O aviso só vale para o que a PESSOA pediu (deep-link ou clique): o núcleo da semana que
+  // sumiu não é pedido de ninguém.
+  const avisoDoPedido = formatoAtivo && formatoAtivo !== conteudo.formato_core ? pedidoIndisponivel : null;
+  const item = ativo ? (conteudo.formatos_disponiveis?.[ativo] || (ativo === conteudo.formato_core ? { url: conteudo.core_url, titulo: conteudo.core_titulo } : null)) : null;
 
   // audio (TTS) e texto/case (PDF) são servidos por ID via rota (gerados sob
   // demanda) — não precisam de URL pré-renderizada. Vídeo usa o embed da célula.
-  const fonteId = (item as any)?.id || conteudo.core_id;
+  // O id do núcleo é do formato do NÚCLEO: usá-lo para outro formato pedia o PDF de um áudio (e o
+  // podcast de um texto).
+  const fonteId = (item as any)?.id || (ativo === conteudo.formato_core ? conteudo.core_id : null);
   const temFonte = ativo === 'video' ? temVideo : !!(item?.url || fonteId);
 
   useBunnyTracking(
@@ -1519,6 +1542,13 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onSemFonte muda a cada render do pai
   }, [videoResolvido, algumAbrivel]);
 
+  const rotuloDoFormato = (f: string) => (['video', 'audio', 'texto', 'case'].includes(f) ? t(`formats.names.${f}`) : f);
+  /** Os OUTROS formatos da semana que têm fonte: a saída de quem caiu num formato que falhou. */
+  const alternativas = formatos
+    .filter((f) => f !== ativo && fonteDoFormato(f).tem)
+    .map((f) => ({ formato: f, rotulo: rotuloDoFormato(f), onAbrir: () => abrirFormato(f) }));
+  const chavePdf = `${ativo}:${fonteId || item?.url || ''}`;
+
   return (
     <div>
       {/* Todos os formatos permanecem nesta experiência. Na apresentação em
@@ -1538,6 +1568,14 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
         })}
       </div>
 
+      {avisoDoPedido && ativo && (
+        <p role="status" className="mb-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[12px] leading-snug text-amber-100">
+          {avisoDoPedido === 'video' && videoPresoNoPrazo
+            ? t('formats.videoLate', { opened: rotuloDoFormato(ativo) })
+            : t('formats.requestedUnavailable', { requested: rotuloDoFormato(avisoDoPedido), opened: rotuloDoFormato(ativo) })}
+        </p>
+      )}
+
       {/* Leitores inline: nenhum formato abandona a tela atual. */}
       {!temFonte && (
         <div className="text-sm text-gray-400 italic p-4 rounded bg-white/5 border border-amber-500/20">
@@ -1556,34 +1594,45 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
       )}
       {ativo === 'video' && !videoPronto && videoPreparando && (
         <div className="text-sm text-gray-400 italic p-4 rounded bg-white/5 border border-violet-400/20">
-          Estamos preparando seu vídeo personalizado — volte em alguns minutos.
+          {t('formats.videoPreparing')}
         </div>
       )}
       {temFonte && ativo === 'audio' && (
-        <audio
+        <PlayerPodcast
           key={`audio-${mediaSession}`}
-          controls
-          className="w-full"
           src={fonteId
             ? `/api/conteudo/${fonteId}/podcast${somenteLeitura && colaboradorAlvo ? `?colaboradorId=${encodeURIComponent(colaboradorAlvo)}` : ''}`
             : item.url}
-          onLoadedMetadata={(event) => { event.currentTarget.currentTime = 0; }}
+          alternativas={alternativas}
+          t={t}
           onEnded={() => {
             if (!somenteLeitura) registrarEventoTrilha({ trilhaId, semana, pilula, formato: 'audio', tipo: 'audio_fim' }).catch(() => {});
           }}
         />
       )}
-      {temFonte && (ativo === 'texto' || ativo === 'case') && (
+      {temFonte && (ativo === 'texto' || ativo === 'case') && (pdfFalhou === chavePdf ? (
+        <FormatoIndisponivel
+          mensagem={t('formats.pdfFailed')}
+          alternativas={alternativas}
+          onTentarDeNovo={() => { setPdfFalhou(null); setTentativaPdf((n) => n + 1); }}
+          t={t}
+        />
+      ) : (
         <div className="h-[68dvh] min-h-[480px] max-h-[760px] overflow-hidden rounded-xl border border-white/10 bg-white">
+          {/* Sem PDF a rota responde um JSON de erro NA MESMA origem e o quadro o desenhava como
+              texto cru (R-93). O PDF de verdade vem de outra origem (Storage): ler o documento do
+              quadro só é possível no caso do erro, que é exatamente o que se quer pegar. */}
           <iframe
+            key={`pdf-${tentativaPdf}`}
             src={fonteId
               ? `/api/conteudo/${encodeURIComponent(fonteId)}/pdf#view=FitH&navpanes=0`
               : `${item.url}#view=FitH&navpanes=0`}
             title={`${ativo}: ${item?.titulo || conteudo.core_titulo || ''}`}
             className="h-full w-full border-0 bg-white"
+            onLoad={(e) => { if (iframeMostrouErroDoApp(e.currentTarget)) setPdfFalhou(chavePdf); }}
           />
         </div>
-      )}
+      ))}
     </div>
   );
 }

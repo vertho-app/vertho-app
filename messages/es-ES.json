@@ -1799,6 +1799,22 @@
       "generic": "No fue posible enviar tu mensaje. Inténtalo de nuevo.",
       "retry": "Intentar de nuevo"
     },
+    "formats": {
+      "names": {
+        "video": "vídeo",
+        "audio": "pódcast",
+        "texto": "texto",
+        "case": "caso de estudio"
+      },
+      "pdfFailed": "No pudimos abrir este material ahora.",
+      "audioFailed": "No pudimos cargar el audio ahora.",
+      "audioGenerating": "Estamos generando tu pódcast con tu nombre. La primera vez puede tardar hasta 2 minutos.",
+      "requestedUnavailable": "El formato {requested} no está disponible esta semana. Abrimos el formato {opened}.",
+      "videoLate": "El vídeo está tardando más de lo previsto en estar listo. Abrimos el formato {opened} mientras tanto.",
+      "videoPreparing": "Estamos preparando tu vídeo personalizado. Vuelve en unos minutos.",
+      "retry": "Intentar de nuevo",
+      "tryOther": "Abrir en otro formato:"
+    },
     "evidence": {
       "title": "Evidencias",
       "closingConversation": "Conversación de cierre",

@@ -20,7 +20,9 @@ describe('experiência de mídia na apresentação', () => {
   it('cada nova abertura de vídeo ou podcast começa em 00:00', () => {
     expect(bunny).toContain('player.setCurrentTime(0)');
     expect(tracking).toContain('player.setCurrentTime(0)');
-    expect(week).toContain('event.currentTarget.currentTime = 0');
+    // O player do podcast saiu da página para `PlayerPodcast` (R-93): o zero continua lá.
+    expect(read('components/temporada/player-podcast.tsx')).toContain('event.currentTarget.currentTime = 0');
+    expect(week).toContain('<PlayerPodcast');
     expect(content).toContain('event.currentTarget.currentTime = 0');
     expect(week).toContain('setMediaSession((current) => current + 1)');
   });

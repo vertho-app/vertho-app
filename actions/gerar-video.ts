@@ -8,6 +8,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { gerarRoteiroDeModulo } from '@/lib/video/gerar-roteiro';
 import { normalizarRoteiro, type AvatarFixo, type ModuloParaRoteiro } from '@/lib/video/roteiro-prompt';
 import { aplicarAvatarFixo, ETAPA_AGUARDANDO_AVATAR } from '@/lib/video/avatar-grupo';
+import { videoPreso } from '@/lib/video/prazo-processamento';
 import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 import { extracaoParaTexto } from '@/lib/escola-brief';
 import { resolverModuloBaseParaConteudo } from '@/lib/season-engine/modulo-base-integration';
@@ -192,14 +193,20 @@ export async function dispararVideoDoKit(sb: any, args: {
 export async function resolverCelulaVideo(moduloBaseId: string, empresaId: string, cargo: string, disc: Disc, createdBy: string | null = null, opts: { sb?: any; gerar?: boolean; colaboradorId?: string } = {}) {
   const sb = opts.sb || await requireAdminSupabase();
   const gerar = opts.gerar !== false; // default: lazy gera se ausente
-  const { data: existente } = await sb.from('videos_gerados')
-    .select('id, status, etapa, video_url, bunny_video_id, bunny_library, error')
+  const { data: existente, error: errExistente } = await sb.from('videos_gerados')
+    .select('id, status, etapa, video_url, bunny_video_id, bunny_library, error, updated_at')
     .eq('modulo_base_id', moduloBaseId).eq('empresa_id', empresaId).eq('cargo', cargo).eq('disc_dominante', disc)
     .neq('status', 'error')
     .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  // Leitura que falhou NÃO é "a célula não tem vídeo": com `gerar` ligado ela criaria OUTRO
+  // vídeo (render pago, e a duplicata que a entrega escolhe sem ORDER BY), e com `gerar`
+  // desligado diria "não gerado" a quem tem o vídeo pronto. O chamador já trata `{ error }`.
+  if (errExistente) return { error: `Não foi possível consultar o vídeo da célula: ${errExistente.message}` };
 
   if (existente) {
-    const base = { reused: true, id: existente.id, status: existente.status, etapa: existente.etapa, video_url: existente.video_url, bunny_video_id: existente.bunny_video_id, bunny_library: existente.bunny_library };
+    // `preso`: em processamento além do prazo (R-93). A tela deixa de prometer "volte em
+    // alguns minutos" a um vídeo que não vem, e o prazo é o do health (`video-stale`).
+    const base = { reused: true, id: existente.id, status: existente.status, etapa: existente.etapa, video_url: existente.video_url, bunny_video_id: existente.bunny_video_id, bunny_library: existente.bunny_library, preso: videoPreso(existente.status, existente.updated_at) };
     // Vídeo PERSONALIZADO (saudação nominal "Olá, {nome}") do colaborador: se já
     // houver um pronto pra esta pessoa nesta célula, entrega ELE no lugar do
     // genérico. Senão, cai no genérico da célula (fallback transparente).

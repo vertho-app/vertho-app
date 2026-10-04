@@ -1799,6 +1799,22 @@
       "generic": "We could not send your message. Try again.",
       "retry": "Try again"
     },
+    "formats": {
+      "names": {
+        "video": "video",
+        "audio": "podcast",
+        "texto": "text",
+        "case": "case study"
+      },
+      "pdfFailed": "We could not open this material right now.",
+      "audioFailed": "We could not load the audio right now.",
+      "audioGenerating": "We are generating your podcast with your name. The first time it can take up to 2 minutes.",
+      "requestedUnavailable": "The {requested} format is not available this week. We opened the {opened} format.",
+      "videoLate": "The video is taking longer than expected to be ready. We opened the {opened} format in the meantime.",
+      "videoPreparing": "We are preparing your personalized video. Come back in a few minutes.",
+      "retry": "Try again",
+      "tryOther": "Open in another format:"
+    },
     "evidence": {
       "title": "Evidence",
       "closingConversation": "Closing conversation",

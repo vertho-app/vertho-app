@@ -18,6 +18,7 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
+import { PRAZO_VIDEO_EM_PROCESSAMENTO_MS, STATUS_VIDEO_EM_PROCESSAMENTO } from '@/lib/video/prazo-processamento';
 import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarCenarioBHorizonte, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados, checarTaxaRetakeTts, checarCanarioTts, checarCalibracaoVoz } from './regras';
 import { ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
@@ -273,9 +274,11 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
       'Crash entre o upsert inicial e o update final deixa a linha nesse estado para sempre; o overlay ignora e re-runs empilham conteúdo no mesmo kit.' + GLOBAL,
       { acao: 'Marcar como error e regerar o tema (conteúdo→kits→brief).' }));
 
-    const doisH = new Date(Date.now() - 2 * 3600_000).toISOString();
+    // O prazo é o MESMO da tela da semana (`videoPreso`): o painel e a pessoa não podem
+    // discordar sobre quando um vídeo está preso (R-93).
+    const doisH = new Date(Date.now() - PRAZO_VIDEO_EM_PROCESSAMENTO_MS).toISOString();
     const videoStale = await contar('videos_gerados', (q: any) =>
-      q.in('status', ['processing', 'rendering', 'render_queued']).is('archived_at', null).lt('updated_at', doisH));
+      q.in('status', [...STATUS_VIDEO_EM_PROCESSAMENTO]).is('archived_at', null).lt('updated_at', doisH));
     achados.push(achado('video-stale', 'aviso', 'Vídeo travado há mais de 2h', videoStale,
       'Células sem atualização há mais de 2h. A idade é a do último progresso, não a criação do vídeo: um re-render recém-iniciado não está travado.',
       { acao: 'Conferir worker e progresso antes de re-enfileirar. Nominais anteriores prontos continuam disponíveis durante o reparo.' }));
