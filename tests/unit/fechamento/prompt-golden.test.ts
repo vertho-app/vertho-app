@@ -90,6 +90,6 @@ describe('R-57: a regra de pontuação da devolutiva', () => {
   });
 
   it('a regra não traz o caractere que proíbe', () => {
-    expect(REGRA).not.toMatch(/[–—―]/);
+    expect(REGRA).not.toMatch(/[\u2013\u2014\u2015]/);
   });
 });

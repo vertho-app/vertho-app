@@ -10,8 +10,8 @@ import { fechoDoRelatorio, normalizarResumoAvaliacao } from '@/lib/season-engine
 import { textosDoRelatorio } from '@/lib/season-engine/relatorio-texto';
 import { resumoDaAvaliacao } from '@/lib/season-engine/estado-fechamento';
 
-const EM = '—';
-const TRAVESSAO = /[–—―]/;
+const EM = '\u2014';
+const TRAVESSAO = /[\u2013\u2014\u2015]/;
 
 const resumo = () => ({
   mensagem_geral: `Você sustentou a decisão ${EM} e explicou o critério.`,

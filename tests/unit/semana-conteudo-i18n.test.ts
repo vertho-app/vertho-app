@@ -38,7 +38,7 @@ describe('tela da semana: formatos e avisos do vídeo em 4 idiomas', () => {
     }
     for (const chave of ['withYourName', 'preparingVideo']) {
       expect(typeof content[chave], `${locale}: ${chave}`).toBe('string');
-      expect(content[chave]).not.toMatch(/[–—―]/);
+      expect(content[chave]).not.toMatch(/[\u2013\u2014\u2015]/);
     }
     // o rótulo não é a chave crua (era o defeito)
     expect(content.formats.video).not.toBe('video');

@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const EM = '—';
+const EM = '\u2014';
 const estado = vi.hoisted(() => ({ chamadas: [] as any[], resposta: '', erro: null as any }));
 vi.mock('@anthropic-ai/sdk', () => ({
   default: class {
@@ -55,7 +55,7 @@ describe('tarefas que escrevem para o cliente', () => {
     const nome = `Feedback ${EM} receber e aplicar`;
     estado.resposta = '```json\n' + JSON.stringify({ competencias: [{ nome, feedback: `Avançou ${EM} falta prazo.` }] }) + '\n```';
     const r = await callAI(system, `Competência avaliada: ${nome}`, { model: modelo }, 500, { locale: 'pt-BR', taskKey: 'pdi_individual' });
-    expect(r).not.toContain('— falta');
+    expect(r).not.toContain('\u2014 falta');
     const json = JSON.parse(r.replace(/```json\s*/, '').replace(/```\s*$/, ''));
     expect(json.competencias[0].nome).toBe(nome);
     expect(json.competencias[0].feedback).toBe('Avançou, falta prazo.');
@@ -112,6 +112,6 @@ describe('tarefas fora do registro seguem como estavam', () => {
   });
 
   it('a regra de pontuação não traz o caractere que proíbe', () => {
-    expect(REGRA_PONTUACAO_DA_SAIDA).not.toMatch(/[–—―]/);
+    expect(REGRA_PONTUACAO_DA_SAIDA).not.toMatch(/[\u2013\u2014\u2015]/);
   });
 });

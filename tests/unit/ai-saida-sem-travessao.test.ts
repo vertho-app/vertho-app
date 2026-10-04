@@ -1,7 +1,7 @@
 /**
  * R-57 (04/10/2026): o sanitizador de travessão da saída de IA e o registro das
  * tarefas cujo texto chega ao cliente. O caractere só aparece como escape
- * (— longo, – médio): a regra da casa vale para o teste também.
+ * (\u2014 longo, \u2013 médio): a regra da casa vale para o teste também.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -16,9 +16,9 @@ import {
   tirarTravessaoDeValor,
 } from '@/lib/ai-saida-sem-travessao';
 
-const EM = '—';
-const EN = '–';
-const QUALQUER_TRAVESSAO = /[–—―]/;
+const EM = '\u2014';
+const EN = '\u2013';
+const QUALQUER_TRAVESSAO = /[\u2013\u2014\u2015]/;
 
 describe('tirarTravessao: a pausa vira pontuação', () => {
   it.each([

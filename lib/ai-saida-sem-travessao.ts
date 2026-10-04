@@ -34,8 +34,8 @@
 /** Travessão longo, travessão médio e barra horizontal: o que um modelo usa como pausa. */
 const D = '[\\u2013\\u2014\\u2015]';
 const TEM_TRAVESSAO = new RegExp(D);
-/** Mesmo caractere escrito como escape JSON (`—`), que o modelo às vezes emite. */
-const TEM_TRAVESSAO_OU_ESCAPE = /[–—―]|\\u201[345]/i;
+/** Mesmo caractere escrito como escape JSON (`\u2014`), que o modelo às vezes emite. */
+const TEM_TRAVESSAO_OU_ESCAPE = /[\u2013\u2014\u2015]|\\u201[345]/i;
 
 /**
  * Trechos que o sanitizador NÃO toca: bloco estruturado `[TAG]...[/TAG]` (o [META]
@@ -58,11 +58,11 @@ function tirarDaLinha(linha: string): string {
   if (new RegExp(`^\\s*${D}\\s*$`).test(linha)) return linha.replace(new RegExp(D), '-');
 
   let s = linha;
-  // Intervalo numérico colado ("10–15", "2020—2024") e faixa com letra ("N1–N4").
+  // Intervalo numérico colado ("10\u201315", "2020\u20142024") e faixa com letra ("N1\u2013N4").
   s = s.replace(new RegExp(`(\\p{N})${D}(?=\\p{N})`, 'gu'), '$1-');
-  s = s.replace(/([\p{L}\p{N}])[–―](?=[\p{L}\p{N}])/gu, '$1-');
-  // Faixa com espaços só no travessão médio ("N1 – N4", "3 – 5"); o longo é pausa.
-  s = s.replace(/(?<![\p{L}\p{N}])(\p{L}{0,3}\p{N}+)[ \t]+–[ \t]+(?=\p{L}{0,3}\p{N})/gu, '$1-');
+  s = s.replace(/([\p{L}\p{N}])[\u2013\u2015](?=[\p{L}\p{N}])/gu, '$1-');
+  // Faixa com espaços só no travessão médio ("N1 \u2013 N4", "3 \u2013 5"); o longo é pausa.
+  s = s.replace(/(?<![\p{L}\p{N}])(\p{L}{0,3}\p{N}+)[ \t]+\u2013[ \t]+(?=\p{L}{0,3}\p{N})/gu, '$1-');
   // Código da matriz seguido de travessão ("COO03_D5 <t> Busca de apoio"): hífen, que
   // é o separador que `normDescritor` e `semCodigoDaMatriz` também aceitam.
   s = s.replace(new RegExp(`(?<![\\p{L}\\p{N}_])([A-Z]{2,5}\\d{1,3}_[A-Z]\\d+)[ \\t]*${D}[ \\t]*`, 'gu'), '$1 - ');

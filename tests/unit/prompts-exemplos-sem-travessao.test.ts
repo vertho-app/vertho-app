@@ -27,7 +27,7 @@ import { SISTEMA_SUPORTE } from '@/lib/whatsapp/suporte-auto';
 import { buildBehavioralReportPrompt } from '@/lib/prompts/behavioral-report-prompt';
 import { CASOS_SCORER } from './fechamento/fixtures-golden-fechamento';
 
-const TRAVESSAO = /[–—―]/;
+const TRAVESSAO = /[\u2013\u2014\u2015]/;
 const EXEMPLO = /"[^"\n]*"|“[^”\n]*”|\[[^\]\n]*\]/g;
 
 function textos(valor: unknown, saida: string[] = []): string[] {
@@ -98,8 +98,8 @@ describe('prompts de texto ao cliente: o exemplo não traz travessão', () => {
   });
 
   it('o detector enxerga um exemplo com travessão entre aspas e entre colchetes (prova de que sabe falhar)', () => {
-    expect(exemplosComTravessao(`Diga: "olá — tudo bem?"`)).toHaveLength(1);
-    expect(exemplosComTravessao(`Molde: [realizado | parcial — baseado no relato]`)).toHaveLength(1);
-    expect(exemplosComTravessao(`Prosa de instrução — fora de aspas e colchetes`)).toEqual([]);
+    expect(exemplosComTravessao(`Diga: "olá \u2014 tudo bem?"`)).toHaveLength(1);
+    expect(exemplosComTravessao(`Molde: [realizado | parcial \u2014 baseado no relato]`)).toHaveLength(1);
+    expect(exemplosComTravessao(`Prosa de instrução \u2014 fora de aspas e colchetes`)).toEqual([]);
   });
 });

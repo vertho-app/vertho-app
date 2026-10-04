@@ -67,7 +67,7 @@ describe('/entrar/abrir em 4 idiomas', () => {
 
   it.each(LOCALES)('%s: nenhum texto traz travessão', (locale) => {
     for (const [chave, texto] of Object.entries(mensagens[locale])) {
-      expect(texto, `${locale}: ${chave}`).not.toMatch(/[–—―]/);
+      expect(texto, `${locale}: ${chave}`).not.toMatch(/[\u2013\u2014\u2015]/);
     }
   });
 });
