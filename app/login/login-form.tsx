@@ -10,6 +10,7 @@ import SignupModal from './signup-modal';
 import AvisoNavegadorEmbutido from '@/components/auth/aviso-navegador-embutido';
 import { ehCaminhoLocal } from '@/lib/auth/caminho-local';
 import { chaveDoErroDoPedido, confirmacaoDoEnvio, type ConfirmacaoDoEnvio } from '@/lib/auth/login-respostas';
+import { chaveDoAvisoDeLink } from '@/lib/auth/aviso-de-link';
 // O painel da equipe Vertho não é um tenant: ele vive no endereço genérico
 // (`app.vertho.ai`), e é o `next` pedido, não o cadastro, que faz a sessão
 // nascer lá (ver o bloco "O DESTINO PEDIDO MANDA NO HOST" em
@@ -97,9 +98,7 @@ export default function LoginForm({
     // para o que a pessoa precisa FAZER.
     const erro = params.get('error');
     if (erro) {
-      setAvisoLink(
-        ['indisponivel', 'apresentacao-indisponivel'].includes(erro) ? t('linkErrors.unavailable') : t('linkErrors.expired'),
-      );
+      setAvisoLink(t(chaveDoAvisoDeLink(erro)));
       // Tira o parâmetro da URL: recarregar a página não deve repetir o aviso de
       // um link que a pessoa já desistiu de usar.
       params.delete('error');

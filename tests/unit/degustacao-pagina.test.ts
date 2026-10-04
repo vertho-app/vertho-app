@@ -183,7 +183,7 @@ describe('página de boas-vindas da degustação B', () => {
     const pagina: any = await carregarPaginaDaDegustacao({ passe: passe() }, 'acme-demo.vertho.ai');
 
     expect(pagina.pessoal).toEqual({
-      discFeito: true, respondeuSituacao: true, devolutivaPronta: true, situacaoDisponivel: true, passo: 'ler-devolutiva',
+      discFeito: true, respondeuSituacao: true, devolutivaPronta: true, devolutivaAtrasada: false, situacaoDisponivel: true, passo: 'ler-devolutiva',
     });
     // quem tem o link não vê resultado por aqui (os campos de credencial saem da
     // comparação: base64 aleatório pode conter qualquer sequência de letras)

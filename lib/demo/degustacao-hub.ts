@@ -10,6 +10,7 @@ import {
 } from '@/lib/demo/acme-prospect-config';
 import { abrirAcessoDaDegustacao, abrirAcessoPorCodigoCurto } from '@/lib/demo/degustacao-acesso';
 import { linkDeContatoDaDegustacao } from '@/lib/demo/degustacao-contato';
+import { devolutivaAtrasada } from '@/lib/demo/degustacao-devolutiva';
 import {
   DEMO_PRESENTATION_RETURN_PARAM,
   demoPresentationAuthUrl,
@@ -133,6 +134,7 @@ export async function carregarPaginaDaDegustacao(
   let discFeito = Boolean(sessao.disc_completed_at);
   let respondeuSituacao = false;
   let devolutivaPronta = false;
+  let atrasada = false;
   let cargoDoConvidado = String(sessao.cargo || '');
 
   if (sessao.colaborador_id) {
@@ -150,17 +152,18 @@ export async function carregarPaginaDaDegustacao(
     cargoDoConvidado = String((colaborador as any)?.cargo || cargoDoConvidado);
 
     const { data: respostas, error: erroRespostas } = await tdb.from('respostas')
-      .select('id,nivel_ia4,nota_ia4')
+      .select('id,nivel_ia4,nota_ia4,timestamp_resposta')
       .eq('colaborador_id', sessao.colaborador_id);
     if (erroRespostas) {
       console.error('[degustacao] carregar respostas do convidado:', erroRespostas.message);
       return { status: 'indisponivel' };
     }
-    const linhas = (respostas || []) as Array<{ nivel_ia4: number | null; nota_ia4: number | null }>;
+    const linhas = (respostas || []) as Array<{ nivel_ia4: number | null; nota_ia4: number | null; timestamp_resposta: string | null }>;
     respondeuSituacao = linhas.length > 0;
     // A avaliação grava `avaliacao_ia`, `nivel_ia4` e `nota_ia4` juntos
     // (`lib/ia4-avaliacao.ts`); os dois números bastam e não trazem o jsonb.
     devolutivaPronta = linhas.some((linha) => linha.nivel_ia4 != null || linha.nota_ia4 != null);
+    atrasada = !devolutivaPronta && devolutivaAtrasada(linhas, agora);
   }
 
   // Cargo que só lidera tem o Top 5 vazio, e a avaliação dele responde "Nenhuma
@@ -223,6 +226,7 @@ export async function carregarPaginaDaDegustacao(
     discFeito,
     respondeuSituacao,
     devolutivaPronta,
+    devolutivaAtrasada: atrasada,
     situacaoDisponivel,
   };
 

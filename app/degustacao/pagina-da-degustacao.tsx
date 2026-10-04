@@ -354,8 +354,12 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
         {pessoal.passo === 'aguardar-devolutiva' && (
           <div className="lg:grid lg:grid-cols-[1fr_300px] lg:items-center lg:gap-10">
             <div>
-              <Titulo>Suas respostas estão em análise</Titulo>
-              <Texto>A devolutiva fica pronta em alguns minutos. Enquanto isso, veja a plataforma por dentro.</Texto>
+              <Titulo>{pessoal.devolutivaAtrasada ? 'A análise está demorando mais que o normal' : 'Suas respostas estão em análise'}</Titulo>
+              <Texto>
+                {pessoal.devolutivaAtrasada
+                  ? 'Suas respostas estão salvas. Avise quem te convidou, que refaz a análise. Enquanto isso, veja a plataforma por dentro.'
+                  : 'A devolutiva fica pronta em alguns minutos. Enquanto isso, veja a plataforma por dentro.'}
+              </Texto>
             </div>
             <div>
               <BotaoPessoal passe={passe} destino="assessment">Ver o andamento</BotaoPessoal>

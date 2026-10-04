@@ -31,6 +31,8 @@ const active = {
 let foraDaRetencao: Array<{ session_id: string; auth_email: string }> = [];
 
 let historicoExtenso: any[] | null = null;
+/** Linhas do audit log do convite (`demo.prepare_prospect_experience`) que a retenção lê. */
+let auditoriaDoConvite: Array<{ id: string; detalhes: Record<string, unknown> }> = [];
 const sb = criarSupabaseMock({
   resolver: (table) => {
     if (table === 'empresas') return { id: 'acme-id', is_demo: true };
@@ -55,6 +57,7 @@ const sb = criarSupabaseMock({
     if (table === 'colaboradores') {
       return [{ id: 'colab-expired', mapeamento_em: '2026-09-01T18:30:00.000Z' }];
     }
+    if (table === 'admin_audit_log') return auditoriaDoConvite;
     return [];
   },
 });
@@ -83,6 +86,7 @@ vi.mock('@/lib/tenant-resolver', () => ({
 }));
 
 import {
+  MARCA_LEAD_REMOVIDO,
   cleanupExpiredAcmeProspects,
   listAcmeProspectProgress,
   recordAcmeProspectPersonalAccess,
@@ -95,6 +99,7 @@ describe('acompanhamento dos prospects ACME', () => {
     deleteUser.mockClear();
     listUsers.mockClear();
     foraDaRetencao = [];
+    auditoriaDoConvite = [];
   });
 
   it('lê a segunda página para que métricas não sejam truncadas em 50 ou 500 convites', async () => {
@@ -150,6 +155,76 @@ describe('acompanhamento dos prospects ACME', () => {
     const deletes = sb.escritas.filter((e) => e.tabela === 'colaboradores' && e.op === 'delete');
     // exatamente um: o que saiu da janela. O vencido de agora continua de pé.
     expect(deletes).toHaveLength(1);
+  });
+
+  describe('a retenção também apaga o nome e a empresa do lead (R-127)', () => {
+    const vencida = { session_id: '33333333333333333333', auth_email: 'convidado.acme.33333333333333333333@vertho.ai' };
+    const rodar = () => cleanupExpiredAcmeProspects(new Date('2026-09-02T07:00:00.000Z'), sb.client);
+    const updates = (tabela: string) => sb.escritas.filter((e) => e.tabela === tabela && e.op === 'update');
+
+    it('a sessão fica (a medição do funil), mas o nome e a empresa viram a marca', async () => {
+      foraDaRetencao = [vencida];
+      await rodar();
+      expect(updates('demo_prospect_sessions')).toContainEqual(expect.objectContaining({
+        payload: { prospect_name: MARCA_LEAD_REMOVIDO, prospect_company: MARCA_LEAD_REMOVIDO },
+      }));
+      // Nenhum delete da sessão: o carimbo de convite aberto e de contato clicado é o funil.
+      expect(sb.escritas.some((e) => e.tabela === 'demo_prospect_sessions' && e.op === 'delete')).toBe(false);
+      const cadeia = sb.chamadas.filter((c) => c.tabela === 'demo_prospect_sessions');
+      expect(cadeia).toContainEqual(expect.objectContaining({ metodo: 'eq', args: ['session_id', vencida.session_id] }));
+    });
+
+    it('o registro do audit log do convite perde o nome e a empresa, e guarda o resto', async () => {
+      foraDaRetencao = [vencida];
+      auditoriaDoConvite = [{
+        id: 'audit-1',
+        detalhes: { sessionId: vencida.session_id, nome: 'Marina Souza', empresa: 'Empresa Horizonte', cargo: 'Representante Comercial', versao: 'C' },
+      }];
+      await rodar();
+      const [gravacao] = updates('admin_audit_log');
+      expect(gravacao.payload.detalhes).toEqual({
+        sessionId: vencida.session_id, nome: MARCA_LEAD_REMOVIDO, empresa: MARCA_LEAD_REMOVIDO, cargo: 'Representante Comercial', versao: 'C',
+      });
+      expect(sb.chamadas).toContainEqual(expect.objectContaining({ tabela: 'admin_audit_log', metodo: 'eq', args: ['id', 'audit-1'] }));
+      // Só as linhas DESTA sessão e desta ação: o resto do audit log não é tocado.
+      expect(sb.chamadas).toContainEqual(expect.objectContaining({ tabela: 'admin_audit_log', metodo: 'eq', args: ['acao', 'demo.prepare_prospect_experience'] }));
+      expect(sb.chamadas).toContainEqual(expect.objectContaining({ tabela: 'admin_audit_log', metodo: 'eq', args: ['detalhes->>sessionId', vencida.session_id] }));
+    });
+
+    it('registro de erro do convite (sem nome nem empresa) não é reescrito', async () => {
+      foraDaRetencao = [vencida];
+      auditoriaDoConvite = [{ id: 'audit-2', detalhes: { sessionId: vencida.session_id, error: 'falha' } }];
+      await rodar();
+      expect(updates('admin_audit_log')).toEqual([]);
+    });
+
+    it('quem já foi anonimizado não volta à fila (o filtro exclui a marca)', async () => {
+      foraDaRetencao = [vencida];
+      await rodar();
+      expect(sb.chamadas).toContainEqual(expect.objectContaining({
+        tabela: 'demo_prospect_sessions', metodo: 'neq', args: ['prospect_name', MARCA_LEAD_REMOVIDO],
+      }));
+    });
+
+    it('🔴 falha ao anonimizar a sessão LANÇA: o cron não pode contar como retido o que ainda tem nome', async () => {
+      foraDaRetencao = [vencida];
+      sb.falharEm({ tabela: 'demo_prospect_sessions', op: 'update', mensagem: 'timeout no pool', quando: (p) => 'prospect_name' in p });
+      await expect(rodar()).rejects.toThrow(/anonimizar sessão do convite: timeout no pool/);
+    });
+
+    it('🔴 falha ao reescrever o audit log LANÇA, em vez de seguir calada', async () => {
+      foraDaRetencao = [vencida];
+      auditoriaDoConvite = [{ id: 'audit-1', detalhes: { sessionId: vencida.session_id, nome: 'Marina', empresa: 'Horizonte' } }];
+      sb.falharEm({ tabela: 'admin_audit_log', op: 'update', mensagem: 'sem permissão' });
+      await expect(rodar()).rejects.toThrow(/anonimizar o audit log do convite: sem permissão/);
+    });
+
+    it('sem ninguém fora da janela, nada é anonimizado', async () => {
+      foraDaRetencao = [];
+      await rodar();
+      expect(sb.escritas.some((e) => e.tabela === 'admin_audit_log')).toBe(false);
+      expect(updates('demo_prospect_sessions').some((e) => 'prospect_name' in e.payload)).toBe(false);
+    });
   });
 
   it('lista o histórico em contrato camelCase e recupera o DISC já salvo', async () => {

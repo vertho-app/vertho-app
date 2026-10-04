@@ -653,9 +653,9 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
     const alvo = { colaboradorId: colab.id, competenciaId: compId };
     after(async () => {
       try {
-        const { avaliarRespostaDaDegustacao } = await import('@/lib/demo/degustacao-avaliacao');
-        const r = await avaliarRespostaDaDegustacao(empresaId, alvo);
-        if (!r.success) console.warn('[degustacao] avaliar resposta:', r.error);
+        // Com retentativa e a falha REGISTRADA (R-103): nunca lança.
+        const { avaliarRespostaDaDegustacaoComRetentativa } = await import('@/lib/demo/degustacao-avaliacao');
+        await avaliarRespostaDaDegustacaoComRetentativa(empresaId, alvo);
       } catch (e: any) {
         console.warn('[degustacao] avaliar resposta threw:', e?.message || e);
       }

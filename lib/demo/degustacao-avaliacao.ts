@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { tenantDb } from '@/lib/tenant-db';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import {
   avaliarUmaRespostaCore,
   carregarContextoLoteIA4,
@@ -31,6 +32,50 @@ import {
  * `after()` de uma action já autenticada, e não existe gate a aplicar de novo —
  * o `empresaId` vem da sessão, nunca do cliente.
  */
+/** Só vale tentar de novo se a 1ª tentativa falhou rápido: a segunda leva ~2 minutos e a função tem teto. */
+export const RETENTATIVA_ATE_MS = 90_000;
+
+/**
+ * A análise da degustação com STATUS e RETENTATIVA (R-103, 04/10/2026).
+ *
+ * Quem a dispara é um `after()` sem ninguém olhando: se falhava, a página do
+ * lead ficava em "em análise" indefinidamente e nada ficava registrado. Agora:
+ *  - uma segunda tentativa, só se a primeira falhou rápido (ver `RETENTATIVA_ATE_MS`);
+ *  - a falha final vira linha em `degradacao_log` (`degustacao-avaliacao-falhou`),
+ *    que o health lê, e a página passa a dizer que está demorando.
+ * Nunca lança.
+ */
+export async function avaliarRespostaDaDegustacaoComRetentativa(
+  empresaId: string,
+  alvo: { colaboradorId: string; competenciaId: string },
+  deps: { avaliar?: typeof avaliarRespostaDaDegustacao; agora?: () => number } = {},
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const avaliar = deps.avaliar ?? avaliarRespostaDaDegustacao;
+  const agora = deps.agora ?? Date.now;
+  const inicio = agora();
+  const tentar = async () => {
+    try {
+      return await avaliar(empresaId, alvo);
+    } catch (e: any) {
+      return { success: false, error: String(e?.message || e) };
+    }
+  };
+  let r = await tentar();
+  if (!r.success && agora() - inicio < RETENTATIVA_ATE_MS) r = await tentar();
+  if (!r.success) {
+    console.warn('[degustacao] avaliar resposta (sem sucesso):', r.error);
+    await registrarDegradacao({
+      fluxo: 'demo',
+      tipo: DEGRADACAO.DEGUSTACAO_AVALIACAO_FALHOU,
+      chave: `${alvo.colaboradorId}:${alvo.competenciaId}`,
+      empresaId,
+      colaboradorId: alvo.colaboradorId,
+      detalhe: { erro: String(r.error || 'sem motivo').slice(0, 300), competenciaId: alvo.competenciaId },
+    });
+  }
+  return r;
+}
+
 export async function avaliarRespostaDaDegustacao(
   empresaId: string,
   alvo: { colaboradorId: string; competenciaId: string },

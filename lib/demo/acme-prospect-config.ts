@@ -593,6 +593,12 @@ export type EstadoPessoalDegustacao = {
   respondeuSituacao: boolean;
   devolutivaPronta: boolean;
   /**
+   * Respondeu e a análise não chegou depois de muito mais que o p90 (R-103): a
+   * página admite que está demorando em vez de prometer "alguns minutos" para
+   * sempre. Ausente = não atrasada.
+   */
+  devolutivaAtrasada?: boolean;
+  /**
    * O cargo do convidado tem situação para responder (Top 5 no tenant). Cargo
    * que só lidera não tem: a avaliação dele responde "Nenhuma competência
    * configurada", e oferecer o botão seria levar a pessoa a um beco.

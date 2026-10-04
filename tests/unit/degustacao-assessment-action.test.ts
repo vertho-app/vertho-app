@@ -92,8 +92,11 @@ vi.mock('@/lib/access-gates', async (importOriginal) => ({
   // A ordem Perfil → Diagnóstico tem teste próprio (access-gates-diagnostico-ordem).
   gateDiagnosticoDaPessoa: async () => ({ allowed: true }),
 }));
+// A action chama o caminho COM retentativa (R-103); a retentativa em si tem teste próprio
+// (`degustacao-avaliacao-retentativa`), então aqui ele entrega ao mesmo espião.
 vi.mock('@/lib/demo/degustacao-avaliacao', () => ({
   avaliarRespostaDaDegustacao: (...args: any[]) => avaliar(...(args as [])),
+  avaliarRespostaDaDegustacaoComRetentativa: (...args: any[]) => avaliar(...(args as [])),
 }));
 
 import { getDiagnosticoDoDia, salvarRespostaDiagnostico } from '@/app/dashboard/assessment/assessment-actions';

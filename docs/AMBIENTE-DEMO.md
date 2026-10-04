@@ -781,6 +781,25 @@ DISC e as respostas ficam. Quem some de vez é quem passou de
 FECHAMENTO, não pela criação, senão quem cria o passaporte cedo e faz a
 experiência semanas depois é apagado no meio.
 
+**O nome e a empresa do lead também têm prazo (R-127, 04/10/2026).** A retenção
+apagava só o colaborador: o nome e a empresa seguiam em `demo_prospect_sessions` e
+no audit log (`demo.prepare_prospect_experience`) sem prazo nenhum. Agora, junto
+com o colaborador, a sessão e o registro de auditoria perdem os dois campos
+(viram `(removido)`, `MARCA_LEAD_REMOVIDO`). A linha da sessão fica, porque os
+carimbos de convite aberto, visão vista e contato clicado são a medição do funil e
+não identificam ninguém; o registro de auditoria fica com quem criou e quando. A
+primeira rodada do cron depois do deploy anonimiza o estoque que já passou do
+prazo.
+
+**A devolutiva da degustação não fica "em análise" para sempre (R-103,
+04/10/2026).** A análise da resposta roda em `after()` e leva 107 s de mediana e
+154 s no p90. Se a primeira tentativa falha rápido, há uma segunda; se as duas
+falham, a falha vai para `degradacao_log` (`degustacao-avaliacao-falhou`) e, passados
+10 minutos da resposta, a página do lead diz que está demorando e manda avisar
+quem convidou, que refaz a análise em "IA4, Avaliar" do ambiente. O lead de convite
+vencido que cai no login lê "fale com quem enviou o convite", e não "peça um novo
+link", que ele não consegue.
+
 **O convidado atravessa o reset.** O wipe passa a excluir os convidados do
 ambiente (identificados pelo prefixo do e-mail) em `colaboradores` e
 `respostas`; o resto é derivado e se refaz. Consequência: o adiamento do reset

@@ -83,6 +83,17 @@ export type AcmeProspectCleanupResult = {
  */
 export const DEGUSTACAO_RETENCAO_DIAS = 30;
 
+/**
+ * O que fica no lugar do nome e da empresa do lead quando a retenção vence
+ * (R-127, 04/10/2026). As colunas são NOT NULL, então a marca ocupa o lugar.
+ * A linha da sessão FICA: os carimbos (convite aberto, visões vistas, contato
+ * clicado) são a medição do funil e não identificam ninguém.
+ */
+export const MARCA_LEAD_REMOVIDO = '(removido)';
+
+/** A ação do audit log que grava `nome` e `empresa` do lead (`actions/demo.ts`). */
+const ACAO_AUDIT_DO_CONVITE = 'demo.prepare_prospect_experience';
+
 function asValidTime(value: unknown): number | null {
   if (typeof value !== 'string' || !value.trim()) return null;
   const time = Date.parse(value);
@@ -509,6 +520,37 @@ async function deleteGuestCollaborator(client: any, empresaId: string, authEmail
 }
 
 /**
+ * Vence a retenção de UM convite: o nome e a empresa do lead saem da sessão e do
+ * audit log (R-127). Antes só o colaborador era apagado, e o nome e a empresa
+ * ficavam sem prazo em `demo_prospect_sessions` e em `admin_audit_log` (medido em
+ * 04/10/2026: as 35 sessões, inclusive as 6 fechadas há mais de 30 dias, ainda
+ * tinham o nome). O registro de auditoria continua existindo, com quem criou e
+ * quando; só o dado pessoal do lead vira a marca. Erros lançam, como o resto da
+ * faxina: ela roda no cron e a falha tem que aparecer.
+ */
+async function anonimizarConviteVencido(client: any, empresaId: string, sessionId: string) {
+  const { error: errSessao } = await client.from('demo_prospect_sessions')
+    .update({ prospect_name: MARCA_LEAD_REMOVIDO, prospect_company: MARCA_LEAD_REMOVIDO })
+    .eq('session_id', sessionId)
+    .eq('empresa_id', empresaId);
+  if (errSessao) throw new Error(`anonimizar sessão do convite: ${errSessao.message}`);
+
+  const { data: registros, error: errLeitura } = await client.from('admin_audit_log')
+    .select('id,detalhes')
+    .eq('acao', ACAO_AUDIT_DO_CONVITE)
+    .eq('detalhes->>sessionId', sessionId);
+  if (errLeitura) throw new Error(`ler o audit log do convite: ${errLeitura.message}`);
+  for (const registro of (registros || []) as Array<{ id: string; detalhes: Record<string, unknown> | null }>) {
+    const detalhes = registro.detalhes || {};
+    if (!('nome' in detalhes) && !('empresa' in detalhes)) continue;
+    const { error } = await client.from('admin_audit_log')
+      .update({ detalhes: { ...detalhes, nome: MARCA_LEAD_REMOVIDO, empresa: MARCA_LEAD_REMOVIDO } })
+      .eq('id', registro.id);
+    if (error) throw new Error(`anonimizar o audit log do convite: ${error.message}`);
+  }
+}
+
+/**
  * Fecha somente acessos vencidos. O retorno também funciona como preflight do
  * reset: enquanto houver qualquer sessão ativa, o tenant não pode ser recomposto.
  */
@@ -571,12 +613,14 @@ export async function cleanupExpiredDemoProspects(
     .select('session_id,auth_email')
     .eq('empresa_id', empresaId)
     .not('access_closed_at', 'is', null)
+    .neq('prospect_name', MARCA_LEAD_REMOVIDO)
     .lt('access_closed_at', limiteRetencao.toISOString())
     .limit(500);
   if (erroRetencao) throw new Error(`listar convidados fora da retenção: ${erroRetencao.message}`);
   let retidosRemovidos = 0;
   for (const row of (paraRemover || []) as Array<{ session_id: string; auth_email: string }>) {
     await deleteGuestCollaborator(sb, empresaId, row.auth_email);
+    await anonimizarConviteVencido(sb, empresaId, row.session_id);
     retidosRemovidos++;
   }
 
