@@ -24,6 +24,7 @@ import RelatorioRHPDF from '@/components/pdf/RelatorioRH';
 import RelatorioEngajamentoPDF from '@/components/pdf/RelatorioEngajamento';
 import RelatorioEvolucaoPDF from '@/components/pdf/RelatorioEvolucao';
 import { buildViews } from '@/lib/engajamento/relatorio-model';
+import { tEngajamento } from '../helpers/traducao-engajamento';
 
 const LOCALES = ['pt-BR', 'pt-PT', 'es-ES', 'en-US'] as const;
 type Loc = (typeof LOCALES)[number];
@@ -123,8 +124,8 @@ const evolucaoEngajamento: any = {
     { semana: 5, elegiveis: 20, ativados: 5, ativacaoPct: 25, consumiram: 3, consumoPct: 15, evidencias: 1, evidenciaPct: 5, usaramTutor: 1 },
   ],
   pessoasEmRisco: [
-    { colaboradorId: 'c1', nome: 'Dana', cargo: 'Analyst', area: 'Operations', semanaAtual: 5, indiceAtual: 0, delta: 0, trajetoria: 'critical', motivo: 'Sem atividade há duas semanas', motivoChave: 'sem_atividade_duas_semanas' },
-    { colaboradorId: 'c2', nome: 'Eli', cargo: 'Cargo não informado', area: 'Sem área', semanaAtual: 5, indiceAtual: 30, delta: -10, trajetoria: 'attention', motivo: 'Queda de 10 pontos', motivoChave: 'queda', motivoValor: 10 },
+    { colaboradorId: 'c1', nome: 'Dana', cargo: 'Analyst', area: 'Operations', semanaAtual: 5, indiceAtual: 0, delta: 0, trajetoria: 'critical', motivo: 'Sem atividade há duas semanas', motivoCodigo: 'sem_atividade_duas_semanas' },
+    { colaboradorId: 'c2', nome: 'Eli', cargo: 'Cargo não informado', area: 'Sem área', semanaAtual: 5, indiceAtual: 30, delta: -10, trajetoria: 'attention', motivo: 'Queda de 10 pontos', motivoCodigo: 'queda_de_pontos', motivoPontos: 10 },
   ],
   areas: [{ area: 'Operations', participantes: 30, emRisco: 2, tendencia: -10 }, { area: 'Sem área', participantes: 20, emRisco: 1, tendencia: null }],
   cargos: [
@@ -162,7 +163,7 @@ const evolucaoVazia: any = { ...evolucao, pessoas: [], porCargo: [], cobertura: 
 
 // ───────────── os cinco documentos num idioma ─────────────
 function documentos(locale: Loc) {
-  const views = buildViews({ empresaNome: 'Acme', rollup, evolucao: evolucaoEngajamento, locale })!;
+  const views = buildViews({ empresaNome: 'Acme', rollup, evolucao: evolucaoEngajamento, t: tEngajamento(locale), locale })!;
   return {
     individual: React.createElement(RelatorioIndividualPDF, { data: { conteudo: conteudoPdi, colaborador_nome: 'Alice Smith', colaborador_cargo: 'Analyst' }, empresaNome: 'Acme', locale }),
     individualComMapa: React.createElement(RelatorioIndividualPDF, { data: { conteudo: conteudoPdiComMapa, colaborador_nome: 'Alice Smith', colaborador_cargo: 'Analyst' }, empresaNome: 'Acme', locale }),
@@ -263,19 +264,19 @@ describe('árvore: os cinco PDFs renderizam nos quatro idiomas', () => {
   it('rótulos de "sem dado" (cargo e área vazios) saem no idioma de quem lê', () => {
     expect(imprime(documentos('en-US').evolucao)).toContain('Role not provided');
     expect(imprime(documentos('es-ES').evolucao)).toContain('Cargo no informado');
-    expect(imprime(documentos('en-US').engajamentoRh)).toContain('No department');
+    expect(imprime(documentos('en-US').engajamentoRh)).toContain('No area');
     expect(imprime(documentos('es-ES').engajamentoRh)).toContain('Sin área');
   });
 
   it('o motivo do risco vem do código estável, no idioma de quem lê; sem código (dado antigo), o texto que veio', () => {
     const gest = (l: Loc) => imprime(documentos(l).engajamentoGestor);
     expect(gest('en-US')).toContain('No activity for two weeks');
-    expect(gest('en-US')).toContain('Drop of 10 points');
+    expect(gest('en-US')).toContain('Dropped 10 points');
     expect(gest('es-ES')).toContain('Sin actividad desde hace dos semanas');
     expect(gest('pt-BR')).toContain('Sem atividade há duas semanas');
     const semCodigo = JSON.parse(JSON.stringify(evolucaoEngajamento));
-    semCodigo.pessoasEmRisco[0] = { ...semCodigo.pessoasEmRisco[0], motivoChave: undefined, motivo: 'Motivo gravado como texto' };
-    const views = buildViews({ empresaNome: 'Acme', rollup, evolucao: semCodigo, locale: 'en-US' })!;
+    semCodigo.pessoasEmRisco[0] = { ...semCodigo.pessoasEmRisco[0], motivoCodigo: undefined, motivo: 'Motivo gravado como texto' };
+    const views = buildViews({ empresaNome: 'Acme', rollup, evolucao: semCodigo, t: tEngajamento('en-US'), locale: 'en-US' })!;
     expect(views.gestor.focusItems[0].reason).toBe('Motivo gravado como texto');
   });
 

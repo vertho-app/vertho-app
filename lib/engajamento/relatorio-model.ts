@@ -12,7 +12,7 @@ export type ReportPriority = {
   members: Array<{ name: string; context: string; id?: string; week?: number }>;
 };
 export type ReportView = {
-  eyebrow: string; scope: string; thesis: string; thesisAccent: string; explanation: string;
+  audience: Audience; eyebrow: string; scope: string; thesis: string; thesisAccent: string; explanation: string;
   eligible: number; week: number; enrolled: number; previousEligible: number | null;
   hasWeeklyData: boolean; canCompare: boolean;
   activation: Metric; consumption: Metric; evidence: Metric;
@@ -124,6 +124,7 @@ export function buildViews({ empresaNome, rollup, evolucao, t, locale = 'pt-BR' 
 
   function view(audience: Audience): ReportView {
     return {
+      audience,
       eyebrow: t(`model.eyebrow.${audience}`),
       scope: t(`model.scope.${audience}`, { company: empresaNome }),
       thesis: main ? t('model.thesis.pending', { count: counts[main], kind: t(`model.kind.${main}`) })

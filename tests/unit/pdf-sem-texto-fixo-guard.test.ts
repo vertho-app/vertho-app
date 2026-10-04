@@ -27,7 +27,6 @@ const ARQUIVOS = [
   'components/pdf/RelatorioRH.tsx',
   'components/pdf/RelatorioEngajamento.tsx',
   'components/pdf/RelatorioEvolucao.tsx',
-  'lib/engajamento/relatorio-model.ts',
 ];
 
 /** Literais que são DADO ou CÓDIGO, não texto do papel. Arquivo -> literal -> motivo. */
@@ -36,13 +35,11 @@ const EXCECOES: Record<string, Record<string, string>> = {
     'média': 'código de urgência que o relatório antigo grava com acento (`urgenciaChave` aceita as duas grafias); é entrada, nunca é impresso',
   },
   'components/pdf/RelatorioEngajamento.tsx': {
+    'gestor': 'código do público do relatório (`Audience`: gestor ou rh), escolhe o rótulo; não é impresso',
     'pessoas': 'âncora do link para a lista de pessoas na plataforma (`#pessoas`): contrato da URL, não texto do papel',
   },
   'components/pdf/RelatorioEvolucao.tsx': {
     'pessoas-': 'prefixo da `key` React da página de pessoas: identificador interno, não é impresso',
-  },
-  'lib/engajamento/relatorio-model.ts': {
-    'gestor': 'código do público do relatório (`Audience`: gestor ou rh), usado para escolher a visão; não é impresso',
   },
 };
 

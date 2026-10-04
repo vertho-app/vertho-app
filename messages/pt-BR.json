@@ -6715,6 +6715,8 @@
     },
     "engajamento": {
       "weeklyEngagement": "Engajamento semanal",
+      "audienceManager": "gestor",
+      "audienceHr": "RH / Diretoria",
       "weekN": "Semana {n}",
       "docTitle": "Relatório de engajamento - {company}",
       "coverOverline": "Relatório semanal",
@@ -6762,118 +6764,6 @@
       "howToReadDefinitions": "Crítico: ausência de atividade na primeira semana ou em duas semanas consecutivas. Atenção: semana sem atividade, índice abaixo de 40 ou queda em relação à anterior. Índice operacional: ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10. Mede atividade na jornada.",
       "howToReadAudiences": "A leitura de RH reúne prioridades por área e cargo; a do gestor permite acompanhamento nominal. O plano, os responsáveis e os prazos são sugestões para a equipe, sem atribuições ou envios automáticos.",
       "seeDetailedData": "Ver dados detalhados na plataforma"
-    },
-    "engagementModel": {
-      "eyebrowManager": "Leitura do gestor",
-      "eyebrowHr": "Leitura de RH / Diretoria",
-      "audienceManager": "gestor",
-      "audienceHr": "RH / Diretoria",
-      "scopeManager": "por pessoa e cargo",
-      "scopeHr": "por área e cargo",
-      "thesis": {
-        "pending": "{count, plural, =1 {# pessoa} other {# pessoas}} com {stage} pendente.",
-        "allDone": "A base semanal concluiu a jornada.",
-        "noWeeklyData": "Sem fechamento semanal disponível.",
-        "reviewFollowUp": "Revisar o acompanhamento das turmas."
-      },
-      "stage": {
-        "ativacao": "ativação",
-        "consumo": "consumo",
-        "evidencia": "evidência"
-      },
-      "blocker": {
-        "ativacao": {
-          "label": "Sem ativação",
-          "action": "Verificar envio e acesso",
-          "guidance": "Conferir o registro do envio, a validade do link e possíveis bloqueios de acesso. Se o acesso estiver funcionando, preparar um lembrete para o grupo sem atividade.",
-          "owner": "Operação e gestor",
-          "deadline": "Hoje"
-        },
-        "consumo": {
-          "label": "Consumo pendente",
-          "action": "Apoiar a retomada do conteúdo",
-          "guidance": "Verificar onde a pessoa parou, orientar a retomada e oferecer o formato disponível mais adequado. Combinar um prazo para concluir o conteúdo.",
-          "owner": "Gestor",
-          "deadline": "Próximo dia útil"
-        },
-        "evidencia": {
-          "label": "Evidência pendente",
-          "action": "Orientar o registro da prática",
-          "guidance": "Confirmar se houve dificuldade na atividade ou no registro da evidência. Reforçar a orientação da semana e combinar a entrega com o grupo.",
-          "owner": "Gestor",
-          "deadline": "Antes do próximo acompanhamento"
-        }
-      },
-      "explanation": {
-        "ativacao": "{count} de {eligible} pessoas elegíveis estão sem ativação registrada na semana {week}. A ausência de atividade não identifica a causa: verificar envio, acesso e registro dos eventos antes de abordar o grupo.",
-        "consumo": "{count} de {eligible} pessoas elegíveis ativaram, mas não concluíram o consumo na semana {week}. {guidance}",
-        "evidencia": "{count} de {eligible} pessoas elegíveis consumiram, mas ainda não registraram evidência na semana {week}. {guidance}",
-        "allDone": "{evidence} de {eligible} pessoas elegíveis concluíram a evidência na semana {week}. Acompanhar também as trajetórias individuais das demais turmas.",
-        "noWeeklyData": "Não há fechamento semanal disponível para este recorte. Nenhum indicador foi substituído pelo histórico acumulado."
-      },
-      "roleAction": {
-        "notClosedYet": "Acompanhar a semana atual das turmas; este cargo ainda não chegou ao fechamento.",
-        "noActivation": "{n, plural, =1 {# pessoa} other {# pessoas}} sem ativação. Confirmar acesso e combinar o primeiro contato com o conteúdo.",
-        "noConsumption": "{n, plural, =1 {# pessoa} other {# pessoas}} com ativação, mas sem consumo concluído. Reservar tempo para concluir o conteúdo.",
-        "noEvidence": "{n, plural, =1 {# pessoa} other {# pessoas}} com consumo concluído, mas sem evidência. Orientar o registro da aplicação prática.",
-        "completeWithRisk": "Fechamento completo entre os elegíveis. Acompanhar as trajetórias em risco e possíveis quedas em relação à semana anterior.",
-        "completeNoRisk": "Reconhecer a participação e sustentar a aplicação prática."
-      },
-      "format": {
-        "video": "Vídeo",
-        "audio": "Áudio",
-        "texto": "Texto",
-        "case": "Caso"
-      },
-      "noRecord": "Sem registro",
-      "plan": {
-        "agreeNext": {
-          "title": "Combinar a próxima ação com o grupo",
-          "description": "Revisar o motivo da pendência e os sinais de cada pessoa. Definir o responsável e preparar uma orientação específica para o bloqueio encontrado.",
-          "owner": "Gestor da equipe",
-          "deadline": "Após a verificação"
-        },
-        "reassess": {
-          "title": "Reavaliar o mesmo grupo",
-          "description": "Na próxima leitura, conferir quem avançou de etapa e quem continua pendente. Registrar o resultado no acompanhamento da equipe.",
-          "owner": "Gestor e RH",
-          "deadline": "Em 48 horas, como sugestão"
-        },
-        "reviewTrajectories": {
-          "title": "Revisar as trajetórias individuais",
-          "description": "Acompanhar outras turmas e reconhecer quem recuperou o ritmo.",
-          "owner": "Gestor e RH",
-          "deadline": "Próxima reunião de acompanhamento"
-        },
-        "alignWithManagers": {
-          "title": "Alinhar o plano com os gestores das áreas",
-          "description": "Priorizar as áreas com mais trajetórias críticas e maior proporção de pessoas afetadas. Combinar o apoio, o responsável e a data de revisão.",
-          "owner": "RH e gestores das áreas"
-        }
-      },
-      "reason": {
-        "sem_atividade_duas_semanas": "Sem atividade há duas semanas",
-        "sem_atividade_primeira_semana": "Sem atividade na primeira semana",
-        "sem_atividade_semana": "Sem atividade nesta semana",
-        "queda": "Queda de {n} pontos",
-        "consumo_incompleto": "Consumo incompleto",
-        "sem_evidencia": "Ainda sem evidência prática",
-        "interrompeu": "Interrompeu a sequência",
-        "ritmo_abaixo": "Ritmo abaixo do esperado"
-      },
-      "tutorOf": "{used} de {eligible}",
-      "weekShort": "S{n}",
-      "weekN": "Semana {n}",
-      "peoplePendingInWeek": "{n, plural, =1 {# pessoa} other {# pessoas}} com esta pendência na semana {week}",
-      "focusTitleManager": "Trajetórias que pedem acompanhamento",
-      "focusTitleHr": "Áreas que pedem acompanhamento",
-      "focusSubtitle": "Base: {enrolled} inscritos, cada pessoa na sua semana atual. {audience, select, manager {Até 3 prioridades, com trajetórias críticas primeiro.} other {Ordenação por trajetórias críticas, quantidade e proporção de pessoas afetadas.}}",
-      "labelCritical": "Crítico",
-      "labelAttention": "Atenção",
-      "labelCriticalAreas": "Trajetórias críticas",
-      "areaContext": "{risk, plural, =1 {# pessoa} other {# pessoas}} em risco · {total} inscritos · {pct}% da área",
-      "areaContextNoTotal": "{risk, plural, =1 {# pessoa} other {# pessoas}} em acompanhamento",
-      "areaReason": "{critical} em trajetória crítica · {attention} em atenção. Alinhar o plano com o gestor da área."
     },
     "evolucao": {
       "headerLabel": "Evolução da jornada",

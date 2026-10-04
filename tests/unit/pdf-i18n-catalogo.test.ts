@@ -43,7 +43,7 @@ const argumentos = (msg: string): string =>
 describe('catálogo Pdf: quatro idiomas, as mesmas chaves e os mesmos argumentos', () => {
   it('existe nos quatro idiomas e tem o mesmo conjunto de chaves', () => {
     const base = [...mapa['pt-BR'].keys()].sort();
-    expect(base.length).toBeGreaterThan(300);
+    expect(base.length).toBeGreaterThan(250);
     for (const l of LOCALES) expect([...mapa[l].keys()].sort(), l).toEqual(base);
   });
 
@@ -85,7 +85,7 @@ describe('catálogo Pdf: chave usada existe, chave existente é usada', () => {
   const ARQUIVOS = [
     'components/pdf/RelatorioIndividual.tsx', 'components/pdf/CompetencyBlock.tsx', 'components/pdf/RelatorioGestor.tsx',
     'components/pdf/RelatorioRH.tsx', 'components/pdf/RelatorioEngajamento.tsx', 'components/pdf/RelatorioEvolucao.tsx',
-    'components/pdf/PdfReportCover.tsx', 'components/pdf/PdfCover.tsx', 'lib/engajamento/relatorio-model.ts',
+    'components/pdf/PdfReportCover.tsx', 'components/pdf/PdfCover.tsx',
     'lib/relatorios/rotulos-sem-dado.ts', 'app/dashboard/pdi/page.tsx',
   ];
   const fonte = (a: string) => readFileSync(a, 'utf8');
@@ -106,21 +106,9 @@ describe('catálogo Pdf: chave usada existe, chave existente é usada', () => {
 
   /** Os códigos que o código EMITE, lidos da fonte. */
   const codigos = (arquivo: string, re: RegExp): string[] => [...new Set([...fonte(arquivo).matchAll(re)].map((m) => m[1]))].sort();
-  const motivos = codigos('lib/engagement-evolution.ts', /chave: '([a-z_]+)'/g);
   const errosDoDownload = codigos('app/dashboard/pdi/pdi-actions.ts', /codigo: '([a-z_]+)'/g);
-  const bloqueios = ['ativacao', 'consumo', 'evidencia'];
 
   const FAMILIAS: Record<string, string[]> = {
-    '${k}.action': bloqueios.map((b) => `engagementModel.blocker.${b}.action`),
-    '${k}.deadline': bloqueios.map((b) => `engagementModel.blocker.${b}.deadline`),
-    '${k}.guidance': bloqueios.map((b) => `engagementModel.blocker.${b}.guidance`),
-    '${k}.label': bloqueios.map((b) => `engagementModel.blocker.${b}.label`),
-    '${k}.owner': bloqueios.map((b) => `engagementModel.blocker.${b}.owner`),
-    'engagementModel.explanation.${main}': bloqueios.map((b) => `engagementModel.explanation.${b}`),
-    'engagementModel.stage.${main}': bloqueios.map((b) => `engagementModel.stage.${b}`),
-    'engagementModel.format.${best.formato}': ['video', 'audio', 'texto', 'case'].map((f) => `engagementModel.format.${f}`),
-    'engagementModel.reason.${person.motivoChave}': motivos.map((m) => `engagementModel.reason.${m}`),
-    'engagementModel.roleAction.${gap.chave}': ['noActivation', 'noConsumption', 'noEvidence'].map((k) => `engagementModel.roleAction.${k}`),
     'engajamento.series.${item.key}': ['activation', 'consumption', 'evidence'].map((k) => `engajamento.series.${k}`),
     'gestor.urgency.${chave}': ['conversa', 'alta', 'media', 'baixa'].map((k) => `gestor.urgency.${k}`),
     'rh.${familia}.${bruto}': [
@@ -135,8 +123,7 @@ describe('catálogo Pdf: chave usada existe, chave existente é usada', () => {
     expect([...montadas].filter((m) => !(m in FAMILIAS))).toEqual([]);
   });
 
-  it('as famílias dinâmicas cobrem os códigos que o código emite (motivos de risco e erros do download)', () => {
-    expect(motivos).toHaveLength(8);
+  it('as famílias dinâmicas cobrem os códigos que o código emite (erros do download e códigos do RH)', () => {
     expect(errosDoDownload.sort()).toEqual([
       'colaborador_nao_encontrado', 'falha_gerar', 'falha_link', 'falha_salvar', 'nao_autenticado', 'pdi_nao_encontrado',
     ]);

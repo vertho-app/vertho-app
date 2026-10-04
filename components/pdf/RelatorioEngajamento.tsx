@@ -107,7 +107,8 @@ export default function RelatorioEngajamentoPDF({
     { label: t('engajamento.consumed'), ...data.consumption },
     { label: t('engajamento.evidenced'), ...data.evidence },
   ];
-  const label = `${t('engajamento.weeklyEngagement')} · ${data.audienceLabel}`;
+  const audienceLabel = data.audience === 'gestor' ? t('engajamento.audienceManager') : t('engajamento.audienceHr');
+  const label = `${t('engajamento.weeklyEngagement')} · ${audienceLabel}`;
   const period = `${semana ? `${t('engajamento.weekN', { n: semana })} · ` : ''}${geradoEm}`;
   const peopleUrl = new URL(detailUrl);
   peopleUrl.searchParams.delete('view');
@@ -130,7 +131,7 @@ export default function RelatorioEngajamentoPDF({
       logoBase64={logoBase64}
       mostrarVertho={mostrarVertho}
       mentorLabel={mostrarVertho ? 'Mentor IA' : null}
-      overline={`${t('engajamento.coverOverline')} · ${data.audienceLabel}`}
+      overline={`${t('engajamento.coverOverline')} · ${audienceLabel}`}
       titulo={[t('engajamento.coverTitle1'), t('engajamento.coverTitle2')]}
       nome={empresaNome}
       jornada={period}

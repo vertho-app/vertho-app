@@ -6715,6 +6715,8 @@
     },
     "engajamento": {
       "weeklyEngagement": "Weekly engagement",
+      "audienceManager": "manager",
+      "audienceHr": "HR / Leadership",
       "weekN": "Week {n}",
       "docTitle": "Engagement report - {company}",
       "coverOverline": "Weekly report",
@@ -6762,118 +6764,6 @@
       "howToReadDefinitions": "Critical: no activity in the first week or in two consecutive weeks. Attention: a week with no activity, an index below 40, or a drop from the previous week. Operational index: activation 20 + content use 30 + evidence 40 + Tira-Dúvidas 10. It measures activity in the journey.",
       "howToReadAudiences": "The HR view brings together priorities by area and role; the manager view allows follow-up by name. The plan, owners, and deadlines are suggestions for the team, with no automatic assignments or messages.",
       "seeDetailedData": "See detailed data on the platform"
-    },
-    "engagementModel": {
-      "eyebrowManager": "Manager view",
-      "eyebrowHr": "HR / Leadership view",
-      "audienceManager": "manager",
-      "audienceHr": "HR / Leadership",
-      "scopeManager": "by person and role",
-      "scopeHr": "by area and role",
-      "thesis": {
-        "pending": "{count, plural, =1 {# person} other {# people}} with {stage} pending.",
-        "allDone": "The weekly base completed the journey.",
-        "noWeeklyData": "No weekly closing available.",
-        "reviewFollowUp": "Review the follow-up of the groups."
-      },
-      "stage": {
-        "ativacao": "activation",
-        "consumo": "content use",
-        "evidencia": "evidence"
-      },
-      "blocker": {
-        "ativacao": {
-          "label": "No activation",
-          "action": "Check delivery and access",
-          "guidance": "Check the delivery record, the link's validity, and possible access blocks. If access is working, prepare a reminder for the group with no activity.",
-          "owner": "Operations and manager",
-          "deadline": "Today"
-        },
-        "consumo": {
-          "label": "Content use pending",
-          "action": "Support resuming the content",
-          "guidance": "Check where the person stopped, guide the restart, and offer the most suitable available format. Agree on a deadline to finish the content.",
-          "owner": "Manager",
-          "deadline": "Next business day"
-        },
-        "evidencia": {
-          "label": "Evidence pending",
-          "action": "Guide the recording of practice",
-          "guidance": "Confirm whether there was difficulty with the activity or with recording the evidence. Reinforce the week's guidance and agree on delivery with the group.",
-          "owner": "Manager",
-          "deadline": "Before the next follow-up"
-        }
-      },
-      "explanation": {
-        "ativacao": "{count} of {eligible} eligible people have no activation recorded in week {week}. Absence of activity does not identify the cause: check delivery, access, and event records before approaching the group.",
-        "consumo": "{count} of {eligible} eligible people activated but did not finish the content in week {week}. {guidance}",
-        "evidencia": "{count} of {eligible} eligible people used the content but have not yet recorded evidence in week {week}. {guidance}",
-        "allDone": "{evidence} of {eligible} eligible people completed the evidence in week {week}. Also follow the individual trajectories of the other groups.",
-        "noWeeklyData": "No weekly closing is available for this selection. No indicator was replaced by the accumulated history."
-      },
-      "roleAction": {
-        "notClosedYet": "Follow the current week of the groups; this role has not reached the closing yet.",
-        "noActivation": "{n, plural, =1 {# person} other {# people}} with no activation. Confirm access and agree on the first contact with the content.",
-        "noConsumption": "{n, plural, =1 {# person} other {# people}} activated but without finished content. Set aside time to finish the content.",
-        "noEvidence": "{n, plural, =1 {# person} other {# people}} finished the content but have no evidence. Guide the recording of the practical application.",
-        "completeWithRisk": "Closing complete among the eligible. Follow the trajectories at risk and possible drops from the previous week.",
-        "completeNoRisk": "Recognize participation and sustain the practical application."
-      },
-      "format": {
-        "video": "Video",
-        "audio": "Audio",
-        "texto": "Text",
-        "case": "Case"
-      },
-      "noRecord": "No record",
-      "plan": {
-        "agreeNext": {
-          "title": "Agree on the next action with the group",
-          "description": "Review the reason for the pending item and each person's signals. Define the owner and prepare specific guidance for the block found.",
-          "owner": "Team manager",
-          "deadline": "After the check"
-        },
-        "reassess": {
-          "title": "Reassess the same group",
-          "description": "In the next reading, check who moved forward a stage and who is still pending. Record the result in the team follow-up.",
-          "owner": "Manager and HR",
-          "deadline": "Within 48 hours, as a suggestion"
-        },
-        "reviewTrajectories": {
-          "title": "Review the individual trajectories",
-          "description": "Follow other groups and recognize those who regained their pace.",
-          "owner": "Manager and HR",
-          "deadline": "Next follow-up meeting"
-        },
-        "alignWithManagers": {
-          "title": "Align the plan with the area managers",
-          "description": "Prioritize the areas with the most critical trajectories and the highest share of people affected. Agree on the support, the owner, and the review date.",
-          "owner": "HR and area managers"
-        }
-      },
-      "reason": {
-        "sem_atividade_duas_semanas": "No activity for two weeks",
-        "sem_atividade_primeira_semana": "No activity in the first week",
-        "sem_atividade_semana": "No activity this week",
-        "queda": "Drop of {n} points",
-        "consumo_incompleto": "Content not finished",
-        "sem_evidencia": "No practical evidence yet",
-        "interrompeu": "Broke the sequence",
-        "ritmo_abaixo": "Pace below expected"
-      },
-      "tutorOf": "{used} of {eligible}",
-      "weekShort": "W{n}",
-      "weekN": "Week {n}",
-      "peoplePendingInWeek": "{n, plural, =1 {# person} other {# people}} with this pending item in week {week}",
-      "focusTitleManager": "Trajectories that need follow-up",
-      "focusTitleHr": "Areas that need follow-up",
-      "focusSubtitle": "Base: {enrolled} enrolled, each person in their current week. {audience, select, manager {Up to 3 priorities, critical trajectories first.} other {Ordered by critical trajectories, count, and share of people affected.}}",
-      "labelCritical": "Critical",
-      "labelAttention": "Attention",
-      "labelCriticalAreas": "Critical trajectories",
-      "areaContext": "{risk, plural, =1 {# person} other {# people}} at risk · {total} enrolled · {pct}% of the area",
-      "areaContextNoTotal": "{risk, plural, =1 {# person} other {# people}} being followed up",
-      "areaReason": "{critical} on a critical trajectory · {attention} needing attention. Align the plan with the area manager."
     },
     "evolucao": {
       "headerLabel": "Journey progress",
