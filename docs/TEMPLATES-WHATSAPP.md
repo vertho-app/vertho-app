@@ -567,6 +567,58 @@ de que a categoria não olha o assunto, olha a **intenção percebida**.
 
 ---
 
+## 3.3 Versões novas a submeter (propostas de 04/10/2026, NADA foi submetido à Meta)
+
+Texto aprovado lido direto na Meta em 04/10/2026 (status APPROVED, categoria UTILITY, pt_BR). Trocar o texto de um template é versão nova, com nome novo, e só vale depois de APPROVED. Cada proposta mantém o molde que a Meta aceitou como UTILITY (§3.1): informa, não promove, sem trecho que descreva o programa além do necessário. Antes de submeter, rodar o guard `tests/unit/integrations/whatsapp-templates.test.ts` contra o texto novo.
+
+| Template atual | O que o texto aprovado diz de errado | Achado |
+|---|---|---|
+| `acesso_vertho` | "O link expira em 15 minutos", mas a validade real é 1 hora (`mailer_otp_exp = 3600`) | R-47 |
+| `avaliacao_pendente` | "A avaliação leva cerca de 15 minutos" (a tela diz uns 5) e "é ela que define a sua trilha" (o Perfil não define trilha); chama de avaliação o que o produto chama de Perfil | R-48, R-50 |
+| `avaliacao_competencias` | "avaliação de {{2}}" (o produto chama de Mapeamento); "São 4 cenários" (é 1 cenário com 4 perguntas por competência); "define a sua trilha" | R-48, R-50 |
+| `votacao_pendente` (v2) | Promete prazo "às 23h59", mas a votação só fecha quando o admin a desliga | R-117 |
+
+Textos propostos (variáveis na mesma ordem dos atuais, para o contrato em `lib/whatsapp/templates.ts` mudar só o nome):
+
+**`acesso_vertho_v2`** (sem variável no corpo; botão e rodapé iguais)
+
+> Seu link de acesso à Vertho foi gerado. Toque no botão abaixo para entrar.
+>
+> O link vale por 1 hora e só pode ser usado uma vez.
+
+**`perfil_pendente`** (substitui `avaliacao_pendente`; mesmas 3 variáveis: nome, instituição, link)
+
+> Olá, **{{1}}**. Seu Perfil comportamental no programa da **{{2}}** ainda não foi iniciado.
+>
+> Você pode começar em:
+> **{{3}}**
+>
+> O Perfil leva uns 5 minutos.
+
+**`mapeamento_pendente`** (substitui `avaliacao_competencias`; mesmas 3 variáveis: nome, competência, link)
+
+> Olá, **{{1}}**. Você concluiu o Perfil comportamental, mas o seu Mapeamento de **{{2}}** ainda não foi iniciado.
+>
+> Você pode começar em:
+> **{{3}}**
+>
+> É um cenário com 4 perguntas, em cerca de 10 minutos. Ele orienta o conteúdo da sua Jornada.
+
+**`votacao_pendente_v3`** (3 variáveis: nome, instituição, link; sai o prazo)
+
+> Olá, **{{1}}**. Seu voto na escolha das competências do seu cargo, no programa da **{{2}}**, ainda não foi registrado.
+>
+> Você pode votar em:
+> **{{3}}**
+>
+> A votação leva cerca de 5 minutos, e o resultado define as competências trabalhadas na Jornada.
+
+Pontos a confirmar com o dono antes de submeter:
+- O tempo do Mapeamento ("cerca de 10 minutos") é o do texto aprovado, não foi medido. O Perfil em 5 minutos é o que a tela diz.
+- `votacao_pendente_v3` perde a variável `{{4}}`: o envio (`lib/votacao/*` e a tela de Envios) deixa de calcular e mandar o prazo. Se o dono preferir manter um prazo, é ele quem precisa existir na tela da votação.
+- Depois de APPROVED, trocar o nome em `lib/whatsapp/templates.ts` (os de nome fixo na tela) ou a env do papel (`WHATSAPP_TEMPLATE_ACESSO`), e conferir no log `[templates-ligados]`. Até lá, o texto antigo segue valendo e o app já diz a validade real de 1 hora em todo texto que não é template.
+- `avaliacao_parcial` ("X de Y cenários registrados") não entra nesta proposta; conferir se a unidade "cenário" ainda é a que a tela de resposta do Mapeamento mostra antes de decidir.
+
 ## 4. Como conferir sem confiar neste arquivo
 
 ```bash

@@ -29,6 +29,11 @@
  * e para a equipe. Não criar definição nem reset de senha para cliente. O
  * guard `tests/unit/security/senha-fixa-guard.test.ts` falha se um escritor de
  * senha novo aparecer fora dos três lugares que têm motivo.
+ *
+ * As contas que JÁ existiam com a senha única de teste foram acertadas só no
+ * banco, por script, em 04/10/2026 (decisão do dono): os administradores da
+ * plataforma seguem com a senha master e os usuários dos clientes passaram a
+ * uma senha por tenant. Nada disso entra no código nem na tela.
  */
 
 /** O destino é o painel da plataforma (`/admin`, `/admin-v2`)? */
