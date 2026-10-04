@@ -312,6 +312,7 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
       aiConfig,
       programaConfig,
       blueprintBinding: blueprintInputsSingle?.bindingPorSemana,
+      colaboradorId: colab.id, // o idioma do texto da missão e do cenário é o da pessoa
     });
 
     // 7) Persiste trilha + progresso (fonte única dos 4 modos)
@@ -515,6 +516,7 @@ export async function gerarTemporadaOnboarding(args: {
     empresaId: colab.empresa_id,
     aiConfig,
     programaConfig,
+    colaboradorId: colab.id, // o idioma do texto da missão e do cenário é o da pessoa
   });
 
   // 4) Persiste em `trilhas` (UPDATE se existir, INSERT senão). A semana de
@@ -682,6 +684,7 @@ export async function gerarTemporadaRegularDuo(args: {
     aiConfig,
     programaConfig,
     blueprintBinding: blueprintInputs?.bindingPorSemana,
+    colaboradorId: colab.id, // o idioma do texto da missão e do cenário é o da pessoa
   });
 
   // 5) Persiste (UPDATE se existir, INSERT senão)
@@ -769,6 +772,7 @@ export async function gerarTemporadaPiloto(args: {
     empresaId: colab.empresa_id,
     aiConfig,
     programaConfig,
+    colaboradorId: colab.id, // o idioma do texto da missão e do cenário é o da pessoa
   });
 
   // 4) Persiste (UPDATE se existir, INSERT senão) — idêntico aos demais modos

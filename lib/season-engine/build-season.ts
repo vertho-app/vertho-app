@@ -17,6 +17,8 @@ import { PROGRAMA_REGULAR, descritoresCobertosNaMissao, ehSemanaDeMapeamento, ty
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { carregarFichaCargo } from '@/lib/cargo-contexto';
 import { tenantDb } from '@/lib/tenant-db';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
+import type { AppLocale } from '@/i18n/routing';
 import type { BlueprintBindingSemana } from '@/lib/blueprint/to-descriptors';
 
 interface MicroConteudo {
@@ -157,6 +159,12 @@ export interface BuildSeasonInput {
    * legado (paralelo/single), byte-igual ao atual.
    */
   blueprintBinding?: Record<number, BlueprintBindingSemana>;
+  /**
+   * A PESSOA dona da trilha (Onda E, 04/10/2026). Só serve para resolver o idioma em que a IA escreve o texto
+   * que ela lê (a missão e o cenário da semana de aplicação): `colaboradores.locale`, senão o da empresa,
+   * senão pt-BR. Ausente: o `callAI` segue como antes (cookie de quem disparou, ou pt-BR fora de uma request).
+   */
+  colaboradorId?: string | null;
 }
 
 /**
@@ -390,6 +398,7 @@ export async function buildSeason({
   aiConfig = {},
   programaConfig = PROGRAMA_REGULAR,
   blueprintBinding,
+  colaboradorId = null,
 }: BuildSeasonInput): Promise<SemanaPlan[]> {
   const semanas: SemanaPlan[] = [];
   const blueprintDriven = !!blueprintBinding;
@@ -420,6 +429,13 @@ export async function buildSeason({
     ? await carregarFichaCargo(tenantDb(empresaId) as any, empresaId, cargo)
     : '';
 
+  // O idioma da PESSOA dona da trilha, para o texto da missão e do cenário (só quando há semana de aplicação e
+  // a pessoa foi informada; a leitura nunca lança). A semana de conteúdo não escreve texto aqui: o conteúdo
+  // vem do banco (reaproveitado) e o desafio, do kit.
+  const locale = programaConfig.semanasMissao.length > 0 && empresaId && colaboradorId
+    ? await idiomaDaPessoa(empresaId, colaboradorId)
+    : undefined;
+
   const idsJaUsados = new Set<string>();
   for (let semana = 1; semana <= programaConfig.semanas; semana++) {
     let plan: SemanaPlan;
@@ -435,7 +451,7 @@ export async function buildSeason({
         status: 'disponivel',
       };
     } else if (programaConfig.semanasMissao.includes(semana)) {
-      plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig, compsArray, empresaId, fichaCargo);
+      plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig, compsArray, empresaId, fichaCargo, locale);
     } else if (programaConfig.semanasAvaliacao.includes(semana)) {
       const espelho = programaConfig.semanaEspelhoCalendario?.[semana];
       plan = {
@@ -798,6 +814,8 @@ export async function montarSemanaAplicacao(
   competenciasArray: string[] = [competencia],
   empresaId: string | null = null,
   fichaCargo = '',
+  /** O idioma da pessoa dona da trilha. Ausente: o `callAI` resolve como antes. */
+  locale?: AppLocale,
 ): Promise<SemanaAplicacao> {
   const complexidade = programaConfig.complexidadeMap[semana] || 'intermediario';
 
@@ -851,10 +869,12 @@ export async function montarSemanaAplicacao(
       competenciasIntegradas: usaIntegrador ? competenciasIntegradas : undefined,
       fichaCargo,
     });
-    const [mResp, cResp] = await Promise.all([
-      callAI(m.system, m.user, aiConfig, 600),
-      callAI(c.system, c.user, aiConfig, 800),
-    ]);
+    // A missão e o cenário são lidos pela PESSOA: o idioma dela, não o do cookie de quem disparou o build.
+    // Sem `locale` a chamada segue com os mesmos argumentos de sempre.
+    const chamar = (p: { system: string; user: string }, maxTokens: number) => locale
+      ? callAI(p.system, p.user, aiConfig, maxTokens, { locale })
+      : callAI(p.system, p.user, aiConfig, maxTokens);
+    const [mResp, cResp] = await Promise.all([chamar(m, 600), chamar(c, 800)]);
 
     const missaoParsed = parseMissaoResponse(mResp);
     if (missaoParsed) {

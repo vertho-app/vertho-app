@@ -15,6 +15,7 @@ import { consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao } fr
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { comContexto } from '@/lib/execucao-contexto';
 import { escolherCenarioDaCompetencia, notaMinimaDaEmpresa } from '@/lib/assessment/cenario-elegivel';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
 
 // Turno do chat + encerramento (avaliação + auditoria, 2× 8192 tokens) podem
 // levar minutos com retry/backoff — sem isso a rota cai no default da Vercel
@@ -319,6 +320,10 @@ export async function POST(req) {
       ...(turnoJaGravado ? [] : [{ role: 'user', content: msgTrimmed }]),
     ];
 
+    // A conversa é com a PESSOA: o idioma dela (`colaboradores.locale`, senão o da empresa, senão pt-BR), e não
+    // o do cookie da request, que o login por senha nem sempre grava (a mesma lacuna do Beto, R-68).
+    const idioma = await idiomaDaPessoa(sessao.empresa_id ?? empresaId, sessao.colaborador_id ?? colaboradorId);
+
     let rawResponse;
     try {
       // taskKey: sem ele a chamada entra no ledger como 'untagged' — e o
@@ -331,6 +336,7 @@ export async function POST(req) {
         taskKey: 'conversa_fase3',
         empresaId: sessao.empresa_id ?? null,
         colaboradorId: sessao.colaborador_id ?? null,
+        locale: idioma,
       });
     } catch (llmError) {
       // Fallback: salvar erro mas não derrubar sessão

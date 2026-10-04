@@ -27,6 +27,7 @@ import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada
 import { deveEncerrarSemFechamento } from '@/lib/season-engine/programa-custom';
 import { aposEncerramentoSemFechamento, encerrarTrilhaSemFechamento } from '@/lib/season-engine/encerramento-sem-fechamento';
 import { tenantDb } from '@/lib/tenant-db';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import { PROGRESSO } from '@/lib/status';
 import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
@@ -396,6 +397,10 @@ export async function POST(request) {
       : tipoConversa === 'analytic' ? 'evidencias_analytic'
       : 'evidencias_socratic';
 
+    // A conversa é com a PESSOA dona da trilha: o idioma dela (`colaboradores.locale`, senão o da empresa, senão
+    // pt-BR), e não o do cookie da request, que o login por senha nem sempre grava (a mesma lacuna do Beto, R-68).
+    const idioma = await idiomaDaPessoa(trilha.empresa_id, trilha.colaborador_id);
+
     let respostaIA;
     try {
       respostaIA = await callAIChat(promptData.system, promptData.messages, {}, 2000, {
@@ -405,6 +410,7 @@ export async function POST(request) {
         // agora segue o mecanismo, e usa o mesmo vocabulário do simulador.
         taskKey: taskKeyDaConversa,
         empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+        locale: idioma,
         // Instrução do turno (volátil) no bloco 2 do system; persona+grounding no
         // bloco 1 cacheado. Estratégia validada na S4 (não-inferior por perfil).
         // socratic e missao usam systemSuffix; analytic não usa → inalterado.
@@ -445,6 +451,7 @@ export async function POST(request) {
         const forcado = await callAIChat(promptData.system, promptData.messages, {}, 2000, {
           taskKey: taskKeyDaConversa,
           empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+          locale: idioma,
           systemSuffix: fechamentoSuffix ? reforcoDeFechamento(fechamentoSuffix) : undefined,
         });
         const limpo = (forcado || '').trim();

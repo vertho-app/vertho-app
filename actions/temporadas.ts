@@ -14,6 +14,7 @@ import { conteudosServiveisPorCargo } from '@/lib/season-engine/build-season';
 import { carregarConfigsEfetivasEmLote } from '@/lib/turmas';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
 import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import { gerarTemporadaCoreHeadless, normalizarSemanas, resolverCompetenciasDoOnboarding, resolverCompetenciasDoPersonalizado, descritoresInsuficientesDoOnboarding } from '@/lib/season-engine/trilha-core';
 import type { AIConfig } from './ai-client';
 import { z } from 'zod';
@@ -466,6 +467,9 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
 
     const slot = plano[idx];
     const { callAI } = await import('@/actions/ai-client');
+    // O desafio, a missão e o cenário da semana são lidos pela PESSOA dona da trilha: o idioma dela, e não o do
+    // cookie de quem clicou em "regerar" (a operação). A leitura nunca lança.
+    const locale = await idiomaDaPessoa(trilha.empresa_id, trilha.colaborador_id);
     const competenciaSlot = resolveCompetenciaSlot(trilha, slot);
     // Ficha do cargo: a mesma que o build e o kit usam. Erro de leitura lança
     // e a action devolve o erro, em vez de regerar a semana genérica calada.
@@ -480,7 +484,7 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
         nivel: slot.nivel_atual || 1.5,
         cargo: colab?.cargo, contexto, semana, fichaCargo,
       });
-      const rawResp = (await callAI(system, user, aiConfig, 400)).trim();
+      const rawResp = (await callAI(system, user, aiConfig, 400, { locale })).trim();
       const parsed = parseDesafioResponse(rawResp);
       const desafioFields = parsed
         ? { desafio_texto: parsed.desafio_texto, acao_observavel: parsed.acao_observavel, criterio_de_execucao: parsed.criterio_de_execucao, por_que_cabe_na_semana: parsed.por_que_cabe_na_semana }
@@ -516,8 +520,8 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
         fichaCargo,
       });
       const [mResp, cResp] = await Promise.all([
-        callAI(m.system, m.user, aiConfig, 600),
-        callAI(c.system, c.user, aiConfig, 800),
+        callAI(m.system, m.user, aiConfig, 600, { locale }),
+        callAI(c.system, c.user, aiConfig, 800, { locale }),
       ]);
 
       const missaoParsed = parseMissaoResponse(mResp);

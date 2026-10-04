@@ -105,6 +105,8 @@ describe('Personalizado com 2 competências: a 1ª trilha', () => {
     expect(t.programa_config.semanas).toBe(5);                    // 4 de conteúdo + fechamento
     expect(t.programa_config.sequenciaPersonalizado).toEqual({ competencias: ['Liderança', 'Comunicação'], posicao: 1 });
     expect(t.temporada_plano).toHaveLength(5);
+    // Onda E: a pessoa vai ao build para a missão e o cenário saírem no idioma dela.
+    expect(buildSeason.mock.calls[0][0].colaboradorId).toBe('colab-1');
   });
 
   it('a seleção é a da Jornada: 4 semanas com 3 descritores, sem exigir um distinto por pílula', async () => {

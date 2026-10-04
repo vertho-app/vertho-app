@@ -18,6 +18,7 @@ import { carregarBlueprintResumo } from '@/lib/blueprint/resumo';
 import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@/lib/conteudos-relacionados';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { comContexto } from '@/lib/execucao-contexto';
+import { idiomaDaPessoa } from '@/lib/pdf-locale';
 
 // callAIChat por pergunta pode levar dezenas de segundos (com retry, mais).
 export const maxDuration = 300;
@@ -317,6 +318,10 @@ export async function POST(request) {
     // grava o modelo que RODOU, não o que se imagina que roda.
     const modelo = await getModelForTask(trilha.empresa_id, 'tira_duvidas');
 
+    // A resposta é para a PESSOA dona da trilha: o idioma dela (`colaboradores.locale`, senão o da empresa, senão
+    // pt-BR), e não o do cookie da request, que o login por senha nem sempre grava (a mesma lacuna do Beto, R-68).
+    const idioma = await idiomaDaPessoa(trilha.empresa_id, trilha.colaborador_id);
+
     let respostaIA;
     try {
       // Sonnet 4.6 por padrão: mais capaz para ancorar a explicação no conhecimento
@@ -326,6 +331,7 @@ export async function POST(request) {
       // switch sem deploy: IA_CACHE_HISTORY=0.
       respostaIA = (await callAIChat(system, messages as any, { model: modelo }, 1500, {
         taskKey: 'tira_duvidas', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+        locale: idioma,
         cacheHistory: process.env.IA_CACHE_HISTORY !== '0',
       })).trim();
     } catch (err) {

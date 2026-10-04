@@ -110,6 +110,8 @@ describe('Onboarding: as competências são o Top 5 do cargo', () => {
     expect(args.competencias).toEqual(TOP5);
     expect(args.programaConfig.modo).toBe('onboarding');
     expect(args.programaConfig.semanas).toBe(12);
+    // Onda E: a pessoa vai ao build para a missão e o cenário saírem no idioma dela.
+    expect(args.colaboradorId).toBe('colab-1');
     const t = upsertTrilha();
     expect(t.programa_modo).toBe('onboarding');
     expect(t.competencias_foco).toEqual(TOP5);
