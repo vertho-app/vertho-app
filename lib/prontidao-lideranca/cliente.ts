@@ -16,6 +16,9 @@
  *   - as frases de gap ancoradas em média e corte saem (a tela monta a frase
  *     com o nível, no idioma da pessoa);
  *   - a aderência de estilo vai em porcentagem inteira, sem casa decimal;
+ *   - o estado interno da auditoria da segunda IA ("auditoria: revisar", o aviso
+ *     "auditoria pediu revisão") não sai: é controle de qualidade da Vertho, e o RH
+ *     lê o nível e os trechos conferidos (R-56, 04/10/2026);
  *   - dentro de cada quadrante a lista vai em ordem alfabética: a ordem pela
  *     média era um ranking pelo número que não se mostra.
  */
@@ -52,6 +55,7 @@ function linhaParaCliente(l: LinhaMatriz): LinhaMatriz {
       lacunas: (l.estilo?.lacunas || []).map((g) => ({ ...g, fitPct: inteiro(g.fitPct) })),
     },
     frasesGap: [],
+    auditoriaPendente: false,
   };
 }
 
@@ -81,6 +85,7 @@ export function parecerParaCliente(p: Parecer): Parecer {
     linha: linhaParaCliente(p.linha),
     evidencias: (p.evidencias || []).map((ev) => ({
       ...ev,
+      auditoria: null,
       descritores: ev.descritores.map((d) => ({
         ...d,
         nivel: d.nivel ?? (d.nota == null ? null : nivelDaNota(d.nota)),

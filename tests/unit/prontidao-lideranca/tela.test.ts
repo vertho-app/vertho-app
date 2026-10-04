@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { NextIntlClientProvider, createTranslator } from 'next-intl';
-import { ParecerPessoa, mensagemDeErro, mensagemDoParecer, precisaBuscarParecer } from '@/components/prontidao-lideranca-view';
+import { ParecerPessoa, mensagemDeErro, mensagemDoParecer, precisaBuscarParecer, rotuloDaAuditoria } from '@/components/prontidao-lideranca-view';
 import { parecerParaCliente } from '@/lib/prontidao-lideranca/cliente';
 import type { Parecer } from '@/lib/prontidao-lideranca/agregar';
 
@@ -65,6 +65,31 @@ describe('Mapeamento de liderança: a tela do RH', () => {
     // Nenhuma nota decimal (2,67 / 2,89 / 2,45 / 3,00) nem a aderência com casa decimal.
     expect(texto).not.toMatch(/\d,\d{2}|\d\.\d{2}|61,3|61\.27/);
     expect(texto).not.toMatch(/corte|média/i);
+  });
+
+  it('R-56: o RH não lê "auditoria: revisar" nem "auditoria pediu revisão"; a visão da Vertho lê', () => {
+    // O estado da auditoria da segunda IA é controle de qualidade da Vertho.
+    const base = parecerAdmin();
+    const comRevisao: Parecer = {
+      ...base,
+      linha: { ...base.linha, auditoriaPendente: true },
+      evidencias: base.evidencias.map((ev) => ({ ...ev, auditoria: 'revisar' as any })),
+    };
+    for (const locale of LOCALES) {
+      const html = render(createElement(ParecerPessoa, { p: parecerParaCliente(comRevisao), metaNivel: 3 }), locale);
+      const texto = html.replace(/<[^>]+>/g, ' ');
+      expect(texto, locale).not.toMatch(/audit/i);
+    }
+    // a visão da Vertho segue vendo o estado
+    const admin = render(createElement(ParecerPessoa, { p: { ...comRevisao, exibeNota: true }, metaNivel: 3, exibeNota: true }));
+    expect(admin).toContain('auditoria pediu revisão');
+    expect(admin).toContain('auditoria: revisar');
+    // a competência sem nenhum comportamento avaliado continua dizendo isso ao RH
+    const t = tradutor();
+    expect(rotuloDaAuditoria({ auditoria: null, descritores: [] }, false, t)).toBe('sem avaliação');
+    expect(rotuloDaAuditoria({ auditoria: 'revisar', descritores: [{}] }, false, t)).toBe('');
+    expect(rotuloDaAuditoria({ auditoria: 'revisar', descritores: [{}] }, true, t)).toBe('auditoria: revisar');
+    expect(rotuloDaAuditoria({ auditoria: null, descritores: [{}] }, true, t)).toBe('sem auditoria');
   });
 
   it('o admin da Vertho vê a nota ao lado do nível', () => {

@@ -164,7 +164,7 @@ function PaginaPosicao({ p, empresaNome }: { p: Parecer; empresaNome: string }) 
             ))}
           </View>
         )}
-        {l.auditoriaPendente && <Text style={{ marginTop: 10, color: T.clay }}>A auditoria da segunda IA pediu revisão em ao menos uma avaliação desta pessoa. Leia as evidências antes de decidir.</Text>}
+        {p.exibeNota === true && l.auditoriaPendente && <Text style={{ marginTop: 10, color: T.clay }}>A auditoria da segunda IA pediu revisão em ao menos uma avaliação desta pessoa. Leia as evidências antes de decidir.</Text>}
       </View>
 
       <Text style={s.eyebrow}>Camada 2 · leitura de estilo (não decide)</Text>
@@ -192,7 +192,7 @@ function PaginaEvidencias({ p, empresaNome }: { p: Parecer; empresaNome: string 
         <View key={ev.competencia} style={s.card}>
           <View style={s.row}>
             <Text style={s.h3}>{ev.competencia}</Text>
-            <Text style={s.small}>{ev.auditoria ? `auditoria: ${ev.auditoria.replace(/_/g, ' ')}` : ev.descritores.length ? 'sem auditoria' : 'sem avaliação'}</Text>
+            <Text style={s.small}>{!ev.descritores.length ? 'sem avaliação' : p.exibeNota === true ? (ev.auditoria ? `auditoria: ${ev.auditoria.replace(/_/g, ' ')}` : 'sem auditoria') : ''}</Text>
           </View>
           {ev.descritores.length ? ev.descritores.map((d) => (
             <View key={d.descritor} style={{ marginTop: 4 }}>

@@ -88,6 +88,21 @@ describe('projeção do Mapeamento de liderança para o cliente', () => {
     expect(c).toMatchObject({ corte: null, metaNivel: 3, exibeNota: false });
   });
 
+  it('R-56: a projeção do RH não carrega o estado interno da auditoria da segunda IA', () => {
+    const base = linha('Bia', 'nao_agora', 2.33);
+    const c = prontidaoParaCliente({ ...dados(), linhas: [{ ...base, auditoriaPendente: true }] });
+    expect(c.linhas[0].auditoriaPendente).toBe(false);
+    const p: Parecer = {
+      linha: { ...base, auditoriaPendente: true }, calculadoEm: '2026-10-03T12:00:00Z', cargoAlvo: 'Gerente', corte: 3,
+      evidencias: [{ respostaId: 'r', competenciaId: 'c', competencia: 'Delegação', auditoria: 'revisar', avaliadoEm: null, feedback: null, descritores: [] }],
+    };
+    const pc = parecerParaCliente(p);
+    expect(pc.linha.auditoriaPendente).toBe(false);
+    expect(pc.evidencias[0].auditoria).toBeNull();
+    // a visão da Vertho (admin) não passa por aqui e segue com o estado
+    expect(p.evidencias[0].auditoria).toBe('revisar');
+  });
+
   it('nivelMeta: só o corte numa fronteira da régua vira nível', () => {
     expect(nivelMeta(3)).toBe(3);
     expect(nivelMeta(2)).toBe(2);

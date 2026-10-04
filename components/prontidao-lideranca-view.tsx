@@ -37,6 +37,17 @@ const MOTIVOS_INDISPONIVEL = new Set(['incompleto', 'sem_estilo', 'fora']);
 const FORCAS = new Set(['forte', 'moderada', 'fraca']);
 const AUDITORIAS = new Set(['aprovado', 'aprovado_com_ajustes', 'revisar']);
 
+/**
+ * O que a linha de cada competência diz sobre a auditoria da segunda IA. É controle de
+ * qualidade da Vertho: só a visão da Vertho (`exibeNota`) lê "auditoria: revisar". O RH
+ * lê só se a competência foi avaliada (R-56).
+ */
+export function rotuloDaAuditoria(ev: { auditoria?: string | null; descritores: unknown[] }, visaoVertho: boolean | undefined, t: Tradutor): string {
+  if (!ev.descritores.length) return t('semAvaliacao');
+  if (!visaoVertho) return '';
+  return ev.auditoria && AUDITORIAS.has(ev.auditoria) ? t(`auditoria.${ev.auditoria}`) : t('semAuditoria');
+}
+
 /** A frase do erro de carga, sem código nem texto técnico (R-39). */
 export function mensagemDeErro(r: Pick<Resultado, 'code'>, t: Tradutor): string {
   return r.code && ERROS_CONHECIDOS.has(r.code) ? t(`erros.${r.code}`) : t('erros.generico');
@@ -147,7 +158,7 @@ export function ParecerPessoa({ p, metaNivel, exibeNota, exportar }: {
           <p className="text-sm font-bold text-white">{l.nome} <span className="text-gray-500 font-normal">· {l.cargo || t('semCargo')}</span></p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Pill q={l.quadrante} t={t} />
-            {l.auditoriaPendente && <span className="text-[10px] text-amber-300 font-bold inline-flex items-center gap-1"><AlertTriangle size={10} /> {t('auditoriaPediuRevisao')}</span>}
+            {exibeNota && l.auditoriaPendente && <span className="text-[10px] text-amber-300 font-bold inline-flex items-center gap-1"><AlertTriangle size={10} /> {t('auditoriaPediuRevisao')}</span>}
           </div>
         </div>
         {exportar && (
@@ -219,7 +230,7 @@ export function ParecerPessoa({ p, metaNivel, exibeNota, exportar }: {
               <summary className="cursor-pointer text-xs font-bold text-white flex items-center justify-between gap-2">
                 <span>{ev.competencia}</span>
                 <span className="text-[10px] font-normal text-gray-500">
-                  {ev.auditoria && AUDITORIAS.has(ev.auditoria) ? t(`auditoria.${ev.auditoria}`) : ev.descritores.length ? t('semAuditoria') : t('semAvaliacao')}
+                  {rotuloDaAuditoria(ev, exibeNota, t)}
                 </span>
               </summary>
               {ev.descritores.length ? (
@@ -442,7 +453,7 @@ export default function ProntidaoLiderancaView({ carregar, parecer, exportarPare
         {data.linhas.map((l: any) => (
           <div key={l.colaboradorId} className="border-b border-white/[0.04] last:border-b-0">
             <button type="button" onClick={() => abrir(l.colaboradorId)} className="w-full grid gap-x-4 items-center px-4 py-2.5 text-left hover:bg-white/[0.03]" style={COLUNAS}>
-              <span className="text-sm text-white truncate">{l.nome} <span className="text-gray-500 text-xs">· {l.cargo || '—'}</span>{l.auditoriaPendente && <AlertTriangle size={11} className="inline ml-1 -mt-0.5 text-amber-300" />}</span>
+              <span className="text-sm text-white truncate">{l.nome} <span className="text-gray-500 text-xs">· {l.cargo || '—'}</span>{exibeNota && l.auditoriaPendente && <AlertTriangle size={11} className="inline ml-1 -mt-0.5 text-amber-300" />}</span>
               <span className="justify-self-center"><Pill q={l.quadrante} t={t} /></span>
               <span className="text-xs tabular-nums text-gray-300 text-right">
                 {l.posicao.nivelGeral != null ? t('nivel', { n: l.posicao.nivelGeral }) : '-'}
