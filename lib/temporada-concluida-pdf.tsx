@@ -408,9 +408,9 @@ function MomentosDeInsight({ momentos }: { momentos: any[] }) {
             <Text style={s.insight}>{m.insight}</Text>
           </View>
         );
-        // Título preso ao primeiro card (ver "Missões executadas").
+        // Título preso ao primeiro card (ver "Desafios executados").
         return i === 0
-          ? <View key={i} wrap={false}><ReportSectionTitle>Momentos de insight</ReportSectionTitle>{card}</View>
+          ? <View key={i} wrap={false}><ReportSectionTitle>Momentos de descoberta</ReportSectionTitle>{card}</View>
           : card;
       })}
     </View>
@@ -426,15 +426,15 @@ function MomentosDeInsight({ momentos }: { momentos: any[] }) {
 function TemporadaPilotoPDF({ dados, marca }: { dados: any; marca: MarcaPdf }) {
   const { colab, trilha, evolutionReport, momentos, sem14 } = dados;
   const descritores = evolutionReport?.descritores || [];
-  const rodape = marca.mostrarVertho ? 'Vertho.ai · Piloto' : 'Piloto';
+  const rodape = marca.mostrarVertho ? 'Vertho.ai · Degustação' : 'Degustação';
 
   return (
-    <Document title={`Piloto — ${colab?.nome || ''}`}>
+    <Document title={`Degustação: ${colab?.nome || ''}`}>
       <PdfReportCover
         bgBase64={getReportCoverBgBase64()}
         logoBase64={marca.logoBase64}
         mostrarVertho={marca.mostrarVertho}
-        overline="Piloto concluído"
+        overline="Degustação concluída"
         titulo={['Sua', 'Degustação']}
         nome={colab?.nome}
         cargo={colab?.cargo}
@@ -442,19 +442,19 @@ function TemporadaPilotoPDF({ dados, marca }: { dados: any; marca: MarcaPdf }) {
       />
 
       <Page size="A4" style={pageStyles.page} wrap>
-        <PageHeader logoBase64={marca.logoBase64} label="Piloto concluído" />
+        <PageHeader logoBase64={marca.logoBase64} label="Degustação concluída" />
 
         <View style={s.section}>
           <ReportSectionTitle>{`${primeiroNome(colab?.nome)}, você experimentou a jornada completa`}</ReportSectionTitle>
           <Text style={s.intro}>
-            {`Duas semanas de degustação em ${trilha?.competencia || ''} — diagnóstico, conteúdo personalizado e avaliação com IA.`}
+            {`Duas semanas de degustação em ${trilha?.competencia || ''}: perfil, conteúdo personalizado e avaliação com IA.`}
           </Text>
         </View>
 
         <View style={s.section}>
           <ReportSectionTitle>Seu ponto de partida</ReportSectionTitle>
           <Text style={s.intro}>
-            Níveis mapeados no diagnóstico — a base sobre a qual uma temporada completa trabalha.
+            Níveis do mapeamento: a base sobre a qual uma jornada completa trabalha.
           </Text>
           {descritores.map((d: any, i: number) => (
             <View key={i} style={s.card} wrap={false}>
@@ -472,16 +472,16 @@ function TemporadaPilotoPDF({ dados, marca }: { dados: any; marca: MarcaPdf }) {
 
         {sem14 && (
           <View style={s.section}>
-            <ReportSectionTitle>Avaliação de fechamento (demonstração)</ReportSectionTitle>
+            <ReportSectionTitle>Avaliação final (degustação)</ReportSectionTitle>
             <Text style={s.intro}>
-              Como a avaliação por cenário funciona na temporada completa. Em duas semanas ela demonstra o método — não mede evolução.
+              Como a avaliação por cenário funciona na jornada completa. Em duas semanas ela demonstra o método e não mede evolução.
             </Text>
             {sem14?.resumo_avaliacao?.mensagem_geral && (
               <View style={s.card}>
                 <Text style={s.rotulo}>Devolutiva</Text>
                 <Text style={{ ...s.text, marginTop: 3 }}>{sem14.resumo_avaliacao.mensagem_geral}</Text>
                 {nivelDaNotaOuNull(sem14.nota_media_pos) != null && (
-                  <Text style={s.muted}>{`Nível na demonstração: ${nivelDaNotaOuNull(sem14.nota_media_pos)}`}</Text>
+                  <Text style={s.muted}>{`Nível na degustação: ${nivelDaNotaOuNull(sem14.nota_media_pos)}`}</Text>
                 )}
               </View>
             )}
@@ -510,19 +510,19 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
     ? `${totalSemanas} ${totalSemanas === 1 ? 'semana dedicada' : 'semanas dedicadas'} a ${trilha?.competencia || ''}`
     : `Semanas dedicadas a ${trilha?.competencia || ''}`;
   // "Vertho.ai" no rodapé (revisão de 17/09/2026), a marca como a pessoa a encontra.
-  const rodape = marca.mostrarVertho ? 'Vertho.ai' : 'Relatório de temporada';
+  const rodape = marca.mostrarVertho ? 'Vertho.ai' : 'Relatório da jornada';
   const devolutiva = sem14?.resumo_avaliacao?.mensagem_geral;
   // Como o documento fecha: o texto escrito para a pessoa e os passos. Relatório
   // antigo cai no `insight_geral`/`proximo_passo` de antes (ver `fechoDoRelatorio`).
   const fecho = fechoDoRelatorio(evolutionReport);
 
   return (
-    <Document title={`Temporada ${trilha?.numeroTemporada} — ${colab?.nome || ''}`}>
+    <Document title={`Jornada ${trilha?.numeroTemporada}: ${colab?.nome || ''}`}>
       <PdfReportCover
         bgBase64={getReportCoverBgBase64()}
         logoBase64={marca.logoBase64}
         mostrarVertho={marca.mostrarVertho}
-        overline={`Temporada ${trilha?.numeroTemporada} concluída`}
+        overline={`Jornada ${trilha?.numeroTemporada} concluída`}
         titulo={['O que', 'Mudou']}
         nome={colab?.nome}
         cargo={colab?.cargo}
@@ -530,7 +530,7 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
       />
 
       <Page size="A4" style={pageStyles.page} wrap>
-        <PageHeader logoBase64={marca.logoBase64} label={`Temporada ${trilha?.numeroTemporada}`} />
+        <PageHeader logoBase64={marca.logoBase64} label={`Jornada ${trilha?.numeroTemporada}`} />
 
         {/* ORDEM DO DOCUMENTO (dono, 16/09/2026): abre com a devolutiva da
             avaliação final, que "já traz de bate pronto o resumo da evolução";
@@ -601,7 +601,7 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
               const card = (
                 <View key={i} style={s.card} wrap={false}>
                   <Text style={s.eyebrow}>
-                    Semana {m.semana} · {m.modo === 'pratica' ? 'Missão real' : 'Cenário escrito'}
+                    Semana {m.semana} · {m.modo === 'pratica' ? 'Desafio real' : 'Cenário escrito'}
                   </Text>
                   {m.compromisso && <Text style={s.antesDepois}><Text style={s.rotulo}>Compromisso: </Text>{m.compromisso}</Text>}
                   {m.sintese && <Text style={s.antesDepois}><Text style={s.rotulo}>Síntese: </Text>{m.sintese}</Text>}
@@ -612,7 +612,7 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
               // missão da base (2.665 caracteres, o desse PDF) ocupa ~80% da página,
               // então título + card ainda cabem.
               return i === 0
-                ? <View key={i} wrap={false}><ReportSectionTitle>Missões executadas</ReportSectionTitle>{card}</View>
+                ? <View key={i} wrap={false}><ReportSectionTitle>Desafios executados</ReportSectionTitle>{card}</View>
                 : card;
             })}
           </View>

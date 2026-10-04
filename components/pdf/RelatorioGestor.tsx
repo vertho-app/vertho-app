@@ -4,6 +4,7 @@ import { colors, pageStyles } from './styles';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { nivelMaisFrequente } from '@/lib/nivel-frequente';
+import { rotuloNivel } from '@/lib/nivel-regua';
 // SectionTitle → ReportSectionTitle (Fraunces) e PageBackground → PageHeader fino, de PdfReportCover
 
 const s = StyleSheet.create({
@@ -49,7 +50,7 @@ const s = StyleSheet.create({
 function PageFooter() {
   return (
     <View style={pageStyles.footer} fixed>
-      <Text style={pageStyles.footerText}>{'Vertho Mentor IA \u2014 Confidencial'}</Text>
+      <Text style={pageStyles.footerText}>{'Vertho Mentor IA \u00b7 Confidencial'}</Text>
       <Text style={pageStyles.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
   );
@@ -69,8 +70,8 @@ function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string 
 
 const acoes = [
   { key: 'esta_semana', label: 'Esta Semana', bg: '#B91C1C', contentBg: '#FEF2F2' },
-  { key: 'proximas_semanas', label: 'Pr\u00f3ximas 2\u20134 Semanas', bg: '#2563EB', contentBg: '#EFF6FF' },
-  { key: 'medio_prazo', label: 'M\u00e9dio Prazo (1\u20132 meses)', bg: '#16A34A', contentBg: '#F0FDF4' },
+  { key: 'proximas_semanas', label: 'Pr\u00f3ximas 2 a 4 semanas', bg: '#2563EB', contentBg: '#EFF6FF' },
+  { key: 'medio_prazo', label: 'M\u00e9dio prazo (1 a 2 meses)', bg: '#16A34A', contentBg: '#F0FDF4' },
 ];
 
 function textOf(v: any): string {
@@ -140,7 +141,7 @@ export function emOrdemAlfabetica<T>(lista: T[], nomeDe: (x: T) => unknown): T[]
 export function nivelMaisFrequenteDe(distribuicao: any): string | null {
   if (!distribuicao || typeof distribuicao !== 'object') return null;
   const nivel = nivelMaisFrequente([1, 2, 3, 4].map((level) => ({ level, peso: Number(distribuicao[`n${level}`]) || 0 })));
-  return nivel != null ? `N${nivel}` : null;
+  return nivel != null ? rotuloNivel(nivel, { forma: 'curto' }) : null;
 }
 
 export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { data: any; empresaNome?: string; logoBase64?: string }) {
@@ -193,7 +194,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
                     + {(() => {
                       const item = getDestaque(d);
                       if (!item) return textOf(d);
-                      return `${item.nome}${item.competencia ? ` — ${item.competencia}` : ''}${item.nivel != null ? ` (N${item.nivel})` : ''}`;
+                      return `${item.nome}${item.competencia ? `: ${item.competencia}` : ''}${item.nivel != null ? ` (N${item.nivel})` : ''}`;
                     })()}
                   </Text>
                   {getDestaque(d)?.motivo && <Text style={{ ...s.rankMotivo, color: '#166534' }}>{textOf(getDestaque(d)?.motivo)}</Text>}
@@ -215,7 +216,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
               return (
                 <View key={i} style={{ ...s.rankCard, ...bgStyle }} wrap={false}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={s.rankName}>{textOf(r.nome)} {'\u2014'} {textOf(r.competencia)} (N{textOf(r.nivel || r.nivel_fase3)})</Text>
+                    <Text style={s.rankName}>{textOf(r.nome)}: {textOf(r.competencia)} ({rotuloNivel(Number(textOf(r.nivel || r.nivel_fase3)), { forma: 'curto' })})</Text>
                     <View style={{ ...s.badge, backgroundColor: urg === 'PRIORIDADE ALTA' ? '#FEF3C7' : urg === 'PRIORIDADE M\u00c9DIA' ? '#DBEAFE' : '#ECFDF3' }}>
                       <Text style={{ ...s.badgeText, color: urg === 'PRIORIDADE ALTA' ? '#92400E' : urg === 'PRIORIDADE M\u00c9DIA' ? '#1E40AF' : '#166534' }}>{urg}</Text>
                     </View>
@@ -243,8 +244,8 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
                 {/* Sem a "M\u00e9dia" (R-36, 04/10/2026): o relat\u00f3rio mostrava "M\u00e9dia: 2.3" por
                     compet\u00eancia. Fica o n\u00edvel mais frequente, da mesma distribui\u00e7\u00e3o de
                     pessoas que vem logo abaixo. */}
-                <Text style={s.h3}>{a.competencia}{nivelMaisFrequenteDe(a.distribuicao) ? ` \u2014 N\u00edvel mais frequente: ${nivelMaisFrequenteDe(a.distribuicao)}` : ''}</Text>
-                {a.distribuicao && <Text style={s.textIt}>{'Pessoas por n\u00edvel'}: N1:{a.distribuicao.n1} | N2:{a.distribuicao.n2} | N3:{a.distribuicao.n3} | N4:{a.distribuicao.n4}</Text>}
+                <Text style={s.h3}>{a.competencia}{nivelMaisFrequenteDe(a.distribuicao) ? `: n\u00edvel mais frequente ${nivelMaisFrequenteDe(a.distribuicao)}` : ''}</Text>
+                {a.distribuicao && <Text style={s.textIt}>{'Pessoas por n\u00edvel'}: {[1, 2, 3, 4].map((nivel) => `${rotuloNivel(nivel, { forma: 'curto' })}: ${a.distribuicao[`n${nivel}`]}`).join(' | ')}</Text>}
                 <Text style={s.text}>{a.padrao_observado}</Text>
                 {a.acao_gestor && (
                   <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 6, padding: 10, marginTop: 4 }}>
@@ -320,7 +321,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
             <ReportSectionTitle>Papel do Gestor</ReportSectionTitle>
             {[{ label: 'Semanal', val: c.papel_do_gestor.semanal },
               { label: 'Quinzenal', val: c.papel_do_gestor.quinzenal },
-              { label: 'Pr\u00f3ximo ciclo', val: c.papel_do_gestor.proximo_ciclo },
+              { label: 'Pr\u00f3xima jornada', val: c.papel_do_gestor.proximo_ciclo },
             ].filter((p: any) => p.val).map((p: any, i: number) => (
               <View key={i} style={s.papelCard}>
                 <Text style={s.papelLabel}>{p.label}</Text>

@@ -16,7 +16,7 @@ import React from 'react';
  *     glyph="c"
  *     title="Seu PDI ainda está sendo montado"
  *     description="Complete o Assessment para receber seu plano personalizado."
- *     actionLabel="Ir para Assessment"
+ *     actionLabel="Ir para o mapeamento"
  *     onAction={() => router.push('/dashboard/assessment')}
  *   />
  */
@@ -38,20 +38,20 @@ const VARIANTS: Record<Exclude<EmptyVariant, 'custom'>, Omit<EmptyStateProps, 'v
   capacitacao: {
     glyph: 'c',
     title: 'Nenhum conteúdo recomendado ainda',
-    description: 'Assim que seu perfil e competências forem mapeados, vamos montar uma trilha personalizada pra você.',
+    description: 'Assim que seu perfil e suas competências forem mapeados, a Vertho monta a sua jornada personalizada.',
     actionLabel: 'Ver minha jornada',
   },
   pdi: {
     glyph: 'b',
     title: 'Seu PDI está sendo preparado',
-    description: 'Complete o Assessment de competências para receber seu plano de desenvolvimento individual.',
-    actionLabel: 'Ir para Assessment',
+    description: 'Complete o mapeamento de competências para receber seu plano de desenvolvimento individual.',
+    actionLabel: 'Ir para o mapeamento',
   },
   videos: {
     glyph: 'a',
     title: 'Nenhum vídeo assistido ainda',
-    description: 'Acesse sua trilha de capacitação e comece pelo primeiro conteúdo da semana.',
-    actionLabel: 'Ver trilha',
+    description: 'Acesse a sua jornada e comece pelo primeiro conteúdo da semana.',
+    actionLabel: 'Ver jornada',
   },
 };
 

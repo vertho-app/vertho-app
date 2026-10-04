@@ -1,5 +1,6 @@
 import { StyleSheet, Font } from '@react-pdf/renderer';
 import { brand, neutralRamps, statusPalettes, NEUTRAL_RAMP, STATUS_PALETTE } from './tokens';
+import { rotuloNivel } from '@/lib/nivel-regua';
 
 // ── Fonte dos PDFs (registrada sob o alias 'NotoSans' — os relatórios referenciam
 //    esse nome). Usamos INTER: o subset NotoSans do fontsource "comia" as ligaduras
@@ -121,7 +122,7 @@ export function nivelBgColor(nivel: number) {
 }
 
 export function nivelLabel(nivel: number) {
-  return `Nível ${Math.min(4, Math.max(1, Math.round(nivel || 1)))}`;
+  return rotuloNivel(Math.min(4, Math.max(1, Math.round(nivel || 1))));
 }
 
 export function starsText(nivel: number) {

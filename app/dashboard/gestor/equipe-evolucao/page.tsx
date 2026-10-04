@@ -37,7 +37,7 @@ const STATUS_CFG = {
   evolucao_confirmada: { icon: TrendingUp, label: rotuloConvergencia(CONVERGENCIA.CONFIRMADA), ...COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA] },
   evolucao_parcial:    { icon: TrendingUp, label: rotuloConvergencia(CONVERGENCIA.PARCIAL),    ...COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL] },
   estagnacao:          { icon: Minus,      label: rotuloConvergencia(CONVERGENCIA.ESTAVEL),      borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-300' },
-  sem_trilha:          { icon: X,          label: 'Sem trilha',           borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
+  sem_trilha:          { icon: X,          label: 'Sem jornada',           borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
   arquivada:           { icon: X,          label: 'Arquivada',            borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
 };
 
@@ -141,8 +141,8 @@ export default function EquipeEvolucaoPage() {
               esta tela mede evolução, que só existe onde há jornada. Sete
               liderados com quatro fora da trilha viravam "Total 7", sem dizer
               que quatro deles não tinham o que evoluir. */}
-          <Card label="Com trilha" valor={resumo.total - resumo.semTrilha} cor="text-white"
-            detalhe={resumo.semTrilha > 0 ? `${resumo.semTrilha} sem trilha` : null} />
+          <Card label="Com jornada" valor={resumo.total - resumo.semTrilha} cor="text-white"
+            detalhe={resumo.semTrilha > 0 ? `${resumo.semTrilha} sem jornada` : null} />
           <Card label="Em andamento" valor={resumo.emAndamento} cor="text-brand-300" />
           {/* 17/09/2026: cada veredito diz o que significa, com a MESMA frase do
               relatório de evolução (`convergencia-dicas`), e pinta com a paleta
@@ -202,7 +202,7 @@ export default function EquipeEvolucaoPage() {
                       <span className="text-[10px] text-gray-400">· {r.cargo}</span>
                     </div>
                     <p className="text-[11px] text-gray-400 truncate">
-                      {r.competencia ? <>{r.competencia} · T{r.temporada}</> : 'sem trilha ativa'}
+                      {r.competencia ? <>{r.competencia} · Jornada {r.temporada}</> : 'sem jornada ativa'}
                       {r.avancoMedio != null && (
                         <>
                           {' · '}

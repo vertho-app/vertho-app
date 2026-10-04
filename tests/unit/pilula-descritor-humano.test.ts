@@ -51,7 +51,7 @@ describe('descritor que sai para fora', () => {
     expect(temaPilula({
       competencia: 'Autocuidado e resiliência emocional',
       descritor: 'COO03_D6 — Busca de apoio',
-    })).toBe('Autocuidado e resiliência emocional — Busca de apoio');
+    })).toBe('Autocuidado e resiliência emocional · Busca de apoio');
   });
 
   it('sem descritor, o tema continua sendo a competência', () => {

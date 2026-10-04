@@ -30,8 +30,8 @@ export function canAccessDiagnosticoNaOrdem(
   return {
     allowed: false,
     code: 'PERFIL_PESSOAL_PENDENTE',
-    message: 'Faça o seu Perfil comportamental antes do Diagnóstico.',
-    remediation: 'Conclua o Perfil comportamental em /dashboard/perfil-comportamental e volte ao Diagnóstico.',
+    message: 'Faça o seu Perfil comportamental antes do Mapeamento.',
+    remediation: 'Conclua o Perfil comportamental em /dashboard/perfil-comportamental e volte ao Mapeamento.',
   };
 }
 

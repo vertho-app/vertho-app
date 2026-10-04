@@ -453,7 +453,7 @@ export default function PropostaComercialPDF({
   const metricas: { valor: string; label: string }[] = [];
   if (pessoas) metricas.push({ valor: fmtNum(pessoas), label: pessoas === 1 ? 'participante' : 'participantes' });
   if (pg?.cargos) metricas.push({ valor: fmtNum(pg.cargos), label: pg.cargos === 1 ? 'cargo mapeado' : 'cargos mapeados' });
-  if (pg?.ciclos) metricas.push({ valor: fmtNum(pg.ciclos), label: pg.ciclos === 1 ? 'ciclo' : 'ciclos' });
+  if (pg?.ciclos) metricas.push({ valor: fmtNum(pg.ciclos), label: pg.ciclos === 1 ? 'jornada' : 'jornadas' });
   if (pg?.mesesPrograma) metricas.push({ valor: fmtNum(pg.mesesPrograma), label: pg.mesesPrograma === 1 ? 'mês' : 'meses de programa' });
   else if (!inv.vendidoPorProjeto && inv.meses) metricas.push({ valor: fmtNum(inv.meses), label: 'meses de contrato' });
 
@@ -531,15 +531,15 @@ export default function PropostaComercialPDF({
         <Secao eyebrow="// Contexto" titulo="Por que este programa" podeQuebrar>
           {doc.contexto ? <Text style={{ ...s.bodyText, marginBottom: 8 }}>{doc.contexto}</Text> : null}
           <Text style={s.bodyText}>
-            Formação genérica trata pessoas diferentes como se fossem a mesma pessoa — e termina sem
+            Formação genérica trata pessoas diferentes como se fossem a mesma pessoa, e termina sem
             deixar rastro do que mudou. A Vertho faz o contrário: entende o perfil e o nível de cada
             participante, entrega o desenvolvimento no formato em que ela aprende e{' '}
-            <Text style={s.destaque}>mede a evolução</Text> com evidência ao fim de cada ciclo.
+            <Text style={s.destaque}>mede a evolução</Text> com evidência ao fim de cada jornada.
           </Text>
         </Secao>
 
         {/* PILARES */}
-        <Secao eyebrow="// Como a Vertho trabalha" titulo="Diagnóstico, trilha e evidência no mesmo fluxo">
+        <Secao eyebrow="// Como a Vertho trabalha" titulo="Diagnóstico, jornada e evidência no mesmo fluxo">
           <View style={s.pilarRow}>
             {doc.pilares.map((p, i) => (
               <View key={i} style={s.pilar} wrap={false}>

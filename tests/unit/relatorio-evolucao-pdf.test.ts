@@ -161,8 +161,9 @@ describe('as afirmações do papel vêm da comparação entre cenários', () => 
   });
 
   it('mostra somente o nome dos níveis na faixa da régua', () => {
-    expect(FONTE).toContain("label: 'N1'");
-    expect(FONTE).toContain("label: 'N4'");
+    // o rótulo vem do helper único (R-53), na forma curta da régua
+    expect(FONTE).toContain("label: rotuloNivel(1, { forma: 'curto' })");
+    expect(FONTE).toContain("label: rotuloNivel(4, { forma: 'curto' })");
     expect(FONTE).not.toContain("label: 'N1 ·");
     expect(FONTE).not.toContain("label: 'N4 ·");
   });

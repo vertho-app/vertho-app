@@ -45,9 +45,29 @@ describe('nivelDaNota — régua oficial nota→nível', () => {
     expect(nivelDaNota(NaN)).toBe(1);
   });
 
-  it('rotuloNivel formata como o produto mostra', () => {
-    expect(rotuloNivel(1.9)).toBe('N1');
-    expect(rotuloNivel(3.6)).toBe('N4');
+  it('rotuloNivel escreve o nível por extenso e na forma curta (R-53)', () => {
+    expect(rotuloNivel(2)).toBe('Nível 2');
+    expect(rotuloNivel(2, { forma: 'curto' })).toBe('N2');
+    expect(rotuloNivel(4, { forma: 'longo' })).toBe('Nível 4');
+  });
+
+  it('rotuloNivel fala o idioma, e a forma curta é a notação da régua em todos', () => {
+    expect(rotuloNivel(3, { idioma: 'es-ES' })).toBe('Nivel 3');
+    expect(rotuloNivel(3, { idioma: 'en-US' })).toBe('Level 3');
+    expect(rotuloNivel(3, { idioma: 'pt-PT' })).toBe('Nível 3');
+    expect(rotuloNivel(3, { idioma: 'en-US', forma: 'curto' })).toBe('N3');
+    // idioma desconhecido cai no português, nunca em "undefined 3"
+    expect(rotuloNivel(3, { idioma: 'fr-FR' })).toBe('Nível 3');
+  });
+
+  it('rotuloNivel não vira rótulo para nota decimal nem para ausência', () => {
+    // nota não é nível: 1,9 não pode sair como "Nível 1" por acidente
+    expect(rotuloNivel(1.9)).toBe('');
+    expect(rotuloNivel(null)).toBe('');
+    expect(rotuloNivel(undefined)).toBe('');
+    expect(rotuloNivel(0)).toBe('');
+    expect(rotuloNivel(5)).toBe('');
+    expect(rotuloNivel('pendente')).toBe('');
   });
 
   it('nível já calculado só aceita os quatro degraus existentes', () => {

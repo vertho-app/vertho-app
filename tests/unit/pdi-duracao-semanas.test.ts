@@ -208,7 +208,7 @@ describe('o documento: sem a duração, não há número', () => {
     const tudo = doc({ competencias: comps.map((c) => ({ ...c, sprint: c.sprint })) });
     expect(tudo).not.toMatch(/14 semanas/);
     expect(tudo).not.toMatch(/Uma jornada de/);
-    expect(tudo).toMatch(/Na sua trilha você trabalha uma competência por vez/);
+    expect(tudo).toMatch(/Na sua jornada você trabalha uma competência por vez/);
   });
 
   it('com `total_semanas` gravado, o número do programa da pessoa', () => {
@@ -230,13 +230,13 @@ describe('a linha do tempo de fallback só desenha semanas onde há desenho', ()
   ];
 
   it('Jornada de 7 e formato de 14 seguem como eram', () => {
-    expect(montarTrilhaFasesPdi(comps, 7).map((f) => f.fase)).toEqual(['Semanas 1\u20136', 'Semana 7', 'Próxima jornada']);
-    expect(montarTrilhaFasesPdi(comps, 14).map((f) => f.fase)).toEqual(['Semanas 1\u20134', 'Semanas 5\u20138', 'Semanas 9\u201312', 'Semanas 13\u201314']);
+    expect(montarTrilhaFasesPdi(comps, 7).map((f) => f.fase)).toEqual(['Semanas 1 a 6', 'Semana 7', 'Próxima jornada']);
+    expect(montarTrilhaFasesPdi(comps, 14).map((f) => f.fase)).toEqual(['Semanas 1 a 4', 'Semanas 5 a 8', 'Semanas 9 a 12', 'Semanas 13 a 14']);
   });
 
   it.each([null, 9, 10, 3])('🔴 duração %s: ciclos sem número de semana, nunca o desenho de 14', (total) => {
     const fases = montarTrilhaFasesPdi(comps, total as any);
-    expect(fases.map((f) => f.fase)).toEqual(['Ciclo 1', 'Ciclo 2']);
+    expect(fases.map((f) => f.fase)).toEqual(['Jornada 1', 'Jornada 2']);
     expect(JSON.stringify(fases)).not.toMatch(/Semanas?\s\d|14/);
     expect(fases[0].detalhe).toContain('preparar concessões');
   });

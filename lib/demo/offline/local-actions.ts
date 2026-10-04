@@ -14,16 +14,16 @@ function panorama() {
 }
 export async function loadHomeData() {
   return { dashboard: { colaborador: colab(), view: currentLocation().role === 'organization' ? 'rh' : 'colaborador', competenciaFoco: demo.weeks[0].competency },
-    kpis: { fase: { numero: 4, titulo: 'Temporada', concluida: false }, pilula: { semana: 1, totalSemanas: demo.totalWeeks, titulo: demo.weeks[0].title }, proximoMarco: { label: 'Próxima pílula', diasAte: 7 } },
+    kpis: { fase: { numero: 4, titulo: 'Desenvolvimento', concluida: false }, pilula: { semana: 1, totalSemanas: demo.totalWeeks, titulo: demo.weeks[0].title }, proximoMarco: { label: 'Próximo conteúdo', diasAte: 7 } },
     panoramaRH: panorama(), relatoriosRH: { rh: { url: `${ENVIRONMENT.base}documents/rh.pdf`, em: demo.capturedAt } }, ultimosVideos: { items: [] }, pulsos: [], votacao: null, capacitacoes: [] };
 }
 export async function loadJornada() {
   return { colaborador: colab(), totalSemanas: demo.totalWeeks, fases: [
-    { fase: 1, titulo: 'Perfil comportamental', status: 'completed', descricao: 'Seu Mapeamento Comportamental' },
-    { fase: 2, titulo: 'Avaliação de competências', status: 'completed', descricao: 'Mapeamento de competências concluído' },
+    { fase: 1, titulo: 'Perfil', status: 'completed', descricao: 'Seu Mapeamento Comportamental' },
+    { fase: 2, titulo: 'Mapeamento', status: 'completed', descricao: 'Mapeamento de competências concluído' },
     { fase: 3, titulo: 'PDI', status: 'completed', descricao: 'Plano de Desenvolvimento Individual' },
-    { fase: 4, titulo: 'Temporada', status: 'in_progress', descricao: demo.weeks[0].competency, totalSemanas: demo.totalWeeks },
-    { fase: 5, titulo: 'Evolução', status: 'pending', descricao: 'Ao concluir sua temporada' },
+    { fase: 4, titulo: 'Desenvolvimento', status: 'in_progress', descricao: demo.weeks[0].competency, totalSemanas: demo.totalWeeks },
+    { fase: 5, titulo: 'Evolução', status: 'pending', descricao: 'Ao concluir sua jornada' },
   ] };
 }
 export async function loadPDI() { return { colaborador: colab(ENVIRONMENT.participantKey), pdiAtivo: true, conteudo: demo.pdi, criadoEm: demo.capturedAt }; }

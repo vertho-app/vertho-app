@@ -33,12 +33,24 @@ export function labelFormato(formato?: string | null): string {
   return LABEL_FORMATO[formato || ''] || 'conteúdo';
 }
 
-/** Tema da pílula ("competência — descritor") a partir de um item de conteudos_dia. */
+// O e-mail não leva emoji (R-123): o nome do formato sem o ícone do WhatsApp.
+const LABEL_FORMATO_EMAIL: Record<string, string> = {
+  video: 'vídeo',
+  audio: 'áudio',
+  texto: 'texto',
+  case: 'estudo de caso',
+};
+
+export function labelFormatoEmail(formato?: string | null): string {
+  return LABEL_FORMATO_EMAIL[formato || ''] || 'conteúdo';
+}
+
+/** Tema do conteúdo ("competência · descritor") a partir de um item de conteudos_dia. */
 export function temaPilula(e: any): string {
   const comp = e?.competencia ? String(e.competencia).trim() : '';
   const desc = e?.descritor ? descritorParaHumano(String(e.descritor).trim()) : '';
   const titulo = e?.conteudo?.core_titulo || e?.conteudo?.titulo || '';
-  return [comp, desc].filter(Boolean).join(' — ') || titulo || 'novo conteúdo da semana';
+  return [comp, desc].filter(Boolean).join(' · ') || titulo || 'novo conteúdo da semana';
 }
 
 /**
@@ -87,14 +99,14 @@ export function emailPilula(nome: string, e: any, opts: PilulaOpts): { subject: 
   const tema = temaPilula(e);
   const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula, 'email');
   const primeiro = (nome || 'Colaborador').split(' ')[0];
-  const subject = `Sua pílula da Semana ${opts.semana} — ${tema}`;
+  const subject = `Seu conteúdo da semana ${opts.semana}: ${tema}`;
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
-<p>Olá, ${primeiro}! 📚</p>
-<p>Sua <strong>Pílula de Aprendizagem — Semana ${opts.semana}</strong> já está disponível.</p>
-<p>Seu <strong>${labelFormato(opts.formato)}</strong> de hoje: <strong>${tema}</strong>.</p>
-<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Acessar minha pílula →</a></p>
+<p>Olá, ${primeiro}!</p>
+<p>Seu <strong>conteúdo da semana ${opts.semana}</strong> já está disponível.</p>
+<p>Seu <strong>${labelFormatoEmail(opts.formato)}</strong> de hoje: <strong>${tema}</strong>.</p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir meu conteúdo →</a></p>
 <p style="color:#666;font-size:14px">Os conteúdos e o desafio da semana ficam na plataforma.</p>
-<p style="color:#666;font-size:14px">— Equipe Vertho</p>
+<p style="color:#666;font-size:14px">Equipe Vertho</p>
 ${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }
@@ -118,14 +130,14 @@ export function emailEvidencia(
 ): { subject: string; html: string } {
   const link = deepLinkSemana(opts.baseUrl, opts.semana);
   const primeiro = (nome || 'Colaborador').split(' ')[0];
-  const subject = `Registro da Semana ${opts.semana} — pendente`;
+  const subject = `Evidências da semana ${opts.semana}: pendente`;
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
 <p>Olá, ${primeiro}.</p>
-<p>Você está na <strong>semana ${opts.semana}</strong> da sua trilha de desenvolvimento.</p>
+<p>Você está na <strong>semana ${opts.semana}</strong> da sua jornada.</p>
 <p>O registro de evidências desta semana está <strong>pendente</strong>.</p>
 <p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Registrar minha evidência →</a></p>
-<p style="color:#666;font-size:14px">As evidências registradas são usadas para ajustar as próximas semanas da sua trilha.</p>
-<p style="color:#666;font-size:14px">— Equipe Vertho</p>
+<p style="color:#666;font-size:14px">As evidências registradas são usadas para ajustar as próximas semanas da sua jornada.</p>
+<p style="color:#666;font-size:14px">Equipe Vertho</p>
 ${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }
@@ -158,7 +170,7 @@ export function emailAvaliacaoFinal(
     : 'e a <strong>avaliação final</strong> continua <strong>pendente</strong>.';
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
 <p>Olá, ${primeiro}.</p>
-<p>As semanas de conteúdo da sua trilha foram concluídas, ${estado}</p>
+<p>As semanas de conteúdo da sua jornada foram concluídas, ${estado}</p>
 <p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a avaliação final</a></p>
 <p style="color:#666;font-size:14px">O Relatório de Evolução é gerado quando a avaliação final é concluída.</p>
 <p style="color:#666;font-size:14px">Equipe Vertho</p>
@@ -263,19 +275,19 @@ export function emailMissao(nome: string, opts: MissaoOpts): { subject: string; 
   const video = videoUrlMissao(opts.baseUrl);
   const thumb = `${opts.baseUrl}/api/bunny-thumb/${APLICACAO_VIDEO_ID}`;
   const primeiro = (nome || 'Colaborador').split(' ')[0];
-  const subject = `Semana ${opts.semana} — sua Missão de Aplicação`;
+  const subject = `Semana ${opts.semana}: seu desafio de aplicação`;
   const resumo = opts.acaoPrincipal
-    ? `<p>Sua missão, em resumo: <em>${opts.acaoPrincipal}</em></p>` : '';
+    ? `<p>Seu desafio, em resumo: <em>${opts.acaoPrincipal}</em></p>` : '';
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
 <p>Olá, ${primeiro}!</p>
-<p>Chegou a <strong>Semana ${opts.semana} — Missão de Aplicação</strong>.</p>
-<p>Esta semana não tem pílula nova: é hora de colocar em prática o que você vem aprendendo, com uma <strong>missão</strong> feita para o seu dia a dia.</p>
+<p>Chegou a <strong>semana ${opts.semana}: desafio de aplicação</strong>.</p>
+<p>Esta semana não tem conteúdo novo: é hora de colocar em prática o que você vem aprendendo, com um <strong>desafio</strong> feito para o seu dia a dia.</p>
 ${resumo}
-<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Ver minha missão →</a></p>
+<p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Ver meu desafio →</a></p>
 <p>E este vídeo explica como a semana funciona:</p>
 <p style="margin:16px 0"><a href="${video}"><img src="${thumb}" alt="Vídeo explicativo da semana" width="480" style="width:100%;max-width:480px;border-radius:8px;display:block" /></a></p>
-<p style="color:#666;font-size:14px">Na quinta a Mentora IA vai querer saber como foi. Boa prática!</p>
-<p style="color:#666;font-size:14px">— Equipe Vertho</p>
+<p style="color:#666;font-size:14px">Na quinta, a conversa de evidências na plataforma vai perguntar como foi. Boa prática!</p>
+<p style="color:#666;font-size:14px">Equipe Vertho</p>
 ${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }
@@ -334,14 +346,14 @@ export function emailPilulaPendente(
   const tema = temaPilula(e);
   const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula);
   const primeiro = (nome || 'Colaborador').split(' ')[0];
-  const subject = `Semana ${opts.semana} — ${tema} (pendente)`;
+  const subject = `Semana ${opts.semana}: ${tema} (pendente)`;
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
 <p>Olá, ${primeiro}.</p>
-<p>O conteúdo da <strong>semana ${opts.semana}</strong> da sua trilha está disponível.</p>
+<p>O conteúdo da <strong>semana ${opts.semana}</strong> da sua jornada está disponível.</p>
 <p>Tema: <strong>${tema}</strong>.</p>
-<p>Esta semana continua <strong>pendente</strong>: ela somente é concluída na <strong>conversa de evidências</strong> — abrir o conteúdo não conclui a semana.</p>
+<p>Esta semana continua <strong>pendente</strong>: ela somente é concluída na <strong>conversa de evidências</strong>: abrir o conteúdo não conclui a semana.</p>
 <p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a semana ${opts.semana} →</a></p>
-<p style="color:#666;font-size:14px">— Equipe Vertho</p>
+<p style="color:#666;font-size:14px">Equipe Vertho</p>
 ${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }
@@ -352,13 +364,13 @@ export function emailSemanaPendente(
 ): { subject: string; html: string } {
   const link = deepLinkSemana(opts.baseUrl, opts.semanaPendente);
   const primeiro = (nome || 'Colaborador').split(' ')[0];
-  const subject = `Semana ${opts.semanaPendente} — pendente na sua trilha`;
+  const subject = `Semana ${opts.semanaPendente}: pendente na sua jornada`;
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">
 <p>Olá, ${primeiro}.</p>
-<p>Sua trilha está na <strong>semana ${opts.semana}</strong>, e a <strong>semana ${opts.semanaPendente}</strong> continua pendente.</p>
-<p>Ela somente é concluída na <strong>conversa de evidências</strong> — abrir o conteúdo não conclui a semana. A explicação em vídeo está na página da semana.</p>
+<p>Sua jornada está na <strong>semana ${opts.semana}</strong>, e a <strong>semana ${opts.semanaPendente}</strong> continua pendente.</p>
+<p>Ela somente é concluída na <strong>conversa de evidências</strong>: abrir o conteúdo não conclui a semana. A explicação em vídeo está na página da semana.</p>
 <p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Abrir a semana ${opts.semanaPendente} →</a></p>
-<p style="color:#666;font-size:14px">— Equipe Vertho</p>
+<p style="color:#666;font-size:14px">Equipe Vertho</p>
 ${rodapePrivacidadeHtml(opts.baseUrl)}</div>`;
   return { subject, html };
 }

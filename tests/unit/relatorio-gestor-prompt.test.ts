@@ -178,7 +178,7 @@ describe('PDF do relatório do gestor', () => {
 
   it('as pessoas saem em ordem alfabética, não na ordem do ranking antigo', () => {
     const texto = t();
-    const pos = ['Ágata', 'Bruno', 'Carla'].map((n) => texto.indexOf(`${n} \u2014`));
+    const pos = ['Ágata', 'Bruno', 'Carla'].map((n) => texto.indexOf(`${n}:`));
     expect(pos.every((p) => p > -1)).toBe(true);
     expect(pos[0]).toBeLessThan(pos[1]);
     expect(pos[1]).toBeLessThan(pos[2]);
@@ -200,8 +200,8 @@ describe('PDF do relatório do gestor', () => {
 
   it('a competência mostra o nível mais frequente e as pessoas por nível, nunca a média', () => {
     const texto = t();
-    expect(texto).toContain('Escuta \u2014 Nível mais frequente: N2');
-    expect(texto).toContain('N1:1 | N2:3 | N3:2 | N4:0');
+    expect(texto).toContain('Escuta: nível mais frequente N2');
+    expect(texto).toContain('N1: 1 | N2: 3 | N3: 2 | N4: 0');
     expect(texto).not.toMatch(/Média|2\.3/);
     expect(nivelMaisFrequenteDe({ n1: 0, n2: 0, n3: 0, n4: 0 })).toBeNull();
     expect(nivelMaisFrequenteDe(null)).toBeNull();

@@ -154,7 +154,7 @@ export default function PdfCover({
       </View>
 
       <View style={s.bottom}>
-        <Text style={s.bottomText}>Confidencial — Uso restrito a colaborador, gestor e RH</Text>
+        <Text style={s.bottomText}>Confidencial. Uso restrito a colaborador, gestor e RH</Text>
         <Text style={s.bottomText}>vertho.ai</Text>
       </View>
     </Page>

@@ -536,7 +536,7 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
                 <div className="flex max-w-3xl items-start gap-3">
                   <ShieldCheck size={16} className="mt-0.5 shrink-0 text-cyan-200/70" aria-hidden="true" />
                   <p className="text-[11px] leading-relaxed text-white/35">
-                    Engajamento mede atividade na jornada. Crítico: sem atividade na primeira semana ou em duas semanas consecutivas. Atenção: índice abaixo de 40, semana sem atividade ou queda em relação à anterior. Índice: ativação 20 + consumo 30 + evidência 40 + tutor 10. As ações, os responsáveis e os prazos são sugestões para o acompanhamento da equipe.
+                    Engajamento mede atividade na jornada. Crítico: sem atividade na primeira semana ou em duas semanas consecutivas. Atenção: índice abaixo de 40, semana sem atividade ou queda em relação à anterior. Índice: ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10. As ações, os responsáveis e os prazos são sugestões para o acompanhamento da equipe.
                   </p>
                 </div>
                 <Link

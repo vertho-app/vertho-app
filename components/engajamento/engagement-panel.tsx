@@ -124,7 +124,7 @@ function SemanaBadge({ pessoa }: { pessoa: any }) {
   if (pessoa.semanaAcessivel == null) {
     return (
       <span
-        title="Não foi possível ler a trilha e o progresso desta pessoa"
+        title="Não foi possível ler a jornada e o progresso desta pessoa"
         className="inline-flex rounded-full border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[10px] font-semibold text-white/30"
       >
         Posição indisponível
@@ -257,7 +257,7 @@ function EntregaETutor({ pessoa }: { pessoa: any }) {
       }`} title={pessoa.conversouTutor
         ? 'A pessoa conversou com o Tira-Dúvidas nesta etapa.'
         : 'Sem conversa com o Tira-Dúvidas nesta etapa.'}>
-        <MessageCircle size={11} aria-hidden="true" /> Tutor
+        <MessageCircle size={11} aria-hidden="true" /> Tira-Dúvidas
       </span>
     </div>
   );
@@ -485,7 +485,7 @@ function ProximaAcao({ pessoa }: { pessoa: any }) {
   return <details className="max-w-sm text-xs">
     <summary className="cursor-pointer text-cyan-200 focus-visible:outline-2 focus-visible:outline-cyan-300">{blocker ? BLOCKER_META[blocker].action : 'Verificar etapa pendente'}</summary>
     <p className="mt-2 leading-relaxed text-white/65">{blocker ? BLOCKER_META[blocker].guidance : 'A posição individual está atrás do calendário da turma. Conferir qual etapa falta concluir antes de orientar a próxima semana.'}</p>
-    {blocker === 'ativacao' && <p className="mt-2 text-white/60">{pessoa.recebeuP1 === true || pessoa.recebeuP2 === true ? 'Há registro de envio de pílula; isso não confirma entrega ou leitura.' : pessoa.recebeuP1 === null || pessoa.recebeuP2 === null ? 'Envio desta semana sem registro suficiente. Conferir o histórico antes do contato.' : 'Sem registro de envio das pílulas neste recorte.'}</p>}
+    {blocker === 'ativacao' && <p className="mt-2 text-white/60">{pessoa.recebeuP1 === true || pessoa.recebeuP2 === true ? 'Há registro de envio do conteúdo; isso não confirma entrega ou leitura.' : pessoa.recebeuP1 === null || pessoa.recebeuP2 === null ? 'Envio desta semana sem registro suficiente. Conferir o histórico antes do contato.' : 'Sem registro de envio das pílulas neste recorte.'}</p>}
   </details>;
 }
 
@@ -906,7 +906,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
             {[
               { icon: Eye, label: 'Abriram a página', value: resumo.abriramLink || 0, detail: 'abertura direta registrada', cor: 'text-cyan-300' },
               { icon: Video, label: 'Concluíram vídeo', value: resumo.terminaramVideo || 0, detail: `${resumo.pctMedioVideo || 0}% assistido em média`, cor: 'text-emerald-300' },
-              { icon: MessageCircle, label: 'Usaram o Tira-Dúvidas', value: resumo.conversaramTutor || 0, detail: 'conversas iniciadas com o tutor', cor: 'text-violet-300' },
+              { icon: MessageCircle, label: 'Usaram o Tira-Dúvidas', value: resumo.conversaramTutor || 0, detail: 'conversas iniciadas no Tira-Dúvidas', cor: 'text-violet-300' },
             ].map((item) => {
               const Icon = item.icon;
               return (

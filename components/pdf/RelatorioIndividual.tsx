@@ -132,7 +132,7 @@ function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string 
 function PageFooter({ mostrarVertho = true }: { mostrarVertho?: boolean }) {
   return (
     <View style={pageStyles.footer} fixed>
-      <Text style={pageStyles.footerText}>{mostrarVertho ? 'vertho.ai — Confidencial' : 'Confidencial'}</Text>
+      <Text style={pageStyles.footerText}>{mostrarVertho ? 'vertho.ai · Confidencial' : 'Confidencial'}</Text>
       <Text style={pageStyles.footerText}
         render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
@@ -169,24 +169,24 @@ export function montarTrilhaFasesPdi(competencias: any[], totalSemanas: number |
 
   if (totalSemanas !== 7 && totalSemanas !== 14) {
     return competencias.map((comp: any, i: number) => ({
-      fase: `Ciclo ${i + 1}`,
+      fase: `Jornada ${i + 1}`,
       titulo: comp.nome,
       detalhe: i === 0
         ? `Aprender, praticar e registrar evidências: ${acaoDe(comp)}`
-        : 'Começa depois do fechamento do ciclo anterior, na sequência da trilha.',
+        : 'Começa depois do fechamento da jornada anterior, na sequência.',
     }));
   }
 
   if (totalSemanas === 7 && competencias.length >= 1) {
     const fases: TrilhaFasePdi[] = [
       {
-        fase: 'Semanas 1–6',
+        fase: 'Semanas 1 a 6',
         titulo: competencias[0].nome,
         detalhe: `Aprender, praticar e registrar evidências: ${acaoDe(competencias[0])}`,
       },
       {
         fase: 'Semana 7',
-        titulo: 'Avaliação',
+        titulo: 'Avaliação final',
         detalhe: 'Consolidar as evidências da jornada e responder ao cenário final da competência.',
       },
     ];
@@ -194,7 +194,7 @@ export function montarTrilhaFasesPdi(competencias: any[], totalSemanas: number |
       fases.push({
         fase: 'Próxima jornada',
         titulo: proxima.nome,
-        detalhe: 'Começa depois do fechamento da jornada atual, em um novo ciclo de 7 semanas.',
+        detalhe: 'Começa depois do fechamento da jornada atual, em uma nova jornada de 7 semanas.',
       });
     }
     return fases;
@@ -202,17 +202,17 @@ export function montarTrilhaFasesPdi(competencias: any[], totalSemanas: number |
 
   if (competencias.length >= 2) {
     return [
-      { fase: 'Semanas 1–4', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
-      { fase: 'Semanas 5–8', titulo: competencias[1].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[1])}` },
-      { fase: 'Semanas 9–12', titulo: 'Integração + missão prática', detalhe: 'Aplicar as duas competências juntas em uma missão prática de complexidade crescente.' },
-      { fase: 'Semanas 13–14', titulo: 'Avaliação', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
+      { fase: 'Semanas 1 a 4', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
+      { fase: 'Semanas 5 a 8', titulo: competencias[1].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[1])}` },
+      { fase: 'Semanas 9 a 12', titulo: 'Integração e desafio prático', detalhe: 'Aplicar as duas competências juntas em um desafio prático de complexidade crescente.' },
+      { fase: 'Semanas 13 a 14', titulo: 'Avaliação final', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
     ];
   }
   if (competencias.length === 1) {
     return [
-      { fase: 'Semanas 1–8', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
-      { fase: 'Semanas 9–12', titulo: 'Aprofundamento', detalhe: 'Aprofundar a prática em situações mais complexas do dia a dia.' },
-      { fase: 'Semanas 13–14', titulo: 'Avaliação', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
+      { fase: 'Semanas 1 a 8', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
+      { fase: 'Semanas 9 a 12', titulo: 'Aprofundamento', detalhe: 'Aprofundar a prática em situações mais complexas do dia a dia.' },
+      { fase: 'Semanas 13 a 14', titulo: 'Avaliação final', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
     ];
   }
   return [];
@@ -283,7 +283,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
   }
   const cicloLabel = (nome: string): string | null => {
     const cw = cicloPorComp[nome];
-    return cw ? `Semanas ${cw.min}–${cw.max}` : null;
+    return cw ? `Semanas ${cw.min} a ${cw.max}` : null;
   };
   // Sprint (objetivo comportamental) por competência — pra fundir na jornada.
   const sprintPorComp: Record<string, any> = {};
@@ -317,8 +317,8 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
     for (const g of grupos) {
       const min = g.nums.length ? Math.min(...g.nums) : 0;
       const max = g.nums.length ? Math.max(...g.nums) : 0;
-      const faseLabel = g.nums.length > 1 ? `Semanas ${min}–${max}` : `Semana ${min}`;
-      const titulo = g.comps.length ? g.comps.join(' + ') : (g.temAvaliacao ? 'Avaliação' : 'Prática integrada');
+      const faseLabel = g.nums.length > 1 ? `Semanas ${min} a ${max}` : `Semana ${min}`;
+      const titulo = g.comps.length ? g.comps.join(' + ') : (g.temAvaliacao ? 'Avaliação final' : 'Desafio integrado');
       // Teoria: temas de conteúdo das competências do bloco (o que a pessoa APRENDE).
       const temas: string[] = [];
       for (const cp of g.comps) for (const t of (blueprintConteudos[cp] || [])) if (t.tema && !temas.includes(t.tema)) temas.push(t.tema);
@@ -430,9 +430,9 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
         {/* Trilha de Cursos */}
         {c.trilha_cursos?.length > 0 && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Trilha de Desenvolvimento</ReportSectionTitle>
+            <ReportSectionTitle>Cursos de apoio</ReportSectionTitle>
             <View style={s.trilhaBox}>
-              <Text style={s.trilhaLabel}>Cursos Recomendados</Text>
+              <Text style={s.trilhaLabel}>Cursos recomendados</Text>
               {c.trilha_cursos.map((curso: any, i: number) => (
                 <Text key={i} style={s.trilhaItem}>
                   {i + 1}. {curso.nome}{curso.competencia ? ` (${curso.competencia})` : ''}
@@ -446,13 +446,13 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
       </Page>
 
       {/* ═══ SPRINT ONE-PAGER (LEGADO — só sem blueprint; com blueprint, tudo vira
-             a seção única "Sua jornada, ciclo a ciclo" abaixo) ═══ */}
+             a seção única "Sua jornada, passo a passo" abaixo) ═══ */}
       {!hasBinding && sprintComps.length > 0 && (
         <Page size="A4" style={pageStyles.page} wrap>
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
-          <ReportSectionTitle>Seu plano, ciclo a ciclo</ReportSectionTitle>
+          <ReportSectionTitle>Seu plano, jornada a jornada</ReportSectionTitle>
           <Text style={s.mapIntro}>
-            {`${duracaoEmTexto ? `Sua trilha tem ${duracaoEmTexto} e você` : 'Na sua trilha você'} trabalha uma competência por vez. Abaixo, o foco de cada ciclo: comece pelo primeiro; o segundo entra na sequência.`}
+            {`${duracaoEmTexto ? `Sua jornada tem ${duracaoEmTexto} e você` : 'Na sua jornada você'} trabalha uma competência por vez. Abaixo, o foco de cada jornada: comece pela primeira; a segunda entra na sequência.`}
           </Text>
           {sprintComps.map((comp: any, i: number) => (
             <View key={i} style={s.mapCard} wrap={false}>
@@ -461,7 +461,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                 <Text style={s.mapCardName}>{comp.nome}</Text>
               </View>
               <Text style={{ fontSize: 8, color: colors.cyan, letterSpacing: 1, marginBottom: 5, textTransform: 'uppercase' }}>
-                {`Ciclo ${i + 1}${cicloLabel(comp.nome) ? ` · ${cicloLabel(comp.nome)}` : ''}`}
+                {`Jornada ${i + 1}${cicloLabel(comp.nome) ? ` · ${cicloLabel(comp.nome)}` : ''}`}
               </Text>
               {comp.sprint?.foco_30_dias && <Text style={s.mapFoco}>{comp.sprint.foco_30_dias}</Text>}
               {comp.sprint?.acao_principal && (
@@ -511,11 +511,11 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
       {competencias.length >= 1 && (
         <Page size="A4" style={pageStyles.page} wrap>
           <PageHeader logoBase64={logoBase64} label={headerLabel} />
-          <ReportSectionTitle>{hasBinding ? 'Sua jornada, ciclo a ciclo' : 'Como este PDI vira trilha'}</ReportSectionTitle>
+          <ReportSectionTitle>{hasBinding ? 'Sua jornada, passo a passo' : 'Como este PDI vira jornada'}</ReportSectionTitle>
           <Text style={s.trilhaIntro}>
             {hasBinding
-              ? `${duracaoEmTexto ? `Sua trilha tem ${duracaoEmTexto}, uma` : 'Na sua trilha é uma'} competência por vez. Cada ciclo tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica: o objetivo é o destino, as atividades semanais são o caminho até ele, não trabalho a mais. Você recebe o conteúdo resumido toda semana (microaprendizagem), não precisa buscar por conta própria. Comece pelo Ciclo 1: o segundo só começa quando ele terminar, e a trilha te guia semana a semana.`
-              : 'O que está no seu PDI é exatamente o que você vai aprender e praticar na trilha. Cada ciclo tem conteúdo (o que você estuda) e prática (o que você aplica).'}
+              ? `${duracaoEmTexto ? `Sua jornada tem ${duracaoEmTexto}, uma` : 'Na sua jornada é uma'} competência por vez. Cada jornada tem um objetivo (o que muda no seu trabalho), o que você aprende e o que pratica: o objetivo é o destino, as atividades semanais são o caminho até ele, não trabalho a mais. Você recebe o conteúdo resumido toda semana (microaprendizagem), não precisa buscar por conta própria. Comece pela Jornada 1: a segunda só começa quando ela terminar, e a jornada guia você semana a semana.`
+              : 'O que está no seu PDI é exatamente o que você vai aprender e praticar na jornada. Cada jornada tem conteúdo (o que você estuda) e desafio (o que você aplica).'}
           </Text>
           {hasBinding ? (
             bindingBlocos.map((b, i) => (
@@ -543,7 +543,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                   )}
                   {b.acoes.length > 0 && (
                     <View style={s.mapLine}>
-                      <Text style={s.mapLineLabel}>{b.temAvaliacao ? 'Avalia' : 'Prática'}</Text>
+                      <Text style={s.mapLineLabel}>{b.temAvaliacao ? 'Avalia' : 'Desafio'}</Text>
                       <View style={{ flex: 1 }}>
                         {b.acoes.map((a, j) => (
                           <Text key={j} style={s.tlDetail}>{a}</Text>
@@ -565,8 +565,8 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
                   )}
                   {(b.temMissao || b.temAvaliacao) && (
                     <View style={s.tlMeta}>
-                      {b.temMissao && <Text style={s.tlBadge}>Missão prática</Text>}
-                      {b.temAvaliacao && <Text style={s.tlBadge}>Avaliação</Text>}
+                      {b.temMissao && <Text style={s.tlBadge}>Desafio prático</Text>}
+                      {b.temAvaliacao && <Text style={s.tlBadge}>Avaliação final</Text>}
                     </View>
                   )}
                 </View>
@@ -584,7 +584,7 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
             ))
           )}
           <Text style={s.trilhaFooterNote}>
-            {'Cada passo do PDI vira uma semana de prática — o plano e a trilha são o mesmo caminho.'}
+            {'Cada passo do PDI vira uma semana de prática: o plano e a jornada são o mesmo caminho.'}
           </Text>
           {c.mensagem_final && (
             <View style={[s.finalBox, { marginTop: 18 }]} wrap={false}>

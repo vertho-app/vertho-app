@@ -4,6 +4,7 @@ import { colors, pageStyles } from './styles';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { leituraDoCargo, nivelGeralDosIndicadores } from '@/lib/relatorios/niveis-do-rh';
+import { rotuloNivel } from '@/lib/nivel-regua';
 // SectionTitle → ReportSectionTitle (Fraunces) e PageBackground → PageHeader fino, de PdfReportCover
 
 const s = StyleSheet.create({
@@ -60,7 +61,7 @@ const s = StyleSheet.create({
 function PageFooter() {
   return (
     <View style={pageStyles.footer} fixed>
-      <Text style={pageStyles.footerText}>{'Vertho Mentor IA \u2014 Confidencial'}</Text>
+      <Text style={pageStyles.footerText}>{'Vertho Mentor IA \u00b7 Confidencial'}</Text>
       <Text style={pageStyles.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
   );
@@ -90,7 +91,7 @@ const prioColors = {
 };
 const acaoHorizontes = [
   { key: 'curto_prazo', label: 'Curto Prazo (2 semanas)', bg: '#B91C1C', contentBg: '#FEF2F2' },
-  { key: 'medio_prazo', label: 'M\u00e9dio Prazo (1\u20132 meses)', bg: '#2563EB', contentBg: '#EFF6FF' },
+  { key: 'medio_prazo', label: 'M\u00e9dio prazo (1 a 2 meses)', bg: '#2563EB', contentBg: '#EFF6FF' },
   { key: 'longo_prazo', label: 'Longo Prazo (pr\u00f3ximo semestre)', bg: '#16A34A', contentBg: '#F0FDF4' },
 ];
 
@@ -188,7 +189,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
                   percentuais por nível, que existem nos relatórios novos e nos antigos. */}
               {[['Colaboradores avaliados', c.indicadores.total_avaliados],
                 ['Avalia\u00e7\u00f5es realizadas', c.indicadores.total_avaliacoes],
-                ['N\u00edvel mais frequente', nivelGeral != null ? `N${nivelGeral}` : '\u2014'],
+                ['N\u00edvel mais frequente', nivelGeral != null ? rotuloNivel(nivelGeral, { forma: 'curto' }) : '\u2014'],
               ].map(([label, val]: [any, any], i: number) => (
                 <View key={i} style={i % 2 === 0 ? s.kpiRow : s.kpiRowAlt}>
                   <Text style={s.kpiLabel}>{label}</Text>
@@ -198,13 +199,13 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
             </View>
             <View>
               <View style={{ ...s.levelBar, backgroundColor: '#F0FDF4' }}>
-                <Text style={{ ...s.levelText, color: '#166534' }}>N3-N4: {arredondaPct((c.indicadores.pct_nivel_3 || 0) + (c.indicadores.pct_nivel_4 || 0))}%</Text>
+                <Text style={{ ...s.levelText, color: '#166534' }}>{rotuloNivel(3)} e {rotuloNivel(4)}: {arredondaPct((c.indicadores.pct_nivel_3 || 0) + (c.indicadores.pct_nivel_4 || 0))}%</Text>
               </View>
               <View style={{ ...s.levelBar, backgroundColor: '#FFFBEB' }}>
-                <Text style={{ ...s.levelText, color: '#92400E' }}>N2: {arredondaPct(c.indicadores.pct_nivel_2 || 0)}%</Text>
+                <Text style={{ ...s.levelText, color: '#92400E' }}>{rotuloNivel(2)}: {arredondaPct(c.indicadores.pct_nivel_2 || 0)}%</Text>
               </View>
               <View style={{ ...s.levelBar, backgroundColor: '#FEF2F2' }}>
-                <Text style={{ ...s.levelText, color: '#991B1B' }}>N1: {arredondaPct(c.indicadores.pct_nivel_1 || 0)}%</Text>
+                <Text style={{ ...s.levelText, color: '#991B1B' }}>{rotuloNivel(1)}: {arredondaPct(c.indicadores.pct_nivel_1 || 0)}%</Text>
               </View>
             </View>
           </View>
@@ -233,13 +234,13 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
               // campos (leitura/principais_forcas/principais_riscos); mantemos fallback pros antigos.
               const leituraCargo = leituraDoCargo(v);
               const dist = leituraCargo.distribuicao;
-              const rotuloNivel = leituraCargo.origem === 'media' ? 'N\u00edvel geral' : 'N\u00edvel mais frequente';
+              const rotuloLeitura = leituraCargo.origem === 'media' ? 'N\u00edvel geral' : 'N\u00edvel mais frequente';
               const forte = v.ponto_forte || (Array.isArray(v.principais_forcas) ? v.principais_forcas.join(' \u00b7 ') : v.principais_forcas);
               const critico = v.ponto_critico || (Array.isArray(v.principais_riscos) ? v.principais_riscos.join(' \u00b7 ') : v.principais_riscos);
               return (
               <View key={i} style={s.cargoCard} wrap={false}>
-                <Text style={s.cargoTitle}>{v.cargo}{leituraCargo.nivel != null ? ` \u00b7 ${rotuloNivel}: N${leituraCargo.nivel}` : ''}</Text>
-                {dist && <Text style={s.textIt}>{'Avalia\u00e7\u00f5es por n\u00edvel'}: N1:{dist.n1} | N2:{dist.n2} | N3:{dist.n3} | N4:{dist.n4}</Text>}
+                <Text style={s.cargoTitle}>{v.cargo}{leituraCargo.nivel != null ? ` \u00b7 ${rotuloLeitura}: ${rotuloNivel(leituraCargo.nivel, { forma: 'curto' })}` : ''}</Text>
+                {dist && <Text style={s.textIt}>{'Avalia\u00e7\u00f5es por n\u00edvel'}: {rotuloNivel(1, { forma: 'curto' })}:{dist.n1} | {rotuloNivel(2, { forma: 'curto' })}:{dist.n2} | {rotuloNivel(3, { forma: 'curto' })}:{dist.n3} | {rotuloNivel(4, { forma: 'curto' })}:{dist.n4}</Text>}
                 <Text style={s.text}>{v.leitura || v.analise}</Text>
                 {forte && <View style={s.hlPositive}><Text style={{ ...s.hlText, color: '#166534' }}>+ {forte}</Text></View>}
                 {critico && <View style={s.hlAttention}><Text style={{ ...s.hlText, color: '#92400E' }}>! {critico}</Text></View>}
@@ -281,7 +282,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
               return (
                 <View key={i} style={s.critCard} wrap={false}>
                   <View style={{ ...s.critHeader, backgroundColor: cc.bg }}>
-                    <Text style={s.critHeaderText}>{comp.competencia} {'\u2014'} {comp.criticidade}</Text>
+                    <Text style={s.critHeaderText}>{comp.competencia}: {comp.criticidade}</Text>
                   </View>
                   <View style={{ ...s.critContent, backgroundColor: cc.contentBg }}>
                     <Text style={s.text}>{comp.justificativa || comp.motivo}</Text>
@@ -349,7 +350,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
         {talentos.length > 0 && (
           <View style={s.section}>
             <ReportSectionTitle>{'Talentos a Potencializar'}</ReportSectionTitle>
-            <Text style={{ ...s.textIt, marginBottom: 8 }}>{'Pessoas que se destacaram \u2014 e como potencializ\u00e1-las.'}</Text>
+            <Text style={{ ...s.textIt, marginBottom: 8 }}>{'Pessoas que se destacaram, e como potencializ\u00e1-las.'}</Text>
             {talentos.map((d: any, i: number) => (
               <View key={i} style={s.decCard} wrap={false}>
                 <View style={s.decHeader}><Text style={s.decHeaderText}>{d.colaborador}</Text></View>
@@ -380,7 +381,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.plano_acao && (
           <View style={s.section}>
-            <ReportSectionTitle>{'Plano de A\u00e7\u00e3o \u2014 RH / T&D'}</ReportSectionTitle>
+            <ReportSectionTitle>{'Plano de a\u00e7\u00e3o para RH e T&D'}</ReportSectionTitle>
             {acaoHorizontes.map(({ key, label, bg, contentBg }) => {
               const a = c.plano_acao[key];
               if (!a) return null;

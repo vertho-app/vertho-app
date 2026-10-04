@@ -224,25 +224,25 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
 
   const fases = [];
 
-  // Fase 1 — Mapeamento comportamental.
+  // Fase 1: Perfil (o Mapeamento Comportamental, DISC).
   // Empresas com fonte externa/proprietária não fazem DISC na Vertho:
   // a etapa não deve bloquear o avanço para a avaliação de competências.
   const temDISC = !!colab.perfil_dominante;
   const temPerfilExterno = !!colab.perfil_externo_dados;
   fases.push({
     fase: 1,
-    titulo: 'Diagnóstico',
+    titulo: 'Perfil',
     descricao: usaPerfilExterno
-      ? 'Mapeamento comportamental conduzido pela empresa'
+      ? 'Perfil comportamental conduzido pela empresa'
       : perfilComportamentalLiberado
-        ? 'Mapeamento do perfil comportamental'
+        ? 'Perfil comportamental'
         : 'Aguardando liberação do perfil comportamental',
     status: (usaPerfilExterno || temDISC) ? 'completed' : 'pending',
     data: (temDISC || temPerfilExterno) ? null : null, // DISC date not stored separately
     usaPerfilExterno,
   });
 
-  // Fase 2 — Avaliação (respostas de competências do fluxo do dashboard)
+  // Fase 2: Mapeamento de competências (respostas por cenário do fluxo do dashboard)
   // Total = quantas competências o cargo tem no top5_workshop, com o teto da
   // degustação para o convidado (o mesmo corte do assessment).
   const degustacaoP = colaboradorEmDegustacao(sb, colab, empresaIsDemo);
@@ -263,8 +263,8 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
   const avaliacaoIniciada = respondidasCount > 0;
   fases.push({
     fase: 2,
-    titulo: 'Avaliação',
-    descricao: `Competências avaliadas: ${respondidasCount}/${totalComp}`,
+    titulo: 'Mapeamento',
+    descricao: `Competências mapeadas: ${respondidasCount}/${totalComp}`,
     status: avaliacaoCompleta ? 'completed' : avaliacaoIniciada ? 'current' : 'pending',
     data: null,
   });
@@ -286,7 +286,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
   // as libera, e com a fase 2 concluída a 3 viraria "em curso" apontando para
   // um PDI que nunca será gerado.
   if (degustacao) {
-    for (const [fase, titulo] of [[3, 'PDI'], [4, 'Temporada'], [5, 'Reavaliação']] as const) {
+    for (const [fase, titulo] of [[3, 'PDI'], [4, 'Desenvolvimento'], [5, 'Evolução']] as const) {
       fases.push({ fase, titulo, descricao: 'Fora da degustação', status: FASE_FORA_DA_DEGUSTACAO, data: null });
     }
     return retornoBase;
@@ -321,7 +321,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     pdiDesc = 'Plano de Desenvolvimento Individual';
   } else if (!avaliacaoCompleta) {
     pdiStatus = 'pending';
-    pdiDesc = 'Conclua a avaliação para liberar seu PDI';
+    pdiDesc = 'Conclua o mapeamento para liberar seu PDI';
   } else {
     pdiStatus = 'pending';
     pdiDesc = 'Aguardando geração do PDI';
@@ -336,7 +336,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     bloqueado: !pdi && !avaliacaoCompleta,
   });
 
-  // Fase 4 — Temporada (já carregada acima)
+  // Fase 4: Desenvolvimento, as semanas da jornada (já carregada acima)
   let semanaAtual = 1;
   let progressoTrilha: Array<{ semana: number; status: string }> = [];
   if (temPlano) {
@@ -353,10 +353,10 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
 
   fases.push({
     fase: 4,
-    titulo: 'Temporada',
+    titulo: 'Desenvolvimento',
     descricao: temPlano
       ? `Semana ${semanaAtual} de ${duracaoDaTrilha(trilha)} · ${trilha.competencia_foco || ''}`
-      : 'Aguardando geração da trilha personalizada',
+      : 'Aguardando a montagem da jornada',
     status: temporadaStatus,
     data: trilha?.criado_em || null,
     // A tela da jornada descreve esta fase por i18n, e o texto trazia "14
@@ -376,8 +376,8 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
   // do programa e a fase conta como concluída (R-95, `reavaliacaoConcluida`).
   fases.push({
     fase: 5,
-    titulo: 'Reavaliação',
-    descricao: 'Medição de evolução pós-capacitação',
+    titulo: 'Evolução',
+    descricao: 'Medição da evolução na avaliação final',
     status: temPlano && reavaliacaoConcluida(trilha.temporada_plano, progressoTrilha, trilha.status) ? 'completed' : 'pending',
     data: null,
   });
@@ -563,9 +563,9 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
           tipo: ehFim ? 'fim' : ehImpl ? 'implementacao' : 'pilula',
           semana: s,
           diasAte,
-          label: ehFim ? 'Trilha conclui'
-            : ehImpl ? 'Semana de Implementação'
-            : 'Próxima pílula',
+          label: ehFim ? 'Jornada conclui'
+            : ehImpl ? 'Semana de aplicação'
+            : 'Próximo conteúdo',
         });
       }
       // Pega o evento mais próximo no futuro

@@ -158,8 +158,8 @@ const STRINGS: Record<Locale, {
     titulo: 'Certificado de Conclusão',
     certify: 'Certificamos que',
     bodyBefore: 'concluiu a',
-    temporada: (n) => `Temporada ${n}`,
-    bodyAfter: 'da Jornada de Desenvolvimento, dedicada a',
+    temporada: (n) => `Jornada ${n}`,
+    bodyAfter: 'de desenvolvimento, dedicada a',
     periodo: (i, f) => `no período de ${i} a ${f}`,
     cargaLabel: 'Carga horária',
     cargaValue: (h) => `${h} horas`,
@@ -172,8 +172,8 @@ const STRINGS: Record<Locale, {
     titulo: 'Certificado de Conclusão',
     certify: 'Certificamos que',
     bodyBefore: 'concluiu a',
-    temporada: (n) => `Temporada ${n}`,
-    bodyAfter: 'da Jornada de Desenvolvimento, dedicada a',
+    temporada: (n) => `Jornada ${n}`,
+    bodyAfter: 'de desenvolvimento, dedicada a',
     periodo: (i, f) => `no período de ${i} a ${f}`,
     cargaLabel: 'Carga horária',
     cargaValue: (h) => `${h} horas`,
@@ -182,12 +182,12 @@ const STRINGS: Record<Locale, {
     socioLabel: 'Sócio',
   },
   'es-ES': {
-    eyebrow: 'Programa de Desarrollo',
+    eyebrow: 'Recorrido de Desarrollo',
     titulo: 'Certificado de Finalización',
     certify: 'Certificamos que',
-    bodyBefore: 'completó la',
-    temporada: (n) => `Temporada ${n}`,
-    bodyAfter: 'del Programa de Desarrollo, dedicada a',
+    bodyBefore: 'completó el',
+    temporada: (n) => `Recorrido ${n}`,
+    bodyAfter: 'de desarrollo, dedicado a',
     periodo: (i, f) => `del ${i} al ${f}`,
     cargaLabel: 'Carga horaria',
     cargaValue: (h) => `${h} horas`,
@@ -200,8 +200,8 @@ const STRINGS: Record<Locale, {
     titulo: 'Certificate of Completion',
     certify: 'This certifies that',
     bodyBefore: 'completed',
-    temporada: (n) => `Season ${n}`,
-    bodyAfter: 'of the Development Journey, focused on',
+    temporada: (n) => `Journey ${n}`,
+    bodyAfter: 'of development, focused on',
     periodo: (i, f) => `from ${i} to ${f}`,
     cargaLabel: 'Course hours',
     cargaValue: (h) => `${h} hours`,
@@ -252,7 +252,7 @@ export function CertificadoPDF({ dados }: { dados: CertificadoDados }) {
   const icone = getIconDarkBase64();
 
   return (
-    <Document title={`${S.titulo} — ${sanitize(dados.colab.nome)}`}>
+    <Document title={`${S.titulo}: ${sanitize(dados.colab.nome)}`}>
       <Page size="A4" orientation="landscape" style={styles.page}>
         {/* molduras + cantos */}
         <View style={styles.frame1} fixed />

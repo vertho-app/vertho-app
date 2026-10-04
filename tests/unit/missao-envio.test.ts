@@ -37,6 +37,6 @@ describe('envio de segunda da semana de aplicação', () => {
     expect(html).toContain(videoUrlMissao(OPTS.baseUrl));
     expect(html).toContain('/dashboard/temporada/semana/4');
     expect(html).toContain('Maria');
-    expect(html.indexOf('Ver minha missão')).toBeLessThan(html.indexOf('bunny-thumb'));
+    expect(html.indexOf('Ver meu desafio')).toBeLessThan(html.indexOf('bunny-thumb'));
   });
 });

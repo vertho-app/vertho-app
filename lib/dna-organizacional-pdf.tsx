@@ -10,6 +10,7 @@ import { Document, Page, View, Text, Image, StyleSheet, renderToBuffer } from '@
 import '@/components/pdf/styles'; // registra NotoSans (efeito colateral)
 import PdfReportCover from '@/components/pdf/PdfReportCover'; // capa editorial + registra Fraunces
 import { getLogoCoverBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
+import { rotuloNivel } from '@/lib/nivel-regua';
 import type { DnaAggregate, CompetenciaStat, Dist } from './dna-organizacional/aggregate';
 import type { DnaNarrative } from './dna-organizacional/narrative';
 import { nivelDaDistribuicao } from '@/lib/relatorios/niveis-do-rh';
@@ -22,10 +23,10 @@ const C = {
   cardTeal: '#EAF6F6', cardBlue: '#EAF0F8', cardGold: '#FBF3E2',
 };
 const NIVEIS = [
-  { key: 'n1', label: 'Nível 1 — GAP', sig: 'Precisa de desenvolvimento estruturado', bg: C.n1Bg, tx: C.n1Tx },
-  { key: 'n2', label: 'Nível 2 — Em Desenvolvimento', sig: 'Boa intenção, execução a melhorar', bg: C.n2Bg, tx: C.n2Tx },
-  { key: 'n3', label: 'Nível 3 — META', sig: 'Prática consistente', bg: C.n3Bg, tx: C.n3Tx },
-  { key: 'n4', label: 'Nível 4 — Referência', sig: 'Excelência que inspira', bg: C.n4Bg, tx: C.n4Tx },
+  { key: 'n1', label: rotuloNivel(1), sig: 'Precisa de desenvolvimento estruturado', bg: C.n1Bg, tx: C.n1Tx },
+  { key: 'n2', label: rotuloNivel(2), sig: 'Boa intenção, execução a melhorar', bg: C.n2Bg, tx: C.n2Tx },
+  { key: 'n3', label: `${rotuloNivel(3)} (meta)`, sig: 'Prática consistente', bg: C.n3Bg, tx: C.n3Tx },
+  { key: 'n4', label: rotuloNivel(4), sig: 'Excelência que inspira', bg: C.n4Bg, tx: C.n4Tx },
 ] as const;
 
 const s = StyleSheet.create({
@@ -140,8 +141,8 @@ function CompetenciaBlock({ c }: { c: CompetenciaStat }) {
         </View>
       ))}
       <View style={s.compFoot}>
-        {c.forca ? <Text style={{ color: C.n3Tx }}>Força: {c.forca.descritor} — {c.forca.nivelPct}% em N3/N4</Text> : null}
-        {c.oportunidade ? <Text style={{ color: C.n1Tx, marginTop: 1 }}>Oportunidade: {c.oportunidade.descritor} — {c.oportunidade.n1pct}% em N1</Text> : null}
+        {c.forca ? <Text style={{ color: C.n3Tx }}>Força: {c.forca.descritor}, {c.forca.nivelPct}% em N3 e N4</Text> : null}
+        {c.oportunidade ? <Text style={{ color: C.n1Tx, marginTop: 1 }}>Oportunidade: {c.oportunidade.descritor}, {c.oportunidade.n1pct}% em N1</Text> : null}
       </View>
     </View>
   );
@@ -156,7 +157,7 @@ function SecTitle({ children }: { children: string }) {
 // ── Bloco compacto do DNA de um cargo (distribuição N1-N4 + maior gap) ───────
 function CargoDnaBlock({ cargo, avaliados, dna }: { cargo: string; avaliados: number; dna: DnaAggregate }) {
   const p = dna.distGeralPct;
-  const segs: [string, number, string][] = [['N1', p.n1, C.n1Tx], ['N2', p.n2, C.n2Tx], ['N3', p.n3, C.n3Tx], ['N4', p.n4, C.n4Tx]];
+  const segs: [string, number, string][] = [[rotuloNivel(1, { forma: 'curto' }), p.n1, C.n1Tx], [rotuloNivel(2, { forma: 'curto' }), p.n2, C.n2Tx], [rotuloNivel(3, { forma: 'curto' }), p.n3, C.n3Tx], [rotuloNivel(4, { forma: 'curto' }), p.n4, C.n4Tx]];
   const gap = dna.topGaps[0];
   return (
     <View style={{ borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 11, marginBottom: 9 }} wrap={false}>
@@ -180,7 +181,7 @@ function CargoDnaBlock({ cargo, avaliados, dna }: { cargo: string; avaliados: nu
           </View>
         ))}
       </View>
-      {gap ? <Text style={{ fontSize: 8, color: C.sub }}>Maior gap: <Text style={{ fontWeight: 700, color: C.n1Tx }}>{gap.descritor}</Text> ({gap.competencia}) — {gap.n1pct}% em N1</Text> : null}
+      {gap ? <Text style={{ fontSize: 8, color: C.sub }}>Maior distância até a meta: <Text style={{ fontWeight: 700, color: C.n1Tx }}>{gap.descritor}</Text> ({gap.competencia}), {gap.n1pct}% em N1</Text> : null}
     </View>
   );
 }
@@ -188,7 +189,7 @@ function CargoDnaBlock({ cargo, avaliados, dna }: { cargo: string; avaliados: nu
 function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
   const logo = getLogoCoverBase64();
   return (
-    <Document title={`DNA Organizacional — ${empresaNome}`} author="Vertho">
+    <Document title={`DNA Organizacional: ${empresaNome}`} author="Vertho">
       <PdfReportCover
         bgBase64={getReportCoverBgBase64()}
         logoBase64={logo}
@@ -246,8 +247,8 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
               {dna.porCargo.flatMap((pc, idx) => [
                 idx === 0 ? (
                   <View key="sec-cargo" break>
-                    <SecTitle>DESCRITORES POR COMPETÊNCIA — POR CARGO</SecTitle>
-                    <Text style={s.anon}>A distribuição de níveis e os descritores de cada competência, recortados por cargo — cada cargo abre em página própria. Cargos com menos de 3 pessoas com avaliação iniciada não aparecem.</Text>
+                    <SecTitle>DESCRITORES POR COMPETÊNCIA, POR CARGO</SecTitle>
+                    <Text style={s.anon}>A distribuição de níveis e os descritores de cada competência, recortados por cargo. Cada cargo abre em página própria. Cargos com menos de 3 pessoas com avaliação iniciada não aparecem.</Text>
                   </View>
                 ) : null,
                 <View key={pc.cargo} break={idx > 0}>
@@ -323,7 +324,7 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
         </View>
 
         <View style={s.footer} fixed>
-          <Text>Vertho — Retrato de Competências</Text>
+          <Text>Vertho · Retrato de Competências</Text>
           <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
         </View>
       </Page>

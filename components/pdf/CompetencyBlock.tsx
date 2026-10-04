@@ -172,12 +172,12 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
       {/* ── Fez Bem / Melhorar (two-col) ── */}
       <View style={s.twoCol} wrap={false}>
         <View style={s.fezBemCol}>
-          <Text style={{ ...s.blockLabel, color: colors.green }}>Fez Bem</Text>
+          <Text style={{ ...s.blockLabel, color: colors.green }}>Fez bem</Text>
           {comp.fez_bem?.length > 0
             ? comp.fez_bem.map((e: any, j: number) => (
                 <PrefixedItem key={j} prefix="+" color={colors.green} text={e} textColor={colors.greenText} />
               ))
-            : <Text style={{ ...s.blockItem, color: colors.greenText }}>—</Text>
+            : <Text style={{ ...s.blockItem, color: colors.greenText }}>Sem registro</Text>
           }
         </View>
         <View style={s.melhorarCol}>
@@ -186,7 +186,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
             ? comp.melhorar.map((e: any, j: number) => (
                 <PrefixedItem key={j} prefix="↑" color={colors.orange} text={e} textColor={colors.orangeText} />
               ))
-            : <Text style={{ ...s.blockItem, color: colors.orangeText }}>—</Text>
+            : <Text style={{ ...s.blockItem, color: colors.orangeText }}>Sem registro</Text>
           }
         </View>
       </View>
@@ -202,22 +202,22 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
       {/* ── Sprint de 30 dias (novo — enxuto). Fallback: plano_30_dias antigo ── */}
       {!isStrong && comp.sprint ? (
         <View>
-          <Text style={s.planoTitle}>{ciclo ? `Objetivo do Ciclo ${ciclo.numero}` : 'Sprint de 30 Dias'}</Text>
+          <Text style={s.planoTitle}>{ciclo ? `Objetivo da jornada ${ciclo.numero}` : 'Plano de 30 dias'}</Text>
           {ciclo && (
             <Text style={{ fontSize: 8.5, fontWeight: 700, marginBottom: 4, color: ciclo.comecaAgora ? colors.cyan : colors.gray600 }}>
               {ciclo.comecaAgora
                 ? `Começa agora${ciclo.janela ? ` · ${ciclo.janela}` : ''}`
-                : `Só começa depois do Ciclo 1${ciclo.inicioSemana ? ` — a partir da Semana ${ciclo.inicioSemana}` : ''}`}
+                : `Só começa depois da jornada 1${ciclo.inicioSemana ? `, a partir da semana ${ciclo.inicioSemana}` : ''}`}
             </Text>
           )}
           {ciclo && (
             <Text style={{ fontSize: 8, fontStyle: 'italic', color: colors.gray600, lineHeight: 1.5, marginBottom: 8 }}>
-              {'Este é o objetivo do ciclo — o destino que as suas atividades semanais da trilha constroem. Não é trabalho a mais.'}
+              {'Este é o objetivo da jornada: o destino que as suas atividades semanais constroem. Não é trabalho a mais.'}
             </Text>
           )}
           {comp.sprint.foco_30_dias && (
             <View style={s.sprintFoco} wrap={false}>
-              <Text style={s.sprintFocoLabel}>{ciclo ? 'Foco do ciclo' : 'Foco dos 30 dias'}</Text>
+              <Text style={s.sprintFocoLabel}>{ciclo ? 'Foco da jornada' : 'Foco dos 30 dias'}</Text>
               <Text style={s.sprintFocoText}>{comp.sprint.foco_30_dias}</Text>
             </View>
           )}
@@ -255,7 +255,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
         </View>
       ) : !isStrong && comp.plano_30_dias ? (
         <View>
-          <Text style={s.planoTitle}>Plano de Desenvolvimento — 30 Dias</Text>
+          <Text style={s.planoTitle}>Plano de 30 dias</Text>
           <View style={s.steps}>
             {['semana_1', 'semana_2', 'semana_3', 'semana_4'].map((sem: string, si: number) => {
               const semana = comp.plano_30_dias[sem];
@@ -292,11 +292,11 @@ export default function CompetencyBlock({ comp, index, total, ciclo }: {
             <View style={s.estudoBox}>
               <Text style={{ ...s.blockLabel, color: colors.purple }}>Conteúdos da jornada</Text>
               <Text style={{ fontSize: 7.5, color: colors.purpleText, fontStyle: 'italic', lineHeight: 1.5, marginBottom: 5 }}>
-                {'Você recebe estes temas ao longo da trilha, resumidos toda semana — não precisa buscar por conta própria.'}
+                {'Você recebe estes temas ao longo da jornada, resumidos toda semana. Você não precisa buscar por conta própria.'}
               </Text>
               {comp.estudo_recomendado.map((e: any, i: number) => (
                 <Text key={i} style={{ fontSize: 8, color: colors.purpleText, lineHeight: 1.6, marginBottom: 2 }}>
-                  {typeof e === 'string' ? e : `${e.titulo}${e.por_que_ajuda ? ' — ' + e.por_que_ajuda : ''}`}
+                  {typeof e === 'string' ? e : `${e.titulo}${e.por_que_ajuda ? ': ' + e.por_que_ajuda : ''}`}
                 </Text>
               ))}
             </View>

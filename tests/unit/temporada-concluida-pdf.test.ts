@@ -265,7 +265,7 @@ describe('ordem do PDF da temporada', () => {
     expect(t).toContain('Em Autocuidado, você se manteve no Nível 2, de 4 níveis possíveis.');
     for (const chave of ['competenciesIntro', 'behaviorsIntro']) expect(t).toContain(pt[chave]);
     for (const chave of ['confirmed', 'partial', 'stable']) expect(t).toContain(pt.legend[chave]);
-    expect(t).toContain('Dos 3 comportamentos observados nesta temporada:');
+    expect(t).toContain('Dos 3 comportamentos observados nesta jornada:');
     // a régua de 4 níveis inteira aparece em cada competência
     expect(t.split('Nível 4')).toHaveLength(3);
   });
@@ -589,7 +589,7 @@ describe('conclusão do piloto: nível, nunca nota (R-109)', () => {
 
   it('PDF: a demonstração da avaliação sai em nível, sem o rótulo "Nota"', () => {
     const t = noPdf(piloto());
-    expect(t).toContain('Nível na demonstração: 2');
+    expect(t).toContain('Nível na degustação: 2');
     expect(t).not.toContain('Nota da demonstração');
   });
 

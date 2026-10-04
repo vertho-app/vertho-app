@@ -98,7 +98,7 @@ export async function POST(request) {
     const { data: trilha, error: errTrilha } = await sb.from('trilhas')
       .select('id, colaborador_id, empresa_id, status, competencia_foco, competencias_foco, temporada_plano, descritores_selecionados, data_inicio, programa_modo, programa_config')
       .eq('id', trilhaId).maybeSingle();
-    if (errTrilha) return NextResponse.json({ error: 'Falha ao ler a trilha' }, { status: 500 });
+    if (errTrilha) return NextResponse.json({ error: 'Falha ao ler a jornada' }, { status: 500 });
     if (!trilha) return NextResponse.json({ error: 'trilha' }, { status: 404 });
 
     // Config pela FONTE ÚNICA (carimbo da trilha, mig 154 → fallback sys_config)
@@ -475,7 +475,7 @@ export async function POST(request) {
           if (!cenB?.descricao) {
             return NextResponse.json({
               error: escolha.motivo === 'sem-competencia-na-trilha'
-                ? 'A trilha não tem competência definida, então não há como escolher o Cenário B.'
+                ? 'A jornada não tem competência definida, então não há como escolher o cenário final.'
                 : `Cenário B não cadastrado para ${competenciasLabel} + cargo ${cargoColab}.`,
             }, { status: 424 });
           }

@@ -27,7 +27,7 @@ import { Document, Page, Text, View, Image, StyleSheet, Svg, Polygon, Line, Circ
 import { colors, pageStyles } from './styles';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
-import { nivelDaNota } from '@/lib/nivel-regua';
+import { nivelDaNota, rotuloNivel } from '@/lib/nivel-regua';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import type {
   EvolucaoCentro, EvolucaoAgregado, EvolucaoPessoa, EvolucaoRecorteCargo,
@@ -145,7 +145,9 @@ export function pct(nota: number): string {
  * comportamento, e as colunas Antes e Depois com a nota de cada pessoa nomeada).
  */
 export function textoDosNiveis(pre: number, pos: number): string {
-  return pos > pre ? `N${pre} para N${pos}` : `N${pos}`;
+  return pos > pre
+    ? `${rotuloNivel(pre, { forma: 'curto' })} para ${rotuloNivel(pos, { forma: 'curto' })}`
+    : rotuloNivel(pos, { forma: 'curto' });
 }
 function dataBr(iso: string | null): string {
   if (!iso) return '';
@@ -203,10 +205,10 @@ function CortesDaRegua() {
  */
 function FaixasDaRegua({ item }: { item: EvolucaoAgregado }) {
   const faixas = [
-    { nivel: 1, width: '33.33%', label: 'N1' },
-    { nivel: 2, width: '33.34%', label: 'N2' },
-    { nivel: 3, width: '16.66%', label: 'N3' },
-    { nivel: 4, width: '16.67%', label: 'N4' },
+    { nivel: 1, width: '33.33%', label: rotuloNivel(1, { forma: 'curto' }) },
+    { nivel: 2, width: '33.34%', label: rotuloNivel(2, { forma: 'curto' }) },
+    { nivel: 3, width: '16.66%', label: rotuloNivel(3, { forma: 'curto' }) },
+    { nivel: 4, width: '16.67%', label: rotuloNivel(4, { forma: 'curto' }) },
   ];
   return (
     <View style={s.faixas}>
@@ -492,8 +494,8 @@ function TabelaPessoas({ pessoas }: { pessoas: EvolucaoPessoa[] }) {
           <Text style={{ ...s.tdStrong, flex: 2.6, paddingRight: 7 }}>{p.nome}</Text>
           <Text style={{ ...s.td, flex: 1.5, paddingRight: 7 }}>{p.cargo || '—'}</Text>
           <Text style={{ ...s.td, flex: 2.3, fontSize: 7.5, paddingRight: 7 }}>{p.competencia || '—'}</Text>
-          <Text style={{ ...s.td, width: 50, textAlign: 'center' }}>{`N${p.nivelPre}`}</Text>
-          <Text style={{ ...s.td, width: 50, textAlign: 'center' }}>{`N${p.nivelPos}`}</Text>
+          <Text style={{ ...s.td, width: 50, textAlign: 'center' }}>{rotuloNivel(p.nivelPre, { forma: 'curto' })}</Text>
+          <Text style={{ ...s.td, width: 50, textAlign: 'center' }}>{rotuloNivel(p.nivelPos, { forma: 'curto' })}</Text>
           <Text style={{ ...s.tdStrong, width: 46, textAlign: 'center', color: p.delta > 0 ? colors.green : colors.textMuted }}>
             {comSinal(p.delta)}
           </Text>
@@ -519,8 +521,8 @@ function TabelaComportamentos({ comportamentos }: { comportamentos: EvolucaoAgre
           <Text style={{ ...s.tdStrong, flex: 3, paddingRight: 8 }}>{descritorParaHumano(d.chave)}</Text>
           <Text style={{ ...s.td, flex: 2.4, fontSize: 7.5 }}>{d.competencia || '—'}</Text>
           <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{d.n}</Text>
-          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{`N${d.nivelPre}`}</Text>
-          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{`N${d.nivelPos}`}</Text>
+          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{rotuloNivel(d.nivelPre, { forma: 'curto' })}</Text>
+          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{rotuloNivel(d.nivelPos, { forma: 'curto' })}</Text>
           <Text style={{ ...s.tdStrong, width: 40, textAlign: 'center', color: d.delta > 0 ? colors.green : colors.textMuted }}>
             {comSinal(d.delta)}
           </Text>
@@ -580,7 +582,7 @@ export default function RelatorioEvolucaoPDF({
           <View style={s.vazio}>
             <Text style={s.pStrong}>
               {data.indisponivel
-                ? 'Não foi possível ler os dados de evolução neste momento. Isto é uma falha de leitura nossa, não um resultado do programa — nenhuma conclusão deve ser tirada desta página.'
+                ? 'Não foi possível ler os dados de evolução neste momento. Isto é uma falha de leitura nossa, não um resultado do programa. Nenhuma conclusão deve ser tirada desta página.'
                 : 'A medição de evolução nasce no fechamento da jornada, quando o cenário final é avaliado e comparado com o diagnóstico inicial. Nenhum participante deste recorte chegou a esse ponto ainda.'}
             </Text>
             {!data.indisponivel && (
@@ -761,14 +763,14 @@ export default function RelatorioEvolucaoPDF({
 
             {cargo.proximasAcoes.proximoCiclo.length > 0 && (
               <View style={s.section}>
-                <Text style={s.h3}>Candidatos ao próximo ciclo</Text>
+                <Text style={s.h3}>Candidatos à próxima jornada</Text>
                 <View style={s.boxAccent}>
                   <Text style={s.p}>
                     {'As competências em que este cargo menos avançou. Os comportamentos da seção anterior ajudam a definir a abordagem dentro de cada competência.'}
                   </Text>
                   {cargo.proximasAcoes.proximoCiclo.map((d) => (
                     <Text key={d.chave} style={s.pStrong}>
-                      {`• ${d.chave} — ${d.n === 1 ? '1 pessoa' : `${d.n} pessoas`}, avanço de ${comSinal(d.delta)}`}
+                      {`• ${d.chave}: ${d.n === 1 ? '1 pessoa' : `${d.n} pessoas`}, avanço de ${comSinal(d.delta)}`}
                     </Text>
                   ))}
                 </View>
@@ -803,7 +805,7 @@ export default function RelatorioEvolucaoPDF({
                   {multiplicadores.map((p, i) => (
                     <View key={`${p.colaboradorId}::${p.competencia}::${i}`} style={{ marginBottom: 6 }}>
                       <Text style={s.pStrong}>
-                        {`• ${p.nome}: N4 em ${p.competencia || 'competência do ciclo'}, avanço de ${comSinal(p.delta)}`}
+                        {`• ${p.nome}: N4 em ${p.competencia || 'competência da jornada'}, avanço de ${comSinal(p.delta)}`}
                       </Text>
                       {p.insight ? <Text style={{ ...s.caption, marginLeft: 10 }}>{p.insight}</Text> : null}
                     </View>

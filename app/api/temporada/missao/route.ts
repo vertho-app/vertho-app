@@ -48,7 +48,7 @@ export async function POST(request) {
     // um dado que existe. B4 da auditoria 22/08.
     if (errTrilha) {
       console.error('[missao] leitura da trilha:', errTrilha.message);
-      return NextResponse.json({ error: 'Não foi possível ler a trilha. Tente novamente.' }, { status: 500 });
+      return NextResponse.json({ error: 'Não foi possível ler a jornada. Tente novamente.' }, { status: 500 });
     }
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
 

@@ -256,7 +256,7 @@ function PageHeader({ title }: { title: string }) {
   return <View style={s.header}><Text style={s.hTitle}>{title}</Text>{logo ? <Image src={logo} style={s.hLogo} /> : null}</View>;
 }
 function Footer() {
-  return <View style={s.footer} fixed><Text>Vertho — Perfil Organizacional</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>;
+  return <View style={s.footer} fixed><Text>Vertho · Perfil Organizacional</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>;
 }
 
 /** Anexo fixo: os 4 fatores DISC explicados. Conteúdo estático — sem IA. */
@@ -290,10 +290,10 @@ const DISC_ANEXO: { fator: Fator; nome: string; tagline: string; essencia: strin
 function AnexoDisc() {
   return (
     <Page size="A4" style={s.page}>
-      <PageHeader title="Anexo — Os 4 Fatores Comportamentais" />
+      <PageHeader title="Anexo: os 4 fatores comportamentais" />
       <View style={s.body}>
         <Text style={s.axIntro}>
-          O Mapeamento Comportamental descreve tendências observáveis — como cada pessoa tende a agir, decidir e se relacionar.
+          O Mapeamento Comportamental descreve tendências observáveis: como cada pessoa tende a agir, decidir e se relacionar.
           Todo perfil combina os quatro fatores em intensidades diferentes; os gráficos deste relatório mostram essa intensidade de 0 a 100.
         </Text>
         <View style={s.axGrid}>
@@ -314,7 +314,7 @@ function AnexoDisc() {
           ))}
         </View>
         <Text style={s.axNota}>
-          Nenhum fator é melhor que outro — cada um resolve um tipo de problema que o grupo enfrenta.
+          Nenhum fator é melhor que outro: cada um resolve um tipo de problema que o grupo enfrenta.
           Um time saudável combina as quatro energias: quem acelera, quem conecta, quem sustenta e quem garante a qualidade.
           O perfil indica tendência, não limite: comportamento se desenvolve com consciência e prática.
         </Text>
@@ -330,7 +330,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
   const logo = getLogoCoverBase64();
   const badge = p.perfilDominante;
   return (
-    <Document title={`Perfil Organizacional — ${empresaNome}`} author="Vertho">
+    <Document title={`Perfil Organizacional: ${empresaNome}`} author="Vertho">
       {/* Capa editorial */}
       <PdfReportCover
         bgBase64={getReportCoverBgBase64()}
@@ -367,7 +367,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
               ))}
             </View>
             <View style={s.col}>
-              <Text style={s.grpLabel}>Competências — Mais desenvolvidas</Text>
+              <Text style={s.grpLabel}>Competências mais desenvolvidas</Text>
               {p.compMais.map((c, i) => <Text key={i} style={[s.chip, { backgroundColor: i < 2 ? C.s : C.i }]}>{c.nome}</Text>)}
               <Text style={[s.grpLabel, { marginTop: 8 }]}>Menos desenvolvidas</Text>
               {p.compMenos.map((c, i) => <Text key={i} style={[s.chip, { backgroundColor: i === 0 ? C.d : C.c }]}>{c.nome}</Text>)}
@@ -381,7 +381,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
       <Page size="A4" style={s.page}>
         <PageHeader title="Perfil Médio do Grupo" />
         <View style={s.body}>
-          <Text style={s.p}>Perfil comportamental natural médio do grupo — a tendência mais espontânea, como as pessoas agem quando não estão sob pressão de adequação.</Text>
+          <Text style={s.p}>Perfil comportamental natural médio do grupo: a tendência mais espontânea, como as pessoas agem quando não estão sob pressão de adequação.</Text>
           <View style={s.twoCol}>
             <View style={s.col}><DiscChart m={p.natural} label="NATURAL" badge={badge} /></View>
             <View style={s.col}><FocoCards p={p} /></View>
@@ -411,7 +411,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
       <Page size="A4" style={s.page}>
         <PageHeader title="Mapa de Competências" />
         <View style={s.body}>
-          <Text style={s.p}>Nível médio de 16 competências do grupo — tendências comportamentais mais ou menos presentes, no perfil natural.</Text>
+          <Text style={s.p}>Nível médio de 16 competências do grupo: tendências comportamentais mais ou menos presentes, no perfil natural.</Text>
           <View style={{ alignItems: 'center' }}><CompRadar p={p} /></View>
           <View style={s.legendRow}>
             <View style={s.legendItem}><View style={[s.legendDot, { backgroundColor: C.natural }]} /><Text style={s.legendTx}>Natural</Text></View>

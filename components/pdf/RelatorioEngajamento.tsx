@@ -221,7 +221,7 @@ export default function RelatorioEngajamentoPDF({
       </View>) : <Text style={s.text}>Sem dados por cargo disponíveis.</Text>}
       <View style={{ ...s.section, marginTop: 15 }} wrap={false}>
         <ReportSectionTitle>Como ler este relatório</ReportSectionTitle>
-        <Text style={s.text}>Crítico: ausência de atividade na primeira semana ou em duas semanas consecutivas. Atenção: semana sem atividade, índice abaixo de 40 ou queda em relação à anterior. Índice operacional: ativação 20 + consumo 30 + evidência 40 + tutor 10. Mede atividade na jornada.</Text>
+        <Text style={s.text}>Crítico: ausência de atividade na primeira semana ou em duas semanas consecutivas. Atenção: semana sem atividade, índice abaixo de 40 ou queda em relação à anterior. Índice operacional: ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10. Mede atividade na jornada.</Text>
         <Text style={{ ...s.text, marginTop: 7 }}>A leitura de RH reúne prioridades por área e cargo; a do gestor permite acompanhamento nominal. O plano, os responsáveis e os prazos são sugestões para a equipe, sem atribuições ou envios automáticos.</Text>
         <Link src={detailUrl} style={{ fontSize: 9, color: colors.linkBlue, marginTop: 12 }}>Ver dados detalhados na plataforma</Link>
       </View>

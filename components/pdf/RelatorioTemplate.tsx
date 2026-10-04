@@ -32,7 +32,7 @@ export default function RelatorioTemplate({ title, children, locale = 'pt-BR' }:
         {/* Footer */}
         <View style={pageStyles.footer} fixed>
           <Text style={pageStyles.footerText}>
-            Vertho Mentor IA — Confidencial
+            Vertho Mentor IA · Confidencial
           </Text>
           <Text
             style={pageStyles.footerText}

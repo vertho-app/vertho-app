@@ -180,7 +180,8 @@ export default function DashboardHomePage() {
   }
 
   const faseNum: number = kpis?.fase?.numero || 1;
-  const faseTitulo = kpis?.fase?.titulo || t('fallbackPhaseTitle');
+  // O título vem do i18n pelo número da fase (o servidor manda número e estado).
+  const faseTitulo = faseNum >= 1 && faseNum <= 5 ? t(`phaseTitles.${faseNum}`) : t('fallbackPhaseTitle');
   // D1: o avanço DENTRO da fase 4 é sobre o total do programa da pessoa, não
   // sobre 14 fixo: numa jornada de 7 semanas a barra travava na metade. O total
   // vem do servidor (`duracaoDaTrilha`) junto da semana; sem ele não há avanço
@@ -219,7 +220,7 @@ export default function DashboardHomePage() {
     || mapeamentoCenariosBloqueado || avaliacaoSemCargoConfigurado;
   const ctaApagado = perfilComportamentalBloqueado || mapeamentoCenariosBloqueado || avaliacaoSemCargoConfigurado;
   // A descrição acompanha a fase que o botão principal conduz. As cinco são
-  // Perfil, Avaliação, PDI, Temporada e Reavaliação (as mesmas de `phaseLabels`);
+  // Perfil, Mapeamento, PDI, Desenvolvimento e Evolução (as mesmas de `phaseLabels`);
   // os textos estavam deslocados uma posição desde que o Perfil entrou como fase
   // 1, e a do PDI dizia "Siga sua temporada de 14 semanas" (R-27). A Temporada diz
   // o total DESTA pessoa; antes de a trilha existir não há total a dizer.
@@ -232,7 +233,7 @@ export default function DashboardHomePage() {
     ? t(`phaseDescriptions.${descricaoFase.chave}`, { weeks: descricaoFase.weeks })
     : t(`phaseDescriptions.${descricaoFase.chave}`);
   const phaseLabels = [
-    data?.empresaPerfilExternoFonte === 'opq32' ? 'OPQ' : usaFonteExterna ? t('phaseLabels.externalProfile') : t('phaseLabels.disc'),
+    usaFonteExterna ? t('phaseLabels.externalProfile') : t('phaseLabels.disc'),
     t('phaseLabels.assessment'),
     t('phaseLabels.pdi'),
     t('phaseLabels.season'),

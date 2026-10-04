@@ -536,7 +536,7 @@ function AssessmentInner() {
                       <div className="flex shrink-0 items-center gap-1.5">
                         {resultado.nivel != null && (
                           <span className="rounded-full bg-brand-400/15 px-2 py-1 text-[10px] font-extrabold text-brand-300">
-                            {t('done.level')} N{Math.round(resultado.nivel)}
+                            {t('done.level')} {Math.round(resultado.nivel)}
                           </span>
                         )}
                       </div>

@@ -366,14 +366,14 @@ export function escopoPropostaDoCenario(
   // (é o mesmo número dito duas vezes: uma matriz por cargo).
   const matrizes = p(r.cargos, 'matriz de competência', 'matrizes de competência');
   const linhas = [
-    `Programa ${jornada.rotulo} de ${p(jornada.semanas, 'semana', 'semanas')} · ${p(r.ciclos, 'ciclo', 'ciclos')}`,
+    `Programa ${jornada.rotulo} de ${p(jornada.semanas, 'semana', 'semanas')} · ${p(r.ciclos, 'jornada', 'jornadas')}`,
     `${p(r.pessoas, 'pessoa', 'pessoas')} · ${p(r.unidades, 'unidade', 'unidades')}`,
     workshop
       ? matrizes
       : `${matrizes}, ${r.cargos === 1 ? 'definida' : 'definidas'} por votação dos colaboradores`,
     'Vídeos, podcasts, textos e casos personalizados para cada pessoa',
-    'Mentor IA e trilhas personalizadas por cargo e perfil comportamental',
-    'Relatório de evolução por competência ao fim de cada ciclo',
+    'Mentor IA e jornadas personalizadas por cargo e perfil comportamental',
+    'Relatório de evolução por competência ao fim de cada jornada',
   ];
   const nWorkshops = e.nWorkshops ?? r.unidades;
   if (workshop && nWorkshops > 0) {

@@ -14,6 +14,7 @@ import type { RhReportDocument, RhReportKind, RhReportsCenter, RhReportsScope } 
 import type { EvolucaoAgregadoTela } from '@/lib/relatorios/evolucao-center';
 import { formatarValorAvanco } from '@/lib/season-engine/convergencia';
 import { nivelMaisFrequente } from '@/lib/nivel-frequente';
+import { rotuloNivel } from '@/lib/nivel-regua';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
 import { baixarPdf } from '@/lib/relatorios/baixar-pdf';
@@ -56,7 +57,7 @@ const LEVEL_COLORS = ['#FB7185', '#FBBF24', '#22D3EE', '#34D399'];
 
 /** "N2", ou o travessão quando não há nível a mostrar (ausência não é N1). */
 function nivelDe(nivel: number | null): string {
-  return nivel != null ? `N${nivel}` : '\u2014';
+  return nivel != null ? rotuloNivel(nivel, { forma: 'curto' }) : '\u2014';
 }
 
 function normalize(value: unknown): string {
@@ -353,7 +354,7 @@ function NiveisBar({ pre, pos }: { pre: number; pos: number }) {
         })}
       </div>
       <div className="mt-1 grid grid-cols-4 gap-1 text-center font-mono text-[9px] text-white/30" aria-hidden="true">
-        {[1, 2, 3, 4].map((nivel) => <span key={nivel}>N{nivel}</span>)}
+        {[1, 2, 3, 4].map((nivel) => <span key={nivel}>{rotuloNivel(nivel, { forma: 'curto' })}</span>)}
       </div>
     </div>
   );
@@ -730,11 +731,11 @@ function ExecutiveReading({ reports, t }: { reports: RhReportsCenter; t: any }) 
           <span className="text-xs text-white/35">{t('dashboard.levels.mostFrequent')}</span>
         </div>
         <div className="mt-5 flex h-3 overflow-hidden rounded-full bg-white/[0.05]">
-          {insight.indicators.levels.map(({ level, percentage }, index) => <div key={level} title={`N${level}: ${percentage}%`} style={{ width: `${percentage}%`, background: LEVEL_COLORS[index] }} />)}
+          {insight.indicators.levels.map(({ level, percentage }, index) => <div key={level} title={`${rotuloNivel(level, { forma: 'curto' })}: ${percentage}%`} style={{ width: `${percentage}%`, background: LEVEL_COLORS[index] }} />)}
         </div>
         <div className="mt-3 grid grid-cols-4 gap-1">
           {insight.indicators.levels.map(({ level, percentage }, index) => (
-            <div key={level}><p className="font-mono text-[9px]" style={{ color: LEVEL_COLORS[index] }}>N{level}</p><p className="mt-0.5 text-sm font-bold text-white tabular-nums">{percentage}%</p></div>
+            <div key={level}><p className="font-mono text-[9px]" style={{ color: LEVEL_COLORS[index] }}>{rotuloNivel(level, { forma: 'curto' })}</p><p className="mt-0.5 text-sm font-bold text-white tabular-nums">{percentage}%</p></div>
           ))}
         </div>
         <div className="mt-5 grid grid-cols-2 gap-2 border-t border-white/[0.07] pt-4">
@@ -879,12 +880,12 @@ function DescriptorAnalysis({
           </div>
           <div className="relative mt-4 flex h-2 overflow-hidden rounded-full bg-white/[0.05]">
             {competency.levels.map(({ level, percentage }, index) => (
-              <div key={level} title={`N${level}: ${percentage}%`} style={{ width: `${percentage}%`, background: LEVEL_COLORS[index] }} />
+              <div key={level} title={`${rotuloNivel(level, { forma: 'curto' })}: ${percentage}%`} style={{ width: `${percentage}%`, background: LEVEL_COLORS[index] }} />
             ))}
           </div>
           <div className="relative mt-2 grid grid-cols-4 gap-2">
             {competency.levels.map(({ level, percentage }, index) => (
-              <p key={level} className="font-mono text-[9px]" style={{ color: LEVEL_COLORS[index] }}>N{level} <strong>{percentage}%</strong></p>
+              <p key={level} className="font-mono text-[9px]" style={{ color: LEVEL_COLORS[index] }}>{rotuloNivel(level, { forma: 'curto' })} <strong>{percentage}%</strong></p>
             ))}
           </div>
         </header>
@@ -903,7 +904,7 @@ function DescriptorAnalysis({
               </div>
               <div className="mt-2 grid grid-cols-4 gap-1">
                 {descriptor.levels.map(({ level, percentage }, index) => (
-                  <p key={level} className="font-mono text-[9px]" style={{ color: LEVEL_COLORS[index] }}>N{level} {percentage}%</p>
+                  <p key={level} className="font-mono text-[9px]" style={{ color: LEVEL_COLORS[index] }}>{rotuloNivel(level, { forma: 'curto' })} {percentage}%</p>
                 ))}
               </div>
             </div>

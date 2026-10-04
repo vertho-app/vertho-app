@@ -257,8 +257,8 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
     .select('id, empresa_id, colaborador_id, programa_modo, programa_config').eq('id', trilhaId).maybeSingle();
   // "Nao encontrada" e "a consulta falhou" levam a mensagens diferentes: sem
   // isto, um erro de banco viraria "Trilha nao encontrada" para o gestor.
-  if (errTrilha) return { error: `Falha ao carregar a trilha: ${errTrilha.message}` };
-  if (!trilha) return { error: 'Trilha não encontrada' };
+  if (errTrilha) return { error: `Falha ao carregar a jornada: ${errTrilha.message}` };
+  if (!trilha) return { error: 'Jornada não encontrada' };
   // A validacao da semana vem do PROGRAMA DESTA trilha, e nao de `[5, 10]`:
   // com o literal, um checkpoint legitimo de jornada (semanas 3 e 5) seria
   // recusado como "semana invalida".
@@ -281,7 +281,7 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
   // outro tenant: distinguir as duas transforma o endpoint num verificador de
   // existência de uuid alheio.
   if (!ctx.isPlatformAdmin && trilha.empresa_id !== ctx.colaborador.empresa_id) {
-    return { error: 'Trilha não encontrada' };
+    return { error: 'Jornada não encontrada' };
   }
 
   // Escopo DENTRO do tenant: a MESMA régua da listagem que leva até aqui e de

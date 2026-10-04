@@ -91,7 +91,7 @@ export async function generateMetadata(
   const { token } = await params;
   const doc = await getPropostaPublica(token).catch(() => null);
   return {
-    title: doc ? `Proposta Vertho — ${doc.numero}` : 'Proposta Vertho',
+    title: doc ? `Proposta Vertho: ${doc.numero}` : 'Proposta Vertho',
     robots: { index: false, follow: false },
   };
 }
@@ -225,7 +225,7 @@ export default async function PropostaPublicaPage(
   const aceita = doc.status === 'accepted' || doc.aceite != null;
   const mostrarAceite = doc.podeAceitar && !aceita;
 
-  const assunto = `Proposta ${doc.numero} — Vertho`;
+  const assunto = `Proposta ${doc.numero} da Vertho`;
   const waContato = linkWhatsApp(contato.whatsapp, `Olá! Estou vendo a proposta ${doc.numero} da Vertho e gostaria de conversar.`);
   const mailContato = contato.email
     ? `mailto:${contato.email}?subject=${encodeURIComponent(assunto)}`
@@ -237,7 +237,7 @@ export default async function PropostaPublicaPage(
   const pessoas = pg?.pessoas ?? null;
   if (pessoas) metricas.push({ valor: fmtNum(pessoas), label: pessoas === 1 ? 'participante' : 'participantes' });
   if (pg?.cargos) metricas.push({ valor: fmtNum(pg.cargos), label: pg.cargos === 1 ? 'cargo mapeado' : 'cargos mapeados' });
-  if (pg?.ciclos) metricas.push({ valor: fmtNum(pg.ciclos), label: pg.ciclos === 1 ? 'ciclo' : 'ciclos de desenvolvimento' });
+  if (pg?.ciclos) metricas.push({ valor: fmtNum(pg.ciclos), label: pg.ciclos === 1 ? 'jornada' : 'jornadas de desenvolvimento' });
   if (pg?.mesesPrograma) metricas.push({ valor: fmtNum(pg.mesesPrograma), label: pg.mesesPrograma === 1 ? 'mês de programa' : 'meses de programa' });
   else if (!inv.vendidoPorProjeto && inv.meses) metricas.push({ valor: fmtNum(inv.meses), label: 'meses de contrato' });
 
@@ -459,7 +459,7 @@ export default async function PropostaPublicaPage(
                     borderRadius: 999,
                   }}
                 >
-                  Validade expirada — peça uma revisão
+                  Validade expirada: peça uma revisão
                 </span>
               )}
             </div>
@@ -512,7 +512,7 @@ export default async function PropostaPublicaPage(
               </p>
             )}
             <p style={{ fontSize: 16, lineHeight: 1.7, margin: 0, color: C.ink2, maxWidth: '64ch' }}>
-              Formação genérica trata pessoas diferentes como se fossem a mesma pessoa — e termina
+              Formação genérica trata pessoas diferentes como se fossem a mesma pessoa, e termina
               sem deixar rastro do que mudou. A Vertho faz o contrário: entende o perfil e o nível de
               cada participante, entrega o desenvolvimento no formato em que ela aprende e{' '}
               <strong
@@ -524,12 +524,12 @@ export default async function PropostaPublicaPage(
               >
                 mede a evolução
               </strong>{' '}com
-              evidência ao fim de cada ciclo.
+              evidência ao fim de cada jornada.
             </p>
           </Secao>
 
           {/* Pilares */}
-          <Secao eyebrow="// Como a Vertho trabalha" titulo="Diagnóstico, trilha e evidência — no mesmo fluxo">
+          <Secao eyebrow="// Como a Vertho trabalha" titulo="Diagnóstico, jornada e evidência no mesmo fluxo">
             <div className="prop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
               {doc.pilares.map((p, i) => (
                 <div

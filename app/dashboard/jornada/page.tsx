@@ -78,10 +78,16 @@ export default function JornadaPage() {
   const usaPerfilExterno = !!data.empresaPerfilExternoFonte;
   const perfilComportamentalLiberado = data.perfilComportamentalLiberado !== false;
 
-  // Ordem da jornada: o Diagnóstico por cenários vem depois do Perfil DESTA pessoa.
+  // Ordem da jornada: o Mapeamento por cenários vem depois do Perfil DESTA pessoa.
   // Quem já respondeu algum cenário não é trancado (fase 2 deixa de ser 'pending').
   const perfilAntes = (fase: any) =>
     fase?.fase === 2 && !usaPerfilExterno && !colaborador.perfil_dominante && fase.status === 'pending';
+
+  // O título de cada fase vem do i18n pelo NÚMERO da fase (o servidor só manda o
+  // número e o estado): antes o título saía em português fixo, em qualquer idioma
+  // (R-51). Na frase ("Concluir o perfil") vai em minúscula, menos a sigla PDI.
+  const tituloDaFase = (n: number) => (n >= 1 && n <= 5 ? t(`phaseTitles.${n}`) : '');
+  const tituloNaFrase = (n: number) => (n === 3 ? tituloDaFase(n) : tituloDaFase(n).toLowerCase());
 
   function faseHref(fase: any) {
     if (foraDaDegustacao(fase)) return null;
@@ -100,7 +106,7 @@ export default function JornadaPage() {
     if (fase?.fase === 1 && !perfilComportamentalLiberado && !colaborador.perfil_dominante) {
       return t('phaseDescriptions.waitingProfile');
     }
-    // A fase 4 (Temporada) diz quantas semanas o programa tem. Sem o total,
+    // A fase 4 (Desenvolvimento) diz quantas semanas o programa tem. Sem o total,
     // o texto trazia "14 semanas" fixo e contradizia a jornada de 7 na linha
     // logo acima.
     if (fase?.fase === 4 && fase?.totalSemanas) {
@@ -158,7 +164,7 @@ export default function JornadaPage() {
           {faseAtual ? (
             <>{t('header.current')}{' '}
               <em style={{ color: 'var(--phase-accent)' }}>
-                {t('header.phaseTitle', { phase: faseNum, title: faseAtual.titulo })}
+                {t('header.phaseTitle', { phase: faseNum, title: tituloDaFase(faseAtual.fase) })}
               </em>
             </>
           ) : (
@@ -200,7 +206,7 @@ export default function JornadaPage() {
                 lineHeight: 1.05,
                 letterSpacing: '-0.02em',
               }}>
-                {faseAtual?.titulo || <em style={{ color: 'var(--phase-accent)' }}>{degustacaoConcluida ? t('degustacao.heroTitle') : t('hero.allDone')}</em>}
+                {faseAtual ? tituloDaFase(faseAtual.fase) : <em style={{ color: 'var(--phase-accent)' }}>{degustacaoConcluida ? t('degustacao.heroTitle') : t('hero.allDone')}</em>}
               </h2>
             </div>
             <span
@@ -318,7 +324,7 @@ export default function JornadaPage() {
                         color: isCurrent ? '#fff' : 'rgba(255,255,255,0.75)',
                         marginBottom: 2,
                       }}>
-                        {t('timeline.phase', { phase: f.fase, title: f.titulo })}
+                        {t('timeline.phase', { phase: f.fase, title: tituloDaFase(f.fase) })}
                       </h4>
                       {/* status em serif itálico pequeno */}
                       <p style={{
@@ -375,7 +381,7 @@ export default function JornadaPage() {
             </p>
             <h4 style={{ ...serifStyle, fontSize: 17, color: '#fff', marginBottom: 4 }}>
               {faseAtual
-                ? t('next.finish', { title: faseAtual.titulo.toLowerCase() })
+                ? t('next.finish', { title: tituloNaFrase(faseAtual.fase) })
                 : degustacao ? t('degustacao.nextTitle') : t('next.followEvolution')}
             </h4>
             <p className="text-sm text-white/55 leading-relaxed">

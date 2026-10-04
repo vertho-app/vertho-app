@@ -503,7 +503,7 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
   it('uma linha por item (buildProposalDocument quebra por \\n)', () => {
     const linhas = escopoPropostaDoCenario(entradas, resumo, jornada).split('\n');
     expect(linhas.length).toBe(6);
-    expect(linhas[0]).toMatch(/Jornada de 7 semanas · 1 ciclo/);
+    expect(linhas[0]).toMatch(/Jornada de 7 semanas · 1 jornada/);
     expect(linhas[1]).toBe('100 pessoas · 1 unidade');
     expect(linhas[3]).toBe('Vídeos, podcasts, textos e casos personalizados para cada pessoa');
   });
@@ -540,7 +540,7 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
       { ...resumo, cargos: 1, unidades: 4, ciclos: 3 },
       { rotulo: 'Regular DUO', semanas: 14 },
     ).split('\n');
-    expect(linhas[0]).toMatch(/Regular DUO de 14 semanas · 3 ciclos/);
+    expect(linhas[0]).toMatch(/Regular DUO de 14 semanas · 3 jornadas/);
     expect(linhas[1]).toBe('100 pessoas · 4 unidades');
     expect(linhas[2]).toBe('2 workshops presenciais para definir com a equipe as competências de cada cargo');
     expect(linhas[3]).toBe('1 matriz de competência');
@@ -571,7 +571,7 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
       { ...resumo, pessoas: 1, unidades: 1, cargos: 1, ciclos: 1 },
       { rotulo: 'Piloto', semanas: 1 },
     );
-    expect(singular).toMatch(/1 semana · 1 ciclo/);
+    expect(singular).toMatch(/1 semana · 1 jornada/);
     expect(singular).toMatch(/^1 pessoa · 1 unidade$/m);
     expect(singular).toMatch(/^1 matriz de competência, definida por votação dos colaboradores$/m);
     expect(singular).toMatch(/Extração de 1 vídeo institucional/);

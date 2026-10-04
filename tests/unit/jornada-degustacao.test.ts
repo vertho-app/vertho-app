@@ -64,7 +64,7 @@ describe('jornada do convidado da degustação', () => {
       '1:completed', '2:completed',
       `3:${FASE_FORA_DA_DEGUSTACAO}`, `4:${FASE_FORA_DA_DEGUSTACAO}`, `5:${FASE_FORA_DA_DEGUSTACAO}`,
     ]);
-    expect(jornada.fases[1].descricao).toBe('Competências avaliadas: 1/1');
+    expect(jornada.fases[1].descricao).toBe('Competências mapeadas: 1/1');
     // As fases que não existem para ele não custam consulta.
     expect(sb.usou('relatorios', 'select')).toBe(false);
     expect(sb.usou('trilhas', 'select')).toBe(false);
@@ -85,7 +85,7 @@ describe('jornada do convidado da degustação', () => {
     // para toda consulta em `respostas`: fica fora da asserção)
     expect(status(jornada).slice(0, 4)).toEqual(['1:completed', '2:current', '3:pending', '4:pending']);
     expect(jornada.fases.some((f: any) => f.status === FASE_FORA_DA_DEGUSTACAO)).toBe(false);
-    expect(jornada.fases[1].descricao).toBe('Competências avaliadas: 1/5');
+    expect(jornada.fases[1].descricao).toBe('Competências mapeadas: 1/5');
   });
 
   it('persona do elenco no tenant de demo não é convidada: faz as cinco', async () => {

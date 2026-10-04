@@ -8,6 +8,7 @@ import { FILTROS_STATUS, FILTROS_ACAO, aplicarFiltro, type FiltroEquipe } from '
 import { textoDosNiveis } from '@/lib/gestor/niveis-da-equipe';
 import { formatarValorAvanco } from '@/lib/season-engine/convergencia';
 import { nivelMaisFrequente } from '@/lib/nivel-frequente';
+import { rotuloNivel } from '@/lib/nivel-regua';
 import {
   Users, AlertTriangle, ChevronRight, Loader2, ArrowRight,
   Calendar, TrendingUp, Activity, ClipboardCheck, FileText,
@@ -398,11 +399,11 @@ function ManagerReportDashboard({
                   <div key={competency.competency} className="rounded-[18px] border border-white/[0.07] bg-black/10 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-[12px] font-bold leading-snug text-white/80">{competency.competency}</p>
-                      <span className="shrink-0 font-mono text-[10px] text-brand-300">{nivelFrequente != null ? t('reportDashboard.mostFrequentLevel', { level: `N${nivelFrequente}` }) : '\u2014'}</span>
+                      <span className="shrink-0 font-mono text-[10px] text-brand-300">{nivelFrequente != null ? t('reportDashboard.mostFrequentLevel', { level: rotuloNivel(nivelFrequente, { forma: 'curto' }) }) : '\u2014'}</span>
                     </div>
                     <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-white/[0.05]">
                       {competency.distribution.map((item, index) => (
-                        <div key={item.level} title={`N${item.level}: ${item.people}`} style={{ width: `${total > 0 ? (item.people / total) * 100 : 0}%`, background: ['#FB7185', '#FBBF24', '#22D3EE', '#34D399'][index] }} />
+                        <div key={item.level} title={`${rotuloNivel(item.level, { forma: 'curto' })}: ${item.people}`} style={{ width: `${total > 0 ? (item.people / total) * 100 : 0}%`, background: ['#FB7185', '#FBBF24', '#22D3EE', '#34D399'][index] }} />
                       ))}
                     </div>
                     {competency.pattern && <p className="mt-3 text-[11px] leading-relaxed text-white/45">{competency.pattern}</p>}

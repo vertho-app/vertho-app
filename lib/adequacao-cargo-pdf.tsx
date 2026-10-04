@@ -210,7 +210,7 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
           {p.knockoutEvidencias.map((ev, i) => (
             <Text key={i} style={s.knockTx}>Bloqueio: {formatLinhaBloqueio(ev)}</Text>
           ))}
-          <Text style={s.carimboTx}>Apoio à decisão — validação humana requerida.</Text>
+          <Text style={s.carimboTx}>Apoio à decisão: validação humana requerida.</Text>
         </View>
       )}
     </View>
@@ -307,11 +307,11 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas, most
               {/* DETECÇÃO, não prescrição. O painel não conhece ρ nem o constructo, então
                   NÃO sugere remédio (piso/faixa-alvo podem estar errados: faixa-alvo capa o
                   lado bom de um traço monotônico; subir piso é frágil). Só sinaliza p/ a mesa. */}
-              <Text style={s.calibTitle}>Saturação detectada — investigar antes de mudar a régua</Text>
+              <Text style={s.calibTitle}>Saturação detectada: investigar antes de mudar a régua</Text>
               {data.avisosCalibracao.map((a, i) => (
                 a.tipo === 'teto'
-                  ? <Text key={i} style={s.calibTx}>• {a.traco} satura (aderência ~100%) em {a.pct}% — a faixa não discrimina. ANTES de mudar a forma, rodar ρ(traço, veredito): se a dispersão concorda com o veredito há sinal real (avaliar recuperar); se é ortogonal, é design-by-choice (não tocar). NÃO assumir "subir piso" nem "faixa-alvo".</Text>
-                  : <Text key={i} style={s.calibTx}>• {a.traco} zera (aderência ~0%) em {a.pct}% — pode ser alvo mal posto OU déficit real do grupo. Inspecionar os brutos / rodar ρ antes de revisar o alvo.</Text>
+                  ? <Text key={i} style={s.calibTx}>• {a.traco} satura (aderência ~100%) em {a.pct}%: a faixa não discrimina. ANTES de mudar a forma, rodar ρ(traço, veredito): se a dispersão concorda com o veredito há sinal real (avaliar recuperar); se é ortogonal, é design-by-choice (não tocar). NÃO assumir "subir piso" nem "faixa-alvo".</Text>
+                  : <Text key={i} style={s.calibTx}>• {a.traco} zera (aderência ~0%) em {a.pct}%: pode ser alvo mal posto OU déficit real do grupo. Inspecionar os brutos / rodar ρ antes de revisar o alvo.</Text>
               ))}
             </View>
           )}
@@ -329,7 +329,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas, most
               ))}
             </View>
             <View style={s.col}>
-              <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Mapeamento Comportamental (mín. – máx.)</Text></View>
+              <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Mapeamento Comportamental (mínimo a máximo)</Text></View>
               {pi.disc.map((d) => (
                 <View key={d.fator} style={s.rangeRow}>
                   <View style={{ flex: 1 }}>
@@ -411,7 +411,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas, most
         <Page key={`dev${gi}`} size="A4" style={s.page}>
           <PageHeader title="Plano de Desenvolvimento" />
           <View style={s.body}>
-            {gi === 0 && <Text style={s.carimboBar}>Apoio ao desenvolvimento — gaps desenvolvíveis com janela de reavaliação. Não garante resultado automático.</Text>}
+            {gi === 0 && <Text style={s.carimboBar}>Apoio ao desenvolvimento: distâncias até a meta que dá para desenvolver, com janela de reavaliação. Não garante resultado automático.</Text>}
             {grupo.map((p, i) => (
               <View key={i} style={s.anItem} wrap={false}>
                 <View style={s.anHead}>
@@ -419,10 +419,10 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas, most
                   <Text style={[s.anBeta, { color: STATUS_COLOR[p.status] || CLASSE_COLOR[p.beta.classe] }]}>{p.statusLabel} · Aderência {p.beta.pct}%</Text>
                 </View>
                 {p.gaps.length === 0 ? (
-                  <Text style={s.anTxt}>Sem traços abaixo do alvo destacados — manter consistência.</Text>
+                  <Text style={s.anTxt}>Sem traços abaixo do alvo destacados: manter consistência.</Text>
                 ) : p.gaps.map((g, j) => {
                   const tr = trilhaParaTraco(g.traco);
-                  return <Text key={j} style={s.devGap}>• {g.traco} ({g.bloco}) — aderência {g.fitPct}% · {tr ? tr.titulo : 'trilha de Mentor IA a definir'}</Text>;
+                  return <Text key={j} style={s.devGap}>• {g.traco} ({g.bloco}) · aderência {g.fitPct}% · {tr ? tr.titulo : 'jornada no Mentor IA a definir'}</Text>;
                 })}
                 <Text style={s.devNote}>Reavaliar em 90 dias.</Text>
               </View>

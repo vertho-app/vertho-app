@@ -459,7 +459,7 @@ describe('blocos vindos dos decks de venda (17/09/2026)', () => {
 
   it('o PDI aparece nas entregas e no que cada participante recebe', () => {
     const doc = buildProposalDocument(propostaBase(), null, null, {});
-    expect(doc.entregas.map((e) => e.titulo)).toContain('Plano de Desenvolvimento Individualizado (PDI)');
+    expect(doc.entregas.map((e) => e.titulo)).toContain('Plano de Desenvolvimento Individual (PDI)');
     expect(doc.paraPessoa.some((i) => /\bPDI\b/.test(i))).toBe(true);
   });
 

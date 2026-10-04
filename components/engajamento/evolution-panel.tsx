@@ -307,7 +307,7 @@ export default function EngagementEvolutionPanel({
       <div className="flex flex-col gap-3 rounded-[16px] border border-white/[0.07] bg-black/10 p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[10px] font-semibold text-white/55">Compare o ritmo ao longo das semanas</p>
-          <p className="mt-0.5 text-[9px] text-white/28">O índice combina ativação, consumo, evidência e uso do tutor.</p>
+          <p className="mt-0.5 text-[9px] text-white/28">O índice combina ativação, consumo, evidência e uso do Tira-Dúvidas.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select

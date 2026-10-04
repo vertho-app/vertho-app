@@ -107,7 +107,7 @@ export default function PdfReportCover({
         <View style={s.spacer} />
 
         {tagline && mostrarVertho ? <Text style={s.tagline}>{tagline}</Text> : null}
-        <Text style={s.confid}>{mostrarVertho ? 'Confidencial — uso restrito · vertho.ai' : 'Confidencial — uso restrito'}</Text>
+        <Text style={s.confid}>{mostrarVertho ? 'Confidencial · uso restrito · vertho.ai' : 'Confidencial · uso restrito'}</Text>
       </View>
     </Page>
   );

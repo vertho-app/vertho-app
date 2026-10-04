@@ -58,7 +58,44 @@ export function nivelDaNota(nota: number | null | undefined): Nivel {
   return Math.floor(clamped) as Nivel;
 }
 
-/** Rótulo curto ("N2") — para não formatar à mão em cada tela. */
-export function rotuloNivel(nota: number | null | undefined): string {
-  return `N${nivelDaNota(nota)}`;
+/** Como o produto escreve o nível: por extenso ("Nível 2") ou na forma curta ("N2"). */
+export type FormaDoRotulo = 'longo' | 'curto';
+
+/** A palavra "nível" em cada idioma do produto (a forma curta "N2" é a notação da régua N1 a N4, igual em todos). */
+const PALAVRA_NIVEL: Record<string, string> = {
+  'pt-BR': 'Nível',
+  'pt-PT': 'Nível',
+  'es-ES': 'Nivel',
+  'en-US': 'Level',
+};
+
+/**
+ * O ÚNICO jeito de escrever um nível para quem lê (R-53, 04/10/2026).
+ *
+ * Até aqui o nível saía de três jeitos: "Nível 2" (simuladores, relatório), "N2"
+ * (PDI, mapeamento, PDFs do RH e do gestor, DNA) e rótulos que mudavam por público
+ * ("Bom" e "Atenção" no PDI, "Gap" e "Meta" no RH). O nível é o ponto de partida da
+ * pessoa, não um veredito: o rótulo é só o número.
+ *
+ * Regra de uso:
+ * - `'longo'` ("Nível 2"): texto corrido, cartão, título, legenda, linha de PDF.
+ * - `'curto'` ("N2"): só célula de tabela e eixo de gráfico, onde a coluna ou o eixo
+ *   já diz "Nível".
+ * - Em componente com next-intl, a frase longa vem do catálogo (`levelValue`, "Nível
+ *   {n}"); este helper é para o que não tem catálogo (PDF, lib, e-mail). Um teste
+ *   confere que os dois escrevem igual nos quatro idiomas.
+ *
+ * Recebe o NÍVEL (inteiro de 1 a 4), nunca a nota: nota decimal não vira rótulo, e
+ * nível ausente ou inválido vira texto vazio (ausência não é N1; quem chama escolhe
+ * o que mostrar no lugar).
+ */
+export function rotuloNivel(
+  nivel: unknown,
+  opcoes: { forma?: FormaDoRotulo; idioma?: string } = {},
+): string {
+  const n = nivelOuNull(nivel);
+  if (n === null) return '';
+  if (opcoes.forma === 'curto') return `N${n}`;
+  const palavra = PALAVRA_NIVEL[opcoes.idioma ?? 'pt-BR'] ?? PALAVRA_NIVEL['pt-BR'];
+  return `${palavra} ${n}`;
 }

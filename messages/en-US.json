@@ -519,10 +519,10 @@
     "howItWorksReport": "Feedback by competency, with the priority for your next session."
   },
   "Beto": {
-    "greeting": "Hi! I'm Beto, your development mentor. How can I help?",
+    "greeting": "Hi! I'm Beto, your assistant in Mentor IA. How can I help?",
     "placeholder": "Ask Beto...",
     "fabTitle": "Talk to Beto",
-    "subtitle": "AI Mentor",
+    "subtitle": "Mentor IA assistant",
     "error": "Sorry, I ran into a problem. Please try again."
   },
   "Metadata": {
@@ -537,10 +537,10 @@
   },
   "Common": {
     "locales": {
-      "pt-BR": "Portuguese (Brazil)",
-      "pt-PT": "Portuguese (Portugal)",
-      "es-ES": "Spanish (Spain)",
-      "en-US": "English (US)"
+      "pt-BR": "Português (Brasil)",
+      "pt-PT": "Português (Portugal)",
+      "es-ES": "Español",
+      "en-US": "English"
     },
     "actions": {
       "backToHome": "Back to home",
@@ -574,7 +574,7 @@
     "checking": "Checking...",
     "enterWithEmail": "Sign in with email",
     "enterWithPassword": "Sign in with password",
-    "enterWithMagicLink": "Sign in with Magic Link",
+    "enterWithMagicLink": "Sign in with an access link",
     "enterWithWhatsapp": "No email? Sign in with WhatsApp",
     "resendOrChangePhone": "Resend / change number",
     "linkSentTitle": "Link sent!",
@@ -585,9 +585,9 @@
     "linkRequestedWhatsapp": "If this number is registered to sign in through WhatsApp, the access link will arrive shortly.",
     "linkRequestedHint": "Nothing after a few minutes? Check what you typed or talk to HR at your organization.",
     "linkErrors": {
-      "expired": "Your access link expired or has already been used — each link works only once. Request a new one below: it arrives on your WhatsApp or email.",
+      "expired": "Your access link expired or has already been used, and each link works only once. Request a new one below: it arrives on your WhatsApp or email.",
       "unavailable": "We couldn't validate your link right now. Try again in a moment or request a new one below.",
-      "guestExpired": "This demo access is no longer available. Contact whoever sent you the invitation to get a new one."
+      "guestExpired": "This trial access is no longer available. Contact whoever sent you the invitation to get a new one."
     },
     "errors": {
       "invalidEmail": "Enter a valid email address.",
@@ -627,7 +627,7 @@
       "loading": "Loading...",
       "optional": "Optional",
       "select": "Select",
-      "selectPlaceholder": "- select -",
+      "selectPlaceholder": "Select",
       "rolePlaceholder": "Ex: Academic director",
       "creating": "Creating access...",
       "submit": "Create access and send link",
@@ -654,7 +654,7 @@
       "team": "Team",
       "selection": "Selection",
       "journey": "Journey",
-      "season": "Season",
+      "season": "Weeks",
       "evolution": "Evolution",
       "profile": "Profile",
       "teamEngagement": "Engagement",
@@ -673,7 +673,7 @@
     "title": "Page not found",
     "description": "The page you are looking for does not exist, was moved, or you may not have permission to access it.",
     "back": "Back",
-    "goDashboard": "Go to dashboard"
+    "goDashboard": "Go to home"
   },
   "AccessLinkConfirm": {
     "invalidTitle": "Invalid or expired link",
@@ -711,33 +711,40 @@
     "missingCollaboratorBody": "You are signed in, but your account is not linked to a person here. If you take part through more than one organization, sign out and sign in again with the access link, choosing the organization. If this persists, talk to HR.",
     "missingCollaboratorAction": "Sign out and sign in again",
     "fallbackFirstName": "you",
-    "fallbackPhaseTitle": "Diagnosis",
+    "fallbackPhaseTitle": "Profile",
     "phaseDescriptions": {
-      "1": "Complete the mapping to learn your behavioral profile.",
+      "1": "Complete the Behavioral Mapping to learn your profile.",
       "2": "Answer the scenarios to map your current level.",
       "3": "Your individual development plan is built from your results.",
-      "4": "Follow your {weeks}-week season and evolve.",
-      "5": "Final stage of reevaluation and consolidation.",
-      "profileWaiting": "The behavioral profile will be released by HR after the skills vote is completed.",
-      "trailBuilding": "Your development path is being set up.",
+      "4": "Follow your {weeks} weeks and evolve.",
+      "5": "Final stage: the final assessment shows how far you have come.",
+      "profileWaiting": "Vertho releases the behavioral profile after the skills vote is completed.",
+      "trailBuilding": "Your journey is being set up.",
       "fallback": "Continue your development journey."
     },
     "phaseLabels": {
       "externalProfile": "Profile",
-      "disc": "Behavioral Mapping",
-      "assessment": "Assess",
+      "disc": "Profile",
+      "assessment": "Mapping",
       "pdi": "PDI",
-      "season": "Season",
-      "evolution": "Evol"
+      "season": "Dev.",
+      "evolution": "Evolution"
+    },
+    "phaseTitles": {
+      "1": "Profile",
+      "2": "Mapping",
+      "3": "PDI",
+      "4": "Development",
+      "5": "Evolution"
     },
     "mainCta": {
       "today": "Start today's activity",
       "startsOn": "Your journey starts on {date}",
       "vote": "Vote before the behavioral profile",
       "waitingProfile": "Awaiting release of behavioral profile",
-      "waitingScenarios": "Waiting for scenario mapping release",
+      "waitingScenarios": "Waiting for competency mapping release",
       "waitingRoleSetup": "Waiting for your role's competencies",
-      "behavioral": "Start behavioral assessment",
+      "behavioral": "Start behavioral profile",
       "continueAssessment": "Continue mapping",
       "startAssessment": "Start competency mapping",
       "viewResult": "View my result"
@@ -753,7 +760,7 @@
       "phaseOf": "PHASE {phase}\\nOF 05",
       "currentPhase": "Current phase · {title}",
       "nextCompetency": "Advance in {competency}",
-      "completeDiagnosis": "Complete diagnosis",
+      "completeDiagnosis": "Complete mapping",
       "deadline": "DEADLINE",
       "days": "{days} DAYS",
       "today": "TODAY"
@@ -776,12 +783,12 @@
     "weeklyFocus": "Focus of the week",
     "preparation": "Preparation",
     "cards": {
-      "pill": "Learning pill · Week {week}",
-      "pillDone": "Completed ✓ — See your progress",
+      "pill": "Content · Week {week}",
+      "pillDone": "Completed. See your progress",
       "pillOpen": "Click to access the week's content",
-      "mentor": "AI Mentor",
-      "mentorTitle": "Ask questions about your activity",
-      "mentorDescription": "Beto can explain concepts, suggest examples and help you move forward."
+      "mentor": "Beto",
+      "mentorTitle": "Talk through your activity",
+      "mentorDescription": "Beto, your assistant, can explain concepts, suggest examples and help you move forward."
     },
     "recommended": {
       "title": "Recommended training",
@@ -806,8 +813,8 @@
       "inJourney": "Journeys started",
       "completedJourney": "Completed",
       "activeJourney": "In progress",
-      "onTrack": "Track on time",
-      "behind": "Track behind",
+      "onTrack": "Journey on track",
+      "behind": "Journey behind",
       "unavailable": "We couldn't load the numbers right now. Try again in a moment.",
       "follow": "Follow",
       "team": "Team",
@@ -815,13 +822,13 @@
       "ranking": "Fit ranking",
       "rankingDescription": "How closely people match each role.",
       "evolution": "Team evolution",
-      "evolutionDescription": "How levels moved between seasons.",
+      "evolutionDescription": "How levels moved between journeys.",
       "reports": "Company reports",
       "reportsDescription": "All organization, leadership, and individual reports in one place.",
       "reportHr": "HR report",
-      "reportHrDescription": "The cycle read for whoever owns the program: where the team stands and what to do next.",
+      "reportHrDescription": "The journey read for whoever owns the program: where the team stands and what to do next.",
       "reportProfile": "Organizational Profile",
-      "reportProfileDescription": "The organization's behavioral map and aggregated leadership styles.",
+      "reportProfileDescription": "The organization's behavioral profile and aggregated leadership styles.",
       "reportDna": "Organizational DNA",
       "reportDnaDescription": "The culture read: how the organization decides, communicates and learns.",
       "operatedByVertho": "Setup, content and messaging are run by Vertho. Talk to us whenever you need a change."
@@ -841,10 +848,10 @@
         "companyBadge": "Whole company",
         "companyNotice": "This analysis comes from the consolidated HR report and describes the whole company. It does not follow the selected cohort."
       },
-      "navigation": "HR dashboard views",
+      "navigation": "HR panel views",
       "eyebrow": "People intelligence",
       "title": "Decisions about",
-      "subtitle": "From the journey pulse to development priorities — with documents preserved as evidence.",
+      "subtitle": "From journey pace to development priorities, with documents preserved as evidence.",
       "updated": "Reading from {date}",
       "tabs": {
         "overview": "Overview",
@@ -854,7 +861,7 @@
         "evolution": "Evolution"
       },
       "pulse": {
-        "eyebrow": "Journey pulse",
+        "eyebrow": "Journey pace",
         "title": "Where people are now",
         "subtitle": "Each stage uses the full population as its reference so loss of momentum stays visible.",
         "people": "People",
@@ -890,7 +897,7 @@
       "roles": {
         "eyebrow": "Reading by role",
         "title": "Different contexts need different actions",
-        "subtitle": "Select a role to compare its competency level, strengths, risks, and suggested focus for the next cycle.",
+        "subtitle": "Select a role to compare its competency level, strengths, risks, and suggested focus for the next journey.",
         "average": "Competency level",
         "averageDescription": "Level that sums up the competencies assessed for people in this role.",
         "distribution": "Assessments per level: N1 {n1} · N2 {n2} · N3 {n3} · N4 {n4}",
@@ -901,7 +908,7 @@
         "descriptors": {
           "eyebrow": "Descriptor analysis",
           "title": "How the level is formed",
-          "subtitle": "Open a competency to see which behaviors support the result and where the main gaps sit.",
+          "subtitle": "Open a competency to see which behaviors support the result and where the distance to the goal is largest.",
           "roleScope": "{count, plural, one {# person in this role} other {# people in this role}}",
           "organizationScope": "{count, plural, one {# person in the organization} other {# people in the organization}}",
           "organizationNotice": "{role} does not yet have the minimum of three assessed people for an anonymous breakdown. This matrix therefore shows the organization-wide distribution.",
@@ -912,10 +919,10 @@
           "priority": "Priority",
           "descriptor": "Descriptor",
           "levels": {
-            "n1": "N1 · Gap",
-            "n2": "N2 · Developing",
-            "n3": "N3 · Target",
-            "n4": "N4 · Reference"
+            "n1": "N1",
+            "n2": "N2",
+            "n3": "N3 (goal)",
+            "n4": "N4"
           },
           "strength": "Strength",
           "strengthValue": "{percentage}% in N3/N4",
@@ -947,7 +954,7 @@
       "evolution": {
         "eyebrow": "Competency growth",
         "title": "Who grew, in what, and by how much",
-        "subtitle": "Initial assessment compared with the journey's closing evaluation. Participation and content use stay in Overview: engagement is a leading indicator, not proof of growth.",
+        "subtitle": "Initial mapping compared with the journey's final assessment. Participation and content use stay in Overview: engagement is a leading indicator, not proof of growth.",
         "exportTitle": "Download the executive report",
         "exportHint": "PDF with the overview, the behaviours, the people and the next steps, for the slice currently on screen.",
         "coverageTitle": "Measurement coverage",
@@ -978,12 +985,12 @@
         "supportHelp": "How many sources back the reading. Today the closing evaluation crosses two: the person's own account and the scored scenario.",
         "actionsTitle": "Next steps",
         "actionsSupport": "Who needs follow-up",
-        "actionsNextCycle": "Behaviors for the next cycle",
+        "actionsNextCycle": "Behaviors for the next journey",
         "actionsNextCycleHelp": "Where the group advanced least.",
         "peopleCount": "{n, plural, =1 {# person} other {# people}}",
         "descriptorCount": "{n, plural, =1 {# behavior} other {# behaviors}}",
-        "emptyTitle": "No journey has reached its closing evaluation",
-        "emptyDescription": "The start-to-finish comparison is born in the season's final evaluation. Until someone completes it, Overview shows where people are right now.",
+        "emptyTitle": "No journey has reached its final assessment",
+        "emptyDescription": "The start-to-finish comparison comes from the journey's final assessment. Until someone completes it, Overview shows where people are right now.",
         "unavailableTitle": "Could not read growth data",
         "unavailableDescription": "The read failed. This does not mean nobody grew: it means we could not measure right now.",
         "level": "L{nivel}",
@@ -1014,7 +1021,7 @@
       "evolucao": "Evolution Report",
       "pulso_executivo": "Executive Pulse",
       "pulso_complementar_nr1": "Supplemental NR-1 Pulse",
-      "gestor": "Leadership Report",
+      "gestor": "Manager Report",
       "individual": "Individual Development Plan"
     },
     "search": "Search person or role",
@@ -1034,17 +1041,17 @@
     "emptySearchDescription": "Try another name or role.",
     "empty": {
       "organization": "Consolidated documents will appear here as soon as Vertho generates them.",
-      "managers": "Leadership reports will appear here when the team's cycle is ready.",
+      "managers": "Manager reports will appear here when the team's journey is ready.",
       "people": "Individual plans will appear here as they are generated for people."
     },
     "footer": "Total available: {count}. Every file respects this company's access rules and visual identity."
   },
   "DashboardJourney": {
     "cta": {
-      "1": "Start behavioral assessment",
+      "1": "Start behavioral profile",
       "2": "Start competency mapping",
       "3": "View my IDP",
-      "4": "See my season",
+      "4": "See my weeks",
       "5": "See my evolution",
       "externalProfile": "View behavioral profile",
       "waiting": "Awaiting release",
@@ -1052,22 +1059,29 @@
       "fallback": "See my evolution"
     },
     "phaseDescriptions": {
-      "1": "Mapping your behavioral profile.",
+      "1": "Behavioral Mapping, to learn your profile.",
       "2": "Competency mapping through situational scenarios.",
       "3": "Your individual development plan based on results.",
-      "4": "A {weeks}-week season with content, practice and reflection.",
-      "5": "Measuring post-training evolution and consolidation of advances.",
-      "externalProfile": "Your company uses its own behavioral mapping. You don't need to repeat it on Vertho.",
-      "waitingProfile": "The behavioral profile will be released by HR after the skills vote is completed.",
+      "4": "{weeks} weeks of content, challenge and reflection.",
+      "5": "Measuring your evolution in the final assessment and consolidating your progress.",
+      "externalProfile": "Your company uses its own behavioral profile. You don't need to repeat it on Vertho.",
+      "waitingProfile": "Vertho releases the behavioral profile after the skills vote is completed.",
       "profileFirst": "Complete your behavioral profile first: the competency mapping comes after it.",
-      "trailPending": "The season, with content, practice and reflection, starts once your path is set up.",
+      "trailPending": "The weeks, with content, challenge and reflection, start once your journey is set up.",
       "fallback": "Continue your development journey."
+    },
+    "phaseTitles": {
+      "1": "Profile",
+      "2": "Mapping",
+      "3": "PDI",
+      "4": "Development",
+      "5": "Evolution"
     },
     "header": {
       "eyebrow": "Your journey",
       "current": "You are in",
-      "phaseTitle": "Phase {phase} — {title}",
-      "done": "Journey completed 🎉",
+      "phaseTitle": "Phase {phase}: {title}",
+      "done": "Journey completed",
       "progress": "{done} of {total} phases completed · {name}",
       "history": "View history"
     },
@@ -1084,16 +1098,16 @@
       "title": "Journey phases",
       "subtitle": "Follow your path here",
       "steps": "{total} STEPS",
-      "phase": "Phase {phase} — {title}",
+      "phase": "Phase {phase}: {title}",
       "completed": "completed",
       "current": "in progress",
       "locked": "locked",
-      "outsideTasting": "not part of the demo",
+      "outsideTasting": "not part of the trial",
       "revisitar": {
         "1": "See my behavioral profile",
-        "2": "See assessment results",
+        "2": "See mapping results",
         "3": "See my development plan",
-        "4": "See my season",
+        "4": "See my weeks",
         "5": "See my progress"
       }
     },
@@ -1107,19 +1121,19 @@
     },
     "degustacao": {
       "done": "Your mapping is ready",
-      "progress": "{done} of {total} demo steps completed · {name}",
+      "progress": "{done} of {total} trial steps completed · {name}",
       "heroTitle": "Result available",
       "heroDescription": "You completed the behavioral profile and the competency scenario. The analysis is ready for you to read.",
       "viewResult": "View my result",
       "nextTitle": "The rest is part of the full program",
-      "nextBody": "Development plan, season and reassessment happen in the full program, based on the mapping of every competency for the role. In the demo, the journey ends at your result."
+      "nextBody": "The development plan, the journey and the final assessment happen in the full program, based on the mapping of every competency for the role. In the trial, the path ends at your result."
     }
   },
   "JourneyHistory": {
     "eyebrow": "Journey history",
     "title": "The path you have already traveled, {name}",
-    "subtitle": "Reopen completed seasons to review your reports, content, and missions exactly as they were recorded.",
-    "season": "Season",
+    "subtitle": "Reopen completed journeys to review your reports, content, and challenges exactly as they were recorded.",
+    "season": "Journey",
     "latest": "Most recent completion",
     "completed": "Journey completed",
     "developmentJourney": "Development journey",
@@ -1132,8 +1146,8 @@
       "description": "Once a journey is completed, its report and content will appear here."
     },
     "notFound": "Completed journey not found.",
-    "seasonCompleted": "Season {number} completed",
-    "period": "{start} — {end}",
+    "seasonCompleted": "Journey {number} completed",
+    "period": "{start} to {end}",
     "weeks": "{count} weeks",
     "actions": {
       "report": "Review report",
@@ -1142,16 +1156,16 @@
       "preservedDescription": "This journey remains available in read-only mode."
     },
     "contentsEyebrow": "Journey archive",
-    "contentsTitle": "Content and missions",
+    "contentsTitle": "Content and challenges",
     "items": "{count} items",
     "week": "Week {number}",
-    "practice": "Mission",
+    "practice": "Challenge",
     "content": "Content"
   },
   "Profile": {
     "heroEyebrow": "MY PROFILE",
     "roles": {
-      "colaborador": "User",
+      "colaborador": "Employee",
       "gestor": "Manager",
       "rh": "HR"
     },
@@ -1440,7 +1454,7 @@
     },
     "naturalIntro": {
       "title": "First, think about your most spontaneous self",
-      "p1": "In this block, answer based on how you tend to act when you don't have to hold back — the way that comes to you effortlessly.",
+      "p1": "In this block, answer based on how you tend to act when you don't have to hold back, the way that comes to you effortlessly.",
       "p2": "The setting doesn't matter: at home, with friends, or at work itself. What defines this block isn't where you are, but what comes naturally from you.",
       "listIntro": "Choose the answers that best represent:",
       "li1": "what comes naturally to you;",
@@ -1453,7 +1467,7 @@
       "block": "Block {number}",
       "natural": {
         "title": "My most spontaneous self",
-        "summary": "8 rankings + 6 quick pairs about your most spontaneous self — how you act effortlessly.",
+        "summary": "8 rankings + 6 quick pairs about your most spontaneous self: how you act effortlessly.",
         "reinforcement": "It's your natural way, without adjustments."
       },
       "rankingInstruction": "On this screen, order the items from most similar to you to least similar.",
@@ -1468,13 +1482,13 @@
         "learningPreferences": "Learning Preferences"
       },
       "watchVideo": "Watch the instructions video (2 min)",
-      "naturalDescription": "8 rankings + 6 quick pairs about <strong>your most spontaneous self</strong> — how you act effortlessly, without holding back.",
+      "naturalDescription": "8 rankings + 6 quick pairs about <strong>your most spontaneous self</strong>: how you act effortlessly, without holding back.",
       "learningTitle": "Learning Preferences",
       "learningDescription": "Select the content formats that <strong>work best for how you learn</strong> (video, text, audio, case study, etc.). This helps personalize your journey.",
       "howQuestionsWork": "How the questions work",
       "rankingHelp": "• <strong>Rankings:</strong> drag the 4 adjectives from <most>most like you</most> (top) to <least>least like you</least> (bottom).",
       "pairsHelp": "• <strong>Quick Pairs:</strong> Click on the phrase that best describes you. Respond instinctively.",
-      "tip": "💡 <strong>Tip:</strong> be honest. This mapping is not a test — it is a portrait of your style to create a journey that makes sense to you.",
+      "tip": "<strong>Tip:</strong> be honest. This mapping is not a test: it is a portrait of your style to create a journey that makes sense to you.",
       "start": "START MAPPING"
     },
     "welcome": {
@@ -1491,8 +1505,8 @@
     },
     "ranking": {
       "group": "Group {number}",
-      "mostSimilar": "👍 MOST LIKE ME",
-      "leastSimilar": "👎 LEAST LIKE ME",
+      "mostSimilar": "MOST LIKE ME",
+      "leastSimilar": "LEAST LIKE ME",
       "words": {
         "driver": "Director",
         "captivating": "Captivating",
@@ -1551,8 +1565,8 @@
       }
     },
     "learning": {
-      "progressTitle": "Learning Preferences",
-      "lastStep": "Last Step",
+      "progressTitle": "Learning preferences",
+      "lastStep": "Last step",
       "title": "How do you learn best?",
       "subtitle": "Rank the formats from the one that helps you learn most to the one that helps least:",
       "viewProfile": "SEE MY PROFILE →",
@@ -1562,7 +1576,7 @@
         "audio": "Audio/podcast",
         "infographic": "Infographic",
         "exercise": "Hands-on exercise",
-        "mentor": "Conversation with mentor (AI chat)",
+        "mentor": "Conversation with the assistant (AI chat)",
         "case": "Case study"
       },
       "rankTop": "Helps me most",
@@ -1580,7 +1594,7 @@
     "closing": {
       "tag": "Step completed",
       "title": "You've mapped your profile!",
-      "subtitle": "Knowing yourself is the first step to relating better — with ourselves and with others. It is also the foundation of good people management.",
+      "subtitle": "Knowing yourself is the first step to relating better, with ourselves and with others. It is also the foundation of good people management.",
       "watchVideo": "Watch the closing video",
       "devolutiva": "Your feedback is on the next screen: take a moment to listen to it with attention and openness.",
       "viewProfile": "View my profile"
@@ -1597,11 +1611,11 @@
     "profileFallback": "Profile",
     "dominantProfile": "{profile} dominant",
     "dominant": "Dominant",
-    "actionableInsights": "Actionable insights",
+    "actionableInsights": "Points to put into practice",
     "teamView": {
       "back": "Back to team",
       "eyebrow": "BEHAVIORAL PROFILE · TEAM VIEW",
-      "notMapped": "The behavioral mapping has not been completed yet."
+      "notMapped": "The behavioral profile has not been completed yet."
     },
     "labels": {
       "natural": "natural"
@@ -1609,10 +1623,10 @@
     "external": {
       "receivedTitle": "Behavioral profile received",
       "handledTitle": "Behavioral profile handled by the company",
-      "defaultSource": "own behavioral mapping",
-      "subtitle": "Your company uses {source}. There is no behavioral diagnosis to answer at Vertho.",
-      "receivedDescription": "Your behavioral profile has already been received and will be used by Vertho to personalize analyses, recommendations and trails when applicable.",
-      "pendingDescription": "When HR makes the mapping information available, it will be integrated by Vertho into the journey's internal flows.",
+      "defaultSource": "own behavioral profile",
+      "subtitle": "Your company uses {source}. There is no behavioral profile to complete at Vertho.",
+      "receivedDescription": "Your behavioral profile has already been received and will be used by Vertho to personalize analyses, recommendations and journeys when applicable.",
+      "pendingDescription": "When HR makes the profile information available, it will be integrated by Vertho into the journey's internal flows.",
       "availableHighlights": "Available highlights",
       "scale": "Scale",
       "openPdf": "View my {source} report",
@@ -1620,18 +1634,18 @@
     },
     "blocked": {
       "title": "Next step still blocked",
-      "subtitle": "The behavioral profile will be released by HR after the skills vote is completed.",
-      "description": "Your vote may be recorded first. As soon as the company closes the vote and releases the next step, Behavioral Mapping will be available here."
+      "subtitle": "Vertho releases the behavioral profile after the skills vote is completed.",
+      "description": "Your vote may be recorded first. As soon as Vertho closes the vote and releases the next step, Behavioral Mapping will be available here."
     },
     "notMapped": {
       "title": "Mapping not yet carried out",
       "subtitle": "Your behavioral profile has not yet been mapped. It takes about 5 minutes.",
       "description": "The mapping identifies your behavioral profile, leadership style and learning preferences.",
-      "start": "Start Mapping"
+      "start": "Start mapping"
     },
     "hero": {
       "eyebrow": "YOUR BEHAVIORAL PROFILE",
-      "title": "Executive Summary"
+      "title": "Executive summary"
     },
     "download": {
       "button": "Download PDF",
@@ -1656,11 +1670,11 @@
     },
     "narrative": {
       "profileSynthesis": "Profile summary",
-      "naturalWhoYouAre": "Natural — who you are",
-      "howYouWork": "How You Work",
+      "naturalWhoYouAre": "Natural: who you are",
+      "howYouWork": "How you work",
       "topStrengths": "5 greatest strengths",
       "topOpportunities": "5 opportunities",
-      "leadershipStyle": "Leadership Style",
+      "leadershipStyle": "Leadership style",
       "opportunities": "Opportunities",
       "pressurePoints": "Points to develop under pressure",
       "pressureSubtitle": "Behaviors that {profile} profiles can present in times of stress"
@@ -1674,11 +1688,11 @@
   },
   "SeasonFinal": {
     "back": "← Back",
-    "backToSeason": "Back to season",
+    "backToSeason": "Back to weeks",
     "context": "Context",
     "startAssessment": "Start assessment",
     "errors": {
-      "noTrack": "No track",
+      "noTrack": "No journey",
       "startWeek": "Error starting week {week}"
     },
     "alerts": {
@@ -1693,7 +1707,7 @@
     },
     "question": {
       "counter": "Question {current} from {total}",
-      "voiceTip": "<strong>Tip:</strong> Click <strong>Record by voice</strong> and speak naturally in Portuguese — the text appears in the field as you speak. Allow microphone access the first time.",
+      "voiceTip": "<strong>Tip:</strong> Click <strong>Record by voice</strong> and speak naturally in Portuguese. The text appears in the field as you speak. Allow microphone access the first time.",
       "placeholder": "Describe your answer in detail...",
       "minChars": "{count} / min. {min} characters",
       "previous": "← Previous",
@@ -1706,9 +1720,9 @@
       "title": "Assessment completed",
       "progress": "Progress",
       "viewReport": "See full report →",
-      "demoLevel": "Demonstration result",
+      "demoLevel": "Trial result",
       "levelValue": "Level {n}",
-      "pilotNote": "In the pilot, the assessment demonstrates the full-season method — it does not measure growth over 2 weeks.",
+      "pilotNote": "In the trial, the assessment demonstrates the full-journey method and does not measure growth over 2 weeks.",
       "reportPreparing": "Preparing your report…",
       "reportUnavailable": "Your report is still being prepared. Try again in a few minutes.",
       "reportRetry": "Try again"
@@ -1716,7 +1730,7 @@
     "arguicao": {
       "badge": "Defense · oral argument",
       "title": "Oral defense",
-      "intro": "Let us dig into your answer with a short conversation. Support what you answered to the scenario — there is no right answer, it is about your reasoning.",
+      "intro": "Let us dig into your answer with a short conversation. Support what you answered to the scenario. There is no right answer: it is about your reasoning.",
       "placeholder": "Write your answer...",
       "send": "Send",
       "sending": "Sending...",
@@ -1727,7 +1741,7 @@
       "title": "Preparing your assessment…",
       "body": "We are consolidating your whole journey for a fair assessment. It takes a few moments, and the screen opens by itself.",
       "failedTitle": "We couldn't prepare your assessment right now",
-      "failedBody": "Your answers and your journey are saved. Try again: if it keeps happening, tell whoever follows your program.",
+      "failedBody": "Your answers and your journey are saved. Try again: if it keeps happening, talk to HR at your company.",
       "retry": "Try again"
     },
     "fechamento": {
@@ -1743,7 +1757,7 @@
     }
   },
   "SeasonWeek": {
-    "backToSeason": "Back to season",
+    "backToSeason": "Back to weeks",
     "thinking": "thinking...",
     "context": "Context",
     "common": {
@@ -1751,7 +1765,7 @@
       "no": "No"
     },
     "errors": {
-      "seasonNotFound": "Season not found",
+      "seasonNotFound": "Journey not found",
       "invalidWeek": "Invalid week"
     },
     "header": {
@@ -1764,9 +1778,9 @@
       "actionsHidden": "Employee actions are hidden in this preview."
     },
     "type": {
-      "practice": "Practice",
-      "assessment": "Assessment",
-      "episode": "Episode"
+      "practice": "Application",
+      "assessment": "Final assessment",
+      "episode": "Content"
     },
     "content": {
       "done": "Content carried out",
@@ -1779,7 +1793,7 @@
         "pdf": "PDF"
       },
       "withYourName": "with your name",
-      "preparingFormats": "We are preparing more formats for this episode. Focus on the challenge and reflection below.",
+      "preparingFormats": "We are preparing more formats for this content. Focus on the challenge and reflection below.",
       "openContent": "Open content →",
       "openToUnlock": "Open one of the formats above to unlock this week’s conversations."
     },
@@ -1793,12 +1807,12 @@
       "sustains": "This week supports"
     },
     "mission": {
-      "title": "Mission of the Week",
-      "commitmentPrompt": "What situation in your routine will you use to apply this? (1-2 sentences)",
+      "title": "Application challenge",
+      "commitmentPrompt": "What situation in your routine will you use to apply this? (1 to 2 sentences)",
       "commitmentPlaceholder": "Ex: Wednesday's meeting with client X...",
-      "accept": "I accept the mission",
+      "accept": "I accept the challenge",
       "yourCommitment": "Your commitment",
-      "didYouExecute": "Were you able to complete the mission this week?"
+      "didYouExecute": "Were you able to complete the challenge this week?"
     },
     "qualitative": {
       "title": "Qualitative closing",
@@ -1853,10 +1867,10 @@
       "title": "Evidence",
       "closingConversation": "Closing conversation",
       "finalScenario": "Scenario + final assessment",
-      "missionReport": "Mission Report",
-      "feedback": "Feedback (Evidence)",
-      "clickYes": "Click <action>Yes, I did it — report execution</action> above to get started.",
-      "chooseMissionFirst": "Define how you will execute the mission beforehand",
+      "missionReport": "Challenge evidence",
+      "feedback": "Evidence",
+      "clickYes": "Click <action>Yes, I did it: report execution</action> above to get started.",
+      "chooseMissionFirst": "Define how you will carry out the challenge beforehand",
       "startClosing": "Start closing conversation",
       "viewFinalScenario": "See final scenario",
       "sendAnswer": "Send my answer",
@@ -1864,30 +1878,30 @@
       "placeholderPractice": "Describe what happened... (Shift+Enter for a new line)",
       "placeholderScenario": "Describe how you would conduct... (Shift+Enter to new line)",
       "placeholderDefault": "Your answer... (Shift+Enter to new line)",
-      "doneSeason": "✓ Conversation completed · Season finished",
-      "doneNextWeek": "✓ Conversation completed · Next week releases {date}",
+      "doneSeason": "Conversation completed · Journey finished",
+      "doneNextWeek": "Conversation completed · Next week releases {date}",
       "remaining": "{count} more replies to complete week {week}.",
       "remainingOne": "1 more reply to complete week {week}."
     },
     "missionVideo": {
-      "title": "Mission week",
+      "title": "Application week",
       "watch": "How this week works"
     },
     "locked": {
       "title": "Week {week} isn't open yet",
       "becauseDate": "It opens on {date}.",
       "becausePrevious": "Week {week} needs to be completed first.",
-      "rule": "The track is sequential: each week opens only after the previous one is completed — and what completes a week is the evidence conversation, not just opening the content.",
+      "rule": "The journey is sequential: each week opens only after the previous one is completed. And what completes a week is the evidence conversation, not just opening the content.",
       "missing": "In week {week}, about {count} more replies from you will close the conversation.",
       "notStarted": "The evidence conversation for week {week} hasn't started yet.",
-      "videoTitle": "Your weekly journey",
+      "videoTitle": "Your weeks in the journey",
       "videoWatch": "See how to complete a week",
       "goToWeek": "Go to week {week}"
     },
     "progress": {
       "title": "Your week",
       "stepContent": "Content",
-      "stepMission": "Mission",
+      "stepMission": "Challenge",
       "stepEvidence": "Evidence",
       "stepDone": "Week completed",
       "contentDone": "done",
@@ -1896,11 +1910,11 @@
       "evidenceProgress": "{done} of {total} replies",
       "jumpToEvidence": "Evidence · {count} replies to go",
       "jumpToEvidenceOne": "Evidence · 1 reply to go",
-      "closesHere": "The week is only completed in the evidence conversation — opening the content does not complete it.",
+      "closesHere": "The week is only completed in the evidence conversation: opening the content does not complete it.",
       "doneAll": "Completed. The next week is now open.",
       "weekDone": "Week {week} completed",
       "nextOpens": "The next week opens {date}.",
-      "seasonDone": "You have completed every week of your track.",
+      "seasonDone": "You have completed every week of your journey.",
       "nextAlreadyOpen": "Week {week} is already open.",
       "goToNext": "Continue to week {week}"
     }
@@ -1910,35 +1924,35 @@
     "competencyProgress": "Progress",
     "level": "Level {n}",
     "levelUp": "Congratulations! You improved your level in this competency",
-    "competenciesIntro": "Your result is measured by competency, on a 4-level scale. Progress shows how much the competency's behaviors advanced, on average, between the start and the end of the season.",
+    "competenciesIntro": "Your result is measured by competency, on a 4-level scale. Progress shows how much the competency's behaviors advanced, on average, between the start and the end of the journey.",
     "levelFromTo": "In {competency}, you were at Level {from} and moved up to Level {to}, out of 4 possible levels.",
     "levelKept": "In {competency}, you stayed at Level {n}, out of 4 possible levels.",
     "competencyTitle": "Competency: {name}",
-    "behaviorsIntro": "Each competency shows up in concrete, everyday behaviors, which we call observable behaviors. Each box below shows one of them: the number is how much it advanced between the start and the end of the season, on a scale of 1 to 4 (progress can range from 0 to 3), and the text shows what changed in your practice.",
-    "countersIntro": "Of the {total} behaviors observed this season:",
+    "behaviorsIntro": "Each competency shows up in concrete, everyday behaviors, which we call observable behaviors. Each box below shows one of them: the number is how much it advanced between the start and the end of the journey, on a scale of 1 to 4 (progress can range from 0 to 3), and the text shows what changed in your practice.",
+    "countersIntro": "Of the {total} behaviors observed in this journey:",
     "legend": {
       "confirmed": "Progress of at least 0.5",
       "partial": "Progress of at least 0.2",
       "stable": "Same level as at the start"
     },
     "chart": {
-      "legendStart": "At the start of the season",
-      "legendEnd": "At the end of the season",
+      "legendStart": "At the start of the journey",
+      "legendEnd": "At the end of the journey",
       "scale": "Scale from {min} to {max}",
       "note": "Where the behavior stayed at the same level, the two lines meet.",
-      "alt": "Radar of the observable behaviors in {competency}, with the start and the end of the season overlaid."
+      "alt": "Radar of the observable behaviors in {competency}, with the start and the end of the journey overlaid."
     },
-    "backToSeason": "Back to season",
+    "backToSeason": "Back to weeks",
     "downloadPdf": "Download PDF",
     "pdfError": "Error generating PDF",
     "downloadCertificate": "Download certificate",
     "certificateError": "Error generating certificate",
-    "certificateNotEligible": "Participation of {pct}% — minimum of 75% required to issue the certificate",
+    "certificateNotEligible": "Participation of {pct}%. The minimum to issue the certificate is 75%",
     "weekShort": "Wk",
     "before": "Before:",
     "after": "After:",
     "hero": {
-      "eyebrow": "{number} Season Completed",
+      "eyebrow": "Journey {number} completed",
       "title": "{name}, see what has changed in you",
       "subtitle": "{weeks} weeks dedicated to <strong>{competency}</strong>."
     },
@@ -1954,46 +1968,46 @@
     },
     "sections": {
       "descriptor": "Observable behaviors",
-      "insights": "Insight moments",
-      "missions": "Missions you performed",
+      "insights": "Moments of discovery",
+      "missions": "Challenges you carried out",
       "finalAssessment": "Final assessment",
       "nextSteps": "Next steps",
       "competencies": "{count, plural, one {Your competency} other {Your competencies}}",
       "finalMessage": "Final message"
     },
     "mission": {
-      "real": "Real mission",
+      "real": "Real challenge",
       "written": "Written scenario",
       "commitment": "Commitment:",
       "synthesis": "Summary:"
     },
     "final": {
-      "cardTitle": "Scenario B and your response",
+      "cardTitle": "Final scenario and your response",
       "viewScenario": "See the scenario presented",
       "viewAnswer": "See your answer",
       "feedback": "Feedback"
     },
     "pilot": {
-      "eyebrow": "Pilot completed",
+      "eyebrow": "Trial completed",
       "title": "{name}, you experienced the full journey",
-      "subtitle": "A 2-week taste of <strong>{competency}</strong> — diagnostics, personalized content and AI assessment.",
+      "subtitle": "A 2-week trial of <strong>{competency}</strong>: profile, personalized content and AI assessment.",
       "baselineSection": "Your starting point",
-      "baselineNote": "Levels mapped in the diagnostic — the baseline a full season builds on.",
-      "assessmentSection": "Closing assessment (demonstration)",
-      "assessmentNote": "How scenario-based assessment works in the full season. In 2 weeks it demonstrates the method — it does not measure growth.",
-      "demoLevel": "Level in the demonstration:"
+      "baselineNote": "Levels from the mapping: the baseline a full journey builds on.",
+      "assessmentSection": "Final assessment (trial)",
+      "assessmentNote": "How scenario-based assessment works in the full journey. In 2 weeks it demonstrates the method and does not measure growth.",
+      "demoLevel": "Level in the trial:"
     },
     "noClosing": {
       "title": "{name}, you completed the program",
       "subtitle": "{weeks, plural, one {# week dedicated} other {# weeks dedicated}} to <strong>{competency}</strong>.",
       "note": "This program was set up without a final assessment: the report shows your starting point, and progress was not measured. The certificate is valid as usual.",
       "baselineSection": "Your starting point",
-      "baselineNote": "Levels mapped in the diagnostic, before the program."
+      "baselineNote": "Levels from the mapping, before the program."
     }
   },
   "Voting": {
     "back": "Back",
-    "backDashboard": "Return to dashboard",
+    "backDashboard": "Back to home",
     "eyebrow": "Skills voting",
     "title": "{name}, choose your 5 priorities",
     "role": "Position",
@@ -2028,7 +2042,7 @@
   "Season": {
     "video": {
       "label": "How your journey works",
-      "title": "Your weekly journey"
+      "title": "Your weeks in the journey"
     },
     "managerView": {
       "back": "Back to team",
@@ -2040,20 +2054,20 @@
       "finalAssessmentReadOnly": "The final assessment can only be completed by the employee"
     },
     "empty": {
-      "title": "Your season has not yet been generated",
-      "subtitle": "Wait for HR/manager to release it."
+      "title": "Your journey has not been set up yet",
+      "subtitle": "Vertho sets up and releases your journey. When it is ready, it will show up here."
     },
     "hero": {
-      "eyebrow": "Season {number}",
+      "eyebrow": "Journey {number}",
       "subtitlePilot": "{weeks, plural, one {# week} other {# weeks}} to try the method on {count, plural, one {1 skill} other {# skills}}",
       "subtitle": "{weeks, plural, one {# week} other {# weeks}} to <evolve>evolve</evolve> {count, plural, one {1 skill} other {# skills}} to <level>next level</level>"
     },
-    "paused": "His season has been paused by the manager. You will be able to continue when it resumes.",
-    "viewFullReport": "See full season report →",
+    "paused": "Your journey has been paused by the manager. You will be able to continue when it resumes.",
+    "viewFullReport": "See full journey report",
     "previousSeason": {
-      "title": "Season {number} completed",
-      "body": "{competency}: the Evolution Report for this season is still available.",
-      "cta": "See the report for season {number}"
+      "title": "Journey {number} completed",
+      "body": "{competency}: the Evolution Report for this journey is still available.",
+      "cta": "See the report for journey {number}"
     },
     "progress": {
       "title": "Progress",
@@ -2065,9 +2079,9 @@
     },
     "weekShort": "Without {number}",
     "type": {
-      "episode": "Episode",
-      "practice": "Practice",
-      "assessment": "Assessment"
+      "episode": "Content",
+      "practice": "Application",
+      "assessment": "Final assessment"
     },
     "report": {
       "title": "Evolution Report",
@@ -2090,7 +2104,7 @@
   "Pdi": {
     "video": {
       "label": "How your development plan works",
-      "title": "Your Individual Development Plan"
+      "title": "Your individual development plan"
     },
     "eyebrowShort": "MY IDP",
     "eyebrowFull": "INDIVIDUAL DEVELOPMENT PLAN",
@@ -2108,36 +2122,36 @@
       "preparingSubtitle": "You have already completed the competency mapping. Your Individual Development Plan will be generated shortly by the team.",
       "progressSubtitle": "You have already answered {done}/{total} competencies. Complete them all so that your PDI is generated.",
       "notStartedSubtitle": "Your Individual Development Plan will be created after you complete the competency mapping.",
-      "backDashboard": "Return to dashboard",
+      "backDashboard": "Back to home",
       "continueAssessment": "Continue mapping →",
       "goAssessment": "Go to mapping",
       "tastingTitle": "The development plan is part of the full program",
-      "tastingSubtitle": "In the demo you complete the behavioral profile and one competency scenario. The development plan comes from mapping every competency for the role, in the full program.",
+      "tastingSubtitle": "In the trial you complete the behavioral profile and one competency scenario. The development plan comes from mapping every competency for the role, in the full program.",
       "viewResult": "View my result"
     },
     "sections": {
-      "developingDescriptors": "Descriptors in Development",
+      "developingDescriptors": "Descriptors in development",
       "didWell": "Did well",
       "canImprove": "Can improve",
       "analysis": "Analysis",
-      "thirtyDayPlan": "Development Plan — 30 Days",
-      "developmentTips": "Development Tips",
-      "recommendedStudy": "Recommended Study",
-      "tacticalChecklist": "Tactical Checklist",
-      "generalSummary": "General Summary",
-      "behavioralProfile": "Behavioral Profile",
+      "thirtyDayPlan": "30-day plan",
+      "developmentTips": "Development tips",
+      "recommendedStudy": "Recommended study",
+      "tacticalChecklist": "Practical steps",
+      "generalSummary": "General summary",
+      "behavioralProfile": "Behavioral profile",
       "strengths": "Strengths",
-      "attentionPoints": "Points of Attention",
+      "attentionPoints": "Points of attention",
       "performanceSummary": "Starting point by competency",
-      "competencyPlan": "Competency Plan",
-      "finalMessage": "Final Message"
+      "competencyPlan": "Competency plan",
+      "finalMessage": "Final message"
     }
   },
   "Evolution": {
     "eyebrow": "Your evolution",
     "empty": {
-      "title": "Compare your progress after reassessment",
-      "subtitle": "Here you will see what changed between your initial assessment and the reassessment at the end of your journey.",
+      "title": "The comparison comes after the final assessment",
+      "subtitle": "Here you will see what changed between your initial mapping and the final assessment of your journey.",
       "card": "Until the comparison is available, follow your plan and practise the behaviours covered in your journey.",
       "goToJourney": "Follow my journey"
     }
@@ -2165,12 +2179,12 @@
       "subtitle": "Describe how you would act in the scenario presented."
     },
     "final": {
-      "title": "Mapping Complete",
+      "title": "Mapping complete",
       "level": "Level",
       "score": "Note",
       "gap": "Gap",
       "strengths": "Strengths",
-      "improvements": "Improvement Points"
+      "improvements": "Improvement points"
     }
   },
   "AdminBehaviorProfiles": {
@@ -5119,17 +5133,17 @@
       "confidentialText": "HR and your manager see your level in each skill",
       "authenticTitle": "Be authentic",
       "authenticText": "no right or wrong answer",
-      "start": "Start review →"
+      "start": "Start mapping →"
     },
     "intro": {
       "context": "Context",
-      "start": "▶ Start assessment"
+      "start": "Start mapping"
     },
     "questions": {
       "counter": "Question {current} from {total}",
       "minToast": "Minimum 20 characters.",
       "voiceTipPrefix": "Tip:",
-      "voiceTip": "Click <strong>Voice Record</strong> and speak naturally in Portuguese — the text appears in the field as you speak. Click again to stop and edit if necessary. Allow microphone access the first time.",
+      "voiceTip": "Click <strong>Voice Record</strong> and speak naturally in Portuguese. The text appears in the field as you speak. Click again to stop and edit if necessary. Allow microphone access the first time.",
       "placeholder": "Describe your answer in detail…",
       "minChars": "{count} / min. 20 characters",
       "previous": "← Previous",
@@ -5138,36 +5152,36 @@
     },
     "representativity": {
       "prompt": "On a scale of 1 to 10, how representative is this situation in your daily life?",
-      "low": "1 — Rarely",
-      "high": "10 — Too often",
+      "low": "1: Rarely",
+      "high": "10: Very often",
       "chooseToast": "Choose representation (1 to 10).",
       "sending": "Sending...",
-      "submit": "Submit review ✓"
+      "submit": "Submit answers"
     },
     "confirm": {
       "title": "Answer saved!",
-      "description": "Your review has been successfully registered.",
+      "description": "Your answers for this competency were recorded successfully.",
       "nextCompetency": "Next competency →",
-      "dashboard": "Return to dashboard"
+      "dashboard": "Back to home"
     },
     "today": {
-      "title": "Assessment of the day completed!",
+      "title": "Mapping of the day completed!",
       "description": "Come back tomorrow to continue your journey."
     },
     "done": {
       "title": "Congratulations, {name}!",
-      "description": "You have completed all competency assessments.<br></br>You will soon receive your personalized report.",
-      "watchVideo": "Watch: thank you and next steps (PDI and Season)",
-      "resultTitle": "Assessment results",
-      "resultSubtitle": "{name}, these are the consolidated findings from your assessment.",
+      "description": "You have completed the mapping of every competency.<br></br>You will soon receive your personalized report.",
+      "watchVideo": "Watch: thank you and next steps (development plan and journey weeks)",
+      "resultTitle": "Mapping results",
+      "resultSubtitle": "{name}, these are the consolidated findings from your mapping.",
       "resultSummary": "{evaluated} of {total} competencies analyzed",
       "level": "Level",
       "score": "Score",
       "analysisPending": "Answer recorded. The analysis is released by the Vertho team and shows up here once it is ready",
-      "analysisRunning": "Analysis in progress — your reading will be ready in a few minutes",
+      "analysisRunning": "Analysis in progress: your reading will be ready in a few minutes",
       "degustacaoTitle": "Answers recorded",
       "degustacaoSubtitle": "{name}, your reading is being prepared and takes a few minutes.",
-      "degustacaoHint": "Carry on with the tour you received. When you come back to this screen, the reading of your answers will be here.",
+      "degustacaoHint": "Carry on with the guide you received. When you come back to this screen, the reading of your answers will be here.",
       "strength": "Strength",
       "attention": "Development point",
       "viewPdi": "View my development plan →",
@@ -5189,7 +5203,7 @@
     "bloqueio": {
       "PERFIL_PESSOAL_PENDENTE": {
         "title": "Your Behavioral Profile comes first",
-        "text": "The Diagnosis starts after the Profile. Complete your Behavioral Profile, which takes a few minutes, and come back here.",
+        "text": "The Mapping starts after the Profile. Complete your Behavioral Profile, which takes a few minutes, and come back here.",
         "cta": "Take my profile →"
       },
       "ORDEM_INDISPONIVEL": {
@@ -5198,15 +5212,15 @@
       },
       "PERFIL_BLOQUEADO": {
         "title": "Step not open yet",
-        "text": "The Diagnosis has not been opened for you yet. Please come back later."
+        "text": "The Mapping has not been opened for you yet. Please come back later."
       },
       "VOTACAO_ATIVA": {
         "title": "Voting in progress",
-        "text": "The Diagnosis opens after the competency voting is closed."
+        "text": "The Mapping opens after the competency voting is closed."
       },
       "CENARIOS_BLOQUEADOS": {
         "title": "Step not open yet",
-        "text": "The Diagnosis scenarios have not been opened for you yet. Please come back later."
+        "text": "The Mapping scenarios have not been opened for you yet. Please come back later."
       },
       "SEM_COMPETENCIAS": {
         "title": "No competencies to answer",
@@ -5239,7 +5253,7 @@
       "nextDecision": "Next decision",
       "noPrimaryAction": "Use the team signals below to define the focus of the next conversation.",
       "thisWeek": "This week",
-      "competencies": "Competency pulse",
+      "competencies": "Competency levels",
       "mostFrequentLevel": "Most common level: {level}",
       "highlights": "Strengths to recognize",
       "attentionPeople": "Priority conversations",
@@ -5266,14 +5280,14 @@
     },
     "noReports": {
       "title": "You do not have direct reports linked yet",
-      "body": "The manager → direct report link is set through the <code>gestor_email</code> field on each team member. Ask the company admin to fill this field with your email for the team members you lead (during import or in <em>Manage team members</em>). Until there is a link, this screen remains empty for security — managers do not see data from people who are not their direct reports."
+      "body": "To see your team here, Vertho needs to link the people you lead to your email. Talk to Vertho to set up the link. Until there is a link, this screen remains empty for security: managers do not see data from people who are not their direct reports."
     },
     "kpis": {
       "led": "Direct reports",
       "people": "People",
-      "inTrack": "{count} in track · {without} without track",
+      "inTrack": "{count} in a journey · {without} without one",
       "inProgress": "In progress",
-      "noActiveTrack": "no active track",
+      "noActiveTrack": "no active journey",
       "checkpoints": "Need support",
       "answered": "no one stalled",
       "pending": "stalled",
@@ -5283,7 +5297,7 @@
       "weekCount": "{count} in week {week}"
     },
     "pendingCount": "{count} pending",
-    "emptyAction": "No one stalled this week. When someone falls behind on the journey, they show up here — with how long and on which week.",
+    "emptyAction": "No one stalled this week. When someone falls behind on the journey, they show up here, with how long and on which week.",
     "modal": {
       "eyebrow": "Week {week} checkpoint · evaluation",
       "noFocus": "no focus competency",
@@ -5309,39 +5323,39 @@
     "filters": {
       "all": "All",
       "inProgress": "In progress",
-      "noTrack": "No track",
+      "noTrack": "No journey",
       "completed": "Completed"
     },
     "status": {
       "em_andamento": "in progress",
       "pausada": "paused",
       "concluida": "completed",
-      "sem_trilha": "no track",
+      "sem_trilha": "no journey",
       "arquivada": "archived"
     },
     "actions": {
       "back": "Back to suggested actions",
       "clearFilter": "Clear filter and show the whole team",
       "onlyGroup": "Only people in this group are listed below.",
-      "empty": "Nothing stuck right now — everyone is on their next step.",
+      "empty": "Nothing stuck right now: everyone is on their next step.",
       "sem_perfil": {
         "title": "Unblock those who never started",
-        "body": "{count} haven't done the behavioral profile yet. It's the first gate: no profile, no track.",
+        "body": "{count} haven't done the behavioral profile yet. It's the first gate: no profile, no journey.",
         "chip": "No profile"
       },
       "sem_mapeamento": {
         "title": "Ask for the competency mapping",
-        "body": "{count} already have the profile and stop here. This is the step that creates the track.",
+        "body": "{count} already have the profile and stop here. This is the step that creates the journey.",
         "chip": "No mapping"
       },
       "atrasada": {
         "title": "Bring back those who stalled",
-        "body": "{count} are on a track, but the calendar has moved past their week.",
+        "body": "{count} are in a journey, but the calendar has moved past their week.",
         "chip": "Behind"
       },
       "aguardando_geracao": {
         "title": "Ready to start",
-        "body": "{count} finished both steps and still have no track. Talk to Vertho to release them.",
+        "body": "{count} finished both steps and still have no journey. Talk to Vertho to release it.",
         "chip": "Ready"
       }
     },
@@ -5351,7 +5365,7 @@
         "sem_perfil": "behavioral profile missing",
         "sem_perfil_externo": "{fonte} missing",
         "sem_mapeamento": "competency mapping missing",
-        "aguardando_geracao": "ready to start — track not generated yet"
+        "aguardando_geracao": "ready to start: the journey is not set up yet"
       },
       "showing": "{shown} of {total}",
       "total": "{total} people"
@@ -5840,8 +5854,8 @@
     "recomendacao": {
       "pronta": "Shows what the role requires and the style fits the target profile. Evidence and reading point the same way: step up now, with individual feedback.",
       "pronta_com_custo": "Shows what the role requires, with a style far from the target profile. This person will lead differently from the house standard, which is predictable rather than a surprise. The individual plan names the specific friction.",
-      "potencial": "The style helps, but the demonstration does not support it yet. This is the quadrant that misleads most in profile-only assessments. Development track on the competencies below the goal and a new assessment at the end.",
-      "nao_agora": "The competencies below the goal are the ones the role cannot do without. Development track before any move; the report names which ones, with the evidence."
+      "potencial": "The style helps, but the demonstration does not support it yet. This is the quadrant that misleads most in profile-only assessments. A development journey on the competencies below the goal and a new assessment at the end.",
+      "nao_agora": "The competencies below the goal are the ones the role cannot do without. A development journey before any move; the report names which ones, with the evidence."
     },
     "posicaoTitulo": "Position · demonstrated competency",
     "nivelGeral": "Overall level {n}",

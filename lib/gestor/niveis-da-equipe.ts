@@ -8,6 +8,8 @@
  *
  * Pura, para a tela e o teste lerem a MESMA função.
  */
+import { rotuloNivel } from '@/lib/nivel-regua';
+
 export interface NivelDaCompetencia {
   competencia?: string | null;
   nivelInicial: number | null;
@@ -18,7 +20,7 @@ export function textoDosNiveis(niveis: NivelDaCompetencia[] | null | undefined):
   return (Array.isArray(niveis) ? niveis : [])
     .filter((n) => Number.isInteger(n?.nivelFinal))
     .map((n) => (Number.isInteger(n.nivelInicial) && (n.nivelFinal as number) > (n.nivelInicial as number)
-      ? `N${n.nivelInicial} \u2192 N${n.nivelFinal}`
-      : `N${n.nivelFinal}`))
+      ? `${rotuloNivel(n.nivelInicial, { forma: 'curto' })} \u2192 ${rotuloNivel(n.nivelFinal, { forma: 'curto' })}`
+      : rotuloNivel(n.nivelFinal, { forma: 'curto' })))
     .join(' \u00b7 ');
 }

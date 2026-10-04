@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from '@react-pdf/renderer';
 import { nivelColor, nivelBgColor, nivelLabel, fonts, colors } from './styles';
+import { rotuloNivel } from '@/lib/nivel-regua';
 
 const s = StyleSheet.create({
   container: {
@@ -44,7 +45,7 @@ export default function StatusBadge({ nivel }: { nivel: number }) {
   return (
     <View style={s.container}>
       <View style={{ ...s.badge, backgroundColor: bg }}>
-        <Text style={{ ...s.level, color }}>N{n}</Text>
+        <Text style={{ ...s.level, color }}>{rotuloNivel(n, { forma: 'curto' })}</Text>
         <Text style={{ ...s.label, color }}>{nivelLabel(n)}</Text>
       </View>
       <LevelDots nivel={n} color={color} />

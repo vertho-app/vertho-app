@@ -85,7 +85,7 @@ function PageFrame({ children, pageNum, total }: { children: React.ReactNode; pa
       {children}
 
       <View style={s.footer} fixed>
-        <Text>Vertho Mentor IA — Confidencial</Text>
+        <Text>Vertho Mentor IA · Confidencial</Text>
         <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
       </View>
     </Page>
@@ -200,7 +200,7 @@ function Page1({ raw, texts, locale }: { raw: any; texts: any; locale: string })
       <View style={{ backgroundColor: BG_GRAY, borderRadius: 8, padding: 10, marginBottom: 12 }}>
         <Text style={{ fontSize: 8.5, color: TXT_MUTED, textAlign: 'center', marginBottom: 8, lineHeight: 1.5 }}>
           Este relatório mapeia seu perfil em 4 dimensões comportamentais que descrevem como você lida com desafios,
-          pessoas, ritmo e regras. Todos nós temos as 4 dimensões em intensidades diferentes — não existe perfil certo
+          pessoas, ritmo e regras. Todos nós temos as 4 dimensões em intensidades diferentes: não existe perfil certo
           ou errado.
         </Text>
         <View style={{ flexDirection: 'row' }}>
@@ -254,7 +254,7 @@ function Page1({ raw, texts, locale }: { raw: any; texts: any; locale: string })
       <View style={{ marginBottom: 12, paddingHorizontal: 70 }}>
         <View>
           <Text style={{ ...s.h3, textAlign: 'center', marginBottom: 6 }}>
-            Natural — quem você é
+            Natural: quem você é
           </Text>
           {['D', 'I', 'S', 'C'].map((d: string) => (
             <DISCBar key={`n${d}`} label={d} value={raw.disc_natural[d]} barColor={(DISC as any)[d].bar} />
@@ -507,7 +507,7 @@ export default function RelatorioComportamentalPDF({ data, locale = 'pt-BR' }: {
   if (!data?.raw || !data?.texts) return null;
   const { raw, texts, arquetipo, tags, insights } = data;
   return (
-    <Document title={`Relatório Comportamental — ${raw.nome}`}>
+    <Document title={`Relatório Comportamental: ${raw.nome}`}>
       <PageResumoExecutivo raw={raw} arquetipo={arquetipo} tags={tags} insights={insights} locale={locale} />
       <Page1 raw={raw} texts={texts} locale={locale} />
       <Page2 raw={raw} texts={texts} />

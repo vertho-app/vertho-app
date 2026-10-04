@@ -193,7 +193,7 @@ function SinaisDaPessoa({ pessoa }: { pessoa: any }) {
         <SignalPoint icon={PlayCircle} label="Consumiu" ativo={Boolean(pessoa.consumiu)} classe="border-emerald-300/25 bg-emerald-300/10 text-emerald-200" />
       </div>
       <div className="relative z-10">
-        <SignalPoint icon={MessageCircle} label="Tutor" ativo={Boolean(pessoa.conversouTutor)} classe="border-violet-300/25 bg-violet-300/10 text-violet-200" />
+        <SignalPoint icon={MessageCircle} label="Tira-Dúvidas" ativo={Boolean(pessoa.conversouTutor)} classe="border-violet-300/25 bg-violet-300/10 text-violet-200" />
       </div>
     </div>
   );
@@ -559,7 +559,7 @@ export default function EngajamentoDoTimePage() {
                 <MessageCircle size={17} aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[10px] font-bold text-white/65">Acionaram o tutor</span>
+                <span className="block text-[10px] font-bold text-white/65">Usaram o Tira-Dúvidas</span>
                 <span className="mt-0.5 block text-[9px] text-white/30">Tira-Dúvidas aberto</span>
               </span>
               <span className="font-mono text-2xl font-semibold tabular-nums text-violet-200">{resumo.conversaramTutor || 0}</span>

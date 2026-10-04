@@ -109,7 +109,7 @@ describe('copy do e-mail alinhada ao template aprovado', () => {
     expect(html).toContain('Olá, Maria.');
     expect(html).toContain('semana 5');
     expect(html).toContain('https://ibipeba.vertho.ai');
-    expect(subject).toContain('Semana 5');
+    expect(subject).toContain('semana 5');
   });
 
   it('afirma o mesmo fato que o template da Meta, sem urgência nem marca-chamariz', () => {

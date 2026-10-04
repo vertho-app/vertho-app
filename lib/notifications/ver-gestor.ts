@@ -71,7 +71,7 @@ export function ehRecusa(texto: string | null | undefined): boolean {
 }
 
 export const TEXTO_RECUSA =
-  'Entendi. Quem controla esses envios é o RH da sua empresa — vou registrar seu pedido, ' +
+  'Entendi. Quem controla esses envios é a Vertho. Vou registrar seu pedido, ' +
   'e alguém da equipe fala com você. Se precisar do acompanhamento da equipe antes disso, ' +
   'ele continua disponível no painel.';
 

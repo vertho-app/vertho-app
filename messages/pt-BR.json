@@ -519,10 +519,10 @@
     "howItWorksReport": "Devolutiva por competência, com a prioridade do próximo treino."
   },
   "Beto": {
-    "greeting": "Oi! Sou o Beto, seu mentor de desenvolvimento. Como posso ajudar?",
+    "greeting": "Oi! Sou o Beto, seu assistente no Mentor IA. Como posso ajudar?",
     "placeholder": "Pergunte ao Beto...",
     "fabTitle": "Falar com Beto",
-    "subtitle": "Mentor IA",
+    "subtitle": "Assistente do Mentor IA",
     "error": "Desculpe, tive um problema. Tente novamente."
   },
   "Metadata": {
@@ -537,10 +537,10 @@
   },
   "Common": {
     "locales": {
-      "pt-BR": "Português (BR)",
-      "pt-PT": "Português (PT)",
+      "pt-BR": "Português (Brasil)",
+      "pt-PT": "Português (Portugal)",
       "es-ES": "Español",
-      "en-US": "Inglês (EUA)"
+      "en-US": "English"
     },
     "actions": {
       "backToHome": "Voltar ao início",
@@ -574,7 +574,7 @@
     "checking": "Verificando...",
     "enterWithEmail": "Entrar com e-mail",
     "enterWithPassword": "Entrar com senha",
-    "enterWithMagicLink": "Entrar com Magic Link",
+    "enterWithMagicLink": "Entrar com link de acesso",
     "enterWithWhatsapp": "Não tenho e-mail · entrar com WhatsApp",
     "resendOrChangePhone": "Reenviar / trocar número",
     "linkSentTitle": "Link enviado!",
@@ -585,9 +585,9 @@
     "linkRequestedWhatsapp": "Se este número estiver cadastrado para entrar pelo WhatsApp, o link de acesso chega em instantes.",
     "linkRequestedHint": "Não chegou em alguns minutos? Confira o que você digitou ou fale com o RH da sua organização.",
     "linkErrors": {
-      "expired": "Seu link de acesso expirou ou já foi usado — cada link vale uma vez só. Peça um novo abaixo: ele chega no seu WhatsApp ou e-mail.",
+      "expired": "Seu link de acesso expirou ou já foi usado, e cada link vale uma vez só. Peça um novo abaixo: ele chega no seu WhatsApp ou e-mail.",
       "unavailable": "Não conseguimos validar seu link agora. Tente de novo em instantes ou peça um novo abaixo.",
-      "guestExpired": "Este acesso à demonstração não está mais disponível. Fale com quem enviou o convite para receber um novo."
+      "guestExpired": "Este acesso de degustação não está mais disponível. Fale com quem enviou o convite para receber um novo."
     },
     "errors": {
       "invalidEmail": "Digite um e-mail válido.",
@@ -627,7 +627,7 @@
       "loading": "Carregando…",
       "optional": "Opcional",
       "select": "Selecione",
-      "selectPlaceholder": "— selecione —",
+      "selectPlaceholder": "Selecione",
       "rolePlaceholder": "Ex: Diretor pedagógico",
       "creating": "Criando acesso...",
       "submit": "Criar acesso e enviar link",
@@ -654,7 +654,7 @@
       "team": "Equipe",
       "selection": "Seleção",
       "journey": "Jornada",
-      "season": "Temporada",
+      "season": "Semanas",
       "evolution": "Evolução",
       "profile": "Perfil",
       "teamEngagement": "Engajamento",
@@ -671,9 +671,9 @@
   },
   "NotFound": {
     "title": "Página não encontrada",
-    "description": "A página que você procura não existe, foi movida ou você pode não ter permissão pra acessá-la.",
+    "description": "A página que você procura não existe, foi movida ou você pode não ter permissão para acessá-la.",
     "back": "Voltar",
-    "goDashboard": "Ir ao dashboard"
+    "goDashboard": "Ir ao início"
   },
   "AccessLinkConfirm": {
     "invalidTitle": "Link inválido ou expirado",
@@ -711,33 +711,40 @@
     "missingCollaboratorBody": "Você entrou, mas a sua conta não está ligada a uma pessoa aqui. Se você participa por mais de uma organização, saia e entre de novo pelo link de acesso, escolhendo a organização. Se continuar assim, fale com o RH.",
     "missingCollaboratorAction": "Sair e entrar de novo",
     "fallbackFirstName": "você",
-    "fallbackPhaseTitle": "Diagnóstico",
+    "fallbackPhaseTitle": "Perfil",
     "phaseDescriptions": {
-      "1": "Responda ao mapeamento para conhecer o seu perfil comportamental.",
+      "1": "Responda ao Mapeamento Comportamental para conhecer o seu perfil.",
       "2": "Responda os cenários para mapear seu nível atual.",
       "3": "Seu plano de desenvolvimento individual é montado a partir dos seus resultados.",
-      "4": "Siga sua temporada de {weeks} semanas e evolua.",
-      "5": "Etapa final de reavaliação e consolidação.",
-      "profileWaiting": "O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.",
-      "trailBuilding": "Sua trilha de desenvolvimento está sendo montada.",
+      "4": "Siga suas {weeks} semanas e evolua.",
+      "5": "Etapa final: a avaliação final mostra o que você avançou.",
+      "profileWaiting": "A Vertho libera o perfil comportamental depois que a votação de competências for finalizada.",
+      "trailBuilding": "Sua jornada está sendo montada.",
       "fallback": "Continue sua jornada de desenvolvimento."
     },
     "phaseLabels": {
       "externalProfile": "Perfil",
-      "disc": "Mapeamento Comportamental",
-      "assessment": "Aval",
+      "disc": "Perfil",
+      "assessment": "Mapeamento",
       "pdi": "PDI",
-      "season": "Temp",
-      "evolution": "Evol"
+      "season": "Desenv.",
+      "evolution": "Evolução"
+    },
+    "phaseTitles": {
+      "1": "Perfil",
+      "2": "Mapeamento",
+      "3": "PDI",
+      "4": "Desenvolvimento",
+      "5": "Evolução"
     },
     "mainCta": {
       "today": "Iniciar atividade de hoje",
       "startsOn": "Sua jornada começa em {date}",
       "vote": "Votar antes do perfil comportamental",
       "waitingProfile": "Aguardando liberação do perfil comportamental",
-      "waitingScenarios": "Aguardando liberação do mapeamento de cenários",
+      "waitingScenarios": "Aguardando liberação do mapeamento de competências",
       "waitingRoleSetup": "Aguardando as competências do seu cargo",
-      "behavioral": "Fazer mapeamento comportamental",
+      "behavioral": "Fazer perfil comportamental",
       "continueAssessment": "Continuar mapeamento",
       "startAssessment": "Iniciar mapeamento de competências",
       "viewResult": "Ver meu resultado"
@@ -753,7 +760,7 @@
       "phaseOf": "FASE {phase}\\nDE 05",
       "currentPhase": "Fase atual · {title}",
       "nextCompetency": "Avançar em {competency}",
-      "completeDiagnosis": "Completar diagnóstico",
+      "completeDiagnosis": "Completar mapeamento",
       "deadline": "PRAZO",
       "days": "{days} DIAS",
       "today": "HOJE"
@@ -776,12 +783,12 @@
     "weeklyFocus": "Foco da semana",
     "preparation": "Preparação",
     "cards": {
-      "pill": "Pílula · Semana {week}",
-      "pillDone": "Concluída ✓ — Veja seu progresso",
+      "pill": "Conteúdo · Semana {week}",
+      "pillDone": "Concluída. Veja seu progresso",
       "pillOpen": "Clique para acessar o conteúdo da semana",
-      "mentor": "Mentor IA",
-      "mentorTitle": "Tire dúvidas sobre sua atividade",
-      "mentorDescription": "O Beto pode explicar conceitos, sugerir exemplos e ajudar você a avançar."
+      "mentor": "Beto",
+      "mentorTitle": "Converse sobre sua atividade",
+      "mentorDescription": "O Beto, seu assistente, pode explicar conceitos, sugerir exemplos e ajudar você a avançar."
     },
     "recommended": {
       "title": "Capacitação recomendada",
@@ -815,13 +822,13 @@
       "ranking": "Ranking de adequação",
       "rankingDescription": "A aderência das pessoas ao perfil de cada cargo.",
       "evolution": "Evolução da equipe",
-      "evolutionDescription": "Como os níveis avançaram entre as temporadas.",
+      "evolutionDescription": "Como os níveis avançaram entre as jornadas.",
       "reports": "Relatórios da empresa",
       "reportsDescription": "Todos os relatórios organizacionais, das lideranças e das pessoas em um só lugar.",
       "reportHr": "Relatório de RH",
-      "reportHrDescription": "A leitura do ciclo para quem responde pelo programa: onde o time está e o que fazer a seguir.",
+      "reportHrDescription": "A leitura da jornada para quem responde pelo programa: onde o time está e o que fazer a seguir.",
       "reportProfile": "Perfil Organizacional",
-      "reportProfileDescription": "O mapeamento comportamental da organização e os estilos de liderança agregados.",
+      "reportProfileDescription": "O perfil comportamental da organização e os estilos de liderança agregados.",
       "reportDna": "DNA Organizacional",
       "reportDnaDescription": "A leitura de cultura: como a organização decide, se comunica e aprende.",
       "operatedByVertho": "Configuração, conteúdo e envios são operados pela Vertho. Fale com a gente quando precisar de uma mudança."
@@ -841,10 +848,10 @@
         "companyBadge": "Empresa inteira",
         "companyNotice": "Esta análise vem do relatório consolidado de RH e descreve a empresa inteira. Ela não acompanha a turma selecionada."
       },
-      "navigation": "Visões do dashboard de RH",
+      "navigation": "Visões do painel de RH",
       "eyebrow": "Inteligência de pessoas",
       "title": "Decisões sobre",
-      "subtitle": "Do pulso da jornada às prioridades de desenvolvimento — com os documentos preservados como evidência.",
+      "subtitle": "Do ritmo da jornada às prioridades de desenvolvimento, com os documentos preservados como evidência.",
       "updated": "Leitura de {date}",
       "tabs": {
         "overview": "Panorama",
@@ -854,7 +861,7 @@
         "evolution": "Evolução"
       },
       "pulse": {
-        "eyebrow": "Pulso da jornada",
+        "eyebrow": "Ritmo da jornada",
         "title": "Onde as pessoas estão agora",
         "subtitle": "Cada etapa usa a população total como referência para deixar visível onde a jornada perde tração.",
         "people": "Pessoas",
@@ -890,7 +897,7 @@
       "roles": {
         "eyebrow": "Leitura por cargo",
         "title": "Contextos diferentes pedem ações diferentes",
-        "subtitle": "Selecione um cargo para comparar o nível das competências, forças, riscos e o foco sugerido para o próximo ciclo.",
+        "subtitle": "Selecione um cargo para comparar o nível das competências, forças, riscos e o foco sugerido para a próxima jornada.",
         "average": "Nível das competências",
         "averageDescription": "Nível que resume as competências avaliadas para as pessoas deste cargo.",
         "distribution": "Avaliações por nível: N1 {n1} · N2 {n2} · N3 {n3} · N4 {n4}",
@@ -901,7 +908,7 @@
         "descriptors": {
           "eyebrow": "Leitura por descritor",
           "title": "Como o nível se forma",
-          "subtitle": "Abra uma competência para ver quais comportamentos sustentam o resultado e onde estão os principais gaps.",
+          "subtitle": "Abra uma competência para ver quais comportamentos sustentam o resultado e onde está a maior distância até a meta.",
           "roleScope": "{count, plural, one {# pessoa neste cargo} other {# pessoas neste cargo}}",
           "organizationScope": "{count, plural, one {# pessoa na organização} other {# pessoas na organização}}",
           "organizationNotice": "{role} ainda não tem o mínimo de três pessoas avaliadas para um recorte anônimo. Por isso, esta matriz mostra a distribuição da organização.",
@@ -912,10 +919,10 @@
           "priority": "Prioridade",
           "descriptor": "Descritor",
           "levels": {
-            "n1": "N1 · Gap",
-            "n2": "N2 · Desenvolv.",
-            "n3": "N3 · Meta",
-            "n4": "N4 · Referência"
+            "n1": "N1",
+            "n2": "N2",
+            "n3": "N3 (meta)",
+            "n4": "N4"
           },
           "strength": "Força",
           "strengthValue": "{percentage}% em N3/N4",
@@ -947,7 +954,7 @@
       "evolution": {
         "eyebrow": "Evolução de competências",
         "title": "Quem evoluiu, em quê e quanto",
-        "subtitle": "Comparação entre a avaliação inicial e o fechamento da jornada. Participação e consumo ficam no Panorama: engajamento é indicador antecipado, não prova de evolução.",
+        "subtitle": "Comparação entre o mapeamento inicial e a avaliação final da jornada. Participação e consumo ficam no Panorama: engajamento é indicador antecipado, não prova de evolução.",
         "exportTitle": "Baixar o relatório executivo",
         "exportHint": "PDF com o panorama, os comportamentos, as pessoas e os próximos passos, no recorte que está na tela.",
         "coverageTitle": "Cobertura da medição",
@@ -978,12 +985,12 @@
         "supportHelp": "Quantas fontes sustentam a leitura. Hoje o fechamento cruza duas: o relato da própria pessoa e o cenário avaliado.",
         "actionsTitle": "Próximas ações",
         "actionsSupport": "Quem precisa de acompanhamento",
-        "actionsNextCycle": "Comportamentos para o próximo ciclo",
+        "actionsNextCycle": "Comportamentos para a próxima jornada",
         "actionsNextCycleHelp": "Onde o grupo menos avançou.",
         "peopleCount": "{n, plural, =1 {# pessoa} other {# pessoas}}",
         "descriptorCount": "{n, plural, =1 {# comportamento} other {# comportamentos}}",
-        "emptyTitle": "Nenhuma jornada chegou ao fechamento",
-        "emptyDescription": "A comparação entre início e fim nasce na avaliação final da temporada. Enquanto ninguém concluir, o Panorama mostra onde as pessoas estão agora.",
+        "emptyTitle": "Nenhuma jornada chegou à avaliação final",
+        "emptyDescription": "A comparação entre início e fim nasce na avaliação final da jornada. Enquanto ninguém concluir, o Panorama mostra onde as pessoas estão agora.",
         "unavailableTitle": "Não foi possível ler a evolução",
         "unavailableDescription": "A leitura falhou. Isto não quer dizer que ninguém evoluiu: quer dizer que não conseguimos medir agora.",
         "level": "N{nivel}",
@@ -1014,7 +1021,7 @@
       "evolucao": "Relatório de Evolução",
       "pulso_executivo": "Pulso Executivo",
       "pulso_complementar_nr1": "Pulso Complementar NR-1",
-      "gestor": "Relatório da Liderança",
+      "gestor": "Relatório do Gestor",
       "individual": "Plano de Desenvolvimento Individual"
     },
     "search": "Buscar pessoa ou cargo",
@@ -1034,17 +1041,17 @@
     "emptySearchDescription": "Tente buscar por outro nome ou cargo.",
     "empty": {
       "organization": "Os documentos consolidados aparecerão aqui assim que forem gerados pela Vertho.",
-      "managers": "Os relatórios das lideranças aparecerão aqui quando o ciclo da equipe estiver pronto.",
+      "managers": "Os relatórios dos gestores aparecerão aqui quando a jornada da equipe estiver pronta.",
       "people": "Os planos individuais aparecerão aqui conforme forem gerados para as pessoas."
     },
     "footer": "Total disponível: {count}. Cada arquivo respeita o acesso e a identidade visual desta empresa."
   },
   "DashboardJourney": {
     "cta": {
-      "1": "Fazer mapeamento comportamental",
+      "1": "Fazer perfil comportamental",
       "2": "Iniciar mapeamento de competências",
       "3": "Ver meu PDI",
-      "4": "Ver minha temporada",
+      "4": "Ver minhas semanas",
       "5": "Ver minha evolução",
       "externalProfile": "Ver perfil comportamental",
       "waiting": "Aguardando liberação",
@@ -1052,22 +1059,29 @@
       "fallback": "Ver minha evolução"
     },
     "phaseDescriptions": {
-      "1": "Mapeamento do seu perfil comportamental.",
+      "1": "Mapeamento Comportamental, para você conhecer o seu perfil.",
       "2": "Mapeamento de competências por cenários situacionais.",
       "3": "Seu plano de desenvolvimento individual baseado nos resultados.",
-      "4": "Temporada de {weeks} semanas com conteúdo, prática e reflexão.",
-      "5": "Medição de evolução pós-capacitação e consolidação dos avanços.",
-      "externalProfile": "Sua empresa usa mapeamento comportamental próprio. Você não precisa refazer o mapeamento na Vertho.",
-      "waitingProfile": "O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.",
+      "4": "{weeks} semanas com conteúdo, desafio e reflexão.",
+      "5": "Medição da evolução na avaliação final e consolidação dos avanços.",
+      "externalProfile": "Sua empresa usa um perfil comportamental próprio. Você não precisa refazê-lo na Vertho.",
+      "waitingProfile": "A Vertho libera o perfil comportamental depois que a votação de competências for finalizada.",
       "profileFirst": "Faça o seu perfil comportamental antes: o mapeamento de competências vem depois dele.",
-      "trailPending": "A temporada, com conteúdo, prática e reflexão, começa quando a sua trilha estiver montada.",
+      "trailPending": "As semanas, com conteúdo, desafio e reflexão, começam quando a sua jornada estiver montada.",
       "fallback": "Continue sua jornada de desenvolvimento."
+    },
+    "phaseTitles": {
+      "1": "Perfil",
+      "2": "Mapeamento",
+      "3": "PDI",
+      "4": "Desenvolvimento",
+      "5": "Evolução"
     },
     "header": {
       "eyebrow": "Sua jornada",
       "current": "Você está na",
-      "phaseTitle": "Fase {phase} — {title}",
-      "done": "Jornada concluída 🎉",
+      "phaseTitle": "Fase {phase}: {title}",
+      "done": "Jornada concluída",
       "progress": "{done} de {total} fases concluídas · {name}",
       "history": "Ver histórico"
     },
@@ -1084,7 +1098,7 @@
       "title": "Fases da jornada",
       "subtitle": "Acompanhe seu caminho até aqui",
       "steps": "{total} ETAPAS",
-      "phase": "Fase {phase} — {title}",
+      "phase": "Fase {phase}: {title}",
       "completed": "concluída",
       "current": "em curso",
       "locked": "bloqueada",
@@ -1093,7 +1107,7 @@
         "1": "Ver meu perfil comportamental",
         "2": "Ver resultado do mapeamento",
         "3": "Ver meu PDI",
-        "4": "Ver minha temporada",
+        "4": "Ver minhas semanas",
         "5": "Ver minha evolução"
       }
     },
@@ -1112,14 +1126,14 @@
       "heroDescription": "Você concluiu o perfil comportamental e o cenário de competência. A análise já está pronta para você ler.",
       "viewResult": "Ver meu resultado",
       "nextTitle": "O restante fica para o programa",
-      "nextBody": "PDI, temporada e reavaliação acontecem no programa completo, a partir do mapeamento de todas as competências do cargo. Na degustação, a jornada termina no seu resultado."
+      "nextBody": "PDI, jornada e avaliação final acontecem no programa completo, a partir do mapeamento de todas as competências do cargo. Na degustação, o caminho termina no seu resultado."
     }
   },
   "JourneyHistory": {
     "eyebrow": "Histórico das jornadas",
     "title": "O caminho que você já percorreu, {name}",
-    "subtitle": "Reabra temporadas concluídas para rever seus relatórios, conteúdos e missões — exatamente como ficaram registrados.",
-    "season": "Temp.",
+    "subtitle": "Reabra jornadas concluídas para rever seus relatórios, conteúdos e desafios, exatamente como ficaram registrados.",
+    "season": "Jornada",
     "latest": "Conclusão mais recente",
     "completed": "Jornada concluída",
     "developmentJourney": "Jornada de desenvolvimento",
@@ -1132,8 +1146,8 @@
       "description": "Quando uma jornada for concluída, o relatório e os conteúdos dela aparecerão aqui."
     },
     "notFound": "Jornada concluída não encontrada.",
-    "seasonCompleted": "Temporada {number} concluída",
-    "period": "{start} — {end}",
+    "seasonCompleted": "Jornada {number} concluída",
+    "period": "{start} a {end}",
     "weeks": "{count} semanas",
     "actions": {
       "report": "Rever relatório",
@@ -1142,10 +1156,10 @@
       "preservedDescription": "Esta jornada continua disponível em modo somente leitura."
     },
     "contentsEyebrow": "Arquivo da jornada",
-    "contentsTitle": "Conteúdos e missões",
+    "contentsTitle": "Conteúdos e desafios",
     "items": "{count} itens",
     "week": "Semana {number}",
-    "practice": "Missão",
+    "practice": "Desafio",
     "content": "Conteúdo"
   },
   "Profile": {
@@ -1440,7 +1454,7 @@
     },
     "naturalIntro": {
       "title": "Primeiro, pense no seu jeito mais espontâneo",
-      "p1": "Neste bloco, responda considerando como você tende a agir quando não precisa se policiar — o jeito que vem de você sem esforço.",
+      "p1": "Neste bloco, responda considerando como você tende a agir quando não precisa se policiar, o jeito que vem de você sem esforço.",
       "p2": "Não importa o lugar: pode ser em casa, com amigos ou no próprio trabalho. O que define este bloco não é onde você está, mas o que surge naturalmente de você.",
       "listIntro": "Escolha as respostas que mais representam:",
       "li1": "o que surge naturalmente para você;",
@@ -1453,7 +1467,7 @@
       "block": "Bloco {number}",
       "natural": {
         "title": "Meu jeito mais espontâneo",
-        "summary": "8 rankings + 6 pares rápidos sobre o seu jeito mais espontâneo — como você age sem esforço.",
+        "summary": "8 rankings + 6 pares rápidos sobre o seu jeito mais espontâneo: como você age sem esforço.",
         "reinforcement": "É o seu jeito natural, sem ajustes."
       },
       "rankingInstruction": "Nesta tela, ordene os itens do mais parecido com você ao menos parecido.",
@@ -1468,13 +1482,13 @@
         "learningPreferences": "Preferências de aprendizagem"
       },
       "watchVideo": "Assista ao vídeo de instruções (2 min)",
-      "naturalDescription": "8 rankings + 6 pares rápidos sobre <strong>o seu jeito mais espontâneo</strong> — como você age sem esforço, sem se policiar.",
+      "naturalDescription": "8 rankings + 6 pares rápidos sobre <strong>o seu jeito mais espontâneo</strong>: como você age sem esforço, sem se policiar.",
       "learningTitle": "Preferências de aprendizagem",
-      "learningDescription": "Marque os formatos de conteúdo que <strong>funcionam melhor pra você</strong> aprender (vídeo, texto, áudio, case, etc.). Ajuda a personalizar sua jornada.",
+      "learningDescription": "Marque os formatos de conteúdo que <strong>funcionam melhor para você</strong> aprender (vídeo, texto, áudio, case, etc.). Ajuda a personalizar sua jornada.",
       "howQuestionsWork": "Como funcionam as perguntas",
       "rankingHelp": "• <strong>Rankings:</strong> arraste os 4 adjetivos do <most>mais parecido</most> (topo) ao <least>menos parecido</least> (base).",
       "pairsHelp": "• <strong>Pares rápidos:</strong> clique na frase que descreve melhor você. Responda instintivamente.",
-      "tip": "💡 <strong>Dica:</strong> seja sincero. Esse mapeamento não é teste — é um retrato do seu estilo pra montar uma jornada que faça sentido pra você.",
+      "tip": "<strong>Dica:</strong> seja sincero. Esse mapeamento não é um teste: é um retrato do seu estilo para montar uma jornada que faça sentido para você.",
       "start": "COMEÇAR MAPEAMENTO"
     },
     "welcome": {
@@ -1491,8 +1505,8 @@
     },
     "ranking": {
       "group": "Grupo {number}",
-      "mostSimilar": "👍 MAIS PARECIDO",
-      "leastSimilar": "👎 MENOS PARECIDO",
+      "mostSimilar": "MAIS PARECIDO",
+      "leastSimilar": "MENOS PARECIDO",
       "words": {
         "driver": "Direcionador(a)",
         "captivating": "Cativante",
@@ -1551,8 +1565,8 @@
       }
     },
     "learning": {
-      "progressTitle": "Preferências de Aprendizagem",
-      "lastStep": "Última Etapa",
+      "progressTitle": "Preferências de aprendizagem",
+      "lastStep": "Última etapa",
       "title": "Como você aprende melhor?",
       "subtitle": "Ordene os formatos do que mais ajuda você a aprender ao que menos ajuda:",
       "viewProfile": "VER MEU PERFIL →",
@@ -1562,7 +1576,7 @@
         "audio": "Áudio / podcast",
         "infographic": "Infográfico",
         "exercise": "Exercício prático",
-        "mentor": "Conversa com mentor (chat IA)",
+        "mentor": "Conversa com o assistente (chat IA)",
         "case": "Estudo de caso"
       },
       "rankTop": "Mais me ajuda",
@@ -1580,7 +1594,7 @@
     "closing": {
       "tag": "Etapa concluída",
       "title": "Você mapeou o seu perfil!",
-      "subtitle": "Conhecer a si mesmo é o primeiro passo para nos relacionarmos melhor — com nós mesmos e com os outros. E é também a base de uma boa gestão de pessoas.",
+      "subtitle": "Conhecer a si mesmo é o primeiro passo para nos relacionarmos melhor, com nós mesmos e com os outros. E é também a base de uma boa gestão de pessoas.",
       "watchVideo": "Assista ao vídeo de encerramento",
       "devolutiva": "Na próxima tela está a sua devolutiva: reserve um momento para ouvi-la com atenção e abertura.",
       "viewProfile": "Ver meu perfil"
@@ -1597,11 +1611,11 @@
     "profileFallback": "Perfil",
     "dominantProfile": "{profile} dominante",
     "dominant": "Dominante",
-    "actionableInsights": "Insights acionáveis",
+    "actionableInsights": "Pontos para colocar em prática",
     "teamView": {
       "back": "Voltar à equipe",
       "eyebrow": "PERFIL COMPORTAMENTAL · VISÃO DA EQUIPE",
-      "notMapped": "O mapeamento comportamental ainda não foi concluído."
+      "notMapped": "O perfil comportamental ainda não foi concluído."
     },
     "labels": {
       "natural": "Natural"
@@ -1609,10 +1623,10 @@
     "external": {
       "receivedTitle": "Perfil comportamental recebido",
       "handledTitle": "Perfil comportamental tratado pela empresa",
-      "defaultSource": "mapeamento comportamental próprio",
-      "subtitle": "Sua empresa utiliza {source}. Não há mapeamento comportamental para responder na Vertho.",
-      "receivedDescription": "Seu perfil comportamental já foi recebido e será usado pela Vertho para personalizar análises, recomendações e trilhas quando aplicável.",
-      "pendingDescription": "Quando o RH disponibilizar as informações do mapeamento, elas serão integradas pela Vertho aos fluxos internos da jornada.",
+      "defaultSource": "perfil comportamental próprio",
+      "subtitle": "Sua empresa utiliza {source}. Não há perfil comportamental para responder na Vertho.",
+      "receivedDescription": "Seu perfil comportamental já foi recebido e será usado pela Vertho para personalizar análises, recomendações e jornadas quando aplicável.",
+      "pendingDescription": "Quando o RH disponibilizar as informações do perfil, elas serão integradas pela Vertho aos fluxos internos da jornada.",
       "availableHighlights": "Destaques disponíveis",
       "scale": "Escala",
       "openPdf": "Ver meu relatório {source}",
@@ -1620,18 +1634,18 @@
     },
     "blocked": {
       "title": "Próxima etapa ainda bloqueada",
-      "subtitle": "O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.",
-      "description": "Seu voto pode ser registrado primeiro. Assim que a empresa fechar a votação e liberar o próximo passo, o Mapeamento Comportamental ficará disponível aqui."
+      "subtitle": "A Vertho libera o perfil comportamental depois que a votação de competências for finalizada.",
+      "description": "Seu voto pode ser registrado primeiro. Assim que a Vertho fechar a votação e liberar o próximo passo, o Mapeamento Comportamental ficará disponível aqui."
     },
     "notMapped": {
       "title": "Mapeamento ainda não realizado",
       "subtitle": "Seu perfil comportamental ainda não foi mapeado. Leva cerca de 5 minutos.",
       "description": "O mapeamento identifica seu perfil comportamental, estilo de liderança e preferências de aprendizagem.",
-      "start": "Iniciar Mapeamento"
+      "start": "Iniciar mapeamento"
     },
     "hero": {
       "eyebrow": "SEU PERFIL COMPORTAMENTAL",
-      "title": "Resumo Executivo"
+      "title": "Resumo executivo"
     },
     "download": {
       "button": "Baixar PDF",
@@ -1656,11 +1670,11 @@
     },
     "narrative": {
       "profileSynthesis": "Síntese do perfil",
-      "naturalWhoYouAre": "Natural — quem você é",
-      "howYouWork": "Como Você Funciona",
+      "naturalWhoYouAre": "Natural: quem você é",
+      "howYouWork": "Como você funciona",
       "topStrengths": "5 maiores forças",
       "topOpportunities": "5 oportunidades",
-      "leadershipStyle": "Estilo de Liderança",
+      "leadershipStyle": "Estilo de liderança",
       "opportunities": "Oportunidades",
       "pressurePoints": "Pontos a desenvolver sob pressão",
       "pressureSubtitle": "Comportamentos que perfis {profile} podem apresentar em momentos de estresse"
@@ -1674,11 +1688,11 @@
   },
   "SeasonFinal": {
     "back": "← Voltar",
-    "backToSeason": "Voltar à temporada",
+    "backToSeason": "Voltar às semanas",
     "context": "Contexto",
     "startAssessment": "Iniciar avaliação",
     "errors": {
-      "noTrack": "Sem trilha",
+      "noTrack": "Sem jornada",
       "startWeek": "Erro ao iniciar semana {week}"
     },
     "alerts": {
@@ -1693,7 +1707,7 @@
     },
     "question": {
       "counter": "Pergunta {current} de {total}",
-      "voiceTip": "<strong>Dica:</strong> Clique em <strong>Gravar por voz</strong> e fale naturalmente em português — o texto aparece no campo enquanto você fala. Permita acesso ao microfone na primeira vez.",
+      "voiceTip": "<strong>Dica:</strong> Clique em <strong>Gravar por voz</strong> e fale naturalmente em português. O texto aparece no campo enquanto você fala. Permita acesso ao microfone na primeira vez.",
       "placeholder": "Descreva com detalhes sua resposta...",
       "minChars": "{count} / mín. {min} caracteres",
       "previous": "← Anterior",
@@ -1706,17 +1720,17 @@
       "title": "Avaliação concluída",
       "progress": "Avanço",
       "viewReport": "Ver relatório completo →",
-      "demoLevel": "Resultado da demonstração",
+      "demoLevel": "Resultado da degustação",
       "levelValue": "Nível {n}",
-      "pilotNote": "No piloto, a avaliação demonstra o método da temporada completa — não mede evolução em 2 semanas.",
+      "pilotNote": "Na degustação, a avaliação demonstra o método da jornada completa e não mede evolução em 2 semanas.",
       "reportPreparing": "Preparando seu relatório…",
       "reportUnavailable": "Seu relatório ainda está sendo preparado. Tente de novo em alguns minutos.",
       "reportRetry": "Tentar de novo"
     },
     "arguicao": {
       "badge": "Arguição · defesa oral",
-      "title": "Arguição — defesa oral",
-      "intro": "Vamos aprofundar sua resposta numa conversa breve. Sustente o que você respondeu ao cenário — não há resposta certa, é sobre o seu raciocínio.",
+      "title": "Arguição: defesa oral",
+      "intro": "Vamos aprofundar sua resposta numa conversa breve. Sustente o que você respondeu ao cenário. Não há resposta certa: é sobre o seu raciocínio.",
       "placeholder": "Escreva sua resposta...",
       "send": "Enviar",
       "sending": "Enviando...",
@@ -1727,7 +1741,7 @@
       "title": "Preparando sua avaliação…",
       "body": "Estamos consolidando toda a sua jornada para uma avaliação justa. Isso leva alguns instantes, e a tela abre sozinha.",
       "failedTitle": "Não conseguimos preparar sua avaliação agora",
-      "failedBody": "Suas respostas e sua jornada estão salvas. Tente de novo: se continuar, avise quem acompanha o seu programa.",
+      "failedBody": "Suas respostas e sua jornada estão salvas. Tente de novo: se continuar, fale com o RH da sua empresa.",
       "retry": "Tentar de novo"
     },
     "fechamento": {
@@ -1743,7 +1757,7 @@
     }
   },
   "SeasonWeek": {
-    "backToSeason": "Voltar à temporada",
+    "backToSeason": "Voltar às semanas",
     "thinking": "pensando...",
     "context": "Contexto",
     "common": {
@@ -1751,7 +1765,7 @@
       "no": "Não"
     },
     "errors": {
-      "seasonNotFound": "Temporada não encontrada",
+      "seasonNotFound": "Jornada não encontrada",
       "invalidWeek": "Semana inválida"
     },
     "header": {
@@ -1768,9 +1782,9 @@
       "sustains": "Esta semana sustenta"
     },
     "type": {
-      "practice": "Prática",
-      "assessment": "Avaliação",
-      "episode": "Episódio"
+      "practice": "Aplicação",
+      "assessment": "Avaliação final",
+      "episode": "Conteúdo"
     },
     "content": {
       "done": "Conteúdo realizado",
@@ -1783,7 +1797,7 @@
         "pdf": "PDF"
       },
       "withYourName": "com seu nome",
-      "preparingFormats": "Estamos preparando mais formatos para este episódio. Foque no desafio e na reflexão abaixo.",
+      "preparingFormats": "Estamos preparando mais formatos para este conteúdo. Foque no desafio e na reflexão abaixo.",
       "openContent": "Abrir conteúdo →",
       "openToUnlock": "Abra um dos formatos acima para liberar as conversas desta semana."
     },
@@ -1793,20 +1807,20 @@
       "execution": "Como saber que fez"
     },
     "mission": {
-      "title": "Missão da Semana",
-      "commitmentPrompt": "Qual situação da sua rotina você vai usar pra aplicar isso? (1-2 frases)",
+      "title": "Desafio de aplicação",
+      "commitmentPrompt": "Qual situação da sua rotina você vai usar para aplicar isso? (1 a 2 frases)",
       "commitmentPlaceholder": "Ex: a reunião de quarta com o cliente X...",
-      "accept": "Aceito a missão",
+      "accept": "Aceito o desafio",
       "yourCommitment": "Seu compromisso",
-      "didYouExecute": "Você conseguiu executar a missão esta semana?"
+      "didYouExecute": "Você conseguiu executar o desafio esta semana?"
     },
     "qualitative": {
       "title": "Fechamento qualitativo",
-      "description": "Chegou a hora de olhar pra trás. Vamos conversar sobre o que mudou em você nessas {weeks} semanas, percorrendo cada descritor."
+      "description": "Chegou a hora de olhar para trás. Vamos conversar sobre o que mudou em você nessas {weeks} semanas, percorrendo cada descritor."
     },
     "finalScenario": {
       "title": "Cenário final",
-      "description": "Um cenário completo para você aplicar tudo o que desenvolveu. Clique em <action>Ver cenário final</action> abaixo pra começar."
+      "description": "Um cenário completo para você aplicar tudo o que desenvolveu. Clique em <action>Ver cenário final</action> abaixo para começar."
     },
     "qa": {
       "title": "Tira-Dúvidas",
@@ -1815,7 +1829,7 @@
       "ask": "Tirar dúvida sobre a semana",
       "unlockAfterContent": "Libera depois que você abrir o conteúdo",
       "empty": "Pergunte o que quiser sobre <strong>{descriptor}</strong>.",
-      "placeholder": "Sua dúvida... (Shift+Enter pra nova linha)",
+      "placeholder": "Sua dúvida... (Shift+Enter para nova linha)",
       "notSaved": "Sua resposta chegou, mas não conseguimos guardá-la no histórico desta conversa. Se precisar dela depois, copie agora."
     },
     "chatError": {
@@ -1853,41 +1867,41 @@
       "title": "Evidências",
       "closingConversation": "Conversa de fechamento",
       "finalScenario": "Cenário + avaliação final",
-      "missionReport": "Relato da Missão",
-      "feedback": "Feedback (Evidências)",
-      "clickYes": "Clique em <action>Sim, consegui — relatar execução</action> acima pra começar.",
-      "chooseMissionFirst": "Defina como vai executar a missão antes",
+      "missionReport": "Evidências do desafio",
+      "feedback": "Evidências",
+      "clickYes": "Clique em <action>Sim, consegui: relatar execução</action> acima para começar.",
+      "chooseMissionFirst": "Defina como vai executar o desafio antes",
       "startClosing": "Iniciar conversa de fechamento",
       "viewFinalScenario": "Ver cenário final",
       "sendAnswer": "Enviar minha resposta",
       "start": "Levantar evidências",
-      "placeholderPractice": "Relate o que aconteceu... (Shift+Enter pra nova linha)",
-      "placeholderScenario": "Descreva como você conduziria... (Shift+Enter pra nova linha)",
-      "placeholderDefault": "Sua resposta... (Shift+Enter pra nova linha)",
-      "doneSeason": "✓ Conversa concluída · Temporada finalizada",
-      "doneNextWeek": "✓ Conversa concluída · Próxima semana libera {date}",
+      "placeholderPractice": "Relate o que aconteceu... (Shift+Enter para nova linha)",
+      "placeholderScenario": "Descreva como você conduziria... (Shift+Enter para nova linha)",
+      "placeholderDefault": "Sua resposta... (Shift+Enter para nova linha)",
+      "doneSeason": "Conversa concluída · Jornada finalizada",
+      "doneNextWeek": "Conversa concluída · Próxima semana libera {date}",
       "remaining": "Faltam {count} respostas suas para concluir a semana {week}.",
       "remainingOne": "Falta 1 resposta sua para concluir a semana {week}."
     },
     "missionVideo": {
-      "title": "Semana de missão",
+      "title": "Semana de aplicação",
       "watch": "Como funciona esta semana"
     },
     "locked": {
       "title": "Semana {week} ainda não liberada",
       "becauseDate": "Ela abre {date}.",
       "becausePrevious": "Antes dela, falta concluir a semana {week}.",
-      "rule": "A trilha é sequencial: cada semana só abre depois que a anterior é concluída — e o que conclui uma semana é a conversa de evidências, não só abrir o conteúdo.",
+      "rule": "A jornada é sequencial: cada semana só abre depois que a anterior é concluída. E o que conclui uma semana é a conversa de evidências, não só abrir o conteúdo.",
       "missing": "Na semana {week}, faltam cerca de {count} respostas suas na conversa para ela fechar.",
       "notStarted": "A conversa de evidências da semana {week} ainda não começou.",
-      "videoTitle": "Sua jornada semanal",
+      "videoTitle": "Suas semanas na jornada",
       "videoWatch": "Ver como concluir uma semana",
       "goToWeek": "Ir para a semana {week}"
     },
     "progress": {
       "title": "Sua semana",
       "stepContent": "Conteúdo",
-      "stepMission": "Missão",
+      "stepMission": "Desafio",
       "stepEvidence": "Evidências",
       "stepDone": "Semana concluída",
       "contentDone": "feito",
@@ -1896,11 +1910,11 @@
       "evidenceProgress": "{done} de {total} respostas",
       "jumpToEvidence": "Evidências · faltam {count} respostas",
       "jumpToEvidenceOne": "Evidências · falta 1 resposta",
-      "closesHere": "A semana só é concluída na conversa de evidências — abrir o conteúdo não conclui.",
+      "closesHere": "A semana só é concluída na conversa de evidências: abrir o conteúdo não conclui.",
       "doneAll": "Concluída. A próxima já está liberada.",
       "weekDone": "Semana {week} concluída",
       "nextOpens": "A semana seguinte libera {date}.",
-      "seasonDone": "Você concluiu todas as semanas da sua trilha.",
+      "seasonDone": "Você concluiu todas as semanas da sua jornada.",
       "nextAlreadyOpen": "A semana {week} já está liberada.",
       "goToNext": "Continuar na semana {week}"
     }
@@ -1910,35 +1924,35 @@
     "competencyProgress": "Avanço",
     "level": "Nível {n}",
     "levelUp": "Parabéns! Você melhorou seu nível nesta competência",
-    "competenciesIntro": "Seu resultado é medido por competência, numa escala de 4 níveis. O avanço mostra quanto os comportamentos da competência avançaram, em média, entre o início e o fim da temporada.",
+    "competenciesIntro": "Seu resultado é medido por competência, numa escala de 4 níveis. O avanço mostra quanto os comportamentos da competência avançaram, em média, entre o início e o fim da jornada.",
     "levelFromTo": "Em {competency}, você estava no Nível {from} e avançou para o Nível {to}, de 4 níveis possíveis.",
     "levelKept": "Em {competency}, você se manteve no Nível {n}, de 4 níveis possíveis.",
     "competencyTitle": "Competência: {name}",
-    "behaviorsIntro": "Cada competência aparece em comportamentos concretos do dia a dia, que chamamos de comportamentos observáveis. Cada quadro abaixo mostra um deles: o número é quanto ele avançou entre o início e o fim da temporada, numa escala de 1 a 4 (o avanço pode ir de 0 a 3), e o texto mostra o que mudou na sua prática.",
-    "countersIntro": "Dos {total} comportamentos observados nesta temporada:",
+    "behaviorsIntro": "Cada competência aparece em comportamentos concretos do dia a dia, que chamamos de comportamentos observáveis. Cada quadro abaixo mostra um deles: o número é quanto ele avançou entre o início e o fim da jornada, numa escala de 1 a 4 (o avanço pode ir de 0 a 3), e o texto mostra o que mudou na sua prática.",
+    "countersIntro": "Dos {total} comportamentos observados nesta jornada:",
     "legend": {
       "confirmed": "Avanço de pelo menos 0,5",
       "partial": "Avanço de pelo menos 0,2",
       "stable": "Mesmo patamar do início"
     },
     "chart": {
-      "legendStart": "No início da temporada",
-      "legendEnd": "No fim da temporada",
+      "legendStart": "No início da jornada",
+      "legendEnd": "No fim da jornada",
       "scale": "Escala de {min} a {max}",
       "note": "Onde o comportamento ficou no mesmo patamar, as duas linhas se encostam.",
-      "alt": "Teia dos comportamentos observáveis de {competency}, com a medição do início e a do fim da temporada sobrepostas."
+      "alt": "Teia dos comportamentos observáveis de {competency}, com a medição do início e a do fim da jornada sobrepostas."
     },
-    "backToSeason": "Voltar à temporada",
+    "backToSeason": "Voltar às semanas",
     "downloadPdf": "Baixar PDF",
     "pdfError": "Erro ao gerar PDF",
     "downloadCertificate": "Baixar certificado",
     "certificateError": "Erro ao gerar certificado",
-    "certificateNotEligible": "Participação de {pct}% — mínimo de 75% para emitir o certificado",
+    "certificateNotEligible": "Participação de {pct}%. O mínimo para emitir o certificado é 75%",
     "weekShort": "Sem",
     "before": "Antes:",
     "after": "Depois:",
     "hero": {
-      "eyebrow": "Temporada {number} concluída",
+      "eyebrow": "Jornada {number} concluída",
       "title": "{name}, veja o que mudou em você",
       "subtitle": "{weeks} semanas dedicadas a <strong>{competency}</strong>."
     },
@@ -1954,46 +1968,46 @@
     },
     "sections": {
       "descriptor": "Comportamentos observáveis",
-      "insights": "Momentos de insight",
-      "missions": "Missões que você executou",
+      "insights": "Momentos de descoberta",
+      "missions": "Desafios que você executou",
       "finalAssessment": "Avaliação final",
       "nextSteps": "Próximos passos",
       "competencies": "{count, plural, one {Sua competência} other {Suas competências}}",
       "finalMessage": "Mensagem final"
     },
     "mission": {
-      "real": "Missão real",
+      "real": "Desafio real",
       "written": "Cenário escrito",
       "commitment": "Compromisso:",
       "synthesis": "Síntese:"
     },
     "final": {
-      "cardTitle": "Cenário B e sua resposta",
+      "cardTitle": "Cenário final e sua resposta",
       "viewScenario": "Ver o cenário apresentado",
       "viewAnswer": "Ver sua resposta",
       "feedback": "Devolutiva"
     },
     "pilot": {
-      "eyebrow": "Piloto concluído",
+      "eyebrow": "Degustação concluída",
       "title": "{name}, você experimentou a jornada completa",
-      "subtitle": "2 semanas de degustação em <strong>{competency}</strong> — diagnóstico, conteúdo personalizado e avaliação com IA.",
+      "subtitle": "2 semanas de degustação em <strong>{competency}</strong>: perfil, conteúdo personalizado e avaliação com IA.",
       "baselineSection": "Seu ponto de partida",
-      "baselineNote": "Níveis mapeados no diagnóstico — a base sobre a qual uma temporada completa trabalha.",
-      "assessmentSection": "Avaliação de fechamento (demonstração)",
-      "assessmentNote": "Como a avaliação por cenário funciona na temporada completa. Em 2 semanas ela demonstra o método — não mede evolução.",
-      "demoLevel": "Nível na demonstração:"
+      "baselineNote": "Níveis mapeados no mapeamento: a base sobre a qual uma jornada completa trabalha.",
+      "assessmentSection": "Avaliação final (degustação)",
+      "assessmentNote": "Como a avaliação por cenário funciona na jornada completa. Em 2 semanas ela demonstra o método e não mede evolução.",
+      "demoLevel": "Nível na degustação:"
     },
     "noClosing": {
       "title": "{name}, você concluiu o programa",
       "subtitle": "{weeks, plural, one {# semana dedicada} other {# semanas dedicadas}} a <strong>{competency}</strong>.",
       "note": "Este programa foi configurado sem avaliação final: o relatório mostra o seu ponto de partida, e o avanço não foi medido. O certificado vale normalmente.",
       "baselineSection": "Seu ponto de partida",
-      "baselineNote": "Níveis mapeados no diagnóstico, antes do programa."
+      "baselineNote": "Níveis mapeados no mapeamento, antes do programa."
     }
   },
   "Voting": {
     "back": "Voltar",
-    "backDashboard": "Voltar ao dashboard",
+    "backDashboard": "Voltar ao início",
     "eyebrow": "Votação de competências",
     "title": "{name}, escolha suas 5 prioridades",
     "role": "Cargo",
@@ -2028,32 +2042,32 @@
   "Season": {
     "video": {
       "label": "Como funciona a sua jornada",
-      "title": "Sua jornada semanal"
+      "title": "Suas semanas na jornada"
     },
     "managerView": {
       "back": "Voltar à equipe",
-      "eyebrow": "TRILHA INDIVIDUAL · {name}",
+      "eyebrow": "JORNADA INDIVIDUAL · {name}",
       "title": "Visão do gestor · somente leitura",
       "titleRh": "Visão do RH · somente leitura",
-      "subtitle": "A mesma trilha do colaborador, com plano e progresso reais.",
+      "subtitle": "A mesma jornada do colaborador, com plano e progresso reais.",
       "readOnly": "Visualização somente leitura",
       "finalAssessmentReadOnly": "A avaliação final só pode ser realizada pelo colaborador"
     },
     "empty": {
-      "title": "Sua temporada ainda não foi gerada",
-      "subtitle": "Aguarde o RH/gestor liberar."
+      "title": "Sua jornada ainda não foi montada",
+      "subtitle": "A Vertho monta e libera a sua jornada. Quando estiver pronta, ela aparece aqui."
     },
     "hero": {
-      "eyebrow": "Temporada {number}",
+      "eyebrow": "Jornada {number}",
       "subtitlePilot": "{weeks, plural, one {# semana} other {# semanas}} para experimentar o método em {count, plural, one {1 competência} other {# competências}}",
       "subtitle": "{weeks, plural, one {# semana} other {# semanas}} para <evolve>evoluir</evolve> {count, plural, one {1 competência} other {# competências}} ao <level>próximo nível</level>"
     },
-    "paused": "Sua temporada está pausada pelo gestor. Você poderá continuar quando for retomada.",
-    "viewFullReport": "Ver relatório completo da temporada →",
+    "paused": "Sua jornada está pausada pelo gestor. Você poderá continuar quando for retomada.",
+    "viewFullReport": "Ver relatório completo da jornada",
     "previousSeason": {
-      "title": "Temporada {number} concluída",
-      "body": "{competency}: o Relatório de Evolução desta temporada continua disponível.",
-      "cta": "Ver o relatório da temporada {number}"
+      "title": "Jornada {number} concluída",
+      "body": "{competency}: o Relatório de Evolução desta jornada continua disponível.",
+      "cta": "Ver o relatório da jornada {number}"
     },
     "progress": {
       "title": "Progresso",
@@ -2065,9 +2079,9 @@
     },
     "weekShort": "Sem {number}",
     "type": {
-      "episode": "Episódio",
-      "practice": "Prática",
-      "assessment": "Avaliação"
+      "episode": "Conteúdo",
+      "practice": "Aplicação",
+      "assessment": "Avaliação final"
     },
     "report": {
       "title": "Relatório de Evolução",
@@ -2090,7 +2104,7 @@
   "Pdi": {
     "video": {
       "label": "Como funciona o seu PDI",
-      "title": "Seu Plano de Desenvolvimento Individual"
+      "title": "Seu plano de desenvolvimento individual"
     },
     "eyebrowShort": "MEU PDI",
     "eyebrowFull": "PLANO DE DESENVOLVIMENTO INDIVIDUAL",
@@ -2108,7 +2122,7 @@
       "preparingSubtitle": "Você já completou o mapeamento de competências. Seu Plano de Desenvolvimento Individual será gerado em breve pela equipe.",
       "progressSubtitle": "Você já respondeu {done}/{total} competências. Complete todas para que seu PDI seja gerado.",
       "notStartedSubtitle": "Seu Plano de Desenvolvimento Individual será criado após você completar o mapeamento de competências.",
-      "backDashboard": "Voltar ao dashboard",
+      "backDashboard": "Voltar ao início",
       "continueAssessment": "Continuar mapeamento →",
       "goAssessment": "Ir para o mapeamento",
       "tastingTitle": "O PDI fica para o programa",
@@ -2116,28 +2130,28 @@
       "viewResult": "Ver meu resultado"
     },
     "sections": {
-      "developingDescriptors": "Descritores em Desenvolvimento",
-      "didWell": "Fez Bem",
-      "canImprove": "Pode Melhorar",
+      "developingDescriptors": "Descritores em desenvolvimento",
+      "didWell": "Fez bem",
+      "canImprove": "Pode melhorar",
       "analysis": "Análise",
-      "thirtyDayPlan": "Plano de Desenvolvimento — 30 Dias",
-      "developmentTips": "Dicas de Desenvolvimento",
-      "recommendedStudy": "Estudo Recomendado",
-      "tacticalChecklist": "Checklist Tático",
-      "generalSummary": "Resumo Geral",
-      "behavioralProfile": "Perfil Comportamental",
-      "strengths": "Pontos Fortes",
-      "attentionPoints": "Pontos de Atenção",
+      "thirtyDayPlan": "Plano de 30 dias",
+      "developmentTips": "Dicas de desenvolvimento",
+      "recommendedStudy": "Estudo recomendado",
+      "tacticalChecklist": "Passos práticos",
+      "generalSummary": "Resumo geral",
+      "behavioralProfile": "Perfil comportamental",
+      "strengths": "Pontos fortes",
+      "attentionPoints": "Pontos de atenção",
       "performanceSummary": "Ponto de partida por competência",
-      "competencyPlan": "Plano por Competência",
-      "finalMessage": "Mensagem Final"
+      "competencyPlan": "Plano por competência",
+      "finalMessage": "Mensagem final"
     }
   },
   "Evolution": {
     "eyebrow": "Sua evolução",
     "empty": {
-      "title": "A comparação vem após a reavaliação",
-      "subtitle": "Aqui você verá o que mudou entre o mapeamento inicial e a reavaliação ao final da jornada.",
+      "title": "A comparação vem após a avaliação final",
+      "subtitle": "Aqui você verá o que mudou entre o mapeamento inicial e a avaliação final da jornada.",
       "card": "Enquanto essa comparação ainda não está disponível, acompanhe seu plano e pratique os comportamentos trabalhados na jornada.",
       "goToJourney": "Acompanhar minha jornada"
     }
@@ -2165,12 +2179,12 @@
       "subtitle": "Descreva como você agiria no cenário apresentado."
     },
     "final": {
-      "title": "Mapeamento Concluído",
+      "title": "Mapeamento concluído",
       "level": "Nível",
       "score": "Nota",
       "gap": "Lacuna",
-      "strengths": "Pontos Fortes",
-      "improvements": "Pontos de Melhoria"
+      "strengths": "Pontos fortes",
+      "improvements": "Pontos de melhoria"
     }
   },
   "AdminBehaviorProfiles": {
@@ -5119,17 +5133,17 @@
       "confidentialText": "o RH e a sua liderança veem seu nível em cada competência",
       "authenticTitle": "Seja autêntico(a)",
       "authenticText": "sem resposta certa ou errada",
-      "start": "Começar avaliação →"
+      "start": "Começar mapeamento →"
     },
     "intro": {
       "context": "Contexto",
-      "start": "▶ Iniciar avaliação"
+      "start": "Iniciar mapeamento"
     },
     "questions": {
       "counter": "Pergunta {current} de {total}",
       "minToast": "Mínimo 20 caracteres.",
       "voiceTipPrefix": "Dica:",
-      "voiceTip": "Clique em <strong>Gravar por voz</strong> e fale naturalmente em português — o texto aparece no campo enquanto você fala. Clique de novo para parar e edite se precisar. Permita o acesso ao microfone na primeira vez.",
+      "voiceTip": "Clique em <strong>Gravar por voz</strong> e fale naturalmente em português. O texto aparece no campo enquanto você fala. Clique de novo para parar e edite se precisar. Permita o acesso ao microfone na primeira vez.",
       "placeholder": "Descreva com detalhes sua resposta…",
       "minChars": "{count} / mín. 20 caracteres",
       "previous": "← Anterior",
@@ -5138,33 +5152,33 @@
     },
     "representativity": {
       "prompt": "Em uma escala de 1 a 10, qual o grau de representatividade desta situação no seu cotidiano?",
-      "low": "1 — Raramente",
-      "high": "10 — Muita frequência",
+      "low": "1: Raramente",
+      "high": "10: Muita frequência",
       "chooseToast": "Escolha a representatividade (1 a 10).",
       "sending": "Enviando...",
-      "submit": "Enviar avaliação ✓"
+      "submit": "Enviar respostas"
     },
     "confirm": {
       "title": "Resposta salva!",
-      "description": "Sua avaliação foi registrada com sucesso.",
+      "description": "Suas respostas desta competência foram registradas com sucesso.",
       "nextCompetency": "Próxima competência →",
-      "dashboard": "Voltar ao dashboard"
+      "dashboard": "Voltar ao início"
     },
     "today": {
-      "title": "Avaliação do dia concluída!",
+      "title": "Mapeamento do dia concluído!",
       "description": "Volte amanhã para continuar sua jornada."
     },
     "done": {
       "title": "Parabéns, {name}!",
-      "description": "Você completou todas as avaliações de competências.<br></br>Em breve você receberá seu relatório personalizado.",
-      "watchVideo": "Assista: agradecimento e próximas etapas (PDI e Temporada)",
-      "resultTitle": "Resultado da avaliação",
+      "description": "Você completou o mapeamento de todas as competências.<br></br>Em breve você receberá seu relatório personalizado.",
+      "watchVideo": "Assista: agradecimento e próximas etapas (PDI e semanas da jornada)",
+      "resultTitle": "Resultado do mapeamento",
       "resultSubtitle": "{name}, estas são as evidências consolidadas do seu mapeamento.",
       "resultSummary": "{evaluated} de {total} competências com análise concluída",
       "level": "Nível",
       "score": "Nota",
       "analysisPending": "Resposta registrada. A análise é liberada pela equipe Vertho e aparece aqui quando estiver pronta",
-      "analysisRunning": "Análise em andamento — sua leitura fica pronta em alguns minutos",
+      "analysisRunning": "Análise em andamento: sua leitura fica pronta em alguns minutos",
       "degustacaoTitle": "Respostas registradas",
       "degustacaoSubtitle": "{name}, sua leitura está sendo preparada e leva alguns minutos.",
       "degustacaoHint": "Continue pelo roteiro que você recebeu. Quando voltar a esta tela, a leitura das suas respostas estará aqui.",
@@ -5189,7 +5203,7 @@
     "bloqueio": {
       "PERFIL_PESSOAL_PENDENTE": {
         "title": "Falta o seu Perfil comportamental",
-        "text": "O Diagnóstico começa depois do Perfil. Faça o seu Perfil comportamental, que leva poucos minutos, e volte aqui.",
+        "text": "O Mapeamento começa depois do Perfil. Faça o seu Perfil comportamental, que leva poucos minutos, e volte aqui.",
         "cta": "Fazer meu perfil →"
       },
       "ORDEM_INDISPONIVEL": {
@@ -5198,15 +5212,15 @@
       },
       "PERFIL_BLOQUEADO": {
         "title": "Etapa ainda não liberada",
-        "text": "O Diagnóstico ainda não foi liberado para você. Volte mais tarde."
+        "text": "O Mapeamento ainda não foi liberado para você. Volte mais tarde."
       },
       "VOTACAO_ATIVA": {
         "title": "Votação em andamento",
-        "text": "O Diagnóstico abre depois que a votação das competências for encerrada."
+        "text": "O Mapeamento abre depois que a votação das competências for encerrada."
       },
       "CENARIOS_BLOQUEADOS": {
         "title": "Etapa ainda não liberada",
-        "text": "Os cenários do Diagnóstico ainda não foram liberados para você. Volte mais tarde."
+        "text": "Os cenários do Mapeamento ainda não foram liberados para você. Volte mais tarde."
       },
       "SEM_COMPETENCIAS": {
         "title": "Nenhuma competência para responder",
@@ -5239,7 +5253,7 @@
       "nextDecision": "Próxima decisão",
       "noPrimaryAction": "Use os sinais da equipe abaixo para definir o foco da próxima conversa.",
       "thisWeek": "Nesta semana",
-      "competencies": "Pulso das competências",
+      "competencies": "Níveis das competências",
       "mostFrequentLevel": "Nível mais frequente: {level}",
       "highlights": "Pontos fortes a reconhecer",
       "attentionPeople": "Conversas prioritárias",
@@ -5266,14 +5280,14 @@
     },
     "noReports": {
       "title": "Você ainda não tem liderados vinculados",
-      "body": "O vínculo gestor → liderado é feito via campo <code>gestor_email</code> em cada colaborador. Peça ao admin da empresa pra preencher esse campo com seu e-mail nos colaboradores que você lidera (na importação ou em <em>Gerenciar colaboradores</em>). Enquanto não houver vínculo, esta tela aparece zerada por segurança — gestores não veem dados de quem não é seu liderado direto."
+      "body": "Para você ver a sua equipe aqui, a Vertho precisa vincular ao seu e-mail as pessoas que você lidera. Fale com a Vertho para fazer o vínculo. Enquanto não houver vínculo, esta tela aparece zerada por segurança: gestores não veem dados de quem não é seu liderado direto."
     },
     "kpis": {
       "led": "Liderados",
       "people": "Colaboradores",
-      "inTrack": "{count} em trilha · {without} sem trilha",
+      "inTrack": "{count} em jornada · {without} sem jornada",
       "inProgress": "Em andamento",
-      "noActiveTrack": "sem trilha ativa",
+      "noActiveTrack": "sem jornada ativa",
       "checkpoints": "Precisam de apoio",
       "answered": "ninguém parado",
       "pending": "parados",
@@ -5283,7 +5297,7 @@
       "weekCount": "{count} na semana {week}"
     },
     "pendingCount": "{count} pendente{plural}",
-    "emptyAction": "Ninguém parou nesta semana. Quando alguém ficar para trás na jornada, aparece aqui — com há quanto tempo e em que semana.",
+    "emptyAction": "Ninguém parou nesta semana. Quando alguém ficar para trás na jornada, aparece aqui, com há quanto tempo e em que semana.",
     "modal": {
       "eyebrow": "Checkpoint semana {week} · avaliação",
       "noFocus": "sem competência foco",
@@ -5309,29 +5323,29 @@
     "filters": {
       "all": "Todos",
       "inProgress": "Em andamento",
-      "noTrack": "Sem trilha",
+      "noTrack": "Sem jornada",
       "completed": "Concluídas"
     },
     "status": {
       "em_andamento": "em andamento",
       "pausada": "pausada",
       "concluida": "concluída",
-      "sem_trilha": "sem trilha",
+      "sem_trilha": "sem jornada",
       "arquivada": "arquivada"
     },
     "actions": {
       "back": "Voltar às sugestões",
       "clearFilter": "Limpar filtro e ver toda a equipe",
       "onlyGroup": "A lista abaixo mostra apenas as pessoas deste grupo.",
-      "empty": "Nada travado no momento — todo mundo com o próximo passo em dia.",
+      "empty": "Nada travado no momento: todo mundo com o próximo passo em dia.",
       "sem_perfil": {
         "title": "Destravar quem nem começou",
-        "body": "{count} ainda não fizeram o mapeamento comportamental. É o primeiro portão: sem ele não existe trilha.",
+        "body": "{count} ainda não fizeram o perfil comportamental. É o primeiro portão: sem ele não existe jornada.",
         "chip": "Sem perfil"
       },
       "sem_mapeamento": {
         "title": "Cobrar o mapeamento de competências",
-        "body": "{count} já têm o perfil e param aqui. É este passo que gera a trilha.",
+        "body": "{count} já têm o perfil e param aqui. É este passo que gera a jornada.",
         "chip": "Sem mapeamento"
       },
       "atrasada": {
@@ -5341,17 +5355,17 @@
       },
       "aguardando_geracao": {
         "title": "Prontos para começar",
-        "body": "{count} fizeram as duas etapas e ainda não têm trilha. Fale com a Vertho para liberar.",
+        "body": "{count} fizeram as duas etapas e ainda não têm jornada. Fale com a Vertho para liberar.",
         "chip": "Prontos"
       }
     },
     "team": {
       "weekProgress": "sem {week}/{total}",
       "reason": {
-        "sem_perfil": "falta o mapeamento comportamental",
+        "sem_perfil": "falta o perfil comportamental",
         "sem_perfil_externo": "falta o {fonte}",
         "sem_mapeamento": "falta o mapeamento de competências",
-        "aguardando_geracao": "pronto para começar — trilha ainda não gerada"
+        "aguardando_geracao": "pronto para começar: a jornada ainda não foi montada"
       },
       "showing": "{shown} de {total}",
       "total": "{total} pessoas"
@@ -5840,8 +5854,8 @@
     "recomendacao": {
       "pronta": "Demonstra o que o papel exige e o estilo é aderente ao perfil-alvo. Evidência e leitura apontam para o mesmo lado: assume agora, com devolutiva individual.",
       "pronta_com_custo": "Demonstra o que o papel exige, com estilo distante do perfil-alvo. Vai liderar de um jeito diferente do padrão da casa, o que é previsível e não surpresa. O plano individual nomeia o atrito específico.",
-      "potencial": "O estilo ajuda, mas a demonstração ainda não sustenta. É o quadrante que mais engana em avaliação só por perfil. Trilha nas competências abaixo da meta e reavaliação ao fim.",
-      "nao_agora": "As competências abaixo da meta são as que o papel não dispensa. Trilha antes de qualquer movimento; o parecer nomeia quais, com a evidência."
+      "potencial": "O estilo ajuda, mas a demonstração ainda não sustenta. É o quadrante que mais engana em avaliação só por perfil. Jornada de desenvolvimento nas competências abaixo da meta e reavaliação ao fim.",
+      "nao_agora": "As competências abaixo da meta são as que o papel não dispensa. Jornada de desenvolvimento antes de qualquer movimento; o parecer nomeia quais, com a evidência."
     },
     "posicaoTitulo": "Posição · competência demonstrada",
     "nivelGeral": "Nível geral {n}",

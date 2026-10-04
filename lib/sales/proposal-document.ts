@@ -162,7 +162,7 @@ const PILARES_PADRAO = [
       + 'No mapeamento, no PDI e na geração dos cenários, uma segunda IA confere o trabalho da primeira.',
   },
   {
-    titulo: 'Trilha personalizada',
+    titulo: 'Jornada personalizada',
     texto: 'Conteúdo semanal gerado para o cargo, o nível e o perfil de cada participante, no formato '
       + 'em que ela aprende melhor: vídeo, podcast, texto ou case. Duas pessoas na mesma função podem fazer jornadas diferentes.',
   },
@@ -170,7 +170,7 @@ const PILARES_PADRAO = [
     // Ninguém do cliente vê nota decimal: a pessoa, o gestor e o RH leem nível e
     // avanço (decisão 1 e R-24 da revisão de 02/10/2026).
     titulo: 'Evidência de evolução',
-    texto: 'Ao fim do ciclo a pessoa é reavaliada, e o relatório mostra, em cada competência, o nível de partida, '
+    texto: 'Ao fim da jornada a pessoa passa pela avaliação final, e o relatório mostra, em cada competência, o nível de partida, '
       + 'o nível de chegada e o avanço em cada comportamento. Desenvolvimento que se mede, não que se presume.',
   },
 ];
@@ -192,20 +192,20 @@ const ENTREGAS_PADRAO = [
     // O "PDI" do produto é o relatório individual (`relatorios`, tipo individual):
     // por competência, foco de 30 dias, ações, checklist e evidência esperada,
     // ancorados nas respostas da pessoa. Não prometer mais do que isso.
-    titulo: 'Plano de Desenvolvimento Individualizado (PDI)',
+    titulo: 'Plano de Desenvolvimento Individual (PDI)',
     texto: 'Por competência, o foco, as ações e a evidência esperada, a partir das respostas da própria pessoa no diagnóstico.',
   },
   {
-    titulo: 'Trilha semanal personalizada',
+    titulo: 'Semanas personalizadas',
     texto: 'Conteúdo, desafio prático e reflexão a cada semana, no ritmo de cada pessoa.',
   },
   {
-    titulo: 'Mentor IA',
-    texto: 'Acompanhamento que tira dúvidas, provoca reflexão e sustenta a aplicação no trabalho, durante toda a jornada.',
+    titulo: 'Tira-Dúvidas e Beto',
+    texto: 'O Tira-Dúvidas responde sobre o tema da semana, a conversa de evidências provoca reflexão e o Beto, assistente em qualquer tela, ajuda a aplicar no trabalho, durante toda a jornada.',
   },
   {
-    titulo: 'Avaliação de fechamento',
-    texto: 'Novo cenário e arguição oral com a IA ao fim do ciclo, para medir o que mudou na prática.',
+    titulo: 'Avaliação final',
+    texto: 'Novo cenário e arguição oral com a IA ao fim da jornada, para medir o que mudou na prática.',
   },
   {
     // Só documentos que chegam ao cliente. A Plenária e o Dossiê do Gestor nunca
@@ -216,17 +216,17 @@ const ENTREGAS_PADRAO = [
   },
   {
     titulo: 'Suporte dedicado',
-    texto: 'Canal direto com a equipe Vertho do setup ao fechamento de cada ciclo.',
+    texto: 'Canal direto com a equipe Vertho do setup ao fechamento de cada jornada.',
   },
 ];
 
 const PARA_PESSOA_PADRAO = [
   'Um perfil comportamental com narrativa, não um rótulo de quatro letras.',
   'Um PDI com o foco, as ações e a evidência esperada em cada competência.',
-  'Trilha no formato que ela aprende melhor, contextualizada pelo cargo.',
+  'Jornada no formato que ela aprende melhor, contextualizada pelo cargo.',
   'Desafios aplicados ao trabalho real, não exercícios genéricos.',
-  'Mentor IA disponível para tirar dúvidas ao longo da semana.',
-  'Relatório pessoal de evolução ao fim de cada ciclo.',
+  'Tira-Dúvidas e Beto disponíveis ao longo da semana.',
+  'Relatório pessoal de evolução ao fim de cada jornada.',
 ];
 
 const PARA_INSTITUICAO_PADRAO = [
@@ -407,8 +407,8 @@ const CRONOGRAMA_PADRAO: ProposalEtapa[] = [
     entrega: 'Perfil e nível por competência de cada pessoa.',
   },
   {
-    fase: 'Trilha',
-    descricao: 'Desenvolvimento personalizado por cargo e perfil, com conteúdo semanal, desafio prático e Mentor IA.',
+    fase: 'Jornada',
+    descricao: 'Desenvolvimento personalizado por cargo e perfil, com conteúdo semanal, desafio prático, Tira-Dúvidas e Beto.',
     entrega: 'Acompanhamento semanal de engajamento para o RH.',
   },
   {
@@ -418,7 +418,7 @@ const CRONOGRAMA_PADRAO: ProposalEtapa[] = [
   },
   {
     fase: 'Resultados',
-    descricao: 'Leitura do ciclo com o RH e com os gestores, e definição do foco do ciclo seguinte.',
+    descricao: 'Leitura da jornada com o RH e com os gestores, e definição do foco da jornada seguinte.',
     entrega: 'Relatório de evolução por participante, Relatório do Gestor, consolidado de RH e PDF executivo de fim de jornada.',
   },
 ];

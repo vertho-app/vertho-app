@@ -52,7 +52,7 @@ describe('PDFs demonstrativos da central do RH', () => {
       { nome: 'Orientação a resultados' },
     ], 7);
 
-    expect(fases.map((fase) => fase.fase)).toEqual(['Semanas 1–6', 'Semana 7', 'Próxima jornada']);
+    expect(fases.map((fase) => fase.fase)).toEqual(['Semanas 1 a 6', 'Semana 7', 'Próxima jornada']);
     expect(fases.some((fase) => JSON.stringify(fase).includes('14'))).toBe(false);
   });
 });

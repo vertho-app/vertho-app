@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
+import { Bot, ChevronDown, ChevronUp, ClipboardList, Clapperboard, FileText, GripVertical, Headphones, BarChart3, Target } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { ordemDePrefs } from '@/lib/access-gates/preferencias-aprendizagem';
 import { ordemAoArrastar } from '@/lib/ordenacao-arrastar';
@@ -25,17 +26,18 @@ import { ordemAoArrastar } from '@/lib/ordenacao-arrastar';
  * virar rolagem da página). Os ouvintes ficam na `window` durante o gesto — a linha é
  * reinserida no DOM a cada troca de posição e isso solta a captura do ponteiro.
  */
+// Ícone Lucide por formato (R-123: sem emoji no chrome do produto).
 export const FORMATOS_APRENDIZAGEM = [
-  { id: 'video_short', icon: '🎬' },
-  { id: 'text', icon: '📄' },
-  { id: 'audio', icon: '🎧' },
-  { id: 'infographic', icon: '📊' },
-  { id: 'exercise', icon: '🎯' },
-  { id: 'mentor', icon: '🤖' },
-  { id: 'case', icon: '📋' },
-] as const;
+  { id: 'video_short', icon: Clapperboard },
+  { id: 'text', icon: FileText },
+  { id: 'audio', icon: Headphones },
+  { id: 'infographic', icon: BarChart3 },
+  { id: 'exercise', icon: Target },
+  { id: 'mentor', icon: Bot },
+  { id: 'case', icon: ClipboardList },
+] as const satisfies ReadonlyArray<{ id: string; icon: LucideIcon }>;
 
-const ICONE: Record<string, string> = Object.fromEntries(FORMATOS_APRENDIZAGEM.map(f => [f.id, f.icon]));
+const ICONE: Record<string, LucideIcon> = Object.fromEntries(FORMATOS_APRENDIZAGEM.map(f => [f.id, f.icon]));
 
 function embaralhar<T>(arr: readonly T[]): T[] {
   const a = [...arr];
@@ -160,7 +162,7 @@ export default function PreferenciasAprendizagemForm({
               >
                 {i + 1}
               </span>
-              <span className="shrink-0 text-[18px]" aria-hidden="true">{ICONE[id]}</span>
+              <span className="shrink-0 text-white/70" aria-hidden="true">{(() => { const Icone = ICONE[id]; return Icone ? <Icone size={18} /> : null; })()}</span>
               <span className="min-w-0 flex-1 text-[14px] font-semibold leading-snug text-white">{nome}</span>
               <div className="flex shrink-0 gap-1">
                 <button
