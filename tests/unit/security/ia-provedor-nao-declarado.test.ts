@@ -76,7 +76,7 @@ const COM_DADO_DE_PESSOA = [
   'relatorio_comportamental', 'insights_executivos', 'devolutiva_comportamental', 'beto', 'ipi',
   'sim_aluno', 'chat_simulador', 'sem13_qualitativa', 'sem14_scorer', 'sem14_check', 'sem14_redacao',
   'acumulada_primaria', 'acumulada_check', 'blueprint_gerar', 'blueprint_audit', 'conversa_fase3',
-  'chat_fase3_eval', 'chat_fase3_audit', 'tira_duvidas', 'reavaliacao_chat', 'evolucao_fusao',
+  'chat_fase3_eval', 'chat_fase3_audit', 'tira_duvidas', 'evolucao_fusao',
   'evolucao_plenaria', 'temporada_reflexao', 'temporada_feedback', 'temporada_qualitativa',
   'temporada_rubrica', 'temporada_extracao', 'evidencias_socratic', 'arguicao_turno', 'arguicao_avaliacao',
   'recepcao_paciente', 'recepcao_avaliacao', 'recepcao_rascunho', 'conteudo_personalizacao',

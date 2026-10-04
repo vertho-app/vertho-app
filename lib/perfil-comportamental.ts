@@ -7,8 +7,8 @@
  *
  * Quando NÃO há fonte externa, usa o DISC clássico (perfil_dominante +
  * d_natural/i_natural/s_natural/c_natural). Esse helper centraliza a
- * lógica pra que prompts (fase3, fase5, cenario-b, evolucao-granular,
- * etc.) não precisem fazer if/else espalhado.
+ * lógica pra que prompts (fase3, fase5, cenario-b, etc.) não precisem
+ * fazer if/else espalhado.
  *
  * Os campos esperados em `colab` são select de:
  *   nome_completo, cargo,

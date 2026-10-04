@@ -14,7 +14,6 @@ export {
 
 export {
   iniciarReavaliacaoLote,
-  processarReavaliacao,
 } from './fase5/reavaliacao';
 
 export {

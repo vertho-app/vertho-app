@@ -136,7 +136,6 @@ export const AI_TASKS = [
   { key: 'conteudo_expansao_pdf', label: 'Conteúdo — expansão para o PDF', fase: 'Conteúdos' },
   { key: 'escola_brief', label: 'Brief da escola (contexto institucional)', fase: 'Conteúdos' },
   { key: 'evolucao_plenaria', label: 'Evolução — plenária', fase: 'Fase 5' },
-  { key: 'reavaliacao_chat', label: 'Reavaliação — chat', fase: 'Fase 5' },
   { key: 'beto', label: 'BETO — assistente do colaborador', fase: 'Assistentes' },
   { key: 'ipi', label: 'Ipi — ajuda operacional interna (somente leitura)', fase: 'Assistentes' },
   { key: 'sim_aluno', label: 'Simulador — aluno', fase: 'Simulador' },

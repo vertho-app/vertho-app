@@ -19,8 +19,6 @@
     "15/09/2026: -1 (lib/relatorio-comportamental/relatorio-core.ts). Os textos do relatorio DISC eram uma chamada por PESSOA (todo mapeamento, cache de 30 dias) caindo em untagged E com empresa_id nulo: invisivel nas duas visoes de custo. Medido: US$ 0,0403 de media em 8 chamadas de 02/09, achadas so pelo origem_codigo `gerarTextosLLM <- main`. Agora etiqueta `relatorio_comportamental` e carimba o tenant, que ja estava no escopo."
   ],
   "allowlist": {
-    "actions/evolucao-granular.ts": 1,
-    "actions/fase5/reavaliacao.ts": 1,
     "actions/fase5/relatorios-envios.ts": 4,
     "actions/fit-v2.ts": 1,
     "actions/modulos-base.ts": 2,

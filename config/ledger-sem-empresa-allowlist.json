@@ -10,7 +10,6 @@
     "lib/season-engine/arguicao.ts:arguicao_avaliacao": "Dívida: 0 linha no ledger em 30 dias.",
     "actions/fase5/evolucao.ts:evolucao_fusao": "Dívida: 0 linha no ledger em 30 dias.",
     "actions/fase5/evolucao.ts:evolucao_plenaria": "Dívida: 0 linha no ledger em 30 dias.",
-    "actions/fase5/reavaliacao.ts:reavaliacao_chat": "Dívida: 0 linha no ledger em 30 dias.",
     "actions/fase1.ts:ia1_top10": "Dívida: 2 chamadas em 30 dias (US$ 0,04), a última em 11/08.",
     "lib/tts/canario.ts:canario_tts": "Canario semanal de TTS: sonda tecnica que sintetiza um texto fixo para medir deriva do modelo. Nao pertence a tenant nenhum."
   }
