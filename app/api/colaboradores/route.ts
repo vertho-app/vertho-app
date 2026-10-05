@@ -22,7 +22,25 @@ const EDITABLE_FIELDS = [
 // platform_admin é tabela separada (platform_admins) — nunca atribuível aqui.
 const ALLOWED_ROLES = new Set(['colaborador', 'gestor', 'rh']);
 
-function pickEditable(body: Record<string, any>): { fields: Record<string, any>; error?: string } {
+/**
+ * Campos que decidem QUEM a pessoa é e PARA ONDE o link de acesso dela vai.
+ * Reservados a platform admin (análise de 05/10/2026): a conta do Auth é global
+ * por e-mail, e o link de login também sai por WhatsApp para o telefone gravado
+ * na linha. O RH de um tenant podia pôr o e-mail de OUTRA conta (até de admin)
+ * e o próprio telefone numa linha da sua empresa, e pedir o link de acesso dela.
+ * O papel (`role`) segue a mesma régua: o R-73 tirou `users.manage` do RH, e
+ * esta rota só conferia o papel.
+ */
+const CAMPOS_DE_IDENTIDADE = ['email', 'telefone', 'whatsapp', 'login_por_whatsapp', 'role'] as const;
+
+function pickEditable(
+  body: Record<string, any>,
+  ehPlatformAdmin: boolean,
+): { fields: Record<string, any>; error?: string; status?: number } {
+  if (!ehPlatformAdmin) {
+    const reservado = CAMPOS_DE_IDENTIDADE.find((k) => body[k] !== undefined);
+    if (reservado) return { fields: {}, error: `campo reservado a administrador da plataforma: ${reservado}`, status: 403 };
+  }
   const fields: Record<string, any> = {};
   for (const k of EDITABLE_FIELDS) {
     if (body[k] !== undefined) fields[k] = body[k];
@@ -90,8 +108,8 @@ export async function POST(req: Request) {
   const guard = assertTenantAccess(auth, body?.empresa_id);
   if (guard) return guard;
 
-  const { fields, error: vErr } = pickEditable(body);
-  if (vErr) return NextResponse.json({ error: vErr }, { status: 400 });
+  const { fields, error: vErr, status: vStatus } = pickEditable(body, auth.isPlatformAdmin);
+  if (vErr) return NextResponse.json({ error: vErr }, { status: vStatus ?? 400 });
   if (!fields.email) return NextResponse.json({ error: 'email obrigatório' }, { status: 400 });
 
   const sb = createSupabaseAdmin();
@@ -125,8 +143,8 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'não é permitido mover colab entre empresas via API' }, { status: 400 });
   }
 
-  const { fields, error: vErr } = pickEditable(updates);
-  if (vErr) return NextResponse.json({ error: vErr }, { status: 400 });
+  const { fields, error: vErr, status: vStatus } = pickEditable(updates, auth.isPlatformAdmin);
+  if (vErr) return NextResponse.json({ error: vErr }, { status: vStatus ?? 400 });
   if (Object.keys(fields).length === 0) {
     return NextResponse.json({ error: 'nenhum campo editável informado' }, { status: 400 });
   }
