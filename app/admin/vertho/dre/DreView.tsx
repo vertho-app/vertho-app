@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, CalendarClock, Plus, Receipt, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Plus, Receipt, TrendingUp, Wallet } from 'lucide-react';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { Button, MetricCard } from '@/components/ui';
@@ -164,17 +164,16 @@ export default function DreView({ dados, empresaInicial }: { dados: DadosDRE; em
               <li><strong>Custo de IA:</strong> vem do registro automático de chamadas, fechado toda segunda e convertido pelo câmbio da semana. A semana em curso é calculada agora e pode mudar.</li>
               <li><strong>Horas, impostos, comissão, WhatsApp, infraestrutura e terceiros:</strong> lançados à mão, por semana ou por mês. "Sem lançamento" quer dizer que ninguém lançou, não que custou zero.</li>
               <li><strong>Custo lançado por mês:</strong> o valor do mês é repartido pelas semanas, proporcional aos dias de cada semana que caem no mês (uma semana que cruza dois meses recebe uma fatia de cada). A soma das semanas é sempre o valor do mês, e a parte de uma semana que ainda não chegou aparece quando ela chegar.</li>
-              <li><strong>Fora de cliente:</strong> IA de pesquisa e desenvolvimento, ambientes de demonstração e custos gerais da plataforma. Não entram na margem de nenhum cliente, mas entram no total geral.</li>
+              <li><strong>Total geral:</strong> inclui os custos dos clientes, de pesquisa e desenvolvimento, dos ambientes de demonstração e da plataforma. Custos sem vínculo com uma empresa não entram na margem de nenhum cliente.</li>
               <li><strong>Margem:</strong> resultado ÷ receita. Sem receita na semana ela não existe (aparece como "—", não como 0%).</li>
             </ul>
           </details>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
         <MetricCard label="Receita recebida" value={brlCurto(geral.receita)} helper={`${resultado.janela.length} semanas, por caixa`} icon={<TrendingUp size={15} />} accent="#2ECC71" />
         <MetricCard label="Custo dos clientes" value={brlCurto(resultado.totais.operacao.custo)} helper="IA medida + custos lançados" icon={<Receipt size={15} />} />
-        <MetricCard label="Fora de cliente" value={brlCurto(resultado.foraDeCliente.total.totalBrl)} helper="P&D, plataforma e demos" icon={<TrendingDown size={15} />} accent="#F4B740" />
         <MetricCard label="Resultado geral" value={<span className={geral.resultado < 0 ? 'text-red-300' : 'text-white'}>{brlCurto(geral.resultado)}</span>} helper={`margem ${pct(geral.margemPct)}`} accent={geral.resultado < 0 ? '#E74C3C' : '#2ECC71'} />
         <MetricCard label="Parcelas atrasadas" value={String(atrasadas.qtd)} helper={atrasadas.qtd ? brl(atrasadas.valorBrl) : 'nenhuma'} icon={<CalendarClock size={15} />} accent={atrasadas.qtd ? '#E74C3C' : '#2ECC71'} />
         <MetricCard label="A vencer em 28 dias" value={String(proximas.qtd)} helper={proximas.qtd ? brl(proximas.valorBrl) : 'nenhuma'} icon={<CalendarClock size={15} />} />

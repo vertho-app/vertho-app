@@ -516,7 +516,7 @@ export function DialogoLancamento({
               </select>
             </Campo>
           ) : (
-            <div className="self-end pb-2 text-[11px] leading-snug text-white/45">Aparece no bloco "Fora de cliente", não na margem de nenhuma empresa.</div>
+            <div className="self-end pb-2 text-[11px] leading-snug text-white/45">Entra no total geral, sem afetar a margem de nenhuma empresa.</div>
           )}
         </div>
         <div>

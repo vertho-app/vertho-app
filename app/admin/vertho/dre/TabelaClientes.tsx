@@ -37,7 +37,6 @@ export function Situacao({ t }: { t: TenantDRE }) {
 export default function TabelaClientes({ resultado, onAbrir }: { resultado: ResultadoDRE; onAbrir: (chave: string) => void }) {
   const op = resultado.totais.operacao;
   const geral = resultado.totais.geral;
-  const fora = resultado.foraDeCliente.total;
 
   const cab = 'px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-white/45';
   const num = 'px-3 py-2 text-right tabular-nums';
@@ -92,21 +91,6 @@ export default function TabelaClientes({ resultado, onAbrir }: { resultado: Resu
             <td className={`${num} font-bold ${corDoValor(op.resultado)}`}>{brl(op.resultado)}</td>
             <td className={`${num} font-bold text-white`}>{pct(op.margemPct)}</td>
             <td />
-          </tr>
-          <tr className="text-white/70">
-            <td className="px-3 py-2" title="IA de P&D, de plataforma sem empresa e de ambientes de demonstração, mais os lançamentos de custo geral.">
-              Fora de cliente <span className="text-white/40">(P&amp;D, plataforma, demos)</span>
-            </td>
-            <td className={num}>—</td>
-            <td className={num}>{brl(fora.iaPdBrl)}</td>
-            <td className={num}>—</td>
-            <td className={num}>{brl(fora.plataformaBrl)}</td>
-            <td className={`${num} ${corDoValor(-fora.totalBrl)}`}>{brl(-fora.totalBrl)}</td>
-            <td className={num}>—</td>
-            <td className="px-3 py-2 text-[11px] text-white/45">
-              {resultado.foraDeCliente.iaLinhasSemCusto > 0 ? `${resultado.foraDeCliente.iaLinhasSemCusto} chamadas de IA sem preço. ` : ''}
-              Pode conter entrega de cliente sem empresa atribuída.
-            </td>
           </tr>
           <tr className="border-t border-white/10">
             <td className="px-3 py-2 font-bold text-white">Total geral</td>
