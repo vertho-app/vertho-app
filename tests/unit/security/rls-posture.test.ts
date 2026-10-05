@@ -197,6 +197,32 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
     expect(v).toEqual([]);
   });
 
+  /**
+   * INV6: NASCEU DE UM FURO REAL (análise de 05/10/2026). Os cinco invariantes
+   * acima olham policy (linha) e SELECT; nenhum olhava GRANT DE ESCRITA, e
+   * `colaboradores_update_self` amarrava a linha mas deixava `role` e
+   * `empresa_id` graváveis pelo próprio usuário via PostgREST: qualquer login
+   * virava RH, ou mudava de tenant. A mig 278 revoga a escrita de anon e
+   * authenticated em toda tabela de public, porque o app não tem caminho
+   * legítimo de escrita por essas roles (o navegador só lê, o servidor usa
+   * service_role). `has_any_column_privilege` pega também GRANT por coluna;
+   * DELETE não existe por coluna, então vai por `has_table_privilege`.
+   */
+  it('INV6: anon e authenticated não têm INSERT/UPDATE/DELETE em tabela nenhuma de public', async () => {
+    const v = await violations(`
+      SELECT c.relname, r.rolname, p.priv
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      CROSS JOIN (VALUES ('anon'), ('authenticated')) AS r(rolname)
+      CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE')) AS p(priv)
+      WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+        AND CASE WHEN p.priv = 'DELETE'
+              THEN has_table_privilege(r.rolname, c.oid, 'DELETE')
+              ELSE has_any_column_privilege(r.rolname, c.oid, p.priv) END
+      ORDER BY c.relname, r.rolname, p.priv`);
+    expect(v).toEqual([]);
+  });
+
   it('INV5 — toda função SECURITY DEFINER de public tem search_path fixo', async () => {
     const v = await violations(`
       SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
