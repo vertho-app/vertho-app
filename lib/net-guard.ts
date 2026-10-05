@@ -25,15 +25,54 @@ import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { Agent, buildConnector, fetch as undiciFetch } from 'undici';
 
+/**
+ * Expande um IPv6 textual em 8 hextets (0..65535); `null` se malformado.
+ * Existe porque a checagem por PREFIXO DE TEXTO não vê a forma normalizada: o
+ * `URL` do Node reescreve `[::ffff:127.0.0.1]` como `[::ffff:7f00:1]`, e o
+ * regex que só reconhecia o mapeado com pontos deixava esse endereço passar como
+ * público (análise de 05/10/2026, confirmado rodando o `URL`).
+ */
+function hextetsIPv6(ip: string): number[] | null {
+  let s = ip.toLowerCase().split('%')[0];
+  const v4 = s.match(/^(.*:)(\d+\.\d+\.\d+\.\d+)$/);
+  if (v4) {
+    const q = v4[2].split('.').map(Number);
+    if (q.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+    s = `${v4[1]}${((q[0] << 8) | q[1]).toString(16)}:${((q[2] << 8) | q[3]).toString(16)}`;
+  }
+  const partes = s.split('::');
+  if (partes.length > 2) return null;
+  const cabeca = partes[0] ? partes[0].split(':') : [];
+  const cauda = partes.length === 2 && partes[1] ? partes[1].split(':') : [];
+  const faltam = 8 - cabeca.length - cauda.length;
+  if (partes.length === 1 ? faltam !== 0 : faltam < 1) return null;
+  const todos = [...cabeca, ...Array(partes.length === 2 ? faltam : 0).fill('0'), ...cauda];
+  const h = todos.map((x) => (/^[0-9a-f]{1,4}$/.test(x) ? parseInt(x, 16) : NaN));
+  return h.length === 8 && !h.some(Number.isNaN) ? h : null;
+}
+
 /** Faixas privadas/reservadas — request pra cá é SSRF, nunca destino legítimo. */
 export function ehIpPrivado(ip: string): boolean {
   if (ip.includes(':')) {
-    const v6 = ip.toLowerCase();
-    // ::1 loopback · fc00::/7 ULA · fe80::/10 link-local · ::ffff:x.x.x.x mapeado
-    if (v6 === '::1' || v6 === '::') return true;
-    if (v6.startsWith('fc') || v6.startsWith('fd') || v6.startsWith('fe8') || v6.startsWith('fe9') || v6.startsWith('fea') || v6.startsWith('feb')) return true;
-    const mapped = v6.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-    return mapped ? ehIpPrivado(mapped[1]) : false;
+    const h = hextetsIPv6(ip);
+    if (!h) return true; // malformado = rejeita, a mesma política do IPv4
+    const [a, b, c, d, e, f, g, i] = h;
+    const v4 = (x: number, y: number) => `${x >> 8}.${x & 255}.${y >> 8}.${y & 255}`;
+    const zeros = (n: number) => h.slice(0, n).every((x) => x === 0);
+    if (zeros(6)) return ehIpPrivado(v4(g, i));                              // ::, ::1 e ::a.b.c.d (compatível)
+    if (zeros(5) && f === 0xffff) return ehIpPrivado(v4(g, i));             // ::ffff:0:0/96 mapeado
+    if (zeros(4) && e === 0xffff && f === 0) return ehIpPrivado(v4(g, i));  // ::ffff:0:0:0/96 traduzido
+    if (a === 0x64 && b === 0xff9b && c === 0 && d === 0 && e === 0 && f === 0) return ehIpPrivado(v4(g, i)); // NAT64
+    if (a === 0x64 && b === 0xff9b && c === 1) return true;                  // 64:ff9b:1::/48 uso local
+    if (a === 0x2002) return ehIpPrivado(v4(b, c));                          // 6to4 embute o IPv4 nos bits 16..47
+    if (a === 0x2001 && b === 0) return true;                                // Teredo
+    if (a === 0x2001 && b === 0xdb8) return true;                            // documentação
+    if (a === 0x100 && b === 0 && c === 0 && d === 0) return true;           // 100::/64 descarte
+    if ((a & 0xfe00) === 0xfc00) return true;                                // fc00::/7 ULA
+    if ((a & 0xffc0) === 0xfe80) return true;                                // fe80::/10 link-local
+    if ((a & 0xffc0) === 0xfec0) return true;                                // fec0::/10 site-local (obsoleto)
+    if ((a & 0xff00) === 0xff00) return true;                                // ff00::/8 multicast
+    return false;
   }
   const p = ip.split('.').map(Number);
   if (p.length !== 4 || p.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true; // malformado = rejeita
@@ -42,6 +81,11 @@ export function ehIpPrivado(ip: string): boolean {
   if (p[0] === 192 && p[1] === 168) return true;
   if (p[0] === 169 && p[1] === 254) return true;      // link-local / metadata (169.254.169.254)
   if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true; // CGNAT
+  if (p[0] >= 224) return true;                                              // multicast, reservado e broadcast
+  if (p[0] === 192 && p[1] === 0 && (p[2] === 0 || p[2] === 2)) return true; // 192.0.0.0/24 e TEST-NET-1
+  if (p[0] === 198 && (p[1] === 18 || p[1] === 19)) return true;             // 198.18.0.0/15 benchmarking
+  if (p[0] === 198 && p[1] === 51 && p[2] === 100) return true;              // TEST-NET-2
+  if (p[0] === 203 && p[1] === 0 && p[2] === 113) return true;               // TEST-NET-3
   return false;
 }
 
