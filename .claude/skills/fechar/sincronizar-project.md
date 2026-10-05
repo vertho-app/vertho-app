@@ -29,6 +29,27 @@ Nunca confie no tamanho da rodada para estimar o tamanho da defasagem.
 
 **A comparação é sempre das 20 contra o Project, toda vez.**
 
+## 🔑 04/10/2026: o caminho inteiro pela API, com hash (sem modal para ler nem menu para remover)
+
+`Medido: 04/10/2026`, 16 subidas e 16 remoções, fecho 20 de 20 idênticas ao `origin/master`:
+1. **Repo:** `scratchpad/fontes_project.py` (da sessão; refazer se o scratchpad sumiu) lê as 20 por
+   `git show origin/master:`, normaliza CRLF, grava a cópia para subir e imprime `kb` e `sha1` de cada.
+2. **Project:** `GET /api/organizations/<org>/projects/<proj>/docs` (o `org` é o de `/api/organizations`
+   cujo GET responde 200), `crypto.subtle.digest('SHA-1')` de cada `content`, e a comparação com o mapa
+   do repo FEITA NA PÁGINA, devolvendo só os nomes que diferem (a lista inteira volta truncada).
+   🔴 **O kB não pega tudo:** `PORTAL-REPRESENTANTE.md` (29,2) e `RESUMO.md` (18,1) tinham o MESMO kB do
+   repo e conteúdo diferente. Pela régua de kB, seriam 14 defasadas; pelo hash, 16.
+3. **`await fetch` direto no `javascript_tool` estourou o teto de 45 s do CDP** ("renderer may be frozen")
+   duas vezes, com a página saudável. O que funcionou: disparar o `async` sem esperar, guardar em
+   `window.__x`, `computer wait` e ler `window.__x` numa segunda chamada.
+4. **Subir:** o modal (botão "Mostrar contexto") tem UM `input[type=file]` dentro do `[role=dialog]`;
+   marcar com `aria-label`, `find` e `file_upload` das 16 numa chamada (1,26 MB).
+5. **Remover:** `DELETE .../docs/<uuid>` pela própria página, UMA por vez, com a trava conferida
+   imediatamente antes de cada uma (relendo a lista): o nome tem exatamente 2 cópias, a OUTRA tem o hash do
+   repo, e a do `uuid` alvo tem o hash antigo anotado. 16 de 16 com 204, sem menu, sem coordenada e sem
+   o risco de clicar na linha errada. É a mesma chamada que o menu "Remover do projeto" faz (ver o passo 7).
+6. **Fechar contando** pela API depois do reload: `n=20 duplicados=0 iguais_ao_repo=20`.
+
 `Medido: 22/09/2026` — o lado inverso também vale: **o doc do repo pode estar atrás do código**, e o
 Project herda. O `FEATURES-E-BENEFICIOS.md` batia com o repo e mesmo assim vendia Pulso e Radar
 público (fora do ar), o papel tutor (extinto) e o programa de 14 semanas como o formato em uso.
