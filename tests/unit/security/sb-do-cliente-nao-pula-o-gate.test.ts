@@ -126,6 +126,21 @@ describe('o cliente que o servidor criou segue pulando o gate (jobs e lotes cont
   });
 });
 
+describe('o build do Turbopack', () => {
+  // Medido em 05/10/2026: com `lib/supabase.ts` importando `cliente-do-servidor` (que as
+  // actions também importam), o `next build` falhou com "Two or more assets with different
+  // content were emitted to the same output path" (`lib_*.js`) e dois deploys seguidos
+  // ficaram em ERROR. Nenhum teste unitário enxerga isso; só o build. Este é o freio.
+  it('lib/supabase.ts não importa lib/auth/cliente-do-servidor (a chave do símbolo é repetida lá de propósito)', () => {
+    expect(readFileSync('lib/supabase.ts', 'utf8')).not.toMatch(/^import .*cliente-do-servidor/m);
+  });
+
+  it('a chave repetida em lib/supabase.ts é a mesma que o módulo confere', () => {
+    expect(readFileSync('lib/supabase.ts', 'utf8')).toContain("Symbol.for('vertho.cliente-do-servidor')");
+    expect(readFileSync('lib/auth/cliente-do-servidor.ts', 'utf8')).toContain("Symbol.for('vertho.cliente-do-servidor')");
+  });
+});
+
 describe('o padrão não volta', () => {
   it.each([
     ['actions/conteudos.ts', /sbIn \|\| await requireEmpresaSupabase/],

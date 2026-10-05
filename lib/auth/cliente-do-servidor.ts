@@ -9,7 +9,8 @@
  * 05/10/2026). O guard `use-server-internal-guard` só procurava o nome `internal`.
  *
  * A marca é uma propriedade com chave SÍMBOLO e não enumerável, posta por
- * `createSupabaseAdmin()` e conferida aqui. Um argumento de Server Action só carrega
+ * `createSupabaseAdmin()` (que repete a chave em `lib/supabase.ts`, sem importar este
+ * módulo: ver o aviso lá) e conferida aqui. Um argumento de Server Action só carrega
  * dado serializável (chaves de texto, nunca símbolo), então um objeto vindo do
  * cliente não consegue ter a marca. Os gates (`requireEmpresaSupabase` e irmãos)
  * devolvem `createSupabaseAdmin()`, então o cliente que sai deles também é marcado.
