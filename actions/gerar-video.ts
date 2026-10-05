@@ -17,6 +17,7 @@ import { regionOpts } from '@/lib/trigger-region';
 import type { gerarVideoModuloTask } from '@/trigger/gerar-video-modulo';
 import type { AIRun } from '@/lib/ai-batch';
 import type { AgendaDeDisparo } from '@/lib/video/roteiro-lote';
+import { ehClienteDoServidor } from '@/lib/auth/cliente-do-servidor';
 
 type Disc = 'D' | 'I' | 'S' | 'C';
 const COLS_MODULO = 'id, locale, competencia_base_id, nivel_entrada, nivel_destino, titulo, descritor, conteudo_central, conteudo_aplicavel, adaptacao_por_formato';
@@ -169,6 +170,10 @@ export async function dispararVideoDoKit(sb: any, args: {
   /** Agenda dos disparos, a MESMA para todas as células do lote (`criarAgendaDeDisparo`). */
   agendaDisparo?: AgendaDeDisparo | null;
 }): Promise<{ id?: string; reused?: boolean; status?: string; error?: string; adiado?: boolean }> {
+  // Este export recebia o cliente do banco como 1º argumento, e argumento de Server
+  // Action vem do CLIENTE (análise de 05/10/2026). Só o cliente que o servidor criou
+  // serve: os chamadores internos (kit, lote, tarefa) passam `createSupabaseAdmin()`.
+  if (!ehClienteDoServidor(sb)) return { error: 'cliente de banco não reconhecido' };
   if (!args.moduloBaseId) return { error: 'sem módulo-base p/ o vídeo' };
   const { data: existente } = await sb.from('videos_gerados')
     .select('id, status').eq('kit_id', args.kitId).neq('status', 'error')
@@ -191,7 +196,8 @@ export async function dispararVideoDoKit(sb: any, args: {
  * É o ponto de reuso — todos os colaboradores da mesma célula caem aqui.
  */
 export async function resolverCelulaVideo(moduloBaseId: string, empresaId: string, cargo: string, disc: Disc, createdBy: string | null = null, opts: { sb?: any; gerar?: boolean; colaboradorId?: string } = {}) {
-  const sb = opts.sb || await requireAdminSupabase();
+  // Só o cliente que o servidor criou pula o gate de admin (análise de 05/10/2026).
+  const sb = ehClienteDoServidor(opts.sb) ? opts.sb : await requireAdminSupabase();
   const gerar = opts.gerar !== false; // default: lazy gera se ausente
   const { data: existente, error: errExistente } = await sb.from('videos_gerados')
     .select('id, status, etapa, video_url, bunny_video_id, bunny_library, error, updated_at')

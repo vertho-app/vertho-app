@@ -20,6 +20,7 @@ import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
 import type { gerarKitTask } from '@/trigger/gerar-kit';
 import type { AvatarFixo } from '@/lib/video/roteiro-prompt';
+import { ehClienteDoServidor } from '@/lib/auth/cliente-do-servidor';
 
 // Conteúdos textuais/áudio do kit (micro_conteudos). O VÍDEO não é um roteiro
 // aqui — é o vídeo RENDERIZADO (videos_gerados) disparado à parte, com o desafio
@@ -103,13 +104,18 @@ export async function gerarKit({
   try {
     // A5: `empresaId` vem do cliente (kit custa IA e grava no acervo dele).
     // `sbIn` = chamada interna (lote/task) que já passou pelo gate.
-    const sb = sbIn || await requireEmpresaSupabase(empresaId, 'content.manage', 'kit.gerar');
+    // 🔴 `interno` = o `sb` é o cliente que o SERVIDOR criou (marca de `createSupabaseAdmin`).
+    // Argumento de Server Action vem do cliente: um `sb: {}` era truthy e pulava o gate
+    // (análise de 05/10/2026). Sem a marca, o gate roda, e os dois campos abaixo, que só
+    // a chamada interna controla, voltam ao padrão.
+    const interno = ehClienteDoServidor(sbIn);
+    const sb = interno ? sbIn : await requireEmpresaSupabase(empresaId, 'content.manage', 'kit.gerar');
     // Chamada da tela não entra em grupo: a célula ficaria esperando um orquestrador
     // que só `gerarKitSemanal` dispara.
-    const avatarGrupo = sbIn ? avatarGrupoIn : null;
+    const avatarGrupo = interno ? avatarGrupoIn : null;
     // Pelo mesmo motivo, só a chamada interna adia o vídeo: quem dispara o adiado é
     // `gerarKitSemanal`; vindo da tela, o vídeo nunca sairia.
-    const adiarVideo = sbIn ? adiarVideoIn : false;
+    const adiarVideo = interno ? adiarVideoIn : false;
     if (!competencia || !descritor || !disc) {
       return { success: false, error: 'competencia, descritor e disc obrigatórios' };
     }
@@ -242,7 +248,8 @@ export async function gerarKitSemanal({
 }: GerarKitSemanalParams) {
   try {
     const total = discs.length;
-    const sbk = sb || await requireEmpresaSupabase(empresaId, 'content.manage', 'kit.gerar_semanal');
+    // Mesma régua do `gerarKit`: só o cliente que o servidor criou pula o gate.
+    const sbk = ehClienteDoServidor(sb) ? sb : await requireEmpresaSupabase(empresaId, 'content.manage', 'kit.gerar_semanal');
     const skipVideo = !incluirVideo;
     // Registro/domínio por público resolvido 1× p/ todos os DISC (núcleo+desafio coesos).
     const perfilPublico = perfilPublicoIn ?? await resolverPerfilPublicoDaEmpresa(sbk, empresaId, cargo);

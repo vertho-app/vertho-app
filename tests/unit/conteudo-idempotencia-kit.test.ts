@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { marcarClienteDoServidor } from '@/lib/auth/cliente-do-servidor';
 
 /**
  * Bug corrigido em 27/07: a idempotência de `gerarConteudoIA` não filtrava `kit_id`.
@@ -34,7 +35,7 @@ function stubSb() {
     }),
     maybeSingle: () => Promise.resolve({ data: null }),
   };
-  return { sb: { from: () => builder } as any, filtros };
+  return { sb: marcarClienteDoServidor({ from: () => builder }) as any, filtros };
 }
 
 const ARGS = {
@@ -70,7 +71,7 @@ describe('gerarConteudoIA — idempotência ignora conteúdo de KIT', () => {
       is: () => builder,
       limit: () => Promise.resolve({ data: [{ id: 'core-existente' }] }),
     };
-    const r: any = await gerarConteudoIA({ ...ARGS, sb: { from: () => builder } as any });
+    const r: any = await gerarConteudoIA({ ...ARGS, sb: marcarClienteDoServidor({ from: () => builder }) as any });
 
     expect(r?.skipped).toBe(true);
     expect(r?.conteudoId).toBe('core-existente');
@@ -84,7 +85,7 @@ describe('gerarConteudoIA — idempotência ignora conteúdo de KIT', () => {
       is: () => builder,
       limit: () => Promise.resolve({ data: [{ id: 'core-existente' }] }),
     };
-    const r: any = await gerarConteudoIA({ ...ARGS, sb: { from: () => builder } as any, forcar: true });
+    const r: any = await gerarConteudoIA({ ...ARGS, sb: marcarClienteDoServidor({ from: () => builder }) as any, forcar: true });
 
     expect(r?.skipped).toBeFalsy();
     expect(String(r?.error || '')).toContain('SENTINELA-PASSOU-DA-IDEMPOTENCIA');

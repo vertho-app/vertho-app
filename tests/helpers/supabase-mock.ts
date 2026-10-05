@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { marcarClienteDoServidor } from '@/lib/auth/cliente-do-servidor';
 
 /**
  * Mock encadeável do supabase-js **que sabe falhar**.
@@ -277,7 +278,10 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
     }),
   };
 
-  const client: any = { from, storage, rpc: vi.fn(async () => ({ data: null, error: null })) };
+  // Marcado como o `createSupabaseAdmin()` de verdade: o mock faz o papel do cliente que o
+  // SERVIDOR criou, e é isso que as actions com `sb` interno aceitam (ver
+  // `lib/auth/cliente-do-servidor.ts`). Um `{ from }` solto de teste NÃO passa, de propósito.
+  const client: any = marcarClienteDoServidor({ from, storage, rpc: vi.fn(async () => ({ data: null, error: null })) });
 
   return {
     client,

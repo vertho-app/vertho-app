@@ -16,6 +16,7 @@ import { resumirPPP, extracaoParaTexto, briefPreenchido, assinaturaCurta, type E
 import { buildPersonalizacaoPrompt } from '@/lib/season-engine/prompts/personalizacao';
 import { resolverPerfilPublicoDaEmpresa } from '@/lib/season-engine/perfil-publico';
 import { anexarFichaCargo, carregarFichaCargo } from '@/lib/cargo-contexto';
+import { ehClienteDoServidor } from '@/lib/auth/cliente-do-servidor';
 
 /** Mínimo de caracteres para conteúdo que vira PDF (texto/case): leitura de
  *  ~5-8 min. Aplicado tanto na geração do conteúdo quanto na hora do PDF.
@@ -118,7 +119,10 @@ export async function gerarConteudoIA({
     // A5: `empresaId` vem do cliente. `sbIn` = chamada interna (lote/task) que já
     // passou pelo gate — sem ele, o tenant é confrontado aqui. `empresaId` nulo é
     // o catálogo GLOBAL: só platform admin (decisão de produto de 24/08).
-    const sb = sbIn || await requireEmpresaSupabase(empresaId, 'content.manage', 'conteudo.gerar_ia');
+    // 🔴 `sbIn` só vale se for o cliente que o SERVIDOR criou. Argumento de Server Action
+    // vem do cliente: um `sb: {}` era truthy, pulava o gate e chegava ao `callAI` (custo)
+    // antes de falhar na gravação (análise de 05/10/2026). Sem a marca, o gate roda.
+    const sb = ehClienteDoServidor(sbIn) ? sbIn : await requireEmpresaSupabase(empresaId, 'content.manage', 'conteudo.gerar_ia');
     if (!formato || !competencia || !descritor) {
       return { success: false, error: 'formato, competencia e descritor obrigatórios' };
     }
