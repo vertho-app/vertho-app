@@ -6,8 +6,10 @@
  * e-mail da vítima e o próprio telefone recebia no WhatsApp o link de login da
  * conta dela (até de platform admin), e a linha gravada com esse telefone ainda
  * fazia o `magic-link` repetir o envio. A régua agora: telefone digitado por quem
- * não provou ser dono do e-mail NÃO é canal de acesso. Só vale em tenant de
- * demonstração, com a conta recém-criada neste pedido.
+ * não provou ser dono do e-mail NÃO é canal de acesso, em NENHUM tenant. Uma
+ * primeira versão abria exceção para demonstração com conta recém-criada, e a
+ * revisão automática do commit apontou que quem cria a conta antes do dono passa
+ * a ter sessão nela.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { criarSupabaseMock } from '../../helpers/supabase-mock';
@@ -63,6 +65,14 @@ const gravouTelefone = () => {
   return linha!.payload.telefone;
 };
 
+function esperaSoPorEmail() {
+  expect(enviados).toHaveLength(1);
+  expect(enviados[0].channels).toEqual(['email']);
+  expect(enviados[0].telefone).toBeNull();
+  expect(enviados[0].whatsappLink).toBeNull();
+  expect(gravouTelefone()).toBeNull();
+}
+
 beforeEach(() => {
   sb.reset();
   enviados.length = 0;
@@ -77,38 +87,32 @@ describe('auto-cadastro: telefone digitado não é canal de acesso', () => {
     contaJaExiste = true;
     const r = await pedir();
     expect(r.status).toBe(200);
-    expect(enviados).toHaveLength(1);
-    expect(enviados[0].channels).toEqual(['email']);
-    expect(enviados[0].telefone).toBeNull();
-    expect(enviados[0].whatsappLink).toBeNull();
-    expect(gravouTelefone()).toBeNull();
+    esperaSoPorEmail();
   });
 
-  it('🔴 tenant real, conta nova: também só por e-mail (o telefone não prova nada)', async () => {
+  it('🔴 tenant real, conta nova: também só por e-mail', async () => {
     const r = await pedir();
     expect(r.status).toBe(200);
-    expect(enviados[0].channels).toEqual(['email']);
-    expect(enviados[0].telefone).toBeNull();
-    expect(enviados[0].whatsappLink).toBeNull();
-    expect(gravouTelefone()).toBeNull();
+    esperaSoPorEmail();
   });
 
-  it('🔴 tenant de demonstração, mas a conta JÁ EXISTIA: não vale o telefone digitado', async () => {
+  it('🔴 tenant de demonstração, conta nova: também só por e-mail (quem cria a conta antes do dono ganharia sessão nela)', async () => {
+    empresa = { ...empresa, is_demo: true };
+    await pedir();
+    esperaSoPorEmail();
+  });
+
+  it('🔴 tenant de demonstração, conta que já existia: só por e-mail', async () => {
     empresa = { ...empresa, is_demo: true };
     contaJaExiste = true;
     await pedir();
-    expect(enviados[0].channels).toEqual(['email']);
-    expect(enviados[0].telefone).toBeNull();
-    expect(gravouTelefone()).toBeNull();
+    esperaSoPorEmail();
   });
 
-  it('tenant de demonstração com conta recém-criada: a degustação segue com WhatsApp', async () => {
-    empresa = { ...empresa, is_demo: true };
+  it('o link de e-mail continua saindo (o cadastro segue funcionando)', async () => {
     await pedir();
-    expect(enviados[0].channels).toEqual(['email', 'whatsapp']);
-    expect(enviados[0].telefone).toBe('5511987654321');
-    expect(enviados[0].whatsappLink).toContain('/auth/callback?token_hash=');
-    expect(gravouTelefone()).toBe('5511987654321');
+    expect(generateLink).toHaveBeenCalledTimes(1);
+    expect(enviados[0].emailLink).toContain('/auth/callback?token_hash=');
   });
 
   it('falha ao ler a empresa vira 500 e nada é criado, em vez de "empresa não encontrada"', async () => {
@@ -118,22 +122,5 @@ describe('auto-cadastro: telefone digitado não é canal de acesso', () => {
     expect(createUser).not.toHaveBeenCalled();
     expect(enviados).toHaveLength(0);
     expect(sb.escritas.filter((e) => e.tabela === 'colaboradores')).toHaveLength(0);
-  });
-
-  it('a conta é criada ANTES da linha: é ela que diz se o telefone vale', async () => {
-    const ordem: string[] = [];
-    createUser.mockImplementationOnce(async () => { ordem.push('createUser'); return { data: { user: { id: 'u' } }, error: null }; });
-    const original = client.from.bind(client);
-    client.from = (tabela: string) => {
-      const q = original(tabela);
-      if (tabela !== 'colaboradores') return q;
-      return new Proxy(q, { get: (t: any, k: string) => (k === 'insert' ? (...a: any[]) => { ordem.push('insert'); return t.insert(...a); } : t[k]) });
-    };
-    try {
-      await pedir();
-    } finally {
-      client.from = original;
-    }
-    expect(ordem).toEqual(['createUser', 'insert']);
   });
 });

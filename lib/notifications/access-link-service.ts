@@ -9,7 +9,7 @@ import { derivarParametroAcesso, parametroAcessoParaTenant } from '@/lib/auth/ma
 import { isTenantDemo, destinatarioLiberadoEmDemo } from '@/lib/demo/envio-guard';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { isPlatformAdmin } from '@/lib/authz';
+import { contaDeAdminOuIndeterminada } from '@/lib/auth/conta-privilegiada';
 
 /**
  * Serviço CENTRAL de envio de link de acesso (magic link) por canal.
@@ -299,8 +299,7 @@ export async function sendAccessLink(p: SendAccessLinkInput): Promise<SendAccess
     // do admin chegava ao telefone errado. O e-mail é o único canal em que o
     // dono da conta é, por construção, quem lê. Falha de consulta fecha: sem
     // saber se é admin, a cópia por WhatsApp (só conveniência) não sai.
-    const ehAdmin = await isPlatformAdmin(p.to).then((v) => v, () => true);
-    if (ehAdmin) {
+    if (await contaDeAdminOuIndeterminada(p.to)) {
       out.whatsapp = 'skipped';
       out.whatsappReason = 'conta de administrador da plataforma: o link só vai por e-mail';
     } else {

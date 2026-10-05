@@ -17,10 +17,10 @@ const guardMocks = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/demo/envio-guard', () => guardMocks);
 
-const authzMocks = vi.hoisted(() => ({
-  isPlatformAdmin: vi.fn(async (_email?: string | null) => false),
+const contaMocks = vi.hoisted(() => ({
+  contaDeAdminOuIndeterminada: vi.fn(async (_email: string) => false),
 }));
-vi.mock('@/lib/authz', () => authzMocks);
+vi.mock('@/lib/auth/conta-privilegiada', () => contaMocks);
 
 import { sendAccessLink, recipientFromLookup } from '@/lib/notifications/access-link-service';
 
@@ -82,25 +82,18 @@ describe('sendAccessLink (status explícito por canal)', () => {
   // Análise de 05/10/2026: a conta do Auth é global por e-mail, mas o telefone vem de
   // uma linha de `colaboradores` que cadastro aberto, importação e RH escrevem sem
   // provar que o e-mail é deles. Para admin da plataforma o link só vai ao e-mail.
-  it('🔴 conta de platform admin: e-mail envia, WhatsApp NÃO (mesmo com telefone na linha)', async () => {
-    authzMocks.isPlatformAdmin.mockResolvedValueOnce(true);
+  it('🔴 conta de platform admin ou indeterminada: e-mail envia, WhatsApp NÃO (mesmo com telefone na linha)', async () => {
+    contaMocks.contaDeAdminOuIndeterminada.mockResolvedValueOnce(true);
     const r = await sendAccessLink({ ...base, telefone: '11999998888' });
-    expect(authzMocks.isPlatformAdmin).toHaveBeenCalledWith('a@b.com');
+    expect(contaMocks.contaDeAdminOuIndeterminada).toHaveBeenCalledWith('a@b.com');
     expect(r.email).toBe('sent');
     expect(r.whatsapp).toBe('skipped');
     expect(r.whatsappReason).toMatch(/administrador da plataforma/);
   });
 
-  it('🔴 falha ao consultar platform_admins fecha: o WhatsApp não sai, o e-mail sim', async () => {
-    authzMocks.isPlatformAdmin.mockRejectedValueOnce(new Error('timeout no pool'));
-    const r = await sendAccessLink({ ...base, telefone: '11999998888' });
-    expect(r.email).toBe('sent');
-    expect(r.whatsapp).toBe('skipped');
-  });
-
   it('só consulta platform_admins quando o canal WhatsApp foi pedido', async () => {
     await sendAccessLink({ ...base, telefone: '11999998888', channels: ['email'] });
-    expect(authzMocks.isPlatformAdmin).not.toHaveBeenCalled();
+    expect(contaMocks.contaDeAdminOuIndeterminada).not.toHaveBeenCalled();
   });
 
   it('Resend indisponível → email failed, mas whatsapp ainda envia', async () => {

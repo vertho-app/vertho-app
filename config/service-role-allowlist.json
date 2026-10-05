@@ -96,6 +96,7 @@
     "lib/admin-supabase.ts": 1,
     "lib/ai-tasks.ts": 1,
     "lib/auth/request-context.ts": 2,
+    "lib/auth/conta-privilegiada.ts": 1,
     "lib/authz.ts": 3,
     "lib/home/loaders.ts": 7,
     "lib/radar/censo-importer.ts": 1,
