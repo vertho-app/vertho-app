@@ -76,6 +76,16 @@ describe('R13 — templates ligados', () => {
     expect(ids(r)).not.toContain('template-ligado-marketing');
   });
 
+  it('o papel `acesso` na transição para a v2 (R-47): legado APPROVED e v2 APPROVED não alarmam; v2 PENDING é crítico', () => {
+    expect(checarTemplatesLigados([ok('acesso', 'acesso_vertho')])).toEqual([]);
+    expect(checarTemplatesLigados([ok('acesso', 'acesso_vertho_v2')])).toEqual([]);
+    const r = checarTemplatesLigados([
+      { papel: 'acesso', nome: 'acesso_vertho_v2', status: 'PENDING', categoria: 'UTILITY', motivo: null },
+    ]);
+    expect(ids(r)).toEqual(['template-ligado-nao-aprovado']);
+    expect(r[0].amostra).toEqual(['acesso → acesso_vertho_v2 (PENDING)']);
+  });
+
   it('vários papéis com o mesmo problema entram no MESMO achado, contados', () => {
     const r = checarTemplatesLigados([
       ok('pilula', 'pilula_semanal', 'MARKETING'),

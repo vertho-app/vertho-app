@@ -59,6 +59,7 @@ import {
 } from '@/lib/whatsapp/beto-access-link';
 import { formasDoTelefone } from '@/lib/whatsapp/nono-digito';
 import { filtroDeTelefone } from '@/lib/whatsapp/resolver-dono';
+import { ehTemplateDeAcesso } from '@/lib/whatsapp/templates';
 import {
   situacaoParaContexto,
   textoAoEnviarLink,
@@ -546,8 +547,9 @@ function ehRespostaDoBeto(x: any): boolean {
  * o que é RECENTE (1 h, 12 h, 24 h) e a leitura é pelas mais novas primeiro.
  * Para uma delas errar, precisariam chegar mais de 30 envios a um único número
  * depois do fato que ela procura. O último link de acesso também sai daqui, pela
- * mesma leitura: o mais novo com `acesso_vertho`, de qualquer origem (Beto ou
- * tela de login), porque a pessoa não distingue um do outro.
+ * mesma leitura: o mais novo com `acesso_vertho` ou `acesso_vertho_v2`, de
+ * qualquer origem (Beto ou tela de login), porque a pessoa não distingue um do
+ * outro.
  *
  * A situação (trilha, último login) vai no MESMO `tenantDb` e não entra em
  * `problemaLeitura`: falhar nela não pode calar o Beto, que antes de 25/09
@@ -632,8 +634,12 @@ async function detalhesDaConversa(
       .sort((a, b) => Date.parse(a.em) - Date.parse(b.em))
       .slice(-SUPORTE_AUTO_HISTORICO_MAX);
 
-    // Envio que falhou não é link que a pessoa recebeu.
-    const ultimoLink = enviadas.find((x) => x.template_nome === 'acesso_vertho' && !x.erro);
+    // Envio que falhou não é link que a pessoa recebeu. Casa o template de acesso
+    // pelos DOIS nomes (v2 e legado): enquanto a env `WHATSAPP_TEMPLATE_ACESSO` não
+    // for trocada, e nas 24 h seguintes à troca, o link mais novo pode ser de
+    // qualquer um deles, e procurar só um faria o Beto dizer "primeiro link" a
+    // quem já recebeu o outro.
+    const ultimoLink = enviadas.find((x) => ehTemplateDeAcesso(x.template_nome) && !x.erro);
     const loginLido = typeof loginR.data === 'string' ? loginR.data : null;
 
     return {

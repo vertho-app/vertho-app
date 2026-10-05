@@ -93,6 +93,29 @@ describe('enviarMagicLinksWhatsApp: lote de magic links pela Cloud API', () => {
     expect(auditoria.mock.calls.at(-1)?.[0]).toMatchObject({ acao: 'whatsapp.magic_links', detalhes: { via: 'cloud-api', template: 'acesso_vertho', enviados: 1 } });
   });
 
+  it('env trocada para o acesso_vertho_v2: o lote enfileira o nome novo, com o mesmo contrato (corpo vazio, credencial no botão)', async () => {
+    templateLigado = 'acesso_vertho_v2';
+    const r = await enviarMagicLinksWhatsApp('emp-1');
+
+    expect(r.success).toBe(true);
+    const [payload] = publicarTemplate.mock.calls[0];
+    expect(payload).toMatchObject({
+      template: 'acesso_vertho_v2',
+      templateParams: [],
+      templateBotaoParam: `escolateste~${TOKEN}`,
+    });
+    expect(auditoria.mock.calls.at(-1)?.[0]).toMatchObject({ detalhes: { via: 'cloud-api', template: 'acesso_vertho_v2', enviados: 1 } });
+  });
+
+  it('env com nome sem contrato (typo): recusa o lote inteiro, sem gerar link', async () => {
+    templateLigado = 'acesso_vertho_v9';
+    const r = await enviarMagicLinksWhatsApp('emp-1');
+
+    expect(r.success).toBe(false);
+    expect(generateLink).not.toHaveBeenCalled();
+    expect(publicarTemplate).not.toHaveBeenCalled();
+  });
+
   it('template de acesso desligado: recusa ANTES de gerar link ou enfileirar, e audita o bloqueio', async () => {
     templateLigado = null;
     const r = await enviarMagicLinksWhatsApp('emp-1');

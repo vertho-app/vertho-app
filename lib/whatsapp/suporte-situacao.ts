@@ -36,10 +36,14 @@ import { VALIDADE_LINK_ACESSO_MS } from '@/lib/auth/validade-link';
  * link expira em 15 minutos"), e com ela um login 20 minutos depois do link
  * virava "expirou", embora tivesse entrado com ele.
  *
- * ⚠️ Os textos daqui NÃO citam número. O corpo do `acesso_vertho` continua
- * dizendo 15 minutos (trocar é versão nova na Meta), e ele chega na mesma
- * conversa: o Beto dizer "1 hora" logo abaixo seria uma contradição na cara da
- * pessoa, e repetir "15 minutos" seria afirmar o que não é.
+ * ⚠️ Os textos daqui NÃO citam número. O corpo do `acesso_vertho` dizia 15
+ * minutos, e a v2 (`acesso_vertho_v2`, submetida em 05/10/2026) diz 1 hora.
+ * Enquanto a env `WHATSAPP_TEMPLATE_ACESSO` puder apontar para o legado, o
+ * template chega na mesma conversa com um número ou com outro: o Beto dizer "1
+ * hora" logo abaixo do legado seria uma contradição na cara da pessoa, e repetir
+ * "15 minutos" seria afirmar o que não é. Sem número, os textos valem com os dois.
+ * Com a env trocada e a R13 do health confirmando a v2 em produção, citar "1
+ * hora" aqui passa a ser seguro.
  */
 export const VALIDADE_LINK_MS = VALIDADE_LINK_ACESSO_MS;
 /** Folga para o relógio do banco e o do servidor: entrar aos 15:30 ainda é "com ele". */
@@ -96,7 +100,7 @@ function entrouEm(iso: string, now: number): string {
 }
 
 export interface AnteriorDoLink {
-  /** Último `acesso_vertho` enviado com sucesso a este número nas últimas 24 h, ANTES do atual. */
+  /** Último template de acesso (`acesso_vertho_v2` ou o legado) enviado com sucesso a este número nas últimas 24 h, ANTES do atual. */
   ultimoLinkEm: string | null;
   /** Último login da pessoa (`auth.users.last_sign_in_at`), de qualquer forma de entrada. */
   ultimoLoginEm: string | null;

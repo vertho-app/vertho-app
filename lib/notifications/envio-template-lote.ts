@@ -197,9 +197,9 @@ function resolverConteudoSemanal(
  * de CADÊNCIA canônicos entram porque a tela agora carrega a mesma semana
  * acessível, o mesmo plano e o mesmo progresso usados pelo cron. Continuam de
  * fora, por decisão:
- *   - `acesso_vertho` e `otp_acesso`: carregam CREDENCIAL, gerada por pessoa. O
- *     caminho é o botão de magic link desta mesma tela, que passa pelo serviço
- *     de acesso;
+ *   - `acesso_vertho_v2` (e o legado `acesso_vertho`) e `otp_acesso`: carregam
+ *     CREDENCIAL, gerada por pessoa. O caminho é o botão de magic link desta
+ *     mesma tela, que passa pelo serviço de acesso;
  *   - `recorte_demonstracao`: o destinatário é lead do CONARH, não colaborador.
  */
 const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => Resolucao> = {

@@ -53,7 +53,9 @@ export type SendAccessLinkInput = {
   /** conjunto de templates: 'magic-link' (login, default) ou 'signup' (boas-vindas) */
   kind?: 'magic-link' | 'signup';
   /**
-   * `<slug>~<token_hash>` para o BOTÃO do template aprovado (`acesso_vertho`).
+   * `<slug>~<token_hash>` para o BOTÃO do template aprovado (o que a env
+   * `WHATSAPP_TEMPLATE_ACESSO` indicar: `acesso_vertho_v2`, ou o legado
+   * `acesso_vertho` até a env ser trocada).
    *
    * Quando presente e o template estiver ligado, o link sai pela Cloud API. Sem
    * ele, o caminho é o legado (texto livre) — que hoje depende da Z-API, e ela

@@ -910,8 +910,51 @@ export const TEMPLATES = {
   },
 
   /**
-   * Magic link por WhatsApp: login pelo app e pedido ao Beto. APPROVED/UTILITY
-   * desde 15/08/2026; corpo conferido na Meta em 25/09/2026 (não copiado do doc).
+   * Magic link por WhatsApp, v2: login pelo app e pedido ao Beto. É o que a env
+   * `WHATSAPP_TEMPLATE_ACESSO` deve apontar DEPOIS de APPROVED na Meta.
+   *
+   * Substitui o `acesso_vertho` (R-47, revisão de 02/10/2026). Submetido em
+   * 05/10/2026 (id 1333940663142012, UTILITY provisório), com NOME NOVO porque
+   * template aprovado não se edita. A única mudança é a validade: o texto antigo
+   * dizia "O link expira em 15 minutos", e a validade real é 1 hora (Supabase
+   * Auth `mailer_otp_exp = 3600`, medido em 03/10/2026; ver
+   * `lib/auth/validade-link.ts`). Botão, rodapé e a falta de variável no corpo
+   * são os mesmos.
+   *
+   * O corpo não tem variável; a credencial (`<slug>~<token_hash>`) vai no `{{1}}`
+   * do BOTÃO, e a caixa grava só o corpo. O rodapé ("Não compartilhe este link
+   * com ninguém.") existe só na Meta, porque `TemplateDef` não modela rodapé.
+   *
+   * Continua fora da tela de lote: quem libera template para lote é o
+   * `RESOLVEDORES` de `envio-template-lote.ts`, e credencial não entra lá.
+   */
+  acesso_vertho_v2: {
+    name: 'acesso_vertho_v2',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Seu link de acesso à Vertho foi gerado. Toque no botão abaixo para entrar.\n\nO link vale por 1 hora e só pode ser usado uma vez.',
+    example: [],
+    botao: {
+      texto: 'Acessar Vertho',
+      url: 'https://app.vertho.ai/entrar?t={{1}}',
+      exemplo: 'https://app.vertho.ai/entrar?t=ibipeba~pkce_a1b2c3d4e5f6a7b8',
+    },
+  },
+
+  /**
+   * Magic link por WhatsApp, v1: LEGADO, mantido de propósito até a env virar v2.
+   * APPROVED/UTILITY desde 15/08/2026; corpo conferido na Meta em 25/09/2026 (não
+   * copiado do doc).
+   *
+   * POR QUE AINDA ESTÁ AQUI, ao contrário dos outros três substituídos em
+   * 05/10/2026: o nome do template do papel `acesso` vem de uma env Sensitive da
+   * Vercel (`WHATSAPP_TEMPLATE_ACESSO`) que não se lê de volta, então até alguém
+   * trocá-la por `acesso_vertho_v2` o login e o Beto seguem enviando este nome. Se
+   * ele saísse daqui, a caixa de entrada voltaria a mostrar "enviado:
+   * acesso_vertho" sem corpo e o `CONTRATOS` o recusaria (o login pararia de
+   * mandar o link). Pode sair DEPOIS de a R13 do health mostrar
+   * `acesso=acesso_vertho_v2[APPROVED/UTILITY]` em produção e de o histórico de
+   * 24 h do Beto (que procura o último link por nome) já não conter este.
    *
    * 🔴 ESTÁ AQUI PARA A CAIXA DE ENTRADA, não para ser disparado. Até 25/09 o
    * template vivia só na Meta, então `corpoDoTemplatePorNome` devolvia `null` e
@@ -920,12 +963,8 @@ export const TEMPLATES = {
    * cegava o Beto, que descarta do histórico a enviada sem texto e não sabia que
    * já tinha mandado o link quando a pessoa respondia "não consigo acessar".
    *
-   * Continua fora da tela de lote: quem libera template para lote é o
-   * `RESOLVEDORES` de `envio-template-lote.ts`, e credencial não entra lá.
-   *
-   * O corpo não tem variável; a credencial (`<slug>~<token_hash>`) vai no `{{1}}`
-   * do BOTÃO, e a caixa grava só o corpo. O rodapé ("Não compartilhe este link
-   * com ninguém.") existe só na Meta, porque `TemplateDef` não modela rodapé.
+   * ⚠️ O "15 minutos" do texto é a promessa errada que a v2 corrige (a validade
+   * real é 1 hora).
    */
   acesso_vertho: {
     name: 'acesso_vertho',
@@ -942,6 +981,24 @@ export const TEMPLATES = {
 } as const satisfies Record<string, TemplateDef>;
 
 export type TemplateNome = keyof typeof TEMPLATES;
+
+/**
+ * Os nomes do template de ACESSO (magic link) que o app reconhece, o atual
+ * primeiro. Quem procura "o último link enviado" (o Beto) ou classifica o
+ * template como credencial (o catálogo da tela de Envios) tem que casar os DOIS
+ * enquanto a env `WHATSAPP_TEMPLATE_ACESSO` não foi trocada para a v2: casar só
+ * o nome novo faria o Beto esquecer os links que ele mesmo mandou pelo antigo, e
+ * casar só o antigo, o contrário, depois da troca.
+ */
+export const NOMES_DO_TEMPLATE_DE_ACESSO: readonly string[] = [
+  TEMPLATES.acesso_vertho_v2.name,
+  TEMPLATES.acesso_vertho.name,
+];
+
+/** `nome` é o template de acesso (v2 ou o legado)? Nunca lança. */
+export function ehTemplateDeAcesso(nome: string | null | undefined): boolean {
+  return !!nome && NOMES_DO_TEMPLATE_DE_ACESSO.includes(nome);
+}
 
 /**
  * ⚠️ A CHAVE do objeto acima é interna; `name` é o que existe na Meta, e os dois

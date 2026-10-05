@@ -152,3 +152,16 @@ describe('payload da Graph API', () => {
     expect(p.components[0]!.example.body_text[0]).toEqual(TEMPLATES.nudge_desafio.example);
   });
 });
+
+describe('nada do que sai para a pessoa tem travessão', () => {
+  // Regra da casa: sem travessão (U+2014 e U+2013) em copy. O guard vale para
+  // TODOS os templates (corpo, exemplo e botão), não só para os novos: nenhum
+  // tinha, e é assim que nenhum passa a ter. Os códigos vão por número para este
+  // arquivo não carregar o caractere que proíbe.
+  const TRAVESSOES = [0x2013, 0x2014].map((c) => String.fromCharCode(c));
+
+  it.each(TODOS.map((t) => [t.name, t] as const))('%s', (_n, def) => {
+    const textos = [def.body, ...def.example, def.botao?.texto ?? '', def.botao?.exemplo ?? ''];
+    for (const t of textos) for (const tr of TRAVESSOES) expect(t.includes(tr)).toBe(false);
+  });
+});

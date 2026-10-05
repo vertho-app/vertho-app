@@ -12,6 +12,7 @@ import { copiaEmail, preencher } from '@/lib/i18n-email-templates';
 import { publicarTemplateCloudCis } from '@/lib/qstash-publish';
 import { lerParametroAcesso, montarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
 import { aplicarTetoLote, atrasosDoLote, duracaoEstimada } from '@/lib/whatsapp/cadencia';
+import { ehTemplateDeAcesso } from '@/lib/whatsapp/templates';
 import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
 
@@ -341,7 +342,8 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
     // foi em 13/08 e houve 113 falhas até 18/08, com o botão ainda na tela. Pela
     // API oficial o link de acesso só sai no BOTÃO do template aprovado (o link no
     // corpo é recusado; ver `lib/auth/magic-link-whatsapp.ts`), e o
-    // `envio-template-lote` já dizia que o caminho do `acesso_vertho` era ESTE
+    // `envio-template-lote` já dizia que o caminho do `acesso_vertho` (e da v2,
+    // conforme o nome que a env WHATSAPP_TEMPLATE_ACESSO tiver) era ESTE
     // botão. Mesmo template e mesmo `/entrar` do login individual e do Beto.
     const { contratoDoTemplate, templateAtivo } = await import('@/lib/notifications/pilula-template');
     const { cloudApiConfigurada } = await import('@/lib/whatsapp/cloud-api');
@@ -658,7 +660,7 @@ export async function listarTemplatesDeEnvio() {
     manual: manuais.has(tp.template),
     uso: manuais.has(tp.template)
       ? 'manual'
-      : tp.template === 'acesso_vertho' || tp.template === 'otp_acesso'
+      : ehTemplateDeAcesso(tp.template) || tp.template === 'otp_acesso'
         ? 'credencial'
         : tp.template === 'recorte_demonstracao'
           ? 'comercial'

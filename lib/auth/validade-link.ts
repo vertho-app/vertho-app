@@ -14,7 +14,9 @@
  * ⚠️ O número NÃO mora no repositório: é configuração do projeto no Supabase.
  * Se alguém mudar lá, este valor e os textos que o citam (os de
  * `lib/i18n-auth-templates.ts`) ficam errados sem nenhum teste acusar. O corpo
- * aprovado do template `acesso_vertho` também não muda por código: trocar o
- * "15 minutos" de lá é versão nova na Meta.
+ * aprovado do template `acesso_vertho` também não muda por código: o "15
+ * minutos" de lá só some com a versão nova na Meta, o `acesso_vertho_v2` ("O link
+ * vale por 1 hora"), submetido em 05/10/2026 e em uso depois de APPROVED, quando
+ * a env `WHATSAPP_TEMPLATE_ACESSO` passa a apontar para ele.
  */
 export const VALIDADE_LINK_ACESSO_MS = 60 * 60 * 1000;

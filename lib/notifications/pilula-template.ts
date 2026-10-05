@@ -226,6 +226,16 @@ export function templatePilulaAtivo(): string | null {
  */
 type MontarParams = (a: PilulaTemplateArgs) => { params: string[]; botaoParam?: string | null };
 
+/**
+ * Contrato do template de ACESSO (magic link): corpo sem variável, credencial no
+ * botão. Compartilhado pelas duas versões vivas (`acesso_vertho_v2` e o legado
+ * `acesso_vertho`), para que não possam divergir. Ver o comentário na entrada v2.
+ */
+const montarAcesso: MontarParams = (a) => ({
+  params: [],
+  botaoParam: a.acessoParam ?? null,
+});
+
 const CONTRATOS: Record<string, MontarParams> = {
   /**
    * ✅ O PREFERIDO desde 15/08/2026: copy factual, aprovada como **UTILITY**.
@@ -429,7 +439,9 @@ const CONTRATOS: Record<string, MontarParams> = {
   }),
 
   /**
-   * Magic link por WhatsApp. APPROVED/UTILITY (15/08).
+   * Magic link por WhatsApp, v2 (R-47). Submetido em 05/10/2026 (id
+   * 1333940663142012); só vale depois de APPROVED, quando a env
+   * `WHATSAPP_TEMPLATE_ACESSO` passa a apontar para este nome.
    *
    * 🔴 CORPO SEM VARIÁVEL — texto fixo, e só o BOTÃO varia. `params` vazio é
    * intencional: com um array vazio, `enviarTemplateCloud` OMITE o componente
@@ -442,11 +454,21 @@ const CONTRATOS: Record<string, MontarParams> = {
    *
    * ⚠️ O parâmetro aqui NÃO é o link completo: mandar a URL inteira produziria
    * `/entrar?t=https://…`, que não dá erro na API e leva a pessoa a lugar nenhum.
+   *
+   * O contrato é IDÊNTICO ao do `acesso_vertho` (a v2 só muda a validade dita no
+   * texto), e é a MESMA função, não uma cópia: as duas ficam vivas até a env ser
+   * trocada, e dois contratos escritos à mão poderiam divergir.
    */
-  acesso_vertho: (a) => ({
-    params: [],
-    botaoParam: a.acessoParam ?? null,
-  }),
+  acesso_vertho_v2: montarAcesso,
+
+  /**
+   * Magic link por WhatsApp, v1: LEGADO, mesmo contrato da v2. Fica enquanto a
+   * env `WHATSAPP_TEMPLATE_ACESSO` (Sensitive, não se lê de volta) puder ainda
+   * apontar para ele: sem contrato aqui, trocar o código ANTES da env faria o
+   * login por WhatsApp parar de enviar o link (`enviarPorTemplate` não envia nome
+   * sem contrato). Ver o registro em `lib/whatsapp/templates.ts`.
+   */
+  acesso_vertho: montarAcesso,
 
   /**
    * Convite ao mapeamento comportamental pendente. APPROVED/UTILITY — corpo

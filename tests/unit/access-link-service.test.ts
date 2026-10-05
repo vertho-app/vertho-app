@@ -173,6 +173,23 @@ describe('🔴 o link de acesso sai pela Cloud API, não pelo legado', () => {
     expect(JSON.stringify(envio.body)).toContain('ibipeba~pkce_abc12345');
   });
 
+  it.each(['acesso_vertho_v2', 'acesso_vertho'])(
+    'env WHATSAPP_TEMPLATE_ACESSO=%s: o link sai por esse template, credencial só no botão (a troca da env não quebra o login)',
+    async (nomeNaEnv) => {
+      process.env.WHATSAPP_TEMPLATE_ACESSO = nomeNaEnv;
+      const r = await sendAccessLink({
+        ...base, channels: ['whatsapp'], whatsappLink: CALLBACK_GENERICO, tenantSlug: 'ibipeba',
+      });
+      expect(r.whatsapp).toBe('sent');
+      const envio = chamadas.find((c) => c.url.includes('graph.facebook.com'))!;
+      expect(envio.body.template.name).toBe(nomeNaEnv);
+      // Corpo sem variável: só o componente do botão, com `<slug>~<token_hash>`.
+      expect(envio.body.template.components).toEqual([
+        { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: 'ibipeba~pkce_abc12345' }] },
+      ]);
+    },
+  );
+
   it('o mesmo pedido SEM tenantSlug cai no legado — o check pode falhar', async () => {
     // Guarda contra o teste que passa por acidente: se este caso também fosse
     // pela Graph, o de cima não estaria provando nada.

@@ -615,12 +615,31 @@ describe('suporte-auto · qualquer colaborador (aberto em 22/09/2026)', () => {
   describe('🔴 o link sai explicado, com o que o banco sabe (25/09/2026)', () => {
     const minAtras = (m: number) => new Date(Date.now() - m * 60 * 1000).toISOString();
     // Forma real da linha de `whatsapp_mensagens_enviadas` do link do Beto.
-    const linkAnterior = (m: number, erro: string | null = null) => ({
+    const linkAnterior = (m: number, erro: string | null = null, template = 'acesso_vertho') => ({
       texto: 'Seu link de acesso à Vertho foi gerado. Toque no botão abaixo para entrar.\n\nO link expira em 15 minutos e só pode ser usado uma vez.',
       origem: 'suporte-auto',
       enviada_em: minAtras(m),
-      template_nome: 'acesso_vertho',
+      template_nome: template,
       erro,
+    });
+
+    it('🔴 o link anterior mandado pelo acesso_vertho_v2 também conta: o Beto não esquece o link depois da troca da env', async () => {
+      h.resultadoLink = { enviou: true, motivo: 'link-tenant' };
+      h.respostaIA = ia({ solicita_link: true });
+      h.enviadas = [linkAnterior(38, null, 'acesso_vertho_v2')];
+      h.ultimoLogin = minAtras(37);
+      const r = await executarSuporteAuto({
+        ...colab, texto: 'Não estou conseguindo acessar o link que vc me mandou ?', waMessageId: 'wamid.V2',
+      });
+      expect(r).toEqual({ enviou: true, motivo: 'link-acesso-enviado' });
+      expect(h.envios[0].input.texto).toContain('já foi usado: você entrou');
+    });
+
+    it('template de outro assunto não conta como link anterior', async () => {
+      h.resultadoLink = { enviou: true, motivo: 'link-tenant' };
+      h.enviadas = [linkAnterior(38, null, 'boas_vindas_v2')];
+      await executarSuporteAuto({ ...colab, texto: 'meu link expirou', waMessageId: 'wamid.OUTRO' });
+      expect(h.envios[0].input.texto).toContain('Te mandei seu link de acesso');
     });
 
     it('caso real: entrou com o link anterior e tocou de novo; o texto diz que ele já foi usado', async () => {
