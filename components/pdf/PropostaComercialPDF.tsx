@@ -494,7 +494,6 @@ export default function PropostaComercialPDF({
             {cliente.nome ? (
               <Text style={s.capaPara}>
                 Preparada para <Text style={s.capaParaNome}>{cliente.nome}</Text>
-                {cliente.tipo ? ` · ${cliente.tipo}` : ''}
               </Text>
             ) : null}
           </View>

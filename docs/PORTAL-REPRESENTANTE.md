@@ -339,6 +339,9 @@ academias, `customer_type = empresa`):
   proposta exigiria uma coluna nova (decisão de migration, não feita).
 - **Cliente obrigatório na revisão do deal desk** (ver `docs/ORCAMENTO.md`): sem ele a
   capa saía sem destinatário.
+- **Capa (pedido do dono, mesmo dia)**: sem o tipo depois do nome ("Preparada para
+  Bluefit", e não "Bluefit · Empresa"), e "meses de programa" = número de prestações
+  (11, não os 10 dos ciclos). Detalhe em `docs/ORCAMENTO.md` §"Uma parcela a mais".
 
 ## Correções e simulador de preço (06/07)
 

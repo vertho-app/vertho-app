@@ -14,7 +14,7 @@
 // descreve o que o cliente vai receber: cite só o que está no ar. (Até 14/09 o
 // item de "não incluso" explicava o Pulso para dizer que não era eNPS — falava
 // de um bloco desligado para negar outra coisa.)
-import { PRODUCT_PACKAGE_LABELS, CUSTOMER_TYPE_LABELS } from './constants';
+import { PRODUCT_PACKAGE_LABELS } from './constants';
 import { ROTULO_SIMULADOR } from '@/lib/orcamento/precificacao';
 import { SIMULADORES, type Simulador } from '@/lib/simuladores/acesso-cargo';
 import type { SalesProposal } from './types';
@@ -123,7 +123,7 @@ export type ProposalDocumentVM = {
    * "Cliente" no lugar mais visível da capa, e usar o nome do cenário do
    * orçamento seria pior: aquele campo é interno ("agressivo v3", "teste").
    */
-  cliente: { nome: string | null; tipo: string | null };
+  cliente: { nome: string | null };
   contexto: string | null;        // dor/contexto (necessidade da oportunidade)
   produto: string | null;
   escopoItens: string[];
@@ -559,7 +559,18 @@ export function buildProposalDocument(
     .map((l) => l.trim().replace(/^[-•*]\s*/, ''))
     .filter(Boolean);
 
-  const programa = extrairProgramaDoOrcamento(extra?.orcamento);
+  const programaDoOrcamento = extrairProgramaDoOrcamento(extra?.orcamento);
+  // "Meses de programa" na capa é o número de PRESTAÇÕES (regra do dono, 05/10/2026,
+  // vendo a PROP-2026-0010: a capa dizia "10 meses de programa" e o investimento
+  // "11×"). O extrator deriva a duração dos ciclos (5 ciclos × 2 = 10) e a regra de
+  // 02/10 soma uma parcela (11); na capa vale a segunda, lida da PRÓPRIA proposta
+  // (`contract_duration_months` = parcelas no projeto) para que as duas peças do
+  // documento não possam divergir. Só a capa muda: a calculadora segue contando os
+  // meses de exposição e de infra pela duração do programa.
+  const parcelas = Number(proposal.contract_duration_months);
+  const programa = programaDoOrcamento && Number.isInteger(parcelas) && parcelas > 0
+    ? { ...programaDoOrcamento, mesesPrograma: parcelas }
+    : programaDoOrcamento;
   // Participantes: o orçamento manda, mas a proposta do RC também tem o número.
   const pessoas = programa?.pessoas ?? (proposal.number_of_users || null);
   const total = proposal.total_contract_value;
@@ -579,10 +590,9 @@ export function buildProposalDocument(
     emitidaEm: emitida,
     validaAte: valida.toISOString(),
     expirada,
-    cliente: {
-      nome: nomeCliente,
-      tipo: proposal.customer_type ? (CUSTOMER_TYPE_LABELS[proposal.customer_type] || proposal.customer_type) : null,
-    },
+    // Só o nome. A capa já escreveu "· Empresa" e "· Escola" depois dele, e o dono
+    // pediu que saísse (05/10/2026): quem recebe a proposta sabe o que é.
+    cliente: { nome: nomeCliente },
     contexto: extra?.contexto?.trim() || null,
     produto: proposal.product_package
       ? (PRODUCT_PACKAGE_LABELS[proposal.product_package] || proposal.product_package)

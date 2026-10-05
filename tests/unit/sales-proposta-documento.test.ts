@@ -228,7 +228,16 @@ describe('destinatário e investimento', () => {
   it('sem conta e sem cliente_nome, o nome sai null (a página omite o bloco)', () => {
     const doc = buildProposalDocument(propostaBase(), null, null, { orcamento: ORC_REAL });
     expect(doc.cliente.nome).toBeNull();
-    expect(doc.cliente.tipo).toBe('Empresa');
+  });
+
+  it('a capa não escreve o tipo do cliente depois do nome ("· Empresa", "· Escola")', () => {
+    // Pedido do dono em 05/10/2026, vendo a capa da PROP-2026-0010. O VM nem carrega
+    // mais o campo: sem consumidor, ele voltaria à capa na primeira edição distraída.
+    for (const tipo of ['empresa', 'escola', 'rede_ensino', 'comercio']) {
+      const doc = buildProposalDocument(propostaBase({ customer_type: tipo, cliente_nome: 'Bluefit' }), null, null, {});
+      expect(doc.cliente, tipo).toEqual({ nome: 'Bluefit' });
+      expect(JSON.stringify(doc.cliente), tipo).not.toMatch(/Empresa|Escola|ensino|Com[ée]rcio/i);
+    }
   });
 
   it('nome em branco no banco também vira null, não string vazia na capa', () => {
@@ -647,5 +656,44 @@ describe('linguagem por segmento e cenário do gerente de loja (05/10/2026)', ()
     it('diz que é um exemplo: o cliente não confunde com o cenário dele', () => {
       expect(cen().fechamento).toMatch(/este caso é só um exemplo/);
     });
+  });
+});
+
+describe('"meses de programa" na capa é o número de prestações (05/10/2026)', () => {
+  // A PROP-2026-0010: 5 ciclos × 2 = 10 meses de programa, e 11 parcelas pela regra de
+  // 02/10 (uma além do programa). A capa dizia "10 meses de programa" e o investimento
+  // "11×"; o dono pediu que os dois números sejam o mesmo.
+  const orc5Ciclos = { entradas: (ORC_REAL as any).entradas, resultado: (ORC_REAL as any).resultado };
+
+  it('com 11 parcelas, a capa mostra 11, não os 10 que saem dos ciclos', () => {
+    const doc = buildProposalDocument(propostaBase({ contract_duration_months: 11 }), null, null, { orcamento: orc5Ciclos });
+    expect(extrairProgramaDoOrcamento(orc5Ciclos)?.mesesPrograma).toBe(10);
+    expect(doc.programa?.mesesPrograma).toBe(11);
+    expect(doc.investimento.meses).toBe(11);
+    expect(doc.programa?.mesesPrograma).toBe(doc.investimento.meses);
+  });
+
+  it('acompanha a proposta em qualquer número de parcelas: é a mesma fonte do cartão "Parcelas"', () => {
+    for (const parcelas of [1, 2, 3, 10, 11, 25]) {
+      const doc = buildProposalDocument(propostaBase({ contract_duration_months: parcelas }), null, null, { orcamento: orc5Ciclos });
+      expect(doc.programa?.mesesPrograma, `${parcelas} parcelas`).toBe(parcelas);
+    }
+  });
+
+  it('parcelas ausentes ou inválidas não apagam a duração: cai nos ciclos', () => {
+    for (const lixo of [null, undefined, 0, -3, 2.5, 'x']) {
+      const doc = buildProposalDocument(propostaBase({ contract_duration_months: lixo }), null, null, { orcamento: orc5Ciclos });
+      expect(doc.programa?.mesesPrograma, String(lixo)).toBe(10);
+    }
+  });
+
+  it('só troca a duração: os demais números do programa seguem os do orçamento', () => {
+    const doc = buildProposalDocument(propostaBase({ contract_duration_months: 11 }), null, null, { orcamento: orc5Ciclos });
+    expect(doc.programa).toMatchObject({ pessoas: 1000, cargos: 50, ciclos: 5, unidades: 1, semanasPorCiclo: 7 });
+  });
+
+  it('sem orçamento (fluxo do RC) continua sem programa: nada de duração inventada', () => {
+    const doc = buildProposalDocument(propostaBase({ contract_duration_months: 11 }), null, null, {});
+    expect(doc.programa).toBeNull();
   });
 });

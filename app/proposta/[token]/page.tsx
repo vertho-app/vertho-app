@@ -423,7 +423,6 @@ export default async function PropostaPublicaPage(
               <p style={{ margin: '18px 0 0', fontSize: 16, color: 'rgba(255,255,255,.72)' }}>
                 Preparada para{' '}
                 <strong style={{ color: C.white, fontWeight: 600 }}>{doc.cliente.nome}</strong>
-                {doc.cliente.tipo ? ` · ${doc.cliente.tipo}` : ''}
               </p>
             )}
           </div>

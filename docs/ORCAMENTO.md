@@ -428,3 +428,12 @@ entrega e a curva de exposição distribui o custo variável em 10 meses enquant
 recebe em 11. O orçamento salvo carrega as parcelas do dia em
 `resultado.parcelas`, e a conversão em proposta lê esse valor: cenário salvo
 antes de 02/10 continua com `ciclos × 2` até ser salvo de novo.
+
+**Na capa do documento, "meses de programa" é o número de prestações** (regra do dono,
+05/10/2026, vendo a PROP-2026-0010: a capa dizia "10 meses de programa" e o investimento
+"11×"). `buildProposalDocument` troca o `mesesPrograma` derivado dos ciclos pelo
+`contract_duration_months` da própria proposta (= parcelas no projeto), a mesma fonte do
+cartão "Parcelas": os dois números do documento não podem divergir. Só o documento muda;
+a calculadora segue rateando infra e curva de exposição pelos meses de entrega acima.
+Parcelas ausentes ou inválidas na proposta caem nos ciclos. A capa também deixou de
+escrever o tipo do cliente depois do nome ("· Empresa", "· Escola").

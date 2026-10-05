@@ -25,7 +25,11 @@ export type ProposalPrograma = {
   unidades: number | null;
   /** Semanas de uma jornada (7 na Jornada, 14 na Regular, 10 no Onboarding). */
   semanasPorCiclo: number | null;
-  /** Duração total do programa em meses. */
+  /**
+   * Meses de programa. Aqui sai dos ciclos (ciclos × 2); no DOCUMENTO,
+   * `buildProposalDocument` troca pelo número de prestações da proposta (regra do
+   * dono, 05/10/2026: "meses de programa = número de prestações").
+   */
   mesesPrograma: number | null;
   /**
    * Pessoas com acesso a cada simulador. Só as três chaves conhecidas, só a
