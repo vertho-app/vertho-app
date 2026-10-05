@@ -215,7 +215,37 @@ export function juntarMapas(...mapas: Array<PIIMapas | null | undefined>): PIIMa
   return out;
 }
 
-const RE_EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
+// E-mail genérico: parte local `[\w.+-]+`, `@`, domínio `[\w-]+\.[\w.-]+`.
+//
+// Isto era `text.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, ...)`, QUADRÁTICO: o regex
+// tentava casar a partir de CADA posição de uma sequência longa sem `@`, e 64 mil
+// caracteres levavam 1,7 s (2 milhões, cerca de meia hora de CPU; medido em
+// 05/10/2026, no Beto). Um lookbehind no início resolvia a lentidão mas MUDAVA o
+// resultado: `a@b.com+c@d.org` deixava o segundo e-mail sem máscara (o `+` entra
+// na parte local, não no domínio, e o casamento seguinte começa no meio da
+// sequência). A varredura abaixo parte de cada `@`, anda para trás pela parte
+// local sem invadir o casamento anterior e confere o domínio com um regex
+// pegajoso: casa exatamente o que o regex antigo casava, em tempo linear.
+const RE_LOCAL = /[\w.+-]/;
+const RE_DOMINIO = /[\w-]+\.[\w.-]+/y;
+
+function substituirEmails(texto: string, trocar: (casamento: string) => string): string {
+  const partes: string[] = [];
+  let copiadoAte = 0; // o que vem antes já está em `partes`
+  for (let at = texto.indexOf('@'); at !== -1; at = texto.indexOf('@', at + 1)) {
+    let ini = at;
+    while (ini > copiadoAte && RE_LOCAL.test(texto[ini - 1])) ini--;
+    if (ini === at) continue; // sem parte local
+    RE_DOMINIO.lastIndex = at + 1;
+    const dominio = RE_DOMINIO.exec(texto);
+    if (!dominio) continue;
+    const fim = at + 1 + dominio[0].length;
+    partes.push(texto.slice(copiadoAte, ini), trocar(texto.slice(ini, fim)));
+    copiadoAte = fim;
+  }
+  partes.push(texto.slice(copiadoAte));
+  return partes.join('');
+}
 // Telefones BR (com/sem DDD, com/sem traço).
 // Não consumir apenas um pedaço de CNPJ/identificador de 14 dígitos.
 const RE_TELEFONE = /(?<!\d)(?:\+?55[\s.-]?)?\(?[1-9]\d\)?[\s.-]?(?:9\d{4}|\d{4})[-\s]?\d{4}(?!\d)/g;
@@ -243,7 +273,7 @@ export function maskTextPII(texto: string | null | undefined, mapas?: PIIMapas |
     // Só o e-mail inteiro: "xana@exemplo.com" é outro endereço, e cai no genérico.
     out = out.replace(new RegExp(`(?<![\\w.+-])${escaparRegex(real)}(?![\\w-])`, 'gi'), () => alias);
   }
-  out = out.replace(RE_EMAIL, (m) => (m.toLowerCase().endsWith(DOMINIO_ALIAS) ? m : '[email]'));
+  out = substituirEmails(out, (m) => (m.toLowerCase().endsWith(DOMINIO_ALIAS) ? m : '[email]'));
   out = out.replace(RE_TELEFONE, '[telefone]');
   out = out.replace(RE_CPF, '[cpf]');
   for (const [real, alias] of nomes) {
