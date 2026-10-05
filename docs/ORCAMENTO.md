@@ -95,6 +95,38 @@ com o valor do projeto, e a vigência tem de ser as parcelas.
   Atualizar também serve de conserto: proposta criada antes da regra, sem nome,
   passa a exigir e a gravar `cliente_nome`.
 
+### Exemplo de cenário da proposta (05/10/2026, mig 277)
+
+O documento mostra um caso real das quatro perguntas ("Diagnosticar não é fazer prova").
+Era UMA constante por segmento: uma expedição de caminhões chegou a uma rede de academias
+que tinha ouvido "hipercustomizado", e ao trocar por um gerente de loja o defeito virou o
+inverso para as outras propostas corporativas (PROP-2026-0008, com 113 visualizações,
+entre elas). Agora o exemplo é gravado **na proposta** (`sales_proposals.cenario_exemplo`,
+jsonb, nulo por padrão).
+
+- **Onde se gera**: no painel de revisão (criar E atualizar), bloco "Exemplo de cenário":
+  cargo, segmento, uma das 5 competências da matriz global de liderança e a ficha do cargo
+  (opcional, colada). "Gerar exemplo" roda o caminho do Banco de Cenários (IA3): Sonnet 5.5
+  gera, `gpt-5.6-terra` audita, até a nota 80 (até 3 rodadas, levando o feedback do auditor,
+  e fica com a melhor). Uma rodada leva 1 a 2 min e custa centavos. O texto aparece
+  **editável**; mexer nele marca o exemplo como "editado à mão" (a nota não vale mais).
+  Detalhe do prompt: `docs/CATALOGO-PROMPTS-IA.md` §1.3.1.
+- **Quem manda no que o cliente lê**: o servidor valida tudo por `normalizarExemploGravado`
+  (allowlist, 4 perguntas, limites de tamanho) ao gravar e de novo ao montar o documento. Exemplo
+  inválido recusa a criação/atualização inteira; no documento cai no padrão, nunca em texto
+  pela metade. A **origem** (nota, modelos, cargo) é interna e nunca chega ao documento.
+- **Atualizar**: campo ausente NÃO toca no exemplo; `null` remove (volta ao padrão); objeto
+  substitui. Se a tela não conseguiu LER o exemplo atual ela avisa e não o apaga.
+- **Sem exemplo próprio**: a proposta corporativa usa um caso neutro (líder de equipe,
+  back-office, nota 92) e a de educação o da coordenação. O fecho é texto da casa e diz "este
+  caso é só um exemplo", no substantivo do segmento (empresa ou instituição).
+- ⚠️ **Sem ficha**, a IA parte do nome do cargo e do segmento e inventa a rotina típica;
+  é ilustrativo e a tela mostra "sem ficha do cargo". Com a ficha real do cliente o
+  vocabulário é o dele, que é o que "hipercustomizado" promete. A ficha colada **não** vai para
+  a auditoria nem para o banco (pode ter dado do cliente): só a marca de que existiu.
+- O custo entra nas tasks `ia3_cenarios`/`ia3_check`, sem `empresaId` ("Plataforma Vertho (sem
+  tenant)"): quem lê a média por cenário da IA3 deve saber que ela inclui estes.
+
 ### A propriedade que não pode ser perdida
 
 Cada action de `proposals-admin.ts` exige `representante_id IS NULL`. Sem isso o

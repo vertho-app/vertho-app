@@ -19,6 +19,7 @@ import { ROTULO_SIMULADOR } from '@/lib/orcamento/precificacao';
 import { SIMULADORES, type Simulador } from '@/lib/simuladores/acesso-cargo';
 import type { SalesProposal } from './types';
 import { extrairProgramaDoOrcamento, type OrcamentoVinculado, type ProposalPrograma } from './proposal-programa';
+import { cenarioDoExemplo, fechamentoDoExemplo } from './cenario-exemplo';
 
 export const PROPOSAL_VALIDITY_DAYS = 30;
 
@@ -310,38 +311,36 @@ const CENARIO: Record<ProposalSegmento, ProposalCenario> = {
     fechamento: 'Não é prova. É uma forma de identificar como o profissional decide, se comunica e age na rotina. '
       + 'O resultado é uma fotografia clara do que desenvolver, por profissional, equipe e competência.',
   },
-  // Gerado em 05/10/2026 pelo caminho do Banco de Cenários (IA3): os prompts de
-  // `lib/ia3-cenarios.ts`, a ficha de um gerente de loja de rede de academias
-  // (descrição, entregas, stakeholders, decisões e tensões, no formato de
-  // `cargos_empresa`) e a competência "Comunicação e Conversas de Liderança" da
-  // matriz global de liderança, a mesma régua do simulador que a proposta vende.
-  // Geração no Sonnet 5.5, auditoria por outra família (gpt-5.6-terra): nota 93,
-  // aprovado, 1ª rodada, sem erro de validação. O texto abaixo é o da geração,
-  // sem retoque. Era um caso de expedição de caminhões (herdado do deck
-  // corporativo), servido a uma rede de academias que tinha ouvido
-  // "hipercustomizado". Os rótulos das perguntas são os descritores que cada uma
-  // cobre (D1 Preparação e propósito, D5 Gestão de divergências, D4 Acordos
-  // verificáveis, D6 Continuidade dos acordos), e não os "Escolha/Execução" do deck.
-  // Trocar de cargo é regerar com outra ficha, nunca editar à mão: o número da
-  // auditoria deixa de valer no texto retocado.
+  // PADRÃO corporativo: o exemplo de quem não tem um próprio gravado na proposta
+  // (`sales_proposals.cenario_exemplo`, mig 277, gerado no painel de revisão do orçamento).
+  // Gerado em 05/10/2026 pelo mesmo núcleo que a tela usa (`gerarRodadaExemplo`, caminho do
+  // Banco de Cenários/IA3): cargo "Líder de equipe", segmento "empresa de médio porte, setor
+  // não especificado", sem ficha, competência "Comunicação e Conversas de Liderança" da matriz
+  // global. Sonnet 5.5 gera, gpt-5.6-terra audita: nota 92, aprovado, 1ª rodada. O texto é o da
+  // geração, sem retoque (editar à mão invalida a nota); os rótulos das perguntas são os que o
+  // próprio modelo deu.
+  //
+  // Por que NEUTRO: este padrão vai a TODA proposta corporativa sem exemplo próprio. Foi uma
+  // expedição de caminhões (que chegou a uma rede de academias que tinha ouvido
+  // "hipercustomizado"); depois um gerente de loja (o inverso, para as demais). Um caso de
+  // equipe de back-office não amarra o documento a um setor. Proposta que mereça um caso do
+  // cargo do cliente gera o dela no painel.
   corporativo: {
-    // "Cenário situacional · Gerente de loja" quebra na coluna do PDF e deixa "LOJA"
-    // sozinha na segunda linha (medido em imagem, 05/10/2026): 33 caracteres cabem.
-    rotulo: 'Cenário · Gerente de loja',
-    situacao: 'Sexta, 18h30, horário de pico. Uma unidade da rede está em 78% da meta de matrículas a cinco dias do '
-      + 'fechamento. Um instrutor faltou e Rafael, instrutor de confiança há três anos, cobriu o turno com horas extras. '
-      + 'Para ajudar a recepção, que tinha fila de matrículas, ele deixou a sala de musculação sem instrutor por cerca de '
-      + '15 minutos. Nesse intervalo, um aluno novo caiu ao fazer supino sem orientação, sem lesão grave. Você viu o '
-      + 'episódio nas câmeras. Camila, gerente regional, cobra o fechamento da meta. No grupo da equipe, Rafael escreveu: '
-      + '"se for pra ser cobrado por ajudar, não cubro mais". A escala de amanhã já tem uma baixa e você precisa conversar com Rafael.',
+    // ≤ 33 caracteres: acima disso o rótulo quebra na coluna do PDF e deixa uma palavra órfã.
+    rotulo: 'Cenário · Líder de equipe',
+    situacao: 'Você lidera uma equipe de 6 pessoas em operações financeiras. Rafael, analista sênior e único que domina '
+      + 'o sistema de conciliação, entregou 3 dos últimos 5 relatórios semanais com 1 a 2 dias de atraso e, na última '
+      + 'reunião, respondeu a Bianca: "se quiserem mais rápido, façam vocês". Bianca, da área comercial, depende desses '
+      + 'relatórios para fechar propostas e já levou o assunto à diretoria. O fechamento mensal começa em 5 dias e, sem '
+      + 'Rafael, a equipe não conclui. Rafael costuma dizer que está sobrecarregado com urgências de outras áreas, que você '
+      + 'mesmo autorizou. Você pode renegociar prazos com Bianca, mas não pode contratar reforço nem alterar remuneração.',
     perguntas: [
-      { nome: 'Abertura', pergunta: 'Como você abre a conversa com Rafael? Diga em que momento e lugar a faria, qual propósito explicita e que fato concreto cita logo no início.' },
-      { nome: 'Divergência', pergunta: 'Rafael responde: "Se eu não ajudasse, a gente perdia matrícula. Você cobra meta e agora me cobra isso?" O que você diz e pergunta nesse momento?' },
-      { nome: 'Acordo', pergunta: 'Rafael diz que está no limite e que não cobre mais faltas. O que você responde para manter a sala sempre coberta e ainda combinar algo concreto com ele?' },
-      { nome: 'Continuidade', pergunta: 'Nas próximas duas semanas, como você acompanha o combinado com Rafael? Diga quando, em que formato, o que observa e como ele sinaliza dificuldades.' },
+      { nome: 'Abertura', pergunta: 'Hoje você só tem tempo para aprofundar um ponto com Rafael: os atrasos ou a resposta a Bianca. Qual escolhe, por quê, e como abre a conversa com exemplos concretos?' },
+      { nome: 'Divergência', pergunta: 'Rafael diz que as urgências vieram de você e que por isso os relatórios atrasam. Como responde a esse argumento e protege o prazo do fechamento em 5 dias?' },
+      { nome: 'Escuta', pergunta: "Rafael fica irritado, diz que 'agora virou o problema' e se cala. O que você faz nesse momento para entendê-lo sem abrir mão do que precisa mudar?" },
+      { nome: 'Acordo', pergunta: 'Que combinado final você fecha com Rafael (ação, responsável, prazo, verificação) e como acompanha as próximas duas semanas, inclusive se ele sinalizar que não dará conta?' },
     ],
-    fechamento: 'Não é prova nem quiz, e este caso é só um exemplo: no programa, cada situação é gerada a partir da ficha de cada cargo, '
-      + 'da competência avaliada e do contexto da empresa, e cada pergunta força uma decisão com custo. Ninguém digita relatório depois.',
+    fechamento: fechamentoDoExemplo('corporativo'),
   },
 };
 
@@ -613,7 +612,9 @@ export function buildProposalDocument(
     termos: termosDoCliente(segmento, nomeCliente),
     pilares: PILARES_PADRAO,
     curadoria: CURADORIA[segmento],
-    cenario: CENARIO[segmento],
+    // O exemplo gravado NA PROPOSTA (gerado e revisado no painel do orçamento) vence o padrão do
+    // segmento. Inválido ou ausente cai no padrão, nunca em texto pela metade.
+    cenario: cenarioDoExemplo(proposal.cenario_exemplo, segmento) ?? CENARIO[segmento],
     personalizacao: PERSONALIZACAO[segmento],
     fundadores: FUNDADORES,
     gestao: { perguntas: PERGUNTAS_GESTAO, niveis: NIVEIS_GESTAO[segmento] },

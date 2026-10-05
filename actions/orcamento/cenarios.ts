@@ -28,6 +28,7 @@ import { requirePlataformaSupabase } from '@/lib/admin-supabase';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import type { ActionResult } from '@/lib/auth/protected-action';
 import { logAdminAction } from '@/lib/audit';
+import { normalizarExemploGravado, type ExemploGravado } from '@/lib/sales/cenario-exemplo';
 import {
   normalizarResumo,
   validarIdentificacao,
@@ -73,6 +74,12 @@ export type OrcamentoCarregado = {
   entradas: unknown;
   resultado: ResumoOrcamento | null;
   propostaId: string | null;
+  /**
+   * Exemplo de cenário JÁ gravado na proposta vinculada (mig 277), validado. `null` = a
+   * proposta não tem (ou não há proposta). `undefined` = não foi possível LER: a tela não
+   * deve tratar como "sem exemplo", senão salvar apagaria o que ela não viu.
+   */
+  cenarioExemplo?: ExemploGravado | null;
 };
 
 export type EntradaSalvar = {
@@ -148,6 +155,18 @@ export async function carregarOrcamento(id: string): Promise<ActionResult<Orcame
   if (error) return { success: false, error: error.message };
   if (!data) return { success: false, error: 'Orçamento não encontrado' };
 
+  const propostaId = textoOuNulo((data as any).proposta_id);
+  let cenarioExemplo: ExemploGravado | null | undefined = null;
+  if (propostaId) {
+    const { data: prop, error: erroProp } = await sb
+      .from('sales_proposals')
+      .select('cenario_exemplo')
+      .eq('id', propostaId)
+      .maybeSingle();
+    // Falha de leitura NÃO vira "sem exemplo": o orçamento abre, e a tela avisa que não viu o atual.
+    cenarioExemplo = erroProp ? undefined : normalizarExemploGravado((prop as any)?.cenario_exemplo);
+  }
+
   return {
     success: true,
     data: {
@@ -156,7 +175,8 @@ export async function carregarOrcamento(id: string): Promise<ActionResult<Orcame
       cliente: textoOuNulo((data as any).cliente),
       entradas: (data as any).entradas,
       resultado: normalizarResumo((data as any).resultado),
-      propostaId: textoOuNulo((data as any).proposta_id),
+      propostaId,
+      cenarioExemplo,
     },
   };
 }

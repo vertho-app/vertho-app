@@ -25,6 +25,15 @@ import {
   type OrcamentoSalvo,
 } from '@/actions/orcamento/cenarios';
 import { atualizarPropostaDeOrcamento, criarPropostaDeOrcamento } from '@/actions/sales/proposals-admin';
+import { gerarExemploCenario, type ResultadoGeracaoExemplo } from '@/actions/sales/cenario-exemplo';
+import {
+  COMPETENCIAS_DO_EXEMPLO,
+  COMPETENCIA_PADRAO_DO_EXEMPLO,
+  LIMITES_EXEMPLO,
+  NOTA_MINIMA_EXEMPLO,
+  normalizarExemploGravado,
+  type ExemploGravado,
+} from '@/lib/sales/cenario-exemplo';
 import { calculateProposalFinancials } from '@/lib/sales/commissions';
 import {
   CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGES, PRODUCT_PACKAGE_LABELS,
@@ -565,6 +574,15 @@ export default function OrcamentoPage() {
   // Nome que a capa da proposta mostra. Nasce do campo Cliente do orçamento e é
   // obrigatório aqui: sem ele a capa sai sem destinatário (PROP-2026-0010).
   const [convCliente, setConvCliente] = useState('');
+  // Exemplo de cenário da proposta. null = sem exemplo (a proposta usa o padrão do segmento);
+  // undefined = a proposta TEM um que a tela não conseguiu ler, e salvar não pode apagá-lo.
+  const [convExemplo, setConvExemplo] = useState<ExemploGravado | null | undefined>(null);
+  const [exCargo, setExCargo] = useState('');
+  const [exSegmento, setExSegmento] = useState('');
+  const [exFicha, setExFicha] = useState('');
+  const [exCompetencia, setExCompetencia] = useState<string>(COMPETENCIA_PADRAO_DO_EXEMPLO);
+  const [exGerando, setExGerando] = useState<string | null>(null);
+  const [exAviso, setExAviso] = useState<{ tom: 'ok' | 'erro' | 'atencao'; texto: string } | null>(null);
   const [convPagamento, setConvPagamento] = useState('');
   const [convTipoCliente, setConvTipoCliente] = useState('');
   const [convPacote, setConvPacote] = useState('');
@@ -723,6 +741,15 @@ export default function OrcamentoPage() {
         cliente: r.data.cliente ?? '',
         propostaId: r.data.propostaId ?? null,
       });
+      setConvExemplo(r.data.cenarioExemplo);
+      // "Gerar de novo" parte do que gerou o exemplo atual, em vez de pedir tudo outra vez.
+      const origem = r.data.cenarioExemplo?.origem ?? null;
+      setExCargo(origem?.cargo ?? '');
+      setExSegmento(origem?.segmento ?? '');
+      setExCompetencia(origem?.competencia && (COMPETENCIAS_DO_EXEMPLO as readonly string[]).includes(origem.competencia)
+        ? origem.competencia : COMPETENCIA_PADRAO_DO_EXEMPLO);
+      setExFicha('');
+      setExAviso(null);
       setConvAberta(false);
       setAviso({ tom: 'ok', texto: `“${r.data.nome}” carregado nos campos acima.` });
     } catch (e: any) {
@@ -745,6 +772,7 @@ export default function OrcamentoPage() {
       }
       // Excluir o que está aberto desvincula a tela, sem mexer nos números.
       setIdent((i) => (i.id === id ? { id: null, nome: '', cliente: '', propostaId: null } : i));
+      if (ident.id === id) setConvExemplo(null);
       setAviso({ tom: 'ok', texto: `“${nome}” excluído.` });
       await recarregarSalvos();
     } catch (e: any) {
@@ -762,6 +790,7 @@ export default function OrcamentoPage() {
       cliente: i.cliente,
       propostaId: null,
     }));
+    setConvExemplo(null);
     setConvAberta(false);
     setAviso(null);
   }
@@ -770,6 +799,7 @@ export default function OrcamentoPage() {
     if (!window.confirm('Voltar todos os campos ao padrão da régua? O que não estiver salvo se perde.')) return;
     aplicarEntradas(entradasPadrao(LISTAS_VALIDAS));
     setIdent({ id: null, nome: '', cliente: '', propostaId: null });
+    setConvExemplo(null);
     setConvAberta(false);
     setAviso(null);
   }
@@ -816,6 +846,61 @@ export default function OrcamentoPage() {
     setConvAberta(true);
   }
 
+  // ── Exemplo de cenário (gerado pela IA3, revisado aqui) ────────────────────────
+  /**
+   * Repete a geração até a nota mínima da IA3 (80), levando o feedback do auditor de uma
+   * rodada para a seguinte, e fica com a MELHOR. São até 3 pedidos de 1 a 2 minutos cada: o
+   * servidor faz uma rodada por chamada para não passar dos 300 s da rota.
+   */
+  async function aoGerarExemplo() {
+    if (exGerando || !exCargo.trim()) return;
+    const TENTATIVAS = 3;
+    setExAviso(null);
+    let melhor: ResultadoGeracaoExemplo | null = null;
+    let feedback: string | null = null;
+    let falha: string | null = null;
+    try {
+      for (let t = 1; t <= TENTATIVAS; t++) {
+        setExGerando(`Gerando o exemplo, tentativa ${t} de ${TENTATIVAS}. Cada uma leva 1 a 2 minutos.`);
+        const r = await gerarExemploCenario({
+          cargo: exCargo, segmento: exSegmento || null, ficha: exFicha || null,
+          competencia: exCompetencia, feedback,
+        });
+        if (!r.success || !r.data) { falha = r.error || 'Não foi possível gerar o exemplo.'; break; }
+        if (!melhor || (r.data.nota ?? -1) > (melhor.nota ?? -1)) melhor = r.data;
+        if (r.data.aprovado) break;
+        feedback = r.data.feedbackParaProxima || null;
+      }
+    } catch (e: any) {
+      falha = e?.message || 'Não foi possível gerar o exemplo.';
+    } finally {
+      setExGerando(null);
+    }
+    if (!melhor) { setExAviso({ tom: 'erro', texto: falha || 'Não foi possível gerar o exemplo.' }); return; }
+    setConvExemplo(melhor.exemplo);
+    if (melhor.aprovado) {
+      setExAviso({ tom: 'ok', texto: `Exemplo gerado: nota ${melhor.nota} do auditor. Leia e ajuste antes de criar ou atualizar a proposta.` });
+    } else {
+      setExAviso({
+        tom: 'atencao',
+        texto: `Nenhuma tentativa chegou a ${NOTA_MINIMA_EXEMPLO} (melhor: ${melhor.nota ?? 'sem nota'}).`
+          + `${melhor.pontoFraco ? ` Ponto fraco: ${melhor.pontoFraco}` : ''} Revise com cuidado, gere de novo ou deixe sem exemplo.`
+          + `${falha ? ` Uma tentativa falhou: ${falha}` : ''}`,
+      });
+    }
+  }
+
+  /** Qualquer mexida no texto marca o exemplo como editado: a nota do auditor deixa de valer para ele. */
+  function alterarExemplo(mudar: (e: ExemploGravado) => ExemploGravado) {
+    setConvExemplo((atual) => {
+      if (!atual) return atual;
+      const novo = mudar(atual);
+      return { ...novo, origem: novo.origem ? { ...novo.origem, editado: true } : novo.origem };
+    });
+  }
+
+  const exemploInvalido = !!convExemplo && !normalizarExemploGravado(convExemplo);
+
   async function aoAtualizar() {
     if (!ident.id || ocupado) return;
     setOcupado(true);
@@ -826,6 +911,7 @@ export default function OrcamentoPage() {
         includedScope: convEscopo,
         paymentTerms: convPagamento || null,
         clienteNome: convCliente,
+        cenarioExemplo: convExemplo,
       });
       if (!r.success || !r.data) {
         setAviso({ tom: 'erro', texto: r.error || 'Não foi possível atualizar a proposta.' });
@@ -857,6 +943,7 @@ export default function OrcamentoPage() {
         customerType: convTipoCliente || null,
         productPackage: convPacote || null,
         clienteNome: convCliente,
+        cenarioExemplo: convExemplo,
         contatoNome: convContatoNome,
         contatoEmail: convContatoEmail,
         contatoWhatsapp: convContatoWhats,
@@ -1707,6 +1794,134 @@ export default function OrcamentoPage() {
                 className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-white outline-none focus:border-amber-300"
               />
 
+              <div className="mt-3 border-t border-amber-300/15 pt-3">
+                <p className="text-[9px] uppercase tracking-widest text-gray-500">
+                  Exemplo de cenário — o cliente lê isto
+                </p>
+                <p className="mt-1 text-[9px] leading-relaxed text-gray-600">
+                  Gerado pelo mesmo caminho do Banco de Cenários (IA3, com auditoria de outro modelo) e revisado por você.
+                  Sem exemplo, a proposta usa o caso padrão do segmento.
+                </p>
+                {convExemplo === undefined && (
+                  <p className="mt-1.5 text-[10px] text-amber-300">
+                    Não foi possível ler o exemplo que esta proposta já tem. Salvar não o altera; gerar um novo o substitui.
+                  </p>
+                )}
+
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={exCargo}
+                    maxLength={LIMITES_EXEMPLO.cargo}
+                    onChange={(e) => setExCargo(e.target.value)}
+                    placeholder="Cargo do exemplo (ex.: Gerente de loja)"
+                    aria-label="Cargo do exemplo de cenário"
+                    className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-white outline-none placeholder:text-gray-600 focus:border-amber-300"
+                  />
+                  <input
+                    type="text"
+                    value={exSegmento}
+                    maxLength={LIMITES_EXEMPLO.segmento}
+                    onChange={(e) => setExSegmento(e.target.value)}
+                    placeholder="Segmento (ex.: rede de academias)"
+                    aria-label="Segmento do exemplo de cenário"
+                    className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-white outline-none placeholder:text-gray-600 focus:border-amber-300"
+                  />
+                </div>
+                <select
+                  value={exCompetencia}
+                  onChange={(e) => setExCompetencia(e.target.value)}
+                  aria-label="Competência avaliada no exemplo"
+                  className="mt-2 w-full rounded border border-white/10 bg-[#17150e] px-2 py-1.5 text-[11px] text-white outline-none focus:border-amber-300"
+                >
+                  {COMPETENCIAS_DO_EXEMPLO.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <textarea
+                  rows={3}
+                  value={exFicha}
+                  maxLength={LIMITES_EXEMPLO.ficha}
+                  onChange={(e) => setExFicha(e.target.value)}
+                  placeholder="Ficha do cargo (opcional): cole a descrição, as entregas, as tensões. Sem ela a IA parte do nome do cargo e do segmento."
+                  aria-label="Ficha do cargo do exemplo"
+                  className="mt-2 w-full resize-y rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] leading-relaxed text-white outline-none placeholder:text-gray-600 focus:border-amber-300"
+                />
+                <button
+                  type="button"
+                  onClick={aoGerarExemplo}
+                  disabled={!!exGerando || ocupado || !exCargo.trim()}
+                  className="mt-2 inline-flex w-full items-center justify-center border border-amber-300/40 px-3 py-2 text-[11px] font-semibold text-amber-200 hover:bg-amber-300/10 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {exGerando ? 'Gerando…' : convExemplo ? 'Gerar de novo' : 'Gerar exemplo'}
+                </button>
+                {exGerando && <p className="mt-1.5 text-[10px] text-gray-400">{exGerando}</p>}
+                {exAviso && (
+                  <p className={`mt-1.5 text-[10px] leading-relaxed ${exAviso.tom === 'ok' ? 'text-emerald-300' : exAviso.tom === 'atencao' ? 'text-amber-300' : 'text-red-300'}`}>
+                    {exAviso.texto}
+                  </p>
+                )}
+
+                {convExemplo && (
+                  <div className="mt-3 rounded border border-white/10 bg-black/20 p-2">
+                    <p className="text-[9px] text-gray-500">
+                      {convExemplo.origem
+                        ? `${convExemplo.origem.cargo}${convExemplo.origem.competencia ? ` · ${convExemplo.origem.competencia}` : ''}`
+                          + `${convExemplo.origem.nota != null ? ` · nota ${convExemplo.origem.nota}` : ''}`
+                          + `${convExemplo.origem.comFicha ? '' : ' · sem ficha do cargo'}`
+                          + `${convExemplo.origem.editado ? ' · editado à mão (a nota não vale para o texto final)' : ''}`
+                        : 'Exemplo gravado na proposta'}
+                    </p>
+                    <input
+                      type="text"
+                      value={convExemplo.rotulo}
+                      maxLength={LIMITES_EXEMPLO.rotulo}
+                      onChange={(e) => alterarExemplo((x) => ({ ...x, rotulo: e.target.value }))}
+                      aria-label="Rótulo do bloco do exemplo"
+                      className="mt-1.5 w-full rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white outline-none focus:border-amber-300"
+                    />
+                    <textarea
+                      rows={6}
+                      value={convExemplo.situacao}
+                      maxLength={LIMITES_EXEMPLO.situacao}
+                      onChange={(e) => alterarExemplo((x) => ({ ...x, situacao: e.target.value }))}
+                      aria-label="Situação do exemplo"
+                      className="mt-1.5 w-full resize-y rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] leading-relaxed text-white outline-none focus:border-amber-300"
+                    />
+                    {convExemplo.perguntas.map((q, i) => (
+                      <div key={i} className="mt-1.5">
+                        <input
+                          type="text"
+                          value={q.nome}
+                          maxLength={LIMITES_EXEMPLO.nomePergunta}
+                          onChange={(e) => alterarExemplo((x) => ({ ...x, perguntas: x.perguntas.map((p, j) => (j === i ? { ...p, nome: e.target.value } : p)) }))}
+                          aria-label={`Rótulo da pergunta ${i + 1}`}
+                          className="w-full rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-gray-200 outline-none focus:border-amber-300"
+                        />
+                        <textarea
+                          rows={2}
+                          value={q.pergunta}
+                          maxLength={LIMITES_EXEMPLO.pergunta}
+                          onChange={(e) => alterarExemplo((x) => ({ ...x, perguntas: x.perguntas.map((p, j) => (j === i ? { ...p, pergunta: e.target.value } : p)) }))}
+                          aria-label={`Pergunta ${i + 1}`}
+                          className="mt-1 w-full resize-y rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] leading-relaxed text-white outline-none focus:border-amber-300"
+                        />
+                      </div>
+                    ))}
+                    {exemploInvalido && (
+                      <p className="mt-1.5 text-[10px] text-red-300">
+                        Exemplo incompleto: todos os campos precisam de texto. Não dá para salvar assim.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { setConvExemplo(null); setExAviso(null); }}
+                      className="mt-2 text-[10px] text-gray-400 underline hover:text-white"
+                    >
+                      Remover o exemplo e usar o padrão do segmento
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {convModo === 'atualizar' ? (
                 <p className="mt-3 border-t border-amber-300/15 pt-3 text-[10px] leading-relaxed text-amber-200/80">
                   Usa o orçamento <strong>SALVO</strong>: se mudou algo nesta tela, salve antes. Número,
@@ -1793,7 +2008,7 @@ export default function OrcamentoPage() {
                   type="button"
                   onClick={convModo === 'atualizar' ? aoAtualizar : aoConverter}
                   disabled={
-                    ocupado || !convEscopo.trim() || !convCliente.trim()
+                    ocupado || !!exGerando || exemploInvalido || !convEscopo.trim() || !convCliente.trim()
                     || (convModo === 'criar' && (!convContatoNome.trim() || !convContatoEmail.trim() || !convContatoWhats.trim()))
                   }
                   className="inline-flex items-center justify-center gap-1.5 bg-amber-300 px-3 py-2 text-[11px] font-bold text-[#17150e] hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40"

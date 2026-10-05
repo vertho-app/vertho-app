@@ -108,6 +108,12 @@ export type SalesProposal = {
   discount_requested: number | null;
   payment_terms: string | null;
   included_scope: string | null;
+  /**
+   * Exemplo de cenário DESTA proposta (mig 277, jsonb). Texto que o cliente lê: nunca
+   * use cru, sempre por `normalizarExemploGravado` / `cenarioDoExemplo`
+   * (`lib/sales/cenario-exemplo.ts`). null = o documento usa o exemplo padrão do segmento.
+   */
+  cenario_exemplo?: unknown | null;
   commercial_notes: string | null;
   monthly_value: number | null;
   contract_value_gross: number | null;

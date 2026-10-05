@@ -269,6 +269,68 @@ describe('carregarOrcamento', () => {
     expect(r.data.resultado.valorFinal).toBe(32000);
   });
 
+  describe('exemplo de cenário da proposta vinculada (mig 277)', () => {
+    const EXEMPLO_GRAVADO = {
+      rotulo: 'Cenário · Gerente de loja',
+      situacao: 'Sexta, 18h30. Rafael cobriu o turno.',
+      perguntas: [1, 2, 3, 4].map((n) => ({ nome: `P${n}`, pergunta: `Pergunta ${n}?` })),
+      origem: { cargo: 'Gerente de loja', nota: 93, comFicha: true, editado: false },
+    };
+    const orcamentoComProposta = (propostaId: string | null) => ({
+      id: 'orc-1', nome: 'Bluefit', cliente: 'Bluefit', entradas: ENTRADAS, resultado: RESULTADO, proposta_id: propostaId,
+    });
+
+    it('com proposta vinculada, devolve o exemplo JÁ validado para a tela mostrar', async () => {
+      sb = criarSupabaseMock({
+        resolver: (tabela) => (tabela === 'sales_proposals'
+          ? { cenario_exemplo: { ...EXEMPLO_GRAVADO, campoEstranho: 'CANARIO' } }
+          : orcamentoComProposta('prop-1')),
+      });
+      const r: any = await carregarOrcamento('orc-1');
+      expect(r.success).toBe(true);
+      expect(r.data.propostaId).toBe('prop-1');
+      expect(r.data.cenarioExemplo.rotulo).toBe('Cenário · Gerente de loja');
+      expect(r.data.cenarioExemplo.origem).toMatchObject({ cargo: 'Gerente de loja', nota: 93 });
+      expect(JSON.stringify(r.data.cenarioExemplo)).not.toContain('CANARIO');
+    });
+
+    it('proposta sem exemplo: null (a tela sabe que NÃO há), não undefined', async () => {
+      sb = criarSupabaseMock({
+        resolver: (tabela) => (tabela === 'sales_proposals' ? { cenario_exemplo: null } : orcamentoComProposta('prop-1')),
+      });
+      const r: any = await carregarOrcamento('orc-1');
+      expect(r.data.cenarioExemplo).toBeNull();
+    });
+
+    it('jsonb inválido na proposta vira null, não texto quebrado na tela', async () => {
+      sb = criarSupabaseMock({
+        resolver: (tabela) => (tabela === 'sales_proposals' ? { cenario_exemplo: { rotulo: 'só isto' } } : orcamentoComProposta('prop-1')),
+      });
+      const r: any = await carregarOrcamento('orc-1');
+      expect(r.success).toBe(true);
+      expect(r.data.cenarioExemplo).toBeNull();
+    });
+
+    it('orçamento sem proposta: null, e a tabela de propostas nem é consultada', async () => {
+      sb = criarSupabaseMock({ resolver: () => orcamentoComProposta(null) });
+      const r: any = await carregarOrcamento('orc-1');
+      expect(r.data.cenarioExemplo).toBeNull();
+      expect(sb.chamadas.some((c) => c.tabela === 'sales_proposals')).toBe(false);
+    });
+
+    it('falha ao LER o exemplo NÃO vira "sem exemplo": o orçamento abre e a tela recebe undefined', async () => {
+      // null apagaria o exemplo no próximo "Atualizar proposta"; undefined diz "não vi" e a tela não o toca.
+      sb = criarSupabaseMock({
+        resolver: (tabela) => (tabela === 'sales_proposals' ? null : orcamentoComProposta('prop-1')),
+      });
+      sb.falharEm({ tabela: 'sales_proposals', op: 'select', mensagem: 'coluna cenario_exemplo não existe' });
+      const r: any = await carregarOrcamento('orc-1');
+      expect(r.success).toBe(true);
+      expect(r.data.cenarioExemplo).toBeUndefined();
+      expect(r.data.propostaId).toBe('prop-1');
+    });
+  });
+
   it('id vazio é recusado sem ir ao banco', async () => {
     const r: any = await carregarOrcamento('');
     expect(r.success).toBe(false);

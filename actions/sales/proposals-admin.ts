@@ -39,6 +39,7 @@ import { calculateProposalFinancials } from '@/lib/sales/commissions';
 import { CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGE_LABELS } from '@/lib/sales/constants';
 import { novoTokenProposta } from '@/lib/sales/proposal-token';
 import { LIMITE_CLIENTE, normalizarResumo } from '@/lib/orcamento/cenario';
+import { normalizarExemploGravado, type ExemploGravado } from '@/lib/sales/cenario-exemplo';
 import { validateWhatsApp } from '@/lib/phone';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -69,6 +70,11 @@ export type EntradaConversao = {
    * quando não há nome, e uma proposta de R$ 1 milhão saiu assim em 05/10/2026.
    */
   clienteNome?: string | null;
+  /**
+   * Exemplo de cenário desta proposta (mig 277), gerado e REVISADO no painel. Validado por
+   * `normalizarExemploGravado`. Ausente ou null: o documento usa o exemplo padrão do segmento.
+   */
+  cenarioExemplo?: unknown | null;
   /** Contato que assina o documento (mig 255) — os três são obrigatórios. */
   contatoNome: string;
   contatoEmail: string;
@@ -82,6 +88,11 @@ export type EntradaAtualizacao = {
   paymentTerms?: string | null;
   /** Nome do cliente da capa, como na conversão. Vazio mantém o que a proposta já tem. */
   clienteNome?: string | null;
+  /**
+   * Exemplo de cenário: ausente (`undefined`) NÃO mexe no que a proposta já tem; `null`
+   * remove (volta ao padrão do segmento); objeto substitui, depois de validado.
+   */
+  cenarioExemplo?: unknown | null;
 };
 
 /**
@@ -99,6 +110,22 @@ function nomeDoClienteDaCapa(...candidatos: unknown[]): string | null {
 
 const ERRO_SEM_CLIENTE = 'Informe o cliente: é o nome que aparece na capa da proposta ("Preparada para ...").';
 const erroClienteLongo = `Cliente muito longo (máximo ${LIMITE_CLIENTE} caracteres).`;
+
+/** Tipo PLANO (o projeto roda com `strict: false`): `presente` separa "não mandou" de "mandou null". */
+type ExemploDaRevisao = { presente: boolean; valor?: ExemploGravado | null; erro?: string };
+
+/**
+ * O exemplo de cenário que veio da revisão. NUNCA se grava o objeto do cliente: ele passa
+ * por `normalizarExemploGravado` (allowlist, com limites), porque vira texto que o cliente
+ * da proposta lê. `undefined` = não mexe; `null` = remove; objeto válido = grava.
+ */
+function exemploDaRevisao(entrada: Record<string, unknown>): ExemploDaRevisao {
+  if (!('cenarioExemplo' in entrada) || entrada.cenarioExemplo === undefined) return { presente: false };
+  if (entrada.cenarioExemplo === null) return { presente: true, valor: null };
+  const valor = normalizarExemploGravado(entrada.cenarioExemplo);
+  if (!valor) return { presente: true, erro: 'Exemplo de cenário inválido: confira a situação e as quatro perguntas.' };
+  return { presente: true, valor };
+}
 
 /**
  * Estados em que a proposta já fechou: mudar valor ou escopo reescreveria o que
@@ -258,6 +285,8 @@ export async function criarPropostaDeOrcamento(
   const clienteNome = nomeDoClienteDaCapa(bruto.clienteNome, orc.cliente);
   if (!clienteNome && !accountId) return { success: false, error: ERRO_SEM_CLIENTE };
   if (clienteNome && clienteNome.length > LIMITE_CLIENTE) return { success: false, error: erroClienteLongo };
+  const exemplo = exemploDaRevisao(bruto);
+  if (exemplo.erro) return { success: false, error: exemplo.erro };
 
   const numeros = numerosDoOrcamento(orc.resultado, orc.entradas);
   if ('erro' in numeros) return { success: false, error: numeros.erro };
@@ -285,6 +314,9 @@ export async function criarPropostaDeOrcamento(
       discount_requested: descontoPct,
       payment_terms: paymentTerms || null,
       included_scope: escopo,
+      // Só escreve a coluna quando há exemplo: sem ele o default (null) vale, e o insert não
+      // depende de a coluna já existir no banco.
+      ...(exemplo.valor ? { cenario_exemplo: exemplo.valor } : {}),
       contact_name: contatoNome,
       contact_email: contatoEmail,
       // E.164 sem "+", normalizado: é o que monta o link wa.me do documento.
@@ -396,6 +428,8 @@ export async function atualizarPropostaDeOrcamento(
   const clienteNome = nomeDoClienteDaCapa(bruto.clienteNome, proposta.cliente_nome, orc.cliente);
   if (!clienteNome && !proposta.account_id) return { success: false, error: ERRO_SEM_CLIENTE };
   if (clienteNome && clienteNome.length > LIMITE_CLIENTE) return { success: false, error: erroClienteLongo };
+  const exemplo = exemploDaRevisao(bruto);
+  if (exemplo.erro) return { success: false, error: exemplo.erro };
 
   const numeros = numerosDoOrcamento(orc.resultado, orc.entradas);
   if ('erro' in numeros) return { success: false, error: numeros.erro };
@@ -412,6 +446,8 @@ export async function atualizarPropostaDeOrcamento(
       included_scope: escopo,
       monthly_value: monthly,
       ...(clienteNome && clienteNome !== proposta.cliente_nome ? { cliente_nome: clienteNome } : {}),
+      // undefined não mexe; null volta ao padrão do segmento; objeto validado substitui.
+      ...(exemplo.presente ? { cenario_exemplo: exemplo.valor ?? null } : {}),
       ...finSemComissao,
       updated_at: new Date().toISOString(),
     })
@@ -447,6 +483,7 @@ export async function atualizarPropostaDeOrcamento(
     antes: { total: proposta.total_contract_value, parcelas: proposta.contract_duration_months, cliente: proposta.cliente_nome ?? null },
     depois: { total: fin.total_contract_value, parcelas: vigencia, cliente: clienteNome },
     clienteNoOrcamento,
+    exemploDeCenario: !exemplo.presente ? 'inalterado' : exemplo.valor ? 'gravado' : 'removido',
   });
 
   return {

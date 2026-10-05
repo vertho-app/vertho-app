@@ -217,6 +217,15 @@
 - **Inconsistência observada no contrato atual**: o exemplo do campo `contexto` ainda diz “250-400 palavras”, mas a regra de sobriedade, o prompt de regeneração e o auditor usam **≤900 caracteres**. `validarRespostaIA3` verifica quantidade de perguntas, cobertura e confiança, mas não impõe esse comprimento; portanto o limite depende hoje do gerador/auditor.
 - **Consumido por**: `banco_cenarios` (alternativas[]). Usado por IA4 (Fase 3) para avaliar respostas.
 
+#### 1.3.1 Reuso: exemplo de cenário da PROPOSTA (05/10/2026)
+> `REUSO` · mesmo prompt de sistema (`buildIA3SystemPrompt`) e mesmo auditor (`buildCheckIA3SystemPrompt`), outro entorno
+
+- **Arquivo**: `lib/sales/cenario-exemplo-ia.ts::gerarRodadaExemplo` (action `actions/sales/cenario-exemplo.ts`, botão "Gerar exemplo" no painel de revisão de `/admin/vertho/orcamento`).
+- **O que muda**: não há tenant, então não há `cargos_empresa`, PPP, valores nem perfil ideal. O user prompt é `buildIA3UserPrompt` com empresa-marcador ("Empresa do cliente (exemplo)"), valores genéricos e a **ficha do cargo só se foi colada** (vai como "Descrição do cargo"; sem ela, a IA parte do nome do cargo e do segmento, como faz para qualquer cargo sem ficha). A competência é uma das 5 da matriz global de liderança. Ao fim do user prompt entram dois blocos só deste uso: "USO DO CENÁRIO" (não nomear empresa/marca/cidade reais; campo `rotulo` curto em cada pergunta) e, nas rodadas seguintes, o feedback do auditor com as regras da regeneração.
+- **Tasks**: `ia3_cenarios` (gera) e `ia3_check` (audita, família diferente), sem `empresaId`: o custo cai em "Plataforma Vertho (sem tenant)" e entra na conta da IA3. Task nova pediria registro em seis lugares de `lib/ai-tasks.ts` e no par Dual-IA, para separar centavos.
+- **Uma rodada por chamada** (~1 a 2 min; `maxDuration` 300 em `app/admin/vertho/orcamento/layout.tsx`). A tela repete até a nota 80 (até 3 vezes), levando o feedback, e fica com a melhor.
+- **Saída**: o cenário vira `{ rotulo, situacao, perguntas[4]{nome,pergunta}, origem }` e passa por `normalizarExemploGravado` (allowlist + tamanho) antes de ser devolvido e de novo ao gravar. Não vai para `banco_cenarios`: fica em `sales_proposals.cenario_exemplo` (mig 277).
+
 ### 1.4 IA3 — Regenerar cenário (com feedback)
 > `WRAPPER` · Prompt documentado como: `reuso` (de 1.3 com appendix de feedback)
 

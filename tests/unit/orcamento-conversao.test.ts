@@ -553,6 +553,129 @@ describe('ciclo de vida — transições', () => {
   });
 });
 
+/** Exemplo de cenário da proposta (mig 277), como a tela o manda depois de gerado e revisado. */
+const EXEMPLO = {
+  rotulo: 'Cenário · Gerente de loja',
+  situacao: 'Sexta, 18h30. Rafael cobriu o turno e deixou a sala sem instrutor por 15 minutos.',
+  perguntas: [
+    { nome: 'Abertura', pergunta: 'Como você abre a conversa com Rafael?' },
+    { nome: 'Divergência', pergunta: 'Rafael diz que perdia matrícula. O que responde?' },
+    { nome: 'Acordo', pergunta: 'O que combina para manter a sala coberta?' },
+    { nome: 'Continuidade', pergunta: 'Como acompanha o combinado?' },
+  ],
+  origem: {
+    cargo: 'Gerente de loja', segmento: 'rede de academias', competencia: 'Comunicação e Conversas de Liderança',
+    nota: 93, status: 'aprovado', gerador: 'claude-sonnet-5-5', auditor: 'gpt-5.6-terra',
+    geradoEm: '2026-10-05T14:00:00.000Z', comFicha: true, editado: false,
+  },
+};
+
+describe('exemplo de cenário na criação da proposta (mig 277)', () => {
+  it('sem exemplo, a coluna NEM é escrita: o insert não depende de ela existir', async () => {
+    for (const cenarioExemplo of [undefined, null]) {
+      sb = mock();
+      // O número da proposta vem de uma função SQL: um mock novo precisa dela (o do beforeEach não vale).
+      sb.client.rpc = vi.fn(async () => ({ data: 'PROP-2026-0001', error: null }));
+      const r: any = await criarPropostaDeOrcamento(entrada({ cenarioExemplo }));
+      expect(r.success, String(cenarioExemplo)).toBe(true);
+      expect(insertDeProposta(), String(cenarioExemplo)).not.toHaveProperty('cenario_exemplo');
+    }
+  });
+
+  it('exemplo válido é gravado na linha da proposta', async () => {
+    const r: any = await criarPropostaDeOrcamento(entrada({ cenarioExemplo: EXEMPLO }));
+    expect(r.success).toBe(true);
+    expect(insertDeProposta().cenario_exemplo).toEqual(EXEMPLO);
+  });
+
+  it('grava o que PASSOU na validação, nunca o objeto do cliente (allowlist)', async () => {
+    const sujo = {
+      ...EXEMPLO, margemInterna: 'CANARIO',
+      perguntas: EXEMPLO.perguntas.map((p) => ({ ...p, html: '<script>x</script>' })),
+      origem: { ...EXEMPLO.origem, segredo: 'CANARIO' },
+    };
+    await criarPropostaDeOrcamento(entrada({ cenarioExemplo: sujo }));
+    expect(JSON.stringify(insertDeProposta().cenario_exemplo)).not.toMatch(/CANARIO|script|margemInterna/);
+  });
+
+  it('exemplo inválido RECUSA a criação inteira, sem escrita e sem auditoria', async () => {
+    const invalidos: unknown[] = [
+      { ...EXEMPLO, perguntas: EXEMPLO.perguntas.slice(0, 2) },
+      { ...EXEMPLO, situacao: '' },
+      { ...EXEMPLO, situacao: 'x'.repeat(1201) },
+      'texto solto',
+      ['lista'],
+      42,
+    ];
+    for (const cenarioExemplo of invalidos) {
+      sb = mock();
+      auditoria.mockClear();
+      const r: any = await criarPropostaDeOrcamento(entrada({ cenarioExemplo }));
+      expect(r.success, JSON.stringify(cenarioExemplo)?.slice(0, 40)).toBe(false);
+      expect(r.error).toMatch(/Exemplo de cenário inválido/);
+      expect(sb.escritas).toHaveLength(0);
+      expect(auditoria).not.toHaveBeenCalled();
+    }
+  });
+});
+
+describe('exemplo de cenário na atualização da proposta (mig 277)', () => {
+  function mockQueGravaExemplo() {
+    return criarSupabaseMock({
+      resolver: (tabela) => {
+        if (tabela === 'orcamento_cenarios') return cenario.orcamento;
+        if (tabela === 'sales_proposals') return cenario.proposta;
+        return null;
+      },
+      escrita: (tabela, op) => (tabela === 'sales_proposals' && op === 'update' ? [{ id: 'prop-1' }] : null),
+    });
+  }
+  const payloadDaProposta = () => escritasEm('sales_proposals', 'update')[0]?.payload;
+  const atualizarComExemplo = (extra: Record<string, any> = {}) =>
+    atualizarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: 'Escopo novo\n200 pessoas', ...extra } as any);
+  const ultimaAuditoria = () => auditoria.mock.calls.at(-1)![0];
+
+  beforeEach(() => {
+    cenario.orcamento.proposta_id = 'prop-1';
+    sb = mockQueGravaExemplo();
+  });
+
+  it('SEM o campo, o exemplo que a proposta já tem NÃO é tocado (undefined não apaga)', async () => {
+    const r: any = await atualizarComExemplo();
+    expect(r.success).toBe(true);
+    expect(payloadDaProposta()).not.toHaveProperty('cenario_exemplo');
+    expect(ultimaAuditoria().detalhes.exemploDeCenario).toBe('inalterado');
+  });
+
+  it('null REMOVE o exemplo (a proposta volta ao padrão do segmento)', async () => {
+    const r: any = await atualizarComExemplo({ cenarioExemplo: null });
+    expect(r.success).toBe(true);
+    expect(payloadDaProposta()).toHaveProperty('cenario_exemplo', null);
+    expect(ultimaAuditoria().detalhes.exemploDeCenario).toBe('removido');
+  });
+
+  it('objeto válido SUBSTITUI o exemplo', async () => {
+    const r: any = await atualizarComExemplo({ cenarioExemplo: EXEMPLO });
+    expect(r.success).toBe(true);
+    expect(payloadDaProposta().cenario_exemplo).toEqual(EXEMPLO);
+    expect(ultimaAuditoria().detalhes.exemploDeCenario).toBe('gravado');
+  });
+
+  it('exemplo inválido recusa a atualização inteira, sem escrita: nada de valor novo com texto velho', async () => {
+    const r: any = await atualizarComExemplo({ cenarioExemplo: { ...EXEMPLO, perguntas: [] } });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/Exemplo de cenário inválido/);
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('o resto da atualização segue igual: valor, parcelas e escopo continuam vindo do banco', async () => {
+    await atualizarComExemplo({ cenarioExemplo: EXEMPLO, paymentTerms: '2 parcelas' });
+    expect(payloadDaProposta()).toMatchObject({
+      contract_duration_months: 2, included_scope: 'Escopo novo\n200 pessoas', payment_terms: '2 parcelas',
+    });
+  });
+});
+
 describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
   const entradas: any = ORCAMENTO.entradas;
   const resumo: any = ORCAMENTO.resultado;

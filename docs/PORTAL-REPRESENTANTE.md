@@ -326,17 +326,15 @@ academias, `customer_type = empresa`):
   nome de Bluefit"** (aceite): o artigo de um nome próprio não se deduz ("a Bluefit",
   "o Itaú"), então título e texto corrido ficam em "a empresa", nunca "da Bluefit".
 - **O exemplo corporativo era uma expedição de caminhões** (herdado do deck
-  corporativo) servida a quem tinha ouvido "hipercustomizado". Virou um caso de
-  **gerente de loja**, gerado pelo caminho do Banco de Cenários (IA3): os prompts de
-  `lib/ia3-cenarios.ts`, uma ficha de cargo no formato de `cargos_empresa` e a
-  competência "Comunicação e Conversas de Liderança" da matriz global (a régua do
-  simulador que a proposta vende). Sonnet 5.5 gera, gpt-5.6-terra audita: nota 93 na 1ª
-  rodada. Texto sem retoque, rótulos das perguntas = descritores que cada uma cobre.
-  ⚠️ A ficha é **genérica** (gerente de loja de rede de academias), escrita para o
-  exemplo, não a de nenhum cliente; é um exemplo e o fechamento diz isso. Para outro
-  cargo, regerar com outra ficha em vez de editar à mão (a nota não vale no texto
-  retocado). O exemplo vale para TODA proposta corporativa; escolher o caso por
-  proposta exigiria uma coluna nova (decisão de migration, não feita).
+  corporativo) servida a quem tinha ouvido "hipercustomizado". Primeiro virou um gerente de
+  loja para todas as propostas corporativas, o que repetiu o defeito ao contrário, e por
+  isso o exemplo passou a ser **por proposta** (mig 277, `sales_proposals.cenario_exemplo`):
+  gerado no painel de revisão do orçamento pelo caminho do Banco de Cenários (IA3) e
+  revisado por gente antes de ir ao cliente. Ver `docs/ORCAMENTO.md` §"Exemplo de cenário
+  da proposta".
+- **Sem exemplo próprio**, a proposta corporativa cai num caso **neutro** (líder de equipe
+  de back-office, nota 92), que não amarra o documento a um setor. O da Bluefit (gerente de
+  loja de rede de academias, nota 93) vive NA proposta, não no código.
 - **Cliente obrigatório na revisão do deal desk** (ver `docs/ORCAMENTO.md`): sem ele a
   capa saía sem destinatário.
 - **Capa (pedido do dono, mesmo dia)**: sem o tipo depois do nome ("Preparada para

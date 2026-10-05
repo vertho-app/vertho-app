@@ -11,6 +11,8 @@
     "actions/fase5/evolucao.ts:evolucao_fusao": "Dívida: 0 linha no ledger em 30 dias.",
     "actions/fase5/evolucao.ts:evolucao_plenaria": "Dívida: 0 linha no ledger em 30 dias.",
     "actions/fase1.ts:ia1_top10": "Dívida: 2 chamadas em 30 dias (US$ 0,04), a última em 11/08.",
-    "lib/tts/canario.ts:canario_tts": "Canario semanal de TTS: sonda tecnica que sintetiza um texto fixo para medir deriva do modelo. Nao pertence a tenant nenhum."
+    "lib/tts/canario.ts:canario_tts": "Canario semanal de TTS: sonda tecnica que sintetiza um texto fixo para medir deriva do modelo. Nao pertence a tenant nenhum.",
+    "lib/sales/cenario-exemplo-ia.ts:ia3_cenarios": "Exemplo de cenario da PROPOSTA (05/10/2026): gerado no painel do deal desk para um prospect, que nao e tenant (mesma classe do Copiloto). Reaproveita a task ia3_cenarios; sem dono e a resposta certa, e o custo cai em 'Plataforma Vertho (sem tenant)'.",
+    "lib/sales/cenario-exemplo-ia.ts:ia3_check": "Idem: auditoria (2a IA) do exemplo de cenario da proposta, fora do escopo de tenant."
   }
 }

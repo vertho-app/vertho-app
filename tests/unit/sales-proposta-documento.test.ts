@@ -453,7 +453,7 @@ describe('blocos vindos dos decks de venda (17/09/2026)', () => {
     for (const tipo of ['empresa', 'comercio', 'outro', null]) {
       const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, {});
       expect(doc.segmento, String(tipo)).toBe('corporativo');
-      expect(doc.cenario.rotulo).toMatch(/Gerente de loja/);
+      expect(doc.cenario.rotulo).toMatch(/Líder de equipe/);
       expect(doc.personalizacao.pessoas.map((p) => p.nome)).toContain('Pessoa A');
       expect(doc.gestao.niveis).toMatch(/organização/);
     }
@@ -461,11 +461,11 @@ describe('blocos vindos dos decks de venda (17/09/2026)', () => {
 
   it('o cenário tem as 4 perguntas abertas que o produto gera (p1 a p4)', () => {
     // Cada segmento rotula as quatro com o que o seu caso testa: o da educação segue
-    // os rótulos do deck; o corporativo, desde 05/10/2026, usa os descritores da
-    // competência com que o caso foi gerado (ver `CENARIO` em proposal-document.ts).
+    // os rótulos do deck; o corporativo usa os que o próprio modelo deu ao caso gerado
+    // pela IA3 em 05/10/2026 (ver `CENARIO` em proposal-document.ts).
     const rotulos: Record<string, string[]> = {
       escola: ['Escolha', 'Execução', 'Tensão humana', 'Sustentação'],
-      empresa: ['Abertura', 'Divergência', 'Acordo', 'Continuidade'],
+      empresa: ['Abertura', 'Divergência', 'Escuta', 'Acordo'],
     };
     for (const tipo of ['escola', 'empresa']) {
       const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, {});
@@ -624,17 +624,17 @@ describe('linguagem por segmento e cenário do gerente de loja (05/10/2026)', ()
     expect(doc.termos.colunaCliente).toBe('Bluefit recebe');
   });
 
-  describe('o exemplo corporativo é um caso de gerente de loja', () => {
+  describe('o exemplo PADRÃO corporativo é neutro (não amarra a proposta a um setor)', () => {
     const cen = () => buildProposalDocument(propostaBase({ customer_type: 'empresa' }), null, null, {}).cenario;
 
-    it('não é mais o de expedição de caminhões, que chegou a uma rede de academias', () => {
+    it('não é o de caminhões nem o da academia: vai a TODA proposta corporativa sem exemplo próprio', () => {
       const texto = JSON.stringify(cen());
       expect(texto).not.toMatch(/caminh[ãõ]|expedi[çc]|confer[êe]ncia dupla|conferentes|Diego|Renata/i);
-      expect(cen().rotulo).toBe('Cenário · Gerente de loja');
+      expect(texto).not.toMatch(/academia|muscula[çc][ãa]o|instrutor|matr[íi]cula|aluno|supino|unidade da rede/i);
+      expect(cen().rotulo).toBe('Cenário · Líder de equipe');
       // O rótulo vai em caixa alta e espaçada numa coluna estreita do PDF: passou de
       // 33 caracteres, quebra e deixa uma palavra sozinha na segunda linha.
       expect(cen().rotulo.length).toBeLessThanOrEqual(33);
-      expect(cen().situacao).toMatch(/unidade da rede/);
     });
 
     it('respeita os limites do instrumento (os do prompt da IA3): contexto ≤ 900, pergunta ≤ 200, 4 perguntas, 2 nomes', () => {
@@ -642,9 +642,9 @@ describe('linguagem por segmento e cenário do gerente de loja (05/10/2026)', ()
       expect(situacao.length).toBeLessThanOrEqual(900);
       expect(perguntas).toHaveLength(4);
       for (const q of perguntas) expect(q.pergunta.length, q.nome).toBeLessThanOrEqual(200);
-      // Máx. 2 stakeholders nomeados: Rafael e Camila.
-      const nomes = new Set(`${situacao} ${perguntas.map((q) => q.pergunta).join(' ')}`.match(/\b(Rafael|Camila|Diego|Renata|Marcos|Ana|João|Maria)\b/g));
-      expect([...nomes].sort()).toEqual(['Camila', 'Rafael']);
+      // Máx. 2 stakeholders nomeados: Rafael e Bianca.
+      const nomes = new Set(`${situacao} ${perguntas.map((q) => q.pergunta).join(' ')}`.match(/\b(Rafael|Bianca|Camila|Diego|Renata|Marcos|Ana|João|Maria)\b/g));
+      expect([...nomes].sort()).toEqual(['Bianca', 'Rafael']);
     });
 
     it('não nomeia empresa nem cidade reais (anonimização da IA3) e não cita travessão', () => {
@@ -656,6 +656,87 @@ describe('linguagem por segmento e cenário do gerente de loja (05/10/2026)', ()
     it('diz que é um exemplo: o cliente não confunde com o cenário dele', () => {
       expect(cen().fechamento).toMatch(/este caso é só um exemplo/);
     });
+  });
+});
+
+describe('exemplo de cenário gravado NA proposta (mig 277, 05/10/2026)', () => {
+  // O caso que a Bluefit ganhou: gerente de loja de rede de academias, nota 93.
+  const GRAVADO = {
+    rotulo: 'Cenário · Gerente de loja',
+    situacao: 'Sexta, 18h30, horário de pico. Uma unidade da rede está em 78% da meta de matrículas a cinco dias do fechamento. Rafael cobriu o turno e deixou a sala de musculação sem instrutor.',
+    perguntas: [
+      { nome: 'Abertura', pergunta: 'Como você abre a conversa com Rafael?' },
+      { nome: 'Divergência', pergunta: 'Rafael diz que perdia matrícula. O que você responde?' },
+      { nome: 'Acordo', pergunta: 'O que você combina para manter a sala coberta?' },
+      { nome: 'Continuidade', pergunta: 'Como você acompanha o combinado?' },
+    ],
+    origem: {
+      cargo: 'Gerente de Loja', segmento: 'rede de academias', competencia: 'Comunicação e Conversas de Liderança',
+      nota: 93, status: 'aprovado', gerador: 'claude-sonnet-5-5', auditor: 'gpt-5.6-terra',
+      geradoEm: null, comFicha: true, editado: false,
+    },
+  };
+  const doc = (over: Record<string, any> = {}) =>
+    buildProposalDocument(propostaBase({ customer_type: 'empresa', cenario_exemplo: GRAVADO, ...over }), null, null, {});
+
+  it('o exemplo da proposta VENCE o padrão do segmento', () => {
+    const c = doc().cenario;
+    expect(c.rotulo).toBe('Cenário · Gerente de loja');
+    expect(c.situacao).toContain('Rafael cobriu o turno');
+    expect(c.perguntas.map((q) => q.nome)).toEqual(['Abertura', 'Divergência', 'Acordo', 'Continuidade']);
+  });
+
+  it('a proposta de OUTRO cliente (sem exemplo gravado) segue no padrão: o caso não vaza', () => {
+    const outra = buildProposalDocument(propostaBase({ customer_type: 'empresa', cenario_exemplo: null }), null, null, {});
+    expect(JSON.stringify(outra.cenario)).not.toMatch(/academia|musculação|supino|Gerente de loja/i);
+    expect(outra.cenario.rotulo).toBe('Cenário · Líder de equipe');
+  });
+
+  it('o documento NUNCA carrega a origem (nota, modelos, cargo de geração)', () => {
+    const d = doc();
+    // `contato.origem` já existe no documento e é outra coisa (de onde veio o contato): o teste olha
+    // o bloco do cenário e, no documento inteiro, os VALORES internos do exemplo.
+    expect(Object.keys(d.cenario).sort()).toEqual(['fechamento', 'perguntas', 'rotulo', 'situacao']);
+    const serializado = JSON.stringify(d);
+    for (const interno of ['gpt-5.6-terra', 'claude-sonnet-5-5', 'comFicha', 'editado', 'Gerente de Loja', '"nota":93']) {
+      expect(serializado, interno).not.toContain(interno);
+    }
+  });
+
+  it('o fecho segue o segmento da proposta, não o do exemplo', () => {
+    expect(doc().cenario.fechamento).toContain('do contexto da empresa');
+    const escola = doc({ customer_type: 'escola' }).cenario;
+    expect(escola.fechamento).toContain('do contexto da instituição');
+    expect(escola.fechamento).not.toContain('da empresa');
+  });
+
+  it('exemplo inválido (pela metade, fora do tamanho, formato errado) cai no padrão, nunca em texto quebrado', () => {
+    const quebrados: unknown[] = [
+      { ...GRAVADO, perguntas: GRAVADO.perguntas.slice(0, 3) },
+      { ...GRAVADO, situacao: '' },
+      { ...GRAVADO, situacao: 'x'.repeat(1201) },
+      { ...GRAVADO, rotulo: undefined },
+      'texto solto',
+      ['lista'],
+      42,
+    ];
+    for (const q of quebrados) {
+      const c = doc({ cenario_exemplo: q }).cenario;
+      expect(c.rotulo, JSON.stringify(q)?.slice(0, 40)).toBe('Cenário · Líder de equipe');
+    }
+  });
+
+  it('campo estranho no jsonb não chega ao documento (allowlist)', () => {
+    // Valores-canário únicos: "custo" e "58%" aparecem em texto legítimo (o fecho diz "decisão com custo").
+    const c: any = doc({ cenario_exemplo: { ...GRAVADO, margem: 'CANARIO_MARGEM', perguntas: GRAVADO.perguntas.map((p) => ({ ...p, interno: 'CANARIO_INTERNO' })) } }).cenario;
+    expect(JSON.stringify(c)).not.toMatch(/CANARIO/);
+    expect(Object.keys(c).sort()).toEqual(['fechamento', 'perguntas', 'rotulo', 'situacao']);
+  });
+
+  it('o texto do exemplo não muda o que mais o documento diz: só o bloco do cenário', () => {
+    const com = doc();
+    const sem = buildProposalDocument(propostaBase({ customer_type: 'empresa' }), null, null, {});
+    expect({ ...com, cenario: null }).toEqual({ ...sem, cenario: null });
   });
 });
 
