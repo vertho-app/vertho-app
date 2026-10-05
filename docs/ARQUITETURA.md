@@ -591,7 +591,7 @@ Os dois caminhos de login **nao sao equivalentes** pra quem nunca entrou:
 | entrada | rota | cria `auth.users`? | canais do link |
 |---|---|---|---|
 | e-mail | `app/api/auth/magic-link/route.ts` | **SIM, desde 15/09/2026** — `admin.createUser` DEPOIS do gate de elegibilidade. Antes disso ia direto pro `generateLink` e devolvia *"Falha ao gerar link"* | e-mail **+** WhatsApp (`sendAccessLink`) |
-| telefone | `app/api/auth/phone-magic-link/request/route.ts:61` | **SIM** — `admin.createUser` antes do link | **so WhatsApp** (`channels:['whatsapp']`) |
+| telefone | `app/api/auth/phone-magic-link/request/route.ts` | **SIM**, `admin.createUser` antes do link | **so WhatsApp** (`channels:['whatsapp']`) |
 | auto-cadastro | `app/api/auth/signup/route.ts` | **SIM, desde 03/10/2026 (R-76)**. Antes o e-mail era novo por definicao, o link falhava sempre e a tela dizia "Link enviado!" | e-mail **+** WhatsApp |
 
 ⚠️ **A assimetria foi fechada, o import continua NAO criando conta.** Em 15/09/2026 a porta de
@@ -614,10 +614,8 @@ Duas consequencias que nao aparecem em log nenhum:
    flag `false` elas respondem sucesso generico e **nao enviam nada**. A pessoa espera um link que
    nunca foi disparado — e nao ha erro pra ninguem investigar.
    Desde 03/10/2026 (R-76) a tela nao afirma mais o envio nesse caso: depois de pedir pelo
-   WhatsApp ela diz "Se este numero estiver cadastrado...", e no endereco generico a rota responde
-   que nao sabe a organizacao (resposta que depende do endereco, nao do numero). Descobrir a
-   organizacao pelo numero no endereco generico exige leitura de `colaboradores` sem filtro de
-   empresa, que o `tenant-read-guard` barra fora da allowlist: decisao do dono.
+   WhatsApp ela diz "Se este numero estiver cadastrado...". No endereco generico a organizacao sai
+   do NUMERO desde 04/10/2026 (R-76, decisao do dono): ver §3.1.4.
 
 **O sinal de quanto isso custa:** dos 126 diretores de Macae, os **89 com `auth.users` sao exatamente
 os 89 com `mapeamento_em`**. Conta ausente e indistinguivel de desengajamento no painel.
@@ -705,6 +703,54 @@ WhatsApp carrega `<slug>~<token_hash>` e sempre despacha para o SUBDOMINIO do sl
 Guarda: `tests/unit/login-escolha-organizacao.test.ts` (validado por mutacao) — inclui um teste de
 coerencia que remonta a regex de host do `magic-link` e confere que ela reconhece o destino que o
 login manda. Sem ele, trocar o destino do botao volta a mandar a sessao para o tenant, calado.
+
+### 3.1.4 Login por WhatsApp no endereco generico: a organizacao sai do numero (04/10/2026, R-76)
+
+No endereco generico (`app.vertho.ai`, sem subdominio de tenant) `phone-magic-link/request` respondia
+400 `sem-organizacao`, porque achar a organizacao pelo numero pede ler `colaboradores` de todas as
+empresas. Desde 04/10/2026 (decisao do dono) ela faz o que o login por e-mail ja faz, aplicado ao
+telefone (`check-email` + `magic-link`):
+
+| no endereco generico, o numero (E.164, `login_por_whatsapp = true`) esta em... | a rota |
+|---|---|
+| nenhuma organizacao (tenant de demonstracao nao conta) | `{ ok: true }` **sem enviar**, identico ao de um host de tenant com numero desconhecido |
+| **1** organizacao | segue como se o host fosse o dela; o link nasce em `https://<slug>.vertho.ai` (o cookie de sessao e preso ao host exato) |
+| **2 ou mais** | `{ codigo: 'escolher-organizacao', orgs: [{ slug, nome }] }`, sem enviar nada; a tela pergunta e reenvia com `empresaSlug` |
+
+Regras que fazem isso seguro:
+- **Ordem**: teto por IP (`authLimiter`) e teto por telefone (`limitarPorDestino`, R-79) rodam ANTES de
+  qualquer consulta ao cadastro, no endereco generico tambem. O pedido que so lista as organizacoes
+  tambem conta no teto do numero (a escolha e um segundo pedido: 2 dos 5 por hora).
+- **A lista so existe com 2 ou mais**, e o corte e sobre a lista JA filtrada (sem demonstracao): uma
+  lista de 1 revelaria onde a pessoa trabalha sem necessidade. A resposta traz so `slug` e `nome`.
+- **`empresaSlug` vem do cliente e nunca e confiado**: validado com a regex do e-mail
+  (`/^[a-z0-9][a-z0-9-]{0,62}$/`), so ESCOPA a busca; se o numero nao esta naquela empresa (ou ela e
+  de demonstracao, ou nao existe) o desfecho e o generico `{ ok: true }`. No host de um tenant o
+  `empresaSlug` e ignorado: o host manda.
+- **A unica leitura de `colaboradores` sem filtro de empresa** e `select('empresa_id')` pelo telefone
+  exato, e e por isso que a rota consta em `config/tenant-read-allowlist.json` (1). Depois de achar a
+  organizacao, a leitura do cadastro volta a ser a de sempre, dentro da empresa (`empresa_id`).
+- **Anti-enumeracao**: nada na resposta distingue 0 de 1 correspondencia (mesmo status, tipo e corpo).
+  O que ainda distingue, e ja distinguia no host do tenant: falha de ENVIO (502/503) so acontece para
+  numero cadastrado, e a resposta de 1 correspondencia demora mais que a de 0 (cria conta, gera link,
+  envia). O que a lista de 2+ entrega e o mesmo que o `check-email` entrega por e-mail: os NOMES das
+  organizacoes, a quem acertar o numero de uma pessoa cadastrada em duas.
+- **Destino do painel**: pedir `/admin...` no endereco generico NAO leva o link do WhatsApp para o painel
+  (o botao do template so alcanca o tenant): o `next` do link fica em `/dashboard`.
+- **Log**: nenhuma linha imprime o telefone inteiro (`semNumeros` deixa so os 4 ultimos digitos, tambem
+  nas mensagens do provedor e do Auth, que carregam o numero ou o e-mail proxy).
+- **Erro de banco na descoberta** vira 500 `falha-no-envio`, nunca "numero desconhecido".
+
+Tela: `app/login/login-form.tsx` reaproveita a escolha de organizacao do e-mail (`orgs`,
+`chooseOrgPrompt`) e `organizacoesParaEscolher` (`lib/auth/login-respostas.ts`) valida a resposta.
+A chave `errors.whatsappNeedsOrganization` e o codigo `sem-organizacao` sairam. Depois de escolher, o
+texto de sucesso segue o condicional de sempre ("se este numero estiver cadastrado...").
+
+Guarda: `tests/unit/security/login-whatsapp-endereco-generico.test.ts` (validado por mutacao: sem o
+filtro de demonstracao, sem a validacao do slug, sem o corte de 2+, com o teto depois da consulta,
+sem o `login_por_whatsapp`, com o host confiando no `empresaSlug`, com o link no host errado).
+**Sem prova real**: o envio pela Meta nunca foi exercitado por este caminho, e o link no host do tenant
+foi provado por teste, nao num celular.
 
 ### 3.2 Resolucao do Tenant
 ```
