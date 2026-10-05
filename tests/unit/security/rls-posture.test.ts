@@ -223,6 +223,32 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
     expect(v).toEqual([]);
   });
 
+  /**
+   * INV7: nasceu da segunda passada da análise de 05/10/2026. As policies
+   * `*_select_same_tenant` liberavam a leitura por TENANT: simulado como `authenticated`
+   * com o JWT de UM colaborador comum, a API REST devolvia 300 colegas (279 com
+   * telefone, 178 com perfil DISC). O isolamento entre empresas valia; a regra do app,
+   * em que o colaborador vê só a si, não. Em tabela de PESSOA a leitura direta é da
+   * própria linha (a mig 279). A função `can_read_sessao_avaliacao` entra na conta
+   * porque a policy de `mensagens_chat` só chama ela.
+   */
+  it('INV7: leitura direta de authenticated em tabela de pessoa não é por tenant inteiro', async () => {
+    const v = await violations(`
+      SELECT tablename, policyname FROM pg_policies
+      WHERE schemaname = 'public'
+        AND tablename IN ('colaboradores', 'sessoes_avaliacao', 'mensagens_chat', 'empresas')
+        AND cmd IN ('SELECT', 'ALL')
+        AND (roles && ARRAY['authenticated', 'anon', 'public']::name[])
+        AND qual ~* 'current_empresa_id'
+      ORDER BY tablename, policyname`);
+    expect(v).toEqual([]);
+    const f = await violations(`
+      SELECT p.proname FROM pg_proc p
+      WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'can_read_sessao_avaliacao'
+        AND pg_get_functiondef(p.oid) ~* 'current_empresa_id'`);
+    expect(f).toEqual([]);
+  });
+
   it('INV5 — toda função SECURITY DEFINER de public tem search_path fixo', async () => {
     const v = await violations(`
       SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace

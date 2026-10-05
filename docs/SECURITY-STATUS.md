@@ -11,6 +11,7 @@ Nota **4,4 de 10** sobre o commit `58a9711c` (1 ataque protegido, 5 parciais, 2 
 | Achado | Correção | Prova |
 |---|---|---|
 | `authenticated` e `anon` com UPDATE em todas as colunas de `colaboradores`, e a policy `update_self` amarrava só a LINHA: qualquer login virava RH ou trocava de tenant pelo PostgREST com a chave anon | mig **278**: REVOKE de INSERT/UPDATE/DELETE/TRUNCATE em todas as tabelas de `public`, default para as futuras e DROP da policy. O navegador só lê 2 tabelas e não grava em nenhuma | guard `rls-posture` **INV6** (GRANT de escrita, até por coluna): 636 violações em 106 tabelas antes, 0 depois |
+| Leitura direta por TENANT: as policies `*_select_same_tenant` deixavam um colaborador comum ler 300 colegas pela API REST (279 com telefone, 178 com perfil DISC), e `empresas.sys_config.ai` tem campos `anthropic_key`, `gemini_key`, `openai_key` | mig **279**: `colaboradores` e `sessoes_avaliacao` só da própria linha (e `can_read_sessao_avaliacao`), `empresas_select_same_tenant` sai | guard `rls-posture` **INV7**; simulação como `authenticated` com o JWT de um colaborador comum: 300 colegas antes, 1 depois |
 | Cadastro aberto da `bett`: o link de login da conta de TERCEIRO ia ao telefone digitado | flag desligada no banco; `signup` manda o link só por e-mail em qualquer tenant e não grava o telefone; `sendAccessLink` manda conta de platform admin só por e-mail, e fecha quando a consulta falha (`lib/auth/conta-privilegiada`) | `signup-telefone-sem-prova`, `conta-privilegiada-fecha` |
 | `getColabByEmail(select)` repassava o select do cliente com service-role: `empresas(colaboradores(*))` lia a base do tenant | lista fixa de colunas | `colab-action-select-fechado` |
 | `/api/colaboradores`: o RH gravava `email`, `telefone`, `role` da própria empresa | campos de identidade só para platform admin | `colaboradores-campos-de-identidade` |
@@ -36,6 +37,8 @@ Nota **4,4 de 10** sobre o commit `58a9711c` (1 ataque protegido, 5 parciais, 2 
 - `pdfjs-dist` 5.6.205 (alto): a correção é a versão 6, major. O leitor do navegador só renderiza em canvas, sem a camada de script.
 - Senhas previsíveis por tenant e do admin (R-145, decisão do dono), e o login por senha vai direto ao Supabase Auth, sem limite no app.
 - Rate limit: as `UPSTASH_REDIS_REST_*` não foram verificadas na Vercel; sem elas o limite é por instância.
+- RLS latente: as policies `*_select` de `respostas`, `relatorios` e outras 14 tabelas usam `get_empresa_id()`, que hoje é `NULL` para todos (ninguém grava o claim `empresa_id` no `app_metadata`), então não leem nada. Se um dia o claim for gravado, elas passam a ser leitura POR TENANT, exatamente a classe que a mig 279 fechou em `colaboradores`. Antes de ligar o claim, estreitar para a pessoa. Também aberto: `knowledge_base` (`kb_tenant_isolation`) deixa qualquer colaborador do tenant ler a base de conhecimento da empresa pela API REST.
+- Buckets públicos `conteudos` e `video-assets` sem limite de tipo nem de tamanho (a URL é imprevisível, mas quem a tem lê sem login).
 
 ## 18/09: secret scanning e push protection ligados no GitHub
 
