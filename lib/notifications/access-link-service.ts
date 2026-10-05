@@ -9,6 +9,7 @@ import { derivarParametroAcesso, parametroAcessoParaTenant } from '@/lib/auth/ma
 import { isTenantDemo, destinatarioLiberadoEmDemo } from '@/lib/demo/envio-guard';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { isPlatformAdmin } from '@/lib/authz';
 
 /**
  * Serviço CENTRAL de envio de link de acesso (magic link) por canal.
@@ -289,7 +290,23 @@ export async function sendAccessLink(p: SendAccessLinkInput): Promise<SendAccess
   }
 
   if (channels.includes('email')) await enviarEmail(p, out);
-  if (channels.includes('whatsapp')) await enviarWhatsapp(p, out);
+  if (channels.includes('whatsapp')) {
+    // 🔴 Conta de platform admin: o link só vai para o E-MAIL (análise de 05/10/2026).
+    // A conta do Auth é global por e-mail, mas o telefone que o WhatsApp usa mora
+    // numa linha de `colaboradores` de QUALQUER tenant, e quem escreve essa linha
+    // (cadastro aberto, importação, edição do RH) não prova ser dono do e-mail.
+    // Com o e-mail de um admin e o próprio telefone numa linha, o link de login
+    // do admin chegava ao telefone errado. O e-mail é o único canal em que o
+    // dono da conta é, por construção, quem lê. Falha de consulta fecha: sem
+    // saber se é admin, a cópia por WhatsApp (só conveniência) não sai.
+    const ehAdmin = await isPlatformAdmin(p.to).then((v) => v, () => true);
+    if (ehAdmin) {
+      out.whatsapp = 'skipped';
+      out.whatsappReason = 'conta de administrador da plataforma: o link só vai por e-mail';
+    } else {
+      await enviarWhatsapp(p, out);
+    }
+  }
 
   out.anySent = out.email === 'sent' || out.whatsapp === 'sent';
   return out;
