@@ -35,7 +35,7 @@ const T = { navy: '#0B1B2E', cyan: '#3DD2E6', teal: '#14808C', clay: '#E0A156', 
 const CL = { card: '#FFFFFF', cardBorda: '#E9E3D6', track: '#ECE7DC', zVerde: '#D4EBDF', zClay: '#F5E5CE', zVerm: '#F0DBD7', faixa: '#D4EBDF', linha: '#E4DECF', navyLine: 'rgba(255,255,255,0.10)',
   trackF: '#CFC6B0', faixaF: '#7EC6A4' }; // tons mais fortes p/ as faixas do Gabarito
 const Cor = (status: string) => status === 'recomendado' ? T.verde : status === 'recomendado_com_ressalvas' ? T.clay : status === 'abaixo_do_corte' ? T.mute : T.vermelho;
-const DIR_LABEL: Record<string, string> = { floor: 'piso — quanto mais, melhor', target: 'faixa-alvo', ceiling: 'teto — quanto menos, melhor' };
+const DIR_LABEL: Record<string, string> = { floor: 'piso: quanto mais, melhor', target: 'faixa-alvo', ceiling: 'teto: quanto menos, melhor' };
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 const s = StyleSheet.create({
@@ -160,7 +160,7 @@ const SeloStatus = ({ status, label }: { status: string; label: string }) => {
 };
 const Legenda = () => (
   <View style={{ flexDirection: 'row', gap: 14, marginBottom: 10 }}>
-    {[[T.verde, 'Dentro / ótimo'], [T.clay, 'Fora do ideal, tolerável'], [T.vermelho, 'Gap a desenvolver']].map(([c, t], i) => (
+    {[[T.verde, 'Dentro / ótimo'], [T.clay, 'Fora do ideal, tolerável'], [T.vermelho, 'Distância até a meta']].map(([c, t], i) => (
       <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c }} /><Text style={{ fontSize: 7, color: T.mute }}>{t}</Text></View>
     ))}
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><View style={{ width: 12, height: 6, borderRadius: 3, backgroundColor: CL.faixa }} /><Text style={{ fontSize: 7, color: T.mute }}>Faixa ideal</Text></View>
@@ -193,7 +193,7 @@ function Capa({ empresaNome, cargo, dataISO, metricas, emin, faixas, elegiveis }
           const corPt = (st: string) => st === 'recomendado' ? T.off : st === 'recomendado_com_ressalvas' ? T.clay : T.mute;
           return (
             <View style={{ marginBottom: 24 }}>
-              <Text style={{ fontSize: 8.5, color: T.mute, marginBottom: 8 }}>Aderência dos <Text style={{ color: T.off, fontWeight: 600 }}>{elegiveis.length} pessoas no ranking</Text>, {acima === elegiveis.length ? 'todos' : `${acima} de ${elegiveis.length}`} acima do corte de recomendação</Text>
+              <Text style={{ fontSize: 8.5, color: T.mute, marginBottom: 8 }}>Aderência das <Text style={{ color: T.off, fontWeight: 600 }}>{elegiveis.length} pessoas no ranking</Text>: {acima === elegiveis.length ? 'todas' : `${acima} de ${elegiveis.length}`} com {fmtBeta(rec)}% ou mais</Text>
               <Svg width={W} height={BH}>
                 <Rect x={0} y={0} width={W} height={BH} rx={7} fill={T.clay} />
                 <Rect x={x(rec)} y={0} width={W - x(rec)} height={BH} rx={7} fill={T.verde} />
@@ -280,10 +280,20 @@ function PaginaGabarito({ perfilIdeal }: { perfilIdeal: AdequacaoCargo['perfilId
         <Text style={{ fontSize: 8, color: T.mute, lineHeight: 1.4, marginBottom: 14, maxWidth: 400 }}>Como a adequação é calculada: o peso de cada bloco, os cortes que definem o rótulo, as faixas ideais de cada competência e os requisitos essenciais.</Text>
 
         <Text style={{ fontSize: 8.5, fontWeight: 600, marginBottom: 5, color: T.navy }}>Pesos por bloco</Text>
-        <View style={{ flexDirection: 'row', height: 26, borderRadius: 5, overflow: 'hidden', marginBottom: 16 }}>
+        {/* Faixa estreita (menos de 30%) não comporta "Mapeamento Comportamental · 20%": o texto
+            era cortado e o percentual sumia. A faixa mostra só o percentual e a legenda abaixo diz de quem é. */}
+        <View style={{ flexDirection: 'row', height: 26, borderRadius: 5, overflow: 'hidden', marginBottom: 6 }}>
           {pesos.map((p, i) => (
             <View key={p.bloco} style={{ width: `${p.pct}%`, backgroundColor: CORPESO[i % CORPESO.length], justifyContent: 'center', paddingHorizontal: 7 }}>
-              <Text style={{ fontSize: 7.5, color: '#FFFFFF', fontWeight: 600 }}>{p.pct >= 15 ? `${p.bloco} · ${p.pct}%` : `${p.pct}%`}</Text>
+              <Text style={{ fontSize: 7.5, color: '#FFFFFF', fontWeight: 600 }}>{p.pct >= 30 ? `${p.bloco} · ${p.pct}%` : `${p.pct}%`}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+          {pesos.map((p, i) => (
+            <View key={p.bloco} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <View style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: CORPESO[i % CORPESO.length] }} />
+              <Text style={{ fontSize: 7, color: T.mute }}>{p.bloco} {p.pct}%</Text>
             </View>
           ))}
         </View>
@@ -319,7 +329,7 @@ function PaginaGabarito({ perfilIdeal }: { perfilIdeal: AdequacaoCargo['perfilId
         {gates && gates.length > 0 ? gates.map((g, i) => (
           <View key={i} style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 2 }}>
             <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: T.vermelho, marginRight: 6, marginTop: 3 }} />
-            <Text style={{ fontSize: 8, color: T.ink }}>{g.label}{g.tipo === 'trait' && g.piso != null ? ` — mínimo ${g.piso} (aderência ${g.minPct}%+)` : ` — aderência do bloco ${g.minPct}%+`}</Text>
+            <Text style={{ fontSize: 8, color: T.ink }}>{g.label}{g.tipo === 'trait' && g.piso != null ? `: mínimo ${g.piso} (aderência ${g.minPct}%+)` : `: aderência do bloco ${g.minPct}%+`}</Text>
           </View>
         )) : <Text style={{ fontSize: 8, color: T.mute }}>Sem requisitos essenciais. O corte é só por aderência.</Text>}
       </View>
@@ -382,16 +392,16 @@ function PlanoDesenvolvimento({ elegiveis }: any) {
     <Page size="A4" style={s.pageLight}>
       <View style={s.card}>
         <Text style={s.eyebrow}>Desenvolvimento</Text>
-        <Text style={[s.h2, { marginTop: 4, marginBottom: 10 }]}>Plano — gaps desenvolvíveis</Text>
+        <Text style={[s.h2, { marginTop: 4, marginBottom: 10 }]}>Plano de desenvolvimento: distâncias até a meta</Text>
         <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 10 }}>Janela sugerida de 90 dias. Só traços desenvolvíveis (nunca requisito essencial).</Text>
-        {comGap.length === 0 && <Text style={{ fontSize: 8, color: T.mute }}>Nenhuma pessoa no ranking com gap desenvolvível.</Text>}
+        {comGap.length === 0 && <Text style={{ fontSize: 8, color: T.mute }}>Nenhuma pessoa no ranking com distância até a meta a desenvolver.</Text>}
         {comGap.map((p: PessoaAdequacao) => (
           <View key={p.id || p.nome} style={{ marginBottom: 8, borderTopWidth: 0.5, borderTopColor: CL.linha, paddingTop: 6 }}>
             <Text style={{ fontSize: 9.5, fontWeight: 600, color: T.navy, marginBottom: 2 }}>{p.nome}</Text>
             {(p.gaps || []).map((g, i) => (
               <View key={i} style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 1.5 }}>
                 <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: T.clay, marginRight: 6, marginTop: 3 }} />
-                <Text style={{ fontSize: 8, color: T.ink }}>{g.traco} — {g.valorBruto != null && g.lo != null ? `bruto ${Math.round(g.valorBruto)} · ` : ''}fit {g.fitPct}%{g.lo != null ? ` (faixa começa em ${g.lo})` : ''} — trilha Mentor IA a definir.</Text>
+                <Text style={{ fontSize: 8, color: T.ink }}>{g.traco}: {g.valorBruto != null && g.lo != null ? `bruto ${Math.round(g.valorBruto)} · ` : ''}fit {g.fitPct}%{g.lo != null ? ` (faixa começa em ${g.lo})` : ''}. Jornada no Mentor IA a definir.</Text>
               </View>
             ))}
           </View>
@@ -409,7 +419,7 @@ function AnexoNaoElegiveis({ anexo }: { anexo: PessoaAdequacao[] }) {
       <View style={s.card}>
         <Text style={[s.eyebrow, { color: T.vermelho }]}>Anexo</Text>
         <Text style={[s.h2, { marginTop: 4, marginBottom: 4 }]}>Fora do ranking por requisito essencial</Text>
-        <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 10, lineHeight: 1.4, maxWidth: 440 }}>Bloqueados por um critério inegociável do cargo. Aderência não se aplica — o requisito não atendido é o que decide.</Text>
+        <Text style={{ fontSize: 7.5, color: T.mute, marginBottom: 10, lineHeight: 1.4, maxWidth: 440 }}>Bloqueados por um critério inegociável do cargo. Aderência não se aplica: o requisito não atendido é o que decide.</Text>
         {anexo.length === 0
           ? <Text style={{ fontSize: 9, color: T.mute }}>Ninguém ficou fora do ranking por requisito essencial.</Text>
           : anexo.map((p) => (

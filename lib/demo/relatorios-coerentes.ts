@@ -48,8 +48,8 @@ export function construirLeiturasDemo(marca: string, pessoas: PessoaLeituraDemo[
       demo_fixture: true, leitura_base: true,
       resumo_executivo: {
         leitura_geral: `A equipe de ${gestor.nome_completo} na organização ${marca} reúne ${equipe.length} pessoas do elenco demonstrativo. ${equipe.filter(p => completos.has(p.id)).length} concluíram o mapeamento do cargo; ${avaliados.size} têm ao menos uma competência avaliada. Esta leitura usa as avaliações atuais do elenco, sem incluir convidados da degustação.`,
-        principal_avanco: melhores[0] ? `Ponto forte a reconhecer: ${frase(melhores[0])}` : 'Ainda não há avaliação para identificar um ponto forte.',
-        principal_ponto_de_atencao: menores[0] ? `Prioridade para a conversa de desenvolvimento: ${frase(menores[0])}` : 'Acompanhar a conclusão do mapeamento.' },
+        principal_avanco: melhores[0] ? frase(melhores[0]) : 'Ainda não há avaliação para identificar um ponto forte.',
+        principal_ponto_de_atencao: menores[0] ? frase(menores[0]) : 'Acompanhar a conclusão do mapeamento.' },
       destaques_evolucao: melhores.map(destaque),
       ranking_atencao: menores.map(a => ({ nome: a.pessoa.nome_completo, competencia: a.competencia, nivel: a.nivel, urgencia: 'IMPORTANTE', motivo: frase(a), risco_se_nao_agir: 'A dificuldade pode se repetir sem prática e acompanhamento.' })),
       analise_por_competencia: porComp,
@@ -74,7 +74,7 @@ export function construirLeiturasDemo(marca: string, pessoas: PessoaLeituraDemo[
     visao_por_cargo: porCargo,
     competencia_foco_por_cargo: porCargo.map(c => ({ cargo: c.cargo, competencia_recomendada: c.principais_riscos[0], horizonte_sugerido: 'próximo ciclo', justificativa: 'Competência com o menor resultado no mapeamento completo deste cargo.', expectativa_impacto: 'Direcionar prática e acompanhamento para a necessidade observada.' })),
     competencias_criticas: porCargo.map(c => ({ competencia: c.principais_riscos[0], criticidade: 'ATENCAO', justificativa: `Prioridade identificada para ${c.cargo}.`, impacto_organizacional: 'Orientar o desenvolvimento com base no diagnóstico.' })),
-    treinamentos_sugeridos: porCargo.map(c => ({ competencia: c.principais_riscos[0], titulo: `Prática de ${c.principais_riscos[0]}`, prioridade: 'IMPORTANTE', publico: c.cargo, formato: 'Jornada prática', justificativa: 'Aplicar a competência em situações de trabalho e discutir evidências com a liderança.' })),
+    treinamentos_sugeridos: porCargo.map(c => ({ competencia: c.principais_riscos[0], titulo: `Prática de ${c.principais_riscos[0]}`, prioridade: 'IMPORTANTE', publico: c.cargo, formato: 'Jornada prática', custo: 'Incluído no programa', justificativa: 'Aplicar a competência em situações de trabalho e discutir evidências com a liderança.' })),
     plano_acao: { curto_prazo: ['Validar as prioridades por cargo e combinar evidências de aplicação.'], medio_prazo: ['Acompanhar engajamento, prática e conversas de desenvolvimento.'], longo_prazo: ['Comparar o diagnóstico com a reavaliação ao concluir cada jornada.'] },
     alertas_metodologicos: ['Dados fictícios do elenco demonstrativo. A leitura é do mapeamento inicial; evolução é apresentada nos relatórios de temporadas concluídas.', 'Médias calculadas por competência e pessoa; total de avaliações não é contagem de descritores.'],
     mensagem_final: 'Conecte diagnóstico, prática e reavaliação para acompanhar o desenvolvimento.' } };

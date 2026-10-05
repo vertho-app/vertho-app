@@ -81,7 +81,7 @@ function strongestBlock(person: PessoaAdequacao): string {
 
 function gateSummary(person: PessoaAdequacao): string {
   const gate = person.knockoutEvidencias?.[0];
-  if (!gate) return 'um requisito eliminatório do cargo';
+  if (!gate) return 'um requisito essencial do cargo';
   if (gate.ehBloco) return `${gate.traco} (${Math.round(gate.medidoPct || 0)}%, mínimo de ${Math.round(gate.minPct || 0)}%)`;
   return `${gate.traco} (valor ${Math.round(gate.valorBruto || 0)}, piso ${Math.round(gate.piso || 0)})`;
 }
@@ -94,16 +94,16 @@ export function buildAcmeFitRankingNarratives(data: AdequacaoCargo): Record<stri
     const gap = person.gaps?.[0];
 
     if (person.status === 'bloqueado') {
-      return [person.nome, `O perfil apresenta ${fit}% de aderência geral, mas não atende neste momento a ${gateSummary(person)}. O resultado deve permanecer no anexo de requisitos eliminatórios e ser validado pelo RH antes de qualquer decisão.`];
+      return [person.nome, `O perfil apresenta ${fit}% de aderência geral, mas não atende neste momento a ${gateSummary(person)}. O resultado fica fora do ranking por requisito essencial e deve ser validado pelo RH antes de qualquer decisão.`];
     }
     if (person.status === 'recomendado') {
       return [person.nome, `O perfil apresenta ${fit}% de aderência ao cargo, com destaque em ${strength}. A combinação dos blocos avaliados sustenta uma recomendação consistente para o contexto demonstrado.`];
     }
     if (person.status === 'recomendado_com_ressalvas') {
       const attention = gap ? `${gap.traco}, com ${Math.round(gap.fitPct)}% de aderência ao traço` : 'os pontos de atenção indicados no diagnóstico';
-      return [person.nome, `O perfil apresenta ${fit}% de aderência e tem ${strength} como principal força. Recomenda-se validar ${attention} na entrevista e acompanhar esse aspecto no plano de desenvolvimento.`];
+      return [person.nome, `O perfil apresenta ${fit}% de aderência e tem ${strength} como principal força. Recomenda-se conversar com a pessoa sobre ${attention} e acompanhar esse aspecto no plano de desenvolvimento.`];
     }
-    const attention = gap ? `${gap.traco}, com ${Math.round(gap.fitPct)}% de aderência ao traço` : 'os gaps apontados no diagnóstico';
+    const attention = gap ? `${gap.traco}, com ${Math.round(gap.fitPct)}% de aderência ao traço` : 'as distâncias até a meta apontadas no diagnóstico';
     return [person.nome, `O perfil apresenta ${fit}% de aderência e ainda requer desenvolvimento antes de uma recomendação para o cargo. O principal ponto de atenção é ${attention}.`];
   }));
 }
