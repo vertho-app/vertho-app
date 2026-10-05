@@ -61,6 +61,20 @@ export async function requirePlataformaSupabase(permission: PermissionKey = 'adm
 }
 
 /**
+ * Igual a `requirePlataformaSupabase`, mas devolve também o contexto autenticado
+ * (e-mail de quem agiu, papel). Existe para o recurso que precisa do ATOR junto
+ * do client: auditar quem lançou e decidir `canManage` na mesma passada, sem
+ * chamar o gate duas vezes (cada chamada refaz `getUser` na rede).
+ *
+ * O gate é o mesmo (`requireAdminAction`: platform admin + permissão); o client
+ * continua saindo do único ponto de `createSupabaseAdmin()` deste módulo.
+ */
+export async function requirePlataformaComContexto(permission: PermissionKey = 'admin.access') {
+  const ctx = await requireAdminAction(permission);
+  return { sb: clienteServiceRole(), ctx };
+}
+
+/**
  * Gate TENANT-SCOPED: autoriza platform_admin (qualquer empresa) OU o RH da PRÓPRIA
  * empresa — **e, nos dois casos, exige a `permission`**. Permite que o admin de um
  * cliente (ex.: a prefeitura, via projetomacae.vertho.ai) opere ações da sua empresa

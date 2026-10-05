@@ -34,7 +34,9 @@ export type PermissionKey =
   | 'sales_channel.manage'
   | 'exports.run'
   | 'trash.manage'
-  | 'program.configure';
+  | 'program.configure'
+  | 'dre.view'
+  | 'dre.manage';
 
 export type PermissionRisk = 'low' | 'medium' | 'high' | 'critical';
 
@@ -48,7 +50,7 @@ export type PermissionDefinition = {
 
 export const SYSTEM_ROLES: { key: SystemRole; label: string; description: string }[] = [
   { key: 'platform_admin', label: 'Admin Master', description: 'Acesso global Vertho e operações internas.' },
-  { key: 'socio', label: 'Admin Sócio', description: 'Admin com visão ampla; sem ações destrutivas ou geradoras.' },
+  { key: 'socio', label: 'Admin Sócio', description: 'Admin com visão ampla; sem ações destrutivas ou geradoras. Única exceção de escrita: lançar custos, contratos e recebimentos na DRE (dre.manage), por decisão do dono em 05/10/2026.' },
   { key: 'rh', label: 'Admin da empresa', description: 'Admin/RH do tenant, com visão ampla da empresa.' },
   { key: 'gestor', label: 'Gestor', description: 'Liderança com acesso à própria equipe/área.' },
   { key: 'colaborador', label: 'Usuário', description: 'Acesso individual à própria jornada.' },
@@ -108,6 +110,14 @@ export const PERMISSIONS: PermissionDefinition[] = [
   // Como `platform_admin` recebe `PERMISSIONS.map(p => p.key)` e os outros
   // papéis só têm o que está listado, a chave nasce exclusiva do master.
   { key: 'program.configure', domain: 'Configurações', label: 'Contratar módulo e configurar programa', description: 'Ligar/desligar módulos pagos e definir o programa de um cliente (cargo-alvo, população, corte).', risk: 'critical' },
+  // DRE por tenant (05/10/2026). Receita, margem e custo por cliente são dado
+  // comercial sensível: nunca chegam ao `rh` (e `requirePlataformaSupabase` exige
+  // platform admin antes de olhar a chave). Por decisão do dono, TODOS os sócios
+  // veem (`dre.view`) e lançam (`dre.manage`: contratos, recebimentos, horas e
+  // custos manuais). É a única escrita do papel Sócio; a contrapartida é o rastro:
+  // toda escrita grava antes e depois em `admin_audit_log` (`dre.*`).
+  { key: 'dre.view', domain: 'Financeiro', label: 'Ver DRE por tenant', description: 'Ver receita por caixa, custos e margem de cada cliente (/admin/vertho/dre).', risk: 'high' },
+  { key: 'dre.manage', domain: 'Financeiro', label: 'Lançar na DRE', description: 'Cadastrar contratos e parcelas, registrar recebimentos, lançar horas e custos manuais, definir câmbio e recalcular semanas.', risk: 'critical' },
 ];
 
 export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
@@ -116,6 +126,9 @@ export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
   // ver Radar Empresas e configurar idioma — mas NENHUMA ação destrutiva ou
   // geradora (sem *.manage de governança/empresa/usuário/conteúdo, sem disparar
   // avaliações, regenerar IA, admin do Radar ou mexer na lixeira).
+  // ÚNICA exceção de escrita: `dre.manage` (05/10/2026, decisão do dono: os
+  // sócios lançam custos, horas e recebimentos na DRE). É escrita de dinheiro e
+  // não de dado de cliente, e fica toda auditada (`dre.*` em admin_audit_log).
   socio: [
     'admin.access',
     'permissions.view',
@@ -134,6 +147,8 @@ export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
     // Lê os casos do treino de atendimento; editar exige `simulador.casos.manage`
     // (pedido do dono em 03/10/2026, depois que a chave de edição saiu do RH).
     'simulador.casos.view',
+    'dre.view',
+    'dre.manage',
   ],
   // Admin da empresa (cliente). Decisão do dono de 24/08/2026: "a Vertho opera,
   // o cliente consome". R-73 (revisão de 02/10/2026): saíram as permissões que

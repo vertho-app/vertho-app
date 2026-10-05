@@ -86,4 +86,27 @@ describe('papel Admin Sócio', () => {
       expect(hasBasePermission(papel, 'simulador.casos.manage'), papel).toBe(false);
     }
   });
+
+  /**
+   * DRE por tenant (05/10/2026). Decisão do dono: o master e TODOS os sócios
+   * veem (`dre.view`) e lançam (`dre.manage`). É a única escrita do papel Sócio.
+   * O que nunca pode acontecer é o dado de margem chegar a quem não é da
+   * plataforma: o rh é o admin do CLIENTE, e a DRE mostra o que a Vertho ganha
+   * com ele.
+   */
+  it('dre.view e dre.manage: master e sócio têm as duas; rh, gestor e usuário não têm nenhuma', () => {
+    for (const papel of ['platform_admin', 'socio'] as const) {
+      expect(hasBasePermission(papel, 'dre.view'), `${papel} dre.view`).toBe(true);
+      expect(hasBasePermission(papel, 'dre.manage'), `${papel} dre.manage`).toBe(true);
+    }
+    for (const papel of ['rh', 'gestor', 'colaborador'] as const) {
+      expect(hasBasePermission(papel, 'dre.view'), `${papel} dre.view`).toBe(false);
+      expect(hasBasePermission(papel, 'dre.manage'), `${papel} dre.manage`).toBe(false);
+    }
+  });
+
+  it('as ÚNICAS chaves *.manage do sócio são idioma (já existia) e DRE: nenhuma outra escrita entrou no papel base', () => {
+    const manages = BASE_ROLE_PERMISSIONS.socio.filter((p) => p.endsWith('.manage')).sort();
+    expect(manages).toEqual(['dre.manage', 'settings.locale.manage']);
+  });
 });

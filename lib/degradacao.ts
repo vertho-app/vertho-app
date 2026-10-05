@@ -531,10 +531,19 @@ export const DEGRADACAO = {
    * Chave: `<resposta>`. `detalhe.locale` diz o idioma que faltou.
    */
   FEEDBACK_IA4_SEM_IDIOMA: 'feedback-ia4-sem-idioma',
+  /**
+   * DRE por tenant (mig 276): o BCB não devolveu a PTAX da semana (erro de rede/HTTP ou
+   * semana sem dia útil publicado). O fechamento NÃO para: o custo de IA da semana é
+   * convertido pela cotação da semana anterior (`fonte = 'herdado'`) ou, sem semana anterior,
+   * pela do orçamento (`fonte = 'orcamento'`). Aviso, não erro: o número de BRL fica
+   * aproximado até alguém definir o câmbio ou o cron achar a PTAX numa próxima rodada
+   * (que refaz a semana). Chave: `<semana_inicio>`. `detalhe.motivo` diz por que falhou.
+   */
+  DRE_CAMBIO_SEM_PTAX: 'dre-cambio-sem-ptax',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
-export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo' | 'votacao' | 'ia' | 'assessment' | 'leitura';
+export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo' | 'votacao' | 'ia' | 'assessment' | 'leitura' | 'dre';
 export type DegradacaoSeveridade = 'info' | 'aviso' | 'critico';
 
 export interface DegradacaoInput {

@@ -3,7 +3,7 @@ import {
   BookMarked, BookOpen, Video, Database, GraduationCap as GradIcon, BarChart2,
   Calculator, LayoutDashboard, TrendingUp, Target, Shield, LockKeyhole,
   ScrollText, Trash2, CalendarDays, Send, Package, School, Settings,
-  FileBarChart, Crosshair, FlaskConical, Briefcase, MessagesSquare, DollarSign, Bot, Crown, Hourglass,
+  FileBarChart, Crosshair, FlaskConical, Briefcase, MessagesSquare, DollarSign, Bot, Crown, Hourglass, Wallet,
 } from 'lucide-react';
 
 // ── nav items (sidebar) ─────────────────────────────────────────────────────
@@ -122,6 +122,10 @@ export const NAV_ITEMS: NavItem[] = [
   // `docs/CUSTO-QUALIDADE.md` conta. O que só ele tinha (custo por jornada e infra
   // fixa) passou a ser CALCULADO no simulador; o histórico ficou no doc.
   { key: 'custo-ia',  labelKey: 'aiCost', subKey: 'callCatalog',    group: 'costs', icon: BarChart2,  hrefFn: () => '/admin/vertho/simulador-custo', permission: 'ai.costs.view' },
+  // DRE por tenant (05/10/2026): compara empresas, então aparece com "Todas" e com uma
+  // empresa selecionada (a tela abre no tenant escolhido). `dre.view` é só UX do
+  // menu: o gate de verdade está na carga e em cada action (`lib/dre/*`).
+  { key: 'dre',       labelKey: 'dre',    subKey: 'dreSub',         group: 'costs', icon: Wallet,     hrefFn: (id) => `/admin/vertho/dre${id ? `?empresa=${id}` : ''}`, permission: 'dre.view' },
 
   // ── Sistema (governança + ferramentas internas) ───────────────────────────
   // Board: a execução acontece na máquina local (worker + CLIs por assinatura),

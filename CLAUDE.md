@@ -21,6 +21,7 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Checklists (deploy, mudança grande, go-live) | `docs/CHECKLISTS.md` |
 > | Modos da engine | `docs/MODO-PILOTO.md` (piloto e personalizado) |
 > | Comercial / orçamento / demo | `docs/ORCAMENTO.md` · `docs/PORTAL-REPRESENTANTE.md` · `docs/AMBIENTE-DEMO.md` |
+> | DRE por tenant (receita por caixa, custos por semana, câmbio, fechamento do custo de IA) | `docs/DRE.md` — o custo de cada cliente é um PISO: WhatsApp e rateio de infra ainda não são medidos |
 > | Treino de recepção médica (simulador, biblioteca N1–N4, calibração) | `docs/recepcao-medica.md` |
 > | Simulador de vendas (PACE, treino e acompanhamento) | `docs/SIMULADOR-VENDAS.md` |
 > | Simulador de liderança (cinco encontros, evolução e acompanhamento) | `docs/SIMULADOR-LIDERANCA.md` |

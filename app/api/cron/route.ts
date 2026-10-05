@@ -372,6 +372,22 @@ export async function GET(req) {
         delete (result as { relatorio?: unknown }).relatorio;
         break;
       }
+      // DRE por tenant (mig 276): fecha o custo de IA da semana que acabou e
+      // auto-cura as 12 anteriores sem fechamento. 04:30 BRT, depois do e-mail de
+      // custo das 04:00, que lê a mesma RPC. Falha do BANCO ou da RPC vira
+      // `throw` (500 observável): semana fechada em branco com 200 seria o
+      // "ausência parecida com zero" que o ledger já ensinou. BCB fora do ar NÃO
+      // é falha: herda a cotação e registra em `degradacao_log`.
+      case 'dre_fechamento_semanal': {
+        const { executarFechamentoSemanal } = await import('@/lib/dre/fechamento');
+        const agoraParam = searchParams.get('agora');
+        const agora = agoraParam ? new Date(agoraParam) : new Date();
+        if (Number.isNaN(agora.getTime())) {
+          return NextResponse.json({ error: 'agora inválido (use ISO)' }, { status: 400 });
+        }
+        result = await executarFechamentoSemanal(clienteCron(), agora, { dry: searchParams.get('dry') === '1' });
+        break;
+      }
 
       // CONARH 52 — régua T+1→T+5 dos leads da feira (F8). Best-effort por
       // lead dentro do núcleo; exceção global vira 500 observável no log.
