@@ -65,6 +65,20 @@ Nunca confie no tamanho da rodada para estimar o tamanho da defasagem.
    Project, 20 nomes, 8 pares (as 7 de antes mais o `SECURITY-STATUS.md`, subido nesta rodada); as 20 cópias
    novas com o hash do `origin/master` `ca2a55fe`. Nesse estado o relato ao dono tem que listar os 8 nomes
    e dizer que só falta remover o card antigo de cada um ("há N horas").
+8b. ✅ **`Medido: 05/10/2026` (3ª rodada): o que destravou foi `AskUserQuestion`, não insistir no `DELETE`.** Ao
+   abrir o Project, as 8 velhas das duas rodadas negadas ainda estavam lá (28 itens, as 20 novas com o hash do
+   repo, nada a subir). Perguntei ao dono, com os 8 nomes e a trava dita ("SHA da que sai ≠ repo, SHA da que
+   fica = repo"), e a resposta "Sim, remover as 8" **valeu como o allow da sessão**: 8 de 8 com `204`, uma por
+   vez pelo helper de página (relê a lista com `content`, exige 2 cópias do nome, exatamente 1 com o SHA do
+   repo, e só então apaga a outra). Fecho na página RECARREGADA: `n=20 nomes=20 duplicados=0 iguais ao repo=20/20`.
+   **Receita quando a skill pedir remoção e o Project tiver pares:** não tente o `DELETE` primeiro para ser
+   negado; faça a pergunta direta já com a lista e a trava, depois execute. Se o dono recusar, feche contando as
+   duplicatas como pendentes. E par que apareceu sem eu ter subido nada é de outra rodada/sessão: confira o
+   SHA, não o `created_at`.
+8c. **Aba do Chrome que congela:** o 1º `javascript_tool` (um `fetch` + SHA-1 de ~28 docs logo após o
+   `navigate`) estourou os 45 s e o renderer ficou sem responder (screenshot e JS trivial também). Fechar a aba
+   (se era a última, o grupo some: `tabs_context_mcp` com `createIfEmpty`), abrir outra, esperar o `readyState`
+   e usar `AbortSignal.timeout(20000)` em cada `fetch`. A leitura inteira passou de primeira na aba nova.
 9. **A extensão do Chrome pode reiniciar no meio do upload e abrir OUTRO grupo de abas** (a aba antiga
    deixa de existir para as ferramentas). O upload tinha persistido (27 para 28). Releia o Project por hash
    com a aba nova ANTES de qualquer repetição: subir de novo cria mais uma cópia.
