@@ -1,7 +1,8 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Mic, MicOff } from 'lucide-react';
+import { speechTranscript, type SpeechResult } from '@/lib/speech-transcript';
 
 /**
  * Botão de gravação que usa a Web Speech API (nativo do browser)
@@ -22,31 +23,68 @@ export interface MicInputHandle {
   stop: () => void;
 }
 
+type Recognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: { results: ArrayLike<SpeechResult> }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+};
+
+type SpeechWindow = Window & {
+  SpeechRecognition?: new () => Recognition;
+  webkitSpeechRecognition?: new () => Recognition;
+};
+
+function disposeRecognition(rec: Recognition | null) {
+  if (!rec) return;
+  rec.onresult = null;
+  rec.onerror = null;
+  rec.onend = null;
+  try { rec.abort(); } catch {}
+}
+
 const MicInput = forwardRef<MicInputHandle, MicInputProps>(function MicInput({ value, onChange, disabled }, ref) {
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
-  const recognitionRef = useRef<any>(null);
-  const baseTextRef = useRef('');
+  const recognitionRef = useRef<Recognition | null>(null);
+
+  // Ao enviar/trocar de campo, ignore inclusive o resultado final assíncrono.
+  const cancel = useCallback(() => {
+    const rec = recognitionRef.current;
+    recognitionRef.current = null;
+    disposeRecognition(rec);
+    setListening(false);
+  }, []);
 
   // Expõe stop() pro parent — usado pra encerrar a gravação ao enviar mensagem.
   useImperativeHandle(ref, () => ({
-    stop: () => {
-      try { recognitionRef.current?.stop(); } catch {}
-      setListening(false);
-    },
-  }));
+    stop: cancel,
+  }), [cancel]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const w = window as SpeechWindow;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) { setSupported(false); return; }
     setSupported(true);
   }, []);
 
+  useEffect(() => {
+    if (disabled) cancel();
+  }, [disabled, cancel]);
+
   function start() {
+    if (recognitionRef.current || disabled) return;
     setError('');
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const w = window as SpeechWindow;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) return;
     try {
       const rec = new SR();
@@ -56,25 +94,15 @@ const MicInput = forwardRef<MicInputHandle, MicInputProps>(function MicInput({ v
       rec.maxAlternatives = 1;
 
       // Texto que já existe no campo no momento do start
-      baseTextRef.current = value ? value.trimEnd() + (value.trim().length ? ' ' : '') : '';
+      const baseText = value;
 
-      rec.onresult = (event: any) => {
-        let interim = '';
-        let finalTxt = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) finalTxt += transcript;
-          else interim += transcript;
-        }
-        // Concatena finais no base, adiciona o interim por cima
-        if (finalTxt) {
-          baseTextRef.current = (baseTextRef.current + finalTxt).replace(/\s+/g, ' ');
-          if (!baseTextRef.current.endsWith(' ')) baseTextRef.current += ' ';
-        }
-        onChange((baseTextRef.current + interim).trimStart());
+      rec.onresult = (event) => {
+        if (recognitionRef.current !== rec) return;
+        onChange(speechTranscript(baseText, event.results));
       };
 
-      rec.onerror = (e: any) => {
+      rec.onerror = (e) => {
+        if (recognitionRef.current !== rec) return;
         console.error('[MicInput] erro:', e.error);
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
           setError('Permita o acesso ao microfone');
@@ -83,26 +111,29 @@ const MicInput = forwardRef<MicInputHandle, MicInputProps>(function MicInput({ v
         } else if (e.error !== 'aborted') {
           setError('Erro: ' + e.error);
         }
-        setListening(false);
+        cancel();
       };
 
       rec.onend = () => {
+        if (recognitionRef.current !== rec) return;
+        recognitionRef.current = null;
         setListening(false);
       };
 
       recognitionRef.current = rec;
       rec.start();
       setListening(true);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[MicInput] start erro:', e);
       setError('Não foi possível iniciar o microfone');
-      setListening(false);
+      cancel();
     }
   }
 
   function stop() {
-    try { recognitionRef.current?.stop(); } catch {}
-    setListening(false);
+    // O botão mantém o callback até onend para receber a última palavra.
+    // A ref do parent usa cancel(), pois o campo já pode ter sido enviado.
+    try { recognitionRef.current?.stop(); } catch { cancel(); }
   }
 
   function toggle() {
@@ -112,7 +143,11 @@ const MicInput = forwardRef<MicInputHandle, MicInputProps>(function MicInput({ v
 
   // Cleanup ao desmontar
   useEffect(() => {
-    return () => { try { recognitionRef.current?.abort(); } catch {} };
+    return () => {
+      const rec = recognitionRef.current;
+      recognitionRef.current = null;
+      disposeRecognition(rec);
+    };
   }, []);
 
   if (!supported) {
@@ -127,7 +162,7 @@ const MicInput = forwardRef<MicInputHandle, MicInputProps>(function MicInput({ v
 
   return (
     <div className="flex items-center gap-2">
-      <button type="button" onClick={toggle} disabled={disabled}
+      <button type="button" onClick={toggle} disabled={disabled} aria-pressed={listening}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
           listening
             ? 'bg-red-500/20 text-red-400 border border-red-400/50 animate-pulse'

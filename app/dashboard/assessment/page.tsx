@@ -384,7 +384,7 @@ function AssessmentInner() {
                 })}
               </p>
               <div className="self-start md:self-auto">
-                <MicInput value={currentR} onChange={setCurrentR} />
+                <MicInput key={pergIdx} value={currentR} onChange={setCurrentR} />
               </div>
             </div>
             <textarea
