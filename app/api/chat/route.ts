@@ -107,7 +107,8 @@ export async function POST(req) {
     // `empresaId` já passou por assertTenantAccess acima. tdb escopa as leituras
     // de tabelas tenant-owned: `colaborador_id`/`sessaoId` sozinhos não isolam
     // tenant, e o app roda service-role (o banco não barra — service_role tem
-    // BYPASSRLS). Tabelas globais (empresas, competencias, escolas) seguem no raw.
+    // BYPASSRLS). Tabelas globais (empresas, escolas) seguem no raw; `competencias`
+    // tem `empresa_id` em todas as linhas e vai pelo `tdb`.
     const tdb = tenantDb(empresaId);
     // Config EFETIVA (empresa → turma → participação): o gate de etapa é da
     // TURMA da pessoa, não da empresa inteira (mig 210).
@@ -167,8 +168,15 @@ export async function POST(req) {
         sessao = existente;
       } else {
         // Criar nova sessão
-        const { data: comp } = await sb.from('competencias')
-          .select('nome').eq('id', competenciaId).single();
+        // `competenciaId` vem do CLIENTE. Lida pelo `tdb`, uma competência de
+        // outra empresa não existe aqui: sem o filtro, o nome, a régua e o
+        // gabarito dela entravam no prompt desta sessão e o feedback voltava ao
+        // cliente (análise de 05/10/2026). `empresa_id` é obrigatório nas 2.151
+        // linhas medidas, então nenhuma competência legítima fica de fora.
+        const { data: comp, error: errComp } = await tdb.from('competencias')
+          .select('nome').eq('id', competenciaId).maybeSingle();
+        if (errComp) return NextResponse.json({ ok: false, error: errComp.message }, { status: 500 });
+        if (!comp) return NextResponse.json({ ok: false, error: 'Competência não encontrada' }, { status: 404 });
 
         // Cenário roteado pelo PPP do colaborador (via escola) > rede > mais recente.
         const { data: colabEsc } = await tdb.from('colaboradores')
@@ -220,7 +228,7 @@ export async function POST(req) {
     // ── 2. Carregar contexto ────────────────────────────────────────────────
 
     const [compResult, cenarioResult, histResult, empresaResult] = await Promise.all([
-      sb.from('competencias').select('nome, descricao, gabarito, cod_comp').eq('id', sessao.competencia_id).single(),
+      tdb.from('competencias').select('nome, descricao, gabarito, cod_comp').eq('id', sessao.competencia_id).single(),
       sessao.cenario_id
         ? sb.from('banco_cenarios').select('titulo, descricao, alternativas').eq('id', sessao.cenario_id).single()
         : { data: null },
