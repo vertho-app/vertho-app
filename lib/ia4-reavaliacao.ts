@@ -20,6 +20,7 @@ import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
 import { maskColaborador, maskTextPII, maskDeepPII, unmaskDeepPII } from '@/lib/pii-masker';
+import { neutralizarFala } from '@/lib/prompt-seguro';
 import {
   consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao,
   comModeloDaTask, IA4_CALL_OPTIONS, IA4_MAX_TOKENS,
@@ -171,7 +172,7 @@ export async function reavaliarRespostaCore(sbRaw: SupabaseClient, respostaId: s
     // identificador; respostas, avaliação anterior e auditoria (gravadas com o
     // nome) passam pela máscara. A revisão volta desmascarada antes de gravar.
     const { masked: colabMasked, map: pii } = maskColaborador(colab);
-    const m = (s: unknown) => maskTextPII(typeof s === 'string' ? s : '', pii);
+    const m = (s: unknown) => maskTextPII(neutralizarFala(typeof s === 'string' ? s : ''), pii);
     const userBlocks: string[] = [];
 
     userBlocks.push(`═══ PROFISSIONAL ═══\n${colabMasked?.nome} (identificador da pessoa: use-o exatamente assim onde citaria o nome) · ${colab?.cargo || '(cargo não informado)'} · ${empresa?.nome || '(empresa não informada)'}`);

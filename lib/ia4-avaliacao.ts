@@ -23,6 +23,7 @@ import { buscarContextoPPP } from '@/lib/ia2-gabarito';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 import { maskColaborador, maskTextPII, unmaskDeepPII } from '@/lib/pii-masker';
+import { neutralizarFala, registrarSinais } from '@/lib/prompt-seguro';
 import { feedbackNoIdiomaDaPessoa, textoDoFeedback } from '@/lib/ia4-feedback-idioma';
 
 export const IA4_SYSTEM = `Você é o Motor de Avaliação de Competências da Vertho Mentor IA.
@@ -358,7 +359,13 @@ export function buildIA4UserPrompt(
   // devolve é desmascarado em `consolidarEPersistirIA4`, por onde os dois
   // caminhos (síncrono e lote) gravam.
   const { masked: colabMasked, map: pii } = maskColaborador(colab);
-  const resposta = (r: unknown) => maskTextPII(typeof r === 'string' ? r : '', pii) || '(sem resposta)';
+  // A fala entra no meio de um prompt de seções `═══ … ═══`: o que só serve para forjar uma
+  // seção ou um turno é desarmado ANTES da máscara (o texto comum sai idêntico), e a tentativa
+  // vira um `[injecao]` no log, sem o texto. Reavaliação e check usam a mesma neutralização.
+  const resposta = (r: unknown) => maskTextPII(neutralizarFala(typeof r === 'string' ? r : ''), pii) || '(sem resposta)';
+  for (const r of [resp?.r1, resp?.r2, resp?.r3, resp?.r4]) {
+    registrarSinais({ fluxo: 'ia4', empresaId: resp?.empresa_id, colaboradorId: resp?.colaborador_id }, typeof r === 'string' ? r : '');
+  }
   const userBlocks: string[] = [];
   userBlocks.push(`═══ PROFISSIONAL ═══\nNome: ${colabMasked?.nome} (identificador da pessoa: use-o exatamente assim onde citaria o nome)\nCargo: ${colab?.cargo || '(não informado)'}`);
   if (perfilCIS) userBlocks.push(`═══ PERFIL COMPORTAMENTAL ═══\n${perfilCIS}\nNOTA: O perfil NÃO altera a nota. Influencia APENAS o tom do feedback.`);

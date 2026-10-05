@@ -7,6 +7,7 @@
  */
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI, callAIChat } from '@/actions/ai-client';
+import { neutralizarFala } from '@/lib/prompt-seguro';
 import { DEFAULT_TASK_MODELS, getModelForTask } from '@/lib/ai-tasks';
 import {
   promptSimuladorColab,
@@ -251,7 +252,7 @@ async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfil
   // Extração + fechamento (mesmo fluxo do endpoint real)
   let extracao = {};
   try {
-    const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
+    const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.role === 'user' ? neutralizarFala(m.content) : m.content}`).join('\n\n');
     const usr = `MODO: socratic (conversa simulada)
 
 CONVERSA:
@@ -358,7 +359,7 @@ async function simularMissaoPratica(sb: any, trilha: any, colab: any, s: any, pe
   // Extração estruturada (avaliacao_por_descritor)
   let extracao = {};
   try {
-    const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
+    const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.role === 'user' ? neutralizarFala(m.content) : m.content}`).join('\n\n');
     const usr = `MODO: missao_feedback (conversa simulada — evidência prática)
 
 CONVERSA:
@@ -444,7 +445,7 @@ async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perf
   // Extração qualitativa
   let extracao = {};
   try {
-    const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
+    const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.role === 'user' ? neutralizarFala(m.content) : m.content}`).join('\n\n');
     const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores: descritoresArr, transcript });
     const r = await callAI(s2, u2, { model: mentorModel }, 4000, simOpts(trilha, 'sim_extracao_qualitativa'));
     let cleaned = r.trim();

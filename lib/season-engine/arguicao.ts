@@ -19,6 +19,7 @@
 import { callAIChat, callAI, type AIConfig } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
 import { maskTextPII, unmaskPII, type PIIMapas } from '@/lib/pii-masker';
+import { neutralizarFala } from '@/lib/prompt-seguro';
 import type { AppLocale } from '@/i18n/routing';
 
 /**
@@ -154,6 +155,9 @@ function lerMeta(texto: string): any {
   try { return parseJsonIA(m[1]); } catch { return {}; }
 }
 
+/** O bloco de contexto é o primeiro turno do histórico e abre sempre com `═══ CENÁRIO`. */
+const ehBlocoDeContexto = (conteudo: string) => conteudo.startsWith('═══ CENÁRIO');
+
 /** Bloco de contexto da tese (cenário + resposta) prependido ao histórico. */
 function mensagemContexto(ctx: ArguicaoContexto): ArguicaoMsg {
   return {
@@ -177,7 +181,13 @@ function ctxParaIA(ctx: ArguicaoContexto, pii?: ArguicaoPII): ArguicaoContexto {
 /** Projeta o histórico para o payload da IA: SÓ {role, content} (a API da
  *  Anthropic rejeita campos extras como `turn`/`timestamp`) + masking em-voo. */
 function histParaIA(hist: ArguicaoMsg[], pii?: ArguicaoPII): Array<{ role: 'user' | 'assistant'; content: string }> {
-  return hist.map(m => ({ role: m.role, content: pii ? maskTextPII(m.content, pii.map) : m.content }));
+  // A fala do colaborador perde o que só serve para forjar estrutura; o bloco de contexto
+  // (nosso, com `═══ CENÁRIO` de verdade) e as respostas do mentor passam como estão.
+  const falaDaPessoa = (m: ArguicaoMsg) => m.role === 'user' && !ehBlocoDeContexto(m.content);
+  return hist.map(m => {
+    const conteudo = falaDaPessoa(m) ? neutralizarFala(m.content) : m.content;
+    return { role: m.role, content: pii ? maskTextPII(conteudo, pii.map) : conteudo };
+  });
 }
 
 const desmascarar = (texto: string, pii?: ArguicaoPII) => (pii ? unmaskPII(texto, pii.map) : texto);
@@ -274,8 +284,8 @@ export async function extrairEvidenciasArguicao(
   pii?: ArguicaoPII,
 ): Promise<ArguicaoExtracao | null> {
   const conversaCrua = estado.historico
-    .filter(h => h.content && !h.content.startsWith('═══ CENÁRIO'))
-    .map(h => `${h.role === 'user' ? 'COLABORADOR' : 'MENTOR'}: ${stripMeta(h.content)}`)
+    .filter(h => h.content && !ehBlocoDeContexto(h.content))
+    .map(h => `${h.role === 'user' ? 'COLABORADOR' : 'MENTOR'}: ${h.role === 'user' ? neutralizarFala(stripMeta(h.content)) : stripMeta(h.content)}`)
     .join('\n\n');
   // Extrator é chamada de IA externa → mascara a conversa antes de enviar.
   const conversa = pii ? maskTextPII(conversaCrua, pii.map) : conversaCrua;

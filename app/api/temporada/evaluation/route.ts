@@ -10,6 +10,7 @@ import { reservarFinalizacao, finalizarFechamentoCore } from '@/lib/season-engin
 import { estadoDoFechamento, estadoDoRelatorio, resumoDaAvaliacao, respostasDoCenario } from '@/lib/season-engine/estado-fechamento';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { maskColaborador, maskTextPII, unmaskPII, unmaskDeepPII } from '@/lib/pii-masker';
+import { neutralizarFala } from '@/lib/prompt-seguro';
 import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
@@ -67,7 +68,7 @@ function montarCtxArguicao(opts: {
 }): ArguicaoContexto {
   const respostasUser = opts.historico.filter((m: any) => m.role === 'user');
   const respostaCenario = opts.perguntas.map((p: any, i: number) =>
-    `[${p.dimensao}] ${p.texto}\n\u2192 ${respostasUser[i]?.content || '(sem resposta)'}`
+    `[${p.dimensao}] ${p.texto}\n\u2192 ${neutralizarFala(respostasUser[i]?.content) || '(sem resposta)'}`
   ).join('\n\n');
   return {
     nomeColab: (opts.colab?.nome_completo || '').split(' ')[0] || 'voc\u00ea',
@@ -325,7 +326,7 @@ export async function POST(request) {
         // conversa vai mascarada (inclusive a última fala da IA, já desmascarada
         // acima) e o que volta é desmascarado antes de gravar (R-05).
         const transcript = historico
-          .map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${maskTextPII(m.content, piiMapQ)}`)
+          .map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${maskTextPII(m.role === 'user' ? neutralizarFala(m.content) : m.content, piiMapQ)}`)
           .join('\n\n');
         const { system: s2, user: u2 } = promptEvolutionQualitativeExtract({ descritores, transcript });
         const r = await callAI(s2, u2, {}, 8000, {

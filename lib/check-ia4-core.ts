@@ -21,6 +21,7 @@ import { nivelDaNota } from '@/lib/nivel-regua';
 import { tenantDb } from '@/lib/tenant-db';
 import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 import { maskColaborador, maskTextPII, maskDeepPII, unmaskDeepPII, type PIIMapas } from '@/lib/pii-masker';
+import { neutralizarFala } from '@/lib/prompt-seguro';
 
 /**
  * Itens do CHECKLIST do auditor. A 2ª IA responde SIM/NÃO em cada um; a nota é
@@ -144,7 +145,7 @@ function buildCheckUser(colab: any, compNome: string, perfilCIS: string, resp: a
   // pessoa. A avaliação a auditar está GRAVADA com o nome (é texto que ela lê),
   // então passa pela máscara junto com as respostas.
   const { masked: colabMasked, map: pii } = maskColaborador(colab);
-  const m = (s: unknown) => maskTextPII(typeof s === 'string' ? s : '', pii) || '(sem resposta)';
+  const m = (s: unknown) => maskTextPII(neutralizarFala(typeof s === 'string' ? s : ''), pii) || '(sem resposta)';
   const variavel: string[] = [];
   variavel.push(`═══ PROFISSIONAL ═══
 ${colabMasked?.nome} (identificador da pessoa) · ${colab?.cargo || '(cargo não informado)'}`);

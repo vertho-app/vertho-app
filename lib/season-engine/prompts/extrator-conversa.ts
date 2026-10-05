@@ -19,6 +19,7 @@
  * Consumidores: `app/api/temporada/reflection/route.ts` (produção) e
  * `scripts/_medir-ruido-extrator.ts` (medição). Guard: `tests/unit/extrator-conversa.test.ts`.
  */
+import { neutralizarFala } from '@/lib/prompt-seguro';
 
 /**
  * O RUÍDO DESTE INSTRUMENTO, medido — não estimado.
@@ -50,7 +51,7 @@ export const RUIDO_MEDIDO = {
 
 /** Como a rota serializa o histórico antes de mandar para a IA. */
 export function montarTranscript(historico: { role: string; content: string }[]): string {
-  return historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
+  return historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.role === 'user' ? neutralizarFala(m.content) : m.content}`).join('\n\n');
 }
 
 export const EXTRATOR_CORE_SYSTEM = `Você é um extrator de dados estruturados da Vertho.

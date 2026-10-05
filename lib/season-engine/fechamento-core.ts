@@ -11,6 +11,7 @@ import { descritoresCompletosDoOnboarding, montarEntradasPorCompetencia } from '
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import type { AppLocale } from '@/i18n/routing';
 import { maskColaborador, maskTextPII, maskDeepPII } from '@/lib/pii-masker';
+import { neutralizarFala } from '@/lib/prompt-seguro';
 import { desmascararResultadoFechamento, mascararExtracaoArguicao, mascararResumo } from '@/lib/season-engine/fechamento-pii';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { gravarProgressoSemana } from '@/lib/season-engine/progresso-semana';
@@ -214,7 +215,7 @@ export async function finalizarFechamentoCore(
     const respostaAgregada = cenarios
       ? respostasDosCenarios(cenarios)
       : perguntas.map((p: any, i: number) =>
-        `[${p.dimensao}] ${p.texto}\n→ ${respostasUser[i]?.content || '(sem resposta)'}`,
+        `[${p.dimensao}] ${p.texto}\n→ ${neutralizarFala(respostasUser[i]?.content) || '(sem resposta)'}`,
       ).join('\n\n');
 
     const { masked: colabMasked, map: piiMap } = maskColaborador(colab);

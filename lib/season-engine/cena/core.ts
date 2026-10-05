@@ -18,6 +18,7 @@
 import { callAI, callAIChat, type AIConfig } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
 import { maskTextPII, unmaskPII, type PIIMapas } from '@/lib/pii-masker';
+import { neutralizarFala } from '@/lib/prompt-seguro';
 import {
   podeEncerrar, proximoBeat, validarContratoDaCena, validarGabaritoDaCena,
   type BeatDaCena, type EvidenciaDescritor, type MotivoParada, type PedidoDoModelo,
@@ -468,7 +469,7 @@ export async function turnoCena(
    */
   const janela = estado.historico
     .slice(-JANELA_DO_JUIZ)
-    .map((m) => `${m.role === 'user' ? 'AVALIADO' : 'INTERLOCUTOR'}: ${stripMeta(m.content)}`)
+    .map((m) => `${m.role === 'user' ? 'AVALIADO' : 'INTERLOCUTOR'}: ${m.role === 'user' ? neutralizarFala(stripMeta(m.content)) : stripMeta(m.content)}`)
     .join('\n\n');
 
   const [rawInicial, julgamento] = await Promise.all([
@@ -630,7 +631,7 @@ export interface ExtracaoCena {
 /** Transcrição legível — sem [META], sem a fala de abertura marcada como turno. */
 export function transcrever(estado: EstadoCena, rotuloAvaliado = 'AVALIADO'): string {
   return estado.historico
-    .map((m) => `${m.role === 'user' ? rotuloAvaliado : 'INTERLOCUTOR'}: ${stripMeta(m.content)}`)
+    .map((m) => `${m.role === 'user' ? rotuloAvaliado : 'INTERLOCUTOR'}: ${m.role === 'user' ? neutralizarFala(stripMeta(m.content)) : stripMeta(m.content)}`)
     .join('\n\n');
 }
 

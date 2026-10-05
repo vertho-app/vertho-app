@@ -3,6 +3,7 @@
  * Gera a mensagem que o colab mandaria em cada turn, coerente com um
  * perfil de evolução pré-escolhido pelo admin.
  */
+import { neutralizarFala } from '@/lib/prompt-seguro';
 
 const PERFIS: Record<string, string> = {
   evolucao_confirmada: `evolucao_confirmada:
@@ -65,7 +66,7 @@ export function promptSimuladorColab(ctx: PromptSimuladorColabCtx) {
     ctx.cenario && `Cenário: "${ctx.cenario.slice(0, 400)}"`,
   ].filter(Boolean).join('\n');
 
-  const historicoStr = (ctx.historico || []).slice(-6).map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content.slice(0, 300)}`).join('\n\n');
+  const historicoStr = (ctx.historico || []).slice(-6).map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.role === 'user' ? neutralizarFala(m.content.slice(0, 300)) : m.content.slice(0, 300)}`).join('\n\n');
 
   const system = `Você está SIMULANDO um colaborador fictício dentro de uma plataforma de desenvolvimento profissional da Vertho.
 

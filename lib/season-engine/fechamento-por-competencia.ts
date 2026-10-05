@@ -31,6 +31,7 @@
  * do scorer; a pontuação por competência cabe com folga e é o desenho que o Cenário A já usa.
  */
 import { normalizarComp } from '@/lib/workshop-competencias';
+import { neutralizarFala } from '@/lib/prompt-seguro';
 import type { ArguicaoEstado, ArguicaoExtracao } from '@/lib/season-engine/arguicao';
 
 export interface PerguntaDoCenario {
@@ -128,7 +129,7 @@ export function posicaoNoFechamento(cenarios: CenarioDoFechamento[], opts: { arg
 export function respostaDoCenario(c: Pick<CenarioDoFechamento, 'perguntas' | 'transcript_completo'>): string {
   const respostasUser = (c.transcript_completo || []).filter((m: any) => m?.role === 'user');
   return c.perguntas
-    .map((p, i) => `[${p.dimensao}] ${p.texto}\n→ ${respostasUser[i]?.content || '(sem resposta)'}`)
+    .map((p, i) => `[${p.dimensao}] ${p.texto}\n→ ${neutralizarFala(respostasUser[i]?.content) || '(sem resposta)'}`)
     .join('\n\n');
 }
 
