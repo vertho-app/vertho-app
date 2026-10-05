@@ -49,6 +49,16 @@ Nunca confie no tamanho da rodada para estimar o tamanho da defasagem.
    repo, e a do `uuid` alvo tem o hash antigo anotado. 16 de 16 com 204, sem menu, sem coordenada e sem
    o risco de clicar na linha errada. É a mesma chamada que o menu "Remover do projeto" faz (ver o passo 7).
 6. **Fechar contando** pela API depois do reload: `n=20 duplicados=0 iguais_ao_repo=20`.
+7. 🔴 **`Medido: 05/10/2026`: o classificador do modo automático NEGOU o `DELETE` em lote** pelo
+   `javascript_tool` ("Blocked by classifier"), com as 7 novas já subidas e conferidas por hash e com a
+   autorização durável de 26/09 escrita aqui. **A autorização desta receita não vale para o classificador:
+   ele pede o "allow" da própria sessão** (a de 04/10 passou, a de 05/10 não). Quando negar: PARAR, não
+   refazer em pedaços, nem por menu, nem por clique (é o mesmo resultado), registrar o estado
+   (`n` = 20 + pares pendentes) e dizer ao dono quais pares sobraram. Ele libera ou remove à mão
+   (`Mais opções para <NOME>.md` > "Remover do projeto", só o card antigo, o que diz "há N horas"). O
+   Project fica COM DUPLICATAS até lá, e isso é pior que fonte velha: responde com as duas versões.
+   Subir as novas antes de remover é o que torna a remoção segura, então o estado "27 no Project" é o
+   esperado nesse caso, não um defeito do upload.
 
 `Medido: 22/09/2026` — o lado inverso também vale: **o doc do repo pode estar atrás do código**, e o
 Project herda. O `FEATURES-E-BENEFICIOS.md` batia com o repo e mesmo assim vendia Pulso e Radar
