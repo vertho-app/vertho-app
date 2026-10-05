@@ -28,6 +28,12 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   com mensagem que nem cita o índice (16/08: o push do admin nunca funcionou). Ao criar índice único
   parcial, procure quem faz `upsert` com essas colunas. Detalhe: memória `reference_indice_parcial_on_conflict`.
 - Idempotência + `NOTIFY pgrst, 'reload schema'` no fim. Fluxo: skill `migrations`, `docs/SCHEMA-PROCESS.md`.
+- 🔴 **Migration ADITIVA que o código novo passa a GRAVAR vai ANTES do push, e é provada em
+  `BEGIN … ROLLBACK` no banco real** (constraints, linha no formato antigo, o código que está no ar).
+  Código novo que grava coluna inexistente falha em TODO insert, não só no caso novo; coluna nova com
+  `DEFAULT` é o que dispensa deploy simultâneo (DRE, mig 280, 05/10/2026: 26 verificações, aplicada,
+  depois o push). `ia_usage_log.empresa_id` é CASCADE: tabela de DINHEIRO por tenant usa `SET NULL` +
+  chave estável (mig 276). Detalhe: `docs/DRE.md`.
 - Coluna nova "para corrigir algo": conferir o **schema atual** antes — a especificação do FMEA
   também envelhece (F-I4 pedia coluna que já existia).
 - Antes de **deletar** conteúdo/linha: varrer referências **JSONB** (`temporada_plano`: `core_id`,
@@ -1255,6 +1261,18 @@ por nada.
    `C:/GAS/Vertho App/.claude/hooks/push-suite.test.js`, validados por mutação.
    **Não contorne mais** — se um `stash push` for barrado, é regressão do hook.
 
+6. 🔴 **Worktree com ref QUEBRADO no `.git` compartilhado** (`Medido: 05/10/2026`): existe
+   `refs/remotes/origin/master (1)` (nome com espaço, cópia do Windows). O `git fetch` imprime
+   `fatal: bad object` e `did not send all necessary objects`, mas ATUALIZA o `origin/master`. Pior: o
+   `git checkout --detach origin/master` falhou no fim e deixou índice e arquivos no remoto com o HEAD
+   parado no meu commit, e as minhas mudanças pareciam revertidas. O commit estava intacto: prove com
+   `git cat-file -t <sha>`, e só então `git reset --hard <sha-completo-do-remoto>` +
+   `git cherry-pick <meu-sha>` (o `rebase` recusa por causa dos ` D` de binários ausentes). Não apague
+   o ref: é de outra sessão. Com `git show origin/master:<arq>` no Git Bash use
+   `MSYS2_ARG_CONV_EXCL='*'`, senão o `:` vira separador de caminho. E o remoto andou **2×** entre o
+   commit e o push (a catraca leva ~1 min): `non-fast-forward` é repetir fetch + reset + cherry-pick,
+   nunca `--force`.
+
 **Consequência medida (10/09/2026):** gastei uma rodada inteira preparando um merge
 com 4 conflitos em engajamento (`relatorio-model.ts`: 343 linhas locais contra 152
 remotas) para subir um commit que **já estava no remoto** como `1468d74c`, byte a
@@ -1548,3 +1566,14 @@ Padrão que casa: arquivo novo em `lib/sales/`, `lib/copiloto/`, `app/api/copilo
 - [ ] **Rode a suíte INTEIRA, não só o teste novo:** o guard do ledger só aparece nela.
 
 **Consequência medida (05/10/2026):** `tsc`, `lint` e os testes novos estavam verdes e a suíte inteira tinha 1 vermelho, o `ledger-empresa-id-guard` (`lib/sales/cenario-exemplo-ia.ts:129` e `:161`). Memória `project_proposta_documento_cliente`.
+
+## § Mexeu na DRE por tenant (`lib/dre/**`, `actions/dre/**`, `app/admin/vertho/dre/**`, tabelas `dre_*`)
+
+Padrão que casa: qualquer arquivo desses caminhos, ou número de receita, custo ou margem por cliente em tela, e-mail ou proposta. Régua e porquês: `docs/DRE.md`.
+
+- [ ] **Margem por cliente nunca sai sem o selo de cobertura.** O custo é um PISO (WhatsApp, infra e IA de entrega sem `empresaId` não são medidos) e categoria sem lançamento é `nao_lancado`, não zero. Margem sem receita é `null`, nunca 0% nem NaN (`consolidar.ts`).
+- [ ] **A semana é a do e-mail de custo** (segunda 00:00 BRT, fim exclusivo): há teste que compara `janelaDaSemana` com `janelaSemanaFechada`. Dinheiro em centavos inteiros: `0,15 h × R$ 3,30` dá 0,49 em float e 0,50 no `numeric` do banco, e o lançamento seria recusado pela constraint. Rateio mensal arredonda sobre o ACUMULADO de dias.
+- [ ] **Rode a suíte INTEIRA depois do `git add` por caminho:** os guards só varrem arquivo versionado, e 25 arquivos da DRE não eram varridos até serem staged (`error-nao-checado`, `service-role`, `paginacao-ordenada` e `status-literal` os viram só depois).
+- [ ] **Validar por mutação e olhar a imagem.** 138 testes passaram de primeira e só as 36 mutações provaram algo; no harness, `toLocaleString('pt-BR', {currency})` separa `R$` do número com U+00A0 (normalize antes de `includes`).
+
+**Consequência medida (05/10/2026):** a DRE nasceu com a migration planejada como 273 porque o disco local estava 197 commits atrás (o remoto já ia até a 275, e a DRE virou 276). Memória `project_dre_por_tenant`.

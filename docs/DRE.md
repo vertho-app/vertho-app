@@ -72,7 +72,7 @@ A comparação mostra: IA orçada × realizada, pior saldo de caixa previsto × 
 - `actions/dre/*.ts` (todo export é endpoint HTTP) passam por `executarAcaoDre` (`lib/dre/acao.ts`): gate de plataforma + permissão, validação zod (valores normalizados a centavo, teto de R$ 1 bilhão), retorno padronizado sem vazar mensagem do banco. O ator vem da sessão, nunca do corpo. Ficam em `actions/` e não em `app/admin/**/actions.ts` porque o guard `admin-actions-require-auth` não reconhece `requirePlataformaSupabase`.
 - O valor das horas é calculado no servidor em aritmética inteira (`valorDasHoras`): em ponto flutuante `0,15 × 3,30` dá 0,49 e o banco (`numeric`) confere 0,50.
 - Sem `createSupabaseAdmin()` novo: as actions usam o client do gate e o cron injeta o dele.
-- Testes: `tests/unit/dre-*.test.ts` e `tests/unit/security/dre-*.test.ts` (gate com os gates reais, falha de banco, auditoria, paginação, semana ao vivo). As 36 regras centrais foram validadas por mutação (quebrar a regra e ver o teste falhar).
+- Testes: `tests/unit/dre-*.test.ts` e `tests/unit/security/dre-*.test.ts` (gate com os gates reais, falha de banco, auditoria, paginação, semana ao vivo). As 36 regras centrais da fase 1 e as 14 do custo mensal foram validadas por mutação (quebrar a regra e ver o teste falhar). Uma 15ª mutação do custo mensal sobreviveu porque a deduplicação que ela quebrava era código redundante, e o código saiu.
 
 ## Operação
 
