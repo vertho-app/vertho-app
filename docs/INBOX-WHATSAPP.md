@@ -702,7 +702,7 @@ quantos são?"**.
 **O que continua em aberto:** quem tocar no secundário e depois quiser o app instalado segue sem
 sessão e com o link gasto. Fechar isso exige trocar o `token_hash` do Supabase por um ticket nosso
 redimível 2-3 vezes em 15 min. ⚠️ E aí esbarra numa promessa aprovada: o corpo do `acesso_vertho`
-diz *"só pode ser usado uma vez"*. Mudar o comportamento sem mudar o texto torna o texto falso;
+(e o do `acesso_vertho_v2`) diz *"só pode ser usado uma vez"*. Mudar o comportamento sem mudar o texto torna o texto falso;
 mudar o texto é submeter o template de novo à Meta, com o risco de voltar MARKETING (6× o custo —
 4 de 8 voltaram assim em 14/08). Decisão pendente, e é do dono.
 
@@ -972,7 +972,8 @@ trilha, progresso ou uso depois do login é encaminhada ao Beto autenticado dent
 
 Pedido textual claro de acesso pula a IA. Em áudio, o Gemini 3.8 Flash apenas classifica a
 intenção. O token é sempre criado pela aplicação e sai exclusivamente no template aprovado
-`acesso_vertho`, sem fallback em texto livre. O fluxo também impõe idempotência por `wamid`,
+`acesso_vertho_v2` (ou o legado `acesso_vertho`, conforme a env `WHATSAPP_TEMPLATE_ACESSO`), sem
+fallback em texto livre. O fluxo também impõe idempotência por `wamid`,
 intervalo de 5 minutos e teto de 3 links em 24 h. A rota `/entrar` exige clique explícito antes de
 consumir o link de uso único, para que o preview do WhatsApp não o queime.
 

@@ -106,7 +106,8 @@ primeira resposta do Beto à queixa dela foi um link de acesso.
 ### 2.3 Proteções do link
 
 - O modelo de IA nunca recebe nem produz o token.
-- Só o template aprovado `acesso_vertho` pode transportar o link; neste fluxo não existe fallback
+- Só o template aprovado de acesso (`acesso_vertho_v2`, ou o legado `acesso_vertho` enquanto a env
+  `WHATSAPP_TEMPLATE_ACESSO` aponta para ele) pode transportar o link; neste fluxo não existe fallback
   para texto livre.
 - O token da Supabase é de uso único. A rota `/entrar` mostra primeiro uma confirmação e só o
   consome após clique explícito (`ir=1`), protegendo contra previews automáticos do WhatsApp.

@@ -1159,7 +1159,8 @@ O Beto do WhatsApp é a porta de entrada para acesso, recuperação e triagem; d
 responde a todo colaborador cujo telefone resolve para uma empresa (a equipe `@vertho.ai`, na
 ACME), com guardas de conduta em `lib/whatsapp/suporte-conduta.ts`. Aceita texto e áudio com
 Gemini 3.8 Flash, mas a IA nunca recebe o token. Pedido de login usa o emissor determinístico e o
-template aprovado `acesso_vertho`, com idempotência, cooldown e limite diário.
+template aprovado de acesso (`acesso_vertho_v2`; o legado `acesso_vertho` enquanto a env
+`WHATSAPP_TEMPLATE_ACESSO` não for trocada), com idempotência, cooldown e limite diário.
 
 O Beto dentro do app continua sendo o mentor autenticado para conteúdo, trilha, progresso e uso da
 plataforma. Além de perfil, cargo, tenant, blueprint e contexto semanal, recebe uma descrição

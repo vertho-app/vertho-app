@@ -14,6 +14,19 @@ aprovado, o que está ligado e com qual contrato”.
 > `lib/notifications/pilula-template.ts` (parâmetros), `git grep` dos call-sites e
 > `notification_deliveries` (o que realmente saiu).
 >
+> 🔁 **Substituição de 05/10/2026 (R-47, R-48, R-50 e R-117).** Quatro templates novos foram
+> **SUBMETIDOS** à Meta (§3.3), com nomes novos (template aprovado não se edita e apagar queima o
+> nome). **Entram no ar dois:** `acesso_vertho_v2` (substitui `acesso_vertho`) e
+> `votacao_pendente_v3` (substitui `votacao_pendente`). **Dois NÃO são usados, por decisão do dono:**
+> `perfil_pendente` e `mapeamento_pendente` voltaram MARKETING (custo ~6×), e os convites do Perfil
+> e do Mapeamento seguem nos textos antigos `avaliacao_pendente` e `avaliacao_competencias`, que
+> continuam APPROVED/UTILITY. Os antigos substituídos seguem APPROVED na Meta e não podem ser
+> editados nem apagados. **O estado real de cada um (PENDING ou APPROVED, a categoria e a
+> `correct_category`) se confere na Meta, nunca neste arquivo:**
+> `GET /{waba}/message_templates?fields=name,status,category,correct_category`. Onde as tabelas abaixo
+> escrevem "Meta em 01/09", é a leitura daquele dia; para os dois que entram a coluna diz "conferir na
+> Meta".
+>
 > ⚠️ **Este arquivo envelhece.** A categoria de um template muda na revisão da Meta **depois** de
 > aprovado (4 de 8 viraram MARKETING em 14/08), e o nome ligado a cada papel vive numa env var
 > *Sensitive* que nem o CLI lê. Para o estado ATUAL, a fonte é a **R13 do health**
@@ -36,7 +49,7 @@ cai no caminho legado — silenciosamente, que é o motivo da R13 existir.
 | 4 | `missao_semana_v2` | UTILITY | `missao` · `WHATSAPP_TEMPLATE_MISSAO` | Segunda da semana de **aplicação** (4/8/12) | `lib/fase4/trigger-diario-empresa.ts:409` |
 | 5 | `retomada_trilha` | UTILITY | `retomada` · `WHATSAPP_TEMPLATE_RETOMADA` | 2+ semanas sem atividade | `lib/fase4/trigger-diario-empresa.ts:490` |
 | 6 | `resultado_perfil` | UTILITY | `perfil` · `WHATSAPP_TEMPLATE_PERFIL` | Relatório individual pronto (envio deliberado, em lote) | `scripts/_avisar-perfil-pronto.ts:103` |
-| 7 | `acesso_vertho` | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login ou ao Beto no WhatsApp | `lib/notifications/access-link-service.ts` · `lib/whatsapp/beto-access-link.ts` |
+| 7 | `acesso_vertho_v2` (legado: `acesso_vertho`, enquanto a env apontar para ele) | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login ou ao Beto no WhatsApp | `lib/notifications/access-link-service.ts` · `lib/whatsapp/beto-access-link.ts` |
 | 8 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
 | 9 | `plano_desenvolvimento` | UTILITY | `plano` · `WHATSAPP_TEMPLATE_PLANO` | Relatório individual: pelo cron `avisar_planos` (só **depois do corte**) ou pela tela, sob demanda | `lib/notifications/avisar-plano-pronto.ts` · `/admin-v2/cliente` → "Planos (PDI)" |
 | 10 | `avaliacao_pendente` | UTILITY | — (nome fixo na tela) | Convite ao mapeamento comportamental pendente, independente de cenários | **tela de Envios** (aba WhatsApp) |
@@ -87,7 +100,7 @@ semana/slot, portanto uma semana não bloqueia a seguinte.
 | Template manual | Meta em 01/09 | Regra automática obrigatória |
 |---|---|---|
 | `boas_vindas_v2` | APPROVED/UTILITY | Está no escopo e tem WhatsApp cadastrado |
-| `votacao_pendente` | APPROVED/UTILITY (v2, 25/09, em 3 min) | Votação aberta, ainda não votou e o cargo tem competências na cédula; um por pessoa **por dia** (Brasília) |
+| `votacao_pendente_v3` (substitui a v2 `votacao_pendente`, que era APPROVED/UTILITY desde 25/09) | conferir na Meta (submetido 05/10) | Votação aberta, ainda não votou e o cargo tem competências na cédula; um por pessoa **por dia** (Brasília). Sem prazo: a votação só fecha quando o admin a desliga (R-117) |
 | `avaliacao_pendente` | APPROVED/UTILITY | Ainda não tem perfil comportamental (`perfil_dominante`); independe de cenários e respostas da avaliação técnica |
 | `avaliacao_competencias` | APPROVED/UTILITY | Tem perfil comportamental, cargo/cenários/top5 configurados e zero respostas |
 | `avaliacao_parcial` | APPROVED/UTILITY | Respondeu pelo menos um cenário, mas ainda não todos |
@@ -150,17 +163,25 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `avaliacao_pendente` | nome | **instituição** | link de `/dashboard/perfil-comportamental/mapeamento` | — | — |
 | `avaliacao_competencias` | nome | **competência** (`top5_workshop`) | link de `/dashboard/assessment` | — | — |
 | `boas_vindas_v2` | nome | **instituição** | link de `/entrar` | — | — |
-| `votacao_pendente` | nome | **instituição** | link de `/dashboard/votacao` | prazo: dia seguinte ao envio, em Brasília ("sábado, 26/09") | — |
+| `votacao_pendente_v3` ⏳ | nome | **instituição** | link de `/dashboard/votacao` | (3 variáveis: **sem prazo**) |  |
 | `votacao_competencias` ⛔ | — | — | — | — | **sem contrato** (MARKETING): nenhum caminho envia; nunca saiu |
-| `acesso_vertho` | *(corpo sem variável)* | | | | URL: `app.vertho.ai/entrar?t={{1}}` |
+| `acesso_vertho_v2` ⏳ (e o legado `acesso_vertho`, mesmo contrato) | *(corpo sem variável)* | | | | URL: `app.vertho.ai/entrar?t={{1}}` |
+
+⏳ = submetido em 05/10/2026, conferir o status na Meta. A v2 do lembrete de votação
+(`votacao_pendente`, com `{{4}}` de prazo) saiu dos contratos: o webhook do QStash a recusa (400,
+fail-closed), nenhum caminho a envia, e o texto dela segue só na Meta e nas mensagens já enviadas. O
+`acesso_vertho` legado fica com contrato (o mesmo do v2) até a env virar v2. `perfil_pendente` e
+`mapeamento_pendente` **não têm contrato** (não usados, §3.3): os convites seguem em
+`avaliacao_pendente` e `avaliacao_competencias`, acima.
 | `otp_acesso` | código | — | — | — | COPY_CODE nativo |
 
 ⚠️ **O link da missão vai SEM `formato`**, e isso é teste: semana de aplicação não entrega conteúdo
 novo, então anunciar formato prometeria o que não existe — a classe da R1 do health, que nasceu de 17
 pílulas anunciando "vídeo" numa semana sem vídeo.
 
-⚠️ **Corpo sem variável NÃO leva componente.** O `acesso_vertho` tem texto fixo; mandar
-`parameters: []` faz a Meta recusar a mensagem inteira. Ver `lib/whatsapp/cloud-api.ts:554`.
+⚠️ **Corpo sem variável NÃO leva componente.** O `acesso_vertho_v2` (e o legado `acesso_vertho`) tem
+texto fixo; mandar `parameters: []` faz a Meta recusar a mensagem inteira. Ver
+`lib/whatsapp/cloud-api.ts:554`.
 
 🔑 **Contrato ≠ preenchimento.** O `CONTRATOS` diz a ORDEM dos parâmetros; quem diz de ONDE sai cada
 valor é o mapa `RESOLVEDORES` em `lib/notifications/envio-template-lote.ts` — e os dois são
@@ -168,9 +189,9 @@ necessários, porque `{{2}}` é *instituição* num template e *competência* no
 resolvedor manual aparecem na tela. Os semanais usam a mesma semana acessível, plano e progresso da
 cadência canônica; não há uma segunda régua inventada pela interface.
 
-Ficam **fora da tela por decisão**: `acesso_vertho`/`otp_acesso` (carregam CREDENCIAL, gerada por
-pessoa — o caminho é o botão de magic link) e `recorte_demonstracao` (destinatário é lead, não
-colaborador).
+Ficam **fora da tela por decisão**: `acesso_vertho_v2`/`acesso_vertho`/`otp_acesso` (carregam
+CREDENCIAL, gerada por pessoa; o caminho é o botão de magic link) e `recorte_demonstracao`
+(destinatário é lead, não colaborador).
 
 ---
 
@@ -190,6 +211,32 @@ chama; a §2.1 registra os que saíram desse estado desde 16/08:
 | `boas_vindas` | UTILITY | Da fase Z-API. Sem contrato; o convite hoje sai por `acesso_vertho` |
 | `hello_world` | UTILITY | Amostra da Meta |
 
+### 2.0 Estado dos 4 submetidos em 05/10/2026 (R-47, R-48, R-50, R-117)
+
+Tabela de estado em 05/10/2026. **O estado real na Meta (PENDING, APPROVED, categoria,
+`correct_category`) se confere lá**, com
+`GET /{waba}/message_templates?fields=name,status,category,correct_category`, e não neste arquivo: a
+categoria de um template novo muda durante a revisão, e a que volta na criação é provisória.
+
+| Novo (submetido 05/10/2026) | Id na Meta | Substitui (continua APPROVED na Meta) | Estado no código | Achado |
+|---|---|---|---|---|
+| `acesso_vertho_v2` | 1333940663142012 | `acesso_vertho` | **Em uso** depois da troca da env. O `acesso_vertho` fica como **legado, mantido de propósito** em `TEMPLATES` e `CONTRATOS` até a env `WHATSAPP_TEMPLATE_ACESSO` virar v2: ela é Sensitive e não se lê de volta, então o login e o Beto seguem mandando o nome antigo até a troca. O Beto procura o último link pelos dois nomes (`ehTemplateDeAcesso`) | R-47 (15 minutos, a validade real é 1 hora) |
+| `votacao_pendente_v3` | 1808140096867051 | `votacao_pendente` (v2) | **Em uso** na tela de Envios. A v2 saiu de `TEMPLATES`, dos `CONTRATOS` e da tela: nenhum caminho a envia; o envio deixou de calcular e de mandar o prazo | R-117 |
+| `perfil_pendente` | 1075262552171268 | `avaliacao_pendente` | **NÃO usado, por decisão do dono.** Voltou MARKETING na Meta (custo ~6×). Sem registro em `TEMPLATES`, sem contrato, fora da tela: o convite do Perfil segue no `avaliacao_pendente` | R-48, R-50 (aceitos como estão) |
+| `mapeamento_pendente` | 1098192242605290 | `avaliacao_competencias` | **NÃO usado, por decisão do dono.** Voltou MARKETING na Meta (custo ~6×). Sem registro em `TEMPLATES`, sem contrato, fora da tela: o convite do Mapeamento segue no `avaliacao_competencias` | R-48, R-50 (aceitos como estão) |
+
+`avaliacao_parcial` e os demais não mudaram. Cada nome novo que entra só vale **depois de APPROVED**:
+antes disso a Meta recusa o envio (132001) e a tela de Envios mostra o template como indisponível.
+Para o `acesso`, a troca é a env (`printf '%s' acesso_vertho_v2 | vercel env add
+WHATSAPP_TEMPLATE_ACESSO …`, nunca `echo`), e a confirmação é a R13 do health: o log
+`[templates-ligados]` passa a mostrar `acesso=acesso_vertho_v2[APPROVED/UTILITY]`. O de nome fixo na
+tela de Envios (`votacao_pendente_v3`) não é lido pela R13 (ela só olha os papéis da cadência, por
+env); a tela mostra o status e a categoria vivos da Meta.
+
+⚠️ **Idempotência por `kind` no lembrete de votação.** Quem recebeu a v2 não conta como "já
+recebeu" no slot da v3 (a chave `votacao_pendente_v3:<pessoa>:dia:<AAAA-MM-DD>` mudou de prefixo): o
+primeiro lembrete da v3 pode repetir o do mesmo dia.
+
 ### 2.1 Os antigos “sem consumidor” agora têm disparo deliberado (01/09)
 
 Os seis que estavam sem fiação em 16/08 hoje têm contrato e resolvedor. Alguns também ganharam
@@ -206,7 +253,7 @@ exemplo, continua saindo apenas quando um humano escolhe e confirma o lote.
 | `avaliacao_pendente` | Tela de Envios | Mapeamento comportamental pendente, sem exigir cenários |
 | `avaliacao_parcial` | Tela de Envios | Progresso estritamente entre zero e o total |
 | `boas_vindas_v2` | Script + tela de Envios | Escopo explícito, WhatsApp e idempotência por template |
-| `votacao_pendente` | Tela de Envios | Votação aberta, sem voto registrado, cédula do cargo não vazia (`lib/votacao/cedula.ts`) |
+| `votacao_pendente_v3` (era `votacao_pendente`) | Tela de Envios | Votação aberta, sem voto registrado, cédula do cargo não vazia (`lib/votacao/cedula.ts`) |
 
 🔑 **Aprovar não é ligar, e ligar não é disparar.** Foram esses dois degraus que deixaram
 `resultado_perfil` aprovado e sem consumidor por semanas, com ~120 pessoas sem saber que o
@@ -285,6 +332,12 @@ Copiado e reconferido na Graph API até 01/09/2026 — é o corpo observado na c
 código acha que manda. Serve para revisar copy sem abrir o WhatsApp Manager e para conferir o
 `CONTRATOS` `{{n}}` a `{{n}}` antes de ligar qualquer papel. O
 `encerramento_conteudo` está marcado PENDING; os demais desta seção estão aprovados.
+
+🔁 **Exceção, os 2 de 05/10/2026 que entram:** `acesso_vertho_v2` e `votacao_pendente_v3` aparecem
+com o texto **SUBMETIDO** (byte a byte o que o código tem e o que os guards
+`tests/unit/integrations/whatsapp-template-*.test.ts` congelam), não com o observado: o estado
+deles na Meta se confere lá (§2.0). Os antigos que eles substituem ficam marcados como "texto
+antigo", porque é o que as mensagens já enviadas mostram.
 
 ⚠️ Ao editar copy aqui, lembre que **o texto é o que define a categoria**: nome do produto, urgência,
 pergunta engajadora, entusiasmo e reengajamento puxam para MARKETING (6× o custo). O que passa como
@@ -381,7 +434,18 @@ fixa não cabe em template reutilizável, e prazo é o que empurra a copy para o
 >
 > O plano é gerado a partir da sua avaliação de perfil e das competências do seu cargo.
 
-**`acesso_vertho`** · UTILITY · papel `acesso` — **corpo sem variável**, o dado vai no botão
+**`acesso_vertho_v2`** ⏳ · UTILITY · papel `acesso` · submetido 05/10/2026 (id 1333940663142012) ·
+**corpo sem variável**, o dado vai no botão
+
+> Seu link de acesso à Vertho foi gerado. Toque no botão abaixo para entrar.
+>
+> O link vale por 1 hora e só pode ser usado uma vez.
+>
+> _Rodapé:_ Não compartilhe este link com ninguém.
+> _Botão:_ **Acessar Vertho** → `https://app.vertho.ai/entrar?t={{1}}`
+
+**`acesso_vertho`** (legado, APPROVED/UTILITY) · texto antigo, ainda em uso enquanto a env
+`WHATSAPP_TEMPLATE_ACESSO` apontar para ele
 
 > Seu link de acesso à Vertho foi gerado. Toque no botão abaixo para entrar.
 >
@@ -391,12 +455,14 @@ fixa não cabe em template reutilizável, e prazo é o que empurra a copy para o
 > _Botão:_ **Acessar Vertho** → `https://app.vertho.ai/entrar?t={{1}}`
 
 ⚠️ **A validade real do link é 1 hora, não 15 minutos** (medido em 03/10/2026: `mailer_otp_exp =
-3600` no Supabase Auth; ver `lib/auth/validade-link.ts`). O corpo aprovado subestima, e trocar o
-texto é versão nova do template na Meta (decisão do dono). O e-mail e o WhatsApp em texto dizem
-1 hora; o Beto não cita número no texto que acompanha este template, para não contradizê-lo na
-mesma conversa, e usa a validade real para dizer se o link anterior foi usado ou expirou.
+3600` no Supabase Auth; ver `lib/auth/validade-link.ts`). O corpo do `acesso_vertho` subestima, e
+trocar o texto é versão nova do template na Meta: é o `acesso_vertho_v2`. O e-mail e o WhatsApp em
+texto dizem 1 hora; o Beto não cita número no texto que acompanha este template, para não
+contradizê-lo na mesma conversa enquanto a env puder apontar para o legado (o texto vale com os dois),
+e usa a validade real para dizer se o link anterior foi usado ou expirou. Depois da troca da env e da
+R13 confirmando a v2 em produção, citar "1 hora" no Beto passa a ser seguro.
 
-No Beto do WhatsApp, esse template é **obrigatório** (`whatsappTemplateRequired: true`): falha de
+No Beto do WhatsApp, o template de acesso é **obrigatório** (`whatsappTemplateRequired: true`): falha de
 template não cai no legado de texto livre e o token nunca passa pelo modelo de IA. O emissor
 preserva o `numeroId` que recebeu a conversa, aplica idempotência por mensagem, intervalo de 5
 minutos e teto de 3 links por telefone em 24 h. Administradores da plataforma usam o slug virtual
@@ -445,6 +511,22 @@ cron próprio para esse momento. A regra automática descrita no §1 é aplicada
 >
 > A avaliação leva cerca de 15 minutos e é ela que define a sua trilha de desenvolvimento.
 
+**`avaliacao_competencias`** · convite do Mapeamento, para quem já concluiu o Perfil
+
+> Olá, **{{1}}**. Você concluiu o mapeamento comportamental, mas sua avaliação de **{{2}}** ainda não foi iniciada.
+>
+> Você pode começar em:
+> **{{3}}**
+>
+> São 4 cenários, cerca de 10 minutos, e é ela que define a sua trilha de desenvolvimento.
+
+⚠️ **Três imprecisões conhecidas nos textos de convite, ACEITAS por decisão do dono (05/10/2026):**
+o `avaliacao_pendente` diz "cerca de 15 minutos" (a tela diz uns 5) e "é ela que define a sua
+trilha" (o Perfil não define trilha), e o `avaliacao_competencias` diz "São 4 cenários" (é 1 cenário
+com 4 perguntas por competência) e também "define a sua trilha". Os substitutos `perfil_pendente` e
+`mapeamento_pendente` (§3.3) voltaram MARKETING e não são usados: corrigir as imprecisões custaria
+~6× por mensagem.
+
 **`avaliacao_parcial`**
 
 > Olá, **{{1}}**. Sua avaliação está parcialmente respondida: **{{2}}** de **{{3}}** cenários registrados.
@@ -463,7 +545,17 @@ cron próprio para esse momento. A regra automática descrita no §1 é aplicada
 >
 > Se não reconhece este convite, é só responder a esta mensagem.
 
-**`votacao_pendente`** — lembrete da votação (v2), DEPOIS das boas-vindas
+**`votacao_pendente_v3`** ⏳ (lembrete da votação v3, **sem prazo**, DEPOIS das boas-vindas) ·
+submetido 05/10/2026 (id 1808140096867051) · substitui a v2 `votacao_pendente`
+
+> Olá, **{{1}}**. Seu voto na escolha das competências do seu cargo, no programa da **{{2}}**, ainda não foi registrado.
+>
+> Você pode votar em:
+> **{{3}}**
+>
+> A votação leva cerca de 5 minutos, e o resultado define as competências trabalhadas na Jornada.
+
+**`votacao_pendente`** (v2, APPROVED/UTILITY desde 25/09, substituída) · texto antigo, com o prazo que não existia
 
 > Olá, **{{1}}**. Seu voto na escolha das competências do seu cargo, no programa da **{{2}}**, ainda não foi registrado.
 >
@@ -490,8 +582,11 @@ O texto da v1, para comparação:
 >
 > Seu voto ajuda a definir as competências que o programa vai desenvolver.
 
-O prazo é "amanhã" em Brasília no momento do envio (decisão do dono). ⚠️ A mensagem PROMETE o
-prazo, mas quem fecha a votação é o admin, na aba Votação: o sistema não fecha sozinho às 23h59.
+A v2 (`votacao_pendente`) dava o prazo "amanhã" em Brasília no momento do envio (decisão do dono
+de 25/09). ⚠️ Mas a mensagem PROMETIA um prazo que o sistema não executa: quem fecha a votação é o
+admin, na aba Votação, e ele não fecha sozinho às 23h59 (R-117). A **v3 tira o prazo** (3
+variáveis) e o envio deixou de calculá-lo e de mandá-lo; se um dia o dono quiser um prazo, é ele
+que precisa existir na tela da votação antes de voltar para o texto.
 
 ---
 
@@ -567,26 +662,61 @@ de que a categoria não olha o assunto, olha a **intenção percebida**.
 
 ---
 
-## 3.3 Versões novas a submeter (propostas de 04/10/2026, NADA foi submetido à Meta)
+## 3.3 Versões novas SUBMETIDAS à Meta em 05/10/2026
 
-Texto aprovado lido direto na Meta em 04/10/2026 (status APPROVED, categoria UTILITY, pt_BR). Trocar o texto de um template é versão nova, com nome novo, e só vale depois de APPROVED. Cada proposta mantém o molde que a Meta aceitou como UTILITY (§3.1): informa, não promove, sem trecho que descreva o programa além do necessário. Antes de submeter, rodar o guard `tests/unit/integrations/whatsapp-templates.test.ts` contra o texto novo.
+O dono aprovou os textos e o coordenador os **submeteu** à Meta em 05/10/2026, os quatro com **nomes
+novos** (template aprovado não se edita sem nova revisão, e apagar um nome o queima). Os antigos
+seguem APPROVED na Meta. Cada proposta manteve o molde que a Meta aceitou como UTILITY (§3.1):
+informa, não promove, sem trecho que descreva o programa além do necessário.
 
-| Template atual | O que o texto aprovado diz de errado | Achado |
-|---|---|---|
-| `acesso_vertho` | "O link expira em 15 minutos", mas a validade real é 1 hora (`mailer_otp_exp = 3600`) | R-47 |
-| `avaliacao_pendente` | "A avaliação leva cerca de 15 minutos" (a tela diz uns 5) e "é ela que define a sua trilha" (o Perfil não define trilha); chama de avaliação o que o produto chama de Perfil | R-48, R-50 |
-| `avaliacao_competencias` | "avaliação de {{2}}" (o produto chama de Mapeamento); "São 4 cenários" (é 1 cenário com 4 perguntas por competência); "define a sua trilha" | R-48, R-50 |
-| `votacao_pendente` (v2) | Promete prazo "às 23h59", mas a votação só fecha quando o admin a desliga | R-117 |
+⚠️ **O estado real de cada um (PENDING ou APPROVED, a categoria e a `correct_category`) se confere na
+Meta, e não neste arquivo:**
 
-Textos propostos (variáveis na mesma ordem dos atuais, para o contrato em `lib/whatsapp/templates.ts` mudar só o nome):
+```bash
+GET /{WABA_ID}/message_templates?fields=name,status,category,correct_category
+```
 
-**`acesso_vertho_v2`** (sem variável no corpo; botão e rodapé iguais)
+A categoria que volta na submissão é provisória e pode mudar na revisão (§3.1, §5). Todos nasceram
+`PENDING/UTILITY`. Leitura do coordenador em 05/10/2026, que envelhece: `acesso_vertho_v2` e
+`votacao_pendente_v3` ficaram APPROVED/UTILITY, e `perfil_pendente` e `mapeamento_pendente` voltaram
+**MARKETING**.
 
-> Seu link de acesso à Vertho foi gerado. Toque no botão abaixo para entrar.
->
-> O link vale por 1 hora e só pode ser usado uma vez.
+| Novo | Id na Meta | Substitui | O que o texto aprovado dizia de errado | Achado | Decisão |
+|---|---|---|---|---|---|
+| `acesso_vertho_v2` | 1333940663142012 | `acesso_vertho` | "O link expira em 15 minutos", mas a validade real é 1 hora (`mailer_otp_exp = 3600`) | R-47 | **Entra** (APPROVED/UTILITY) |
+| `votacao_pendente_v3` | 1808140096867051 | `votacao_pendente` (v2) | Promete prazo "às 23h59", mas a votação só fecha quando o admin a desliga | R-117 | **Entra** (APPROVED/UTILITY) |
+| `perfil_pendente` | 1075262552171268 | `avaliacao_pendente` | "A avaliação leva cerca de 15 minutos" (a tela diz uns 5) e "é ela que define a sua trilha" (o Perfil não define trilha); chama de avaliação o que o produto chama de Perfil | R-48, R-50 | **NÃO usado** (MARKETING, ~6×) |
+| `mapeamento_pendente` | 1098192242605290 | `avaliacao_competencias` | "avaliação de {{2}}" (o produto chama de Mapeamento); "São 4 cenários" (é 1 cenário com 4 perguntas por competência); "define a sua trilha" | R-48, R-50 | **NÃO usado** (MARKETING, ~6×) |
 
-**`perfil_pendente`** (substitui `avaliacao_pendente`; mesmas 3 variáveis: nome, instituição, link)
+### Os dois que entram
+
+Os textos submetidos, com as variáveis, estão na §3.2 (blocos marcados com ⏳), byte a byte o que o
+código tem.
+
+- `acesso_vertho_v2`: só a frase da validade (15 minutos viram 1 hora); botão e rodapé iguais, sem
+  variável no corpo. O exemplo submetido é o do botão,
+  `https://app.vertho.ai/entrar?t=ibipeba~pkce_a1b2c3d4e5f6a7b8`. Depois de APPROVED, a env
+  `WHATSAPP_TEMPLATE_ACESSO` passa a `acesso_vertho_v2` (gravar com `printf '%s'`, nunca `echo`) e o
+  log `[templates-ligados]` da R13 confirma. Até lá o texto antigo segue valendo, e o app já diz a
+  validade real de 1 hora em todo texto que não é template.
+- `votacao_pendente_v3`: 3 variáveis (nome, instituição, link). **Sai a `{{4}}` do prazo**, e o envio
+  (`lib/notifications/envio-template-lote.ts` e a tela de Envios) deixou de calcular e de mandar o
+  prazo. Exemplo submetido: Maria, 4Life Educação,
+  `https://4life-educacao.vertho.ai/dashboard/votacao`. Nome fixo na tela de Envios: nada a
+  configurar, e a tela mostra o status vivo da Meta (PENDING aparece indisponível). Se o dono quiser
+  um prazo no futuro, é ele que precisa existir na tela da votação.
+
+### Os dois submetidos e NÃO usados
+
+`perfil_pendente` (id 1075262552171268) e `mapeamento_pendente` (id 1098192242605290) foram
+submetidos em 05/10/2026, **voltaram MARKETING** na Meta e **NÃO são usados, por decisão do dono**
+(custo ~6× por mensagem). Os convites do Perfil e do Mapeamento **seguem nos textos antigos**
+`avaliacao_pendente` e `avaliacao_competencias`, que continuam APPROVED/UTILITY. Por isso o código não
+os registra em `TEMPLATES`, não tem contrato para eles e a tela de Envios não os oferece.
+
+O texto submetido de cada um, caso a decisão mude (variáveis na mesma ordem dos antigos):
+
+**`perfil_pendente`** (nome, instituição, link)
 
 > Olá, **{{1}}**. Seu Perfil comportamental no programa da **{{2}}** ainda não foi iniciado.
 >
@@ -595,7 +725,7 @@ Textos propostos (variáveis na mesma ordem dos atuais, para o contrato em `lib/
 >
 > O Perfil leva uns 5 minutos.
 
-**`mapeamento_pendente`** (substitui `avaliacao_competencias`; mesmas 3 variáveis: nome, competência, link)
+**`mapeamento_pendente`** (nome, competência, link)
 
 > Olá, **{{1}}**. Você concluiu o Perfil comportamental, mas o seu Mapeamento de **{{2}}** ainda não foi iniciado.
 >
@@ -604,20 +734,19 @@ Textos propostos (variáveis na mesma ordem dos atuais, para o contrato em `lib/
 >
 > É um cenário com 4 perguntas, em cerca de 10 minutos. Ele orienta o conteúdo da sua Jornada.
 
-**`votacao_pendente_v3`** (3 variáveis: nome, instituição, link; sai o prazo)
+Exemplos submetidos: `perfil_pendente` = Maria, Secretaria Municipal de Ibipeba/BA,
+`https://ibipeba.vertho.ai/dashboard`; `mapeamento_pendente` = Maria, Autocuidado e bem-estar
+profissional, `https://macae.vertho.ai/dashboard/assessment`. O "cerca de 10 minutos" do Mapeamento é
+o do texto antigo aprovado, **não foi medido**.
 
-> Olá, **{{1}}**. Seu voto na escolha das competências do seu cargo, no programa da **{{2}}**, ainda não foi registrado.
->
-> Você pode votar em:
-> **{{3}}**
->
-> A votação leva cerca de 5 minutos, e o resultado define as competências trabalhadas na Jornada.
+⚠️ **Imprecisões conhecidas e ACEITAS nos textos antigos de convite**, enquanto os novos não forem
+usados: `avaliacao_pendente` diz "cerca de 15 minutos" (a tela diz uns 5) e "é ela que define a sua
+trilha" (o Perfil não define trilha); `avaliacao_competencias` diz "São 4 cenários" (é 1 cenário com
+4 perguntas por competência) e "define a sua trilha". São as três imprecisões da revisão (R-48 e
+R-50), aceitas pelo dono porque corrigi-las custaria ~6× em cada convite.
 
-Pontos a confirmar com o dono antes de submeter:
-- O tempo do Mapeamento ("cerca de 10 minutos") é o do texto aprovado, não foi medido. O Perfil em 5 minutos é o que a tela diz.
-- `votacao_pendente_v3` perde a variável `{{4}}`: o envio (`lib/votacao/*` e a tela de Envios) deixa de calcular e mandar o prazo. Se o dono preferir manter um prazo, é ele quem precisa existir na tela da votação.
-- Depois de APPROVED, trocar o nome em `lib/whatsapp/templates.ts` (os de nome fixo na tela) ou a env do papel (`WHATSAPP_TEMPLATE_ACESSO`), e conferir no log `[templates-ligados]`. Até lá, o texto antigo segue valendo e o app já diz a validade real de 1 hora em todo texto que não é template.
-- `avaliacao_parcial` ("X de Y cenários registrados") não entra nesta proposta; conferir se a unidade "cenário" ainda é a que a tela de resposta do Mapeamento mostra antes de decidir.
+`avaliacao_parcial` ("X de Y cenários registrados") não entrou: conferir se a unidade "cenário" ainda
+é a que a tela de resposta do Mapeamento mostra antes de decidir.
 
 ## 4. Como conferir sem confiar neste arquivo
 
@@ -634,7 +763,11 @@ npx tsx scripts/_testar-template.ts --papel=pilula --telefone=55… --slug=ibipe
 ```
 
 E o que está ligado **em produção** sai no log `[templates-ligados]` a cada health estrutural —
-papel desligado aparece como `(desligado)`, que é o caso que o silêncio esconde.
+papel desligado aparece como `(desligado)`, que é o caso que o silêncio esconde. Depois da troca da
+env do acesso, a linha mostra `acesso=acesso_vertho_v2[APPROVED/UTILITY]`; se a env for trocada ANTES
+de o v2 estar APPROVED, a R13 acusa `template-ligado-nao-aprovado` (crítico) e a mensagem não sai. Os
+templates de nome fixo da tela de Envios (como o `votacao_pendente_v3`) não passam pela R13: o status
+e a categoria deles estão na própria tela.
 
 ### 4.1 Disparo MANUAL: o nome vem do `CONTRATOS`, não do papel
 
