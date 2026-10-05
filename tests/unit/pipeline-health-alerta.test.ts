@@ -43,6 +43,42 @@ describe('montarAlerta', () => {
     expect(montarAlerta([])).toBeNull();
   });
 
+  // Análise de segurança de 05/10/2026: a amostra do alerta leva NOME de pessoa digitado
+  // por RH de cliente, e o e-mail vai para os platform admins. Sem escape, um nome com
+  // `<a href=//evil>` virava link de phishing dentro do alerta interno.
+  it('🔴 nome de pessoa com HTML não vira marcação no e-mail dos admins', () => {
+    const a = montarAlerta([run({
+      achados: [{
+        id: 'x', severidade: 'critico', titulo: 'Sem telefone <b>x</b>', contagem: 1,
+        detalhe: 'ver <script>alert(1)</script>',
+        amostra: ['<a href="//evil.example">reautentique aqui</a>'],
+        acao: 'npx tsx scripts/_gerar-kits-faltantes.ts <semana> --executar',
+      }],
+      empresaSlug: 'ibipeba<img src=x>', erro: 'falha "feia" <i>',
+    })]);
+    const html = a!.html;
+    expect(html).not.toContain('<a href="//evil.example">');
+    expect(html).not.toContain('<script>');
+    expect(html).not.toContain('<img src=x>');
+    expect(html).not.toContain('<b>x</b>');
+    expect(html).toContain('&lt;a href=&quot;//evil.example&quot;&gt;reautentique aqui&lt;/a&gt;');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(html).toContain('ibipeba&lt;img src=x&gt;');
+    expect(html).toContain('falha &quot;feia&quot; &lt;i&gt;');
+  });
+
+  it('a ação com <semana> aparece escrita, em vez de sumir como tag', () => {
+    const a = montarAlerta([run({
+      achados: [{ id: 'x', severidade: 'critico', titulo: 'T', contagem: 1, detalhe: 'd', acao: 'npx tsx x.ts <semana> --executar' }],
+    })]);
+    expect(a!.html).toContain('npx tsx x.ts &lt;semana&gt; --executar');
+  });
+
+  it('o assunto é texto, não HTML: não leva entidades', () => {
+    const a = montarAlerta([run({ empresaSlug: 'a&b' })]);
+    expect(a!.assunto).not.toContain('&amp;');
+  });
+
   it('sem dataAlvo em modo de entrega, não inventa data', () => {
     const a = montarAlerta([run({ dataAlvo: null })]);
     expect(a?.assunto).toContain('hoje');   // fallback explícito, não uma data falsa

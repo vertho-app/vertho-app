@@ -21,6 +21,7 @@ import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './ty
 import { PRAZO_VIDEO_EM_PROCESSAMENTO_MS, STATUS_VIDEO_EM_PROCESSAMENTO } from '@/lib/video/prazo-processamento';
 import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarCenarioBHorizonte, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados, checarTaxaRetakeTts, checarCanarioTts, checarCalibracaoVoz } from './regras';
 import { ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
+import { escaparHtml } from '@/lib/i18n-email-templates';
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
 import { inspecionarCloudApi } from '@/lib/whatsapp/cloud-api';
 import { inspecionarTemplatesLigados } from '@/lib/whatsapp/templates-ligados';
@@ -534,15 +535,22 @@ export function montarAlerta(resultados: ResultadoCheck[]): { assunto: string; h
   const escopo = soDe('horizonte') ? `${total} lacuna(s) de conteúdo nas próximas semanas`
     : soDe('estrutural') ? `${total} problema(s) de integridade`
     : `${total} problema(s) na entrega de ${dataAlvo || 'hoje'}`;
+  // Tudo que entra no HTML é escapado: título, detalhe, amostra e ação trazem NOME
+  // de pessoa e de empresa digitados por RH de cliente (`regras.ts` monta a
+  // amostra com `e.nome`/`p.nome`), e este e-mail vai para os platform admins. Um
+  // nome com `<a href=//evil>` virava link de phishing dentro do alerta interno
+  // (análise de 05/10/2026). A ação `... <semana> --executar` também sumia: o
+  // cliente de e-mail lia `<semana>` como tag.
+  const esc = (v: unknown) => escaparHtml(String(v ?? ''));
   const linhas = graves.map((r) => {
     const itens = r.achados.map((a) => `
       <li style="margin:8px 0">
-        <strong>${a.titulo}</strong> — ${a.contagem}<br>
-        <span style="color:#555;font-size:13px">${a.detalhe}</span>
-        ${a.amostra?.length ? `<br><span style="color:#777;font-size:12px">${a.amostra.join(' · ')}</span>` : ''}
-        ${a.acao ? `<br><span style="color:#0b6;font-size:12px">→ ${a.acao}</span>` : ''}
+        <strong>${esc(a.titulo)}</strong> — ${a.contagem}<br>
+        <span style="color:#555;font-size:13px">${esc(a.detalhe)}</span>
+        ${a.amostra?.length ? `<br><span style="color:#777;font-size:12px">${a.amostra.map(esc).join(' · ')}</span>` : ''}
+        ${a.acao ? `<br><span style="color:#0b6;font-size:12px">→ ${esc(a.acao)}</span>` : ''}
       </li>`).join('');
-    return `<p style="margin:16px 0 4px"><strong>${r.empresaSlug || r.empresaId || 'global'}</strong> · ${r.modo}${r.erro ? ` · <span style="color:#c00">erro: ${r.erro}</span>` : ''}</p><ul style="padding-left:18px;margin:0">${itens}</ul>`;
+    return `<p style="margin:16px 0 4px"><strong>${esc(r.empresaSlug || r.empresaId || 'global')}</strong> · ${esc(r.modo)}${r.erro ? ` · <span style="color:#c00">erro: ${esc(r.erro)}</span>` : ''}</p><ul style="padding-left:18px;margin:0">${itens}</ul>`;
   }).join('');
   return {
     assunto: `[Vertho] ${escopo}`,
