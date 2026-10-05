@@ -19,11 +19,16 @@
 export const CODIGO_LIMITE_DESTINO = 'limite-destino';
 
 /**
- * Pedido de link por WhatsApp feito no endereço genérico (`app.vertho.ai`), que
- * não tem organização (R-76). Depende só do ENDEREÇO, nunca do número: dizer
- * isso não revela se o telefone está cadastrado.
+ * Pedido de link por WhatsApp feito no endereço genérico (`app.vertho.ai`) para
+ * um número que está em DUAS ou mais organizações: a resposta traz `orgs` e a
+ * tela pergunta em qual entrar (R-76).
+ *
+ * Não é erro, então não tem chave de tradução: quem monta a pergunta é a tela,
+ * com os mesmos textos da escolha de organização do e-mail. Até 04/10/2026 este
+ * pedido recebia 400 `sem-organizacao`, porque descobrir a organização pelo
+ * número exigia ler o cadastro de todas as empresas.
  */
-export const CODIGO_SEM_ORGANIZACAO = 'sem-organizacao';
+export const CODIGO_ESCOLHER_ORGANIZACAO = 'escolher-organizacao';
 
 /** E-mail ausente ou sem forma de e-mail. */
 export const CODIGO_EMAIL_INVALIDO = 'email-invalido';
@@ -48,7 +53,6 @@ export const CODIGO_FALHA_NO_CADASTRO = 'falha-no-cadastro';
 
 const CHAVE_POR_CODIGO = {
   [CODIGO_LIMITE_DESTINO]: 'errors.tooManyLinks',
-  [CODIGO_SEM_ORGANIZACAO]: 'errors.whatsappNeedsOrganization',
   [CODIGO_EMAIL_INVALIDO]: 'errors.invalidEmail',
   [CODIGO_TELEFONE_INVALIDO]: 'errors.invalidWhatsapp',
   [CODIGO_FALHA_NO_ENVIO]: 'errors.sendLink',
@@ -71,6 +75,28 @@ export function chaveDoErroDoPedido(resposta: unknown): ChaveDeErroDoPedido | nu
   const codigo = resposta && typeof resposta === 'object' ? (resposta as { codigo?: unknown }).codigo : null;
   if (typeof codigo !== 'string' || !Object.prototype.hasOwnProperty.call(CHAVE_POR_CODIGO, codigo)) return null;
   return CHAVE_POR_CODIGO[codigo as keyof typeof CHAVE_POR_CODIGO];
+}
+
+/**
+ * A lista de organizações que o pedido por WhatsApp devolveu para a pessoa
+ * escolher, ou `null` quando não há o que perguntar.
+ *
+ * Só vale com o código certo E com 2 ou mais itens bem formados: uma lista de 1
+ * não é escolha, e a rota nunca a manda (revelaria onde a pessoa trabalha sem
+ * necessidade). A tela não monta botão com item malformado, por isso um item
+ * ruim derruba a lista inteira.
+ */
+export function organizacoesParaEscolher(resposta: unknown): Array<{ slug: string; nome: string }> | null {
+  if (!resposta || typeof resposta !== 'object') return null;
+  const r = resposta as { codigo?: unknown; orgs?: unknown };
+  if (r.codigo !== CODIGO_ESCOLHER_ORGANIZACAO || !Array.isArray(r.orgs) || r.orgs.length < 2) return null;
+  const lista: Array<{ slug: string; nome: string }> = [];
+  for (const o of r.orgs) {
+    const item = o as { slug?: unknown; nome?: unknown } | null;
+    if (!item || typeof item.slug !== 'string' || !item.slug || typeof item.nome !== 'string' || !item.nome) return null;
+    lista.push({ slug: item.slug, nome: item.nome });
+  }
+  return lista;
 }
 
 /**

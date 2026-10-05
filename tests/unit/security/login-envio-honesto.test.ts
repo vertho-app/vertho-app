@@ -54,7 +54,7 @@ const telefoneLink = await import('@/app/api/auth/phone-magic-link/request/route
 const cadastro = await import('@/app/api/auth/signup/route');
 const { NextRequest } = await import('next/server');
 const {
-  CODIGO_SEM_ORGANIZACAO, chaveDoErroDoPedido, confirmacaoDoEnvio, cadastroSemLink,
+  chaveDoErroDoPedido, confirmacaoDoEnvio, cadastroSemLink,
 } = await import('@/lib/auth/login-respostas');
 
 function req(host: string, caminho: string, corpo: unknown) {
@@ -76,21 +76,22 @@ beforeEach(() => {
   contaExiste = false;
 });
 
+// Até 04/10/2026 o endereço genérico respondia 400 `sem-organizacao` aqui. Agora a
+// organização sai do número (a lista, a escolha, o link no host do tenant e a
+// anti-enumeração estão em `login-whatsapp-endereco-generico.test.ts`).
 describe('R-76 · 1. WhatsApp no endereço genérico', () => {
-  it('🔴 responde que não sabe a organização, em vez de "ok" sem enviar', async () => {
+  it('🔴 número sem cadastro: a mesma resposta do host de tenant, e nada é enviado', async () => {
+    slugDoHost = 'macae';
+    const noTenant = await telefoneLink.POST(req('macae.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22997612255' }));
     slugDoHost = null;
-    const r = await telefoneLink.POST(req('app.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22997612255' }));
-    expect(r.status).toBe(400);
-    const corpo = await r.json();
-    expect(corpo.codigo).toBe(CODIGO_SEM_ORGANIZACAO);
-    expect(chaveDoErroDoPedido(corpo)).toBe('errors.whatsappNeedsOrganization');
+    const noGenerico = await telefoneLink.POST(req('app.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22997612255' }));
+    expect(noGenerico.status).toBe(200);
+    expect(await noGenerico.json()).toEqual(await noTenant.json());
     expect(enviados).toHaveLength(0);
   });
 
-  it('a resposta depende só do endereço: nem consulta o cadastro (não revela o número)', async () => {
-    slugDoHost = null;
-    await telefoneLink.POST(req('app.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22997612255' }));
-    expect(sb.chamadas.filter((c) => c.tabela === 'colaboradores')).toHaveLength(0);
+  it('o código que dizia "não sei a sua organização" deixou de existir', () => {
+    expect(chaveDoErroDoPedido({ codigo: 'sem-organizacao' })).toBeNull();
   });
 });
 
@@ -120,7 +121,6 @@ describe('R-76 · 2. telefone sem cadastro para WhatsApp', () => {
       for (const chave of ['linkRequestedTitle', 'linkRequestedEmail', 'linkRequestedWhatsapp', 'linkRequestedHint']) {
         expect(typeof m[chave], `${locale}.${chave}`).toBe('string');
       }
-      expect(typeof m.errors.whatsappNeedsOrganization).toBe('string');
       expect(typeof m.signup.createdWithoutLink).toBe('string');
     }
     const pt = JSON.parse(readFileSync('messages/pt-BR.json', 'utf8')).Login;

@@ -9,7 +9,7 @@ import { locales } from '@/i18n/routing';
 import SignupModal from './signup-modal';
 import AvisoNavegadorEmbutido from '@/components/auth/aviso-navegador-embutido';
 import { ehCaminhoLocal } from '@/lib/auth/caminho-local';
-import { chaveDoErroDoPedido, confirmacaoDoEnvio, type ConfirmacaoDoEnvio } from '@/lib/auth/login-respostas';
+import { chaveDoErroDoPedido, confirmacaoDoEnvio, organizacoesParaEscolher, type ConfirmacaoDoEnvio } from '@/lib/auth/login-respostas';
 import { chaveDoAvisoDeLink } from '@/lib/auth/aviso-de-link';
 // O painel da equipe Vertho não é um tenant: ele vive no endereço genérico
 // (`app.vertho.ai`), e é o `next` pedido, não o cadastro, que faz a sessão
@@ -55,9 +55,13 @@ export default function LoginForm({
   const [envio, setEnvio] = useState<ConfirmacaoDoEnvio>('enviado');
   const [errorMsg, setErrorMsg] = useState('');
   const [showSignup, setShowSignup] = useState(false);
-  // Organizações do e-mail quando o login não vem de um subdomínio de tenant.
-  // Vazio = nada a perguntar (o caso normal: subdomínio, ou uma empresa só).
+  // Organizações do e-mail OU do WhatsApp quando o login não vem de um
+  // subdomínio de tenant. Vazio = nada a perguntar (o caso normal: subdomínio, ou
+  // uma empresa só).
   const [orgs, setOrgs] = useState<Array<{ slug: string; nome: string }>>([]);
+  // De qual canal veio a lista: a escolha reenvia o pedido por ele, e o "voltar"
+  // diz "outro e-mail" ou "outro número".
+  const [orgsCanal, setOrgsCanal] = useState<'email' | 'whatsapp'>('email');
   const router = useRouter();
   const supabase = getSupabase();
 
@@ -226,6 +230,7 @@ export default function LoginForm({
       const listaOrgs: Array<{ slug: string; nome: string }> =
         Array.isArray(check.orgs) ? check.orgs : [];
       if (listaOrgs.length > 1) {
+        setOrgsCanal('email');
         setOrgs(listaOrgs);
         setStatus('idle');
         return;
@@ -308,8 +313,15 @@ export default function LoginForm({
    * de `/api/auth/phone-otp/verify`. As rotas públicas sem tela saíram em
    * seguida (`phone-otp/request`, `phone-otp/verify` e `magic-link-whatsapp`,
    * R-77): permitiam enumerar e-mails e disparar código e SMS pagos.
+   *
+   * 🔑 No endereço genérico (`app.vertho.ai`) a organização sai do NÚMERO, como
+   * no e-mail sai do `check-email` (R-76, decisão do dono de 04/10/2026). Se o
+   * número está em 2 ou mais organizações, a rota devolve a lista em vez de
+   * enviar, a tela pergunta em qual entrar e o pedido volta com `empresaSlug`.
+   * Com 1 ou nenhuma, a resposta é a mesma de sempre: a tela não sabe se algo
+   * saiu e fala no condicional.
    */
-  async function submitWhatsapp(digits: string) {
+  async function submitWhatsapp(digits: string, empresaSlug?: string) {
     if (digits.length < 10) {
       setErrorMsg(t('errors.invalidWhatsapp'));
       setStatus('error');
@@ -321,12 +333,27 @@ export default function LoginForm({
       const res = await fetch('/api/auth/phone-magic-link/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telefone: digits, redirectTo: `${window.location.origin}${redirectTo}`, locale }),
+        body: JSON.stringify({
+          telefone: digits,
+          redirectTo: `${window.location.origin}${redirectTo}`,
+          locale,
+          ...(empresaSlug ? { empresaSlug } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok || data?.error) {
         setErrorMsg(erroDoPedido(data));
         setStatus('error');
+        return;
+      }
+      // A lista só é pergunta quando a pessoa ainda não escolheu: com a escolha
+      // na mão, uma lista de volta não é o que a rota responde, e seguir
+      // perguntando seria um laço.
+      const escolha = empresaSlug ? null : organizacoesParaEscolher(data);
+      if (escolha) {
+        setOrgsCanal('whatsapp');
+        setOrgs(escolha);
+        setStatus('idle');
         return;
       }
       // A porta do WhatsApp responde igual para número cadastrado e não
@@ -440,7 +467,11 @@ export default function LoginForm({
                 key={org.slug}
                 type="button"
                 disabled={status === 'loading'}
-                onClick={() => { setOrgs([]); enviarMagicLink(email.trim().toLowerCase(), org.slug); }}
+                onClick={() => {
+                  setOrgs([]);
+                  if (orgsCanal === 'whatsapp') submitWhatsapp(phone.replace(/\D/g, ''), org.slug);
+                  else enviarMagicLink(email.trim().toLowerCase(), org.slug);
+                }}
                 className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-inherit text-base cursor-pointer transition-colors hover:bg-white/[0.14] disabled:opacity-60"
                 onFocus={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = accentColor)}
                 onBlur={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = '')}
@@ -454,7 +485,7 @@ export default function LoginForm({
               className="mt-1 text-sm font-medium hover:underline"
               style={{ color: accentColor }}
             >
-              {t('useAnotherEmail')}
+              {orgsCanal === 'whatsapp' ? t('useAnotherNumber') : t('useAnotherEmail')}
             </button>
             {status === 'error' && errorMsg && (
               <p className="text-danger text-sm mt-1">{errorMsg}</p>

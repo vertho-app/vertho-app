@@ -219,7 +219,7 @@ describe('o teto por endereço (IP) também chega com código', () => {
 
 describe('a tela traduz pelo código, nos 4 idiomas', () => {
   const CODIGOS = [
-    login.CODIGO_LIMITE_DESTINO, login.CODIGO_SEM_ORGANIZACAO, login.CODIGO_EMAIL_INVALIDO, login.CODIGO_TELEFONE_INVALIDO,
+    login.CODIGO_LIMITE_DESTINO, login.CODIGO_EMAIL_INVALIDO, login.CODIGO_TELEFONE_INVALIDO,
     login.CODIGO_FALHA_NO_ENVIO, login.CODIGO_CANAL_INDISPONIVEL, login.CODIGO_FALHA_AO_VERIFICAR, login.CODIGO_LIMITE_DE_PEDIDOS,
     login.CODIGO_CADASTRO_INDISPONIVEL, login.CODIGO_EMAIL_JA_CADASTRADO, login.CODIGO_NOME_OBRIGATORIO, login.CODIGO_FALHA_NO_CADASTRO,
   ];

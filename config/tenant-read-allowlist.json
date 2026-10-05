@@ -18,6 +18,7 @@
     "app/api/webhooks/whatsapp-cloud/route.ts": 1,
     "app/api/auth/check-email/route.ts": 1,
     "app/api/auth/magic-link/route.ts": 1,
+    "app/api/auth/phone-magic-link/request/route.ts": 1,
     "app/api/internal/pregerar-podcast/route.ts": 1,
     "app/api/relatorios/pdf/route.ts": 3,
     "app/api/temporada/evaluation/route.ts": 1,

@@ -191,4 +191,28 @@ describe('R-79 · as rotas usam o teto antes de gerar link', () => {
     expect((await r.json()).codigo).toBe(CODIGO_LIMITE_DESTINO);
     expect(enviados).toHaveLength(LINKS_POR_DESTINO_HORA);
   });
+
+  it('🔴 WhatsApp no endereço genérico (R-76): o 6º pedido volta 429 e já não consulta o cadastro', async () => {
+    slugDoHost = null;
+    const noGenerico = (telefone: string) => telefoneLink.POST(new NextRequest('https://app.vertho.ai/api/auth/phone-magic-link/request', {
+      method: 'POST',
+      headers: { ...headersDeUmIpNovo(), host: 'app.vertho.ai', 'x-forwarded-host': 'app.vertho.ai' },
+      body: JSON.stringify({ telefone, redirectTo: 'https://app.vertho.ai/dashboard' }),
+    }) as any);
+
+    for (let i = 0; i < LINKS_POR_DESTINO_HORA; i++) {
+      const r: any = await noGenerico('22997610002');
+      expect(r.status).toBe(200);
+    }
+    // Cada um dos pedidos acima descobriu a organização pelo número: é a leitura
+    // do cadastro que o teto precisa segurar.
+    const consultasAntes = sb.chamadas.length;
+    expect(consultasAntes).toBeGreaterThan(0);
+
+    const r: any = await noGenerico('22997610002');
+    expect(r.status).toBe(429);
+    expect((await r.json()).codigo).toBe(CODIGO_LIMITE_DESTINO);
+    expect(sb.chamadas).toHaveLength(consultasAntes);
+    expect(enviados).toHaveLength(0);
+  });
 });
