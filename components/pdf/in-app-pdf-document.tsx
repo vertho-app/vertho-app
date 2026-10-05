@@ -151,8 +151,9 @@ export default function InAppPdfDocument({
     return () => {
       cancelled = true;
       controller.abort();
+      // No pdf.js 6 o documento não tem mais `destroy()`: destruir a tarefa de carga derruba o
+      // worker e o documento junto (era o que `loadedDocument.destroy()` fazia por baixo).
       void loadingTask?.destroy();
-      void loadedDocument?.destroy();
     };
   }, [attempt, src]);
 

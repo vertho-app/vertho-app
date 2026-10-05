@@ -32,7 +32,7 @@ async function main() {
       if (error || !blob) throw new Error(error?.message || 'download vazio');
       const doc = await getDocument({
         data: new Uint8Array(await blob.arrayBuffer()),
-        standardFontDataUrl, useWorkerFetch: false, isEvalSupported: false, disableFontFace: true,
+        standardFontDataUrl, useWorkerFetch: false, disableFontFace: true,
       }).promise;
       let achou = false;
       for (let p = 1; p <= doc.numPages; p++) {
