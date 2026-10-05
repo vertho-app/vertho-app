@@ -13,6 +13,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireCommercialAdminAction } from '@/lib/sales/permissions';
 import { draftChargebackEvent } from '@/lib/sales/commissions';
 import type { SalesCommissionEvent } from '@/lib/sales/types';
+import { celulaCsv } from '@/lib/simuladores/csv';
 
 const ADMIN_EVENT_SELECT = `*,
   account:sales_accounts (id, legal_name, trade_name),
@@ -128,9 +129,14 @@ export async function registrarEstorno(input: { representanteId: string; account
 export async function exportComissoesCSV(filters?: { representanteId?: string; status?: string; mes?: string }) {
   const r = await getCommissionEventsAdmin(filters);
   if (!r.success) return r;
+  // Texto sai por `celulaCsv`, que neutraliza fórmula (`=`, `+`, `-`, `@`): o
+  // `legal_name` da conta é digitado pelo RC e o financeiro abre este arquivo no
+  // Excel (análise de 05/10/2026). Número sai cru: `-150.5` é um ESTORNO, não uma
+  // fórmula, e um apóstrofo na frente o transformaria em texto na soma da planilha.
+  const NUMERO = /^-?\d+(\.\d+)?$/;
   const esc = (v: any) => {
     const s = v == null ? '' : String(v);
-    return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    return NUMERO.test(s) ? s : celulaCsv(s);
   };
   const header = ['representante', 'cliente', 'proposta', 'tipo', 'status', 'competencia', 'base', 'percent', 'valor', 'previsao_pagamento', 'nota_fiscal', 'pago_em'];
   const lines = [header.join(';')];
