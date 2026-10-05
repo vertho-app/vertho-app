@@ -1515,3 +1515,25 @@ Padrão que casa: paleta extraída do site do cliente · `resolveTheme` · `bg_g
 - [ ] **`tsc --noEmit | grep` não prova nada se o `tsc` morrer.** Sem memória ele sai com `exit 134` e o grep devolve vazio, que parece "limpo". Use `NODE_OPTIONS=--max-old-space-size=8192` e leia o exit code.
 
 **Consequência medida (30/09/2026, Amazon Bowling):** a extração trazia cor de framework WordPress como marca, a IA inventou `#F26100` e forçou fundo escuro; depois o fundo claro configurado chegou ao dashboard e o título ficou branco sobre amarelo. Memória `project_branding_paleta_site`.
+
+## § Vou trocar o TEXTO PADRÃO de um documento que o cliente lê (exemplo, caso, amostra, constante por segmento)
+
+Padrão que casa: `CENARIO` / `ENTREGAS` / `PERSONALIZACAO` ou qualquer `Record<ProposalSegmento, …>` em `lib/sales/proposal-document.ts` · texto fixo em `components/pdf/PropostaComercialPDF.tsx` ou `app/proposta/[token]/page.tsx` · "troque o exemplo por…".
+
+- [ ] **Quem mais recebe esse texto HOJE?** Consulte o banco antes de trocar: `select proposal_number, status, customer_type, view_count, coalesce(cliente_nome,'(sem nome)') from sales_proposals where coalesce(customer_type,'') not in ('escola','rede_ensino')`. A troca vale para TODAS, inclusive as muito vistas e as sem nome (que você nem sabe de quem são).
+- [ ] **A troca resolve para quem reclamou SEM inverter o problema para os outros?** Se o texto depende do cliente (cargo, setor), o lugar dele é a proposta (`cenario_exemplo`, mig 277), e a constante é só o padrão NEUTRO.
+- [ ] **Ordem que protege o link vivo:** migration → gravar o dado nas propostas que já foram compartilhadas → push. No sentido inverso, o cliente vê o texto errado entre o deploy e o dado.
+- [ ] **Olhou a IMAGEM do PDF?** Rótulo em caixa alta acima de 33 caracteres quebra e deixa uma palavra órfã; nenhum teste enxerga isso.
+
+**Consequência medida (05/10/2026):** o exemplo era uma expedição de caminhões e chegou a uma rede de academias; a troca por um gerente de loja, feita sem esta consulta, passou a mostrar o caso da academia em 4 outras propostas corporativas (PROP-2026-0008 com 113 visualizações). Quem apontou foi a pergunta do dono ("foi feito aqui ou vai ser sempre assim?"). Memória `project_proposta_documento_cliente`.
+
+## § Vou chamar `callAI`/`callAIChat` com `taskKey` fora de um tenant (prospect, comercial, sonda)
+
+Padrão que casa: arquivo novo em `lib/sales/`, `lib/copiloto/`, `app/api/copiloto/` ou qualquer `callAI(…, { taskKey: … })` sem `empresaId` nas opções.
+
+- [ ] **O `ledger-empresa-id-guard` reprova call-site novo sem `empresaId`.** Se de fato não há tenant, declare as chaves `arquivo:taskKey` em `config/ledger-sem-empresa-allowlist.json` com o motivo (precedente: Copiloto, "prospect não é tenant"; exemplo de cenário da proposta). Essa lista é zona 🔴 do dono: diga isso na entrega. NUNCA invente um `empresaId` para calar o guard.
+- [ ] **Reaproveitar task existente ou criar nova?** Task nova pede registro em seis lugares de `lib/ai-tasks.ts` e no par Dual-IA; reaproveitar `ia3_cenarios`/`ia3_check` mistura o custo na média da IA3 (anote em `docs/CUSTO-QUALIDADE.md`).
+- [ ] **Server action que gasta IA e dura minutos:** gate `sales_channel.manage` ANTES de tudo, `maxDuration` no `layout.tsx` do segmento (300), UMA rodada por chamada (o laço fica na tela), e entrada validada por `validar*` (o parâmetro é escolhido pelo cliente).
+- [ ] **Rode a suíte INTEIRA, não só o teste novo:** o guard do ledger só aparece nela.
+
+**Consequência medida (05/10/2026):** `tsc`, `lint` e os testes novos estavam verdes e a suíte inteira tinha 1 vermelho, o `ledger-empresa-id-guard` (`lib/sales/cenario-exemplo-ia.ts:129` e `:161`). Memória `project_proposta_documento_cliente`.

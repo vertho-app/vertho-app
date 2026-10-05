@@ -687,6 +687,7 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   **não** era o default declarado em `lib/ai-tasks.ts` pareciam env fantasma, e eram só o id
   hardcoded da época — o commit que trocou é de dois dias antes, e **nenhuma** das duas envs desse
   caminho existe em produção. Ledger é histórico; código no `HEAD` é presente.
+- NÃO trocar o texto PADRÃO de um documento que o cliente lê (exemplo de cenário, caso, amostra) por outro igualmente fixo sem listar quem mais o recebe. `Medido: 05/10/2026` — o exemplo corporativo da proposta era uma constante: uma expedição de caminhões chegou a uma rede de academias, e a troca por um gerente de loja só inverteu o defeito para as outras 4 propostas corporativas (uma com 113 visualizações). Texto que depende do CLIENTE mora NA proposta (`sales_proposals.cenario_exemplo`, mig 277, gerado e revisado no painel do orçamento); a constante é só o padrão neutro. Ordem que protege link vivo: migration → gravar o dado → push. Detalhe: `docs/ORCAMENTO.md` §Exemplo de cenário da proposta.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.

@@ -2734,3 +2734,19 @@ O que muda para quem lê este log:
   comparações mandaram ao Kimi o PDI de pessoas reais. Bake-off, piloto e leitura cega montam a
   entrada com dado sintético ou passado pela máscara, mesmo entre provedores declarados; a
   régua, sozinha, só garante que o provedor não declarado não recebe o dado.
+
+## 05/10/2026: o exemplo de cenário da proposta chama a IA3 sem tenant (mig 277)
+
+`lib/sales/cenario-exemplo-ia.ts` usa as tasks `ia3_cenarios` (gera) e `ia3_check` (audita) SEM `empresaId`: o
+prospect de uma proposta não é tenant, e as duas chaves estão em `config/ledger-sem-empresa-allowlist.json`
+(precedente: Copiloto). Efeito na LEITURA de custo: as linhas entram em `ia_usage_log` com `empresa_id` nulo e
+caem em "Plataforma Vertho (sem tenant)", e quem tirar a média de `ia3_cenarios` por cenário sem filtrar
+`empresa_id IS NOT NULL` passa a incluí-las. Criar task própria separaria a conta, mas pede registro em seis
+lugares de `lib/ai-tasks.ts` e no par Dual-IA, e não foi feito.
+
+Cada exemplo gasta de 1 a 3 rodadas (a tela repete até a nota 80): gerador Sonnet 5.5 e auditor
+`gpt-5.6-terra`, de famílias diferentes. `Medido:` 1ª rodada com nota 93 (gerente de loja) e 92 (líder de
+equipe, 68 s), sem rodada de retentativa nas duas. **Não medido:** o custo em US$ por exemplo, porque não li o
+ledger depois das gerações. `Suponho:` centavos por rodada (uma geração de ~8 mil tokens de saída e uma
+auditoria curta); confirme por `select sum(cost_usd) … where feature in ('ia3_cenarios','ia3_check') and empresa_id is null`
+antes de citar um número.
