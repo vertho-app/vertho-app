@@ -379,7 +379,8 @@ const acessoHarness = () =>
   acessoPeloPrazo(prazoHarness, { admin, treina: true });
 const dados = (id = empresaA) => ({
   evolucao: historicoEvolucao.length
-    ? evolucaoPorCompetencia(historicoEvolucao)
+    ? // Com a data do treino, como `consultarEvolucao` (04/10/2026).
+      evolucaoPorCompetencia(historicoEvolucao.map((t) => ({ competencias: t.competencias, em: t.criadoEm })))
     : null,
   focoSugerido: historicoEvolucao[0]?.foco ?? null,
   empresaId: id,

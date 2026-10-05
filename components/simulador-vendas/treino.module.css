@@ -91,6 +91,7 @@
 .evolution li>span:first-child { min-width:0; overflow-wrap:anywhere; }
 .evolutionLevel { flex:0 0 auto; display:grid; justify-items:end; color:#a5f3fc; font-weight:700; }
 .evolutionLevel em { font-style:normal; font-size:.65rem; font-weight:600; color:#86efac; }
+.evolutionWhen { display:block; margin-top:.15rem; color:#94a3b8; font-size:.68rem; line-height:1.35; }
 .fichaCelular { display:none; }
 .fichaCelular summary { cursor:pointer; font-weight:600; font-size:.9rem; overflow-wrap:anywhere; }
 @media(max-width:800px) { .workspace { grid-template-columns:minmax(0,1fr); } .history { max-height:230px; overflow:auto; } .feedback { grid-template-columns:1fr; } }

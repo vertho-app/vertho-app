@@ -37,7 +37,6 @@ const ROUTES = [
   '/dashboard/assessment/chat',
   '/dashboard/pdi',
   '/dashboard/praticar',
-  '/dashboard/praticar/evidencia',
   '/dashboard/votacao',
   '/dashboard/gestor',
   '/dashboard/gestor/equipe-evolucao',

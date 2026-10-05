@@ -165,8 +165,9 @@ const dados = () => ({
     ? {
         competencias: evolucaoPorCompetencia(
           [
-            { competencias: { acolhimento: 3.2, compreensao: 3.0, clareza: 2.4, resolucao: null, procedimentos: 3.4 } },
-            { competencias: { acolhimento: 2.5, compreensao: 3.1, clareza: 2.2, resolucao: null, procedimentos: 2.6 } },
+            // `em`: a data da sessão, como o serviço passa (04/10/2026).
+            { em: '2026-09-30T14:00:00Z', competencias: { acolhimento: 3.2, compreensao: 3.0, clareza: 2.4, resolucao: null, procedimentos: 3.4 } },
+            { em: '2026-09-18T14:00:00Z', competencias: { acolhimento: 2.5, compreensao: 3.1, clareza: 2.2, resolucao: null, procedimentos: 2.6 } },
           ],
           competenciasAtendimento(segmento).map((c) => c.codigo),
         ),

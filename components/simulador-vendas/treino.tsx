@@ -727,7 +727,18 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                   <ul>
                     {evolucao.map((c) => (
                       <li key={c.codigo}>
-                        <span>{t(`matrix_${c.codigo}`)}</span>
+                        <span>
+                          {t(`matrix_${c.codigo}`)}
+                          {/* Quando houve evidência (04/10/2026), não qual nível. */}
+                          {c.ultimaEvidencia && (
+                            <small className={styles.evolutionWhen}>
+                              {t('evolutionEvidence', {
+                                count: c.treinos,
+                                date: new Date(c.ultimaEvidencia).toLocaleDateString(locale),
+                              })}
+                            </small>
+                          )}
+                        </span>
                         <span className={styles.evolutionLevel}>
                           {c.nivelAlcancado === null
                             ? t('evolutionNone')

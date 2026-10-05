@@ -226,7 +226,7 @@ try {
   const meusTreinos = page.getByRole('navigation', { name: 'Seus treinos', exact: true });
   await meusTreinos.getByText('Pesquisa pendente', { exact: true }).waitFor();
   // Desde 04/10/2026 (R-35) a lista mostra o nível, não a nota PACE.
-  assert.equal(await meusTreinos.getByText(/^Nível d$/).count(), 0, 'nível antes da pesquisa');
+  assert.equal(await meusTreinos.getByText(/^Nível \d$/).count(), 0, 'nível antes da pesquisa');
   await page.getByText(/^Sua devolutiva está pronta e abre depois da pesquisa de experiência/).waitFor();
   const fundo = (nome) =>
     page.getByRole('button', { name: nome, exact: true }).evaluate((b) => getComputedStyle(b).backgroundColor);
@@ -238,6 +238,9 @@ try {
   // (`:focus-visible`) no relatório que recebe o foco (V-11).
   await page.getByRole('button', { name: 'Enviar avaliação e abrir devolutiva', exact: true }).press('Enter');
   await meusTreinos.getByText('Nível 3', { exact: true }).waitFor();
+  // Controle da ausência acima: a MESMA regex acha o nível depois da pesquisa. Sem
+  // isto, uma regex quebrada (`/^Nível d$/`, no ar de 04/10 até o conserto) passava sempre.
+  assert.ok((await meusTreinos.getByText(/^Nível \d$/).count()) > 0, 'regex do nível não casa com o nível exibido');
   await page.getByRole('region', { name: 'Devolutiva por competência', exact: true }).waitFor();
   await expect
     .poll(() => page.evaluate(() => document.activeElement?.querySelector('[aria-label="Relatório PACE"]') !== null))
@@ -294,7 +297,7 @@ try {
   await expect(page.getByRole('button', { name: 'Nova simulação', exact: true })).toBeEnabled();
   await page.getByText('Dificuldade: Baixo', { exact: true }).first().waitFor();
   await page.getByRole('navigation', { name: 'Seus treinos', exact: true }).getByText('Nível 2', { exact: true }).first().waitFor();
-  assert.equal(await page.getByText(/Nota PACE|d,d+ de 4/).count(), 0, 'nota decimal no histórico');
+  assert.equal(await page.getByText(/Nota PACE|\d,\d+ de 4/).count(), 0, 'nota decimal no histórico');
   await page.screenshot({ path: `${dir}/historico-dificuldade-nota-desktop.png`, fullPage: true });
   await page.getByRole('button', { name: 'Carregar mais', exact: true }).click();
   await page.getByRole('button', { name: /Cliente 31/ }).click();
@@ -310,6 +313,9 @@ try {
   await visao.getByText('Carla', { exact: true }).first().waitFor();
   const linhaAna = visao.locator('tr', { hasText: 'Ana Souza' });
   await expect(linhaAna.getByText('Subiu de nível', { exact: true })).toHaveCount(3);
+  // Revisão de 04/10/2026: em quantos treinos cada competência teve evidência.
+  await expect(linhaAna.getByText('2 treinos com evidência', { exact: true })).toHaveCount(4);
+  await expect(linhaAna.getByText('1 treino com evidência', { exact: true })).toHaveCount(1);
   const pesquisa = page.getByRole('region', { name: 'Pesquisa de experiência', exact: true });
   await pesquisa.getByText('6 respostas.', { exact: true }).waitFor();
   await pesquisa.getByText('O cliente pareceu uma pessoa de verdade.', { exact: true }).waitFor();
@@ -363,7 +369,7 @@ try {
   await linhaTreino.getByRole('button', { name: 'Ver relatório', exact: true }).click();
   await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
   const devolutivaEquipe = page.getByRole('region', { name: 'Devolutiva por competência', exact: true });
-  assert.equal(await devolutivaEquipe.getByText(/d,d+ de 4/).count(), 0, 'nota decimal na devolutiva da equipe');
+  assert.equal(await devolutivaEquipe.getByText(/\d,\d+ de 4/).count(), 0, 'nota decimal na devolutiva da equipe');
   await expect(devolutivaEquipe.getByText('Nível 2', { exact: true }).first()).toBeVisible();
   assert.equal(await page.getByText(/\d+ \/ 4$/).count(), 0, 'nota 0 a 10 exibida como se fosse 1 a 4');
   // V-10 (27/09/2026): o relatório abre à vista (a tela rola e o foca) e fala

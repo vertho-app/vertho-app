@@ -187,6 +187,7 @@ export async function consultar(c: Ctx, id?: string | null) {
       competencias: Object.fromEntries(
         r.competencias.map((x: { codigo: string; nota: number | null }) => [x.codigo, x.nota]),
       ),
+      em: r.created_at,
     }));
   const evolucao =
     comMatriz.length >= 2

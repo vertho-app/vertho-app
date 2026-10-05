@@ -340,6 +340,8 @@ try {
   await visao.getByText('Sem treino no período (1)', { exact: true }).waitFor();
   await visao.getByRole('group').getByText('Carla Dias', { exact: true }).waitFor();
   await expect(visao.locator('tr', { hasText: 'Ana Souza' }).getByText('Nível 3', { exact: true }).first()).toBeVisible();
+  // Revisão de 04/10/2026: em quantos atendimentos cada competência teve evidência.
+  await expect(visao.locator('tr', { hasText: 'Ana Souza' }).getByText(/^\d+ atendimentos? com evidência$/).first()).toBeVisible();
   const baixar = page.waitForEvent('download');
   await visao.getByRole('button', { name: 'Exportar por pessoa (CSV)', exact: true }).click();
   let csvEquipe = '';
@@ -421,6 +423,8 @@ try {
   await evolucao.waitFor();
   assert.notEqual(await evolucao.locator('li').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)');
   await expect(evolucao.getByText('Subiu de nível', { exact: true })).toHaveCount(2);
+  // Revisão de 04/10/2026: quando houve evidência (Resolução não teve nível em nenhum).
+  await expect(evolucao.getByText('Com evidência em 2 atendimentos, o último em 30/09/2026', { exact: true })).toHaveCount(4);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await semRolagemLateral(page), true, 'overflow evolução no celular');
   await page.screenshot({ path: `${dir}/evolucao-mobile.png`, fullPage: true });

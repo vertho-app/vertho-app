@@ -16,12 +16,16 @@ test.describe('Login', () => {
     await expect(page.getByText('Entrar com senha')).toHaveCount(0);
   });
 
-  test('toggle entre Magic Link e senha', async ({ page }) => {
+  // Os rótulos vêm do catálogo que a tela usa: "Entrar com Magic Link" virou
+  // "Entrar com link de acesso" em 04/10/2026 (`7242ab05`, um nome por conceito)
+  // e o texto fixo aqui deixou o piloto vermelho em todo push desde então.
+  test('toggle entre link de acesso e senha', async ({ page }) => {
+    const { enterWithPassword, enterWithMagicLink } = require('../messages/pt-BR.json').Login;
     await page.goto('/login?senha=1');
     await expect(page.locator('input[type="password"]')).not.toBeVisible();
-    await page.getByText('Entrar com senha').click();
+    await page.getByText(enterWithPassword).click();
     await expect(page.locator('input[type="password"]')).toBeVisible();
-    await page.getByText('Entrar com Magic Link').click();
+    await page.getByText(enterWithMagicLink).click();
     await expect(page.locator('input[type="password"]')).not.toBeVisible();
   });
 

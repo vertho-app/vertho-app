@@ -12,10 +12,10 @@ export type EvolucaoCompetencia = EvolucaoComum<CodigoCompetencia>;
  * Evolução por competência nos treinos concluídos, só com AVANÇO. A régua é a
  * do núcleo comum (`lib/simuladores/evolucao.ts`), a mesma do atendimento; aqui
  * ficam só as competências PACE. `treinos` chega na ordem do histórico (mais
- * recente primeiro).
+ * recente primeiro); `em` é quando o treino aconteceu (última evidência).
  */
 export function evolucaoPorCompetencia(
-  treinos: ReadonlyArray<{ competencias?: NotasPorCompetencia | null }>,
+  treinos: ReadonlyArray<{ competencias?: NotasPorCompetencia | null; em?: string | null }>,
 ): EvolucaoCompetencia[] {
   return evolucaoComum(treinos, ORDEM_COMPETENCIAS);
 }

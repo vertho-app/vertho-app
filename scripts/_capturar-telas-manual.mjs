@@ -183,7 +183,6 @@ const ROTAS_COLAB = [
   R('colab-mapeamento', '/dashboard/perfil-comportamental/mapeamento'),
   R('colab-relatorio-disc', '/dashboard/perfil-comportamental/relatorio'),
   R('colab-praticar', '/dashboard/praticar'),
-  R('colab-evidencia', '/dashboard/praticar/evidencia'),
   R('colab-temporada', '/dashboard/temporada'),
   R('colab-temporada-semana', '/dashboard/temporada/semana/1'),
   R('colab-temporada-concluida', '/dashboard/temporada/concluida'),

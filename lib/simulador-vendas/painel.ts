@@ -175,7 +175,9 @@ export function agregarPainel(
       emAndamento: abertas.length > 0,
       paradoDesde: parada ? atividade(parada) : null,
       ultimo: minhas[0]?.criadoEm ?? null,
-      competencias: evolucaoPorCompetencia(concluidas),
+      competencias: evolucaoPorCompetencia(
+        concluidas.map((s) => ({ competencias: s.competencias, em: s.criadoEm })),
+      ),
     };
   });
   linhas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));

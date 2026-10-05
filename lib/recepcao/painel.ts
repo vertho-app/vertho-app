@@ -67,6 +67,7 @@ export function visaoPorCompetencia(
         competencias: Object.fromEntries(
           r.estado.relatorio!.competencias!.map((c) => [c.codigo, c.nota]),
         ),
+        em: r.created_at,
       }));
     return {
       ...p,

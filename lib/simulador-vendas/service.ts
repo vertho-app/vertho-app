@@ -97,6 +97,7 @@ export async function consultarHistorico(c: Contexto, cursor?: string | null) {
 /** A evolução independe da página aberta no histórico. Só lê notas de devolutivas liberadas. */
 export async function consultarEvolucao(c: Contexto) {
   const treinos: Array<{
+    criadoEm: string;
     competencias?: import('./evolucao').NotasPorCompetencia | null;
     foco?: string | null;
   }> = [];
@@ -123,7 +124,9 @@ export async function consultarEvolucao(c: Contexto) {
   } while (cursor);
   return {
     evolucao:
-      treinosComNiveis(treinos) >= 2 ? evolucaoPorCompetencia(treinos) : null,
+      treinosComNiveis(treinos) >= 2
+        ? evolucaoPorCompetencia(treinos.map((t) => ({ competencias: t.competencias, em: t.criadoEm })))
+        : null,
     focoSugerido: treinos.find((t) => t.foco)?.foco || null,
   };
 }

@@ -155,8 +155,10 @@ export default function EquipeVisao({ visao, dias }: { visao: VisaoEquipe; dias:
                 <td>{p.ultimo ? new Date(p.ultimo).toLocaleDateString(locale) : '—'}</td>
                 {p.competencias.map((c) => (
                   <td key={c.codigo}>
-                    {nivel(c.nivelAlcancado)}
+                    <span>{nivel(c.nivelAlcancado)}</span>
                     {c.subiu && <small className={styles.cellUp}>{t('teamLevelUp')}</small>}
+                    {/* Em quantos atendimentos a competência teve evidência (04/10/2026). */}
+                    {c.treinos > 0 && <small className={styles.cellNote}>{t('teamEvidenceCount', { count: c.treinos })}</small>}
                   </td>
                 ))}
               </tr>

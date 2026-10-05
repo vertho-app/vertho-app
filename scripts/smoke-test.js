@@ -66,7 +66,10 @@ const PAGES = [
   paginaDashboard('/dashboard/assessment/chat', 'Assessment chat'),
   paginaDashboard('/dashboard/pdi', 'PDI'),
   paginaDashboard('/dashboard/praticar', 'Praticar'),
-  paginaDashboard('/dashboard/praticar/evidencia', 'Evidência'),
+  // Removida em 03/10/2026 (R-125, `8d2347d0`): lia coluna inexistente, chamava IA e
+  // prometia pontos. O smoke esperava 200 e ficou vermelho em todo push desde então;
+  // agora vigia a decisão: a página não volta.
+  { path: '/dashboard/praticar/evidencia', status: [404], label: 'Evidência (removida, R-125)' },
   paginaDashboard('/dashboard/jornada', 'Jornada'),
   paginaDashboard('/dashboard/perfil', 'Perfil'),
   paginaDashboard('/dashboard/perfil-comportamental', 'Perfil Comportamental'),

@@ -147,6 +147,9 @@ export async function verificarMatrizUI(page: Page, origin: string, dir: string)
   const evolucao = page.getByRole('region', { name: 'Sua evolução', exact: true });
   await evolucao.waitFor();
   await expect(evolucao.getByText('Subiu de nível', { exact: true })).toHaveCount(4);
+  // Revisão de 04/10/2026: quando houve evidência, ao lado do maior nível (Cocriar só no 1º treino).
+  await expect(evolucao.getByText(/^Com evidência em 2 treinos, o último em \d{2}\/\d{2}\/\d{4}$/)).toHaveCount(4);
+  await expect(evolucao.getByText(/^Com evidência em 1 treino, em \d{2}\/\d{2}\/\d{4}$/)).toHaveCount(1);
   await page.getByText('Foco sugerido para este treino', { exact: true }).waitFor();
   await page.getByText('Confirme o diagnóstico antes de propor', { exact: true }).waitFor();
   await page.screenshot({ path: `${dir}/evolucao-desktop.png`, fullPage: true });

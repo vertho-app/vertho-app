@@ -18,10 +18,20 @@ export interface EvolucaoCompetencia<C extends string = string> {
   subiu: boolean;
   /** Treinos em que a competência teve nível. */
   treinos: number;
+  /**
+   * Quando foi o treino mais recente em que a competência teve nível (o `em` da
+   * entrada), qualquer que tenha sido o nível; `null` sem datas. Revisão de
+   * 04/10/2026: "Nível 3" sozinho não diz se é de ontem ou de dois meses atrás.
+   * Diz QUANDO houve evidência, não qual nível: uma tentativa mais fraca depois
+   * da melhor segue sem aparecer como queda.
+   */
+  ultimaEvidencia: string | null;
 }
 
 export type NotasDeTreino<C extends string = string> = {
   competencias?: Partial<Record<C, number | null>> | null;
+  /** Quando o treino aconteceu (ISO). */
+  em?: string | null;
 };
 
 export function evolucaoPorCompetencia<C extends string>(
@@ -30,10 +40,13 @@ export function evolucaoPorCompetencia<C extends string>(
 ): EvolucaoCompetencia<C>[] {
   const cronologica = [...treinos].reverse();
   return codigos.map((codigo) => {
-    const niveis = cronologica
-      .map((t) => t.competencias?.[codigo])
-      .filter((n): n is number => typeof n === 'number')
-      .map((n) => nivelDaNota(n));
+    const comNivel = cronologica.filter((t) => typeof t.competencias?.[codigo] === 'number');
+    const niveis = comNivel.map((t) => nivelDaNota(t.competencias![codigo] as number));
+    // Pela data, não pela posição: quem chama não precisa garantir a ordem.
+    const ultimaEvidencia = comNivel.reduce<string | null>(
+      (ultima, t) => (t.em && (!ultima || Date.parse(t.em) > Date.parse(ultima)) ? t.em : ultima),
+      null,
+    );
     const primeiroNivel = niveis[0] ?? null;
     const nivelAlcancado = niveis.length
       ? (Math.max(...niveis) as Nivel)
@@ -47,6 +60,7 @@ export function evolucaoPorCompetencia<C extends string>(
         nivelAlcancado !== null &&
         nivelAlcancado > primeiroNivel,
       treinos: niveis.length,
+      ultimaEvidencia,
     };
   });
 }

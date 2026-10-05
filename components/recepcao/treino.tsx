@@ -1290,7 +1290,18 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                 <ul>
                   {dados.evolucao.competencias.map((c: any) => (
                     <li key={c.codigo}>
-                      <span>{dados.evolucao.nomes[c.codigo] || c.codigo}</span>
+                      <span>
+                        {dados.evolucao.nomes[c.codigo] || c.codigo}
+                        {/* Quando houve evidência (04/10/2026), não qual nível. */}
+                        {c.ultimaEvidencia && (
+                          <small>
+                            {t('evolutionEvidence', {
+                              count: c.treinos,
+                              date: new Date(c.ultimaEvidencia).toLocaleDateString(locale),
+                            })}
+                          </small>
+                        )}
+                      </span>
                       <strong>
                         {c.nivelAlcancado === null
                           ? t('teamNoLevel')

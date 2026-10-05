@@ -275,10 +275,16 @@ export default function PainelEquipe({ empresaId }: { empresaId: string }) {
                         key={c.codigo}
                         className="py-2 pr-4 whitespace-nowrap"
                       >
-                        {nivel(c.nivelAlcancado)}
+                        <span>{nivel(c.nivelAlcancado)}</span>
                         {c.subiu && (
                           <small className="block text-emerald-300">
                             {t('evolutionUp')}
+                          </small>
+                        )}
+                        {/* Em quantos treinos a competência teve evidência (04/10/2026). */}
+                        {c.treinos > 0 && (
+                          <small className="block text-slate-400">
+                            {t('teamEvidenceCount', { count: c.treinos })}
                           </small>
                         )}
                       </td>
