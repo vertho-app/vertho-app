@@ -5,6 +5,7 @@ import { callAIChat, callAI } from '@/actions/ai-client';
 import { extractBlock, stripBlocks } from '@/actions/utils';
 import { getOrCreatePromptVersion } from '@/lib/versioning';
 import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
+import { assertDonoDaTrilha } from '@/lib/auth/dono-da-trilha';
 import { aiLimiter } from '@/lib/rate-limit';
 import { auditorCrossFamilia } from '@/lib/ai-tasks';
 import { csrfCheck } from '@/lib/csrf';
@@ -96,6 +97,14 @@ export async function POST(req) {
     // Valida acesso ao colaborador: próprio OU gestor/rh mesma empresa OU admin.
     const colabGuard = await assertColabAccess(auth, colaboradorId);
     if (colabGuard) return colabGuard;
+
+    // `assertColabAccess` é a régua de LEITURA: gestor e RH do tenant passam. Esta
+    // rota ESCREVE (a conversa, a sessão, o fechamento da avaliação), e escrita na
+    // jornada é só do dono (decisão de 16/07; o R-72 cobriu só as rotas
+    // `temporada/*`). Sem isto, a gestão conduzia o diagnóstico do liderado e o
+    // fechava no lugar dele (análise de 05/10/2026).
+    const donoGuard = assertDonoDaTrilha(auth, colaboradorId);
+    if (donoGuard) return donoGuard;
 
     // Validar tamanho da mensagem (regra do GAS)
     const msgTrimmed = mensagem.trim().slice(0, MAX_MESSAGE_LENGTH);
