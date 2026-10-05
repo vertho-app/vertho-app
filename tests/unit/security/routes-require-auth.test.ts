@@ -73,6 +73,10 @@ const PUBLICAS_POR_DESIGN: Record<string, string> = {
     'pré-sessão: emite o link por telefone. Sem subdomínio, descobre as organizações do número ' +
     '(leitura por telefone exato, tenant de demonstração fora) e só devolve a lista com 2 ou mais.',
   'app/api/auth/signup/route.ts': 'pré-sessão: cadastro em tenant com allow_open_signup',
+  'app/api/csp-report/route.ts':
+    'destino dos relatórios de violação da CSP em modo relatório: o NAVEGADOR manda sem sessão, ' +
+    'a rota só escreve em LOG (sem banco), tira a query string das URLs, corta o corpo em 16 KB, ' +
+    'deduplica e tem rate limit; sempre responde 204.',
   // Saíram em 03/10/2026 (R-77, decisão 3: o login por WhatsApp fica como LINK):
   // `magic-link-whatsapp` e `phone-otp/{request,verify}`, públicas e sem tela.
 

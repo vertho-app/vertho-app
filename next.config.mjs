@@ -1,6 +1,7 @@
 import { withSentryConfig } from '@sentry/nextjs';
 import createNextIntlPlugin from 'next-intl/plugin';
 import { rewritesDaMidiaOffline } from './lib/demo/offline/midia-rewrites.mjs';
+import { CSP_RELATORIO } from './lib/csp-politica.mjs';
 
 const withNextIntl = createNextIntlPlugin();
 
@@ -88,6 +89,10 @@ const nextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+          // CSP completa (script-src) SÓ EM MODO RELATÓRIO: o navegador reporta o que
+          // violaria e não bloqueia nada. Enforçar vem depois de ler os relatórios
+          // (`lib/csp-politica.mjs` explica o porquê e o que medir).
+          { key: 'Content-Security-Policy-Report-Only', value: CSP_RELATORIO },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'geolocation=(), payment=(), browsing-topics=()' },

@@ -153,7 +153,9 @@ export function stripTenantCookie(cookieHeader) {
 }
 
 // Rotas que nunca carregam sessão de browser — cron/webhook/task não pagam refresh.
-const ROTAS_SEM_SESSAO = ['/api/cron', '/api/webhooks', '/api/trigger'];
+// `/api/csp-report` entra aqui porque o navegador manda UM relatório por violação, e cada
+// página tem dezenas: sem isto cada um pagaria uma renovação de sessão no Supabase.
+const ROTAS_SEM_SESSAO = ['/api/cron', '/api/webhooks', '/api/trigger', '/api/csp-report'];
 
 /** Só vale renovar se a request traz cookie de sessão do Supabase. */
 function temCookieDeSessao(request) {
