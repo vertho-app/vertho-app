@@ -38,7 +38,7 @@ import { logAdminAction } from '@/lib/audit';
 import { calculateProposalFinancials } from '@/lib/sales/commissions';
 import { CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGE_LABELS } from '@/lib/sales/constants';
 import { novoTokenProposta } from '@/lib/sales/proposal-token';
-import { normalizarResumo } from '@/lib/orcamento/cenario';
+import { LIMITE_CLIENTE, normalizarResumo } from '@/lib/orcamento/cenario';
 import { validateWhatsApp } from '@/lib/phone';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -62,6 +62,13 @@ export type EntradaConversao = {
   customerType?: string | null;
   productPackage?: string | null;
   accountId?: string | null;
+  /**
+   * Nome do cliente que a capa mostra ("Preparada para ..."), digitado na REVISÃO.
+   * Vence o campo Cliente do orçamento. Sem ele, sem conta do CRM e sem Cliente no
+   * orçamento, a conversão é recusada: o documento omite o bloco do destinatário
+   * quando não há nome, e uma proposta de R$ 1 milhão saiu assim em 05/10/2026.
+   */
+  clienteNome?: string | null;
   /** Contato que assina o documento (mig 255) — os três são obrigatórios. */
   contatoNome: string;
   contatoEmail: string;
@@ -73,7 +80,25 @@ export type EntradaAtualizacao = {
   /** Escopo REVISTO por gente, como na conversão. */
   includedScope: string;
   paymentTerms?: string | null;
+  /** Nome do cliente da capa, como na conversão. Vazio mantém o que a proposta já tem. */
+  clienteNome?: string | null;
 };
+
+/**
+ * O nome do cliente que vai na capa: o digitado na revisão, senão o que a proposta
+ * já tem, senão o Cliente do orçamento. NÃO cai no NOME DO CENÁRIO do orçamento:
+ * aquele campo é interno ("agressivo v3", "teste") e a capa é do cliente.
+ */
+function nomeDoClienteDaCapa(...candidatos: unknown[]): string | null {
+  for (const c of candidatos) {
+    const t = typeof c === 'string' ? c.trim() : '';
+    if (t) return t;
+  }
+  return null;
+}
+
+const ERRO_SEM_CLIENTE = 'Informe o cliente: é o nome que aparece na capa da proposta ("Preparada para ...").';
+const erroClienteLongo = `Cliente muito longo (máximo ${LIMITE_CLIENTE} caracteres).`;
 
 /**
  * Estados em que a proposta já fechou: mudar valor ou escopo reescreveria o que
@@ -230,6 +255,10 @@ export async function criarPropostaDeOrcamento(
     return { success: false, error: 'Este orçamento já foi convertido em proposta.' };
   }
 
+  const clienteNome = nomeDoClienteDaCapa(bruto.clienteNome, orc.cliente);
+  if (!clienteNome && !accountId) return { success: false, error: ERRO_SEM_CLIENTE };
+  if (clienteNome && clienteNome.length > LIMITE_CLIENTE) return { success: false, error: erroClienteLongo };
+
   const numeros = numerosDoOrcamento(orc.resultado, orc.entradas);
   if ('erro' in numeros) return { success: false, error: numeros.erro };
   const { resumo, descontoPct, vigencia, monthly, fin, finSemComissao } = numeros;
@@ -244,7 +273,7 @@ export async function criarPropostaDeOrcamento(
       representante_id: null,
       opportunity_id: null,
       account_id: accountId,
-      cliente_nome: orc.cliente ?? null,
+      cliente_nome: clienteNome,
       proposal_number: numero as string,
       status: 'draft',
       created_by_email: email,
@@ -277,7 +306,13 @@ export async function criarPropostaDeOrcamento(
   // sem dizer o número deixaria o admin sem saber o que procurar no banco.
   const { error: erroVinculo } = await sb
     .from('orcamento_cenarios')
-    .update({ proposta_id: propostaId, updated_at: new Date().toISOString() })
+    .update({
+      proposta_id: propostaId,
+      // O nome digitado na revisão volta para o orçamento quando ele estava sem
+      // Cliente: a próxima abertura do painel já o traz preenchido.
+      ...(clienteNome && !orc.cliente ? { cliente: clienteNome } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', orcamentoId);
 
   await auditar(email, 'proposta_deal_desk.criar', numero as string, {
@@ -336,7 +371,7 @@ export async function atualizarPropostaDeOrcamento(
 
   const { data: orc, error: erroOrc } = await sb
     .from('orcamento_cenarios')
-    .select('id, entradas, resultado, proposta_id')
+    .select('id, cliente, entradas, resultado, proposta_id')
     .eq('id', orcamentoId)
     .maybeSingle();
   if (erroOrc) return { success: false, error: erroOrc.message };
@@ -355,6 +390,13 @@ export async function atualizarPropostaDeOrcamento(
     };
   }
 
+  // O nome da capa: o digitado agora, senão o que a proposta já tem, senão o Cliente
+  // do orçamento. É também o conserto das propostas criadas antes desta regra, que
+  // saíram sem destinatário: atualizar passa a exigir e a gravar o nome.
+  const clienteNome = nomeDoClienteDaCapa(bruto.clienteNome, proposta.cliente_nome, orc.cliente);
+  if (!clienteNome && !proposta.account_id) return { success: false, error: ERRO_SEM_CLIENTE };
+  if (clienteNome && clienteNome.length > LIMITE_CLIENTE) return { success: false, error: erroClienteLongo };
+
   const numeros = numerosDoOrcamento(orc.resultado, orc.entradas);
   if ('erro' in numeros) return { success: false, error: numeros.erro };
   const { resumo, descontoPct, vigencia, monthly, fin, finSemComissao } = numeros;
@@ -369,6 +411,7 @@ export async function atualizarPropostaDeOrcamento(
       payment_terms: paymentTerms || null,
       included_scope: escopo,
       monthly_value: monthly,
+      ...(clienteNome && clienteNome !== proposta.cliente_nome ? { cliente_nome: clienteNome } : {}),
       ...finSemComissao,
       updated_at: new Date().toISOString(),
     })
@@ -386,11 +429,24 @@ export async function atualizarPropostaDeOrcamento(
     };
   }
 
+  // O nome volta para o orçamento quando ele estava sem Cliente (a próxima abertura
+  // do painel já o traz). A proposta JÁ foi gravada: se isto falhar, não é erro da
+  // atualização, mas fica dito na auditoria em vez de calar.
+  let clienteNoOrcamento: 'gravado' | 'ja_tinha' | 'falhou' = 'ja_tinha';
+  if (clienteNome && !orc.cliente) {
+    const { error: erroCliente } = await sb
+      .from('orcamento_cenarios')
+      .update({ cliente: clienteNome, updated_at: new Date().toISOString() })
+      .eq('id', orcamentoId);
+    clienteNoOrcamento = erroCliente ? 'falhou' : 'gravado';
+  }
+
   await auditar(email, 'proposta_deal_desk.atualizar', proposta.proposal_number, {
     orcamentoId,
     propostaId: proposta.id,
-    antes: { total: proposta.total_contract_value, parcelas: proposta.contract_duration_months },
-    depois: { total: fin.total_contract_value, parcelas: vigencia },
+    antes: { total: proposta.total_contract_value, parcelas: proposta.contract_duration_months, cliente: proposta.cliente_nome ?? null },
+    depois: { total: fin.total_contract_value, parcelas: vigencia, cliente: clienteNome },
+    clienteNoOrcamento,
   });
 
   return {

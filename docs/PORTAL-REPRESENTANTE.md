@@ -315,6 +315,31 @@ O que mudou (mesma dupla: página pública + PDF, do MESMO VM):
 Detalhe visual e as duas armadilhas do PDF (rgba vira verde; ✓/✕/→ somem):
 `docs/DESIGN-SYSTEM.md`.
 
+**05/10/2026: linguagem por segmento e cenário do exemplo** (PROP-2026-0010, rede de
+academias, `customer_type = empresa`):
+
+- **"Instituição" é palavra de escola.** O documento dizia "A instituição recebe",
+  "subdomínio da instituição" e "ambiente da instituição" a uma rede de academias. Agora
+  `termosDoCliente` (em `proposal-document.ts`) devolve o substantivo do segmento
+  (`empresa` / `instituição`) e o texto corrido, o cronograma e a descrição do
+  simulador de atendimento o usam. Com nome, só entram **"Bluefit recebe"** e **"em
+  nome de Bluefit"** (aceite): o artigo de um nome próprio não se deduz ("a Bluefit",
+  "o Itaú"), então título e texto corrido ficam em "a empresa", nunca "da Bluefit".
+- **O exemplo corporativo era uma expedição de caminhões** (herdado do deck
+  corporativo) servida a quem tinha ouvido "hipercustomizado". Virou um caso de
+  **gerente de loja**, gerado pelo caminho do Banco de Cenários (IA3): os prompts de
+  `lib/ia3-cenarios.ts`, uma ficha de cargo no formato de `cargos_empresa` e a
+  competência "Comunicação e Conversas de Liderança" da matriz global (a régua do
+  simulador que a proposta vende). Sonnet 5.5 gera, gpt-5.6-terra audita: nota 93 na 1ª
+  rodada. Texto sem retoque, rótulos das perguntas = descritores que cada uma cobre.
+  ⚠️ A ficha é **genérica** (gerente de loja de rede de academias), escrita para o
+  exemplo, não a de nenhum cliente; é um exemplo e o fechamento diz isso. Para outro
+  cargo, regerar com outra ficha em vez de editar à mão (a nota não vale no texto
+  retocado). O exemplo vale para TODA proposta corporativa; escolher o caso por
+  proposta exigiria uma coluna nova (decisão de migration, não feita).
+- **Cliente obrigatório na revisão do deal desk** (ver `docs/ORCAMENTO.md`): sem ele a
+  capa saía sem destinatário.
+
 ## Correções e simulador de preço (06/07)
 
 - **Toaster montado no `RepresentativeShell`** (`components/sales/representative-shell.tsx:259`):

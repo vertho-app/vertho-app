@@ -85,6 +85,15 @@ com o valor do projeto, e a vigência tem de ser as parcelas.
   texto comercial derivado de uma calculadora.
 - **Documento sem RC**: `buildProposalDocument` já caía em
   `'Representante Vertho'`; com `cliente_nome` o nome do cliente também aparece.
+- **Cliente é obrigatório na revisão** (05/10/2026). O painel de conversão e o de
+  "Atualizar proposta" têm o campo **Cliente — aparece na capa**, pré-preenchido com
+  o Cliente do orçamento, e as duas actions recusam sem nome (conta do CRM dispensa).
+  Medido: a PROP-2026-0010 saiu com a capa sem destinatário porque o orçamento se
+  chamava "Bluefit" mas o campo Cliente, então "(opcional)", estava vazio. O nome
+  digitado vence o do orçamento e volta para ele quando estava vazio. **O nome do
+  cenário do orçamento nunca vira destinatário**: é campo interno ("agressivo v3").
+  Atualizar também serve de conserto: proposta criada antes da regra, sem nome,
+  passa a exigir e a gravar `cliente_nome`.
 
 ### A propriedade que não pode ser perdida
 
@@ -294,8 +303,11 @@ Rodrigo, travadas em `tests/unit/orcamento-conversao.test.ts`:
 - conteúdo sem quantidade: "Vídeos, podcasts, textos e casos personalizados para
   cada pessoa". O documento também deixou de dizer "N conteúdos por pessoa a cada
   ciclo";
-- workshop em linha própria ("Workshop presencial para definir, com a equipe da
-  instituição, as competências de cada cargo"), e não no fim de "cargos mapeados";
+- workshop em linha própria ("Workshop presencial para definir, com a equipe, as
+  competências de cada cargo"), e não no fim de "cargos mapeados". Sem "da
+  instituição" (05/10/2026): o gerador não conhece o segmento, o tipo de cliente só
+  é escolhido depois no formulário, e uma rede de academias leu "equipe da
+  instituição". Singular e plural dizem a mesma coisa;
 - um simulador por linha ("Simulador de vendas para 100 pessoas"), antes do Mentor
   IA. O documento também tem a seção "Simuladores incluídos", logo ANTES do escopo,
   lida do orçamento (só a contagem de acessos, nunca o preço).

@@ -90,6 +90,28 @@ export type ProposalGestao = { perguntas: string[]; niveis: string };
 
 export type ProposalSimulador = { nome: string; descricao: string; pessoas: number };
 
+/**
+ * Como o documento chama quem contrata. "Instituição" é palavra de escola: numa
+ * rede de academias ou numa indústria ela soa como texto de outro cliente
+ * (medido em 05/10/2026, na proposta de uma rede de academias, que dizia "A
+ * instituição recebe" e "o ambiente da instituição"). O substantivo muda por
+ * segmento, e o NOME do cliente entra onde a frase aceita um nome sem artigo.
+ * Não se escreve "da Bluefit" nem "do Grupo X": o artigo de um nome próprio não
+ * se deduz, e errar o gênero de uma marca é pior que usar "a empresa".
+ */
+export type ProposalTermos = {
+  /** "empresa" ou "instituição", sem artigo. */
+  entidade: string;
+  /** "da empresa" / "da instituição": o texto corrido do documento. */
+  deEntidade: string;
+  /** Título do quadro "Quem recebe o quê". */
+  tituloQuemRecebe: string;
+  /** Cabeçalho da coluna do cliente: "Bluefit recebe" com nome, "A empresa recebe" sem. */
+  colunaCliente: string;
+  /** Fim da frase do aceite, depois de "em nome": "de Bluefit" com nome, "da empresa" sem. */
+  emNomeDe: string;
+};
+
 export type ProposalDocumentVM = {
   numero: string;
   emitidaEm: string;   // ISO
@@ -126,6 +148,7 @@ export type ProposalDocumentVM = {
     vendidoPorProjeto: boolean;
   };
   segmento: ProposalSegmento;
+  termos: ProposalTermos;
   pilares: { titulo: string; texto: string }[];
   curadoria: ProposalCuradoria;
   cenario: ProposalCenario;
@@ -175,10 +198,13 @@ const PILARES_PADRAO = [
   },
 ];
 
-const ENTREGAS_PADRAO = [
+/** O substantivo de quem contrata, por segmento. Sem artigo: cada frase põe o seu. */
+const ENTIDADE: Record<ProposalSegmento, string> = { educacao: 'instituição', corporativo: 'empresa' };
+
+const entregasPadrao = (segmento: ProposalSegmento) => [
   {
     titulo: 'Ambiente dedicado',
-    texto: 'Subdomínio próprio da instituição, com a identidade visual de vocês e acesso por WhatsApp ou e-mail.',
+    texto: `Subdomínio próprio da ${ENTIDADE[segmento]}, com a identidade visual de vocês e acesso por WhatsApp ou e-mail.`,
   },
   {
     titulo: 'Matrizes de competência por cargo',
@@ -284,19 +310,38 @@ const CENARIO: Record<ProposalSegmento, ProposalCenario> = {
     fechamento: 'Não é prova. É uma forma de identificar como o profissional decide, se comunica e age na rotina. '
       + 'O resultado é uma fotografia clara do que desenvolver, por profissional, equipe e competência.',
   },
+  // Gerado em 05/10/2026 pelo caminho do Banco de Cenários (IA3): os prompts de
+  // `lib/ia3-cenarios.ts`, a ficha de um gerente de loja de rede de academias
+  // (descrição, entregas, stakeholders, decisões e tensões, no formato de
+  // `cargos_empresa`) e a competência "Comunicação e Conversas de Liderança" da
+  // matriz global de liderança, a mesma régua do simulador que a proposta vende.
+  // Geração no Sonnet 5.5, auditoria por outra família (gpt-5.6-terra): nota 93,
+  // aprovado, 1ª rodada, sem erro de validação. O texto abaixo é o da geração,
+  // sem retoque. Era um caso de expedição de caminhões (herdado do deck
+  // corporativo), servido a uma rede de academias que tinha ouvido
+  // "hipercustomizado". Os rótulos das perguntas são os descritores que cada uma
+  // cobre (D1 Preparação e propósito, D5 Gestão de divergências, D4 Acordos
+  // verificáveis, D6 Continuidade dos acordos), e não os "Escolha/Execução" do deck.
+  // Trocar de cargo é regerar com outra ficha, nunca editar à mão: o número da
+  // auditoria deixa de valer no texto retocado.
   corporativo: {
-    rotulo: 'Cenário situacional · Liderança',
-    situacao: 'Sexta-feira, dois caminhões saíram sem a conferência dupla que o procedimento exige, e um cliente '
-      + 'estratégico abriu reclamação formal. Diego, coordenador de expedição há oito meses e liderando gente pela '
-      + 'primeira vez, tinha ido para a linha cobrir a falta de dois conferentes. Renata, a gestora, precisa fechar a conversa.',
+    // "Cenário situacional · Gerente de loja" quebra na coluna do PDF e deixa "LOJA"
+    // sozinha na segunda linha (medido em imagem, 05/10/2026): 33 caracteres cabem.
+    rotulo: 'Cenário · Gerente de loja',
+    situacao: 'Sexta, 18h30, horário de pico. Uma unidade da rede está em 78% da meta de matrículas a cinco dias do '
+      + 'fechamento. Um instrutor faltou e Rafael, instrutor de confiança há três anos, cobriu o turno com horas extras. '
+      + 'Para ajudar a recepção, que tinha fila de matrículas, ele deixou a sala de musculação sem instrutor por cerca de '
+      + '15 minutos. Nesse intervalo, um aluno novo caiu ao fazer supino sem orientação, sem lesão grave. Você viu o '
+      + 'episódio nas câmeras. Camila, gerente regional, cobra o fechamento da meta. No grupo da equipe, Rafael escreveu: '
+      + '"se for pra ser cobrado por ajudar, não cubro mais". A escala de amanhã já tem uma baixa e você precisa conversar com Rafael.',
     perguntas: [
-      { nome: 'Escolha', pergunta: 'Você fecha cobrando a regra ou reconhecendo o esforço? O que escolhe e o que perde ao escolher?' },
-      { nome: 'Execução', pergunta: 'Na próxima sexta faltam dois conferentes de novo. O que muda na rotina do Diego, e como vocês vão enxergar que mudou?' },
-      { nome: 'Tensão humana', pergunta: 'Diego reage: "Se eu parasse para conferir, o caminhão não saía." O que você responde?' },
-      { nome: 'Sustentação', pergunta: 'Daqui a 30 dias, como você vai saber que isso mudou de verdade, e não só na semana da reclamação?' },
+      { nome: 'Abertura', pergunta: 'Como você abre a conversa com Rafael? Diga em que momento e lugar a faria, qual propósito explicita e que fato concreto cita logo no início.' },
+      { nome: 'Divergência', pergunta: 'Rafael responde: "Se eu não ajudasse, a gente perdia matrícula. Você cobra meta e agora me cobra isso?" O que você diz e pergunta nesse momento?' },
+      { nome: 'Acordo', pergunta: 'Rafael diz que está no limite e que não cobre mais faltas. O que você responde para manter a sala sempre coberta e ainda combinar algo concreto com ele?' },
+      { nome: 'Continuidade', pergunta: 'Nas próximas duas semanas, como você acompanha o combinado com Rafael? Diga quando, em que formato, o que observa e como ele sinaliza dificuldades.' },
     ],
-    fechamento: 'Não é prova nem quiz. A situação é gerada para o cargo, a competência e o contexto da empresa, '
-      + 'e cada pergunta força uma decisão com custo. Ninguém digita relatório depois.',
+    fechamento: 'Não é prova nem quiz, e este caso é só um exemplo: no programa, cada situação é gerada a partir da ficha de cada cargo, '
+      + 'da competência avaliada e do contexto da empresa, e cada pergunta força uma decisão com custo. Ninguém digita relatório depois.',
   },
 };
 
@@ -362,15 +407,15 @@ const NIVEIS_GESTAO: Record<ProposalSegmento, string> = {
  * encontros) e lib/prontidao-lideranca/ (o Mapeamento de liderança, que o
  * mesmo módulo liga). Até 19/09 a liderança descrevia só o mapeamento.
  */
-const DESCRICAO_SIMULADOR: Record<Simulador, string> = {
+const descricaoSimulador = (segmento: ProposalSegmento): Record<Simulador, string> => ({
   vendas: 'Conversas de venda com um cliente simulado por IA, a partir dos produtos, do público e das condições '
     + 'da própria empresa, com devolutiva por competência na metodologia PACE.',
   // A revisão humana foi extinta nos três simuladores em 22/09/2026 (R-04).
-  atendimento: 'Atendimentos com um cliente simulado por IA, em casos que a instituição pode adaptar, avaliados '
+  atendimento: `Atendimentos com um cliente simulado por IA, em casos que a ${ENTIDADE[segmento]} pode adaptar, avaliados `
     + 'por competência em quatro níveis, com devolutiva que cita a fala literal da pessoa em cada competência.',
   lideranca: 'Cinco encontros com personagens simulados por IA, avaliados por competência em quatro níveis e '
     + 'acompanhados pelo RH e pelo gestor. Inclui o Mapeamento de liderança: quem está pronto para liderar e em que estilo.',
-};
+});
 
 /** Escola e rede de ensino leem a versão de educação; o resto, a corporativa. */
 export function segmentoDoCliente(customerType: string | null | undefined): ProposalSegmento {
@@ -393,11 +438,11 @@ const PREMISSAS_PADRAO = [
   'Os participantes terão acesso a smartphone ou computador com internet.',
   'O envio de links de acesso será por WhatsApp e/ou e-mail, conforme preferência do cliente.',
 ];
-const CRONOGRAMA_PADRAO: ProposalEtapa[] = [
+const cronogramaPadrao = (segmento: ProposalSegmento): ProposalEtapa[] => [
   {
     fase: 'Setup',
     duracao: '~1 semana',
-    descricao: 'Configuração do ambiente dedicado: cargos, colaboradores e identidade visual da instituição.',
+    descricao: `Configuração do ambiente dedicado: cargos, colaboradores e identidade visual da ${ENTIDADE[segmento]}.`,
     entrega: 'Ambiente no ar em até 2 dias úteis após o material completo.',
   },
   {
@@ -452,6 +497,19 @@ export function aceitePublicoPermitido(proposal: Pick<SalesProposal, 'status' | 
 function textoOuNull(v: unknown): string | null {
   const s = typeof v === 'string' ? v.trim() : '';
   return s || null;
+}
+
+/** Os termos do documento para um segmento e um cliente (nome opcional). Ver `ProposalTermos`. */
+export function termosDoCliente(segmento: ProposalSegmento, nomeCliente: string | null | undefined): ProposalTermos {
+  const entidade = ENTIDADE[segmento];
+  const nome = textoOuNull(nomeCliente);
+  return {
+    entidade,
+    deEntidade: `da ${entidade}`,
+    tituloQuemRecebe: `Para cada pessoa, e para a ${entidade}`,
+    colunaCliente: nome ? `${nome} recebe` : `A ${entidade} recebe`,
+    emNomeDe: nome ? `de ${nome}` : `da ${entidade}`,
+  };
 }
 
 /**
@@ -512,6 +570,9 @@ export function buildProposalDocument(
   const segmento = segmentoDoCliente(proposal.customer_type);
   const aceiteEm = textoOuNull((proposal as any).accepted_at);
   const aceiteNome = textoOuNull((proposal as any).accepted_by_name);
+  // Conta do CRM tem precedência; sem ela, o nome em texto livre que veio do
+  // orçamento do deal desk (mig 254). Sem nenhum dos dois o bloco some.
+  const nomeCliente = textoOuNull(account?.trade_name) || textoOuNull(account?.legal_name) || textoOuNull(proposal.cliente_nome);
 
   return {
     numero: proposal.proposal_number,
@@ -519,9 +580,7 @@ export function buildProposalDocument(
     validaAte: valida.toISOString(),
     expirada,
     cliente: {
-      // Conta do CRM tem precedência; sem ela, o nome em texto livre que veio do
-      // orçamento do deal desk (mig 254). Sem nenhum dos dois o bloco some.
-      nome: textoOuNull(account?.trade_name) || textoOuNull(account?.legal_name) || textoOuNull(proposal.cliente_nome),
+      nome: nomeCliente,
       tipo: proposal.customer_type ? (CUSTOMER_TYPE_LABELS[proposal.customer_type] || proposal.customer_type) : null,
     },
     contexto: extra?.contexto?.trim() || null,
@@ -541,6 +600,7 @@ export function buildProposalDocument(
       vendidoPorProjeto: programa != null,
     },
     segmento,
+    termos: termosDoCliente(segmento, nomeCliente),
     pilares: PILARES_PADRAO,
     curadoria: CURADORIA[segmento],
     cenario: CENARIO[segmento],
@@ -549,13 +609,13 @@ export function buildProposalDocument(
     gestao: { perguntas: PERGUNTAS_GESTAO, niveis: NIVEIS_GESTAO[segmento] },
     simuladores: SIMULADORES
       .filter((s) => (programa?.simuladores?.[s] ?? 0) > 0)
-      .map((s) => ({ nome: ROTULO_SIMULADOR[s], descricao: DESCRICAO_SIMULADOR[s], pessoas: programa!.simuladores![s] })),
-    entregas: ENTREGAS_PADRAO,
+      .map((s) => ({ nome: ROTULO_SIMULADOR[s], descricao: descricaoSimulador(segmento)[s], pessoas: programa!.simuladores![s] })),
+    entregas: entregasPadrao(segmento),
     paraPessoa: PARA_PESSOA_PADRAO,
     paraInstituicao: PARA_INSTITUICAO_PADRAO,
     naoIncluso: NAO_INCLUSO_PADRAO,
     premissas: PREMISSAS_PADRAO,
-    cronograma: CRONOGRAMA_PADRAO,
+    cronograma: cronogramaPadrao(segmento),
     proximosPassos: PROXIMOS_PASSOS_PADRAO,
     notasComerciais: proposal.commercial_notes,
     contato: resolverContato(proposal, rep),

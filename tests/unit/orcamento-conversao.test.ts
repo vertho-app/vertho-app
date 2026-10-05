@@ -191,10 +191,30 @@ describe('criarPropostaDeOrcamento — autoria e vínculo', () => {
     });
   });
 
-  it('cliente em texto livre vira cliente_nome — sem ele o documento diria "Cliente"', async () => {
-    cenario.orcamento.cliente = null;
+  it('o Cliente do orçamento vira cliente_nome — é o "Preparada para ..." da capa', async () => {
     await criarPropostaDeOrcamento(entrada());
-    expect(insertDeProposta().cliente_nome).toBeNull();
+    expect(insertDeProposta().cliente_nome).toBe('Rede X de Ensino');
+  });
+
+  it('o nome digitado na REVISÃO vence o do orçamento, e é espaçado antes de gravar', async () => {
+    await criarPropostaDeOrcamento(entrada({ clienteNome: '  Bluefit  ' }));
+    expect(insertDeProposta().cliente_nome).toBe('Bluefit');
+  });
+
+  it('orçamento sem Cliente: o nome digitado na revisão volta para ele, no mesmo update do vínculo', async () => {
+    cenario.orcamento.cliente = null;
+    const r: any = await criarPropostaDeOrcamento(entrada({ clienteNome: 'Bluefit' }));
+    expect(r.success).toBe(true);
+    expect(insertDeProposta().cliente_nome).toBe('Bluefit');
+    const vinculo = escritasEm('orcamento_cenarios', 'update')[0]?.payload;
+    expect(vinculo).toMatchObject({ cliente: 'Bluefit' });
+    expect(vinculo.proposta_id).toBeTruthy();
+  });
+
+  it('orçamento que JÁ tem Cliente não é reescrito pelo nome da revisão', async () => {
+    await criarPropostaDeOrcamento(entrada({ clienteNome: 'Outro Nome' }));
+    const vinculo = escritasEm('orcamento_cenarios', 'update')[0]?.payload;
+    expect(vinculo).not.toHaveProperty('cliente');
   });
 
   it('vincula o orçamento à proposta criada', async () => {
@@ -254,6 +274,44 @@ describe('criarPropostaDeOrcamento — o que recusa', () => {
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/já foi convertido/i);
     expect(escritasEm('sales_proposals')).toHaveLength(0);
+  });
+
+  it('sem cliente a conversão RECUSA: a capa sairia sem destinatário (PROP-2026-0010, 05/10/2026)', async () => {
+    // O orçamento da PROP-2026-0010 se chamava "Bluefit" e tinha o campo Cliente
+    // vazio; o documento omite o bloco do destinatário sem nome, e a capa de uma
+    // proposta de R$ 1 milhão saiu sem o cliente.
+    cenario.orcamento.cliente = null;
+    cenario.orcamento.nome = 'Bluefit';
+    for (const clienteNome of [undefined, '', '   ', null]) {
+      sb = mock();
+      const r: any = await criarPropostaDeOrcamento(entrada({ clienteNome }));
+      expect(r.success, String(clienteNome)).toBe(false);
+      expect(r.error).toMatch(/Informe o cliente/);
+      expect(sb.escritas, String(clienteNome)).toHaveLength(0);
+      expect(auditoria).not.toHaveBeenCalled();
+    }
+  });
+
+  it('o NOME DO CENÁRIO do orçamento nunca vira destinatário: é campo interno', async () => {
+    cenario.orcamento.cliente = null;
+    cenario.orcamento.nome = 'agressivo v3';
+    const r: any = await criarPropostaDeOrcamento(entrada());
+    expect(r.success).toBe(false);
+    expect(escritasEm('sales_proposals')).toHaveLength(0);
+  });
+
+  it('conta do CRM dispensa o nome digitado: o documento usa o nome da conta', async () => {
+    cenario.orcamento.cliente = null;
+    const r: any = await criarPropostaDeOrcamento(entrada({ accountId: 'conta-1' }));
+    expect(r.success).toBe(true);
+    expect(insertDeProposta()).toMatchObject({ account_id: 'conta-1', cliente_nome: null });
+  });
+
+  it('cliente acima do limite do orçamento é recusado antes de escrever', async () => {
+    const r: any = await criarPropostaDeOrcamento(entrada({ clienteNome: 'x'.repeat(121) }));
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/muito longo/);
+    expect(sb.escritas).toHaveLength(0);
   });
 
   it('orçamento inexistente não cria proposta', async () => {
@@ -548,7 +606,19 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
 
   it('workshop numa unidade só fala no singular', () => {
     const texto = escopoPropostaDoCenario({ ...entradas, metodo: 'workshop' }, resumo, jornada);
-    expect(texto).toMatch(/^Workshop presencial para definir, com a equipe da instituição, as competências de cada cargo$/m);
+    expect(texto).toMatch(/^Workshop presencial para definir, com a equipe, as competências de cada cargo$/m);
+  });
+
+  it('nenhuma linha do rascunho diz "instituição": o gerador não conhece o segmento do cliente', () => {
+    // Uma rede de academias leu "com a equipe da instituição" (PROP-2026-0010). O
+    // tipo de cliente só é escolhido DEPOIS, no formulário, então a frase tem que
+    // servir a escola e a empresa — e as duas formas (singular e plural) concordam.
+    for (const nWorkshops of [1, 3]) {
+      for (const metodo of ['workshop', 'votacao']) {
+        const texto = escopoPropostaDoCenario({ ...entradas, metodo, nWorkshops }, resumo, jornada);
+        expect(texto, `${metodo} × ${nWorkshops}`).not.toMatch(/institui[çc][ãa]o/i);
+      }
+    }
   });
 
   it('extração de vídeo entra no escopo só quando existe', () => {
@@ -654,6 +724,54 @@ describe('atualizarPropostaDeOrcamento — orçamento editado depois de virar pr
   it('os números vêm do BANCO, não do que o cliente mandou', async () => {
     await atualizar({ monthly_value: 1, total_contract_value: 1 });
     expect(updateDaProposta()).toMatchObject({ monthly_value: 19000, total_contract_value: 38000 });
+  });
+
+  describe('nome do cliente na capa (PROP-2026-0010: saiu sem destinatário)', () => {
+    const ultimaAuditoria = () => auditoria.mock.calls.at(-1)![0];
+
+    it('o nome digitado na revisão é gravado e volta para o orçamento que estava sem Cliente', async () => {
+      cenario.orcamento.cliente = null;
+      const r: any = await atualizar({ clienteNome: ' Bluefit ' });
+      expect(r.success).toBe(true);
+      expect(updateDaProposta()).toMatchObject({ cliente_nome: 'Bluefit' });
+      expect(escritasEm('orcamento_cenarios', 'update')[0]?.payload).toMatchObject({ cliente: 'Bluefit' });
+      expect(ultimaAuditoria().detalhes).toMatchObject({
+        antes: { cliente: null }, depois: { cliente: 'Bluefit' }, clienteNoOrcamento: 'gravado',
+      });
+    });
+
+    it('proposta criada ANTES da regra, sem nome, ganha o Cliente do orçamento ao atualizar', async () => {
+      const r: any = await atualizar();
+      expect(r.success).toBe(true);
+      expect(updateDaProposta()).toMatchObject({ cliente_nome: 'Rede X de Ensino' });
+      // O orçamento já tinha Cliente: nada a devolver para ele.
+      expect(escritasEm('orcamento_cenarios', 'update')).toHaveLength(0);
+      expect(ultimaAuditoria().detalhes.clienteNoOrcamento).toBe('ja_tinha');
+    });
+
+    it('sem nome em lugar nenhum a atualização RECUSA, sem escrita', async () => {
+      cenario.orcamento.cliente = null;
+      cenario.orcamento.nome = 'Bluefit';
+      const r: any = await atualizar({ clienteNome: '  ' });
+      expect(r.success).toBe(false);
+      expect(r.error).toMatch(/Informe o cliente/);
+      expect(sb.escritas).toHaveLength(0);
+    });
+
+    it('proposta já nomeada e sem nome digitado mantém o dela: não reescreve cliente_nome', async () => {
+      cenario.orcamento.cliente = 'Outro nome no orçamento';
+      cenario.proposta = { ...PROPOSTA_SEM_RC, cliente_nome: 'Bluefit' };
+      const r: any = await atualizar();
+      expect(r.success).toBe(true);
+      expect(updateDaProposta()).not.toHaveProperty('cliente_nome');
+    });
+
+    it('conta do CRM dispensa o nome', async () => {
+      cenario.orcamento.cliente = null;
+      cenario.proposta = { ...PROPOSTA_SEM_RC, account_id: 'conta-1' };
+      const r: any = await atualizar();
+      expect(r.success).toBe(true);
+    });
   });
 
   it('orçamento que ainda não virou proposta é recusado sem escrita', async () => {

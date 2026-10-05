@@ -18,9 +18,11 @@ type Props = {
     line: string; white: string; danger: string;
   };
   fontes: { display: string; body: string; mono: string };
+  /** Fim da frase "em nome ___": "de Bluefit" com nome, "da empresa" sem (`doc.termos.emNomeDe`). */
+  emNomeDe: string;
 };
 
-export default function AceiteForm({ token, cores: C, fontes: F }: Props) {
+export default function AceiteForm({ token, cores: C, fontes: F, emNomeDe }: Props) {
   const router = useRouter();
   const [nome, setNome] = useState('');
   const [cargo, setCargo] = useState('');
@@ -160,7 +162,7 @@ export default function AceiteForm({ token, cores: C, fontes: F }: Props) {
         />
         <span>
           Li esta proposta e concordo com o escopo, o investimento e as condições descritas. Tenho
-          autorização para aceitá-la em nome da instituição.
+          autorização para aceitá-la em nome {emNomeDe}.
         </span>
       </label>
 

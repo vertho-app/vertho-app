@@ -444,16 +444,25 @@ describe('blocos vindos dos decks de venda (17/09/2026)', () => {
     for (const tipo of ['empresa', 'comercio', 'outro', null]) {
       const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, {});
       expect(doc.segmento, String(tipo)).toBe('corporativo');
-      expect(doc.cenario.rotulo).toMatch(/Liderança/);
+      expect(doc.cenario.rotulo).toMatch(/Gerente de loja/);
       expect(doc.personalizacao.pessoas.map((p) => p.nome)).toContain('Pessoa A');
       expect(doc.gestao.niveis).toMatch(/organização/);
     }
   });
 
   it('o cenário tem as 4 perguntas abertas que o produto gera (p1 a p4)', () => {
+    // Cada segmento rotula as quatro com o que o seu caso testa: o da educação segue
+    // os rótulos do deck; o corporativo, desde 05/10/2026, usa os descritores da
+    // competência com que o caso foi gerado (ver `CENARIO` em proposal-document.ts).
+    const rotulos: Record<string, string[]> = {
+      escola: ['Escolha', 'Execução', 'Tensão humana', 'Sustentação'],
+      empresa: ['Abertura', 'Divergência', 'Acordo', 'Continuidade'],
+    };
     for (const tipo of ['escola', 'empresa']) {
       const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, {});
-      expect(doc.cenario.perguntas.map((q) => q.nome)).toEqual(['Escolha', 'Execução', 'Tensão humana', 'Sustentação']);
+      expect(doc.cenario.perguntas.map((q) => q.nome), tipo).toEqual(rotulos[tipo]);
+      // Pergunta aberta e que pergunta: o instrumento não tem múltipla escolha.
+      expect(doc.cenario.perguntas.every((q) => q.pergunta.includes('?')), tipo).toBe(true);
     }
   });
 
@@ -541,5 +550,102 @@ describe('simuladores incluídos (17/09/2026)', () => {
     }
     const atendimento = doc.simuladores.find((s) => s.nome === 'Simulador de atendimento');
     expect(atendimento?.descricao).toContain('fala literal da pessoa');
+  });
+});
+
+describe('linguagem por segmento e cenário do gerente de loja (05/10/2026)', () => {
+  // Os três simuladores ligados: o de atendimento era um dos textos que diziam
+  // "instituição" para uma empresa.
+  const orcComSimuladores = {
+    ...ORC_REAL,
+    entradas: { ...(ORC_REAL as any).entradas, simuladores: { vendas: 100, atendimento: 100, lideranca: 100 } },
+  };
+  /** Todo texto corrido do documento, menos o escopo (que é dado digitado, não texto da casa). */
+  const textoDaCasa = (doc: ReturnType<typeof buildProposalDocument>) => JSON.stringify([
+    doc.termos, doc.entregas, doc.paraPessoa, doc.paraInstituicao, doc.cronograma, doc.pilares,
+    doc.curadoria, doc.cenario, doc.personalizacao, doc.gestao, doc.naoIncluso, doc.premissas,
+    doc.proximosPassos, doc.simuladores,
+  ]);
+
+  it('empresa não lê "instituição" em lugar nenhum: uma rede de academias leu "A instituição recebe"', () => {
+    for (const tipo of ['empresa', 'comercio', 'outro', null]) {
+      const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, { orcamento: orcComSimuladores });
+      expect(textoDaCasa(doc), String(tipo)).not.toMatch(/institui[çc][ãa]o|institui[çc][õo]es/i);
+    }
+  });
+
+  it('escola e rede de ensino seguem dizendo "instituição": a palavra é deles', () => {
+    for (const tipo of ['escola', 'rede_ensino']) {
+      const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, { orcamento: orcComSimuladores });
+      expect(doc.termos.entidade, tipo).toBe('instituição');
+      expect(doc.entregas[0].texto, tipo).toContain('Subdomínio próprio da instituição');
+      expect(doc.cronograma[0].descricao, tipo).toContain('identidade visual da instituição');
+      expect(doc.simuladores.find((s) => s.nome === 'Simulador de atendimento')?.descricao, tipo).toContain('a instituição pode adaptar');
+    }
+  });
+
+  it('com nome, o quadro "Quem recebe o quê" e o aceite nomeiam o cliente, sem artigo', () => {
+    const doc = buildProposalDocument(propostaBase({ customer_type: 'empresa', cliente_nome: 'Bluefit' }), null, null, {});
+    expect(doc.cliente.nome).toBe('Bluefit');
+    expect(doc.termos.colunaCliente).toBe('Bluefit recebe');
+    expect(doc.termos.emNomeDe).toBe('de Bluefit');
+    // O artigo de uma marca não se deduz ("a Bluefit", "o Itaú"): o título do
+    // quadro e o texto corrido ficam no substantivo genérico, nunca em "da Bluefit".
+    expect(doc.termos.tituloQuemRecebe).toBe('Para cada pessoa, e para a empresa');
+    expect(doc.termos.deEntidade).toBe('da empresa');
+    expect(JSON.stringify(doc.termos)).not.toMatch(/\b(da|do|para a|para o) Bluefit/);
+  });
+
+  it('sem nome, os mesmos campos caem no substantivo do segmento', () => {
+    const emp = buildProposalDocument(propostaBase({ customer_type: 'empresa', cliente_nome: null }), null, null, {});
+    expect(emp.termos).toEqual({
+      entidade: 'empresa', deEntidade: 'da empresa', tituloQuemRecebe: 'Para cada pessoa, e para a empresa',
+      colunaCliente: 'A empresa recebe', emNomeDe: 'da empresa',
+    });
+    const esc = buildProposalDocument(propostaBase({ customer_type: 'escola', cliente_nome: null }), null, null, {});
+    expect(esc.termos.colunaCliente).toBe('A instituição recebe');
+    expect(esc.termos.emNomeDe).toBe('da instituição');
+  });
+
+  it('o nome da conta do CRM vence o texto livre, também nos termos', () => {
+    const doc = buildProposalDocument(
+      propostaBase({ customer_type: 'empresa', cliente_nome: 'texto livre' }),
+      { legal_name: 'Bluefit Academias S.A.', trade_name: 'Bluefit' }, null, {},
+    );
+    expect(doc.termos.colunaCliente).toBe('Bluefit recebe');
+  });
+
+  describe('o exemplo corporativo é um caso de gerente de loja', () => {
+    const cen = () => buildProposalDocument(propostaBase({ customer_type: 'empresa' }), null, null, {}).cenario;
+
+    it('não é mais o de expedição de caminhões, que chegou a uma rede de academias', () => {
+      const texto = JSON.stringify(cen());
+      expect(texto).not.toMatch(/caminh[ãõ]|expedi[çc]|confer[êe]ncia dupla|conferentes|Diego|Renata/i);
+      expect(cen().rotulo).toBe('Cenário · Gerente de loja');
+      // O rótulo vai em caixa alta e espaçada numa coluna estreita do PDF: passou de
+      // 33 caracteres, quebra e deixa uma palavra sozinha na segunda linha.
+      expect(cen().rotulo.length).toBeLessThanOrEqual(33);
+      expect(cen().situacao).toMatch(/unidade da rede/);
+    });
+
+    it('respeita os limites do instrumento (os do prompt da IA3): contexto ≤ 900, pergunta ≤ 200, 4 perguntas, 2 nomes', () => {
+      const { situacao, perguntas } = cen();
+      expect(situacao.length).toBeLessThanOrEqual(900);
+      expect(perguntas).toHaveLength(4);
+      for (const q of perguntas) expect(q.pergunta.length, q.nome).toBeLessThanOrEqual(200);
+      // Máx. 2 stakeholders nomeados: Rafael e Camila.
+      const nomes = new Set(`${situacao} ${perguntas.map((q) => q.pergunta).join(' ')}`.match(/\b(Rafael|Camila|Diego|Renata|Marcos|Ana|João|Maria)\b/g));
+      expect([...nomes].sort()).toEqual(['Camila', 'Rafael']);
+    });
+
+    it('não nomeia empresa nem cidade reais (anonimização da IA3) e não cita travessão', () => {
+      const texto = JSON.stringify(cen());
+      expect(texto).not.toMatch(/Bluefit|Smart Fit|Selfit|Bodytech|Gympass|Wellhub|Amazon|ACME|Boehringer/i);
+      expect(texto).not.toMatch(/[–—]/);
+    });
+
+    it('diz que é um exemplo: o cliente não confunde com o cenário dele', () => {
+      expect(cen().fechamento).toMatch(/este caso é só um exemplo/);
+    });
   });
 });

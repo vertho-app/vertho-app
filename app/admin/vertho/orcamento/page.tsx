@@ -8,6 +8,7 @@ import BackButton from '@/components/back-button';
 import { CALLS, PRESETS, calcCost, custoColabNaJornada, infraFixaTotal } from '@/lib/ia-cost-catalog';
 import type { Simulador } from '@/lib/simuladores/acesso-cargo';
 import {
+  LIMITE_CLIENTE,
   VERSAO_COTACAO_ORCAMENTO,
   entradasPadrao,
   escopoPropostaDoCenario,
@@ -561,6 +562,9 @@ export default function OrcamentoPage() {
   // orçamento já gerou (orçamento editado depois da conversão).
   const [convModo, setConvModo] = useState<'criar' | 'atualizar'>('criar');
   const [convEscopo, setConvEscopo] = useState('');
+  // Nome que a capa da proposta mostra. Nasce do campo Cliente do orçamento e é
+  // obrigatório aqui: sem ele a capa sai sem destinatário (PROP-2026-0010).
+  const [convCliente, setConvCliente] = useState('');
   const [convPagamento, setConvPagamento] = useState('');
   const [convTipoCliente, setConvTipoCliente] = useState('');
   const [convPacote, setConvPacote] = useState('');
@@ -808,6 +812,7 @@ export default function OrcamentoPage() {
       semanas: semanasPorCiclo,
     }));
     setConvPagamento(`${calc.parcelas} parcelas de ${money(calc.mensalidadeFlat)}`);
+    setConvCliente(ident.cliente);
     setConvAberta(true);
   }
 
@@ -820,11 +825,13 @@ export default function OrcamentoPage() {
         orcamentoId: ident.id,
         includedScope: convEscopo,
         paymentTerms: convPagamento || null,
+        clienteNome: convCliente,
       });
       if (!r.success || !r.data) {
         setAviso({ tom: 'erro', texto: r.error || 'Não foi possível atualizar a proposta.' });
         return;
       }
+      setIdent((i) => ({ ...i, cliente: i.cliente || convCliente.trim() }));
       setConvAberta(false);
       setAviso({
         tom: 'ok',
@@ -849,6 +856,7 @@ export default function OrcamentoPage() {
         paymentTerms: convPagamento || null,
         customerType: convTipoCliente || null,
         productPackage: convPacote || null,
+        clienteNome: convCliente,
         contatoNome: convContatoNome,
         contatoEmail: convContatoEmail,
         contatoWhatsapp: convContatoWhats,
@@ -862,7 +870,7 @@ export default function OrcamentoPage() {
           nome: convContatoNome, email: convContatoEmail, whats: convContatoWhats,
         }));
       } catch { /* storage bloqueado: só não lembra na próxima */ }
-      setIdent((i) => ({ ...i, propostaId: r.data!.id }));
+      setIdent((i) => ({ ...i, propostaId: r.data!.id, cliente: i.cliente || convCliente.trim() }));
       setConvAberta(false);
       setAviso({
         tom: 'ok',
@@ -1540,7 +1548,7 @@ export default function OrcamentoPage() {
             </div>
             <div>
               <label htmlFor="orc-cliente" className="mb-1 block text-[9px] uppercase tracking-widest text-gray-500">
-                Cliente <span className="normal-case text-gray-600">(opcional)</span>
+                Cliente <span className="normal-case text-gray-600">(nome na capa da proposta)</span>
               </label>
               <input
                 id="orc-cliente"
@@ -1658,6 +1666,22 @@ export default function OrcamentoPage() {
                 entrega ({calc.ciclos} {calc.ciclos === 1 ? 'ciclo' : 'ciclos'} × 2), não 12 meses.
               </p>
 
+              <label htmlFor="conv-cliente" className="mt-3 mb-1 block text-[9px] uppercase tracking-widest text-gray-500">
+                Cliente — aparece na capa
+              </label>
+              <input
+                id="conv-cliente"
+                type="text"
+                value={convCliente}
+                maxLength={LIMITE_CLIENTE}
+                placeholder="ex.: Bluefit"
+                onChange={(e) => setConvCliente(e.target.value)}
+                className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-white outline-none placeholder:text-gray-600 focus:border-amber-300"
+              />
+              <p className="mt-1 text-[9px] text-gray-600">
+                O cliente lê como “Preparada para …”. Sem o nome, a capa sai sem destinatário.
+              </p>
+
               <label htmlFor="conv-escopo" className="mt-3 mb-1 block text-[9px] uppercase tracking-widest text-gray-500">
                 Escopo incluído — o cliente lê isto
               </label>
@@ -1769,7 +1793,7 @@ export default function OrcamentoPage() {
                   type="button"
                   onClick={convModo === 'atualizar' ? aoAtualizar : aoConverter}
                   disabled={
-                    ocupado || !convEscopo.trim()
+                    ocupado || !convEscopo.trim() || !convCliente.trim()
                     || (convModo === 'criar' && (!convContatoNome.trim() || !convContatoEmail.trim() || !convContatoWhats.trim()))
                   }
                   className="inline-flex items-center justify-center gap-1.5 bg-amber-300 px-3 py-2 text-[11px] font-bold text-[#17150e] hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40"

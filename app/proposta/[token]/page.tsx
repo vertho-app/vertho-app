@@ -789,11 +789,11 @@ export default async function PropostaPublicaPage(
           </Secao>
 
           {/* Dois lados */}
-          <Secao eyebrow="// Quem recebe o quê" titulo="Para cada pessoa, e para a instituição">
+          <Secao eyebrow="// Quem recebe o quê" titulo={doc.termos.tituloQuemRecebe}>
             <div className="prop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {[
                 { titulo: 'Cada participante recebe', itens: doc.paraPessoa, borda: C.cyan, marca: C.cyanMarca },
-                { titulo: 'A instituição recebe', itens: doc.paraInstituicao, borda: C.navy, marca: C.navy },
+                { titulo: doc.termos.colunaCliente, itens: doc.paraInstituicao, borda: C.navy, marca: C.navy },
               ].map((bloco, i) => (
                 <div
                   key={i}
@@ -1077,7 +1077,7 @@ export default async function PropostaPublicaPage(
                   padding: '26px 28px',
                 }}
               >
-                <Eyebrow>// Aceite</Eyebrow>
+                <Eyebrow>{'// Aceite'}</Eyebrow>
                 <h2
                   style={{
                     fontFamily: FONT_DISPLAY,
@@ -1090,11 +1090,11 @@ export default async function PropostaPublicaPage(
                   Vamos começar?
                 </h2>
                 <p style={{ fontSize: 14.5, lineHeight: 1.6, color: C.ink2, margin: '0 0 20px', maxWidth: '58ch' }}>
-                  Ao aceitar, a Vertho envia a planilha de setup e o ambiente da instituição fica no
+                  Ao aceitar, a Vertho envia a planilha de setup e o ambiente {doc.termos.deEntidade} fica no
                   ar em até 2 dias úteis após o recebimento do material.
                 </p>
                 <div style={{ background: C.cardSoft, borderRadius: 12, padding: '20px 20px 18px' }}>
-                  <AceiteForm token={token} cores={C} fontes={FONTES} />
+                  <AceiteForm token={token} cores={C} fontes={FONTES} emNomeDe={doc.termos.emNomeDe} />
                 </div>
               </div>
             ) : (

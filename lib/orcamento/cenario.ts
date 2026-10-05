@@ -116,7 +116,7 @@ const MINIMOS_PRICING: Partial<Record<keyof PricingOrcamento, number>> = {
 };
 
 const LIMITE_NOME = 120;
-const LIMITE_CLIENTE = 120;
+export const LIMITE_CLIENTE = 120;
 
 function inteiro(v: unknown, padrao: number, minimo: number): number {
   const n = Number(v);
@@ -382,8 +382,12 @@ export function escopoPropostaDoCenario(
     linhas.splice(
       2,
       0,
+      // Sem "da instituição": o gerador não sabe o segmento (o tipo de cliente só é
+      // escolhido depois, no formulário) e "instituição" é palavra de escola. Numa
+      // rede de academias o cliente leu "equipe da instituição" (05/10/2026). A
+      // forma plural já era neutra; as duas agora dizem a mesma coisa.
       nWorkshops === 1
-        ? 'Workshop presencial para definir, com a equipe da instituição, as competências de cada cargo'
+        ? 'Workshop presencial para definir, com a equipe, as competências de cada cargo'
         : `${n(nWorkshops)} workshops presenciais para definir com a equipe as competências de cada cargo`,
     );
   }

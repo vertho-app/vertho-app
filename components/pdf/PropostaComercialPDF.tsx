@@ -692,11 +692,11 @@ export default function PropostaComercialPDF({
         </Secao>
 
         {/* DOIS LADOS */}
-        <Secao eyebrow="// Quem recebe o quê" titulo="Para cada pessoa, e para a instituição">
+        <Secao eyebrow="// Quem recebe o quê" titulo={doc.termos.tituloQuemRecebe}>
           <View style={s.ladoRow}>
             {[
               { titulo: 'Cada participante recebe', itens: doc.paraPessoa, borda: c.cyan, marca: c.cyanMarca },
-              { titulo: 'A instituição recebe', itens: doc.paraInstituicao, borda: c.navy, marca: c.navy },
+              { titulo: doc.termos.colunaCliente, itens: doc.paraInstituicao, borda: c.navy, marca: c.navy },
             ].map((bloco, i) => (
               <View key={i} style={{ ...s.lado, borderTopWidth: 2.5, borderTopColor: bloco.borda }} wrap={false}>
                 <Text style={s.ladoTitulo}>{bloco.titulo}</Text>
@@ -854,7 +854,7 @@ export default function PropostaComercialPDF({
               <Text style={s.chamadaTitulo}>Vamos começar?</Text>
               <Text style={s.chamadaTexto}>
                 O aceite pode ser registrado na própria página desta proposta, ou respondendo ao seu
-                contato na Vertho. O ambiente da instituição fica no ar em até 2 dias úteis após o
+                contato na Vertho. O ambiente {doc.termos.deEntidade} fica no ar em até 2 dias úteis após o
                 recebimento do material de setup.
               </Text>
             </View>
