@@ -162,6 +162,17 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   "Mapeamento Comportamental" em 73 arquivos, e `tests/unit/conarh-conteudo.test.ts` ainda esperava
   "Perfil comportamental (DISC)": CI vermelho em produção até o conserto `41d5a845`. Na mesma leva,
   um `'ativa'` literal novo reprovou o `status-literal-guard`.
+- 🔴 **O grep tem que pegar também os instrumentos que moram FORA de `tests/unit`**, e a remoção de
+  página entra junto (grep do CAMINHO):
+  `git grep -n "<texto ou caminho antigo>" -- tests scripts/smoke-test.js 'scripts/verify-*-ui.mjs' scripts/_capturar-telas-manual.mjs`.
+  O smoke e o E2E Piloto rodam no CI DEPOIS do deploy (não travam o push); os verificadores visuais
+  (`verify-pace-ui`, `verify-recepcao-ui`, `verify-lideranca-ui`) nem rodam no CI. `Medido: 04/10/2026`:
+  `8d2347d0` removeu `/dashboard/praticar/evidencia` (R-125) e o smoke seguiu esperando 200;
+  `7242ab05` trocou "Entrar com Magic Link" por "Entrar com link de acesso" e o E2E seguiu clicando
+  no antigo; R-35 trocou "Média geral" por "Nível geral" e os três verificadores visuais quebraram.
+  CI vermelho em TODOS os pushes do dia (pelo menos 6), conserto `a6de46b2`. Página removida por
+  decisão vira checagem de que ela CONTINUA fora (404), não linha apagada; rótulo em E2E sai do
+  catálogo (`require('../messages/pt-BR.json')`), não de texto fixo.
 
 ## 10. Régua / nota / nível / scoring
 
@@ -955,6 +966,13 @@ do repo.
    caractere invisível e SEM a fronteira de palavra, o teste continua verde pelo motivo errado e o
    diff parece normal. Varredura obrigatória depois de todo script que escreve regex:
    `grep -c $'\x08' <arquivo>` (tem que dar 0).
+7. 🔴 **E a barra pode simplesmente SUMIR.** `Medido: 04/10/2026`: por `node - <<'EOF'` (heredoc
+   COM aspas, string JS com `\\d`), `/^Nível \d$/` chegou ao arquivo como `/^Nível d$/`. Era uma
+   asserção de AUSÊNCIA (`count() === 0`): sem a barra não casa com nada e passa sempre. Foi ao ar
+   em `4614b505` e só apareceu quando a mesma escrita quebrou uma regex POSITIVA (erro de sintaxe)
+   na rodada seguinte. Regex vai por `Edit`; depois de qualquer edição por script,
+   `git diff | grep` pela regex ESPERADA (com a barra); e asserção de ausência ganha controle
+   positivo (a mesma regex tem que achar o caso presente em outro ponto do fluxo).
 
 **Consequência medida (31/08/2026):** um commit saiu com a mensagem **"feat(cadencia): v3 com link
 NO CORPO"** — texto do dono, de 30/08, que já morava em `/tmp/msg3.txt`. O heredoc não sobrescreveu
