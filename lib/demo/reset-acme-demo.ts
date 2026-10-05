@@ -57,6 +57,7 @@ import {
   notaDePartida,
 } from '@/lib/demo/acme-evolucao-fixture';
 import { getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
+import { adaptarPdiFixtureAoModo, pdiDemoCompativelComModo } from '@/lib/demo/pdi-ao-modo';
 import {
   construirEvolucao,
   construirFechamento,
@@ -67,7 +68,7 @@ import { seedAcmeOrganizationReports } from '@/lib/demo/acme-organization-report
 import { precomputeDemoFitResults, seedAcmeFitRankingSnapshots } from '@/lib/demo/acme-fit-rankings';
 // Régua canônica de competências — a MESMA que o mapeamento real e o simulador
 // usam. O demo tinha derivação própria; ver comportamentosDoDisc.
-import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
+import { comportamentosDoDisc } from '@/lib/demo/comportamentos-do-disc';
 import { deriveProfile } from '@/lib/disc-mapeamento';
 import { IA4_FILTRO, PLANO_SEMANA, PROGRESSO, TRILHA } from '@/lib/status';
 import { buildAcmeDemoBehavioralReport } from '@/lib/demo/acme-behavioral-report';
@@ -551,63 +552,9 @@ export function adaptarProgressoFixtureAoModo(progress: any, programaModo?: stri
   return [...conteudos, { ...avaliacao, semana: config.semanaCenarioB }];
 }
 
-/**
- * Ajusta o conteúdo do PDI à mesma régua temporal da trilha. Além do total da
- * capa, compacta o mapa do blueprint, que alimenta a timeline interna do PDF.
- */
-export function adaptarPdiFixtureAoModo(conteudo: any, programaModo?: string | null): any {
-  if (!conteudo || programaModo !== 'jornada') return conteudo;
-
-  const config = getProgramaConfigByModo('jornada');
-  const mapa = conteudo.trilha_mapa;
-  let semanasMapa = Array.isArray(mapa?.semanas) ? mapa.semanas : [];
-
-  if (semanasMapa.length && (
-    semanasMapa.length !== config.semanas
-    || semanasMapa.some((semana: any) => Number(semana?.semana) > config.semanas)
-  )) {
-    const conteudos = semanasMapa
-      .filter((semana: any) => semana?.tipo === 'conteudo')
-      .slice(0, config.slotsConteudo.length)
-      .map((semana: any, indice: number) => ({ ...semana, semana: config.slotsConteudo[indice] }));
-    const avaliacao = [...semanasMapa]
-      .reverse()
-      .find((semana: any) => semana?.tipo === 'avaliacao');
-
-    if (conteudos.length !== config.slotsConteudo.length || !avaliacao) {
-      throw new Error(
-        `mapa de PDI inválido para jornada: esperava ${config.slotsConteudo.length} conteúdos e uma avaliação; `
-        + `encontrou ${conteudos.length} conteúdos e ${avaliacao ? 1 : 0} avaliação`,
-      );
-    }
-    semanasMapa = [...conteudos, { ...avaliacao, semana: config.semanaCenarioB }];
-  }
-
-  return {
-    ...conteudo,
-    total_semanas: config.semanas,
-    programa_modo: 'jornada',
-    ...(mapa ? {
-      trilha_mapa: {
-        ...mapa,
-        duracao_semanas: config.semanas,
-        semanas: semanasMapa,
-      },
-    } : {}),
-  };
-}
-
-/** PDFs antigos não podem sobreviver quando o conteúdo temporal do PDI muda. */
-export function pdiDemoCompativelComModo(conteudo: any, programaModo?: string | null): boolean {
-  if (programaModo !== 'jornada') return true;
-  const config = getProgramaConfigByModo('jornada');
-  if (conteudo?.programa_modo !== 'jornada' || Number(conteudo?.total_semanas) !== config.semanas) return false;
-  const mapa = conteudo?.trilha_mapa;
-  if (!mapa) return true;
-  if (Number(mapa.duracao_semanas) !== config.semanas || !Array.isArray(mapa.semanas)) return false;
-  return mapa.semanas.length === config.semanas
-    && mapa.semanas.every((semana: any) => Number(semana?.semana) >= 1 && Number(semana?.semana) <= config.semanas);
-}
+// O ajuste do PDI ao modo mora em `pdi-ao-modo.ts` (módulo puro, que o pacote offline
+// também usa sem arrastar este reset). Os dois nomes seguem exportados daqui.
+export { adaptarPdiFixtureAoModo, pdiDemoCompativelComModo };
 
 
 
@@ -658,23 +605,9 @@ export function mesclarPersonaArtifacts(...fontes: any[]): Record<string, any> {
   return out;
 }
 
-export function comportamentosDoDisc(D: number, I: number, S: number, C: number) {
-  // Mesmo arredondamento do caminho real: executivo/motivador com 1 casa,
-  // metódico/sistemático inteiros (mapeamento-actions.ts:116-119).
-  const meio1 = (v: number) => Math.round((v / 2) * 10) / 10;
-  const meio0 = (v: number) => Math.round(v / 2);
-  const comp = computeDiscCompetenciesNatural({ D, I, S, C });
-  return {
-    lid_executivo: meio1(D), lid_motivador: meio1(I),
-    lid_metodico: meio0(S), lid_sistematico: meio0(C),
-    comp_ousadia: comp.Ousadia, comp_comando: comp.Comando, comp_objetividade: comp.Objetividade,
-    comp_assertividade: comp.Assertividade, comp_persuasao: comp['Persuasão'], comp_extroversao: comp['Extroversão'],
-    comp_entusiasmo: comp.Entusiasmo, comp_sociabilidade: comp.Sociabilidade, comp_empatia: comp.Empatia,
-    comp_paciencia: comp['Paciência'], comp_persistencia: comp['Persistência'], comp_planejamento: comp.Planejamento,
-    comp_organizacao: comp['Organização'], comp_detalhismo: comp.Detalhismo, comp_prudencia: comp['Prudência'],
-    comp_concentracao: comp['Concentração'],
-  };
-}
+// A derivação das colunas comportamentais mora em `comportamentos-do-disc.ts` (módulo puro,
+// que o pacote offline também usa). O nome segue exportado daqui.
+export { comportamentosDoDisc };
 
 /**
  * O ritmo de resultados da vitrine: a maioria confirma, alguns ficam parciais e
