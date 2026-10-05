@@ -113,8 +113,8 @@ describe('guard de categoria — sinais que derrubaram templates em MARKETING', 
     for (const rotulo of ['chamada no imperativo antes do link', 'prazo como janela que fecha', 'benefício vendido']) {
       expect(SINAIS.find((s) => s.rotulo === rotulo)!.re.test(v1)).toBe(true);
     }
-    // E a v2 não bate em nenhum.
-    expect(SINAIS.some((s) => s.re.test(TEMPLATES.votacao_pendente.body))).toBe(false);
+    // E a v3 (a v2 saiu de TEMPLATES em 05/10/2026) não bate em nenhum.
+    expect(SINAIS.some((s) => s.re.test(TEMPLATES.votacao_pendente_v3.body))).toBe(false);
   });
 });
 

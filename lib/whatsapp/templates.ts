@@ -392,14 +392,15 @@ export const TEMPLATES = {
    * isso, e fora da janela de 24h a Meta só entrega template aprovado. O
    * primeiro contato continua sendo o `boas_vindas_v2`; este vem depois.
    *
-   * O prazo (`{{3}}`) é o dia seguinte ao envio, decisão do dono ("até as 23h59
-   * de amanhã"), e fica NO MEIO do corpo de propósito: corpo que termina em
-   * variável é motivo conhecido de reprovação. Mesmo desenho dos `avaliacao_*`
+   * O prazo (`{{3}}`) era o dia seguinte ao envio, decisão do dono ("até as 23h59
+   * de amanhã"), e ficava NO MEIO do corpo de propósito: corpo que termina em
+   * variável é motivo conhecido de reprovação. Mesmo desenho dos convites
    * aprovados como UTILITY: diz o que falta fazer, quanto custa e até quando,
-   * sem voz de campanha.
+   * sem voz de campanha. (O prazo saiu na v3: a votação só fecha quando o admin a
+   * desliga, ver `votacao_pendente_v3`.)
    */
   // ⚠️ Submetido como UTILITY e APROVADO COMO MARKETING (25/09/2026, em 2 min).
-  // Fora da tela de Envios; a v2 é `votacao_pendente`, logo abaixo.
+  // Fora da tela de Envios; o que dispara é a `votacao_pendente_v3`, logo abaixo.
   votacao_competencias: {
     name: 'votacao_competencias',
     category: 'MARKETING',
@@ -409,10 +410,26 @@ export const TEMPLATES = {
   },
 
   /**
-   * v2 do lembrete de votação — a v1 acima foi APROVADA COMO MARKETING em 2
-   * minutos (25/09/2026, evento `category_update` sem motivo: classificador
-   * automático). Lado a lado com os 21 UTILITY aprovados, a v1 fugia do molde em
-   * quatro pontos, e esta corrige os quatro:
+   * Lembrete de votação, v3: o que dispara hoje, sem prazo no corpo.
+   *
+   * 🔑 POR QUE O PRAZO SAIU (R-117, revisão de 02/10/2026). A v2
+   * (`votacao_pendente`) prometia "O prazo para registro do voto é {{4}}, às
+   * 23h59", e o envio calculava esse dia como o seguinte ao disparo. Mas a
+   * votação só fecha quando o admin a desliga, na aba Votação: o sistema não
+   * fecha sozinho às 23h59, então a mensagem prometia um fim que não existe. Aqui
+   * o corpo tem 3 variáveis (nome, instituição, link) e o envio deixou de
+   * calcular e de mandar o prazo. Se um dia o dono quiser um prazo, é ele que
+   * precisa existir na tela da votação, antes de voltar para o texto.
+   *
+   * Submetido à Meta em 05/10/2026 (id 1808140096867051, UTILITY provisório), com
+   * NOME NOVO porque template aprovado não se edita. O registro da v2 saiu daqui
+   * porque nenhum caminho a envia mais; o texto dela segue só na Meta.
+   *
+   * A HISTÓRIA DAS TRÊS VERSÕES, porque a lição vale para toda copy de votação:
+   * a v1 (`votacao_competencias`, acima) foi APROVADA COMO MARKETING em 2 minutos
+   * (25/09/2026, evento `category_update` sem motivo: classificador automático).
+   * Lado a lado com os 21 UTILITY aprovados, a v1 fugia do molde em quatro
+   * pontos, e a v2 corrigiu os quatro (a v3 mantém os quatro):
    *   1. abria ANUNCIANDO UM EVENTO ("A votação … está aberta"); os UTILITY abrem
    *      com um FATO sobre a pessoa ("… ainda não foi registrado");
    *   2. chamava para a ação no imperativo ("Para votar, acesse:"); os UTILITY
@@ -420,19 +437,23 @@ export const TEMPLATES = {
    *   3. fechava vendendo ("Seu voto ajuda a definir…"); os UTILITY fecham com
    *      uma frase neutra sobre o sistema;
    *   4. dava o prazo como JANELA QUE FECHA ("fica aberta até…", linguagem de
-   *      promoção); aqui ele é uma data de vencimento ("O prazo para registro …").
-   * O prazo continua (decisão do dono) e continua no meio do corpo.
+   *      promoção); a v2 o dava como data de vencimento, e a v3 não o dá.
+   * A v2 ficou APPROVED/UTILITY em 3 minutos (26/09/2026 02:04 UTC), sem
+   * `correct_category` agendado: é a evidência de que os quatro pontos eram a
+   * causa, e não a votação em si.
    *
-   * ✅ APPROVED/UTILITY em 3 minutos (26/09/2026 02:04 UTC), sem
-   * `correct_category` agendado. É a evidência de que os quatro pontos eram a
-   * causa, e não a votação em si nem o prazo como fato.
+   * ⚠️ Só vale DEPOIS de APPROVED: enquanto estiver PENDING a Meta recusa o envio
+   * (132001) e a tela de Envios o mostra como indisponível. As 3 variáveis, a
+   * ordem e o texto são congelados por
+   * `tests/unit/integrations/whatsapp-templates.test.ts`: reintroduzir o `{{4}}`
+   * aqui sem reenviar o template à Meta faria o corpo e o contrato divergirem.
    */
-  votacao_pendente: {
-    name: 'votacao_pendente',
+  votacao_pendente_v3: {
+    name: 'votacao_pendente_v3',
     category: 'UTILITY',
     language: 'pt_BR',
-    body: 'Olá, {{1}}. Seu voto na escolha das competências do seu cargo, no programa da {{2}}, ainda não foi registrado.\n\nVocê pode votar em:\n{{3}}\n\nO prazo para registro do voto é {{4}}, às 23h59. A votação leva cerca de 5 minutos, e o resultado define as competências trabalhadas no programa.',
-    example: ['Maria', '4Life Educação', 'https://4life-educacao.vertho.ai/dashboard/votacao', 'sábado, 26/09'],
+    body: 'Olá, {{1}}. Seu voto na escolha das competências do seu cargo, no programa da {{2}}, ainda não foi registrado.\n\nVocê pode votar em:\n{{3}}\n\nA votação leva cerca de 5 minutos, e o resultado define as competências trabalhadas na Jornada.',
+    example: ['Maria', '4Life Educação', 'https://4life-educacao.vertho.ai/dashboard/votacao'],
   },
 
   /**

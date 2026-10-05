@@ -87,14 +87,10 @@ export interface PilulaTemplateArgs {
    * diferentes para a mesma decisão (F-I21).
    */
   semanaPendente?: number | null;
-  /**
-   * Prazo da votação já escrito para a pessoa ("sábado, 26/09") — só para
-   * o lembrete de votação (`votacao_pendente`; a v1 `votacao_competencias` saiu
-   * da tela por ter virado MARKETING). Vem de `prazoDaVotacao`, que calcula o dia seguinte
-   * ao ENVIO no horário de Brasília: é o prazo que a mensagem promete, e quem
-   * fecha a votação no sistema continua sendo o admin, na aba Votação.
-   */
-  prazoVotacao?: string | null;
+  // O lembrete de votação (`votacao_pendente_v3`) não leva prazo: a votação só
+  // fecha quando o admin a desliga, e o prazo que a v2 prometia ("às 23h59") não
+  // existia no sistema (R-117). Por isso NÃO há campo de prazo aqui, e o contrato
+  // da v3 tem 3 parâmetros.
 }
 
 export interface ResultadoPilulaTemplate {
@@ -558,19 +554,24 @@ const CONTRATOS: Record<string, MontarParams> = {
   }),
 
   /**
-   * Lembrete da votação. APPROVED/UTILITY em 26/09/2026. `{{1}}`=nome,
-   * `{{2}}`=instituição, `{{3}}`=LINK, `{{4}}`=PRAZO. Sem botão.
+   * Lembrete da votação, v3 (R-117). Submetido em 05/10/2026 (id
+   * 1808140096867051); só vale depois de APPROVED. `{{1}}`=nome,
+   * `{{2}}`=instituição, `{{3}}`=LINK. Sem botão e SEM PRAZO: a v2
+   * (`votacao_pendente`) tinha um `{{4}}` com o prazo, que prometia um fim às
+   * 23h59 que o sistema não executa (a votação só fecha quando o admin a
+   * desliga). Mandar 4 parâmetros para um corpo de 3 variáveis a Meta recusa.
    *
    * A v1 (`votacao_competencias`, prazo em `{{3}}` e link em `{{4}}`) foi
    * aprovada como MARKETING e ficou SEM contrato de propósito: sem contrato,
    * nenhum caminho a envia (o webhook valida por aqui), e ninguém paga 6× por
-   * engano. Nenhuma mensagem saiu com ela.
+   * engano. Nenhuma mensagem saiu com ela. A v2 também não tem mais contrato:
+   * nenhum caminho a envia, e o texto antigo promete um prazo falso.
    *
    * O link vai direto para `/dashboard/votacao`: quem não tem sessão cai no login
    * com `?redirect=` e volta para a cédula depois de entrar (`dashboard-shell`).
    */
-  votacao_pendente: (a) => ({
-    params: [a.nome, a.instituicao || '', `${a.baseUrl}/dashboard/votacao`, a.prazoVotacao || ''],
+  votacao_pendente_v3: (a) => ({
+    params: [a.nome, a.instituicao || '', `${a.baseUrl}/dashboard/votacao`],
     botaoParam: null,
   }),
 

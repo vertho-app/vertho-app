@@ -42,28 +42,20 @@ import { montarCedula, normalizarCargoDaCedula } from '@/lib/votacao/cedula';
 
 const FUSO_BRASILIA = 'America/Sao_Paulo';
 
-/** Dia civil em Brasília (`AAAA-MM-DD`) — a régua do prazo e do slot diário. */
+/**
+ * Dia civil em Brasília (`AAAA-MM-DD`): a régua do slot diário da idempotência do
+ * lembrete de votação. O dia vem de Brasília, nunca do relógio do servidor (UTC):
+ * um envio às 22h30 de sexta em Brasília já é sábado em UTC, e o slot de "um por
+ * dia" viraria o dia errado.
+ *
+ * (Havia aqui um `prazoDaVotacao`, o "dia seguinte ao envio" que o `{{4}}` da v2
+ * do lembrete prometia. Saiu com o `votacao_pendente_v3`: a votação só fecha
+ * quando o admin a desliga, e o envio deixou de calcular e de mandar prazo.)
+ */
 export function diaEmBrasilia(agora: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: FUSO_BRASILIA, year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(agora);
-}
-
-/**
- * Prazo que o lembrete de votação promete: o DIA SEGUINTE ao envio, em
- * Brasília ("sábado, 26/09"). Decisão do dono (25/09/2026): "fica aberta até as
- * 23h59 de amanhã".
- *
- * 🔴 O dia vem de Brasília, nunca do relógio do servidor (UTC): um envio às
- * 22h30 de sexta em Brasília já é sábado em UTC, e o "amanhã" viraria domingo.
- */
-export function prazoDaVotacao(agora: Date = new Date()): string {
-  const [ano, mes, dia] = diaEmBrasilia(agora).split('-').map(Number);
-  // Meio-dia UTC do dia seguinte: longe das duas bordas, qualquer fuso lê o mesmo dia.
-  const amanha = new Date(Date.UTC(ano, mes - 1, dia + 1, 12));
-  return new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'UTC', weekday: 'long', day: '2-digit', month: '2-digit',
-  }).format(amanha);
 }
 
 /** Primeiro nome apresentável — "JANAINA" vira "Janaina", "McDonald" fica. */
@@ -104,8 +96,6 @@ interface ContextoVotacao {
   votaram: Set<string>;
   /** Tamanho da cédula por cargo normalizado (`lib/votacao/cedula.ts`). */
   cedulaPorCargo: Map<string, number>;
-  /** "sábado, 26/09" — a POSIÇÃO no corpo é do contrato de cada template. */
-  prazo: string;
   /** Dia do envio em Brasília: o slot da idempotência. */
   dia: string;
 }
@@ -160,7 +150,7 @@ function resolverVotacao(c: ColaboradorAlvo, ctx: ContextoEnvio): Resolucao {
   if (!v?.aberta) return { excluir: 'votação não está aberta' };
   if (v.votaram.has(c.id)) return { excluir: 'já votou' };
   if (!v.cedulaPorCargo.get(normalizarCargoDaCedula(c.cargo))) return { excluir: 'cargo sem competências na cédula' };
-  return { args: base(c, ctx, { prazoVotacao: v.prazo }) };
+  return { args: base(c, ctx) };
 }
 
 function resolverConteudoSemanal(
@@ -205,10 +195,12 @@ function resolverConteudoSemanal(
 const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => Resolucao> = {
   boas_vindas_v2: (c, ctx) => ({ args: base(c, ctx) }),
   /**
-   * Lembrete da votação: só a v2. A v1 (`votacao_competencias`) foi aprovada
-   * como MARKETING (6× o custo) e saiu da tela e dos `CONTRATOS` em 26/09/2026.
+   * Lembrete da votação: só a v3 (sem prazo; a votação só fecha quando o admin a
+   * desliga, R-117). A v1 (`votacao_competencias`) foi aprovada como MARKETING
+   * (6× o custo) e saiu da tela e dos `CONTRATOS` em 26/09/2026; a v2
+   * (`votacao_pendente`) saiu em 05/10/2026 por prometer um prazo que não existe.
    */
-  votacao_pendente: (c, ctx) => resolverVotacao(c, ctx),
+  votacao_pendente_v3: (c, ctx) => resolverVotacao(c, ctx),
   avaliacao_pendente: (c, ctx) => {
     // O convite é para o mapeamento comportamental, disponível antes dos cenários.
     // Com perfil EXTERNO o DISC nativo é bloqueado: o convite levaria todos a uma
@@ -445,7 +437,7 @@ export interface TemplateDisparavel {
 
 const VARIAVEIS_DE: Record<string, string[]> = {
   boas_vindas_v2: ['primeiro nome', 'nome da instituição', 'link de /entrar'],
-  votacao_pendente: ['primeiro nome', 'nome da instituição', 'link da votação', 'prazo: dia seguinte ao envio (Brasília)'],
+  votacao_pendente_v3: ['primeiro nome', 'nome da instituição', 'link da votação'],
   avaliacao_pendente: ['primeiro nome', 'nome da instituição', 'link do mapeamento comportamental'],
   avaliacao_competencias: ['primeiro nome', 'competência do cargo (top5_workshop)', 'link do assessment'],
   avaliacao_parcial: ['primeiro nome', 'cenários respondidos', 'total de cenários', 'link do assessment'],
@@ -471,7 +463,7 @@ const BOTAO_DE: Record<string, string> = {
 
 const ALVO_DE: Record<string, string> = {
   boas_vindas_v2: 'está no escopo e tem WhatsApp cadastrado',
-  votacao_pendente: 'votação aberta, ainda não votou e o cargo tem competências na cédula',
+  votacao_pendente_v3: 'votação aberta, ainda não votou e o cargo tem competências na cédula',
   avaliacao_pendente: 'ainda não concluiu o mapeamento comportamental; não depende de cenários de avaliação',
   avaliacao_competencias: 'concluiu o perfil comportamental e ainda não iniciou a avaliação de competências',
   avaliacao_parcial: 'iniciou a avaliação, mas ainda tem cenários pendentes',
@@ -492,7 +484,7 @@ const ALVO_DE: Record<string, string> = {
 
 const ROTULO_DE: Record<string, string> = {
   boas_vindas_v2: 'Boas-vindas ao programa',
-  votacao_pendente: 'Voto de competências pendente',
+  votacao_pendente_v3: 'Voto de competências pendente',
   avaliacao_pendente: 'Mapeamento comportamental pendente',
   avaliacao_competencias: 'Avaliação de competências pendente',
   avaliacao_parcial: 'Avaliação em andamento',
@@ -513,7 +505,7 @@ const ROTULO_DE: Record<string, string> = {
 
 const ETAPA_DE: Record<string, string> = {
   boas_vindas_v2: 'Entrada',
-  votacao_pendente: 'Entrada',
+  votacao_pendente_v3: 'Entrada',
   avaliacao_pendente: 'Avaliação',
   avaliacao_competencias: 'Avaliação',
   avaliacao_parcial: 'Avaliação',
@@ -556,12 +548,12 @@ const TEMPLATES_TRILHA_MANUAL = new Set([
 
 /** Idempotência pelo DIA do envio, não pela pessoa: o lembrete pode voltar amanhã. */
 const TEMPLATES_POR_DIA = new Set([
-  'votacao_pendente',
+  'votacao_pendente_v3',
 ]);
 
 /** Templates que precisam do estado da votação (`carregarVotacao`). */
 const TEMPLATES_VOTACAO = new Set([
-  'votacao_pendente',
+  'votacao_pendente_v3',
 ]);
 
 /** Templates que a tela pode disparar: têm resolvedor E contrato de parâmetros. */
@@ -739,7 +731,6 @@ async function carregarVotacao(sb: any, empresaId: string, agora: Date): Promise
     aberta: empresa?.sys_config?.votacao_ativa === true,
     votaram: new Set((votos || []).map((v: any) => String(v.colaborador_id || '')).filter(Boolean)),
     cedulaPorCargo,
-    prazo: prazoDaVotacao(agora),
     dia: diaEmBrasilia(agora),
   };
 }
@@ -931,7 +922,7 @@ export async function prepararLoteTemplate(
     colabs: ColaboradorAlvo[];
     idsRefinados?: ReadonlySet<string>;
     incluirJaEnviados?: boolean;
-    /** Relógio do envio (prazo e slot diário da votação). Default: agora. */
+    /** Relógio do envio (slot diário da votação). Default: agora. */
     agora?: Date;
   },
 ): Promise<LotePreparado> {

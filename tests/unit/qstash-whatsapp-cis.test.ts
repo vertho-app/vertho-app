@@ -394,6 +394,36 @@ describe('qstash whatsapp-cis webhook', () => {
       );
     });
 
+    it('votacao_pendente_v3 passa pelo contrato com os 3 parâmetros e grava o kind do nome novo', async () => {
+      const res = await POST(makeReq({
+        telefone: '5522999999999',
+        template: 'votacao_pendente_v3',
+        templateParams: ['Maria', '4Life Educação', 'https://4life-educacao.vertho.ai/dashboard/votacao'],
+        templateDedupeKey: 'votacao_pendente_v3:colab-1:dia:2026-10-05',
+        colaboradorId: '33333333-3333-4333-8333-333333333333',
+      }));
+
+      expect(res.status).toBe(200);
+      expect(enviarTemplateCloud).toHaveBeenCalledWith(
+        expect.objectContaining({
+          template: 'votacao_pendente_v3',
+          params: ['Maria', '4Life Educação', 'https://4life-educacao.vertho.ai/dashboard/votacao'],
+        }),
+        expect.objectContaining({ motivo: 'votacao_pendente_v3', dedupeKey: 'votacao_pendente_v3:colab-1:dia:2026-10-05' }),
+      );
+    });
+
+    it('🔴 a v2 (votacao_pendente, com o prazo falso) saiu dos contratos: 400, sem tentar enviar', async () => {
+      const res = await POST(makeReq({
+        telefone: '5522999999999',
+        template: 'votacao_pendente',
+        templateParams: ['Maria', '4Life Educação', 'https://4life-educacao.vertho.ai/dashboard/votacao', 'sábado, 26/09'],
+      }));
+
+      expect(res.status).toBe(400);
+      expect(enviarTemplateCloud).not.toHaveBeenCalled();
+    });
+
     it('template sem contrato é recusado com 400 — e sem tentar enviar', async () => {
       const res = await POST(makeReq({
         telefone: '5522999999999',
