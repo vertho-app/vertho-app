@@ -9,8 +9,9 @@
 
 import { z } from 'zod';
 import { arredondar2, arredondarHoras } from './dinheiro';
+import { ehPrimeiroDiaDoMes } from './rateio';
 import { ehDataISO, ehSegunda } from './semana';
-import { CATEGORIAS, STATUS_CONTRATO } from './tipos';
+import { CATEGORIAS, PERIODICIDADES, STATUS_CONTRATO } from './tipos';
 
 /** Teto de um valor único: R$ 1 bilhão. Acima disso é erro de digitação, não contrato. */
 export const TETO_VALOR_BRL = 1_000_000_000;
@@ -112,21 +113,43 @@ export const SchemaAdicionarParcela = z.object({
 
 export const SchemaExcluirParcela = z.object({ id });
 
-export const SchemaSalvarLancamento = z.object({
-  /** Presente = edita. Ausente = cria. */
-  id: id.nullable().optional(),
-  escopo: z.enum(['empresa', 'plataforma'], { error: 'Escolha empresa ou plataforma.' }),
-  empresaId: id.nullable().optional(),
-  semanaInicio: segunda,
-  categoria: z.enum(CATEGORIAS, { error: 'Categoria inválida.' }),
-  descricao: textoCurto(300, 'Descrição').nullable().optional(),
-  /** Só para `horas`: o valor é horas × custo/hora, calculado no servidor. */
-  horas: horasValidas.nullable().optional(),
-  custoHoraBrl: valorNaoNegativo.nullable().optional(),
-  responsavel: textoCurto(80, 'Responsável').nullable().optional(),
-  /** Para as demais categorias. Ignorado em `horas`. */
-  valorBrl: valorPositivo.nullable().optional(),
-});
+/** O mês de um lançamento mensal: sempre o dia 1 ('2026-09-01'). */
+const primeiroDoMes = z
+  .string()
+  .refine(ehDataISO, 'Mês inválido (use AAAA-MM-01).')
+  .refine(ehPrimeiroDiaDoMes, 'O mês tem de ser informado pelo dia 1 (AAAA-MM-01).');
+
+export const SchemaSalvarLancamento = z
+  .object({
+    /** Presente = edita. Ausente = cria. */
+    id: id.nullable().optional(),
+    escopo: z.enum(['empresa', 'plataforma'], { error: 'Escolha empresa ou plataforma.' }),
+    empresaId: id.nullable().optional(),
+    /** Ausente = semanal (o contrato anterior à mig 280). */
+    periodicidade: z.enum(PERIODICIDADES, { error: 'Escolha semanal ou mensal.' }).optional(),
+    /** Só no semanal: a segunda-feira da competência. */
+    semanaInicio: segunda.nullable().optional(),
+    /** Só no mensal: o dia 1 do mês, rateado pelas semanas por dia. */
+    mesCompetencia: primeiroDoMes.nullable().optional(),
+    categoria: z.enum(CATEGORIAS, { error: 'Categoria inválida.' }),
+    descricao: textoCurto(300, 'Descrição').nullable().optional(),
+    /** Só para `horas`: o valor é horas × custo/hora, calculado no servidor. */
+    horas: horasValidas.nullable().optional(),
+    custoHoraBrl: valorNaoNegativo.nullable().optional(),
+    responsavel: textoCurto(80, 'Responsável').nullable().optional(),
+    /** Para as demais categorias. Ignorado em `horas`. */
+    valorBrl: valorPositivo.nullable().optional(),
+  })
+  // Coerência do período: o mensal exige o mês, o semanal exige a semana. O banco
+  // também recusa a combinação (`dre_lancamentos_periodo_coerente`), mas a mensagem
+  // que a pessoa lê vem daqui.
+  .superRefine((v, ctx) => {
+    if (v.periodicidade === 'mensal') {
+      if (!v.mesCompetencia) ctx.addIssue({ code: 'custom', path: ['mesCompetencia'], message: 'Escolha o mês do custo.' });
+    } else if (!v.semanaInicio) {
+      ctx.addIssue({ code: 'custom', path: ['semanaInicio'], message: 'Escolha a semana do custo.' });
+    }
+  });
 
 export const SchemaExcluirLancamento = z.object({ id });
 

@@ -83,7 +83,10 @@ export function lancamentoDeLinha(r: Linha): LancamentoDRE {
     empresaId: s(r.empresa_id),
     empresaNome: s(r.empresa_nome),
     chaveEmpresa: String(r.chave_empresa),
-    semanaInicio: dia(r.semana_inicio),
+    // Linha anterior à mig 280 não tem a coluna: é semanal.
+    periodicidade: r.periodicidade === 'mensal' ? 'mensal' : 'semanal',
+    semanaInicio: r.semana_inicio ? dia(r.semana_inicio) : null,
+    mesCompetencia: r.mes_competencia ? dia(r.mes_competencia) : null,
     categoria,
     descricao: s(r.descricao),
     horas: nOuNulo(r.horas),

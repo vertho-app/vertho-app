@@ -16,6 +16,7 @@ import type { DadosDRE } from '@/lib/dre/carregar';
 import type { ResumoContrato } from '@/lib/dre/consolidar';
 import { valorDasHoras } from '@/lib/dre/dinheiro';
 import { lerNumeroBR, paraCampoBR } from '@/lib/dre/entrada';
+import { primeiroDiaDoMes, ratearMes, rotuloMesLongo, somarMesesAoMes } from '@/lib/dre/rateio';
 import { rotuloSemana, ultimasSemanas } from '@/lib/dre/semana';
 import {
   CATEGORIAS,
@@ -24,6 +25,7 @@ import {
   type CategoriaLancamento,
   type LancamentoDRE,
   type ParcelaDRE,
+  type PeriodicidadeLancamento,
   type StatusContrato,
 } from '@/lib/dre/tipos';
 import { brl, Campo, inputCls, Modal, rodar, Rodape } from './ui';
@@ -422,7 +424,14 @@ export function DialogoLancamento({
   const [escopo, setEscopo] = useState<'empresa' | 'plataforma'>(lancamento?.escopo ?? 'empresa');
   const [empresaId, setEmpresaId] = useState(lancamento?.empresaId ?? (empresaInicial && dados.empresas.some((e) => e.id === empresaInicial) ? empresaInicial : ''));
   const semanas = useMemo(() => [...ultimasSemanas(dados.semanaAtual, 26)].reverse(), [dados.semanaAtual]);
+  // Os 24 últimos meses, do atual para trás (custo de mês que ainda não começou é recusado).
+  const meses = useMemo(() => {
+    const atual = primeiroDiaDoMes(dados.hoje);
+    return Array.from({ length: 24 }, (_, i) => somarMesesAoMes(atual, -i));
+  }, [dados.hoje]);
+  const [periodicidade, setPeriodicidade] = useState<PeriodicidadeLancamento>(lancamento?.periodicidade ?? 'semanal');
   const [semana, setSemana] = useState(lancamento?.semanaInicio ?? dados.semanaAtual);
+  const [mes, setMes] = useState(lancamento?.mesCompetencia ?? primeiroDiaDoMes(dados.hoje));
   const [categoria, setCategoria] = useState<CategoriaLancamento>(lancamento?.categoria ?? 'horas');
   const [horas, setHoras] = useState(paraCampoBR(lancamento?.horas ?? null));
   const [custoHora, setCustoHora] = useState(paraCampoBR(lancamento?.custoHoraBrl ?? dados.custoHoraPadraoBrl));
@@ -437,6 +446,14 @@ export function DialogoLancamento({
   const valorNum = lerNumeroBR(valor);
   const valorDasHorasBrl = ehHoras && horasNum !== null && horasNum > 0 && custoNum !== null && custoNum >= 0 ? valorDasHoras(horasNum, custoNum) : null;
 
+  const mensal = periodicidade === 'mensal';
+  const valorDoPeriodo = ehHoras ? valorDasHorasBrl : valorNum;
+  // A prévia do rateio: as semanas que o mês toca, com os dias e (se já há valor) a fatia de cada uma.
+  const rateio = useMemo(
+    () => (mensal ? ratearMes(valorDoPeriodo !== null && valorDoPeriodo > 0 ? valorDoPeriodo : 0, mes) : []),
+    [mensal, valorDoPeriodo, mes],
+  );
+
   const podeSalvar =
     (escopo === 'plataforma' || !!empresaId) &&
     (ehHoras ? valorDasHorasBrl !== null && valorDasHorasBrl > 0 : valorNum !== null && valorNum > 0);
@@ -449,7 +466,9 @@ export function DialogoLancamento({
         id: lancamento?.id ?? null,
         escopo,
         empresaId: escopo === 'empresa' ? empresaId : null,
-        semanaInicio: semana,
+        periodicidade,
+        semanaInicio: mensal ? null : semana,
+        mesCompetencia: mensal ? mes : null,
         categoria,
         descricao: descricao.trim() || null,
         horas: ehHoras ? horasNum : null,
@@ -469,7 +488,11 @@ export function DialogoLancamento({
   return (
     <Modal
       titulo={editando ? 'Editar lançamento' : 'Novo lançamento de custo'}
-      descricao="Custo que o sistema não mede sozinho. Entra na semana escolhida, na linha da categoria."
+      descricao={
+        mensal
+          ? 'Custo que chega fechado por mês. Você lança o valor do mês e a DRE reparte pelas semanas, proporcional aos dias de cada uma.'
+          : 'Custo que o sistema não mede sozinho. Entra na semana escolhida, na linha da categoria.'
+      }
       onFechar={onFechar}
     >
       <div className="space-y-3">
@@ -496,18 +519,50 @@ export function DialogoLancamento({
             <div className="self-end pb-2 text-[11px] leading-snug text-white/45">Aparece no bloco "Fora de cliente", não na margem de nenhuma empresa.</div>
           )}
         </div>
+        <div>
+          <span className="mb-1 block text-xs font-semibold text-white/70">Como o custo chega</span>
+          <div role="group" aria-label="Período do custo" className="inline-flex rounded-md border border-white/10 bg-white/[0.03] p-0.5">
+            {(['semanal', 'mensal'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                aria-pressed={periodicidade === p}
+                onClick={() => setPeriodicidade(p)}
+                className={`rounded px-3 py-1.5 text-xs font-bold transition-colors ${
+                  periodicidade === p ? 'bg-brand-400/20 text-brand-300' : 'text-white/60 hover:text-white'
+                }`}
+              >
+                {p === 'semanal' ? 'Por semana' : 'Por mês'}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-3">
-          <Campo rotulo="Semana">
-            <select className={inputCls} value={semana} onChange={(e) => setSemana(e.target.value)}>
-              {!semanas.includes(semana) && <option value={semana}>{rotuloSemana(semana)}</option>}
-              {semanas.map((s) => (
-                <option key={s} value={s}>
-                  {rotuloSemana(s)}
-                  {s === dados.semanaAtual ? ' (em curso)' : ''}
-                </option>
-              ))}
-            </select>
-          </Campo>
+          {mensal ? (
+            <Campo rotulo="Mês">
+              <select className={inputCls} value={mes} onChange={(e) => setMes(e.target.value)}>
+                {!meses.includes(mes) && <option value={mes}>{rotuloMesLongo(mes)}</option>}
+                {meses.map((m) => (
+                  <option key={m} value={m}>
+                    {rotuloMesLongo(m)}
+                    {m === primeiroDiaDoMes(dados.hoje) ? ' (em curso)' : ''}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+          ) : (
+            <Campo rotulo="Semana">
+              <select className={inputCls} value={semana} onChange={(e) => setSemana(e.target.value)}>
+                {!semanas.includes(semana) && <option value={semana}>{rotuloSemana(semana)}</option>}
+                {semanas.map((s) => (
+                  <option key={s} value={s}>
+                    {rotuloSemana(s)}
+                    {s === dados.semanaAtual ? ' (em curso)' : ''}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+          )}
           <Campo rotulo="Categoria">
             <select className={inputCls} value={categoria} onChange={(e) => setCategoria(e.target.value as CategoriaLancamento)}>
               {CATEGORIAS.map((c) => (
@@ -520,7 +575,7 @@ export function DialogoLancamento({
         {ehHoras ? (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <Campo rotulo="Horas trabalhadas" erro={horas && (horasNum === null || horasNum <= 0) ? 'Informe horas maiores que zero.' : null}>
+              <Campo rotulo={mensal ? 'Horas no mês' : 'Horas trabalhadas'} erro={horas && (horasNum === null || horasNum <= 0) ? 'Informe horas maiores que zero.' : null}>
                 <input className={inputCls} inputMode="decimal" value={horas} onChange={(e) => setHoras(e.target.value)} placeholder="0,00" />
               </Campo>
               <Campo rotulo="Custo por hora (R$)" dica="O padrão é o do orçamento. Fica gravado nesta linha.">
@@ -531,14 +586,35 @@ export function DialogoLancamento({
               <input className={inputCls} value={responsavel} onChange={(e) => setResponsavel(e.target.value)} maxLength={80} />
             </Campo>
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70">
-              Valor do lançamento: <strong className="text-white">{valorDasHorasBrl !== null ? brl(valorDasHorasBrl) : '—'}</strong>
+              {mensal ? 'Valor do mês' : 'Valor do lançamento'}: <strong className="text-white">{valorDasHorasBrl !== null ? brl(valorDasHorasBrl) : '—'}</strong>
               <span className="text-white/45"> (horas × custo por hora, calculado ao salvar)</span>
             </div>
           </>
         ) : (
-          <Campo rotulo="Valor (R$)" erro={valor && (valorNum === null || valorNum <= 0) ? 'Digite um valor maior que zero.' : null}>
+          <Campo rotulo={mensal ? 'Valor do mês (R$)' : 'Valor (R$)'} erro={valor && (valorNum === null || valorNum <= 0) ? 'Digite um valor maior que zero.' : null}>
             <input className={inputCls} inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
           </Campo>
+        )}
+        {mensal && (
+          <div className="rounded-md border border-white/10 bg-white/[0.03] p-3" aria-label="Como o mês é repartido">
+            <p className="mb-2 text-[11px] leading-relaxed text-white/55">
+              Rateio por dia: cada semana recebe a parte dos dias dela que caem em {rotuloMesLongo(mes)}. A soma das semanas é sempre o valor do mês.
+            </p>
+            <table className="w-full text-xs">
+              <tbody className="divide-y divide-white/5">
+                {rateio.map((p) => (
+                  <tr key={p.semana}>
+                    <td className="py-1 text-white/70">{rotuloSemana(p.semana)}</td>
+                    <td className="py-1 text-white/50">{p.dias} {p.dias === 1 ? 'dia' : 'dias'}</td>
+                    <td className="py-1 text-right tabular-nums text-white">
+                      {valorDoPeriodo !== null && valorDoPeriodo > 0 ? brl(p.valorBrl) : <span className="text-white/30">—</span>}
+                      {p.semana > dados.semanaAtual && <span className="ml-2 text-[10px] text-white/40">aparece quando a semana chegar</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
         <Campo rotulo="Descrição (opcional)">
           <input className={inputCls} value={descricao} onChange={(e) => setDescricao(e.target.value)} maxLength={300} />

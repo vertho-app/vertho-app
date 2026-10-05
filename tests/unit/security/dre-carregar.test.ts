@@ -212,6 +212,41 @@ describe('o que a carga monta', () => {
     expect(sb.usou('dre_lancamentos', 'order')).toBe(true);
   });
 
+  it('🔴 lançamento MENSAL entra no período se alguma semana dele está na janela, rateado por dia, e não duplica', async () => {
+    cenarioBase();
+    const mensal = (id: string, mes: string, valor: number) => ({
+      id, escopo: 'plataforma', empresa_id: null, empresa_nome: null, chave_empresa: 'sem-tenant', periodicidade: 'mensal',
+      semana_inicio: null, mes_competencia: mes, categoria: 'infra', valor_brl: valor, criado_por: 'x',
+    });
+    // Um mensal de cliente (setembro) e dois de plataforma (setembro e julho).
+    const doCliente = { ...mensal('m-a', '2026-09-01', 3000), escopo: 'empresa', empresa_id: 'emp-a', empresa_nome: 'Escola A', chave_empresa: 'emp-a' };
+    dados['lista:dre_lancamentos'] = [mensal('m-set', '2026-09-01', 3000), mensal('m-jul', '2026-07-01', 3100), doCliente];
+    const d = await carregarDRE({ agora: AGORA, semanas: 4 });
+
+    // janela = 14/09, 21/09, 28/09 e 05/10: setembro toca três delas (700 + 700 + 300)
+    expect(d.resultado.foraDeCliente.total.plataformaBrl).toBe(1700);
+    expect(d.resultado.foraDeCliente.porSemana['2026-09-28'].plataformaBrl).toBe(300);
+    // os de setembro aparecem na lista de lançamentos do período; o de julho (nenhuma semana na janela) não
+    expect(d.lancamentos.map((l) => l.id).sort()).toEqual(['m-a', 'm-set']);
+    expect(d.lancamentos[0]).toMatchObject({ periodicidade: 'mensal', mesCompetencia: '2026-09-01', semanaInicio: null });
+
+    // 🔴 o acumulado de caixa do cliente enxerga o mês INTEIRO, inclusive as semanas ANTERIORES à janela
+    // (31/08 e 07/09): a conta parte da semana que contém o dia 1, não da 1ª semana exibida.
+    const a = d.resultado.tenants.find((t) => t.chave === 'emp-a')!;
+    expect(a.total.infra).toBe(1700); // só as 3 semanas da janela
+    expect(a.caixaAcumuladoBrl).toBe(-2060); // 1.000 recebidos − 60 de IA − 3.000 de infra (o mês todo)
+  });
+
+  it('linha antiga, sem as colunas da mig 280, é lida como semanal', async () => {
+    cenarioBase();
+    dados['lista:dre_lancamentos'] = [
+      { id: 'velha', escopo: 'plataforma', empresa_id: null, chave_empresa: 'sem-tenant', semana_inicio: '2026-09-28', categoria: 'infra', valor_brl: 100, criado_por: 'x' },
+    ];
+    const d = await carregarDRE({ agora: AGORA, semanas: 4 });
+    expect(d.lancamentos[0]).toMatchObject({ periodicidade: 'semanal', semanaInicio: '2026-09-28', mesCompetencia: null });
+    expect(d.resultado.foraDeCliente.total.plataformaBrl).toBe(100);
+  });
+
   it('as semanas antigas sem fechamento além do limite viram aviso (não zero)', async () => {
     cenarioBase();
     // um contrato começando há ~2 anos exige muitas semanas abertas

@@ -8,20 +8,38 @@
 // confere a amarra (`dre_lancamentos_horas_coerentes`). Um valor digitado que
 // diverge do cálculo nunca entra.
 //
+// PERIODICIDADE (mig 280): o custo entra por SEMANA (`semana_inicio`) ou por MÊS
+// (`mes_competencia`, dia 1). O mensal é uma linha só; a DRE o reparte nas semanas
+// por dia, na leitura (`lib/dre/rateio.ts`), e a soma das semanas é sempre o valor
+// do mês. Os dois campos andam com a periodicidade: o banco recusa a mistura.
+//
 // Todo export é endpoint HTTP: gate + zod em `executarAcaoDre`, ator da sessão,
 // auditoria com antes e depois (`dre.lancamento.*`).
 
 import { logAdminAction } from '@/lib/audit';
 import { ErroDre, executarAcaoDre } from '@/lib/dre/acao';
 import { valorDasHoras } from '@/lib/dre/dinheiro';
+import { primeiroDiaDoMes, rotuloMes } from '@/lib/dre/rateio';
 import { SchemaExcluirLancamento, SchemaSalvarLancamento } from '@/lib/dre/schemas';
-import { semanaAtualBRT } from '@/lib/dre/semana';
+import { dataBRT, semanaAtualBRT } from '@/lib/dre/semana';
 import { CHAVE_SEM_TENANT } from '@/lib/dre/tipos';
 import { ORCAMENTO_DEFAULTS } from '@/lib/orcamento/precificacao';
 
+/** O período de uma linha do banco, para o `alvo` da auditoria: 'semana 2026-09-28' ou 'mês set/2026'. */
+function periodoDaLinha(r: { periodicidade?: string | null; semana_inicio?: string | null; mes_competencia?: string | null }): string {
+  if (r.periodicidade === 'mensal' && r.mes_competencia) return `mês ${rotuloMes(String(r.mes_competencia).slice(0, 10))}`;
+  return `semana ${String(r.semana_inicio ?? '').slice(0, 10)}`;
+}
+
 export async function salvarLancamento(raw: unknown) {
   return executarAcaoDre('dre.manage', SchemaSalvarLancamento, raw, async ({ sb, email }, input) => {
-    if (input.semanaInicio > semanaAtualBRT(new Date())) {
+    // O schema garante que o semanal traz a semana e o mensal traz o mês.
+    const mensal = input.periodicidade === 'mensal';
+    if (mensal) {
+      if ((input.mesCompetencia as string) > primeiroDiaDoMes(dataBRT(new Date()))) {
+        throw new ErroDre('Não dá para lançar custo de um mês que ainda não começou.');
+      }
+    } else if ((input.semanaInicio as string) > semanaAtualBRT(new Date())) {
       throw new ErroDre('Não dá para lançar custo numa semana que ainda não começou.');
     }
 
@@ -59,7 +77,10 @@ export async function salvarLancamento(raw: unknown) {
       empresa_id: empresaId,
       empresa_nome: empresaNome,
       chave_empresa: chave,
-      semana_inicio: input.semanaInicio,
+      periodicidade: mensal ? 'mensal' : 'semanal',
+      // Os dois campos andam juntos com a periodicidade (o banco recusa a mistura).
+      semana_inicio: mensal ? null : input.semanaInicio,
+      mes_competencia: mensal ? input.mesCompetencia : null,
       categoria: input.categoria,
       descricao: input.descricao ?? null,
       horas,
@@ -81,7 +102,7 @@ export async function salvarLancamento(raw: unknown) {
         adminEmail: email,
         acao: 'dre.lancamento.atualizar',
         empresaId: empresaId ?? antes.empresa_id ?? null,
-        alvo: `${input.categoria} · semana ${input.semanaInicio}`,
+        alvo: `${input.categoria} · ${periodoDaLinha(linha)}`,
         detalhes: { lancamentoId: input.id, antes, depois: linha },
       });
       return { id: input.id };
@@ -97,7 +118,7 @@ export async function salvarLancamento(raw: unknown) {
       adminEmail: email,
       acao: 'dre.lancamento.criar',
       empresaId,
-      alvo: `${input.categoria} · semana ${input.semanaInicio}`,
+      alvo: `${input.categoria} · ${periodoDaLinha(linha)}`,
       detalhes: { lancamentoId: criado.id, depois: linha },
     });
     return { id: String(criado.id) };
@@ -117,7 +138,7 @@ export async function excluirLancamento(raw: unknown) {
       adminEmail: email,
       acao: 'dre.lancamento.excluir',
       empresaId: antes.empresa_id ?? null,
-      alvo: `${antes.categoria} · semana ${String(antes.semana_inicio).slice(0, 10)}`,
+      alvo: `${antes.categoria} · ${periodoDaLinha(antes)}`,
       detalhes: { lancamento: antes },
     });
     return { id: input.id };

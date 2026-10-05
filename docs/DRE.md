@@ -26,7 +26,7 @@ Margem sem receita é `null` ("—"), nunca 0% nem NaN.
 |---|---|
 | `dre_contratos` | O projeto vendido de um tenant: valor, início, situação e o **previsto congelado** do orçamento (`previsto`, cópia do `ResumoOrcamento` na criação: o `salvarOrcamento` ainda sobrescreve o cenário vivo). |
 | `dre_parcelas` | Calendário de parcelas. Única fonte de receita. `recebido_em` e `valor_recebido_brl` andam juntos (check no banco). |
-| `dre_lancamentos` | Custos manuais: horas, impostos, comissão, infra, whatsapp, terceiros, outros. `semana_inicio` é a segunda-feira em Brasília. Escopo `empresa` ou `plataforma`. |
+| `dre_lancamentos` | Custos manuais: horas, impostos, comissão, infra, whatsapp, terceiros, outros. **Semanais** (`semana_inicio`, a segunda-feira em Brasília) ou **mensais** (`mes_competencia`, dia 1; mig 280). Escopo `empresa` ou `plataforma`. |
 | `dre_cambio_semanal` | USD→BRL de cada semana: `ptax_bcb`, `manual`, `herdado` ou `orcamento`. |
 | `dre_custo_ia_semana` | Fechamento durável do custo de IA por (semana, natureza, tenant), com o câmbio **congelado** na linha. |
 
@@ -40,6 +40,19 @@ Margem sem receita é `null` ("—"), nunca 0% nem NaN.
 - **Ao vivo**: a semana em curso (e qualquer uma sem fechamento) é calculada na hora pela tela, marcada provisória. Se a leitura falha, vira aviso na tela ("não é zero"), não zero.
 - **Recalcular semana**: botão por semana encerrada (`dre.manage`).
 - **Refazer não apaga o histórico do tenant excluído**: linha com `empresa_id` nulo e chave de tenant nunca é removida pelo recálculo (a RPC já não a enxerga).
+
+## Custo lançado por semana ou por mês
+
+Custo de infraestrutura, assinatura e comissão costuma chegar fechado por mês, então o lançamento aceita as duas periodicidades (mig 280):
+
+- **Por semana:** entra inteiro na semana escolhida.
+- **Por mês:** é **uma linha só** (`periodicidade = 'mensal'`, `mes_competencia` = dia 1, `semana_inicio` nulo) e a DRE o reparte nas semanas **na leitura** (`lib/dre/rateio.ts`), **por dia**: cada semana recebe a parte dos dias dela que caem no mês. Uma semana que cruza dois meses recebe uma fatia de cada (a semana de 28/09 tem 3 dias de setembro e 4 de outubro). Exemplo: R$ 3.000,00 de setembro de 2026 viram 600 / 700 / 700 / 700 / 300 nas semanas de 31/08, 07/09, 14/09, 21/09 e 28/09.
+- **A soma das semanas é sempre o valor do mês.** O arredondamento é feito sobre o acumulado de dias, não semana a semana (arredondar cada fatia perde ou inventa centavo). Há teste de varredura de 36 meses × 8 valores.
+- O rateio **não depende da janela exibida**: a fatia de uma semana é a mesma com 4 ou com 52 semanas na tela. A parte de um mês que cai antes da primeira semana com dado, ou depois da semana em curso, não entra na conta; a de depois aparece sozinha quando a semana chegar.
+- Mês que ainda não começou é recusado (como a semana futura). Os dois campos andam com a periodicidade: o banco recusa mensal com semana e semanal com mês (`dre_lancamentos_periodo_coerente`).
+- Horas também podem ser mensais ("20 h no mês"): o valor do mês é horas × custo por hora, calculado no servidor.
+- Para a cobertura, o mensal conta como lançado se **alguma** semana dele cai no período exibido.
+- A migration 280 é aditiva e deve ser aplicada **antes** do deploy do código: o código antigo continua gravando semanal sem saber das colunas novas, mas o código novo grava `periodicidade` em toda linha.
 
 ## Câmbio
 

@@ -434,6 +434,78 @@ describe('lançamentos manuais', () => {
     expect(auditar.mock.calls[0][0].detalhes.lancamento.valor_brl).toBe(800);
   });
 
+  describe('periodicidade (mig 280): por semana ou por mês', () => {
+    it('o semanal grava periodicidade "semanal", a semana e o mês NULO', async () => {
+      await salvarLancamento({ escopo: 'plataforma', semanaInicio: SEMANA_PASSADA, categoria: 'infra', valorBrl: 800 });
+      const l = sb.escritas.find((e) => e.tabela === 'dre_lancamentos' && e.op === 'insert')!.payload;
+      expect(l).toMatchObject({ periodicidade: 'semanal', semana_inicio: SEMANA_PASSADA, mes_competencia: null });
+    });
+
+    it('🔴 o mensal grava UMA linha: periodicidade "mensal", o dia 1 do mês e a semana NULA', async () => {
+      const r: any = await salvarLancamento({ escopo: 'plataforma', periodicidade: 'mensal', mesCompetencia: '2026-09-01', categoria: 'infra', valorBrl: 3000, descricao: 'Supabase + Vercel' });
+      expect(r.success).toBe(true);
+      const escritas = sb.escritas.filter((e) => e.tabela === 'dre_lancamentos' && e.op === 'insert');
+      expect(escritas).toHaveLength(1); // não vira uma linha por semana
+      expect(escritas[0].payload).toMatchObject({ periodicidade: 'mensal', mes_competencia: '2026-09-01', semana_inicio: null, valor_brl: 3000, escopo: 'plataforma', chave_empresa: 'sem-tenant' });
+      expect(auditar.mock.calls[0][0]).toMatchObject({ acao: 'dre.lancamento.criar', alvo: 'infra · mês set/2026' });
+    });
+
+    it('mensal de horas: o valor do MÊS é horas × custo/hora no servidor', async () => {
+      dados.empresas = { id: ID(3), nome: 'Escola A' };
+      await salvarLancamento({ escopo: 'empresa', empresaId: ID(3), periodicidade: 'mensal', mesCompetencia: '2026-09-01', categoria: 'horas', horas: 20, valorBrl: 1 });
+      const l = sb.escritas.find((e) => e.tabela === 'dre_lancamentos')!.payload;
+      expect(l).toMatchObject({ periodicidade: 'mensal', horas: 20, custo_hora_brl: 500, valor_brl: 10_000, mes_competencia: '2026-09-01' });
+    });
+
+    it('🔴 mês que ainda não começou é recusado (como a semana futura)', async () => {
+      const r: any = await salvarLancamento({ escopo: 'plataforma', periodicidade: 'mensal', mesCompetencia: '2999-01-01', categoria: 'infra', valorBrl: 100 });
+      expect(r).toMatchObject({ success: false, code: 'DOMAIN' });
+      expect(r.error).toMatch(/mês que ainda não começou/);
+      expect(escritasDre()).toHaveLength(0);
+    });
+
+    it('o mês em curso é aceito', async () => {
+      const mesAtual = `${HOJE.slice(0, 7)}-01`;
+      const r: any = await salvarLancamento({ escopo: 'plataforma', periodicidade: 'mensal', mesCompetencia: mesAtual, categoria: 'infra', valorBrl: 100 });
+      expect(r.success).toBe(true);
+    });
+
+    it('🔴 o schema exige o período certo: mensal sem mês, semanal sem semana, e mês que não é dia 1', async () => {
+      const semMes: any = await salvarLancamento({ escopo: 'plataforma', periodicidade: 'mensal', categoria: 'infra', valorBrl: 100 });
+      expect(semMes).toMatchObject({ success: false, code: 'VALIDATION', error: 'Escolha o mês do custo.' });
+      const semSemana: any = await salvarLancamento({ escopo: 'plataforma', categoria: 'infra', valorBrl: 100 });
+      expect(semSemana).toMatchObject({ success: false, code: 'VALIDATION', error: 'Escolha a semana do custo.' });
+      const diaErrado: any = await salvarLancamento({ escopo: 'plataforma', periodicidade: 'mensal', mesCompetencia: '2026-09-15', categoria: 'infra', valorBrl: 100 });
+      expect(diaErrado).toMatchObject({ success: false, code: 'VALIDATION' });
+      expect(diaErrado.error).toMatch(/dia 1/);
+      const outra: any = await salvarLancamento({ escopo: 'plataforma', periodicidade: 'quinzenal', semanaInicio: SEMANA_PASSADA, categoria: 'infra', valorBrl: 100 });
+      expect(outra).toMatchObject({ success: false, code: 'VALIDATION' });
+      expect(escritasDre()).toHaveLength(0);
+    });
+
+    it('mandar a semana num lançamento mensal não vaza: a linha grava só o mês', async () => {
+      await salvarLancamento({ escopo: 'plataforma', periodicidade: 'mensal', mesCompetencia: '2026-09-01', semanaInicio: SEMANA_PASSADA, categoria: 'infra', valorBrl: 100 });
+      expect(sb.escritas.find((e) => e.tabela === 'dre_lancamentos')!.payload).toMatchObject({ semana_inicio: null, mes_competencia: '2026-09-01' });
+    });
+
+    it('editar um semanal para mensal troca os dois campos juntos e audita o antes e o depois', async () => {
+      dados.dre_lancamentos = { id: ID(9), escopo: 'plataforma', empresa_id: null, categoria: 'infra', periodicidade: 'semanal', semana_inicio: SEMANA_PASSADA, mes_competencia: null, valor_brl: 800 };
+      const r: any = await salvarLancamento({ id: ID(9), escopo: 'plataforma', periodicidade: 'mensal', mesCompetencia: '2026-09-01', categoria: 'infra', valorBrl: 3200 });
+      expect(r.success).toBe(true);
+      const up = sb.escritas.find((e) => e.tabela === 'dre_lancamentos' && e.op === 'update')!.payload;
+      expect(up).toMatchObject({ periodicidade: 'mensal', semana_inicio: null, mes_competencia: '2026-09-01', valor_brl: 3200 });
+      expect(auditar.mock.calls[0][0].detalhes.antes).toMatchObject({ periodicidade: 'semanal', semana_inicio: SEMANA_PASSADA });
+      expect(auditar.mock.calls[0][0].detalhes.depois).toMatchObject({ periodicidade: 'mensal', mes_competencia: '2026-09-01' });
+    });
+
+    it('excluir um mensal audita o mês, não "semana null"', async () => {
+      dados.dre_lancamentos = { id: ID(9), escopo: 'plataforma', empresa_id: null, categoria: 'infra', periodicidade: 'mensal', semana_inicio: null, mes_competencia: '2026-09-01', valor_brl: 3000 };
+      const r: any = await excluirLancamento({ id: ID(9) });
+      expect(r.success).toBe(true);
+      expect(auditar.mock.calls[0][0].alvo).toBe('infra · mês set/2026');
+    });
+  });
+
   it('🔴 falha do banco ao gravar o lançamento NÃO audita uma escrita que não aconteceu', async () => {
     sb.falharEm({ tabela: 'dre_lancamentos', op: 'insert', mensagem: 'check constraint violated' });
     const r: any = await salvarLancamento({ escopo: 'plataforma', semanaInicio: SEMANA_PASSADA, categoria: 'infra', valorBrl: 10 });

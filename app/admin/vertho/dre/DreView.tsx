@@ -12,6 +12,7 @@ import { excluirLancamento } from '@/actions/dre/lancamentos';
 import { recalcularSemana } from '@/actions/dre/cambio';
 import type { DadosDRE } from '@/lib/dre/carregar';
 import type { ResumoContrato } from '@/lib/dre/consolidar';
+import { rotuloPeriodoDoLancamento } from '@/lib/dre/rateio';
 import { rotuloSemana } from '@/lib/dre/semana';
 import { ROTULO_CATEGORIA, type LancamentoDRE, type ParcelaDRE } from '@/lib/dre/tipos';
 import CambioPainel from './CambioPainel';
@@ -109,7 +110,7 @@ export default function DreView({ dados, empresaInicial }: { dados: DadosDRE; em
     excluirLancamento: async (l) => {
       const ok = await confirmar({
         title: 'Excluir este lançamento?',
-        message: `${ROTULO_CATEGORIA[l.categoria]} de ${brl(l.valorBrl)} na semana de ${rotuloSemana(l.semanaInicio)}. O que foi apagado fica registrado na auditoria.`,
+        message: `${ROTULO_CATEGORIA[l.categoria]} de ${brl(l.valorBrl)} (${rotuloPeriodoDoLancamento(l)}). O que foi apagado fica registrado na auditoria.`,
         severity: 'danger',
         confirmLabel: 'Excluir lançamento',
       });
@@ -161,7 +162,8 @@ export default function DreView({ dados, empresaInicial }: { dados: DadosDRE; em
             <ul className="mt-1.5 list-disc space-y-1 pl-4 text-amber-100/80">
               <li><strong>Receita:</strong> só parcela marcada como recebida, na semana da data em que entrou. Parcela a receber é previsão e não conta.</li>
               <li><strong>Custo de IA:</strong> vem do registro automático de chamadas, fechado toda segunda e convertido pelo câmbio da semana. A semana em curso é calculada agora e pode mudar.</li>
-              <li><strong>Horas, impostos, comissão, WhatsApp, infraestrutura e terceiros:</strong> lançados à mão. "Sem lançamento" quer dizer que ninguém lançou, não que custou zero.</li>
+              <li><strong>Horas, impostos, comissão, WhatsApp, infraestrutura e terceiros:</strong> lançados à mão, por semana ou por mês. "Sem lançamento" quer dizer que ninguém lançou, não que custou zero.</li>
+              <li><strong>Custo lançado por mês:</strong> o valor do mês é repartido pelas semanas, proporcional aos dias de cada semana que caem no mês (uma semana que cruza dois meses recebe uma fatia de cada). A soma das semanas é sempre o valor do mês, e a parte de uma semana que ainda não chegou aparece quando ela chegar.</li>
               <li><strong>Fora de cliente:</strong> IA de pesquisa e desenvolvimento, ambientes de demonstração e custos gerais da plataforma. Não entram na margem de nenhum cliente, mas entram no total geral.</li>
               <li><strong>Margem:</strong> resultado ÷ receita. Sem receita na semana ela não existe (aparece como "—", não como 0%).</li>
             </ul>

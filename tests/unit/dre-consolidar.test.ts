@@ -59,7 +59,9 @@ function lanc(p: Partial<LancamentoDRE>): LancamentoDRE {
     empresaId: 'emp-a',
     empresaNome: 'Escola A',
     chaveEmpresa: 'emp-a',
+    periodicidade: 'semanal',
     semanaInicio: '2026-09-28',
+    mesCompetencia: null,
     categoria: 'horas',
     descricao: null,
     horas: null,
@@ -331,6 +333,80 @@ describe('quem é tenant e quem é fora de cliente', () => {
     expect(a.total.receita).toBe(0); // janela = só a semana de 05/10
     expect(a.caixaAcumuladoBrl).toBe(700); // 1000 recebidos − 300 de IA, desde a 1ª semana
     expect(Object.keys(a.porSemana)).toEqual(['2026-10-05']);
+  });
+});
+
+describe('custo lançado por MÊS (mig 280): rateado pelas semanas, por dia', () => {
+  const MENSAL = (p: Partial<LancamentoDRE>): LancamentoDRE =>
+    lanc({ periodicidade: 'mensal', semanaInicio: null, mesCompetencia: '2026-09-01', categoria: 'infra', valorBrl: 3000, ...p });
+
+  /** Todas as semanas de agosto a outubro, para ver o mês inteiro. */
+  const TODAS = ['2026-08-31', '2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28', '2026-10-05'];
+  const todas = (p: Partial<EntradaConsolidar>) => entrada({ semanas: TODAS, janela: TODAS, ...p });
+
+  it('o mês inteiro é repartido nas semanas que ele toca, e a SOMA É O VALOR DO MÊS', () => {
+    const t = consolidar(todas({ lancamentos: [MENSAL({})] })).tenants[0];
+    expect(['2026-08-31', '2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28'].map((s) => t.porSemana[s].infra)).toEqual([600, 700, 700, 700, 300]);
+    expect(t.porSemana['2026-10-05'].infra).toBe(0); // outubro é outro mês
+    expect(t.total.infra).toBe(3000);
+    expect(t.total.custo).toBe(3000);
+  });
+
+  it('🔴 semana que cruza dois meses recebe uma FATIA DE CADA (28/09: 3 dias de set + 4 de out)', () => {
+    const r = consolidar(
+      todas({
+        lancamentos: [MENSAL({ id: 'set', mesCompetencia: '2026-09-01', valorBrl: 3000 }), MENSAL({ id: 'out', mesCompetencia: '2026-10-01', valorBrl: 1800 })],
+      }),
+    );
+    const t = r.tenants[0];
+    expect(t.porSemana['2026-09-28'].infra).toBe(532.26); // 300,00 de setembro + 232,26 de outubro
+    expect(t.porSemana['2026-10-05'].infra).toBe(406.45); // a semana de 05/10 é toda de outubro
+    // o resto de outubro (12/10 em diante) ainda não chegou: não está nas semanas conhecidas
+    expect(t.total.infra).toBeCloseTo(3638.71, 2); // 3.000 + 232,26 + 406,45
+  });
+
+  it('o rateio NÃO depende da janela exibida: a mesma semana tem o mesmo valor com 2 ou com 6 semanas na tela', () => {
+    const l = [MENSAL({})];
+    const curta = consolidar(entrada({ semanas: TODAS, janela: ['2026-09-21', '2026-09-28'], lancamentos: l })).tenants[0];
+    const longa = consolidar(todas({ lancamentos: l })).tenants[0];
+    expect(curta.porSemana['2026-09-21'].infra).toBe(longa.porSemana['2026-09-21'].infra);
+    expect(curta.porSemana['2026-09-28'].infra).toBe(longa.porSemana['2026-09-28'].infra);
+    expect(curta.total.infra).toBe(1000); // só as 2 semanas exibidas
+    expect(curta.caixaAcumuladoBrl).toBe(-3000); // o acumulado enxerga o mês inteiro
+  });
+
+  it('semanas do mês que são ANTERIORES à 1ª semana conhecida não entram (a conta parte da 1ª semana com dado)', () => {
+    const r = consolidar(entrada({ semanas: ['2026-09-21', '2026-09-28', '2026-10-05'], janela: ['2026-09-21', '2026-09-28', '2026-10-05'], lancamentos: [MENSAL({})] }));
+    expect(r.tenants[0].total.infra).toBe(1000); // 700 + 300; os 1.700 de 31/08 a 14/09 ficam de fora
+  });
+
+  it('🔴 a cobertura conta o mensal como lançado só se alguma semana dele está na janela', () => {
+    const dentro = consolidar(todas({ lancamentos: [MENSAL({})] })).tenants[0];
+    expect(dentro.cobertura.infra).toBe('manual');
+    expect(dentro.cobertura.horas).toBe('nao_lancado');
+    const fora = consolidar(entrada({ semanas: TODAS, janela: ['2026-10-05'], lancamentos: [MENSAL({})] })).tenants[0];
+    expect(fora.cobertura.infra).toBe('nao_lancado'); // setembro não toca a semana de 05/10
+  });
+
+  it('mensal de plataforma vai para "fora de cliente", semana a semana, na categoria dele', () => {
+    const r = consolidar(
+      todas({ lancamentos: [MENSAL({ escopo: 'plataforma', empresaId: null, empresaNome: null, chaveEmpresa: 'sem-tenant' })] }),
+    );
+    expect(r.tenants).toHaveLength(0);
+    expect(r.foraDeCliente.total.plataformaBrl).toBe(3000);
+    expect(r.foraDeCliente.porSemana['2026-09-07'].plataformaBrl).toBe(700);
+    expect(r.totais.geral.infra).toBe(3000);
+  });
+
+  it('semanal e mensal da mesma categoria SOMAM na mesma semana', () => {
+    const r = consolidar(todas({ lancamentos: [MENSAL({}), lanc({ id: 'sem', semanaInicio: '2026-09-14', categoria: 'infra', valorBrl: 50 })] }));
+    expect(r.tenants[0].porSemana['2026-09-14'].infra).toBe(750);
+  });
+
+  it('🔴 mensal incoerente (sem mês, ou fora do dia 1) não quebra a DRE nem inventa custo', () => {
+    const r = consolidar(todas({ lancamentos: [MENSAL({ mesCompetencia: null }), MENSAL({ id: 'x', mesCompetencia: '2026-09-15' })] }));
+    expect(r.tenants).toHaveLength(0);
+    expect(r.totais.geral.custo).toBe(0);
   });
 });
 

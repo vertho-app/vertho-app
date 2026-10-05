@@ -28,6 +28,10 @@ export type StatusContrato = (typeof STATUS_CONTRATO)[number];
 
 export type EscopoLancamento = 'empresa' | 'plataforma';
 
+/** `semanal` = custo de uma semana; `mensal` = custo de um mês, rateado pelas semanas (mig 280). */
+export const PERIODICIDADES = ['semanal', 'mensal'] as const;
+export type PeriodicidadeLancamento = (typeof PERIODICIDADES)[number];
+
 export type FonteCambio = 'ptax_bcb' | 'manual' | 'herdado' | 'orcamento';
 
 /** Natureza do custo de IA, como o e-mail semanal classifica (`classificacao.ts`). */
@@ -84,7 +88,11 @@ export interface LancamentoDRE {
   empresaId: string | null;
   empresaNome: string | null;
   chaveEmpresa: string;
-  semanaInicio: DataISO;
+  periodicidade: PeriodicidadeLancamento;
+  /** A segunda-feira da competência dos semanais; `null` nos mensais. */
+  semanaInicio: DataISO | null;
+  /** O dia 1 do mês dos mensais; `null` nos semanais. */
+  mesCompetencia: DataISO | null;
   categoria: CategoriaLancamento;
   descricao: string | null;
   horas: number | null;

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui';
 import type { DadosDRE } from '@/lib/dre/carregar';
 import type { LinhaDRE, ResumoContrato, TenantDRE } from '@/lib/dre/consolidar';
 import { estaAtrasada } from '@/lib/dre/parcelas';
+import { chaveDeOrdem, rotuloMes } from '@/lib/dre/rateio';
 import { rotuloSemana } from '@/lib/dre/semana';
 import { CATEGORIAS, ROTULO_CATEGORIA, type CategoriaLancamento, type LancamentoDRE, type ParcelaDRE } from '@/lib/dre/tipos';
 import { Situacao } from './TabelaClientes';
@@ -283,7 +284,8 @@ export function TabelaLancamentos({
   lancamentos: LancamentoDRE[];
   acoes: Pick<AcoesDetalhe, 'editarLancamento' | 'excluirLancamento'>;
 }) {
-  const ordenados = [...lancamentos].sort((a, b) => (a.semanaInicio < b.semanaInicio ? 1 : a.semanaInicio > b.semanaInicio ? -1 : 0));
+  // Do mais novo ao mais antigo, pela semana ou pelo mês de cada um.
+  const ordenados = [...lancamentos].sort((a, b) => (chaveDeOrdem(a) < chaveDeOrdem(b) ? 1 : chaveDeOrdem(a) > chaveDeOrdem(b) ? -1 : 0));
   return (
     <div className="overflow-x-auto rounded-md border border-white/10 bg-white/[0.03]">
       <table className="w-full min-w-[720px] text-xs">
@@ -304,10 +306,18 @@ export function TabelaLancamentos({
           )}
           {ordenados.map((l) => (
             <tr key={l.id}>
-              <td className="px-3 py-1.5 text-white/70 whitespace-nowrap">{rotuloSemana(l.semanaInicio)}</td>
+              <td className="px-3 py-1.5 text-white/70 whitespace-nowrap">
+                {l.periodicidade === 'mensal' && l.mesCompetencia ? (
+                  <span title="Lançado pelo mês: a DRE reparte o valor pelas semanas, proporcional aos dias de cada uma.">
+                    {rotuloMes(l.mesCompetencia)} <Selo tom="info">mensal</Selo>
+                  </span>
+                ) : (
+                  rotuloSemana(l.semanaInicio ?? '')
+                )}
+              </td>
               <td className="px-3 py-1.5 text-white/85">{ROTULO_CATEGORIA[l.categoria]}</td>
               <td className="px-3 py-1.5 text-white/60">{l.descricao || '—'}</td>
-              <td className="px-3 py-1.5 text-right tabular-nums text-white/70">{l.horas !== null ? l.horas.toLocaleString('pt-BR') : '—'}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-white/70">{l.horas !== null ? `${l.horas.toLocaleString('pt-BR')}${l.periodicidade === 'mensal' ? ' h/mês' : ''}` : '—'}</td>
               <td className="px-3 py-1.5 text-white/60">{l.responsavel || '—'}</td>
               <td className="px-3 py-1.5 text-right tabular-nums text-white">{brl(l.valorBrl)}</td>
               {dados.canManage && (

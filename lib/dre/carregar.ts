@@ -24,6 +24,7 @@ import { ORCAMENTO_DEFAULTS } from '@/lib/orcamento/precificacao';
 import { cambioParaConverter } from './cambio';
 import { consolidar, converterUsd, type ResultadoDRE } from './consolidar';
 import { agruparCustoIA } from './fechamento';
+import { alocarLancamento } from './rateio';
 import { cambioDeLinha, contratoDeLinha, custoIADeLinha, lancamentoDeLinha, parcelaDeLinha } from './linhas';
 import {
   dataBRT,
@@ -118,7 +119,12 @@ export async function carregarDRE(opts: { semanas?: number; agora?: Date } = {})
     datas.push(semanaDaData(c.inicio));
     for (const p of c.parcelas) if (p.recebidoEm) datas.push(semanaDaData(p.recebidoEm));
   }
-  for (const l of lancamentos) datas.push(l.semanaInicio);
+  // O mensal começa na semana que contém o dia 1 (a parte do mês que cai antes dela
+  // não existe: a conta parte da 1ª semana com dado).
+  for (const l of lancamentos) {
+    const inicio = l.periodicidade === 'mensal' && l.mesCompetencia ? semanaDaData(l.mesCompetencia) : l.semanaInicio;
+    if (inicio) datas.push(inicio);
+  }
   for (const c of custoIAFechado) datas.push(c.semanaInicio);
   const janela = ultimasSemanas(semanaAtual, nJanela);
   const primeira = [...datas, janela[0]].reduce((a, b) => (a < b ? a : b));
@@ -185,7 +191,8 @@ export async function carregarDRE(opts: { semanas?: number; agora?: Date } = {})
 
   return {
     resultado,
-    lancamentos: lancamentos.filter((l) => noPeriodo.has(l.semanaInicio)),
+    // Um mensal aparece se ALGUMA das semanas que ele toca está no período exibido.
+    lancamentos: lancamentos.filter((l) => alocarLancamento(l).some((p) => noPeriodo.has(p.semana))),
     empresas,
     canManage,
     custoHoraPadraoBrl: ORCAMENTO_DEFAULTS.custoHora,

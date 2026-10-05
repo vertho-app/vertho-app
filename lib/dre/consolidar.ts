@@ -23,6 +23,7 @@
 
 import { arredondar2, deCentavos, paraCentavos } from './dinheiro';
 import { estaAtrasada, venceEm } from './parcelas';
+import { alocarLancamento } from './rateio';
 import { semanaDaData, somarDias, type DataISO } from './semana';
 import {
   CATEGORIAS,
@@ -274,18 +275,25 @@ export function consolidar(e: EntradaConsolidar): ResultadoDRE {
     }
   }
 
-  // Lançamentos manuais.
+  // Lançamentos manuais. O semanal cai numa semana; o MENSAL é rateado por dia nas
+  // semanas que o mês toca (`alocarLancamento`). Só contam as semanas conhecidas:
+  // a parte de um mês que cai antes da 1ª semana com dado, ou depois da semana em
+  // curso, não entra (a de depois aparece sozinha quando a semana chegar).
   for (const l of e.lancamentos) {
-    if (!conhecidas.has(l.semanaInicio)) continue;
-    if (l.escopo === 'plataforma') {
-      foraDaSemana(l.semanaInicio)[l.categoria] += paraCentavos(l.valorBrl);
-      continue;
-    }
-    const t = tenantDe(tenants, l.chaveEmpresa);
-    lembrar(t, l.empresaId, l.empresaNome);
-    accDaSemana(t, l.semanaInicio)[l.categoria] += paraCentavos(l.valorBrl);
-    if (naJanela.has(l.semanaInicio)) {
-      t.lancamentosPorCategoria.set(l.categoria, (t.lancamentosPorCategoria.get(l.categoria) ?? 0) + 1);
+    for (const parte of alocarLancamento(l)) {
+      if (!conhecidas.has(parte.semana)) continue;
+      if (l.escopo === 'plataforma') {
+        foraDaSemana(parte.semana)[l.categoria] += paraCentavos(parte.valorBrl);
+        continue;
+      }
+      const t = tenantDe(tenants, l.chaveEmpresa);
+      lembrar(t, l.empresaId, l.empresaNome);
+      accDaSemana(t, parte.semana)[l.categoria] += paraCentavos(parte.valorBrl);
+      // Cobertura: basta UMA fatia do lançamento dentro da janela para a categoria
+      // contar como lançada (o número só é comparado com zero).
+      if (naJanela.has(parte.semana)) {
+        t.lancamentosPorCategoria.set(l.categoria, (t.lancamentosPorCategoria.get(l.categoria) ?? 0) + 1);
+      }
     }
   }
 
