@@ -18,8 +18,9 @@ a essas leituras somente no bundle estático. Os filtros de busca, status e orde
 seguem nos componentes originais. O pacote não usa autenticação nem consulta o banco.
 
 Os PDFs em `documents/<ambiente>/` usam os templates canônicos do produto e entram
-no manifesto com tamanho e SHA-256. Depois de atualizar os dados salvos, atualize
-os PDFs correspondentes para manter a mesma leitura na tela e no documento.
+no manifesto com tamanho e SHA-256. Depois de atualizar os dados salvos, regere os PDFs
+(`node scripts/gerar-pdfs-demo-offline.mts`, ver `documents/README.md`) para manter a mesma
+leitura na tela e no documento; o guard de texto proíbe nos 18 o que o produto abandonou.
 `npm run build:demo-offline` apenas empacota os arquivos: não consulta rede ou banco.
 
 O botão **Conferir pacote** foi removido. A verificação continua automática no

@@ -68,8 +68,8 @@ códigos inválidos, saída do iframe e retorno do DISC sem o ciclo do perfil va
 
 | Demo | Endereço | Pacote inicial |
 | --- | --- | --- |
-| Rede de escolas | `https://professor-escolas.vertho.ai/apresentacao-offline/index.html` | Cerca de 42 MB |
-| ACME empresarial | `https://usuario-demo.vertho.ai/apresentacao-offline-acme/index.html` | Cerca de 14 MB |
+| Rede de escolas | `https://professor-escolas.vertho.ai/apresentacao-offline/index.html` | Cerca de 41 MB |
+| ACME empresarial | `https://usuario-demo.vertho.ai/apresentacao-offline-acme/index.html` | Cerca de 16 MB |
 
 Também disponível pelo botão **Preparar offline** em cada card de ambiente na seção
 **Apresentação** da tela administrativa `/admin/demo`. Prepare pelo Wi-Fi, no mesmo
@@ -112,15 +112,38 @@ incompletos, cancelados ou sem espaço não substituem o pacote anterior.
   campos demonstrativos dos fixtures e rosters, sem contatos, sessões ou conversas.
   A ACME complementa o fixture antigo com `acme-content.json`: semanas resolvidas
   pelo overlay real dos kits e notas numéricas das 30 pessoas declaradas no roster,
-  indexadas por chave fictícia, sem IDs de colaboradores ou convidados. Os relatórios
-  usam os geradores canônicos `criarRelatorioGestorAcmeDemo` e `criarRelatorioRhAcmeDemo`.
+  indexadas por chave fictícia, sem IDs de colaboradores ou convidados. O relatório do
+  gestor e o do RH (tela e PDF, nos dois ambientes) saem do mesmo construtor que a sala
+  online recebe por último a cada reset, `construirLeiturasDemo`, chamado por
+  `leituras.ts`: só nível, distribuição contada sobre a equipe e nenhuma nota decimal
+  (R-136, 05/10/2026). O PDI sai do fixture ajustado à Jornada de 7 semanas
+  (`lib/demo/pdi-ao-modo.ts`, o mesmo ajuste do reset), sem a `nota_decimal` e sem
+  travessão (`tirarTravessaoDeValor`, o sanitizador da saída de IA).
 - `build-adapters.ts` substitui sessão, navegação e server actions apenas no bundle
   estático. Os módulos `use server` nunca entram no pacote: leituras usam os dados
   fictícios locais e mutações ficam indisponíveis. O transporte bloqueia chamadas
   de API externas ao pacote. Não altera autenticação nem regras da aplicação online.
   `ui-snapshot.json` contém planos e progresso do roster fictício, sem IDs ou contatos.
-  `documents/` guarda PDFs gerados pelos mesmos componentes React-PDF do produto;
-  o leitor PDF e seu worker também são empacotados para funcionar sem rede.
+  `documents/` guarda 18 PDFs gerados pelos mesmos componentes React-PDF do produto
+  (ACME: PDI, Gestor, RH, engajamento, evolução de 4 pessoas e 4 rankings; escola: PDI,
+  Gestor, RH, engajamento e 2 rankings); o leitor PDF e seu worker também são
+  empacotados para funcionar sem rede.
+- **Regerar os PDFs é um comando só** (R-136, 05/10/2026): `node scripts/gerar-pdfs-demo-offline.mts`
+  e, depois, `npm run build:demo-offline`. O script usa `lib/demo/offline/documentos.ts`: PDI,
+  Gestor, RH e engajamento pelos renderizadores do app; a evolução de cada pessoa por
+  `renderTemporadaConcluidaPDF`; o Ranking de Adequação por `renderRankingAdequacaoPDF`,
+  com o ranking montado SEM banco (`ranking-snapshots.ts`: o mesmo motor sobre o elenco e os
+  gabaritos versionados, que bate pessoa a pessoa com o retrato salvo que a tela mostra). Sem
+  banco, credencial nem IA; só precisa de internet para as fontes públicas. Regere quando
+  mudar um renderizador, o elenco ou o retrato salvo, e confira as páginas antes de versionar.
+  **O que NÃO pode aparecer nos PDFs:** "14 semanas" (o programa é a Jornada de 7), "Resumo de
+  Desempenho", nota ou média decimal ("2,4 de 4", "Nota 1,78", "média geral de 2,51"; o avanço
+  "+0,3" é permitido), "Temporada", Pulso, Plenária, Dossiê, travessão, e nos `ranking-N` o
+  vocabulário da Seleção (candidato, elegível, "corte de recomendação", eliminatório,
+  entrevista, vaga, psicólogo). Quem trava é `tests/unit/demo-offline-pdfs-guard.test.ts`, que
+  LÊ O TEXTO dos arquivos versionados e exige que sejam exatamente os 18 que o pacote espera.
+  `demo-offline-dados-dos-pdfs.test.ts` e `demo-offline-ranking-paridade.test.ts` travam os
+  dados que entram (PDI de 7 semanas, relatório sem decimal, ranking igual ao da tela).
 - `media.json` (escola) e `acme-media.json` fixam os arquivos públicos, tamanhos e hashes. Ao trocar a mídia,
   atualize o manifesto a partir dos novos arquivos completos; builds não fazem
   downloads e não precisam de segredos. As semanas vêm do plano congelado de
