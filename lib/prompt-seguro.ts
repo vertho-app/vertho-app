@@ -52,41 +52,35 @@ const CONTROLES = new RegExp(`[${pontos([0x00, 0x08], 0x0b, 0x0c, [0x0e, 0x1f], 
  */
 const LATINO = 'A-Za-zÀ-ÿ0-9';
 const JUNTA_ENTRE_LETRAS = new RegExp(`(?<=[${LATINO}])[${pontos(0x200c, 0x200d)}]+(?=[${LATINO}])`, 'g');
+/** Remove o que é invisível ou controle: a mesma limpeza para neutralizar e para detectar. */
+const limparInvisiveis = (s: string) => s.replace(INVISIVEIS, '').replace(CONTROLES, '').replace(JUNTA_ENTRE_LETRAS, '');
 /** `═` é o delimitador de seção dos prompts: qualquer `═`, em qualquer quantidade, vira `-`. */
 const DELIMITADOR_DE_SECAO = /═+/g;
 
 const ROTULOS = 'COLAB|COLABORADOR|COLABORADORA|MENTOR|MENTORA|AVALIADO|AVALIADA|INTERLOCUTOR|INTERLOCUTORA|IA|AI|USER|USUARIO|USUÁRIO|ASSISTANT|ASSISTENTE|SYSTEM|SISTEMA|HUMAN|HUMANO';
 /**
  * Dois pontos: o ASCII, o de largura total e o pequeno (o modelo lê os três como o mesmo sinal). A dobra
- * (NFKD, mais abaixo) também os trataria, mas só dentro da janela que ela olha; aqui valem em qualquer
- * posição. Tirar esta classe por "a dobra já cobre" foi a regressão que a 3ª revisão achou.
+ * (NFKD, mais abaixo) também os trataria; aqui valem em qualquer posição. Tirar esta classe por "a dobra
+ * já cobre" foi a regressão que a 3ª revisão achou.
  */
 const DOIS_PONTOS = `[:${pontos(0xff1a, 0xfe55)}]`;
+/** Quebras de linha que o `^` do JS reconhece (U+2028 e U+2029 além de CR e LF). */
+const QUEBRA = `\\r\\n${pontos(0x2028, 0x2029)}`;
+/** As aspas curvas são as que a própria neutralização escreve (`“IA”:`): ficam de fora para ser idempotente. */
+const NOSSAS_ASPAS = pontos(0x201c, 0x201d);
 /**
- * Espaço que NÃO quebra linha (o NBSP e os de largura especial entram, a quebra não). Sem esta
- * restrição o prefixo atravessaria linhas em branco e o custo ficaria quadrático.
+ * O que pode vir ANTES do rótulo: QUALQUER caractere que não seja letra nem quebra de linha. Era uma lista
+ * (espaço, `>`, `-`, `•`, número) e cada revisão achava um marcador que faltava (`+`, `|`, `→`, aspas retas,
+ * emoji). Não há teto de tamanho: a classe não casa letra, então a corrida acaba na primeira palavra e o
+ * custo é linear; um teto comprimiria linhas legítimas de números.
  */
-const ESPACO_DA_LINHA = `[^\\S\\r\\n${pontos(0x2028, 0x2029)}]`;
-/** O que pode vir ANTES do rótulo: espaço de qualquer largura, marca de citação ou de lista (`>`, `-`, `•`, `1.`, `(a)`). */
-const PREFIXO = `(?:${ESPACO_DA_LINHA}|[>*#_\\-–—•·.)(\\[\\]\\d])`;
-/** Rótulo de turno no começo da linha; depois dele, o fechamento de ênfase (`**IA**:`). */
-const ROTULO_DE_TURNO = new RegExp(
-  `^(${PREFIXO}*)(${ROTULOS})((?:${ESPACO_DA_LINHA}|[*_\\])])*${DOIS_PONTOS})`,
-  'gim',
-);
-/**
- * O prefixo de um rótulo não precisa de mais de umas dezenas de caracteres, e o modelo o atravessa por
- * maior que seja. Uma corrida mais longa que isto no começo da linha é encurtada: sem teto, bastava
- * empurrar o rótulo para além da janela em que a dobra de letras parecidas olha (3ª revisão).
- */
-const LIMITE_DO_PREFIXO = 256;
-const PREFIXO_LONGO = new RegExp(`^${PREFIXO}{${LIMITE_DO_PREFIXO + 1},}`, 'gm');
-const cortarPrefixo = (corrida: string) => corrida.slice(0, LIMITE_DO_PREFIXO);
-/** Remove o que é invisível ou controle e encurta o prefixo longo: a mesma limpeza para neutralizar e para detectar. */
-const limparInvisiveis = (s: string) =>
-  s.replace(INVISIVEIS, '').replace(CONTROLES, '').replace(JUNTA_ENTRE_LETRAS, '').replace(PREFIXO_LONGO, cortarPrefixo);
-/** Marcador de bloco em maiúsculas: `[META]`, `[/META]`, `[AUDIT]`, `[FIM]`. Mínimo 3 letras (`[RH]` passa). */
-const MARCADOR_DE_BLOCO = /\[(\/?)([A-Z][A-Z_]{2,})\]/g;
+const PREFIXO = `[^\\p{L}${QUEBRA}${NOSSAS_ASPAS}]`;
+/** Entre o rótulo e os dois pontos: pontuação, espaço e ênfase (`**IA**:`, `IA ) :`), nunca letra, número nem outro `:`. */
+const FECHO = `[^\\p{L}\\p{N}:${pontos(0xff1a, 0xfe55)}${QUEBRA}${NOSSAS_ASPAS}]`;
+/** Rótulo de turno no começo da linha. */
+const ROTULO_DE_TURNO = new RegExp(`^(${PREFIXO}*)(${ROTULOS})(${FECHO}*${DOIS_PONTOS})`, 'gimu');
+/** Marcador de bloco em maiúsculas: `[META]`, `[/META]`, `[AUDIT]`, `[FIM]` (também com colchetes de largura total). Mínimo 3 letras (`[RH]` passa). */
+const MARCADOR_DE_BLOCO = new RegExp(`[\\[${pontos(0xff3b)}](/?)([A-Z][A-Z_]{2,})[\\]${pontos(0xff3d)}]`, 'g');
 
 /**
  * O modelo lê letras parecidas como a mesma palavra, e uma regex não. Para o RÓTULO de turno (e só
@@ -106,15 +100,15 @@ const PARECIDOS = new Map<number, string>([
   [0x2236, ':'], [0xa789, ':'], [0x589, ':'], [0x2d0, ':'],
 ]);
 const MARCAS_DE_ACENTO = /\p{M}/gu;
-/** Quebras de linha que o `^` do JS reconhece, mantidas na separação (grupo de captura). */
-const QUEBRAS = new RegExp(`(\\r\\n|[\\r\\n${pontos(0x2028, 0x2029)}])`);
+const QUEBRAS = new RegExp(`(\\r\\n|[${QUEBRA}])`);
 const TEM_NAO_ASCII = /[^\x00-\x7f]/;
 /**
- * Só o começo da linha decide se é rótulo: limita o trabalho e o que se dobra. Cabe o prefixo inteiro
- * (no máximo `LIMITE_DO_PREFIXO`) e o rótulo com folga; com 96 o rótulo escapava atrás de um prefixo longo.
+ * Quanto da linha a dobra olha. Como o prefixo não tem teto, a janela precisa ser maior que qualquer
+ * prefixo plausível: um milhão de caracteres numa linha só já não cabe em prompt nenhum. O custo continua
+ * linear no texto (cada linha é dobrada, no máximo, uma vez).
  */
-const CABECA_DA_LINHA = 1024;
-const ROTULO_NO_COMECO = new RegExp(ROTULO_DE_TURNO.source, 'i');
+const CABECA_DA_LINHA = 1_000_000;
+const ROTULO_NO_COMECO = new RegExp(ROTULO_DE_TURNO.source, 'iu');
 
 /**
  * Se a linha só é rótulo de turno depois de dobrada (letra parecida, largura total, acento), devolve a
@@ -165,7 +159,7 @@ export function sinaisDeInjecao(texto: string | null | undefined): string[] {
   quando('secao_forjada', /═{2,}/);
   // O rótulo é procurado no texto já sem invisíveis e, para o disfarçado (letra parecida), pelo esqueleto.
   const limpo = limparInvisiveis(t);
-  if (new RegExp(ROTULO_DE_TURNO.source, 'im').test(limpo)
+  if (new RegExp(ROTULO_DE_TURNO.source, 'imu').test(limpo)
     || limpo.split(QUEBRAS).some((parte, i) => i % 2 === 0 && dobrarRotuloDisfarcado(parte) !== parte)) sinais.push('turno_forjado');
   quando('bloco_forjado', /\[\/?[A-Z][A-Z_]{2,}\]/);
   quando('invisiveis', new RegExp(`${INVISIVEIS.source}|${JUNTA_ENTRE_LETRAS.source}`, 'u'));
