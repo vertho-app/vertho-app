@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { canViewColabJourney, findColabByEmail, getUserContext } from '@/lib/authz';
 import { CIS_COLUMNS, mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfile';
 import { callAI } from '@/actions/ai-client';
+import { heavyLimiter, limitarAcao } from '@/lib/rate-limit';
 import { isCurrentBehavioralReport } from '@/lib/behavioral-report-schema';
 import { storageSlug } from '@/lib/storage-slug';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
@@ -162,6 +163,14 @@ export async function pregerarPdfsEmpresa(empresaId) {
  * Força regeneração dos textos do LLM (e re-gera o PDF).
  */
 export async function regenerarRelatorioComportamental() {
+  // Regenerar chama o modelo e re-gera o PDF: freio por pessoa, antes do custo
+  // (análise de 05/10/2026). A autenticação segue sendo feita por `loadBehavioralReport`.
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (email) {
+    const espera = await limitarAcao(heavyLimiter, `relatorio:${email}`);
+    if (espera) return { error: `Muitas solicitações em pouco tempo. Tente de novo em ${espera}s.` };
+  }
   const result = await loadBehavioralReport({ force: true });
   if (result.error) return result;
   // re-gera o PDF com os novos textos

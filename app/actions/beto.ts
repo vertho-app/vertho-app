@@ -15,6 +15,10 @@ import { maskColaborador, maskTextPII, unmaskPII, type PIIMapas } from '@/lib/pi
 import { cookies } from 'next/headers';
 import { localeCookieName, normalizeAppLocale } from '@/lib/i18n';
 import { defaultLocale, type AppLocale } from '@/i18n/routing';
+import { aiLimiter, betoDiaLimiter, limitarAcao } from '@/lib/rate-limit';
+
+/** Teto de caracteres por fala enviada ao modelo. Uma fala humana não chega perto; o resto é abuso. */
+const TAMANHO_MAXIMO_FALA = 4000;
 
 const SYSTEM_PROMPT_BASE = `Você é o BETO (Business Evolution & Talent Optimizer), um mentor de desenvolvimento profissional acolhedor e empático da plataforma Vertho Mentor IA.
 
@@ -54,6 +58,18 @@ export async function chatWithBeto(
 ) {
   const auth = await requireUserAction();
   const email = auth.email;
+  // Freio de uso ANTES de qualquer custo (análise de 05/10/2026): a action chama o
+  // Sonnet e antes não tinha limite de frequência, de tamanho nem de volume diário.
+  // Por pessoa. Estourar o limite lança: o componente trata como erro de conversa
+  // e mostra a mensagem padrão, sem gastar nada.
+  if (email) {
+    const espera = await limitarAcao(aiLimiter, `beto:${email}`) ?? await limitarAcao(betoDiaLimiter, email);
+    if (espera) throw new Error(`beto: limite de uso atingido, tente de novo em ${espera}s`);
+  }
+  // Tamanho: o `bodySizeLimit` das actions é de 15 MB e a mensagem inteira ia ao
+  // modelo. O histórico já era cortado em 10 falas, mas cada fala não.
+  userMessage = String(userMessage ?? '').slice(0, TAMANHO_MAXIMO_FALA);
+  history = (Array.isArray(history) ? history : []).map((m) => ({ role: m?.role, content: String(m?.content ?? '').slice(0, TAMANHO_MAXIMO_FALA) }));
   const locale = await idiomaDoBeto(localeDaTela, email);
   // Doutrina teórica (DISC + Jung) sempre disponível: o Beto pode explicar o
   // framework mesmo para quem ainda não tem mapeamento.

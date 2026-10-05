@@ -4,6 +4,7 @@ import { canViewColabJourney, findColabByEmail, getUserContext } from '@/lib/aut
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI } from '@/actions/ai-client';
+import { heavyLimiter, limitarAcao } from '@/lib/rate-limit';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import { derivarArquetipo, derivarTagsExecutivas, insightsHardcoded } from '@/lib/disc-arquetipos';
 import { buildInsightsExecutivosPrompt } from '@/lib/prompts/insights-executivos-prompt';
@@ -211,6 +212,11 @@ export async function gerarInsightsExecutivos(opts: any = {}) {
         return { insights: colab.insights_executivos, cached: true };
       }
     }
+
+    // Daqui em diante é chamada ao modelo. O cache de 30 dias só vale sem `force`, e
+    // `force:true` repetido em laço gastava IA sem freio (análise de 05/10/2026).
+    const espera = await limitarAcao(heavyLimiter, `insights:${email}`);
+    if (espera) return { error: `Muitas solicitações em pouco tempo. Tente de novo em ${espera}s.` };
 
     const arquetipo = derivarArquetipo(colab.perfil_dominante);
     const tags = derivarTagsExecutivas(colab);

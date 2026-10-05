@@ -5,6 +5,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 import { canAccessPerfilComportamental } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
+import { heavyLimiter, limitarAcao } from '@/lib/rate-limit';
 import {
   computeDiscCompetenciesNatural,
   DISC_COMPETENCY_MODEL_VERSION,
@@ -59,6 +60,10 @@ export async function salvarPerfilComportamental(resultados) {
   if (!email || !resultados) {
     return { success: false, error: 'Dados incompletos' };
   }
+  // Salvar dispara a geração dos textos do relatório com IA (em `after()`): freio por
+  // pessoa, antes do custo (análise de 05/10/2026).
+  const espera = await limitarAcao(heavyLimiter, `perfil:${email}`);
+  if (espera) return { success: false, error: `Muitas solicitações em pouco tempo. Tente de novo em ${espera}s.` };
 
   // Resolver o colaborador via tenant. Update por ID, não por email
   // (mesmo email pode existir em múltiplas empresas).

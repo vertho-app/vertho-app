@@ -217,6 +217,34 @@ export const simVendasInicioLimiter = createRateLimiter({
 /** Rotas de upload/PDF (pesado): 5 req/min por user */
 export const heavyLimiter = createRateLimiter({ maxRequests: 5, windowMs: 60_000 });
 
+/**
+ * Limite para SERVER ACTION, que não recebe `Request`. A chave é sempre a PESSOA
+ * (e-mail da sessão), nunca o IP. Devolve a espera em segundos quando excedeu, ou
+ * `null` quando pode seguir.
+ *
+ * Existe porque, dos ~150 arquivos `'use server'`, só um usava limitador (análise de
+ * 05/10/2026): o Beto, por exemplo, chamava o Sonnet sem freio de frequência, com
+ * `bodySizeLimit` de 15 MB e sem teto de custo, e qualquer colaborador logado
+ * podia repeti-lo em laço. O limitador é o mesmo das rotas; o Upstash vale para a
+ * frota, o fallback em memória é por instância.
+ */
+export async function limitarAcao(
+  limiter: { check(req: Request, identifier?: string | null): Promise<Response | null> },
+  chave: string,
+): Promise<number | null> {
+  const r = await limiter.check(new Request('http://acao.interna/'), chave);
+  if (!r) return null;
+  return Math.max(1, Number(r.headers.get('Retry-After')) || 1);
+}
+
+/**
+ * Teto DIÁRIO de mensagens ao Beto por pessoa. O de 10 por minuto (`aiLimiter`)
+ * impede o laço rápido, mas 10/min por 24 h ainda são 14 mil chamadas ao Sonnet
+ * por conta. 200 por dia cobrem muitas conversas reais (uma conversa longa tem
+ * dezenas de falas) e cortam o abuso. Ajuste aqui se o uso real pedir mais.
+ */
+export const betoDiaLimiter = createRateLimiter({ maxRequests: 200, windowMs: 24 * 60 * 60_000, escopo: 'beto-dia' });
+
 /** Rotas de leitura normal: 60 req/min por user */
 export const readLimiter = createRateLimiter({ maxRequests: 60, windowMs: 60_000 });
 
