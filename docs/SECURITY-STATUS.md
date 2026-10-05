@@ -1,8 +1,39 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Ultima revisao: 2026-09-18: **secret scanning e push protection ligados no GitHub**; estavam desligados num repo público (ver "18/09"). Antes: 2026-08-30 — **dois guards de tenant estavam cegos e foram corrigidos**: `tenant-mutation-guard` passava verde com 0 arquivos varridos (`ec4d3fdd`) e `tenant-isolation` não alcançava a comparação de tenant em 2 de 9 casos (`26ef9db5`), os dois validados por mutação. **13 dos 35** arquivos de `tests/unit/security/` que tocam isolamento de tenant foram auditados; 22 seguem sem auditoria (ver "Manutenção 30/08"). Antes: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
+> Ultima revisao: 2026-10-05: **análise dos 8 ataques (nota 4,4) e as correções do plano no mesmo dia**, entre elas a mig 278 que tirou a escrita de `anon` e `authenticated` (ver "05/10"). Antes: 2026-09-18: **secret scanning e push protection ligados no GitHub**; estavam desligados num repo público (ver "18/09"). Antes: 2026-08-30 — **dois guards de tenant estavam cegos e foram corrigidos**: `tenant-mutation-guard` passava verde com 0 arquivos varridos (`ec4d3fdd`) e `tenant-isolation` não alcançava a comparação de tenant em 2 de 9 casos (`26ef9db5`), os dois validados por mutação. **13 dos 35** arquivos de `tests/unit/security/` que tocam isolamento de tenant foram auditados; 22 seguem sem auditoria (ver "Manutenção 30/08"). Antes: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
 > Antes: 2026-07-17 (auditoria geral — detalhes em `docs/LEVANTAMENTO-2026-07.md` §4. **3 achados altos NOVOS**, hoje fechados: (1) `api/bunny-videos` + `api/video-download` sem auth — enumeracao + download anonimo de videos, PII potencial nos personalizados; (2) header `x-tenant-slug` forjavel no apex/vercel.app — enumeracao de e-mails cross-tenant e signup em tenant alheio; (3) open redirect de `token_hash` de sessao em `api/auth/phone-otp/verify`. Numeros corrigidos: service-role = **130 arquivos / 299 usos** (nao 91/168); residuo `internal` = **5 entradas** (nao 8; fase1/fase3 removidos 10/07). As 4 classes criticas de 03/07 seguem confirmadas fechadas.)
 > Anterior: 2026-07-07 (defense-in-depth de tenant nas ações internas + filtro de contas internas demo-aware; ver seção "Endurecimento 06-07/07"). Anterior: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
+
+## 05/10: análise dos 8 ataques (skill `analise-de-site`) e as correções
+
+Nota **4,4 de 10** sobre o commit `58a9711c` (1 ataque protegido, 5 parciais, 2 vulneráveis). Método: 3 revisores de código em paralelo, consultas só de leitura ao banco e `npm audit`, e cada achado grave reconferido à mão contra o código ou o banco. A nota conta cada ataque igual e **não pesa gravidade**: os dois vulneráveis eram críticos.
+
+| Achado | Correção | Prova |
+|---|---|---|
+| `authenticated` e `anon` com UPDATE em todas as colunas de `colaboradores`, e a policy `update_self` amarrava só a LINHA: qualquer login virava RH ou trocava de tenant pelo PostgREST com a chave anon | mig **278**: REVOKE de INSERT/UPDATE/DELETE/TRUNCATE em todas as tabelas de `public`, default para as futuras e DROP da policy. O navegador só lê 2 tabelas e não grava em nenhuma | guard `rls-posture` **INV6** (GRANT de escrita, até por coluna): 636 violações em 106 tabelas antes, 0 depois |
+| Cadastro aberto da `bett`: o link de login da conta de TERCEIRO ia ao telefone digitado | flag desligada no banco; `signup` manda o link só por e-mail em qualquer tenant e não grava o telefone; `sendAccessLink` manda conta de platform admin só por e-mail, e fecha quando a consulta falha (`lib/auth/conta-privilegiada`) | `signup-telefone-sem-prova`, `conta-privilegiada-fecha` |
+| `getColabByEmail(select)` repassava o select do cliente com service-role: `empresas(colaboradores(*))` lia a base do tenant | lista fixa de colunas | `colab-action-select-fechado` |
+| `/api/colaboradores`: o RH gravava `email`, `telefone`, `role` da própria empresa | campos de identidade só para platform admin | `colaboradores-campos-de-identidade` |
+| `/api/chat`: `competencias` lida por id do cliente sem tenant; escrita aceitava gestor e RH | leitura pelo `tdb`; escrita só do dono (`assertDonoDaTrilha`) | `chat-competencia-do-tenant`, `chat-escrita-so-do-dono` |
+| `.or()` com e-mail livre; `net-guard` cego a IPv6 mapeado em hexadecimal (o `URL` do Node reescreve `[::ffff:127.0.0.1]`); CSV de comissões; e-mail de alerta sem escape | `valorDeFiltro`; `ehIpPrivado` por hextets; `celulaCsv` (número negativo fica cru); `escaparHtml` | 4 arquivos de teste novos |
+| Ações de IA sem limite: o Beto chamava o Sonnet sem freio, com 15 MB de corpo | `limitarAcao`: Beto 10/min e 200/dia por pessoa, fala cortada em 4.000 caracteres; 3 ações de IA do colaborador a 5/min | `acoes-de-ia-com-limite` |
+| `maskTextPII` **quadrático** (achado lateral): 64 mil caracteres levavam 1,7 s, 2 milhões, cerca de meia hora de CPU | varredura linear a partir de cada `@` | `pii-masker-linear` |
+| `next` 16.2.11 com 3 avisos críticos (o de `next/og` não atinge a rota, que é `edge`; AVIF vem desligado) | `next` 16.3.8, `undici` 8.11.2 e `sharp` 0.35.5 | `npm audit`: crítico 1 para 0 |
+
+**Lições que não estão no código:**
+
+- 🔴 **Policy "mais estreita que o tenant" mede LINHA, e o furo estava na COLUNA.** O `rls-policy-estatica-guard` absolveu `colaboradores_update_self` por esse motivo. A régua de GRANT de escrita (INV6) é o que faltava, e nenhum dos 5 invariantes anteriores olhava GRANT.
+- 🔴 **Correção "equivalente" que não era.** O primeiro conserto do `maskTextPII` (um lookbehind) deixava o segundo e-mail de `a@b.com+c@d.org` sem máscara. Só o teste de equivalência com texto aleatório contra o regex antigo pegou. Para trocar regex por outra coisa, compare com a referência antiga em milhares de entradas, não em três exemplos.
+- 🔴 **A revisão automática do commit achou dois furos na própria correção:** a exceção de WhatsApp para tenant de demonstração (quem cria a conta antes do dono passa a ter sessão nela) e o `isPlatformAdmin` fail-open (o supabase-js RETORNA `{ error }`, `data` vem `null` e a função devolve `false`). Os dois foram verificados à mão e corrigidos no mesmo dia.
+- A conta do Auth é **global por e-mail** e o telefone do WhatsApp mora numa linha de `colaboradores` de **qualquer** tenant, escrita por cadastro aberto, importação e RH. Telefone que quem escreve não provou ser dele não é canal de acesso.
+
+**Abertos (decisão ou medição pendente):**
+
+- CSP sem `script-src` (só `frame-ancestors`) e cookie de sessão legível por JavaScript: nenhum XSS explorável foi achado, mas um futuro não encontraria barreira. Exige entrar primeiro em modo só de relatório.
+- Prompt do avaliador: a fala do colaborador entra sem delimitador e a rubrica N1 a N4 vai no system prompt. Mexer exige recalibrar a avaliação com transcritos reais.
+- `pdfjs-dist` 5.6.205 (alto): a correção é a versão 6, major. O leitor do navegador só renderiza em canvas, sem a camada de script.
+- Senhas previsíveis por tenant e do admin (R-145, decisão do dono), e o login por senha vai direto ao Supabase Auth, sem limite no app.
+- Rate limit: as `UPSTASH_REDIS_REST_*` não foram verificadas na Vercel; sem elas o limite é por instância.
 
 ## 18/09: secret scanning e push protection ligados no GitHub
 
