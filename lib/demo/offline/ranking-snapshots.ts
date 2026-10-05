@@ -166,15 +166,16 @@ export function entradaDoPdfDeRanking(
 }
 
 /**
- * O motor de adequação escreve o rótulo de cada fator DISC com travessão ("D — Dominância",
+ * O motor de adequação escreve o rótulo de cada fator DISC com travessão ("D", travessão, "Dominância",
  * `lib/scoring/role-spec.ts`), e o rótulo viaja por todo o snapshot (traços, distâncias até a
  * meta, narrativa). A regra de voz é "sem travessão": o PDF do pacote troca o travessão por
  * dois-pontos, no snapshot inteiro de uma vez, então o rótulo continua igual em toda parte e
  * o casamento entre traço e distância (que o PDF faz por texto) não se perde. O rótulo do
  * motor não muda: ele está gravado nos snapshots da sala online.
  */
+const TRAVESSAO_DO_ROTULO = new RegExp(` ${String.fromCharCode(0x2014)} `, 'g');
 export function semTravessaoDoMotor<T>(valor: T): T {
-  if (typeof valor === 'string') return valor.replace(/ — /g, ': ') as unknown as T;
+  if (typeof valor === 'string') return valor.replace(TRAVESSAO_DO_ROTULO, ': ') as unknown as T;
   if (Array.isArray(valor)) return valor.map(semTravessaoDoMotor) as unknown as T;
   if (valor && typeof valor === 'object') {
     return Object.fromEntries(Object.entries(valor).map(([chave, v]) => [chave, semTravessaoDoMotor(v)])) as T;

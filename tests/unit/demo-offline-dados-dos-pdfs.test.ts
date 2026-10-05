@@ -16,6 +16,9 @@ import { ACME_DEMO_FUNNEL_TARGETS } from '@/lib/demo/acme-rh-report-fixture';
 import { ROSTER_ESCOLAR } from '@/lib/demo/rosters';
 import type { OfflineData } from '@/lib/demo/offline/types';
 
+/** Travessão longo e barra horizontal: o que a regra de voz proíbe como pausa. */
+const TRAVESSAO = new RegExp(`[${String.fromCharCode(0x2014)}${String.fromCharCode(0x2015)}]`);
+
 const AMBIENTES: Array<[OfflineTenant, () => OfflineData]> = [['acme-demo', acmeOfflineData], ['escolas-acme', schoolOfflineData]];
 
 /** Só o texto: número e chave não entram (o percentual por nível é número e o renderizador o formata). */
@@ -42,7 +45,7 @@ describe.each(AMBIENTES)('dados do pacote offline: %s', (tenant, dados) => {
   it('o PDI não leva a nota decimal do fixture nem travessão, e conserva o nível', () => {
     const pdi = JSON.stringify(d.pdi);
     expect(pdi).not.toContain('nota_decimal');
-    expect(textos(d.pdi).filter((t) => /[—―]/.test(t))).toEqual([]);
+    expect(textos(d.pdi).filter((t) => TRAVESSAO.test(t))).toEqual([]);
     for (const item of (d.pdi as any).resumo_desempenho) expect([1, 2, 3, 4]).toContain(item.nivel);
   });
 
@@ -50,7 +53,7 @@ describe.each(AMBIENTES)('dados do pacote offline: %s', (tenant, dados) => {
     const texto = textos([d.coordination, d.direction]);
     expect(texto.filter((t) => /\d[.,]\d/.test(t))).toEqual([]);
     expect(texto.filter((t) => /\b(nota|m[ée]dia)\b/i.test(t))).toEqual([]);
-    expect(texto.filter((t) => /[—―]/.test(t))).toEqual([]);
+    expect(texto.filter((t) => TRAVESSAO.test(t))).toEqual([]);
   });
 
   it('o relatório do gestor fala da equipe do gestor do ambiente, e só dela', () => {

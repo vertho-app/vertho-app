@@ -17,6 +17,12 @@ import { readFileSync } from 'node:fs';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { AMBIENTES_OFFLINE, nomesDosDocumentos } from '@/lib/demo/offline/documentos';
 
+const EM = String.fromCharCode(0x2014);
+const EN = String.fromCharCode(0x2013);
+const HB = String.fromCharCode(0x2015);
+/** Travessão longo, barra horizontal, ou travessão médio entre espaços (pausa). O médio colado em número é faixa e passa. */
+const TRAVESSAO_COMO_PAUSA = new RegExp(String.raw`[${EM}${HB}]|\s${EN}\s`);
+
 type Veto = { id: string; re: RegExp; motivo: string; /** Também procura no texto sem espaços (título com espaçamento entre letras). */ compacto?: boolean };
 
 /** Vale para os 18. */
@@ -29,7 +35,7 @@ const VETOS_GERAIS: Veto[] = [
   { id: 'Pulso', re: /\bPulso\b/, motivo: 'bloco off-line (lib/blocos-offline.ts)' },
   { id: 'Plenária', re: /Plen[áa]ria/i, compacto: true, motivo: 'não é relatório da plataforma (decisão 4)' },
   { id: 'Dossiê', re: /Dossi[êe]/i, compacto: true, motivo: 'não é relatório da plataforma (decisão 4)' },
-  { id: 'travessão', re: /[—―]|\s–\s/, motivo: 'a regra de voz é sem travessão (intervalo "0–100" é outra coisa e passa)' },
+  { id: 'travessão', re: TRAVESSAO_COMO_PAUSA, motivo: 'a regra de voz é sem travessão (faixa numérica com travessão médio, como 41 a 80, é outra coisa e passa)' },
   { id: 'Temporada', re: /\bTemporada\b/i, motivo: 'a unidade de 7 semanas se chama Jornada (R-52)' },
   { id: 'Ranking de Atenção', re: /Ranking de Aten[çc][ãa]o/i, motivo: 'o gestor vê pontos de atenção em ordem alfabética, sem ranking (R-36)' },
   { id: 'Atenção Prioritária', re: /Aten[çc][ãa]o Priorit[áa]ria/i, motivo: 'o selo virou "Prioridade" (R-38)' },
@@ -125,7 +131,7 @@ describe('PDFs de demonstração do pacote offline (R-136)', () => {
       Pulso: 'Relatório do Pulso',
       'Plenária': 'Plenária da Equipe',
       'Dossiê': 'Dossiê do colaborador',
-      'travessão': 'esta pausa — não pode',
+      'travessão': `esta pausa ${EM} não pode`,
       Temporada: 'TEMPORADA 1 CONCLUÍDA',
       'Ranking de Atenção': 'Ranking de Atenção',
       'Atenção Prioritária': 'Atenção Prioritária',
@@ -145,10 +151,13 @@ describe('PDFs de demonstração do pacote offline (R-136)', () => {
     for (const veto of VETOS_DO_RANKING) {
       expect(achados(sujosRanking[veto.id], [veto]).length, `veto "${veto.id}" não disparou`).toBe(1);
     }
+    // o travessão médio entre espaços é pausa e é pego; colado em número (faixa) passa
+    expect(achados(`esta pausa ${EN} não pode`, VETOS_GERAIS).length).toBe(1);
+    expect(achados(`faixa 41${EN}80`, VETOS_GERAIS)).toEqual([]);
     // título com espaçamento entre as letras ("C A N D I D A T O") também é pego
     expect(achados('C A N D I D A T O S', VETOS_DO_RANKING).length).toBe(1);
     // o que o produto escreve e passa: intervalo com travessão médio, avanço, nível, aderência em %
-    const limpo = 'Faixa 41–80 (0–100). Avanço +0,3. Nível 2 de 4 níveis. Aderência 96,0%. Elegíveis 16 · 100% da base (engajamento).';
+    const limpo = `Faixa 41${EN}80 (0${EN}100). Avanço +0,3. Nível 2 de 4 níveis. Aderência 96,0%. Elegíveis 16 · 100% da base (engajamento).`;
     expect(achados(limpo, VETOS_GERAIS)).toEqual([]);
   });
 });

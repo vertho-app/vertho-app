@@ -44,7 +44,7 @@ trazer:
 - Nota ou média decimal ("2,4 de 4", "Nota 1,78", "média geral de 2,51"). O cliente vê nível
   (1 a 4) e avanço ("+0,3" é permitido).
 - "Temporada" (é Jornada), Pulso, Plenária e Dossiê.
-- Travessão (intervalo "0–100" é outra coisa).
+- Travessão como pausa (faixa numérica, como 41 a 80, é outra coisa).
 - Nos `ranking-N`: candidato, elegível, "corte de recomendação", eliminatório, entrevista, vaga,
   psicólogo. O Ranking de Adequação é produto, não o módulo de Seleção.
 

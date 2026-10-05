@@ -16,6 +16,10 @@ import { entradaDoPdfDeRanking, rankingsDoPacote, semTravessaoDoMotor } from '@/
 import { buildAcmeFitRankingNarratives } from '@/lib/demo/acme-fit-rankings';
 
 const AMBIENTES: Array<[OfflineTenant, () => ReturnType<typeof acmeOfflineData>]> = [['acme-demo', acmeOfflineData], ['escolas-acme', schoolOfflineData]];
+const EM = String.fromCharCode(0x2014);
+const EN = String.fromCharCode(0x2013);
+/** Travessão longo e barra horizontal. */
+const TRAVESSAO = new RegExp(`[${EM}${String.fromCharCode(0x2015)}]`);
 const VOCABULARIO_DA_SELECAO = /candidat|eleg[ií]ve|elimin|entrevista|psic[óo]log|\bvagas?\b|\bgaps?\b/i;
 
 describe.each(AMBIENTES)('ranking do pacote offline: %s', (tenant, dados) => {
@@ -59,15 +63,15 @@ describe.each(AMBIENTES)('ranking do pacote offline: %s', (tenant, dados) => {
       }
       const texto = JSON.stringify([input.narrativas, input.elegiveis.map((p) => [p.nome, p.statusLabel, p.gaps, p.tracos])]);
       expect(texto.match(VOCABULARIO_DA_SELECAO), `${cargo}: vocabulário`).toBeNull();
-      expect(texto, `${cargo}: travessão`).not.toMatch(/[—―]/);
+      expect(texto, `${cargo}: travessão`).not.toMatch(TRAVESSAO);
     }
   });
 });
 
 describe('semTravessaoDoMotor', () => {
   it('troca o travessão do rótulo por dois-pontos no snapshot inteiro e não toca em número, chave nem intervalo', () => {
-    const entrada = { 'D — Dominância': 1, rotulo: 'D — Dominância', lista: ['S — Estabilidade', 'faixa 41–80'], n: 7, aninhado: { texto: 'C — Conformidade, com 0%' } };
-    expect(semTravessaoDoMotor(entrada)).toEqual({ 'D — Dominância': 1, rotulo: 'D: Dominância', lista: ['S: Estabilidade', 'faixa 41–80'], n: 7, aninhado: { texto: 'C: Conformidade, com 0%' } });
+    const entrada = { [`D ${EM} Dominância`]: 1, rotulo: `D ${EM} Dominância`, lista: [`S ${EM} Estabilidade`, `faixa 41${EN}80`], n: 7, aninhado: { texto: `C ${EM} Conformidade, com 0%` } };
+    expect(semTravessaoDoMotor(entrada)).toEqual({ [`D ${EM} Dominância`]: 1, rotulo: 'D: Dominância', lista: ['S: Estabilidade', `faixa 41${EN}80`], n: 7, aninhado: { texto: 'C: Conformidade, com 0%' } });
   });
 });
 
