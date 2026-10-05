@@ -155,8 +155,12 @@ function lerMeta(texto: string): any {
   try { return parseJsonIA(m[1]); } catch { return {}; }
 }
 
-/** O bloco de contexto é o primeiro turno do histórico e abre sempre com `═══ CENÁRIO`. */
-const ehBlocoDeContexto = (conteudo: string) => conteudo.startsWith('═══ CENÁRIO');
+/**
+ * O bloco de contexto é o PRIMEIRO turno do histórico (`abrirArguicao` o põe lá antes de qualquer fala da
+ * pessoa) e abre com `═══ CENÁRIO`. Só a posição o identifica: o conteúdo é texto, e quem digitar
+ * `═══ CENÁRIO` no começo da própria fala não vira o bloco nosso nem some da extração.
+ */
+const ehBlocoDeContexto = (conteudo: string, indice: number) => indice === 0 && conteudo.startsWith('═══ CENÁRIO');
 
 /** Bloco de contexto da tese (cenário + resposta) prependido ao histórico. */
 function mensagemContexto(ctx: ArguicaoContexto): ArguicaoMsg {
@@ -183,9 +187,9 @@ function ctxParaIA(ctx: ArguicaoContexto, pii?: ArguicaoPII): ArguicaoContexto {
 function histParaIA(hist: ArguicaoMsg[], pii?: ArguicaoPII): Array<{ role: 'user' | 'assistant'; content: string }> {
   // A fala do colaborador perde o que só serve para forjar estrutura; o bloco de contexto
   // (nosso, com `═══ CENÁRIO` de verdade) e as respostas do mentor passam como estão.
-  const falaDaPessoa = (m: ArguicaoMsg) => m.role === 'user' && !ehBlocoDeContexto(m.content);
-  return hist.map(m => {
-    const conteudo = falaDaPessoa(m) ? neutralizarFala(m.content) : m.content;
+  const falaDaPessoa = (m: ArguicaoMsg, i: number) => m.role === 'user' && !ehBlocoDeContexto(m.content, i);
+  return hist.map((m, i) => {
+    const conteudo = falaDaPessoa(m, i) ? neutralizarFala(m.content) : m.content;
     return { role: m.role, content: pii ? maskTextPII(conteudo, pii.map) : conteudo };
   });
 }
@@ -284,7 +288,7 @@ export async function extrairEvidenciasArguicao(
   pii?: ArguicaoPII,
 ): Promise<ArguicaoExtracao | null> {
   const conversaCrua = estado.historico
-    .filter(h => h.content && !ehBlocoDeContexto(h.content))
+    .filter((h, i) => h.content && !ehBlocoDeContexto(h.content, i))
     .map(h => `${h.role === 'user' ? 'COLABORADOR' : 'MENTOR'}: ${h.role === 'user' ? neutralizarFala(stripMeta(h.content)) : stripMeta(h.content)}`)
     .join('\n\n');
   // Extrator é chamada de IA externa → mascara a conversa antes de enviar.

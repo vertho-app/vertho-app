@@ -23,23 +23,50 @@
  */
 
 /** Conteúdo de uma classe de caracteres a partir de pontos de código (ou intervalos deles). */
-const pontos =(...p: Array<number | [number, number]>) =>
+const pontos = (...p: Array<number | [number, number]>) =>
   p.map((x) => (Array.isArray(x) ? `${String.fromCodePoint(x[0])}-${String.fromCodePoint(x[1])}` : String.fromCodePoint(x))).join('');
+
 /**
- * Caracteres invisíveis que escondem payload ou escapam de filtro por texto: soft hyphen, zero width
- * space, marcas de direção e de embutimento (LRM, RLM, LRE..RLO), word joiner e demais invisíveis
- * matemáticos, isolados de direção e BOM. Ficam de fora o ZWNJ (U+200C) e o ZWJ (U+200D): formam
- * emoji composto e escrita de outros idiomas. Por ponto de código (e não por caractere) de
- * propósito: invisível no fonte é invisível na revisão, e foi assim que um intervalo engoliu o ZWJ.
+ * Caracteres invisíveis que escondem payload ou escapam de filtro por texto: soft hyphen, preenchedores
+ * (grapheme joiner, Hangul, mongol), zero width space, marcas de direção e de embutimento, word joiner e
+ * demais invisíveis matemáticos, BOM, e os blocos de TAG e de seletores de variação suplementares (o
+ * "ASCII smuggling": texto que o modelo lê e quem revisa não vê). Por ponto de código, e não por
+ * caractere, de propósito: invisível no fonte é invisível na revisão, e foi assim que um intervalo engoliu
+ * o ZWJ. O ZWNJ (U+200C) e o ZWJ (U+200D) têm regra própria, `JUNTA_ENTRE_LETRAS`.
  */
-const INVISIVEIS = new RegExp(`[${pontos(0xad, 0x200b, 0x200e, 0x200f, [0x202a, 0x202e], [0x2060, 0x2064], [0x2066, 0x2069], 0xfeff)}]`, 'g');
-/** Controles que não são quebra de linha nem tabulação. */
-const CONTROLES = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
-/** `═══` é o delimitador de seção dos prompts; duas ou mais em sequência já formam um. */
-const DELIMITADOR_DE_SECAO = /═{2,}/g;
-/** Rótulo de turno no começo da linha (também depois de `>`, `-`, `*`, `#`, `_`). */
-const ROTULO_DE_TURNO =
-  /^([ \t>*#_-]*)(COLAB|COLABORADOR|COLABORADORA|MENTOR|MENTORA|AVALIADO|AVALIADA|INTERLOCUTOR|INTERLOCUTORA|IA|AI|USER|USUARIO|USUÁRIO|ASSISTANT|ASSISTENTE|SYSTEM|SISTEMA|HUMAN|HUMANO)(\s*:)/gim;
+const INVISIVEIS = new RegExp(
+  `[${pontos(0xad, 0x34f, 0x61c, 0x115f, 0x1160, 0x17b4, 0x17b5, [0x180b, 0x180f], 0x200b, 0x200e, 0x200f,
+    [0x202a, 0x202e], [0x2060, 0x2064], [0x2066, 0x2069], 0x3164, 0xfeff, 0xffa0, [0xe0000, 0xe007f], [0xe0100, 0xe01ef])}]`,
+  'gu',
+);
+/**
+ * ZWNJ e ZWJ colados entre letras ou números latinos (`I<ZWNJ>A:` esconde o rótulo de um filtro, e o modelo
+ * ainda lê "IA"). Entre emoji (ZWJ) e em escritas que os usam (o ZWNJ do persa, por exemplo) os vizinhos
+ * não são latinos, e eles ficam: o emoji composto não quebra.
+ */
+const LATINO = 'A-Za-zÀ-ÿ0-9';
+const JUNTA_ENTRE_LETRAS = new RegExp(`(?<=[${LATINO}])[${pontos(0x200c, 0x200d)}](?=[${LATINO}])`, 'g');
+/** Controles (C0 e C1) que não são quebra de linha nem tabulação. */
+const CONTROLES = new RegExp(`[${pontos([0x00, 0x08], 0x0b, 0x0c, [0x0e, 0x1f], [0x7f, 0x9f])}]`, 'g');
+/** `═` é o delimitador de seção dos prompts: qualquer `═`, em qualquer quantidade, vira `-`. */
+const DELIMITADOR_DE_SECAO = /═+/g;
+
+const ROTULOS = 'COLAB|COLABORADOR|COLABORADORA|MENTOR|MENTORA|AVALIADO|AVALIADA|INTERLOCUTOR|INTERLOCUTORA|IA|AI|USER|USUARIO|USUÁRIO|ASSISTANT|ASSISTENTE|SYSTEM|SISTEMA|HUMAN|HUMANO';
+/** Dois pontos: o ASCII, o de largura total e o pequeno (o modelo lê os três como o mesmo sinal). */
+const DOIS_PONTOS = `[:${pontos(0xff1a, 0xfe55)}]`;
+/**
+ * Espaço que NÃO quebra linha (o NBSP e os de largura especial entram, a quebra não). Sem esta
+ * restrição o prefixo atravessaria linhas em branco e o custo ficaria quadrático.
+ */
+const ESPACO_DA_LINHA = `[^\\S\\r\\n${pontos(0x2028, 0x2029)}]`;
+/**
+ * Rótulo de turno no começo da linha. Antes dele cabe espaço de qualquer largura, marca de citação ou
+ * de lista (`>`, `-`, `•`, `1.`, `(a)`); depois, o fechamento de ênfase (`**IA**:`).
+ */
+const ROTULO_DE_TURNO = new RegExp(
+  `^((?:${ESPACO_DA_LINHA}|[>*#_\\-–—•·.)(\\[\\]\\d])*)(${ROTULOS})((?:${ESPACO_DA_LINHA}|[*_\\])])*${DOIS_PONTOS})`,
+  'gim',
+);
 /** Marcador de bloco em maiúsculas: `[META]`, `[/META]`, `[AUDIT]`, `[FIM]`. Mínimo 3 letras (`[RH]` passa). */
 const MARCADOR_DE_BLOCO = /\[(\/?)([A-Z][A-Z_]{2,})\]/g;
 
@@ -47,9 +74,10 @@ export function neutralizarFala(texto: string | null | undefined): string {
   if (!texto) return texto ?? '';
   return String(texto)
     .replace(INVISIVEIS, '')
+    .replace(JUNTA_ENTRE_LETRAS, '')
     .replace(CONTROLES, '')
     .replace(DELIMITADOR_DE_SECAO, '---')
-    .replace(ROTULO_DE_TURNO, (_m, antes: string, rotulo: string, doisPontos: string) => `${antes}“${rotulo}”${doisPontos}`)
+    .replace(ROTULO_DE_TURNO, (_m, antes: string, rotulo: string, fim: string) => `${antes}“${rotulo}”${fim}`)
     .replace(MARCADOR_DE_BLOCO, '($1$2)');
 }
 
@@ -66,7 +94,7 @@ export function sinaisDeInjecao(texto: string | null | undefined): string[] {
   quando('secao_forjada', /═{2,}/);
   quando('turno_forjado', new RegExp(ROTULO_DE_TURNO.source, 'im'));
   quando('bloco_forjado', /\[\/?[A-Z][A-Z_]{2,}\]/);
-  quando('invisiveis', new RegExp(INVISIVEIS.source));
+  quando('invisiveis', new RegExp(`${INVISIVEIS.source}|${JUNTA_ENTRE_LETRAS.source}`, 'u'));
   // `\b` do JS só conhece ASCII ("dê", "é" e "régua" quebram a fronteira), então as bordas são
   // lookarounds sobre letras com acento.
   const I = '(?<![a-zà-ú])';
