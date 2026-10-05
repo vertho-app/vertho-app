@@ -59,6 +59,20 @@ Nunca confie no tamanho da rodada para estimar o tamanho da defasagem.
    Project fica COM DUPLICATAS até lá, e isso é pior que fonte velha: responde com as duas versões.
    Subir as novas antes de remover é o que torna a remoção segura, então o estado "27 no Project" é o
    esperado nesse caso, não um defeito do upload.
+8. 🔴 **`Medido: 05/10/2026` (2ª rodada, à noite): negou DE NOVO, com o dono tendo digitado `/fechar` na
+   mesma sessão** (motivo do classificador: "Unrequested Commit in a Connected App"). Digitar `/fechar` NÃO
+   é o "allow" do `DELETE`: esse allow é uma permissão da sessão, pedida na hora. Estado deixado: 28 no
+   Project, 20 nomes, 8 pares (as 7 de antes mais o `SECURITY-STATUS.md`, subido nesta rodada); as 20 cópias
+   novas com o hash do `origin/master` `ca2a55fe`. Nesse estado o relato ao dono tem que listar os 8 nomes
+   e dizer que só falta remover o card antigo de cada um ("há N horas").
+9. **A extensão do Chrome pode reiniciar no meio do upload e abrir OUTRO grupo de abas** (a aba antiga
+   deixa de existir para as ferramentas). O upload tinha persistido (27 para 28). Releia o Project por hash
+   com a aba nova ANTES de qualquer repetição: subir de novo cria mais uma cópia.
+10. **Blobs do repo sem depender do checkout local:** `gh api -H "Accept: application/vnd.github.raw"
+   "repos/vertho-app/vertho-app/contents/<arquivo>?ref=<sha>"` devolve o arquivo com LF; o
+   `git hash-object` do baixado tem que ser igual ao `.sha` que a mesma API informa (20 de 20 em
+   05/10). Serve quando o `git fetch` do checkout principal falha (aconteceu 1 vez, com "did not send all
+   necessary objects"; repetido minutos depois, passou) ou quando o master local está atrás.
 
 `Medido: 22/09/2026` — o lado inverso também vale: **o doc do repo pode estar atrás do código**, e o
 Project herda. O `FEATURES-E-BENEFICIOS.md` batia com o repo e mesmo assim vendia Pulso e Radar

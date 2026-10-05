@@ -1123,6 +1123,17 @@ mensagem cita um `*` que não existe no arquivo, e o grep não acha o culpado. M
 6. Sem glifo fora do subset da Inter (→ ✓ ✗ ● ★ ≥ ≤): `npx vitest run
    tests/unit/pdf-glifos-guard.test.ts`. Glifo ausente não lança — sai um buraco
    em branco no lugar do sentido da frase.
+7. **Os 18 PDFs de demonstração são CÓPIAS CONGELADAS deste componente.** Mexeu em
+   `RelatorioIndividual`, `RelatorioGestor`, `RelatorioRH`, `RelatorioEngajamento`,
+   `renderTemporadaConcluidaPDF` ou `renderRankingAdequacaoPDF` (ou no texto de produto que eles
+   imprimem)? Regere: `node scripts/gerar-pdfs-demo-offline.mts` e `npm run build:demo-offline`
+   (`lib/demo/offline/documents/README.md`). O guard `demo-offline-pdfs-guard` só prova que o texto
+   não traz vocabulário vetado, não que o PDF acompanhou o componente. Prove em produção: o md5 do
+   `public/apresentacao-offline/documents/<arq>.pdf` do build local tem que ser igual ao servido.
+
+**Consequência medida (05/10/2026, R-136):** os PDFs de demonstração diziam "Uma jornada de 14 semanas",
+"Resumo de Desempenho" e "candidatos elegíveis" depois de o produto mudar (6 dos 18 tinham script,
+12 não tinham). Ficaram servidos em produção e usados com leads até serem regerados e provados.
 
 **Consequência medida (09/09/2026):** o `RelatorioEvolucao.tsx` tinha 7 testes
 verdes validados por mutação, typecheck limpo, guard de glifos verde e build
