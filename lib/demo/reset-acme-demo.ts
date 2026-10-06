@@ -164,13 +164,18 @@ const DEMO_JOURNEY_CONTENT_KIND = 'conteudo' as const;
  * aqui é deliberadamente um conteúdo editorial da Vertho, e não o tutorial de
  * navegação. O slot é recomposto a cada reset para a visão Usuário sempre ter
  * um vídeo de desenvolvimento real, além de artigo, case e áudio.
+ *
+ * `Medido 06/10/2026`: desde esta data o GUID é o deck gerado pelo pipeline do kit (numa célula
+ * de staging, removida depois: narração única em Aoede/Vertex, avatar `avatar_iii`, 195,7 s). Até
+ * então era o mp4 da pílula do CONARH (31/08, Vindemiatrix, 97 s), que tinha salto de registro
+ * (5,6 st) e voz diferente dos demais vídeos em Aoede.
  */
 export const DEMO_PRESENTATION_VIDEO = {
-  titulo: 'Antecipar cenários: perceber antes, agir melhor',
-  descricao: 'Conteúdo prático sobre reconhecer sinais e agir antes que a urgência vire pressão.',
+  titulo: 'Senso de urgência legítimo',
+  descricao: 'Urgência legítima nasce do contexto do cliente, não da pressa: como achar o motivo real de decidir agora e levá-lo à proposta, sem pressão artificial.',
   formato: 'video',
-  duracao_min: 1.7,
-  bunny_video_id: 'e8b77be3-ce8d-4993-8e18-b1cc1514a5ab',
+  duracao_min: 3.3,
+  bunny_video_id: '70334028-7673-4741-9495-ee9a0e0ca5b8',
   competencia: REPRESENTANTE_FOCO[0],
   descritor: 'Criação de senso de urgência',
   nivel_min: 1,
@@ -188,8 +193,10 @@ export const DEMO_PRESENTATION_VIDEO = {
  * porque as duas salas usam a mesma persona Bruna e a arte é neutra (Vertho). */
 export const DEMO_PRESENTATION_WEEK_VIDEO = {
   competenciaBaseId: '004408f2-6ae4-41a0-87ae-ace7ad54b32c',
-  // Saudação e conteúdo usam a mesma narradora feminina (Aoede desde 05/09/2026; antes Vindemiatrix).
-  personalizedBunnyVideoId: '8c3fd9f0-eb48-4398-aac6-242a1398e1e1',
+  // Nominal "Olá, Bruna" montado pelo pipeline (`worker-hetzner/personalizar.mjs`) em cima do deck
+  // `DEMO_PRESENTATION_VIDEO` (06/10/2026). Saudação e corpo em Aoede. O 8c3fd9f0 anterior era de 31/08
+  // (Vindemiatrix), e o comentário daqui dizia Aoede sem que o arquivo tivesse sido regerado.
+  personalizedBunnyVideoId: '528ba53a-1822-41f3-aa49-a3263798ab20',
   byTenant: {
     'acme-demo': {
       moduleId: '5faaf43b-8b80-4bd7-aab1-204fa83dad56',

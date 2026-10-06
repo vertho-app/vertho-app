@@ -198,6 +198,23 @@ para o Grupo Sinal. Ele usa o mesmo fixture, as mesmas telas e as mesmas regras 
 produto; o seed altera apenas a identidade e o contexto organizacional dos artefatos.
 Os dois tenants permanecem com `is_demo=true` e, portanto, sem disparos automáticos reais.
 
+### Vídeo da semana 1 (Bruna)
+
+O editorial (`DEMO_PRESENTATION_VIDEO`) e o nominal "Olá, Bruna"
+(`DEMO_PRESENTATION_WEEK_VIDEO.personalizedBunnyVideoId`) vivem como **constantes** em
+`lib/demo/reset-acme-demo.ts`. O reset regrava o slot, a célula e a linha nominal a partir
+delas toda madrugada, então trocar o vídeo é trocar o GUID ali, e nunca só no banco. O Sinal
+usa as mesmas constantes. **Desde 06/10/2026** o deck é gerado pelo pipeline do kit (narração
+única em Aoede/Vertex, avatar `avatar_iii`, 3,3 min) e o nominal é o do próprio pipeline em
+cima dele. Antes era o mp4 da pílula do CONARH (31/08, Vindemiatrix, 97 s).
+
+Para trocar de novo: gere deck e nominal pelo pipeline; reponha as duas constantes e a
+`duracao_min`; no pacote offline, suba o `play_720p.mp4` do nominal para
+`conteudos/demo-offline/acme/<sha256>.mp4` e atualize a entrada `media/urgencia-video.mp4` de
+`lib/demo/offline/acme-media.json` (arquivo, bytes e hash). Quem já instalou o pacote só
+recebe o vídeo novo por "Atualizar pacote", depois do deploy. A demo de escolas tem vídeos
+próprios (os da Marina) e não é afetada por esta troca.
+
 ## O que o cliente vê ao abrir (tudo pronto, SEM IA no reset)
 - **6 participantes** em estágios diferentes da jornada e em **áreas diferentes**, mais **1 persona de RH** que consome o panorama da empresa:
   - **Ana** (Representante Comercial, IS, novo), **Paulo** (Rep. Comercial, IC, parcial), **Bruna** (Rep. Comercial, CS, completo), **Carla** (Gerente Comercial, D, gestora; **só lidera** desde 16/09/2026: sem mapeamento, situação, trilha ou PDI individual, como a coordenação das escolas).
