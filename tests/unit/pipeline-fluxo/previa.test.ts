@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { montarPreviaFluxo, idsTrilhaProntos, CUSTO_POR_UNIDADE, type EntradaPrevia, type EtapaId } from '@/lib/pipeline-fluxo/previa';
+import { montarPreviaFluxo, idsTrilhaProntos, type EntradaPrevia, type EtapaId } from '@/lib/pipeline-fluxo/previa';
 
 /**
- * A prévia do fluxo completo (IA4 → blueprint → auditoria → PDI → trilha → Gestor/RH) é uma ESTIMATIVA que
- * reproduz o critério de cada fila real. Estes testes travam o critério, a projeção entre etapas e o custo.
+ * A prévia do fluxo completo (IA4 → blueprint → auditoria → PDI → conteúdos → trilha → Kit → Gestor/RH) é uma ESTIMATIVA que
+ * reproduz o critério de cada fila real. Estes testes travam o critério e a projeção entre etapas.
  */
 const entrada = (parcial: Partial<EntradaPrevia> = {}): EntradaPrevia => ({
   pessoas: [], cargos: [], respostas: [], filaIA4: [], assessments: [], blueprints: [], pdis: [], trilhas: [], ...parcial,
@@ -21,7 +21,6 @@ describe('estado inicial da Amazon Bowling (01/10/2026): 15 pessoas, 0 respostas
   it('nada a fazer, e diz por quê', () => {
     expect(p.nadaAFazer).toBe(true);
     expect(p.avisos.join(' ')).toMatch(/Nada a fazer/);
-    expect(p.custoTotalUsd).toEqual({ min: 0, max: 0 });
   });
   it('bloqueios: cargo sem foco (blueprint e trilha) e ainda não respondeu (PDI)', () => {
     const motivos = p.bloqueios.map((b) => `${b.etapa}:${b.motivo}`);
@@ -52,7 +51,6 @@ describe('PROJEÇÃO: respondeu mas a IA4 ainda não avaliou', () => {
   const p = montarPreviaFluxo(base);
   it('a IA4 roda agora e conta as RESPOSTAS (2), não a pessoa', () => {
     expect(etapa(p, 'ia4').prontosAgora).toBe(1);
-    expect(etapa(p, 'ia4').custoUsd).toEqual({ min: Number((2 * CUSTO_POR_UNIDADE.ia4.min).toFixed(2)), max: Number((2 * CUSTO_POR_UNIDADE.ia4.max).toFixed(2)) });
   });
   it('blueprint, auditoria, PDI e trilha ficam "após a etapa anterior" (nada pronto agora)', () => {
     for (const id of ['blueprint', 'auditoria', 'pdi', 'trilha'] as EtapaId[]) {
@@ -162,7 +160,6 @@ describe('Gestor e RH: ao final, só se houver PDI', () => {
     expect(etapa(parcial, 'gestor').aposEtapaAnterior).toBe(0);
     expect(etapa(parcial, 'rh').aposEtapaAnterior).toBe(0);
     expect(etapa(parcial, 'gestor').nota).toMatch(/Não incluído/);
-    expect(parcial.custoTotalUsd.max).toBeLessThan(inteira.custoTotalUsd.max);
   });
 });
 
@@ -183,23 +180,17 @@ describe('idsTrilhaProntos: a fila REAL da trilha é a mesma conta de "prontos a
   });
 });
 
-describe('custo', () => {
-  it('é unidade × faixa medida no ledger; o total soma as etapas', () => {
+describe('sem estimativa de custo (retirada a pedido do dono, 06/10/2026)', () => {
+  it('nenhum campo da prévia nem das etapas carrega custo ou faixa em US$', () => {
     const p = montarPreviaFluxo(entrada({
       pessoas: [pessoa('a'), pessoa('b')], cargos: [cargo('CAIXA', ['S'], 1)],
       respostas: [resp('a', 'S', true), resp('b', 'S', true)],
       assessments: [{ colaborador_id: 'a', competencia: 's' }, { colaborador_id: 'b', competencia: 's' }],
+      kitPlano: { kits: 3, podcasts: 1, videos: 1 }, conteudoPlano: { pecas: 4, audios: 1 },
     }));
-    expect(etapa(p, 'blueprint').custoUsd.min).toBe(Number((2 * CUSTO_POR_UNIDADE.blueprint.min).toFixed(2)));
-    const soma = p.etapas.reduce((t, e) => t + e.custoUsd.max, 0);
-    expect(p.custoTotalUsd.max).toBeCloseTo(soma, 1);
-    expect(p.custoTotalUsd.min).toBeLessThan(p.custoTotalUsd.max);
-  });
-  it('as faixas medidas são coerentes (min <= max, positivas)', () => {
-    for (const [id, f] of Object.entries(CUSTO_POR_UNIDADE)) {
-      expect(f.min, id).toBeGreaterThan(0);
-      expect(f.min, id).toBeLessThanOrEqual(f.max);
-    }
+    expect(Object.keys(p).sort()).toEqual(['avisos', 'bloqueios', 'etapas', 'nadaAFazer', 'totalPessoas']);
+    for (const e of p.etapas) expect(Object.keys(e).sort(), e.id).toEqual(expect.not.arrayContaining(['custoUsd', 'unidade']));
+    expect(JSON.stringify(p)).not.toMatch(/custo|usd|US\$/i);
   });
 });
 
@@ -212,14 +203,11 @@ describe('avisos', () => {
 });
 
 describe('Kit semanal na prévia', () => {
-  it('conta kits (tema × DISC) faltantes; podcast pré-renderizado e vídeo SOMAM ao custo; sem medir, avisa', () => {
+  it('conta kits (tema × DISC) faltantes; podcast pré-renderizado e vídeo aparecem na nota; sem medir, avisa', () => {
     const so = montarPreviaFluxo(entrada({ kitPlano: { kits: 10, podcasts: 0, videos: 0 } }));
-    expect(etapa(so, 'kit')).toMatchObject({ unidade: 'kit', prontosAgora: 10 });
-    expect(etapa(so, 'kit').custoUsd).toEqual({ min: 2, max: 4.5 });
+    expect(etapa(so, 'kit')).toMatchObject({ prontosAgora: 10 });
     expect(so.nadaAFazer).toBe(false);
     const com = montarPreviaFluxo(entrada({ kitPlano: { kits: 10, podcasts: 4, videos: 2 } }));
-    // 10 kits (2,00 a 4,50) + 4 podcasts (0,20 a 0,48) + 2 vídeos (1,20 a 1,80)
-    expect(etapa(com, 'kit').custoUsd).toEqual({ min: 3.4, max: 6.78 });
     expect(etapa(com, 'kit').nota).toMatch(/4 podcast\(s\).*2 vídeo\(s\)/);
     const semMedir = montarPreviaFluxo(entrada());
     expect(etapa(semMedir, 'kit').prontosAgora).toBe(0);
@@ -228,13 +216,11 @@ describe('Kit semanal na prévia', () => {
 });
 
 describe('Conteúdos (biblioteca) na prévia', () => {
-  it('conta as peças que faltam; o podcast soma o TTS ao custo; sem medir, avisa', () => {
+  it('conta as peças que faltam; o podcast aparece na nota; sem medir, avisa', () => {
     const so = montarPreviaFluxo(entrada({ conteudoPlano: { pecas: 10, audios: 0 } }));
-    expect(etapa(so, 'conteudo')).toMatchObject({ unidade: 'peca', prontosAgora: 10 });
-    expect(etapa(so, 'conteudo').custoUsd).toEqual({ min: 0.5, max: 1.4 });
+    expect(etapa(so, 'conteudo')).toMatchObject({ prontosAgora: 10 });
     expect(so.nadaAFazer).toBe(false);
     const com = montarPreviaFluxo(entrada({ conteudoPlano: { pecas: 10, audios: 4 } }));
-    expect(etapa(com, 'conteudo').custoUsd).toEqual({ min: 0.7, max: 1.88 });
     expect(etapa(com, 'conteudo').nota).toMatch(/4 podcast\(s\)/);
     const semMedir = montarPreviaFluxo(entrada());
     expect(etapa(semMedir, 'conteudo').prontosAgora).toBe(0);

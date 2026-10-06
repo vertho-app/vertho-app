@@ -3,15 +3,16 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle, Loader2, Play, RefreshCw, Square, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ExternalLink, Loader2, Play, RefreshCw, Square, XCircle } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { previaFluxoCompleto, iniciarFluxoCompleto, statusFluxoCompleto, cancelarFluxoCompleto, type PreviaFluxoResult, type EstadoFluxo } from '@/actions/pipeline-fluxo';
 import { TURMA_ENCERRADAS } from '@/lib/status';
-import type { GravidadePrereq, IdPrereq } from '@/lib/pipeline-fluxo/prerequisitos';
+import type { GravidadePrereq } from '@/lib/pipeline-fluxo/prerequisitos';
+import { linksDoPrerequisito } from '@/lib/pipeline-fluxo/prerequisitos-links';
 
 /**
  * Fluxo completo — PRÉVIA (somente leitura). Mostra, por etapa, quem está pronto agora, quem fica pronto depois da
- * etapa anterior, quem já tem o artefato e quem está bloqueado (e por quê), com a faixa de custo medida no ledger.
+ * etapa anterior, quem já tem o artefato e quem está bloqueado (e por quê). Sem estimativa em dinheiro (retirada a pedido do dono, 06/10/2026).
  * Abaixo da prévia fica o painel de EXECUÇÃO: "Simular" (lê as filas e grava o que faria, sem gastar) e "Rodar fluxo
  * completo" (roda no servidor; pode fechar a aba). Enviar PDI e iniciar a cadência continuam sendo decisão do dono.
  */
@@ -22,12 +23,6 @@ const STATUS_TXT: Record<string, string> = { queued: 'na fila', running: 'em and
 
 const PREREQ_COR: Record<GravidadePrereq, string> = { ok: '#2ECC71', atencao: '#f4b740', critico: '#e5484d' };
 const PREREQ_ROTULO: Record<GravidadePrereq, string> = { ok: 'ok', atencao: 'atenção', critico: 'crítico' };
-/** Onde resolver, quando a tela de resolução tem endereço próprio (os demais se resolvem no cadastro da empresa/pessoa). */
-const PREREQ_LINK: Partial<Record<IdPrereq, { href: string; rotulo: string }>> = {
-  'modulo-base': { href: '/admin/vertho/modulos-base', rotulo: 'Abrir o catálogo de módulos-base' },
-};
-
-const usd = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
@@ -180,9 +175,6 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
               <div className="rounded-[14px] overflow-hidden mb-5" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.06)' }}>
                 <div className="px-4 py-3 flex items-center justify-between text-[12px]" style={{ borderBottom: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.6)' }}>
                   <span><b className="text-white">{p.totalPessoas}</b> pessoa(s) no escopo</span>
-                  <span>
-                    Custo estimado: <b className="text-white">US$ {usd(p.custoTotalUsd.min)} a {usd(p.custoTotalUsd.max)}</b>
-                  </span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12.5px]" style={{ color: 'rgba(255,255,255,.85)' }}>
@@ -192,8 +184,7 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                         <th className="px-3 py-2 font-semibold text-right">Prontos agora</th>
                         <th className="px-3 py-2 font-semibold text-right">Após a etapa anterior</th>
                         <th className="px-3 py-2 font-semibold text-right">Já feitos</th>
-                        <th className="px-3 py-2 font-semibold text-right">Bloqueados</th>
-                        <th className="px-4 py-2 font-semibold text-right">Custo (US$)</th>
+                        <th className="px-4 py-2 font-semibold text-right">Bloqueados</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -206,8 +197,7 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                           <td className="px-3 py-2.5 text-right font-mono" style={{ color: e.prontosAgora ? '#2ECC71' : undefined }}>{e.prontosAgora}</td>
                           <td className="px-3 py-2.5 text-right font-mono" style={{ color: e.aposEtapaAnterior ? '#34c5cc' : undefined }}>{e.aposEtapaAnterior}</td>
                           <td className="px-3 py-2.5 text-right font-mono" style={{ color: 'rgba(255,255,255,.5)' }}>{e.jaFeitos}</td>
-                          <td className="px-3 py-2.5 text-right font-mono" style={{ color: e.bloqueados ? '#f4b740' : undefined }}>{e.bloqueados}</td>
-                          <td className="px-4 py-2.5 text-right font-mono">{e.custoUsd.max > 0 ? `${usd(e.custoUsd.min)} a ${usd(e.custoUsd.max)}` : '—'}</td>
+                          <td className="px-4 py-2.5 text-right font-mono" style={{ color: e.bloqueados ? '#f4b740' : undefined }}>{e.bloqueados}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -215,7 +205,6 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                 </div>
                 <div className="px-4 py-2.5 text-[11px]" style={{ borderTop: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.4)' }}>
                   Estimativa: cada etapa real recalcula a própria fila ao rodar. "Após a etapa anterior" é projeção (por exemplo, quem responde mas ainda não foi avaliado pela IA4).
-                  Custos vêm do ledger dos últimos 90 dias; a faixa alta inclui reexecuções.
                 </div>
               </div>
 
@@ -290,9 +279,17 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                             {i.comoResolver && (
                               <div className="text-[11.5px] mt-1" style={{ color: PREREQ_COR[i.gravidade] }}>
                                 Como resolver: {i.comoResolver}
-                                {PREREQ_LINK[i.id] && <> <Link href={PREREQ_LINK[i.id]!.href} className="underline">{PREREQ_LINK[i.id]!.rotulo}</Link></>}
                               </div>
                             )}
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {linksDoPrerequisito(i.id, empresaId).map((l) => (
+                                <Link key={l.href} href={l.href} target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] font-semibold"
+                                  style={{ background: 'rgba(52,197,204,.1)', border: '1px solid rgba(52,197,204,.3)', color: '#34c5cc' }}>
+                                  {l.rotulo} <ExternalLink size={11} />
+                                </Link>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </li>
@@ -300,7 +297,7 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                   </ul>
                 )}
                 <div className="px-4 py-2.5 text-[11px]" style={{ borderTop: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.4)' }}>
-                  É um aviso, não um bloqueio: o fluxo roda mesmo com pendências, e só as pessoas e os cargos afetados deixam de ser atendidos. Atualize a tela depois de resolver.
+                  É um aviso, não um bloqueio: o fluxo roda mesmo com pendências, e só as pessoas e os cargos afetados deixam de ser atendidos. Os links abrem em outra aba: depois de resolver, volte aqui e use Atualizar.
                 </div>
               </div>
 
@@ -325,7 +322,7 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                   </div>
                 ) : (
                   <div className="rounded-lg px-3 py-3 text-[12.5px]" style={{ background: 'rgba(244,183,64,.08)', border: '1px solid rgba(244,183,64,.3)', color: '#f4b740' }}>
-                    Vai gastar de <b>US$ {usd(p.custoTotalUsd.min)}</b> a <b>US$ {usd(p.custoTotalUsd.max)}</b> em IA para {p.totalPessoas} pessoa(s) no escopo. Confirmar?
+                    Vai gerar com IA para {p.totalPessoas} pessoa(s) no escopo, e o que for gerado não se desfaz. Confirmar?
                     {criticos.length > 0 && (
                       <div className="mt-2 rounded-lg px-2.5 py-2 text-[12px]" style={{ background: 'rgba(229,72,77,.1)', border: '1px solid rgba(229,72,77,.35)', color: '#e5484d' }}>
                         Há {criticos.length} pré-requisito(s) crítico(s) pendente(s): {criticos.map((c) => c.titulo).join('; ')}. O que dependia deles vai falhar, e o gasto até lá não volta.

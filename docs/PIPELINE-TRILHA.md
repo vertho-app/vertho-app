@@ -720,7 +720,7 @@ pessoa. O foco continua humano; o resto é automático. **Não envia nada a ning
 iniciar a cadência seguem sendo decisão de quem opera.
 
 - **Tela:** `/admin/empresas/<id>/fluxo` (card "Fluxo completo", Fase 2 do painel da empresa). Mostra a
-  prévia por etapa, o custo, os **pré-requisitos** (abaixo), os botões Simular e Rodar e o andamento.
+  prévia por etapa, os **pré-requisitos** (abaixo), os botões Simular e Rodar e o andamento.
 - **Actions:** `previaFluxoCompleto`, `iniciarFluxoCompleto`, `statusFluxoCompleto`,
   `cancelarFluxoCompleto` (`actions/pipeline-fluxo.ts`, gate `ai.audit.regenerate`). A execução enfileira a
   task `fluxo-completo` (`trigger/fluxo-completo.ts`, até 4 h); o estado vive em `ia_jobs` (`fase='fluxo'`) e
@@ -731,8 +731,10 @@ iniciar a cadência seguem sendo decisão de quem opera.
 - **Escopo:** com 2 ou mais turmas ativas a turma é obrigatória (fail-closed, `idsDoEscopoOuFalhar`); um
   fluxo ativo por empresa; empresa de demonstração só **simula**; contas `@vertho.ai` ficam de fora (a
   exceção existe só para script de teste). Gestor e RH só entram com a empresa inteira e PDI novo na rodada.
-- **Custo:** US$ 1,5 a 5 por pessoa (o Kit é o que varia; vídeo ~0,60 a 0,90 por célula, áudio nominal ~0,06
-  por pessoa), medido no ledger. A prévia mostra a faixa antes; "Simular" percorre tudo sem gastar.
+- **Custo:** a tela **não estima custo** (retirado a pedido do dono em 06/10/2026; o modelo de custo por unidade saiu
+  do código junto, porque nada mais o consumia). Ordem de grandeza medida no ledger, para quem precisa saber: US$ 1,5
+  a 5 por pessoa (o Kit é o que varia; vídeo ~0,60 a 0,90 por célula, áudio nominal ~0,06 por pessoa). "Simular"
+  percorre tudo sem gastar.
 
 ### O que cada etapa cria (e por que a ordem importa)
 
@@ -769,6 +771,12 @@ sem descritor (sem embedding, sem custo); leitura que falha vira "não foi poss�
 (desconhecido não é zero); cada item falha sozinho. Limites declarados na própria tela: as variáveis de render do
 Trigger.dev (onde o vídeo roda de fato) não são visíveis da plataforma, e a conta do DUO é uma projeção
 (`competenciasQueODuoResolve`) enquanto quem decide é a etapa da trilha.
+
+Cada item traz **links para a tela onde ele se resolve** (`lib/pipeline-fluxo/prerequisitos-links.ts`): catálogo e
+cobertura de módulos-base, programa da empresa (configurações), competências foco (painel da empresa), perfis
+comportamentais, preferências de aprendizagem e vídeos. Abrem em outra aba; depois de resolver, volta-se à tela e usa-se
+Atualizar. Um teste confere que cada rota existe em `app/` (rota renomeada não vira link morto). As variáveis de ambiente
+do render não têm tela no admin (vivem na Vercel e no Trigger.dev), então o link do render leva à fila de vídeos.
 
 ### Armadilhas medidas (1º teste real, Boehringer, 03 a 06/10/2026)
 
