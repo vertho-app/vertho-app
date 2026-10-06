@@ -19,11 +19,11 @@ describe('modelos por dificuldade no treinamento comercial', () => {
     async (nivel) => {
       const s = await snapshotPrompts(VERTHO_TREINO_EMPRESA_ID, true, nivel);
       expect(s.criador).toMatchObject({
-        modelo: 'claude-sonnet-5-5',
+        modelo: 'global.moonshotai.kimi-k3',
         esforco: 'low',
       });
       expect(s.cliente).toMatchObject({
-        modelo: nivel === 1 ? 'gemini-3.8-flash' : 'claude-sonnet-5-5',
+        modelo: nivel === 1 ? 'gemini-3.8-flash' : 'global.moonshotai.kimi-k3',
         esforco: 'low',
       });
       expect(s.gerente).toMatchObject({
@@ -49,9 +49,11 @@ describe('modelos por dificuldade no treinamento comercial', () => {
     ).rejects.toMatchObject({ status: 403 });
     expect(mocks.archive).not.toHaveBeenCalled();
   });
-  it('mantém compatibilidade legada e não libera Kimi para sessões de pessoas', () => {
+  it('mantém compatibilidade de snapshots legados e reconhece Kimi Bedrock validado', () => {
     expect(modeloPaceCompativel('gpt-5.4-mini-2026-03-17')).toBe(true);
-    expect(modeloPaceCompativel('global.moonshotai.kimi-k3')).toBe(false);
+    expect(modeloPaceCompativel('global.moonshotai.kimi-k3')).toBe(true);
+    expect(modeloPaceCompativel('claude-sonnet-5-5')).toBe(true);
+    expect(modeloPaceCompativel('kimi-k3')).toBe(false);
     expect(modeloPaceCompativel('claude-sonnet-4-6')).toBe(false);
   });
 });

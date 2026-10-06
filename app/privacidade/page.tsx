@@ -32,7 +32,7 @@ const EMPRESA = {
   emailEncarregado: 'rodrigo@vertho.ai',
 };
 
-const ATUALIZACAO = '3 de outubro de 2026';
+const ATUALIZACAO = '6 de outubro de 2026';
 
 export const metadata: Metadata = {
   title: 'Termos de Uso e Política de Privacidade | Vertho',
@@ -255,7 +255,7 @@ export default function PoliticaPrivacidadePage() {
             Atualmente, a infraestrutura tecnológica da plataforma pode utilizar serviços de
             fornecedores especializados, incluindo provedores de modelos de inteligência artificial,
             processamento de linguagem, geração de conteúdo e busca semântica. Entre esses
-            fornecedores podem estar <strong>Anthropic, OpenAI, Google e Voyage</strong>, além de
+            fornecedores podem estar <strong>Anthropic, OpenAI, Google, Voyage e Amazon Web Services (AWS Bedrock)</strong>, além de
             outros que venham a ser utilizados tecnicamente para finalidades equivalentes.
           </p>
           <p>
@@ -308,7 +308,8 @@ export default function PoliticaPrivacidadePage() {
               'Anthropic;',
               'OpenAI, inclusive a transcrição das respostas faladas do treino de atendimento;',
               'Google, inclusive a interpretação de áudios enviados ao assistente no WhatsApp e a síntese de voz;',
-              'Voyage, busca semântica no acervo de conteúdo.',
+              'Voyage, busca semântica no acervo de conteúdo;',
+              'Amazon Web Services (AWS Bedrock), processamento com o modelo Kimi K3 para criar cenários e representar clientes de dificuldade média ou alta no treinamento de vendas da equipe Vertho. Esse fluxo usa a infraestrutura da AWS e pode envolver processamento fora do Brasil.',
             ]}
           />
 

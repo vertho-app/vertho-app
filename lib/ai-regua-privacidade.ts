@@ -48,7 +48,7 @@ export async function registrarModeloNaoDeclarado(
  * default declarado da tarefa, com a troca registrada.
  */
 export async function modeloNaReguaDePrivacidade(pedido: string, ctx: ContextoRegua): Promise<string> {
-  if (modeloPermitidoNaTarefa(pedido, ctx.taskKey)) return pedido;
+  if (modeloPermitidoNaTarefa(pedido, ctx.taskKey, ctx.empresaId)) return pedido;
   const usado = modeloDeclaradoDaTarefa(ctx.taskKey);
   await registrarModeloNaoDeclarado({ pedido, usado, ...ctx });
   return usado;

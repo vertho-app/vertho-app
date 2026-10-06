@@ -21,7 +21,10 @@ vi.mock('@/lib/degradacao', () => ({
   DEGRADACAO: { MODELO_NAO_DECLARADO: 'modelo_nao_declarado' },
   registrarDegradacao: vi.fn(),
 }));
-import { schemaEstruturadoClaude } from '@/lib/ai-structured-output';
+import {
+  schemaEstruturadoClaude,
+  schemaEstruturadoBedrock,
+} from '@/lib/ai-structured-output';
 import {
   BEDROCK_CANARIO_CONTADOR,
   BEDROCK_PILOTO_CONTADOR,
@@ -187,6 +190,7 @@ describe('JSON nativo no wrapper de IA', () => {
       );
       expect(body.response_format.json_schema).toEqual({
         ...options.structuredOutput,
+        schema: schemaEstruturadoBedrock(schema),
         strict: true,
       });
       expect(mocks.reserve.mock.calls[0][1]).toEqual([

@@ -4,6 +4,8 @@
  * ou herdar do modelo padrão.
  */
 
+import { bedrockVendasVerthoAutorizado } from '@/lib/bedrock-vendas-vertho';
+
 export const AI_TASKS = [
   { key: 'sim_lideranca_abertura', label: 'Liderança — abertura do encontro', fase: 'Treinamento' },
   { key: 'sim_lideranca_personagem', label: 'Liderança — personagem', fase: 'Treinamento' },
@@ -767,6 +769,10 @@ export function fallbackRespeitandoDual(
  * não declarar. Ledger de 90 dias medido em 03/10: esses quatro só rodaram em
  * teste, comparação e canário; nenhuma funcionalidade de produção depende deles.
  *
+ * Em 06/10 o dono autorizou Kimi K3 via AWS Bedrock somente para criador/cliente
+ * do treinamento comercial Vertho. A exceção exige o tenant fixo na execução
+ * (lib/bedrock-vendas-vertho.ts); não libera a API Moonshot nem os seletores gerais.
+ *
  * A régua é uma lista de PERMISSÃO, não de proibição: só as tarefas abaixo, com
  * a entrada conferida no prompt, podem rodar fora das famílias declaradas. Tarefa
  * nova nasce restrita, e chamada sem `taskKey` também.
@@ -821,7 +827,8 @@ export function familiaDeclarada(modelId: string): boolean {
  * `hasOwnProperty`, e não `in`: `'constructor' in {}` é verdadeiro, e uma
  * `taskKey` com esse nome abriria a régua (a mesma pegadinha de `lib/videos-publicos.ts`).
  */
-export function modeloPermitidoNaTarefa(modelId: string, taskKey?: string | null): boolean {
+export function modeloPermitidoNaTarefa(modelId: string, taskKey?: string | null, empresaId?: string | null): boolean {
+  if (bedrockVendasVerthoAutorizado(modelId, taskKey, empresaId)) return true;
   if (familiaDeclarada(modelId)) return true;
   if (!taskKey || !Object.prototype.hasOwnProperty.call(TAREFAS_LIBERADAS_FORA_DAS_DECLARADAS, taskKey)) return false;
   try {

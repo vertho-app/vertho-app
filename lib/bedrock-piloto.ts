@@ -1,6 +1,9 @@
 import 'server-only';
 import { Redis } from '@upstash/redis';
 import { BEDROCK_KIMI_K3_MODEL } from '@/lib/ai-provedores';
+import { bedrockVendasVerthoAutorizado } from '@/lib/bedrock-vendas-vertho';
+
+export const BEDROCK_VENDAS_MAX_BYTES = 500_000;
 
 export const BEDROCK_PILOTO_TASK = 'conteudo_tags';
 export const BEDROCK_PILOTO_MAX_TOKENS = 6000;
@@ -37,25 +40,45 @@ return 1
 export async function reservarChamadaBedrock(
   taskKey: string | undefined,
   body: string,
+  empresaId?: string | null,
 ): Promise<void> {
-  const canario = taskKey === 'canario_contrato';
-  if (taskKey !== BEDROCK_PILOTO_TASK && !canario)
-    throw new Error('Bedrock: tarefa fora dos pilotos autorizados.');
   const request = JSON.parse(body);
+  const vendas = bedrockVendasVerthoAutorizado(
+    request.model,
+    taskKey,
+    empresaId,
+  );
+  const canario = taskKey === 'canario_contrato';
+  if (!vendas && taskKey !== BEDROCK_PILOTO_TASK && !canario)
+    throw new Error('Bedrock: tarefa ou empresa fora dos usos autorizados.');
   if (
+    request.model !== BEDROCK_KIMI_K3_MODEL ||
     !Number.isInteger(request.max_completion_tokens) ||
     request.max_completion_tokens < 1 ||
-    request.max_completion_tokens > BEDROCK_PILOTO_MAX_TOKENS ||
+    request.max_completion_tokens >
+      (vendas
+        ? taskKey === 'sim_vendas_criador'
+          ? 8000
+          : 2500
+        : BEDROCK_PILOTO_MAX_TOKENS) ||
     Buffer.byteLength(body, 'utf8') >
-      (canario ? 80_000 : BEDROCK_PILOTO_MAX_BYTES) ||
-    (canario &&
-      (!request.response_format?.json_schema?.strict ||
+      (vendas
+        ? BEDROCK_VENDAS_MAX_BYTES
+        : canario
+          ? 80_000
+          : BEDROCK_PILOTO_MAX_BYTES) ||
+    ((vendas || canario) &&
+      (request.response_format?.type !== 'json_schema' ||
+        request.response_format?.json_schema?.strict !== true ||
         request.reasoning_effort !== 'low'))
   ) {
     throw new Error(
-      'Bedrock: conteúdo grande demais para o limite deste piloto.',
+      'Bedrock: pedido fora do schema ou dos limites autorizados.',
     );
   }
+  // Treino publicado: limites por chamada e rate limits do módulo; sem consumir
+  // o orçamento finito dos ensaios sintéticos ou da classificação editorial.
+  if (vendas) return;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token)

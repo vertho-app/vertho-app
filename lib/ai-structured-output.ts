@@ -4,7 +4,7 @@ export type StructuredOutput = {
   schema: Record<string, unknown>;
 };
 
-// Anthropic não aceita limites numéricos/string nem limites de array além de minItems 0/1.
+// Anthropic e Bedrock não aceitam limites numéricos/string nem limites de array além de minItems 0/1.
 // As restrições removidas continuam na descrição e são verificadas após a resposta.
 export function schemaEstruturadoClaude(
   schema: Record<string, unknown>,
@@ -57,3 +57,6 @@ export function schemaEstruturadoClaude(
   };
   return visit(schema) as Record<string, unknown>;
 }
+
+// O subconjunto nativo do Bedrock tem as mesmas restrições de limites.
+export const schemaEstruturadoBedrock = schemaEstruturadoClaude;

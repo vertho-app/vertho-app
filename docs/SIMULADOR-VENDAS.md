@@ -60,9 +60,9 @@ Somente sessões novas do tenant comercial fixo usam o perfil em
 
 | Etapa | Modelo | Esforço |
 | --- | --- | --- |
-| Criador do cenário, todos os níveis | Claude Sonnet 5.5 (`claude-sonnet-5-5`) | low |
+| Criador do cenário, todos os níveis | Kimi K3 via AWS Bedrock (`global.moonshotai.kimi-k3`) | low |
 | Cliente, dificuldade baixa | Gemini 3.8 Flash (`gemini-3.8-flash`) | low |
-| Cliente, dificuldade média ou alta | Claude Sonnet 5.5 | low |
+| Cliente, dificuldade média ou alta | Kimi K3 via AWS Bedrock | low |
 | Moderador e intenção de encerramento | Gemini 3.8 Flash | low |
 | Avaliação PACE, todos os níveis | Claude Opus 5.5 (`claude-opus-5-5`) | medium |
 
@@ -73,16 +73,23 @@ configuração por tarefa, inclusive a rota Responses com GPT já existente.
 
 As chamadas continuam em `actions/ai-client.ts`, com JSON nativo por provedor,
 validação Zod completa, verificação de transição PACE, deadline, checkpoints e
-ledger. Limites de schema que a Anthropic não suporta vão para descrições no
+ledger. Limites de schema que a Anthropic ou o Bedrock não suportam vão para descrições no
 pedido; a validação original continua obrigatória no retorno. Truncagem ou
 recusa interrompem a etapa depois de registrar o uso informado pelo provedor.
 Não há retry automático ou troca silenciosa do modelo congelado.
 
-Kimi K3 (`global.moonshotai.kimi-k3`) no Bedrock fica restrito à comparação
-interna de clientes fictícios nos níveis 2 e 3, pela tarefa `canario_contrato`.
-Não integra o perfil de sessões de vendedores nem amplia a régua de privacidade
-para dados pessoais. Reserva independente: 20 tentativas de até US$ 0,40,
-total de US$ 8; detalhes em [BEDROCK-PILOTO.md](BEDROCK-PILOTO.md).
+Em 06/10/2026 o dono autorizou substituir Sonnet 5.5 por Kimi K3 via AWS Bedrock.
+A permissão de execução exige o tenant comercial fixo e uma das tarefas
+`sim_vendas_criador` / `sim_vendas_cliente`; não libera a API direta da Moonshot,
+outros tenants, PDI, avaliação ou os seletores gerais. AWS Bedrock está declarado
+na política de privacidade. O nome do vendedor e seus contatos passam pela máscara
+existente; nomes de terceiros em texto livre podem permanecer.
+
+O treino publicado mantém os rate limits e o ledger do módulo, sem consumir as
+20 reservas da comparação sintética. Por chamada: até 500.000 bytes UTF-8,
+8.000 tokens/110 s no criador e 2.500 tokens/60 s no cliente, incluindo raciocínio.
+Standard (`default`), esforço low, sem retry automático nem fallback. Detalhes e
+orçamentos separados dos pilotos em [BEDROCK-PILOTO.md](BEDROCK-PILOTO.md).
 
 Testes pagos opt-in: `VENDAS_VERTHO_LIVE=1` para
 `tests/unit/simulador-vendas-vertho-live.test.ts`; depois

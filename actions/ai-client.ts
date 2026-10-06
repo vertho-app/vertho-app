@@ -35,12 +35,13 @@ import { costFromTokens, openAIWebSearchToolCost } from '@/lib/ia-cost-catalog';
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 import { BEDROCK_KIMI_K3_MODEL, PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
 import { reservarChamadaBedrock } from '@/lib/bedrock-piloto';
+import { bedrockVendasVerthoAutorizado } from '@/lib/bedrock-vendas-vertho';
 import { DEFAULT_COPILOTO_RESEARCH_MODEL, fallbackRespeitandoDual } from '@/lib/ai-tasks';
 import { contextoAtual, fracaoDoOrcamento } from '@/lib/execucao-contexto';
 import { modeloNaReguaDePrivacidade } from '@/lib/ai-regua-privacidade';
 import { buildGeminiGenerationConfig, type GeminiThinkingLevel } from '@/lib/gemini-generation-config';
 import { origemDaChamada } from '@/lib/origem-chamada';
-import { schemaEstruturadoClaude, type StructuredOutput } from '@/lib/ai-structured-output';
+import { schemaEstruturadoClaude, schemaEstruturadoBedrock, type StructuredOutput } from '@/lib/ai-structured-output';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -165,10 +166,12 @@ export interface ChatMessage {
   content: string;
 }
 
-function opcoesDoPilotoBedrock(model: string, options: AICallOptions): AICallOptions {
+function opcoesDoBedrock(model: string, options: AICallOptions): AICallOptions {
   if (!model.startsWith(BEDROCK_KIMI_K3_MODEL)) return options;
-  if (options.responses) throw new Error('Bedrock: este piloto usa somente Chat Completions.');
-  return { ...options, semRetentativa: true, maxRetries: 0, reasoningEffort: 'low', timeoutMs: Math.min(options.timeoutMs ?? 90000, 90000) };
+  if (options.responses) throw new Error('Bedrock: esta integração usa somente Chat Completions.');
+  const vendas = bedrockVendasVerthoAutorizado(model, options.taskKey, options.empresaId);
+  const teto = vendas ? (options.taskKey === 'sim_vendas_criador' ? 110000 : 60000) : 90000;
+  return { ...options, semRetentativa: true, maxRetries: 0, reasoningEffort: 'low', timeoutMs: Math.min(options.timeoutMs ?? teto, teto) };
 }
 
 async function resolveAILocale(explicitLocale?: AppLocale): Promise<AppLocale> {
@@ -263,7 +266,7 @@ export async function callAI(
   const model = await modeloNaReguaDePrivacidade(aiConfig?.model || DEFAULT_MODEL, {
     taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAI',
   });
-  options = opcoesDoPilotoBedrock(model, options);
+  options = opcoesDoBedrock(model, options);
   if (options.structuredOutput) {
     if (model !== aiConfig.model) throw new Error('O modelo estruturado foi recusado pela régua de privacidade.');
     options = { ...options, semRetentativa: true, maxRetries: 0 };
@@ -351,7 +354,7 @@ export async function callAIChat(
   const model = await modeloNaReguaDePrivacidade(aiConfig?.model || DEFAULT_MODEL, {
     taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAIChat',
   });
-  options = opcoesDoPilotoBedrock(model, options);
+  options = opcoesDoBedrock(model, options);
   if (options.structuredOutput) {
     if (model !== aiConfig.model) throw new Error('O modelo estruturado foi recusado pela régua de privacidade.');
     options = { ...options, semRetentativa: true, maxRetries: 0 };
@@ -1097,7 +1100,7 @@ async function callOpenAI(
   // ignora `max_tokens` e rodava sem teto efetivo.
   const body: any = {
     model,
-    ...(options.structuredOutput ? { response_format: { type: 'json_schema', json_schema: { ...options.structuredOutput, strict: true } } } : {}),
+    ...(options.structuredOutput ? { response_format: { type: 'json_schema', json_schema: { ...options.structuredOutput, schema: provider === 'bedrock' ? schemaEstruturadoBedrock(options.structuredOutput.schema) : options.structuredOutput.schema, strict: true } } } : {}),
     ...(provider === 'bedrock' ? { service_tier: 'default' } : {}),
     ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
     ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
@@ -1108,7 +1111,7 @@ async function callOpenAI(
   };
 
   const serializedBody = JSON.stringify(body);
-  if (provider === 'bedrock') await reservarChamadaBedrock(options.taskKey, serializedBody);
+  if (provider === 'bedrock') await reservarChamadaBedrock(options.taskKey, serializedBody, options.empresaId);
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -1214,7 +1217,7 @@ async function callOpenAIChat(
   // ignora `max_tokens` e rodava sem teto efetivo.
   const body: any = {
     model,
-    ...(options.structuredOutput ? { response_format: { type: 'json_schema', json_schema: { ...options.structuredOutput, strict: true } } } : {}),
+    ...(options.structuredOutput ? { response_format: { type: 'json_schema', json_schema: { ...options.structuredOutput, schema: provider === 'bedrock' ? schemaEstruturadoBedrock(options.structuredOutput.schema) : options.structuredOutput.schema, strict: true } } } : {}),
     ...(provider === 'bedrock' ? { service_tier: 'default' } : {}),
     ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
     ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
@@ -1222,7 +1225,7 @@ async function callOpenAIChat(
   };
 
   const serializedBody = JSON.stringify(body);
-  if (provider === 'bedrock') await reservarChamadaBedrock(options.taskKey, serializedBody);
+  if (provider === 'bedrock') await reservarChamadaBedrock(options.taskKey, serializedBody, options.empresaId);
   const res = await fetch(url, {
     method: 'POST',
     headers: {

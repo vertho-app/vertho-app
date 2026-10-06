@@ -1,4 +1,4 @@
-# Piloto Bedrock — classificação editorial (06/10/2026)
+# AWS Bedrock — piloto editorial e treinamento comercial (06/10/2026)
 
 O botão de sugestão de tags em `/admin/conteudos` usa Kimi K3 no Amazon Bedrock
 quando `AWS_BEARER_TOKEN_BEDROCK` está configurada no servidor. O administrador
@@ -12,9 +12,9 @@ sugestão não altera o conteúdo nem publica material.
   credencial SES. Não guardar a chave neste documento, em Git ou em logs.
 - Sem a chave, o botão mantém o modelo anterior. A rota `kimi-k3` da Moonshot
   continua sendo uma rota distinta.
-- O uso com conteúdos reais permanece limitado a este piloto editorial. A
-  comparação separada abaixo usa somente dados fictícios. Não inclui avaliação
-  de colaboradores, sessões reais de vendedores, PPP ou personalização.
+- O piloto editorial continua separado do treinamento comercial publicado abaixo.
+  A comparação entre modelos usa somente dados fictícios. A autorização comercial
+  não inclui PDI, avaliação de colaboradores, PPP ou personalização.
 - Sugestões precisam passar pelo schema e referenciar uma competência do
   catálogo antes de chegar ao modal.
 
@@ -73,8 +73,8 @@ Teste pago, opt-in: `BEDROCK_TAGS_LIVE=1` e executar apenas
 `tests/unit/bedrock-conteudo-tags-live.test.ts` carregando o `.env.local`.
 Cada execução consome uma tentativa. Os testes comuns não chamam a AWS.
 
-Rollback: remover a chave Bedrock de production e fazer novo deploy. O botão
-volta à rota anterior; o contador permanece. Renovar a chave ou ampliar o
+Rollback do piloto editorial: desligar sua seleção de modelo em código e publicar.
+Não remover a chave compartilhada com o treinamento comercial. O contador permanece. Renovar a chave ou ampliar o
 orçamento exige uma decisão explícita depois de revisar o piloto.
 
 Fontes:
@@ -96,9 +96,10 @@ total de US$ 8. Indisponibilidade do Redis bloqueia a chamada. O limite editoria
 de 50 chamadas/US$ 10 permanece separado. Os custos estimados aparecem no ledger
 como `provider = bedrock`, `feature = canario_contrato`.
 
-O modelo não está na lista de modelos autorizados para sessões PACE reais. Não
-há escolha de Kimi na tela, sorteio de participantes ou mudança do perfil de
-produção. O teste opt-in `VENDAS_MODELOS_LIVE=1` compara duas repetições por
+Na etapa de comparação o perfil de produção ainda usava Sonnet. A autorização
+posterior para Kimi nas sessões comerciais está descrita abaixo; este canário
+mantém sua tarefa e orçamento independentes. Não há escolha de modelo na tela
+nem sorteio de participantes. O teste opt-in `VENDAS_MODELOS_LIVE=1` compara duas repetições por
 nível com o mesmo contexto sintético de cliente e valida schema, fala e transição
 PACE. Os artefatos locais em `output/simulador-vendas-modelos/` não são
 versionados. Uma amostra assim não estabelece qualidade superior.
@@ -119,3 +120,49 @@ mostrando variação entre execuções sem trocar a régua.
 São custos destas chamadas e deste cache, não previsão de custo mensal ou
 confirmação de créditos AWS. Os clientes comparados estavam na fase Preparar;
 este ensaio não mede toda a negociação nem demonstra superioridade do Kimi.
+
+## Treinamento comercial publicado (06/10/2026)
+
+Decisão do dono: substituir Sonnet 5.5 por Kimi K3 via AWS Bedrock para criar
+cenários em todos os níveis e representar clientes nos níveis médio e alto.
+Gemini 3.8 Flash permanece no cliente de nível baixo, moderação e intenção;
+Opus 5.5 permanece na avaliação PACE. Sessões anteriores conservam seus snapshots.
+
+A exceção de privacidade exige o modelo exato `global.moonshotai.kimi-k3`,
+o tenant comercial Vertho fixo e `sim_vendas_criador` ou `sim_vendas_cliente`.
+O wrapper valida novamente o escopo antes do envio. A API direta da Moonshot e
+outras tarefas/tenants permanecem restritos. AWS Bedrock está declarado em
+`app/privacidade` e em [FLUXO-DE-DADOS-PESSOAIS.md](FLUXO-DE-DADOS-PESSOAIS.md).
+O nome do vendedor e os contatos são mascarados pelo fluxo existente; nomes de
+terceiros em texto livre podem permanecer.
+
+Cada chamada exige JSON Schema nativo estrito e esforço low, com validação Zod
+completa e transições PACE no retorno. Limites não suportados no schema Bedrock
+são convertidos em descrições, mantendo os enums, propriedades e campos obrigatórios.
+Tier Standard, sem retry automático ou fallback: até 500.000 bytes UTF-8,
+8.000 tokens/110 s no criador e 2.500 tokens/60 s no cliente. Mantém rate limits,
+checkpoints e custo no ledger por tarefa. Não há cota total de ensaio para treinos
+publicados; eles não consomem os contadores editoriais ou de canário.
+
+Endpoint Chat Completions em us-east-1 com chave Bedrock já existente. O perfil
+`global` pode rotear mundialmente; não implica residência de dados no Brasil.
+Segundo a [AWS](https://docs.aws.amazon.com/bedrock/latest/userguide/data-protection.html),
+os fornecedores de modelos não têm acesso aos prompts e respostas nas contas de
+deployment operadas pela AWS. Isso não equivale a afirmar ausência de retenção
+em toda a infraestrutura ou a confirmar aplicação de créditos Activate.
+
+Rollback: reverter o perfil de novos treinos em `lib/simulador-vendas/modelos.ts`
+e publicar. Preservar a autorização AWS para retomar sessões já abertas com Kimi.
+
+Fontes: [Kimi K3 e roteamento](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-moonshot-ai-kimi-k3.html),
+[JSON Schema suportado](https://docs.aws.amazon.com/bedrock/latest/userguide/structured-output.html).
+
+Validação da troca em 06/10/2026, 20:19–20:29 (Brasília): três cenários e três
+respostas por nível, com compradores fictícios e banco de sessões em memória.
+Qulture Rocks, Revvo e Yoodli permaneceram no contexto competitivo. Os fluxos
+aceitos levaram 46/67/97 s, incluindo criador, moderação, cliente e intenção.
+Schemas, quantidade de objeções, preços vazios e transições PACE passaram.
+Um pedido de criação do nível médio excedeu 110 s; a repetição manual isolada
+passou, sem ampliar o timeout nem adicionar retry ou fallback automático.
+Esses ensaios verificam integração e uma conversa curta; não demonstram qualidade
+superior nem ausência de timeouts futuros.

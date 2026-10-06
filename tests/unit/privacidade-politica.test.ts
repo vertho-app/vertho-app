@@ -35,13 +35,20 @@ describe('a política nomeia quem o código usa', () => {
   const pagina = ler('app/privacidade/page.tsx');
   const fluxo = ler('docs/FLUXO-DE-DADOS-PESSOAIS.md');
 
-  it.each(['Hetzner', 'Trigger.dev', 'Upstash', 'Sentry', 'WaSender', 'Voyage', 'Bunny Stream', 'HeyGen'])(
-    '%s está na política e no levantamento técnico',
-    (fornecedor) => {
-      expect(pagina).toContain(fornecedor);
-      expect(fluxo).toContain(fornecedor);
-    },
-  );
+  it.each([
+    'Hetzner',
+    'Trigger.dev',
+    'Upstash',
+    'Sentry',
+    'WaSender',
+    'Voyage',
+    'Bunny Stream',
+    'HeyGen',
+    'AWS Bedrock',
+  ])('%s está na política e no levantamento técnico', (fornecedor) => {
+    expect(pagina).toContain(fornecedor);
+    expect(fluxo).toContain(fornecedor);
+  });
 
   it('voz é declarada: transcrição na OpenAI e áudio do WhatsApp no Google', () => {
     expect(pagina).toMatch(/3\.4\. Voz/);

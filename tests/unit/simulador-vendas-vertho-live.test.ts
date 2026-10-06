@@ -1,8 +1,8 @@
-// Opt-in pago: criador + primeira resposta nos três níveis, com fatos congelados.
+// Opt-in pago: criador + três respostas nos três níveis, com fatos congelados.
 // Banco de sessões em memória; provedor e ledger reais. Não altera histórico de vendedor.
 import { expect, test, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { criarSupabaseMock, type SupabaseMock } from '../helpers/supabase-mock';
 import { estado } from '../fixtures/simulador-vendas';
 let sb: SupabaseMock;
@@ -38,8 +38,26 @@ import type { ContextoTreino } from '@/lib/simulador-vendas/access';
 test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
   'Vertho: cenários competitivos e conversa nos três níveis com provedor real',
   async () => {
-    const resultados: unknown[] = [];
-    for (const nivel of [1, 2, 3] as const) {
+    // O filtro permite investigar apenas um caso pago que tenha falhado.
+    const filtro = process.env.VENDAS_VERTHO_NIVEL;
+    const niveis = ([1, 2, 3] as const).filter(
+      (n) => !filtro || String(n) === filtro,
+    );
+    expect(niveis.length).toBeGreaterThan(0);
+    const resultados: Array<{ nivel: number; [key: string]: unknown }> =
+      filtro && existsSync('output/simulador-vertho-live/resultados-kimi.json')
+        ? JSON.parse(
+            readFileSync(
+              'output/simulador-vertho-live/resultados-kimi.json',
+              'utf8',
+            ),
+          ).filter(
+            (caso: { nivel: number }) =>
+              !niveis.includes(caso.nivel as 1 | 2 | 3),
+          )
+        : [];
+    for (const nivel of niveis) {
+      console.log(`Validando cenário e conversa Vertho, nível ${nivel}`);
       sb = criarSupabaseMock({});
       sb.client.rpc.mockResolvedValue({ data: { ativo: true }, error: null });
       const prompts = Object.fromEntries(
@@ -114,9 +132,23 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
         gerador(c, s, id),
       );
       expect(s.cenario?.personagem.negociacao.objecoes).toHaveLength(nivel);
-      expect(s.cenario?.contexto_vendedor.toLowerCase()).toMatch(
-        /desenvolvimento|competências|formação/,
+      // O contexto público não deve antecipar necessidades e objeções reservadas.
+      // A aderência à solução é conferida no contexto do gerente/personagem.
+      mkdirSync('output/simulador-vertho-live', { recursive: true });
+      writeFileSync(
+        `output/simulador-vertho-live/cenario-kimi-nivel-${nivel}.json`,
+        JSON.stringify(s.cenario, null, 2),
       );
+      expect(
+        JSON.stringify({
+          contexto_gerente: s.cenario?.contexto_gerente,
+          negociacao: s.cenario?.personagem.negociacao,
+        }).toLowerCase(),
+      ).toMatch(/desenvolvimento|competências|formação/);
+      expect(s.cenario?.personagem.negociacao.preco).toEqual({
+        minimo_aceitavel: '',
+        ideal: '',
+      });
       expect(JSON.stringify(s.cenario).toLowerCase()).toContain(
         vertho.concorrente.nome.split(/[ (/]/)[0].toLowerCase(),
       );
@@ -140,11 +172,29 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
           sessaoId: id,
           revisao: s.revisao,
           requestId: request,
-          mensagem: `Olá, ${s.cenario?.personagem.nome}. Quero entender como vocês desenvolvem as habilidades dos profissionais hoje. O que já funciona bem e quais necessidades fizeram vocês considerar uma nova conversa?`,
+          mensagem: `Olá, ${s.cenario?.personagem.nome}. Sou da Vertho, uma solução de desenvolvimento de competências. Podemos usar 15 minutos para entender seu processo atual e suas necessidades de desenvolvimento e depois avaliar juntos se faz sentido um próximo passo?`,
         },
         gerador(c, s, request),
       );
       expect(s.mensagens.some((m) => m.autor === 'cliente')).toBe(true);
+      for (const mensagem of [
+        'O que a solução atual atende bem e quais necessidades de desenvolvimento ainda precisam de atenção? Como vocês acompanham a aplicação do aprendizado no trabalho?',
+        'Podemos construir uma solução de desenvolvimento para essas necessidades, complementando o que já funciona. Quais evidências, critérios e pessoas precisam participar da decisão? Podemos definir juntos uma avaliação técnica ou demonstração como próximo passo?',
+      ]) {
+        const requestId = randomUUID();
+        s = await executarCore(
+          s,
+          {
+            acao: 'responder',
+            sessaoId: id,
+            revisao: s.revisao,
+            requestId,
+            mensagem,
+          },
+          gerador(c, s, requestId),
+        );
+      }
+      expect(s.mensagens.filter((m) => m.autor === 'cliente')).toHaveLength(3);
       expect(s.vertho).toEqual(vertho);
       resultados.push({
         nivel,
@@ -155,6 +205,10 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
         sessao: visaoPublica(s),
         estado: s,
       });
+      writeFileSync(
+        'output/simulador-vertho-live/resultados-kimi.json',
+        JSON.stringify(resultados, null, 2),
+      );
     }
     mkdirSync('output/simulador-vertho-live', { recursive: true });
     writeFileSync(
