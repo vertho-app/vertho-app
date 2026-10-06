@@ -5,6 +5,8 @@ mostra, o que cada controle faz e o que ele muda no sistema. Feito em 10/08/2026
 
 **114 telas · 1.150 controles · 147 marcados como irreversíveis · 260 pontos de atenção.**
 
+> **Acréscimo de 06/10/2026:** entrou a tela `/admin/empresas/{id}/fluxo` (Fluxo completo): **115 telas · 1.159 controles**. Ela foi escrita lendo o código (cada botão seguido até a action), **sem print** (a captura depende de a versão estar no ar) e **sem a segunda leitura adversarial**, e isso consta nas incertezas da própria tela. As demais contagens acima são as de 10/08. O PDF não foi regerado. O mapa do fluxo está em `docs/PIPELINE-TRILHA.md` §Fluxo completo.
+
 ## Onde ele mora (e por que não aqui)
 
 ```

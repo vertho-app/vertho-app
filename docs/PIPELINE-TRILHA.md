@@ -713,6 +713,80 @@ resolverCelulaVideo / dispararVideoDoKit
 
 ---
 
+## Fluxo completo: a automação ponta a ponta (`lib/pipeline-fluxo/`, 01 a 06/10/2026)
+
+Um botão que roda **no servidor** tudo o que vem depois de o foco do cargo ter sido definido por uma
+pessoa. O foco continua humano; o resto é automático. **Não envia nada a ninguém**: enviar o PDI e
+iniciar a cadência seguem sendo decisão de quem opera.
+
+- **Tela:** `/admin/empresas/<id>/fluxo` (card "Fluxo completo", Fase 2 do painel da empresa). Mostra a
+  prévia por etapa, o custo, os **pré-requisitos** (abaixo), os botões Simular e Rodar e o andamento.
+- **Actions:** `previaFluxoCompleto`, `iniciarFluxoCompleto`, `statusFluxoCompleto`,
+  `cancelarFluxoCompleto` (`actions/pipeline-fluxo.ts`, gate `ai.audit.regenerate`). A execução enfileira a
+  task `fluxo-completo` (`trigger/fluxo-completo.ts`, até 4 h); o estado vive em `ia_jobs` (`fase='fluxo'`) e
+  a tela acompanha por polling de 5 s. O controle de fluxo é puro e testado sem rede (`executor.ts`).
+- **Ordem** (`ORDEM_ETAPAS`, `lib/pipeline-fluxo/tipos.ts`): IA4 + check, blueprint, auditoria, PDI,
+  **conteúdos**, trilha, **Kit**, Gestor, RH. Cada etapa recalcula a própria fila (idempotente: só gera o que
+  falta, não reavalia o passado) e a falha de uma etapa não derruba a cadeia.
+- **Escopo:** com 2 ou mais turmas ativas a turma é obrigatória (fail-closed, `idsDoEscopoOuFalhar`); um
+  fluxo ativo por empresa; empresa de demonstração só **simula**; contas `@vertho.ai` ficam de fora (a
+  exceção existe só para script de teste). Gestor e RH só entram com a empresa inteira e PDI novo na rodada.
+- **Custo:** US$ 1,5 a 5 por pessoa (o Kit é o que varia; vídeo ~0,60 a 0,90 por célula, áudio nominal ~0,06
+  por pessoa), medido no ledger. A prévia mostra a faixa antes; "Simular" percorre tudo sem gastar.
+
+### O que cada etapa cria (e por que a ordem importa)
+
+- **Conteúdos (biblioteca).** A trilha **aborta** sem conteúdo-base (`kit_id` nulo, sem DISC) para o
+  descritor × cargo, e conteúdo de kit não serve à montagem (é de um DISC, entregue por cima na leitura).
+  Numa empresa nova a biblioteca está vazia, então esta etapa vem **antes** da trilha e gera só o que falta,
+  só para quem terá trilha montada nesta rodada, nos formatos dos 2 primeiros de cada pessoa sem o vídeo
+  (sem preferência: texto + estudo de caso). Áudio só vira ativo com o MP3, então o gerador renderiza o áudio.
+- **Kit.** Leva só os **2 primeiros formatos** da tela de preferências entre os 4 do Kit (vídeo, áudio, texto,
+  caso), em **união por célula** (tema × cargo × DISC); quem não respondeu recebe texto + estudo de caso. O vídeo
+  é gerado se estiver no top 2 de alguém, e a **saudação nominal** só vai a quem tem vídeo no top 2 (regra
+  duplicada em `worker-hetzner/saudacao.mjs` e `formatos-por-preferencia.ts`, com teste de paridade). O áudio
+  nominal do podcast é pré-gerado para quem tem áudio no top 2. Kit novo é marcado `kits.desafio.por_preferencia`:
+  **só kit novo filtra a entrega** (kits antigos e pilotos em andamento não mudam). O desafio tem uma **âncora**
+  (ação, dias, limiar montado em código) igual para os 4 DISC; o DISC varia só a forma.
+
+### Pré-requisitos (painel na própria tela, `lib/pipeline-fluxo/prerequisitos*.ts`)
+
+Antes de rodar, a tela confere a base da empresa e diz o que falta e como resolver. É um **aviso, não um
+bloqueio**: o fluxo roda mesmo com pendência (o botão vira "Rodar mesmo assim" quando há crítico), porque
+cargos sem o problema seguem normalmente e um bloqueio sem caminho na tela seria um beco.
+
+| Item | Crítico quando | Atenção quando |
+|---|---|---|
+| Módulo-base publicado (por cargo × competência foco) | falta o módulo, ou ele não tem matéria-prima (a mesma regra do brief do Kit, `materiaPrimaCanonica`): o Kit dessa competência falha | cargo com gente no escopo sem foco definido |
+| Programa × competências do cargo | alguém em programa **DUO** e o cargo resolve menos de 2 competências: a trilha aborta ("DUO indisponível") | |
+| DISC (`perfil_dominante`) | ninguém no escopo tem | parte sem: ficam FORA do Kit, do vídeo e da saudação, sem aviso depois |
+| Preferências de aprendizagem | | quem não respondeu cai em texto + estudo de caso |
+| Infraestrutura de render | | há vídeo no top 2 de alguém e falta `HCLOUD_TOKEN`, `RENDER_SNAPSHOT_ID` ou `DATABASE_URL` na plataforma |
+
+Regras do painel: o programa é o **efetivo por pessoa** (participação, turma, pessoa, empresa:
+`carregarConfigsEfetivasEmLote`, a mesma precedência da geração); o módulo-base usa o **mesmo resolvedor do Kit**,
+sem descritor (sem embedding, sem custo); leitura que falha vira "não foi possível medir" (atenção), **nunca ok**
+(desconhecido não é zero); cada item falha sozinho. Limites declarados na própria tela: as variáveis de render do
+Trigger.dev (onde o vídeo roda de fato) não são visíveis da plataforma, e a conta do DUO é uma projeção
+(`competenciasQueODuoResolve`) enquanto quem decide é a etapa da trilha.
+
+### Armadilhas medidas (1º teste real, Boehringer, 03 a 06/10/2026)
+
+1. **A prévia só enxerga trilha já montada:** os kits de trilhas que a própria rodada vai criar só aparecem
+   depois da etapa da trilha.
+2. **`done` num job de kit sem `kit_ids` não conta como feito.** Kit roda em ondas de 3 (o TTS é compartilhado
+   entre podcast e vídeo).
+3. **A vinheta do podcast** (`public/audio/podcast/**`) precisa estar no bundle do Trigger (`additionalFiles`).
+4. **O bundle de render perdeu arquivos** (um limpador de disco apagou binários): há manifesto
+   (`worker-hetzner/spike-bundle.manifest`) e verificação na construção do snapshot. Sem isso a box sobe e
+   nenhum vídeo sai.
+5. **Tasks do Trigger não sobem no push:** mudou `trigger/` ou `lib/` usado por task, rode o deploy manual. A
+   tela e as actions rodam na Vercel e sobem com o push.
+6. **O pool do executor** deixava 2 workers passarem no último item e contava falha fantasma; corrigido (o
+   teste do pool cobre).
+
+---
+
 ## Tabela-resumo
 
 | Etapa | Pré-requisito | Fonte | Produto | Persiste em |
@@ -727,6 +801,7 @@ resolverCelulaVideo / dispararVideoDoKit
 | **Vídeo** | MB + célula | roteiro (Opus) | deck + personalizado | `videos_gerados`, `videos_personalizados` |
 | **Entrega** | trilha + (kit) | overlay na leitura | o que a pessoa vê | — (runtime) |
 | **Envio** | `fase4_envios` ativo + cadência | plano + kit | WhatsApp + e-mail | `fase4_envios` (carimbos) |
+| **Fluxo completo** | foco do cargo definido por uma pessoa | filas de cada etapa | IA4, blueprint, auditoria, PDI, conteúdos, trilha, Kit, Gestor, RH (sem enviar nada) | `ia_jobs` (`fase='fluxo'`) + os artefatos de cada etapa |
 
 ---
 

@@ -95,6 +95,20 @@ function parseNucleo(raw: string): KitBriefNucleo | null {
   return { ideia_central: ideia, pontos_chave: pontos.slice(0, 3), exemplo_ancora: exemplo };
 }
 
+/**
+ * A matéria-prima canônica de um módulo-base (ideia principal + princípios), em texto. VAZIA = o módulo existe mas não serve de
+ * âncora, e o brief recusa ("publique um módulo-base..."). Fonte única: o painel de pré-requisitos do fluxo completo usa esta
+ * mesma função para dizer, ANTES de gastar, se o Kit de uma competência vai passar por aqui.
+ */
+export function materiaPrimaCanonica(modulo: any): string {
+  const cc = modulo?.conteudo_central || {};
+  return [
+    cc.ideia_principal ? `IDEIA PRINCIPAL DO MÓDULO:\n${String(cc.ideia_principal).trim()}` : '',
+    Array.isArray(cc.principios) && cc.principios.length
+      ? `PRINCÍPIOS:\n${cc.principios.map((x: any) => `- ${x.nome}: ${x.explicacao}`).join('\n')}` : '',
+  ].filter(Boolean).join('\n\n');
+}
+
 /** Destila o núcleo conceitual (DISC-neutro) a partir do módulo-base + tema. */
 export async function gerarKitBriefNucleo(sb: any, p: GerarBriefParams): Promise<{ nucleo: KitBriefNucleo; moduloBaseId: string | null }> {
   let moduloTxt = '';
@@ -112,12 +126,7 @@ export async function gerarKitBriefNucleo(sb: any, p: GerarBriefParams): Promise
     });
     if (escolhido) {
       moduloBaseId = escolhido.modulo.id;
-      const cc = escolhido.modulo.conteudo_central || {};
-      moduloTxt = [
-        cc.ideia_principal ? `IDEIA PRINCIPAL DO MÓDULO:\n${String(cc.ideia_principal).trim()}` : '',
-        Array.isArray(cc.principios) && cc.principios.length
-          ? `PRINCÍPIOS:\n${cc.principios.map((x: any) => `- ${x.nome}: ${x.explicacao}`).join('\n')}` : '',
-      ].filter(Boolean).join('\n\n');
+      moduloTxt = materiaPrimaCanonica(escolhido.modulo);
     }
   } catch (e: any) {
     throw new Error(`brief: não foi possível consultar o módulo-base (${e?.message || e})`);

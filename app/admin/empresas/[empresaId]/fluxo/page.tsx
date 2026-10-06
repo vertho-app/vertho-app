@@ -2,10 +2,12 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertTriangle, CheckCircle, Loader2, Play, RefreshCw, Square } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, CheckCircle, Loader2, Play, RefreshCw, Square, XCircle } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { previaFluxoCompleto, iniciarFluxoCompleto, statusFluxoCompleto, cancelarFluxoCompleto, type PreviaFluxoResult, type EstadoFluxo } from '@/actions/pipeline-fluxo';
 import { TURMA_ENCERRADAS } from '@/lib/status';
+import type { GravidadePrereq, IdPrereq } from '@/lib/pipeline-fluxo/prerequisitos';
 
 /**
  * Fluxo completo — PRÉVIA (somente leitura). Mostra, por etapa, quem está pronto agora, quem fica pronto depois da
@@ -17,6 +19,13 @@ const ATIVO = ['queued', 'running'];
 const ESTADO_COR: Record<string, string> = { ok: '#2ECC71', parcial: '#f4b740', erro: '#e5484d', rodando: '#34c5cc', pulado: 'rgba(255,255,255,.4)', aguardando: 'rgba(255,255,255,.4)' };
 const ESTADO_TXT: Record<string, string> = { ok: 'concluída', parcial: 'parcial', erro: 'com erro', rodando: 'rodando', pulado: 'pulada', aguardando: 'aguardando' };
 const STATUS_TXT: Record<string, string> = { queued: 'na fila', running: 'em andamento', done: 'concluído', error: 'falhou', cancelled: 'cancelado' };
+
+const PREREQ_COR: Record<GravidadePrereq, string> = { ok: '#2ECC71', atencao: '#f4b740', critico: '#e5484d' };
+const PREREQ_ROTULO: Record<GravidadePrereq, string> = { ok: 'ok', atencao: 'atenção', critico: 'crítico' };
+/** Onde resolver, quando a tela de resolução tem endereço próprio (os demais se resolvem no cadastro da empresa/pessoa). */
+const PREREQ_LINK: Partial<Record<IdPrereq, { href: string; rotulo: string }>> = {
+  'modulo-base': { href: '/admin/vertho/modulos-base', rotulo: 'Abrir o catálogo de módulos-base' },
+};
 
 const usd = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -107,7 +116,7 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
           <div>
             <h1 className="text-xl font-bold text-white">Fluxo completo</h1>
             <p className="text-[12.5px] mt-1" style={{ color: 'rgba(255,255,255,.55)' }}>
-              IA4 → blueprint → auditoria → PDI → trilha → Gestor e RH. A prévia é somente leitura: nada é gerado nem gasto até você executar.
+              IA4 → blueprint → auditoria → PDI → conteúdos → trilha → Kit → Gestor e RH. A prévia é somente leitura: nada é gerado nem gasto até você executar.
             </p>
           </div>
           <button
@@ -164,6 +173,8 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
 
         {sucesso && (() => {
           const p = sucesso.previa;
+          const prereq = sucesso.prerequisitos;
+          const criticos = prereq?.itens.filter((i) => i.gravidade === 'critico') ?? [];
           return (
             <>
               <div className="rounded-[14px] overflow-hidden mb-5" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.06)' }}>
@@ -243,6 +254,56 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                 </div>
               )}
 
+              <div className="mt-5 rounded-[14px] overflow-hidden" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.06)' }}>
+                <div className="px-4 py-3 flex items-center justify-between gap-3 text-[12px]" style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}>
+                  <span className="font-bold text-white">Pré-requisitos antes de rodar</span>
+                  {prereq && (
+                    <span style={{ color: prereq.criticos ? '#e5484d' : prereq.atencoes ? '#f4b740' : '#2ECC71' }}>
+                      {prereq.criticos ? `${prereq.criticos} crítico(s)` : ''}{prereq.criticos && prereq.atencoes ? ' · ' : ''}{prereq.atencoes ? `${prereq.atencoes} atenção` : ''}{!prereq.criticos && !prereq.atencoes ? 'tudo conferido' : ''}
+                    </span>
+                  )}
+                </div>
+                {!prereq && (
+                  <div className="px-4 py-3 text-[12.5px]" style={{ color: '#f4b740' }}>
+                    Não foi possível conferir os pré-requisitos{sucesso.prerequisitosErro ? `: ${sucesso.prerequisitosErro}` : '.'} O fluxo pode rodar, mas estes pontos não foram verificados.
+                  </div>
+                )}
+                {prereq && (
+                  <ul>
+                    {prereq.itens.map((i) => (
+                      <li key={i.id} className="px-4 py-3 text-[12.5px]" style={{ borderTop: '1px solid rgba(255,255,255,.05)' }}>
+                        <div className="flex items-start gap-2">
+                          {i.gravidade === 'ok' ? <CheckCircle size={15} className="mt-0.5 shrink-0" style={{ color: PREREQ_COR.ok }} />
+                            : i.gravidade === 'critico' ? <XCircle size={15} className="mt-0.5 shrink-0" style={{ color: PREREQ_COR.critico }} />
+                            : <AlertTriangle size={15} className="mt-0.5 shrink-0" style={{ color: PREREQ_COR.atencao }} />}
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-baseline gap-2">
+                              <span className="font-semibold text-white">{i.titulo}</span>
+                              <span className="text-[10.5px] uppercase tracking-wider" style={{ color: PREREQ_COR[i.gravidade] }}>{PREREQ_ROTULO[i.gravidade]}</span>
+                            </div>
+                            <div style={{ color: 'rgba(255,255,255,.75)' }}>{i.resumo}</div>
+                            {i.exemplos.length > 0 && (
+                              <div className="text-[11.5px] mt-0.5" style={{ color: 'rgba(255,255,255,.45)' }}>
+                                Ex.: {i.exemplos.join('; ')}{i.quantidade > i.exemplos.length ? '…' : ''}
+                              </div>
+                            )}
+                            {i.comoResolver && (
+                              <div className="text-[11.5px] mt-1" style={{ color: PREREQ_COR[i.gravidade] }}>
+                                Como resolver: {i.comoResolver}
+                                {PREREQ_LINK[i.id] && <> <Link href={PREREQ_LINK[i.id]!.href} className="underline">{PREREQ_LINK[i.id]!.rotulo}</Link></>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="px-4 py-2.5 text-[11px]" style={{ borderTop: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.4)' }}>
+                  É um aviso, não um bloqueio: o fluxo roda mesmo com pendências, e só as pessoas e os cargos afetados deixam de ser atendidos. Atualize a tela depois de resolver.
+                </div>
+              </div>
+
               <div className="mt-5 rounded-[14px] px-4 py-4" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.06)' }}>
                 <div className="text-[12px] font-bold text-white mb-1">Executar</div>
                 <p className="text-[11.5px] mb-3" style={{ color: 'rgba(255,255,255,.5)' }}>
@@ -265,10 +326,15 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                 ) : (
                   <div className="rounded-lg px-3 py-3 text-[12.5px]" style={{ background: 'rgba(244,183,64,.08)', border: '1px solid rgba(244,183,64,.3)', color: '#f4b740' }}>
                     Vai gastar de <b>US$ {usd(p.custoTotalUsd.min)}</b> a <b>US$ {usd(p.custoTotalUsd.max)}</b> em IA para {p.totalPessoas} pessoa(s) no escopo. Confirmar?
+                    {criticos.length > 0 && (
+                      <div className="mt-2 rounded-lg px-2.5 py-2 text-[12px]" style={{ background: 'rgba(229,72,77,.1)', border: '1px solid rgba(229,72,77,.35)', color: '#e5484d' }}>
+                        Há {criticos.length} pré-requisito(s) crítico(s) pendente(s): {criticos.map((c) => c.titulo).join('; ')}. O que dependia deles vai falhar, e o gasto até lá não volta.
+                      </div>
+                    )}
                     <div className="flex gap-2 mt-2">
                       <button onClick={() => disparar(false)} disabled={disparando}
                         className="rounded-lg px-3 py-1.5 text-[12px] font-bold disabled:opacity-50" style={{ background: '#f4b740', color: '#091D35' }}>
-                        {disparando ? 'Enviando…' : 'Sim, rodar'}
+                        {disparando ? 'Enviando…' : criticos.length > 0 ? 'Rodar mesmo assim' : 'Sim, rodar'}
                       </button>
                       <button onClick={() => setConfirmando(false)} disabled={disparando}
                         className="rounded-lg px-3 py-1.5 text-[12px]" style={{ border: '1px solid rgba(255,255,255,.2)', color: '#e8eef6' }}>Voltar</button>
