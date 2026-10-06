@@ -5,7 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { canViewColabJourney, findColabByEmail, getUserContext } from '@/lib/authz';
 import { CIS_COLUMNS, mapSupabaseToCISRawData } from '@/lib/supabase/mapCISProfile';
 import { callAI } from '@/actions/ai-client';
-import { heavyLimiter, limitarAcao } from '@/lib/rate-limit';
+import { heavyLimiter, devolutivaWhatsAppLimiter, limitarAcao } from '@/lib/rate-limit';
 import { isCurrentBehavioralReport } from '@/lib/behavioral-report-schema';
 import { storageSlug } from '@/lib/storage-slug';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
@@ -97,6 +97,14 @@ export async function loadBehavioralReport(opts: any = {}) {
     const email = await getAuthenticatedEmailFromAction();
     if (!email) return { error: 'Não autenticado' };
 
+    // `force` refaz a chamada do modelo, e esta action é um endpoint: o freio mora AQUI e não só em
+    // `regenerarRelatorioComportamental`, senão quem chama `loadBehavioralReport({ force: true })`
+    // direto repete o custo em laço (reanálise de 05/10/2026). Antes da leitura do colaborador.
+    if (opts.force) {
+      const espera = await limitarAcao(heavyLimiter, `relatorio:${email}`);
+      if (espera) return { error: `Muitas solicitações em pouco tempo. Tente de novo em ${espera}s.` };
+    }
+
     const colab: any = await findColabByEmail(email, CIS_COLUMNS);
     if (!colab) return { error: 'Colaborador não encontrado' };
     return await loadBehavioralReportForColab(colab, !!opts.force);
@@ -163,14 +171,9 @@ export async function pregerarPdfsEmpresa(empresaId) {
  * Força regeneração dos textos do LLM (e re-gera o PDF).
  */
 export async function regenerarRelatorioComportamental() {
-  // Regenerar chama o modelo e re-gera o PDF: freio por pessoa, antes do custo
-  // (análise de 05/10/2026). A autenticação segue sendo feita por `loadBehavioralReport`.
-  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
-  const email = await getAuthenticatedEmailFromAction();
-  if (email) {
-    const espera = await limitarAcao(heavyLimiter, `relatorio:${email}`);
-    if (espera) return { error: `Muitas solicitações em pouco tempo. Tente de novo em ${espera}s.` };
-  }
+  // Regenerar chama o modelo e re-gera o PDF. O freio por pessoa (análise de 05/10/2026) agora
+  // mora em `loadBehavioralReport({ force: true })`, que é a porta de verdade e roda ANTES do custo;
+  // consultar também aqui gastaria duas fichas por regeneração. A autenticação é de lá também.
   const result = await loadBehavioralReport({ force: true });
   if (result.error) return result;
   // re-gera o PDF com os novos textos
@@ -417,6 +420,11 @@ export async function enviarDevolutivaWhatsAppPorId(colabId: string) {
     const fone = contato?.telefone || contato?.whatsapp;
     if (!fone) return { error: 'Telefone não cadastrado para envio por WhatsApp' };
 
+    // Freio por PESSOA DE DESTINO, o mesmo contador de `enviarDevolutivaWhatsApp`: o telefone é o
+    // que precisa de proteção, venha o pedido dele mesmo ou do admin.
+    const espera = await limitarAcao(devolutivaWhatsAppLimiter, `devolutiva:${colabId}`);
+    if (espera) return { error: `Esta devolutiva já foi enviada algumas vezes. Tente de novo em ${Math.ceil(espera / 60)} min.` };
+
     const r = await _devolutivaSignedUrl(colab, 3600);
     if (r.error) return { error: r.error };
 
@@ -445,6 +453,10 @@ export async function enviarDevolutivaWhatsApp() {
       .select('telefone, whatsapp').eq('id', colab.id).maybeSingle();
     const fone = contato?.telefone || contato?.whatsapp;
     if (!fone) return { error: 'Telefone não cadastrado para envio por WhatsApp' };
+
+    // Cada envio sai pelo número da Vertho: o contador é por PESSOA DE DESTINO (`devolutivaWhatsAppLimiter`).
+    const espera = await limitarAcao(devolutivaWhatsAppLimiter, `devolutiva:${colab.id}`);
+    if (espera) return { error: `Esta devolutiva já foi enviada algumas vezes. Tente de novo em ${Math.ceil(espera / 60)} min.` };
 
     // Signed URL com TTL longo para a Z-API conseguir baixar o arquivo.
     const r = await _devolutivaSignedUrl(colab, 3600);

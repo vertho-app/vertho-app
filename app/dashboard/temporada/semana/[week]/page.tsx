@@ -1445,7 +1445,7 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
     let alive = true;
     const resolver = somenteLeitura && colaboradorAlvo
       ? resolverVideoDaSemanaGestor(colaboradorAlvo, competencia, descritor || null, { coreId: conteudo?.core_id || null })
-      : resolverVideoDaSemana(competencia, descritor || null, false, { coreId: conteudo?.core_id || null });
+      : resolverVideoDaSemana(competencia, descritor || null, { coreId: conteudo?.core_id || null });
     resolver
       .then((r) => { if (alive) setVid(r); })
       .catch(() => { if (alive) setVid({ available: false }); });

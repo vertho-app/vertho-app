@@ -238,15 +238,15 @@ export async function resolverCelulaVideo(moduloBaseId: string, empresaId: strin
  * ENTREGA AO COLABORADOR: resolve o vídeo personalizado da competência da semana
  * para o colaborador LOGADO. Deriva a célula (empresa + cargo + DISC dominante) e o
  * módulo-base (competência × transição de nível, do assessment do colab), e devolve
- * o vídeo da célula. `gerar=false` (default) só REUSA prontos/em-andamento — não
- * dispara geração (controle de custo); a geração é feita pelo admin / pré-aquecimento.
+ * o vídeo da célula. Só REUSA prontos/em-andamento — nunca dispara geração (controle
+ * de custo, e a action é um endpoint, então isto não pode ser um argumento do cliente);
+ * a geração é feita pelo admin / pré-aquecimento.
  */
 async function resolverVideoDaSemanaParaColaborador(
   sb: any,
   colab: any,
   competencia: string,
   descritor: string | null,
-  gerar: boolean,
   opts: { coreId?: string | null },
 ) {
   if (!colab?.empresa_id || !colab.cargo) return { available: false, reason: 'sem-cargo' };
@@ -276,12 +276,15 @@ async function resolverVideoDaSemanaParaColaborador(
     moduloId = escolha.modulo.id;
   }
 
-  const cel = await resolverCelulaVideo(moduloId, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { sb, gerar, colaboradorId: colab.id });
+  // `gerar: false` FIXO: quem abre a semana só REUSA o que o admin ou o pré-aquecimento geraram.
+  // Já foi um parâmetro vindo do cliente (a action é um endpoint) e, com `true`, qualquer pessoa
+  // logada com cargo e DISC disparava roteiro com IA e render pago (reanálise de 05/10/2026).
+  const cel = await resolverCelulaVideo(moduloId, colab.empresa_id, colab.cargo, disc as Disc, `colab:${colab.id}`, { sb, gerar: false, colaboradorId: colab.id });
   if ((cel as any).error) return { available: false, reason: (cel as any).error };
   return { available: true, moduloId, colaboradorId: colab.id, ...cel };
 }
 
-export async function resolverVideoDaSemana(competencia: string, descritor: string | null = null, gerar = false, opts: { coreId?: string | null } = {}) {
+export async function resolverVideoDaSemana(competencia: string, descritor: string | null = null, opts: { coreId?: string | null } = {}) {
   try {
     await requireUserAction();
     const email = await getAuthenticatedEmailFromAction();
@@ -293,7 +296,7 @@ export async function resolverVideoDaSemana(competencia: string, descritor: stri
       .eq('id', cb.id)
       .maybeSingle();
     if (colabError) return { available: false, reason: colabError.message };
-    return await resolverVideoDaSemanaParaColaborador(sb, colab, competencia, descritor, gerar, opts);
+    return await resolverVideoDaSemanaParaColaborador(sb, colab, competencia, descritor, opts);
   } catch (err: any) {
     console.error('[resolverVideoDaSemana]', err);
     return { available: false };
@@ -325,7 +328,7 @@ export async function resolverVideoDaSemanaGestor(
     // catálogo global (competencias_base / módulos compartilhados) e a tabela
     // nominal, que não possui empresa_id; por isso usa o escape hatch explícito.
     // Todas as leituras do alvo continuam ancoradas no colab autorizado.
-    return await resolverVideoDaSemanaParaColaborador(tdb.raw, colab, competencia, descritor, false, opts);
+    return await resolverVideoDaSemanaParaColaborador(tdb.raw, colab, competencia, descritor, opts);
   } catch (err: any) {
     console.error('[resolverVideoDaSemanaGestor]', err);
     return { available: false };

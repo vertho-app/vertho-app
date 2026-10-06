@@ -218,6 +218,15 @@ export const simVendasInicioLimiter = createRateLimiter({
 export const heavyLimiter = createRateLimiter({ maxRequests: 5, windowMs: 60_000 });
 
 /**
+ * Devolutiva em áudio por WhatsApp: 3 por hora por PESSOA DE DESTINO (a chave é o colaborador que
+ * recebe, não quem pede). Cada envio sai pelo número da Vertho, e o laço "pedir de novo" mandava áudio
+ * sem fim ao mesmo telefone (reanálise de 05/10/2026), com o custo do envio e o risco de o número ser
+ * marcado como spam. Três por hora cobrem "não chegou, manda de novo"; o disparo em lote do admin envia
+ * UMA devolutiva por pessoa, então não esbarra aqui.
+ */
+export const devolutivaWhatsAppLimiter = createRateLimiter({ maxRequests: 3, windowMs: 60 * 60_000, escopo: 'devolutiva-whatsapp-hora' });
+
+/**
  * Limite para SERVER ACTION, que não recebe `Request`. A chave é sempre a PESSOA
  * (e-mail da sessão), nunca o IP. Devolve a espera em segundos quando excedeu, ou
  * `null` quando pode seguir.
@@ -303,12 +312,31 @@ const destinoPorDia = createRateLimiter({
 });
 
 /**
+ * O e-mail como CHAVE DE LIMITE (nunca como endereço de envio): junta as grafias que entregam na
+ * MESMA caixa. Sem isto o teto por destinatário não segurava nada: `a+1@x.com`, `a+2@x.com` e, no Gmail,
+ * `a.b@gmail.com` e `ab@gmail.com` são caixas iguais e contavam como destinos diferentes (reanálise de
+ * 05/10/2026). A parte depois do `+` sai em qualquer domínio; os pontos só saem no Gmail, onde são
+ * ignorados de fato. Custo aceito: duas pessoas de uma empresa que usem `+` como caixas distintas
+ * dividem o mesmo teto (5 por hora), o que para link de acesso quase nunca aparece.
+ */
+export function emailParaLimite(valor: string): string {
+  const e = String(valor).trim().toLowerCase();
+  const arroba = e.lastIndexOf('@');
+  if (arroba < 1) return e;
+  let local = e.slice(0, arroba).split('+')[0] || e.slice(0, arroba);
+  let dominio = e.slice(arroba + 1);
+  if (dominio === 'googlemail.com') dominio = 'gmail.com';
+  if (dominio === 'gmail.com') local = local.replace(/\./g, '') || local;
+  return `${local}@${dominio}`;
+}
+
+/**
  * Chave do destinatário: o valor normalizado, em hash. O Redis da Upstash é um
  * terceiro, e a chave fica lá a janela inteira; e-mail e telefone em claro
  * seriam dado pessoal guardado só para contar.
  */
 export async function chaveDoDestino(canal: 'email' | 'telefone', valor: string): Promise<string> {
-  const normal = canal === 'email' ? valor.trim().toLowerCase() : valor.replace(/\D/g, '');
+  const normal = canal === 'email' ? emailParaLimite(valor) : valor.replace(/\D/g, '');
   const bytes = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${canal}:${normal}`));
   const hex = Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
   return `${canal}:${hex.slice(0, 40)}`;

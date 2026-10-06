@@ -76,7 +76,9 @@ describe('resultados e perfis da apresentação', () => {
     expect(week).toContain('!visaoLeitura && !isAplicacao && !isAvaliacao');
     expect(videoAction).toContain('export async function resolverVideoDaSemanaGestor');
     expect(videoAction).toContain('canViewColabJourney(ctx, colab)');
-    expect(videoAction).toContain('resolverVideoDaSemanaParaColaborador(tdb.raw, colab, competencia, descritor, false, opts)');
+    // A prévia nunca dispara geração. Desde 05/10 isso vale para QUALQUER chamada: o parâmetro
+    // `gerar` saiu da assinatura (ver `tests/unit/security/video-da-semana-so-reusa.test.ts`).
+    expect(videoAction).toContain('resolverVideoDaSemanaParaColaborador(tdb.raw, colab, competencia, descritor, opts)');
   });
 
   it('mantém o ranking estável por tenant e abre a primeira fotografia', () => {
