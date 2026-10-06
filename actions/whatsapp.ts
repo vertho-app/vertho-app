@@ -15,13 +15,9 @@ function toResult(r: Awaited<ReturnType<typeof sendWhatsapp>>, okMsg: string) {
 
 // ── Enviar mensagem de texto via WhatsApp ───────────────────────────────────
 
-/**
- * Auth: requer admin OU sistema interno. Quando `internal=true`, pula
- * `requireAdminAction` — usado por triggers automáticos do servidor
- * (ex.: aviso pontual de operação, fora da cadência das pílulas).
- */
-export async function enviarWhatsApp(telefone: string, mensagem: string, internal: boolean = false) {
-  if (!internal) await requireAdminAction('assessments.dispatch');
+/** Endpoint público: exige admin com permissão de envio em toda chamada. */
+export async function enviarWhatsApp(telefone: string, mensagem: string) {
+  await requireAdminAction('assessments.dispatch');
   const r = await sendWhatsapp({ kind: 'text', phone: telefone, text: mensagem });
   return toResult(r, 'Mensagem enviada');
 }
@@ -39,10 +35,10 @@ export async function enviarPDF(telefone: string, pdfBase64: string, filename: s
 /**
  * Envia um áudio (MP3) como mensagem de voz. `audioUrl` deve ser uma URL HTTPS
  * publicamente acessível pelos servidores do provedor (ex.: signed URL do
- * Supabase com TTL suficiente). `internal=true` pula o gate de admin.
+ * Supabase com TTL suficiente). Exige admin com permissão de envio.
  */
-export async function enviarAudio(telefone: string, audioUrl: string, internal: boolean = false) {
-  if (!internal) await requireAdminAction('assessments.dispatch');
+export async function enviarAudio(telefone: string, audioUrl: string) {
+  await requireAdminAction('assessments.dispatch');
   const r = await sendWhatsapp({ kind: 'audio', phone: telefone, url: audioUrl });
   return toResult(r, 'Áudio enviado');
 }

@@ -81,7 +81,9 @@ describe('devolutiva por WhatsApp: freio por pessoa de destino', () => {
     const limite = c.indexOf('limitarAcao(devolutivaWhatsAppLimiter');
     expect(limite, 'sem limitador').toBeGreaterThan(-1);
     expect(limite).toBeGreaterThan(c.indexOf('Telefone não cadastrado'));
-    expect(limite).toBeLessThan(c.indexOf('enviarAudio('));
+    const envio = c.indexOf('sendWhatsapp(');
+    expect(envio, 'sem envio de áudio').toBeGreaterThan(-1);
+    expect(limite).toBeLessThan(envio);
   });
 });
 

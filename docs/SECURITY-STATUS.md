@@ -1,8 +1,30 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Última revisão: 2026-10-06 — correções de baixo risco (INV2 e CA PostgreSQL), nota 6,3; ver "06/10". Antes: 2026-10-05: **análise dos 8 ataques (nota 4,4) e as correções do plano no mesmo dia**, entre elas a mig 278 que tirou a escrita de `anon` e `authenticated` (ver "05/10"). Antes: 2026-09-18: **secret scanning e push protection ligados no GitHub**; estavam desligados num repo público (ver "18/09"). Antes: 2026-08-30 — **dois guards de tenant estavam cegos e foram corrigidos**: `tenant-mutation-guard` passava verde com 0 arquivos varridos (`ec4d3fdd`) e `tenant-isolation` não alcançava a comparação de tenant em 2 de 9 casos (`26ef9db5`), os dois validados por mutação. **13 dos 35** arquivos de `tests/unit/security/` que tocam isolamento de tenant foram auditados; 22 seguem sem auditoria (ver "Manutenção 30/08"). Antes: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
+> Última revisão: 2026-10-06 — autorização dos envios de WhatsApp e correções de baixo risco (INV2 e CA PostgreSQL), nota 6,3; ver "06/10". Antes: 2026-10-05: **análise dos 8 ataques (nota 4,4) e as correções do plano no mesmo dia**, entre elas a mig 278 que tirou a escrita de `anon` e `authenticated` (ver "05/10"). Antes: 2026-09-18: **secret scanning e push protection ligados no GitHub**; estavam desligados num repo público (ver "18/09"). Antes: 2026-08-30 — **dois guards de tenant estavam cegos e foram corrigidos**: `tenant-mutation-guard` passava verde com 0 arquivos varridos (`ec4d3fdd`) e `tenant-isolation` não alcançava a comparação de tenant em 2 de 9 casos (`26ef9db5`), os dois validados por mutação. **13 dos 35** arquivos de `tests/unit/security/` que tocam isolamento de tenant foram auditados; 22 seguem sem auditoria (ver "Manutenção 30/08"). Antes: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
 > Antes: 2026-07-17 (auditoria geral — detalhes em `docs/LEVANTAMENTO-2026-07.md` §4. **3 achados altos NOVOS**, hoje fechados: (1) `api/bunny-videos` + `api/video-download` sem auth — enumeracao + download anonimo de videos, PII potencial nos personalizados; (2) header `x-tenant-slug` forjavel no apex/vercel.app — enumeracao de e-mails cross-tenant e signup em tenant alheio; (3) open redirect de `token_hash` de sessao em `api/auth/phone-otp/verify`. Numeros corrigidos: service-role = **130 arquivos / 299 usos** (nao 91/168); residuo `internal` = **5 entradas** (nao 8; fase1/fase3 removidos 10/07). As 4 classes criticas de 03/07 seguem confirmadas fechadas.)
 > Anterior: 2026-07-07 (defense-in-depth de tenant nas ações internas + filtro de contas internas demo-aware; ver seção "Endurecimento 06-07/07"). Anterior: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
+
+## 06/10: autorização dos envios de WhatsApp
+
+O dono autorizou o item 1 de risco médio do plano: remover o bypass de autorização
+nos envios. `enviarWhatsApp` e `enviarAudio` agora exigem
+`requireAdminAction('assessments.dispatch')` em toda chamada; o parâmetro
+`internal` saiu das assinaturas e a allowlist do guard ficou **vazia**.
+
+Os dois envios de devolutiva comportamental usam o transporte já existente em
+`lib/whatsapp`, depois de verificar o admin ou resolver o colaborador da sessão.
+O envio ao próprio colaborador continua disponível sem exigir papel de admin:
+o destino vem do cadastro da pessoa autenticada. O envio por ID continua exclusivo
+do admin com permissão. Telefone cadastrado, URL assinada por uma hora, limite por
+destinatário e propagação de erros do provedor foram preservados.
+
+Prova: **22 testes de comportamento** com o gate e a matriz de permissões reais,
+incluindo argumento extra `true`, sessão ausente, colaborador/gestor/RH, sócio,
+override de negação, envio autorizado e falhas de assinatura/transporte.
+Remover cada gate por mutação faz seu teste sem sessão falhar, separadamente.
+Nenhuma mensagem real ou chamada de IA foi feita para essa verificação.
+A nota da análise continua **6,3**: remover esse bypass não demonstra por si só
+que todos os fluxos de acesso entre empresas estejam protegidos.
 
 ## 06/10: correções de baixo risco da análise de site
 
@@ -155,7 +177,7 @@ Auditoria multi-agente (223 arquivos de alto risco; 29 achados confirmados por v
 | E — vazamento cross-tenant | `empresa_id` omitido → sem filtro de tenant | tenant derivado da sessão quando omitido, `assertTenantAccess` quando presente, trava UUID no filtro `.or` | `24475b94` |
 | backlog — evolution-report | `internal:{empresaId:null}` pulava gate + recheck B5 | núcleo headless `lib/season-engine/evolution-report-core.ts`, action sempre gatada | `44235a0e` |
 
-Padrão de remediação: **exports `'use server'` sempre gatados; caminho headless (auto-trigger/rota/task) importa um núcleo em `lib/` que revalida o tenant por item (`opts.empresaId`, "B5")**. Guardas de CI que sustentam: `use-server-internal-guard` (allowlist só encolhe — hoje 2 entradas), `service-role-guard` (allowlist de `createSupabaseAdmin()`, só arquivos versionados), `tenant-read/mutation-guard`, `dashboard-isolation`.
+Padrão de remediação: **exports `'use server'` sempre gatados; caminho headless (auto-trigger/rota/task) importa um núcleo em `lib/` que revalida o tenant por item (`opts.empresaId`, "B5")**. Guardas de CI que sustentam: `use-server-internal-guard` (allowlist só encolhe — zerada em 06/10), `service-role-guard` (allowlist de `createSupabaseAdmin()`, só arquivos versionados), `tenant-read/mutation-guard`, `dashboard-isolation`.
 
 **Operacional — FEITO (23/07):** redeploy do Trigger.dev `20260723.2` (11 tasks) — o fix do Grupo D em `trigger/extracao-video.ts` (revalida URL+DNS antes do `yt-dlp`) + a dep `undici` + `runtime:'node-22'` estão no worker de prod. **Auditoria 23/07 encerrada de ponta a ponta (Vercel + Trigger); nada aberto.**
 

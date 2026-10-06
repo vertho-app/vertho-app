@@ -428,9 +428,9 @@ export async function enviarDevolutivaWhatsAppPorId(colabId: string) {
     const r = await _devolutivaSignedUrl(colab, 3600);
     if (r.error) return { error: r.error };
 
-    const { enviarAudio } = await import('@/actions/whatsapp');
-    const env = await enviarAudio(fone, r.url, true);
-    if (!env.success) return { error: env.error || 'Falha no envio' };
+    const { sendWhatsapp } = await import('@/lib/whatsapp');
+    const env = await sendWhatsapp({ kind: 'audio', phone: fone, url: r.url });
+    if (!env.ok) return { error: env.reason || 'Falha no envio' };
     return { success: true };
   } catch (err) {
     console.error('[enviarDevolutivaWhatsAppPorId]', err);
@@ -462,9 +462,9 @@ export async function enviarDevolutivaWhatsApp() {
     const r = await _devolutivaSignedUrl(colab, 3600);
     if (r.error) return { error: r.error };
 
-    const { enviarAudio } = await import('@/actions/whatsapp');
-    const env = await enviarAudio(fone, r.url, true);
-    if (!env.success) return { error: env.error || 'Falha no envio' };
+    const { sendWhatsapp } = await import('@/lib/whatsapp');
+    const env = await sendWhatsapp({ kind: 'audio', phone: fone, url: r.url });
+    if (!env.ok) return { error: env.reason || 'Falha no envio' };
     return { success: true };
   } catch (err) {
     console.error('[enviarDevolutivaWhatsApp]', err);
