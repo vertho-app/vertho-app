@@ -123,10 +123,11 @@ este ensaio não mede toda a negociação nem demonstra superioridade do Kimi.
 
 ## Treinamento comercial publicado (06/10/2026)
 
-Decisão do dono: substituir Sonnet 5.5 por Kimi K3 via AWS Bedrock para criar
-cenários em todos os níveis e representar clientes nos níveis médio e alto.
-Gemini 3.8 Flash permanece no cliente de nível baixo, moderação e intenção;
-Opus 5.5 permanece na avaliação PACE. Sessões anteriores conservam seus snapshots.
+Perfil vigente autorizado pelo dono: Kimi K3 via AWS Bedrock para criar cenários
+e representar clientes nas dificuldades baixa, média e alta. Gemini 3.8 Flash
+fica nos auxiliares de moderação e intenção; Sonnet 5.5 na avaliação PACE.
+A calibração `comercial-3` usa perfis receptivos, uma objeção simples e nenhuma
+objeção profunda no fácil, mantendo a matriz PACE e os outros níveis. Sessões anteriores conservam seus snapshots.
 
 A exceção de privacidade exige o modelo exato `global.moonshotai.kimi-k3`,
 o tenant comercial Vertho fixo e `sim_vendas_criador` ou `sim_vendas_cliente`.
@@ -157,7 +158,7 @@ e publicar. Preservar a autorização AWS para retomar sessões já abertas com 
 Fontes: [Kimi K3 e roteamento](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-moonshot-ai-kimi-k3.html),
 [JSON Schema suportado](https://docs.aws.amazon.com/bedrock/latest/userguide/structured-output.html).
 
-Validação da troca em 06/10/2026, 20:19–20:29 (Brasília): três cenários e três
+Validação do perfil anterior (Gemini no cliente baixo e Opus na avaliação) em 06/10/2026, 20:19–20:29 (Brasília): três cenários e três
 respostas por nível, com compradores fictícios e banco de sessões em memória.
 Qulture Rocks, Revvo e Yoodli permaneceram no contexto competitivo. Os fluxos
 aceitos levaram 46/67/97 s, incluindo criador, moderação, cliente e intenção.
@@ -166,3 +167,19 @@ Um pedido de criação do nível médio excedeu 110 s; a repetição manual isol
 passou, sem ampliar o timeout nem adicionar retry ou fallback automático.
 Esses ensaios verificam integração e uma conversa curta; não demonstram qualidade
 superior nem ausência de timeouts futuros.
+
+Validação do perfil vigente em 06/10/2026: três conversas fáceis completas,
+com Kimi no criador e no cliente e compradores fictícios de empresa, escola
+privada e rede pública. Cada caso levou 84/77/80 s, com seis falas do vendedor.
+Uma mensagem trivial manteve a fase inicial; uma abertura com pergunta simples
+avançou para análise, e a resposta à única objeção permitiu combinar demonstração.
+Os três casos terminaram em engajamento, sem barreiras adicionais ou contratação
+imediata. Qulture Rocks, Revvo e Yoodli permaneceram no contexto competitivo.
+
+Na avaliação real dessa conversa de empresa, Sonnet 5.5 passou pelo schema,
+pelas evidências literais e pelas fontes PACE em 29 s: 30 descritores preenchidos,
+27 observados e nenhum nível numérico sem evidência. O prompt reforça o contrato
+existente para omissões observadas versus ausência de oportunidade; nenhuma regra
+de nota ou validação foi flexibilizada. Sessões de teste ficaram em memória,
+com artefatos locais e custos registrados no ledger. Também passaram 11.215 testes
+automáticos; após o reforço do prompt, passaram typecheck e 503 testes de contratos.

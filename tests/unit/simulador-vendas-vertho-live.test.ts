@@ -22,6 +22,11 @@ import {
 } from '@/lib/simulador-vendas/prompts';
 import { modeloVertho } from '@/lib/simulador-vendas/modelos';
 import {
+  DIFICULDADE_VERTHO_VERSION,
+  promptDificuldadeVertho,
+  PROMPT_AVALIACAO_VERTHO,
+} from '@/lib/simulador-vendas/dificuldade-vertho';
+import {
   BRIEFING_VERTHO,
   criarContextoCompetitivoVertho,
   PROMPT_COMERCIAL_VERTHO,
@@ -66,14 +71,16 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
             const texto =
               PROMPTS[etapa] +
               (['criador', 'cliente'].includes(etapa)
-                ? PROMPT_COMERCIAL_VERTHO
-                : '');
+                ? PROMPT_COMERCIAL_VERTHO +
+                  promptDificuldadeVertho(etapa, nivel)
+                : '') +
+              (etapa === 'gerente' ? PROMPT_AVALIACAO_VERTHO : '');
             return [
               etapa,
               {
                 texto,
                 hash: hashPrompt(texto),
-                versao: `${PROMPT_VERSION}-comercial-2`,
+                versao: `${PROMPT_VERSION}-${DIFICULDADE_VERTHO_VERSION}`,
                 ...modeloVertho(etapa, nivel),
               },
             ];

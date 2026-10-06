@@ -25,7 +25,7 @@
 
 ---
 
-> **Treinamento comercial, 06/10/2026:** o criador e o cliente médio/alto passam
+> **Treinamento comercial, 06/10/2026:** o criador e o cliente dos três níveis passam
 > a usar Kimi K3 hospedado na AWS Bedrock, com autorização específica do dono e
 > a máscara existente. O escopo e os resíduos de dados pessoais estão na §2.3.
 
@@ -147,7 +147,7 @@ empresa (§2.3), e aí o provedor é o do modelo escolhido.
 | **Anthropic** (Claude) | padrão da maior parte do pipeline; Batch API nos lotes | `actions/ai-client.ts`, `lib/ai-batch.ts` |
 | **OpenAI** | fallback de provedor, auditores cross-família, Batch API do check, transcrição (Whisper) | idem, `app/api/recepcao/voz` |
 | **Google** (Gemini) | Beto no WhatsApp (texto e áudio), síntese de voz (vídeo, devolutiva, podcast) | `lib/whatsapp/suporte-auto.ts`, `lib/gemini-tts.ts`, `worker-hetzner/` |
-| **Amazon Web Services (AWS Bedrock)** | Kimi K3: criador de cenários e cliente médio/alto no treinamento comercial Vertho; nome do vendedor e contatos mascarados, nomes de terceiros em texto livre podem permanecer | `lib/bedrock-vendas-vertho.ts`, `lib/simulador-vendas/ai.ts`, `actions/ai-client.ts` |
+| **Amazon Web Services (AWS Bedrock)** | Kimi K3: criador de cenários e cliente nas dificuldades baixa, média e alta no treinamento comercial Vertho; nome do vendedor e contatos mascarados, nomes de terceiros em texto livre podem permanecer | `lib/bedrock-vendas-vertho.ts`, `lib/simulador-vendas/ai.ts`, `actions/ai-client.ts` |
 | **Voyage** | vetores do acervo de conteúdo e da pergunta do Tira-Dúvidas | `lib/embeddings.ts`, `lib/rag.ts` |
 | Moonshot (Kimi), xAI (Grok), Alibaba (Qwen), Meta (Muse) | **não declarados na política**. Desde 03/10/2026 (R-45) só rodam nas tarefas liberadas abaixo, nenhuma com dado de pessoa; fora da escada de fallback | `lib/ai-tasks.ts` (`TAREFAS_LIBERADAS_FORA_DAS_DECLARADAS`), `lib/ai-regua-privacidade.ts` |
 
@@ -156,7 +156,8 @@ mesmo dia: os quatro só rodaram em teste, comparação e canário; nenhuma func
 produção dependia deles.
 
 **Exceção autorizada pelo dono em 06/10/2026:** Kimi K3 hospedado na AWS Bedrock
-substitui Sonnet no criador e no cliente médio/alto do treinamento comercial.
+roda no criador e nos clientes das dificuldades baixa, média e alta do treinamento
+comercial. Gemini fica nos auxiliares e Sonnet 5.5 na avaliação.
 A execução exige o ID fixo do tenant Vertho, modelo exato e apenas
 `sim_vendas_criador` / `sim_vendas_cliente` (`lib/bedrock-vendas-vertho.ts`).
 AWS Bedrock está declarado na política pública; a API direta Moonshot, outros

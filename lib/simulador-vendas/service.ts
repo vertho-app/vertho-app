@@ -10,6 +10,7 @@ import { criarContextoCompetitivoVertho } from './vertho';
 import { REGUA_VERSION, type Estado, type Comando } from './schema';
 import { acessoPeloPrazo, periodoVigente, podeEncerrar } from './prazo';
 import { TRACOS_DIVERSIDADE } from './diversidade';
+import { tracosParaVertho } from './dificuldade-vertho';
 import { podeVerEquipe } from './equipe';
 import { evolucaoPorCompetencia, treinosComNiveis } from './evolucao';
 import {
@@ -129,7 +130,12 @@ export async function consultarEvolucao(c: Contexto) {
   return {
     evolucao:
       treinosComNiveis(treinos) >= 2
-        ? evolucaoPorCompetencia(treinos.map((t) => ({ competencias: t.competencias, em: t.criadoEm })))
+        ? evolucaoPorCompetencia(
+            treinos.map((t) => ({
+              competencias: t.competencias,
+              em: t.criadoEm,
+            })),
+          )
         : null,
     focoSugerido: treinos.find((t) => t.foco)?.foco || null,
   };
@@ -261,7 +267,9 @@ export async function executar(c: Contexto, original: Comando) {
       const anteriores = ultimos
         .map((r: { traco?: string }) => r.traco)
         .filter(Boolean) as string[];
-      const tracos = TRACOS_DIVERSIDADE;
+      const tracos = c.vertho
+        ? tracosParaVertho(cmd.nivel)
+        : TRACOS_DIVERSIDADE;
       const opcoes = tracos.filter((t) => !anteriores.includes(t));
       const indice = Number.parseInt(cmd.requestId.slice(0, 8), 16);
       const estado: Estado = {

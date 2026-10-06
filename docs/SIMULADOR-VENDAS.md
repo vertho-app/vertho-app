@@ -56,15 +56,31 @@ Correção da orientação comercial em 06/10/2026: retirada a escolha de “Fre
 ### Modelos do treinamento comercial Vertho (06/10/2026)
 
 Somente sessões novas do tenant comercial fixo usam o perfil em
-`lib/simulador-vendas/modelos.ts`, conforme a dificuldade escolhida:
+`lib/simulador-vendas/modelos.ts`, com Kimi em todos os clientes, Gemini nos auxiliares e Sonnet na avaliação:
 
 | Etapa | Modelo | Esforço |
 | --- | --- | --- |
 | Criador do cenário, todos os níveis | Kimi K3 via AWS Bedrock (`global.moonshotai.kimi-k3`) | low |
-| Cliente, dificuldade baixa | Gemini 3.8 Flash (`gemini-3.8-flash`) | low |
-| Cliente, dificuldade média ou alta | Kimi K3 via AWS Bedrock | low |
+| Cliente, dificuldades baixa, média e alta | Kimi K3 via AWS Bedrock | low |
 | Moderador e intenção de encerramento | Gemini 3.8 Flash | low |
-| Avaliação PACE, todos os níveis | Claude Opus 5.5 (`claude-opus-5-5`) | medium |
+| Avaliação PACE, todos os níveis | Claude Sonnet 5.5 (`claude-sonnet-5-5`) | medium |
+
+A calibração `comercial-3` torna o nível fácil introdutório: perfil Estável ou
+Influente, seeds receptivas, exatamente uma objeção simples, nenhuma objeção
+profunda e até dois benefícios ocultos. Não cria orçamento congelado, comitê
+exigente ou barreiras técnicas extensas para combinar um próximo passo. Uma
+pergunta aberta pertinente na abertura permite avançar e obter contexto; não
+exige apresentação, objetivo, agenda e duração simultaneamente. Uma resposta
+adequada à objeção basta para seguir, sem repetir cobranças ou criar novas
+barreiras. Mensagens triviais, pressão para pular direto ao contrato e afirmações
+falsas continuam sem avanço automático. A matriz e os critérios PACE permanecem
+os mesmos. A calibração não altera os níveis médio e alto.
+
+O prompt do avaliador reforça a conferência dos 30 descritores: qualquer nível
+numérico precisa de evidência literal do planejamento ou da fala do vendedor,
+inclusive N1. Uma omissão observada exige uma citação pertinente da situação;
+sem oportunidade ou evidência suficiente, permanece `null`. Isso reproduz o
+contrato de validação já existente, sem alterar critérios ou notas.
 
 Modelo e esforço são congelados junto com o prompt na abertura da sessão. A
 atualização não reescreve sessões anteriores: elas continuam com seus modelos,
@@ -78,7 +94,8 @@ pedido; a validação original continua obrigatória no retorno. Truncagem ou
 recusa interrompem a etapa depois de registrar o uso informado pelo provedor.
 Não há retry automático ou troca silenciosa do modelo congelado.
 
-Em 06/10/2026 o dono autorizou substituir Sonnet 5.5 por Kimi K3 via AWS Bedrock.
+Perfil vigente autorizado em 06/10/2026: Kimi K3 via AWS Bedrock no criador e nos
+clientes dos três níveis; Gemini somente nos auxiliares; Sonnet 5.5 na avaliação.
 A permissão de execução exige o tenant comercial fixo e uma das tarefas
 `sim_vendas_criador` / `sim_vendas_cliente`; não libera a API direta da Moonshot,
 outros tenants, PDI, avaliação ou os seletores gerais. AWS Bedrock está declarado

@@ -19,6 +19,10 @@ import {
 import { usaFontesDocumentais } from './fontes';
 import { relatorioPacePublico, pontuacaoMatriz } from './escala';
 import { recomendacaoDocumentalSchema } from './schema';
+import {
+  DIFICULDADE_VERTHO_VERSION,
+  validarCenarioFacilVertho,
+} from './dificuldade-vertho';
 
 export class SimuladorError extends Error {
   constructor(
@@ -59,8 +63,11 @@ export function recebido(s: Estado, cmd: Comando): boolean {
       ? JSON.stringify([cmd.acao, cmd.nivel, cmd.vertho])
       : null;
   if (
-    (legado && cmd.acao === 'iniciar' && cmd.vertho?.frente !== s.vertho?.frente) ||
-    (recibo.assinatura !== assinatura(cmd) && recibo.assinatura !== assinaturaAntiga)
+    (legado &&
+      cmd.acao === 'iniciar' &&
+      cmd.vertho?.frente !== s.vertho?.frente) ||
+    (recibo.assinatura !== assinatura(cmd) &&
+      recibo.assinatura !== assinaturaAntiga)
   )
     throw new SimuladorError(
       409,
@@ -140,7 +147,8 @@ export type SessaoPublica = ReturnType<typeof visaoPublica> & {
 
 export function validarCenario(
   c: Saidas['criador'],
-  s: Pick<Estado, 'nomeVendedor' | 'nivel'>,
+  s: Pick<Estado, 'nomeVendedor' | 'nivel'> &
+    Partial<Pick<Estado, 'vertho' | 'prompts'>>,
 ) {
   if (c.personagem.negociacao.nome_vendedor !== s.nomeVendedor)
     throw new Error('Nome do vendedor divergente');
@@ -156,6 +164,12 @@ export function validarCenario(
     c.personagem.personalidade_nivel.cenarios_validos.length !== 2
   )
     throw new Error('Sênior exige dois cenários válidos');
+  if (
+    s.vertho &&
+    s.nivel === 1 &&
+    s.prompts?.criador.versao.endsWith(`-${DIFICULDADE_VERTHO_VERSION}`)
+  )
+    validarCenarioFacilVertho(c);
   const n = c.personagem.negociacao;
   if (
     new Set(n.beneficios_ocultos.map((b) => b.nome)).size !==

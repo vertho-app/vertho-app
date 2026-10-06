@@ -32,6 +32,11 @@ import { PROMPT_COMERCIAL_VERTHO, VERTHO_TREINO_EMPRESA_ID } from './vertho';
 import { arquivarPrompt, textoDoSnapshot } from './catalogo';
 import { modeloPaceCompativel, modeloVertho } from './modelos';
 import { periodoVigente, podeEncerrar } from './prazo';
+import {
+  DIFICULDADE_VERTHO_VERSION,
+  promptDificuldadeVertho,
+  PROMPT_AVALIACAO_VERTHO,
+} from './dificuldade-vertho';
 import { normalizarRelatorio } from './normalizacao';
 import { usaMatrizPace } from './matriz-avaliacao';
 import { usaFontesDocumentais } from './fontes';
@@ -49,7 +54,7 @@ const TAREFAS = {
   intencao: 'sim_vendas_intencao',
   gerente: 'sim_vendas_gerente',
 } as const;
-const PROMPT_VERTHO_VERSION = `${PROMPT_VERSION}-comercial-2`;
+const PROMPT_VERTHO_VERSION = `${PROMPT_VERSION}-${DIFICULDADE_VERTHO_VERSION}`;
 
 export async function snapshotPrompts(
   empresaId: string,
@@ -74,8 +79,9 @@ export async function snapshotPrompts(
       const texto =
         PROMPTS[etapa] +
         (vertho && ['criador', 'cliente'].includes(etapa)
-          ? PROMPT_COMERCIAL_VERTHO
-          : '');
+          ? PROMPT_COMERCIAL_VERTHO + promptDificuldadeVertho(etapa, nivel)
+          : '') +
+        (vertho && etapa === 'gerente' ? PROMPT_AVALIACAO_VERTHO : '');
       const id = await arquivarPrompt(tdb, etapa, versao, texto);
       return [
         etapa,
@@ -141,6 +147,7 @@ export function gerador(
     const mensagens = [
       PROMPT_VERSION,
       PROMPT_VERTHO_VERSION,
+      `${PROMPT_VERSION}-comercial-2`,
       `${PROMPT_VERSION}-comercial-1`,
       'pace-rnaves-2.1.2-vertho-6',
       'pace-rnaves-2.1.2-vertho-3',

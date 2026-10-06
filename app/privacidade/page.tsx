@@ -309,7 +309,7 @@ export default function PoliticaPrivacidadePage() {
               'OpenAI, inclusive a transcrição das respostas faladas do treino de atendimento;',
               'Google, inclusive a interpretação de áudios enviados ao assistente no WhatsApp e a síntese de voz;',
               'Voyage, busca semântica no acervo de conteúdo;',
-              'Amazon Web Services (AWS Bedrock), processamento com o modelo Kimi K3 para criar cenários e representar clientes de dificuldade média ou alta no treinamento de vendas da equipe Vertho. Esse fluxo usa a infraestrutura da AWS e pode envolver processamento fora do Brasil.',
+              'Amazon Web Services (AWS Bedrock), processamento com o modelo Kimi K3 para criar cenários e representar clientes de dificuldade baixa, média ou alta no treinamento de vendas da equipe Vertho. Esse fluxo usa a infraestrutura da AWS e pode envolver processamento fora do Brasil.',
             ]}
           />
 

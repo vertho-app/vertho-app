@@ -17,11 +17,11 @@ export function modeloPaceCompativel(modelo: string): boolean {
 
 export function modeloVertho(
   etapa: 'criador' | 'cliente' | 'moderador' | 'intencao' | 'gerente',
-  nivel: 1 | 2 | 3,
+  _nivel: 1 | 2 | 3,
 ) {
   if (etapa === 'gerente')
-    return { modelo: 'claude-opus-5-5', esforco: 'medium' as const };
-  if (etapa === 'criador' || (etapa === 'cliente' && nivel !== 1))
+    return { modelo: 'claude-sonnet-5-5', esforco: 'medium' as const };
+  if (etapa === 'criador' || etapa === 'cliente')
     return { modelo: BEDROCK_KIMI_K3_MODEL, esforco: 'low' as const };
   return { modelo: 'gemini-3.8-flash', esforco: 'low' as const };
 }
