@@ -5,6 +5,8 @@
 - **Sempre faça deploy após ajustes/correções**: o app em uso é o de produção, e correção local que não sobe não resolve o problema do usuário. `git push origin master` dispara a Vercel (projeto `vertho-app`).
 - O **como** (build antes de considerar pronto, `git add` seletivo, commit com pathspec explícito, push-only, a catraca de pré-push e o deploy manual do Trigger.dev) está em **`CLAUDE.md` §Deploy**, fonte única. A versão que vivia aqui pedia só `typecheck` e "commite apenas os arquivos da correção": mais fraca que a regra real, e doc velho ensina o errado.
 
+- **Comandos pesados passam pela fila da máquina** (`npm run build`, `typecheck`, suíte inteira, Playwright): `node "C:/GAS/Vertho App/.claude/hooks/fila.mts" -- <comando>`. Um por vez, esperando RAM livre, com prioridade baixa; o PC trava quando várias sessões rodam build e `tsc` juntas. Detalhe em `CLAUDE.md` §Comandos. Sessões do Codex não têm o hook que nega o comando sem a fila: aqui a regra vale por esta instrução.
+
 ## Banco de dados (Supabase)
 
 - Projeto remoto: `xwuqrgrvakxtphbmudwj` (produção — não há ambiente local).

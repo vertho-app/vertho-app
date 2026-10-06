@@ -102,6 +102,12 @@ npm run test:unit      # testes (vitest, tests/unit/)
 npm run reset:demo     # reseta o tenant de demonstração acme-demo
 ```
 
+**Comandos pesados passam pela FILA da máquina** (06/10/2026). `npm run build`, `typecheck`/`tsc`, `test:unit` (suíte inteira) e Playwright rodam **um por vez**, esperando RAM livre (piso de 8 GB) e com prioridade baixa. O PC do dono trava por concorrência: um build leva a árvore de processos a **6,15 GB**, e `next build` + `tsc` ao mesmo tempo levaram a máquina a 93% de CPU com 3,7 GB livres (medido em 06/10; o gargalo é de várias sessões juntas, não de um comando).
+- Rode assim: `node "C:/GAS/Vertho App/.claude/hooks/fila.mts" -- npm run build` (idem `typecheck`, `test:unit`). Use `run_in_background` para build e suíte: a espera pode passar de alguns minutos. O hook `.claude/hooks/fila-pesado.js` (Bash e PowerShell) **nega** o comando pesado sem a fila e devolve o comando já reescrito.
+- Ficam de fora: teste de um arquivo só (`vitest run <arquivo>`) e o que é interativo (`dev`, `--watch`, `--ui`). A catraca de pré-push também passa pela fila (timeout do hook em 1500 s, nos dois `settings`).
+- Saídas: `#fila:livre` no fim do comando, ou `FILA_DESLIGADA=1`. Na Vercel e no GitHub Actions a fila passa direto; `CI=1` sozinho NÃO a desliga (a catraca roda com `CI=1`).
+- A fila e os hooks moram fora do repo, em `C:/GAS/Vertho App/.claude/hooks/` (`fila.mts`, testes em `fila-testes/`; rode à mão depois de mexer). Medições e limites: memória `project_maquina_lenta_fila_0610`.
+
 **Migrations**: arquivos em `migrations/NNN-nome.sql` (sequencial), aplicados por **script node + driver `pg`** (`scripts/apply-migration.mjs`). NÃO existe `supabase/migrations/` nem se usa `supabase db push`; o MCP Supabase é read-only. Pegadinhas (CONCURRENTLY, colisão de numeração): skill `migrations`. Processo: `docs/SCHEMA-PROCESS.md`.
 
 ## Padrões OBRIGATÓRIOS
