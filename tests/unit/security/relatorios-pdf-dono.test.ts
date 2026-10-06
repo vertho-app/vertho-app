@@ -101,6 +101,40 @@ describe('/api/relatorios/pdf confere de QUEM é o relatório (R-71)', () => {
     });
   });
 
+  // Reanálise de 06/10/2026: o PDI individual SEM `colaborador_id` não casava com nenhum ramo e sobrava só o
+  // tenant. Com colaborador, quem decide é `assertColabAccess` (simulado aqui, e coberto em outro arquivo).
+  describe('PDI individual sem colaborador gravado', () => {
+    beforeEach(() => {
+      estado.rel = { id: 'rel-1', empresa_id: EMPRESA, tipo: 'individual', colaborador_id: null, pdf_path: 'pdi.pdf', conteudo: {} };
+    });
+
+    it.each([['colaborador', 'colab-1'], ['gestor', 'gestor-1']])('🔴 %s da mesma empresa recebe 403', async (papel, id) => {
+      estado.ctx = sessao(papel, id);
+      expect((await baixar()).status).toBe(403);
+    });
+
+    it('RH da empresa baixa', async () => {
+      estado.ctx = sessao('rh', 'rh-1');
+      expect((await baixar()).status).toBe(200);
+    });
+
+    it('platform admin baixa', async () => {
+      estado.ctx = { ...sessao('colaborador', 'admin-1'), isPlatformAdmin: true, empresaId: null };
+      expect((await baixar()).status).toBe(200);
+    });
+
+    it('RH de OUTRA empresa continua barrado pelo tenant', async () => {
+      estado.ctx = { ...sessao('rh', 'rh-b'), empresaId: 'emp-b' };
+      expect((await baixar()).status).toBe(403);
+    });
+
+    it('com colaborador gravado o ramo antigo segue valendo (a decisão é do assertColabAccess)', async () => {
+      estado.rel = { ...estado.rel, colaborador_id: 'colab-1' };
+      estado.ctx = sessao('colaborador', 'colab-1');
+      expect((await baixar()).status).toBe(200);
+    });
+  });
+
   describe('Relatório RH', () => {
     beforeEach(() => {
       estado.rel = { id: 'rel-1', empresa_id: EMPRESA, tipo: 'rh', colaborador_id: null, pdf_path: 'rh.pdf', conteudo: {} };

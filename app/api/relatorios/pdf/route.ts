@@ -70,6 +70,13 @@ export async function GET(request) {
       if (auth.colaborador?.id === rel.colaborador_id && !auth.isPlatformAdmin && pdiRetidoPelaAuditoria(rel.conteudo, rel.gerado_em)) {
         return NextResponse.json({ error: 'PDI em preparação' }, { status: 404 });
       }
+    } else if (rel.tipo === 'individual') {
+      // PDI SEM `colaborador_id` (reanálise de 06/10/2026): sem esta ramificação nenhum `else if` casava e
+      // sobrava só o tenant, então qualquer papel da empresa com o id baixava um PDI sem dono. Sem dono
+      // gravado, ninguém é "a própria pessoa" nem "o gestor dela": só RH e plataforma.
+      if (!ehRhOuPlataforma) {
+        return NextResponse.json({ error: 'PDI sem colaborador exige rh/admin' }, { status: 403 });
+      }
     } else if (rel.tipo === 'gestor') {
       // `colaborador_id` do relatório do gestor é o PRÓPRIO gestor
       // (`lib/relatorios/gestor-rh-core.ts`); nulo nunca casa com ninguém.
