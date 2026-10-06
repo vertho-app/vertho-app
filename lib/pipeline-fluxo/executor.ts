@@ -16,6 +16,9 @@
 import { ORDEM_ETAPAS, progressoInicial, type EtapaId, type ParamsFluxo, type ProgressoEtapa, type ProgressoFluxo } from './tipos';
 
 export type ResultadoLote = { jobId: string; adotado: boolean } | { erro: string };
+/** Uma peça de biblioteca (conteúdo-base) a gerar antes da trilha: descritor × formato num cargo. */
+export interface ConteudoItem { competencia: string; descritor: string; cargo: string; formato: 'audio' | 'texto' | 'case' }
+
 /** Um tema do kit com DISC faltando (um `kit_jobs` por item, como o botão da coorte). */
 export interface KitItem {
   competencia: string; descritor: string; cargo: string;
@@ -37,6 +40,8 @@ export interface DepsFluxo {
     auditoria(alvo: string[]): Promise<string[]>;
     pdi(): Promise<string[]>;
     trilha(): Promise<string[]>;
+    /** Peças de biblioteca que a trilha vai precisar e ainda não existem. */
+    conteudo(): Promise<ConteudoItem[]>;
     kit(): Promise<KitItem[]>;
   };
   modelos(): Promise<Record<string, string>>;
@@ -47,6 +52,8 @@ export interface DepsFluxo {
   /** Espera todos os jobs juntos, num único laço de sondagem (um `wait.for` por volta, nunca em paralelo). */
   aguardarKits(jobIds: string[]): Promise<EsperaKit[]>;
   auditar(colaboradorId: string): Promise<{ ok: boolean; erro?: string }>;
+  /** Gera UMA peça de biblioteca (áudio já com MP3). */
+  gerarConteudo(item: ConteudoItem): Promise<{ ok: boolean; erro?: string }>;
   gerarTrilha(colaboradorId: string, aiConfig: Record<string, unknown>): Promise<{ ok: boolean; erro?: string }>;
   relatorioGestor(aiConfig: Record<string, unknown>): Promise<{ ok: boolean; gerados?: number; erros?: number; erro?: string }>;
   relatorioRh(aiConfig: Record<string, unknown>): Promise<{ ok: boolean; erro?: string }>;
@@ -67,8 +74,11 @@ const aiConfigDe = (modelos: Record<string, string>, chave: string, extra: Recor
 async function pool<T>(itens: T[], limite: number, fn: (i: T) => Promise<void>, parar: () => Promise<boolean> | boolean): Promise<{ restantes: number }> {
   let proximo = 0;
   const trabalhador = async () => {
-    while (proximo < itens.length) {
+    for (;;) {
       if (await parar()) return;
+      // Checar e tomar o índice SEM `await` no meio: com 2+ workers, checar antes do `await parar()` deixava dois deles passarem no
+      // último item e o segundo pegava `itens[itens.length]` (undefined), que virava uma falha fantasma (e uma chamada com item vazio).
+      if (proximo >= itens.length) return;
       const i = proximo++;
       await fn(itens[i]);
     }
@@ -146,20 +156,21 @@ export async function executarFluxo(
       continue;
     }
 
-    // ─── auditoria e trilha: COMPUTE por pessoa, em pool, com orçamento de tempo ────────────────────────
-    if (id === 'auditoria' || id === 'trilha') {
-      const fila = id === 'auditoria' ? await deps.ler.auditoria(prog.blueprintAlvo || []) : await deps.ler.trilha();
-      if (fila.length === 0) { e.estado = e.total > 0 ? 'ok' : 'pulado'; if (e.estado === 'pulado') e.detalhe = id === 'auditoria' ? 'nenhum blueprint novo para auditar' : 'nada pendente'; await salvar(); continue; }
-      if (dryRun) { e.total += fila.length; e.estado = 'pulado'; e.detalhe = `simulação: ${fila.length} pessoa(s) na fila`; await salvar(); continue; }
+    // ─── auditoria, conteúdos e trilha: COMPUTE por item, em pool, com orçamento de tempo ──────────────
+    if (id === 'auditoria' || id === 'trilha' || id === 'conteudo') {
+      const fila: any[] = id === 'auditoria' ? await deps.ler.auditoria(prog.blueprintAlvo || []) : id === 'trilha' ? await deps.ler.trilha() : await deps.ler.conteudo();
+      if (fila.length === 0) { e.estado = e.total > 0 ? 'ok' : 'pulado'; if (e.estado === 'pulado') e.detalhe = id === 'auditoria' ? 'nenhum blueprint novo para auditar' : id === 'conteudo' ? 'biblioteca já completa' : 'nada pendente'; await salvar(); continue; }
+      if (dryRun) { e.total += fila.length; e.estado = 'pulado'; e.detalhe = `simulação: ${fila.length} ${id === 'conteudo' ? 'peça(s) de biblioteca' : 'pessoa(s)'} na fila`; await salvar(); continue; }
       // Total = o que já foi tratado nas execuções anteriores + o que ainda está na fila agora.
       e.total = e.feitos + e.falhas + fila.length;
 
       const t0 = deps.agora();
       const aiConfig = id === 'trilha' ? aiConfigDe(prog.modelos!, 'temporada_desafio') : {};
       let cancelou = false;
-      const { restantes } = await pool(fila, concorrencia, async (colab) => {
+      // Conteúdos em concorrência BAIXA: o áudio leva TTS e o TTS do Vertex é compartilhado com o vídeo (F-V4).
+      const { restantes } = await pool(fila, id === 'conteudo' ? Math.min(concorrencia, 2) : concorrencia, async (colab) => {
         let r: { ok: boolean; erro?: string };
-        try { r = id === 'auditoria' ? await deps.auditar(colab) : await deps.gerarTrilha(colab, aiConfig); }
+        try { r = id === 'auditoria' ? await deps.auditar(colab) : id === 'conteudo' ? await deps.gerarConteudo(colab) : await deps.gerarTrilha(colab, aiConfig); }
         catch (err: any) { r = { ok: false, erro: String(err?.message || err).slice(0, 160) }; }
         if (r.ok) e.feitos++; else { e.falhas++; e.detalhe = r.erro || e.detalhe; }
         await salvar(`${e.titulo}: ${e.feitos + e.falhas}/${e.total}`);

@@ -20,6 +20,7 @@ import { regionOpts } from '@/lib/trigger-region';
 import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { coletarEntradaPrevia, lerTudoPaginado } from '@/lib/pipeline-fluxo/coletar';
 import { montarPreviaFluxo, type PreviaFluxo } from '@/lib/pipeline-fluxo/previa';
+import { filaConteudoEscopo } from '@/lib/pipeline-fluxo/conteudo';
 import { FASE_FLUXO, TASK_FLUXO, progressoInicial, type ParamsFluxo, type ProgressoFluxo } from '@/lib/pipeline-fluxo/tipos';
 
 const EntradaSchema = z.object({
@@ -52,6 +53,10 @@ export async function previaFluxoCompleto(input: z.infer<typeof EntradaSchema>):
 
     const coleta = await coletarEntradaPrevia(tenantDb(empresaId), { permitidos, cargos: cargos || undefined, kit: { sb, empresaId, turmaId: turmaId || null } });
     if (coleta.error || !coleta.entrada) return { success: false, error: coleta.error || 'Falha ao coletar o estado da empresa' };
+    // Biblioteca que falta para quem vai ter trilha montada (reaproveita a coleta). Falha de leitura derruba a prévia: ela não
+    // pode mostrar "0 peças" quando na verdade não conseguiu medir.
+    const fila = await filaConteudoEscopo(tenantDb(empresaId), { permitidos, cargos: cargos || undefined }, coleta.entrada);
+    coleta.entrada.conteudoPlano = { pecas: fila.length, audios: fila.filter((i) => i.formato === 'audio').length };
     return { success: true, previa: montarPreviaFluxo(coleta.entrada), cargosFiltrados: cargos || [] };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Erro ao montar a prévia' };

@@ -226,3 +226,22 @@ describe('Kit semanal na prévia', () => {
     expect(etapa(semMedir, 'kit').nota).toMatch(/Não medido/);
   });
 });
+
+describe('Conteúdos (biblioteca) na prévia', () => {
+  it('conta as peças que faltam; o podcast soma o TTS ao custo; sem medir, avisa', () => {
+    const so = montarPreviaFluxo(entrada({ conteudoPlano: { pecas: 10, audios: 0 } }));
+    expect(etapa(so, 'conteudo')).toMatchObject({ unidade: 'peca', prontosAgora: 10 });
+    expect(etapa(so, 'conteudo').custoUsd).toEqual({ min: 0.5, max: 1.4 });
+    expect(so.nadaAFazer).toBe(false);
+    const com = montarPreviaFluxo(entrada({ conteudoPlano: { pecas: 10, audios: 4 } }));
+    expect(etapa(com, 'conteudo').custoUsd).toEqual({ min: 0.7, max: 1.88 });
+    expect(etapa(com, 'conteudo').nota).toMatch(/4 podcast\(s\)/);
+    const semMedir = montarPreviaFluxo(entrada());
+    expect(etapa(semMedir, 'conteudo').prontosAgora).toBe(0);
+    expect(etapa(semMedir, 'conteudo').nota).toMatch(/Não medido/);
+  });
+  it('a biblioteca vem ANTES da trilha na prévia (mesma ordem do que roda)', () => {
+    const ids = montarPreviaFluxo(entrada()).etapas.map((e) => e.id);
+    expect(ids.indexOf('conteudo')).toBe(ids.indexOf('trilha') - 1);
+  });
+});

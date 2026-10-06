@@ -10,11 +10,13 @@ import { gerarTemporadaCoreHeadless } from '@/lib/season-engine/trilha-core';
 import { gerarRelatorioGestorCore, gerarRelatorioRHCore } from '@/lib/relatorios/gestor-rh-core';
 import { executarFluxo, type DepsFluxo } from '@/lib/pipeline-fluxo/executor';
 import { enfileirarLote, enfileirarKit, lerDesfechoDoJob, lerDesfechoKits } from '@/lib/pipeline-fluxo/enfileirar';
+import { filaConteudoEscopo } from '@/lib/pipeline-fluxo/conteudo';
+import { gerarConteudoDaBiblioteca } from '@/lib/pipeline-fluxo/conteudo-gerar';
 import { filaIA4Escopo, filaBlueprintEscopo, filaPdiEscopo, filaTrilhaEscopo, filaAuditoriaEscopo, filaKitEscopo } from '@/lib/pipeline-fluxo/filas';
 import { TASK_FLUXO, type ParamsFluxo, type ProgressoFluxo } from '@/lib/pipeline-fluxo/tipos';
 
 /**
- * FLUXO COMPLETO em background: IA4+check → blueprint → auditoria → PDI → trilha → kit (sem vídeo) → Gestor → RH, depois que o admin
+ * FLUXO COMPLETO em background: IA4+check → blueprint → auditoria → PDI → conteúdos (biblioteca) → trilha → kit (sem vídeo) → Gestor → RH, depois que o admin
  * definiu as competências foco (esse passo continua humano). Só a FIAÇÃO mora aqui; o controle de fluxo (ordem, pulos,
  * cancelamento, continuação, simulação) está em `lib/pipeline-fluxo/executor.ts`, testado sem rede.
  *
@@ -72,6 +74,7 @@ export const fluxoCompletoTask = task({
             auditoria: (alvo) => filaAuditoriaEscopo(tdb, alvo),
             pdi: () => filaPdiEscopo(tdb, permitidos),
             trilha: () => filaTrilhaEscopo(tdb, permitidos, params.excecaoInternos),
+            conteudo: () => filaConteudoEscopo(tdb, { permitidos, cargos: params.escopo?.cargos || undefined, incluirInternos: params.excecaoInternos }),
             // RAW de propósito: a varredura do plano precisa enxergar também os kits GLOBAIS (empresa_id nulo).
             kit: () => filaKitEscopo(sb, empresaId, { turmaId: params.escopo?.turmaId, cargos: params.escopo?.cargos, semanaMax: params.kitSemanaMax }),
           },
@@ -93,6 +96,7 @@ export const fluxoCompletoTask = task({
               await wait.for({ seconds: SONDAGEM_S });
             }
           },
+          gerarConteudo: (item) => gerarConteudoDaBiblioteca(sb, empresaId, item),
           kitEnfileirar: (item) => enfileirarKit(sb, { empresaId, item }),
           aguardarKits: async (jobIds) => {
             const inicio = Date.now();

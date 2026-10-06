@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { executarFluxo, type DepsFluxo, type KitItem } from '@/lib/pipeline-fluxo/executor';
+import { executarFluxo, type DepsFluxo, type KitItem, type ConteudoItem } from '@/lib/pipeline-fluxo/executor';
 import { progressoInicial, ORDEM_ETAPAS, type ParamsFluxo, type EtapaId } from '@/lib/pipeline-fluxo/tipos';
 
 /**
  * O executor é o controle de fluxo do botão "fluxo completo". Estes testes usam dependências falsas que REGISTRAM
  * cada chamada, então provam o que o fluxo FAZ (e, principalmente, o que NÃO faz) sem Trigger, banco ou IA.
  */
-type Filas = { ia4?: { itens: string[]; checkOnly?: string[] }; blueprint?: string[]; auditoria?: string[]; pdi?: string[]; trilha?: string[]; kit?: KitItem[] };
+type Filas = { ia4?: { itens: string[]; checkOnly?: string[] }; blueprint?: string[]; auditoria?: string[]; pdi?: string[]; trilha?: string[]; kit?: KitItem[]; conteudo?: ConteudoItem[] };
 
 function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
   const chamadas: string[] = [];
@@ -17,6 +17,7 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
   const trilhas: string[] = [];
   const gravados: any[] = [];
   const kitsEnfileirados: KitItem[] = [];
+  const conteudosGerados: ConteudoItem[] = [];
   const deps: DepsFluxo = {
     ler: {
       ia4: async () => { chamadas.push('ler.ia4'); return { itens: filas.ia4?.itens ?? [], checkOnly: filas.ia4?.checkOnly ?? [] }; },
@@ -24,11 +25,13 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
       auditoria: async (alvo) => { chamadas.push('ler.auditoria'); return (filas.auditoria ?? alvo).filter((x) => !auditados.includes(x)); },
       pdi: async () => { chamadas.push('ler.pdi'); return filas.pdi ?? []; },
       trilha: async () => { chamadas.push('ler.trilha'); return (filas.trilha ?? []).filter((x) => !trilhas.includes(x)); },
+      conteudo: async () => { chamadas.push('ler.conteudo'); return (filas.conteudo ?? []).filter((x) => !conteudosGerados.includes(x)); },
       kit: async () => { chamadas.push('ler.kit'); return filas.kit ?? []; },
     },
     modelos: async () => ({ ia4_avaliacao: 'claude-sonnet-5-5', ia4_check: 'gpt-5.6-terra', blueprint_gerar: 'claude-sonnet-5', pdi_individual: 'claude-sonnet-5', temporada_desafio: 'claude-sonnet-4-6', relatorio_gestor: 'claude-sonnet-5', relatorio_rh: 'claude-sonnet-5' }),
     lote: async (etapa, args) => { chamadas.push(`lote.${etapa}`); lotes.push({ etapa, args }); return { jobId: `job-${etapa}`, adotado: false }; },
     aguardarJob: async (id) => { chamadas.push(`aguardar.${id}`); return { status: 'done' }; },
+    gerarConteudo: async (item) => { chamadas.push(`conteudo.${item.descritor}.${item.formato}`); conteudosGerados.push(item); relogio += 10; return { ok: true }; },
     kitEnfileirar: async (item) => { chamadas.push(`kit.enfileirar.${item.competencia}`); kitsEnfileirados.push(item); return { jobId: `kit-${item.competencia}`, adotado: false }; },
     aguardarKits: async (ids) => { chamadas.push('kit.aguardar'); return ids.map((jobId) => ({ jobId, status: 'done' as const, kits: kitsEnfileirados.find((k) => `kit-${k.competencia}` === jobId)?.faltantes.length ?? 0 })); },
     auditar: async (id) => { chamadas.push(`auditar.${id}`); auditados.push(id); relogio += 10; return { ok: true }; },
@@ -40,18 +43,19 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
     agora: () => relogio,
     ...extra,
   };
-  return { deps, chamadas, lotes, auditados, trilhas, gravados, kitsEnfileirados, cancelar: () => { cancelar = true; } };
+  return { deps, chamadas, lotes, auditados, trilhas, gravados, kitsEnfileirados, conteudosGerados, cancelar: () => { cancelar = true; } };
 }
 const params = (p: Partial<ParamsFluxo> = {}): ParamsFluxo => ({ empresaId: 'e1', escopo: {}, permitidos: null, ...p });
+const pecaItem = (descritor: string, formato: ConteudoItem['formato'] = 'texto'): ConteudoItem => ({ competencia: 'C', descritor, cargo: 'CAIXA', formato });
 const kitItem = (competencia: string, faltantes = ['D', 'I']): KitItem => ({ competencia, descritor: 'd1', cargo: 'CAIXA', faltantes, formatos: ['texto', 'case'], video: false, contexto: 'generico', nivelMin: 1, nivelMax: 2 });
 const etapa = (r: any, id: EtapaId) => r.progresso.etapas.find((e: any) => e.id === id);
 
 describe('ordem e execução completa', () => {
-  it('roda as 8 etapas NA ORDEM, cada uma recalculando a própria fila', async () => {
-    const m = montar({ ia4: { itens: ['r1', 'r2'] }, blueprint: ['a'], pdi: ['a'], trilha: ['a'], kit: [kitItem('c1')] });
+  it('roda as 9 etapas NA ORDEM, cada uma recalculando a própria fila', async () => {
+    const m = montar({ ia4: { itens: ['r1', 'r2'] }, blueprint: ['a'], pdi: ['a'], trilha: ['a'], kit: [kitItem('c1')], conteudo: [pecaItem('d1', 'audio')] });
     const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
     expect(r.resultado).toBe('terminou');
-    const marcas = ['ler.ia4', 'lote.ia4', 'ler.blueprint', 'lote.blueprint', 'ler.auditoria', 'auditar.a', 'ler.pdi', 'lote.relatorios', 'ler.trilha', 'trilha.a', 'ler.kit', 'kit.enfileirar.c1', 'kit.aguardar', 'gestor', 'rh'];
+    const marcas = ['ler.ia4', 'lote.ia4', 'ler.blueprint', 'lote.blueprint', 'ler.auditoria', 'auditar.a', 'ler.pdi', 'lote.relatorios', 'ler.conteudo', 'conteudo.d1.audio', 'ler.trilha', 'trilha.a', 'ler.kit', 'kit.enfileirar.c1', 'kit.aguardar', 'gestor', 'rh'];
     const posicoes = marcas.map((c) => m.chamadas.indexOf(c));
     expect(posicoes.every((p) => p >= 0)).toBe(true);
     expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b)); // estritamente na ordem
@@ -387,5 +391,83 @@ describe('kit em ONDAS (TTS compartilhado entre podcast e vídeo)', () => {
     expect(r.resultado).toBe('cancelado');
     expect(m.kitsEnfileirados).toHaveLength(3);
     expect(etapa(r, 'kit').feitos).toBe(3);
+  });
+});
+
+describe('conteúdos (biblioteca) ANTES da trilha', () => {
+  it('a biblioteca é gerada antes da trilha: a trilha aborta sem conteúdo-base, então a ordem é a regra', async () => {
+    const m = montar({ trilha: ['a'], conteudo: [pecaItem('d1'), pecaItem('d2')] });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(m.chamadas.indexOf('conteudo.d2.texto')).toBeLessThan(m.chamadas.indexOf('trilha.a'));
+    expect(etapa(r, 'conteudo')).toMatchObject({ estado: 'ok', total: 2, feitos: 2, falhas: 0 });
+  });
+
+  it('biblioteca completa: pulada com a razão dita', async () => {
+    const m = montar({ conteudo: [] });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'conteudo')).toMatchObject({ estado: 'pulado', detalhe: 'biblioteca já completa' });
+  });
+
+  it('simulação: conta as peças e NÃO gera nada', async () => {
+    const m = montar({ conteudo: [pecaItem('d1'), pecaItem('d2', 'audio')] });
+    const r = await executarFluxo(params({ dryRun: true }), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'conteudo')).toMatchObject({ estado: 'pulado', total: 2 });
+    expect(etapa(r, 'conteudo').detalhe).toMatch(/simulação: 2 peça\(s\) de biblioteca/);
+    expect(m.conteudosGerados).toHaveLength(0);
+  });
+
+  it('falha de UMA peça não derruba as outras nem a cadeia; o estado vira parcial', async () => {
+    const m = montar({ conteudo: [pecaItem('d1'), pecaItem('d2'), pecaItem('d3')], trilha: ['a'] }, {
+      gerarConteudo: async (item) => (item.descritor === 'd2' ? { ok: false, erro: 'IA fora' } : { ok: true }),
+    });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'conteudo')).toMatchObject({ estado: 'parcial', feitos: 2, falhas: 1 });
+    expect(r.resultado).toBe('terminou');
+    expect(m.trilhas).toContain('a');
+  });
+
+  it('exceção ao gerar uma peça vira falha da peça, não da etapa', async () => {
+    const m = montar({ conteudo: [pecaItem('d1')] }, { gerarConteudo: async () => { throw new Error('explodiu'); } });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'conteudo')).toMatchObject({ estado: 'erro', falhas: 1 });
+    expect(etapa(r, 'conteudo').detalhe).toMatch(/explodiu/);
+  });
+
+  it('concorrência BAIXA (TTS compartilhado com o vídeo): no máximo 2 peças ao mesmo tempo', async () => {
+    let emVoo = 0; let pico = 0;
+    const m = montar({ conteudo: ['d1', 'd2', 'd3', 'd4', 'd5', 'd6'].map((d) => pecaItem(d, 'audio')) }, {
+      gerarConteudo: async () => { emVoo++; pico = Math.max(pico, emVoo); await new Promise((r) => setTimeout(r, 5)); emVoo--; return { ok: true }; },
+    });
+    await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000, concorrencia: 5 });
+    expect(pico).toBeLessThanOrEqual(2);
+  });
+
+  it('acabou o orçamento de tempo: continua na próxima execução, e a continuação só pega o que falta', async () => {
+    const m = montar({ conteudo: [pecaItem('d1'), pecaItem('d2'), pecaItem('d3'), pecaItem('d4')] });
+    const r1 = await executarFluxo(params(), null, m.deps, { orcamentoMs: 15, concorrencia: 1 });
+    expect(r1.resultado).toBe('continuar');
+    expect(etapa(r1, 'conteudo').estado).toBe('rodando');
+    const r2 = await executarFluxo(params(), r1.progresso, m.deps, { orcamentoMs: 10_000 });
+    expect(r2.resultado).toBe('terminou');
+    expect(m.conteudosGerados).toHaveLength(4);
+    expect(new Set(m.conteudosGerados.map((i) => i.descritor)).size).toBe(4);
+  });
+});
+
+describe('pool do executor: cada item roda UMA vez (sem item fantasma no último)', () => {
+  it('3 itens com 3 workers e parar() assíncrono: nenhum item é chamado vazio nem repetido, em auditoria, conteúdos e trilha', async () => {
+    const chamadosA: any[] = []; const chamadosC: any[] = []; const chamadosT: any[] = [];
+    const m = montar({ blueprint: ['a', 'b', 'c'], conteudo: [pecaItem('d1'), pecaItem('d2'), pecaItem('d3')], trilha: ['x', 'y', 'z'] }, {
+      auditar: async (id) => { chamadosA.push(id); await new Promise((r) => setTimeout(r, 3)); return { ok: true }; },
+      gerarConteudo: async (item) => { chamadosC.push(item); await new Promise((r) => setTimeout(r, 3)); return { ok: true }; },
+      gerarTrilha: async (id) => { chamadosT.push(id); await new Promise((r) => setTimeout(r, 3)); return { ok: true }; },
+    });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000, concorrencia: 3 });
+    expect(chamadosA.filter((x) => x === undefined)).toHaveLength(0);
+    expect(chamadosC.filter((x) => x === undefined)).toHaveLength(0);
+    expect(chamadosT.filter((x) => x === undefined)).toHaveLength(0);
+    expect(new Set(chamadosA).size).toBe(chamadosA.length);
+    expect(etapa(r, 'conteudo')).toMatchObject({ estado: 'ok', feitos: 3, falhas: 0 });
+    expect(etapa(r, 'trilha')).toMatchObject({ estado: 'ok', feitos: 3, falhas: 0 });
   });
 });

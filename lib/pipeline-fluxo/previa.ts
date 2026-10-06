@@ -43,9 +43,14 @@ export type EntradaPrevia = {
    * só aparece depois da etapa da trilha. Ausente = não medido (a etapa aparece com 0 e a nota avisa).
    */
   kitPlano?: { kits: number; podcasts: number; videos: number };
+  /**
+   * Peças de BIBLIOTECA que faltam para quem vai ter trilha montada (`filaConteudoEscopo`), e quantas são podcasts (que levam
+   * TTS). Ausente = não medido (a etapa aparece com 0 e a nota avisa).
+   */
+  conteudoPlano?: { pecas: number; audios: number };
 };
 
-export type EtapaId = 'ia4' | 'blueprint' | 'auditoria' | 'pdi' | 'trilha' | 'kit' | 'gestor' | 'rh';
+export type EtapaId = 'ia4' | 'blueprint' | 'auditoria' | 'pdi' | 'conteudo' | 'trilha' | 'kit' | 'gestor' | 'rh';
 
 export type FaixaUsd = { min: number; max: number };
 
@@ -53,7 +58,7 @@ export type EtapaPrevia = {
   id: EtapaId;
   titulo: string;
   /** Unidades que o custo cobra (respostas na IA4, pessoas nas demais, relatórios em Gestor/RH). */
-  unidade: 'resposta' | 'pessoa' | 'relatorio' | 'kit';
+  unidade: 'resposta' | 'pessoa' | 'relatorio' | 'kit' | 'peca';
   prontosAgora: number;
   /** Ficam prontos DEPOIS que a etapa anterior rodar (projeção). */
   aposEtapaAnterior: number;
@@ -104,6 +109,9 @@ export const CUSTO_POR_UNIDADE: Record<EtapaId, FaixaUsd> = {
   auditoria: { min: 0.04, max: 0.08 },
   pdi: { min: 0.12, max: 0.38 },
   trilha: { min: 0.14, max: 0.30 },
+  // Peça de biblioteca (unidade = descritor × formato): texto 0,065 / caso 0,059 / roteiro de podcast 0,054 (ledger 90 d); o áudio
+  // soma o TTS (`CUSTO_EXTRA_KIT.podcast`) na prévia. Faixa FRACA: o teto cobre expansão de PDF e plano de layout.
+  conteudo: { min: 0.05, max: 0.14 },
   kit: { min: 0.20, max: 0.45 },
   gestor: { min: 0.06, max: 0.08 },
   rh: { min: 0.07, max: 0.10 },
@@ -116,6 +124,7 @@ const TITULOS: Record<EtapaId, string> = {
   blueprint: 'Blueprint',
   auditoria: 'Auditoria do blueprint',
   pdi: 'PDI',
+  conteudo: 'Conteúdos (biblioteca da trilha)',
   trilha: 'Trilha (temporada)',
   kit: 'Kit semanal (conteúdos por DISC)',
   gestor: 'Relatório do Gestor',
@@ -123,7 +132,7 @@ const TITULOS: Record<EtapaId, string> = {
 };
 
 const UNIDADES: Record<EtapaId, EtapaPrevia['unidade']> = {
-  ia4: 'resposta', blueprint: 'pessoa', auditoria: 'pessoa', pdi: 'pessoa', trilha: 'pessoa', kit: 'kit', gestor: 'relatorio', rh: 'relatorio',
+  ia4: 'resposta', blueprint: 'pessoa', auditoria: 'pessoa', pdi: 'pessoa', conteudo: 'peca', trilha: 'pessoa', kit: 'kit', gestor: 'relatorio', rh: 'relatorio',
 };
 
 const faixa = (unidades: number, por: FaixaUsd): FaixaUsd => ({
@@ -248,6 +257,9 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     else bloquear('trilha', `Falta responder: ${faltam.join(', ')}`, p.nome);
   }
 
+  // Conteúdos: biblioteca que a trilha precisa (peças = descritor × formato).
+  acc.conteudo.agora = entrada.conteudoPlano?.pecas ?? 0; acc.conteudo.unidades = entrada.conteudoPlano?.pecas ?? 0;
+
   // Kit: o que falta para as trilhas JÁ existentes (a medição é da varredura da coorte, não por pessoa).
   acc.kit.agora = entrada.kitPlano?.kits ?? 0; acc.kit.unidades = entrada.kitPlano?.kits ?? 0;
 
@@ -261,6 +273,7 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
   const notas: Partial<Record<EtapaId, string>> = {
     ia4: 'Conta as respostas da fila da IA4 (pendentes + presas), não as pessoas.',
     auditoria: 'Só dos blueprints gerados nesta rodada; blueprint antigo não é reauditado.',
+    conteudo: entrada.conteudoPlano === undefined ? 'Não medido nesta prévia.' : `Biblioteca que falta (descritor × formato) para quem vai ter trilha montada, nos formatos que as pessoas precisam: ${entrada.conteudoPlano.audios} podcast(s) com áudio. Sem peça faltando, a etapa é pulada.`,
     trilha: 'Faixa de custo fraca: só a extração aparece por pessoa no ledger.',
     kit: entrada.kitPlano === undefined ? 'Não medido nesta prévia.' : `Kits (tema × DISC) que faltam para as trilhas já montadas, com os 2 primeiros formatos das preferências: ${entrada.kitPlano.podcasts} podcast(s) pré-renderizado(s) e ${entrada.kitPlano.videos} vídeo(s). Os das trilhas novas aparecem depois da etapa da trilha.`,
     gestor: entrada.empresaInteira === false ? 'Não incluído: o relatório não filtra por turma/cargo (gere manualmente se quiser).' : 'Gera ao final; um por gestor (agrupado por e-mail do gestor).',
@@ -275,6 +288,8 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
   }));
 
   // Podcast pré-renderizado e vídeo entram no custo do kit (a faixa base cobre núcleo, desafio e textos).
+  const conteudoEtapa = etapas.find((e) => e.id === 'conteudo')!;
+  if (entrada.conteudoPlano) conteudoEtapa.custoUsd = somar(conteudoEtapa.custoUsd, faixa(entrada.conteudoPlano.audios, CUSTO_EXTRA_KIT.podcast));
   const kitEtapa = etapas.find((e) => e.id === 'kit')!;
   if (entrada.kitPlano) {
     kitEtapa.custoUsd = somar(somar(kitEtapa.custoUsd, faixa(entrada.kitPlano.podcasts, CUSTO_EXTRA_KIT.podcast)), faixa(entrada.kitPlano.videos, CUSTO_EXTRA_KIT.video));
