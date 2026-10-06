@@ -23,6 +23,18 @@
  * errar sai da tela e vira função com teste.
  */
 
+/**
+ * A ORIGEM do player da Bunny: é a do iframe de embed (`https://iframe.mediadelivery.net`, a mesma de
+ * todas as URLs montadas por aqui). O `postMessage` só vale vindo dela, por IGUALDADE. A tela tinha
+ * `origin.includes('mediadelivery.net')`, que aceita `mediadelivery.net.evil.com`: uma página do
+ * atacante marcaria como consumido o conteúdo de quem a abrisse (reanálise de 05/10/2026).
+ */
+export const ORIGEM_DO_PLAYER_BUNNY = 'https://iframe.mediadelivery.net';
+
+export function eOrigemDoPlayerBunny(origin: unknown): boolean {
+  return origin === ORIGEM_DO_PLAYER_BUNNY;
+}
+
 /** `/embed/{library}/{guid}` — o guid é UUID; query e hash são ignorados. */
 const EMBED = /\/embed\/[^/]+\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[/?#]|$)/i;
 

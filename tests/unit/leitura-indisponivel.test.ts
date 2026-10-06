@@ -38,7 +38,8 @@ vi.mock('@/lib/degradacao', async (orig) => ({ ...(await orig<any>()), registrar
 vi.mock('@/lib/demo/envio-guard', () => ({ isTenantDemo: async () => false }));
 vi.mock('@/actions/temporada-concluida', () => ({ loadTemporadaConcluida: vi.fn() }));
 
-import { resolverEscopoDoGestor, getGestorHomeData, getEngajamentoDoTime } from '@/app/dashboard/gestor/actions';
+import { getGestorHomeData, getEngajamentoDoTime } from '@/app/dashboard/gestor/actions';
+import { resolverEscopoDoGestor } from '@/lib/gestor/escopo';
 import { listarEquipeEvolucao, listarCheckpointsPendentes } from '@/app/dashboard/gestor/equipe-evolucao/actions';
 import { acessoSimuladoresDoColaborador } from '@/lib/simuladores/acesso';
 import { SEM_ACESSO, ACESSO_ATUAL } from '@/lib/simuladores/acesso-cargo';

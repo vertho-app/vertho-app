@@ -56,7 +56,7 @@ vi.mock('@/lib/auth/action-context', () => ({
 }));
 
 import { prepareAcmeProspectExperience } from '@/lib/demo/acme-prospect-experience';
-import { resolverEscopoDoGestor } from '@/app/dashboard/gestor/actions';
+import { resolverEscopoDoGestor } from '@/lib/gestor/escopo';
 import { resetEnvioGuardCache } from '@/lib/demo/envio-guard';
 
 /** A gerente do roster comercial, que é quem a visão GESTOR da sala loga. */

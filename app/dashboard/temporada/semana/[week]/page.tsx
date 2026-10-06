@@ -13,6 +13,7 @@ import BackButton from '@/components/back-button';
 import { loadTemporada, loadTemporadaPorEmail, marcarConteudoConsumido } from '@/actions/temporadas';
 import { resolverVideoDaSemana, resolverVideoDaSemanaGestor } from '@/actions/gerar-video';
 import { useBunnyTracking } from '@/lib/use-bunny-tracking';
+import { eOrigemDoPlayerBunny } from '@/lib/conteudo/bunny-embed';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
@@ -1495,7 +1496,7 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
     if (ativo !== 'video') return;
     let markedRef = false;
     const handler = (event) => {
-      if (!event.origin?.includes('mediadelivery.net')) return;
+      if (!eOrigemDoPlayerBunny(event.origin)) return;
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         // Bunny player.js envia 'timeupdate' com seconds/duration, ou 'play_finished'
