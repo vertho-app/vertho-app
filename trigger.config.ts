@@ -75,6 +75,9 @@ export default defineConfig({
       // container — senão renderMedia falha com "Cannot find module
       // @remotion/compositor-linux-x64-gnu".
       additionalPackages({ packages: ['@remotion/compositor-linux-x64-gnu@4.0.476'] }),
+      // audio-dsp usa createRequire como fallback CJS; o bundler não segue
+      // esse import dinâmico. Instalar a mesma versão do lock na imagem.
+      additionalPackages({ packages: ['@breezystack/lamejs@1.2.7'] }),
       additionalFiles({ files: ['spike-bundle/**'] }),
       // Vinheta de abertura/encerramento do podcast: `gerarPodcastAudioCore` lê de `public/audio/podcast/`. Sem isto o áudio
       // pré-renderizado do Kit falhava na task com ENOENT (`/app/public/audio/podcast/mentorIA-abertura.wav`, 03/10/2026).
