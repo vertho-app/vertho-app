@@ -6414,7 +6414,7 @@
       "uploading": "Enviando...",
       "uploadLogo": "Upload Logo",
       "removeLogo": "Remover logo",
-      "logoHint": "PNG, JPG, SVG ou WebP. Max 2MB.",
+      "logoHint": "PNG, JPG ou WebP. Max 2MB.",
       "colorsTitle": "Cores do Login",
       "subtitle": "Subtítulo do Login",
       "subtitlePlaceholder": "Sua jornada de desenvolvimento",

@@ -52,6 +52,33 @@ export function idDeMidiaValido(mediaId: string): boolean {
   return /^\d{5,25}$/.test(String(mediaId || ''));
 }
 
+/**
+ * MIME que o navegador MOSTRA sem executar nada: imagem, áudio, vídeo e PDF. O resto (HTML, SVG, XML,
+ * JavaScript, o que o remetente declarar) não pode ser servido inline na origem do app.
+ */
+const MIME_INLINE_SEGURO = /^(image\/(jpeg|png|webp|gif)|audio\/(ogg|mpeg|mp4|aac|amr|webm)|video\/(mp4|3gpp|webm)|application\/pdf)\s*(;|$)/i;
+
+/**
+ * Cabeçalhos de um arquivo de conversa servido PELO BINÁRIO (o ramo em que o Storage falhou e o proxy
+ * entrega o que baixou da Meta). O `Content-Type` vem do REMETENTE, uma pessoa de fora: servir `text/html`
+ * ou `image/svg+xml` inline na origem do app seria XSS com a sessão do admin que abriu a conversa
+ * (reanálise de 05/10/2026). Tipo seguro segue inline; qualquer outro sai como download, sem tipo e dentro
+ * de um sandbox, e `nosniff` vale nos dois casos.
+ */
+export function cabecalhosDoArquivoRecebido(mime: string | null | undefined): Record<string, string> {
+  const tipo = String(mime ?? '').trim();
+  const seguro = MIME_INLINE_SEGURO.test(tipo);
+  return {
+    'Content-Type': seguro ? tipo : 'application/octet-stream',
+    // `private`: conteúdo de conversa de uma pessoa identificável. Cache compartilhado (CDN) serviria o
+    // áudio de um colaborador a outra sessão.
+    'Cache-Control': 'private, max-age=300',
+    'Content-Disposition': seguro ? 'inline' : 'attachment',
+    'X-Content-Type-Options': 'nosniff',
+    ...(seguro ? {} : { 'Content-Security-Policy': "default-src 'none'; sandbox" }),
+  };
+}
+
 export function caminhoDaMidia(mediaId: string): string {
   return `meta/${mediaId}`;
 }

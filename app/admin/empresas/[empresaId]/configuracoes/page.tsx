@@ -649,7 +649,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                 <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium border border-white/[0.06] text-gray-300 hover:border-cyan-400/30 hover:bg-cyan-400/5 transition-all cursor-pointer" style={{ background: '#091D35' }}>
                   {uploading ? <Loader2 size={14} className="animate-spin text-cyan-400" /> : <Upload size={14} className="text-cyan-400" />}
                   {uploading ? t('branding.uploading') : t('branding.uploadLogo')}
-                  <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={handleLogoUpload} className="hidden" disabled={uploading} />
+                  <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoUpload} className="hidden" disabled={uploading} />
                 </label>
                 {branding.logo_url && (
                   <button

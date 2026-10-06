@@ -436,6 +436,25 @@ describe('disparos do admin: o idioma é o do destinatário (pessoa, senão empr
     expect(enviadoPara('rui@escola.test').html).toContain(`>${ROTULO_PRIVACIDADE['pt-PT']}</a>`);
   });
 
+  it('🔴 mensagem customizada: nome, cargo e empresa que o cadastro traz entram ESCAPADOS no HTML', async () => {
+    // Reanálise de 05/10/2026: `{{nome}}`, `{{cargo}}` e `{{empresa}}` entravam crus no HTML do e-mail.
+    const hostil = {
+      id: 'c-h', nome_completo: '<img src=x onerror=alert(1)> Zé', email: 'ze@escola.test', locale: 'pt-BR',
+      cargo: '<b>Prof</b> & "dir"', telefone: null, perfil_dominante: 'D', d_natural: 60,
+    };
+    sbAtual = criarSupabaseMock({
+      resolver: (t, cols) => (t === 'empresas' ? projetar([{ nome: 'Escola <i>Teste</i>', slug: 'escolateste', default_locale: null }], cols)[0] : null),
+      lista: (t, cols) => (t === 'colaboradores' ? projetar([hostil], cols) : []),
+    });
+    const r: any = await dispararMensagemCustomizada('emp-1', 'Oi {{nome}}, {{cargo}} de {{empresa}}', 'email', {}, 'Aviso');
+    expect(r.success).toBe(true);
+    const html: string = enviadoPara('ze@escola.test').html;
+    expect(html).not.toContain('<img');
+    expect(html).not.toContain('<b>');
+    expect(html).not.toContain('<i>');
+    expect(html).toContain('Oi &lt;img, &lt;b&gt;Prof&lt;/b&gt; &amp; &quot;dir&quot; de Escola &lt;i&gt;Teste&lt;/i&gt;');
+  });
+
   it('mensagem customizada: o assunto que o operador escreve não é traduzido nem trocado', async () => {
     sbAtual = mockDaEmpresa('en-US');
     await dispararMensagemCustomizada('emp-1', 'Oi', 'email', {}, 'Aviso importante');

@@ -8,7 +8,7 @@ import { EMAIL_FROM_DEFAULT, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 import { emailConfigurationError, sendEmail, type SendEmailInput } from '@/lib/email-provider';
 import { rodapePrivacidadeHtml } from '@/lib/notifications/rodape-privacidade';
 import { carregarIdiomasDaEmpresa } from '@/lib/idioma-do-destinatario';
-import { copiaEmail, preencher } from '@/lib/i18n-email-templates';
+import { copiaEmail, escaparHtml, preencher } from '@/lib/i18n-email-templates';
 import { publicarTemplateCloudCis } from '@/lib/qstash-publish';
 import { lerParametroAcesso, montarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
 import { aplicarTetoLote, atrasosDoLote, duracaoEstimada } from '@/lib/whatsapp/cadencia';
@@ -221,12 +221,15 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 
       // Substituir variáveis no template
       const linkDisc = `https://${empresa.slug}.${domain}/dashboard/perfil-comportamental/mapeamento`;
+      // `msg` só existe para virar o HTML do e-mail: o que vem do cadastro (nome, cargo, nome da empresa,
+      // tudo digitado por RH, importação ou cadastro aberto) entra ESCAPADO, e por função, para um `$&` num
+      // nome não ser lido como padrão de substituição. O texto do template é do operador e fica como ele escreveu.
       const msg = template
-        .replace(/\{\{nome\}\}/g, nome)
-        .replace(/\{\{cargo\}\}/g, colab.cargo || '')
-        .replace(/\{\{empresa\}\}/g, empresa.nome)
-        .replace(/\{\{link\}\}/g, link)
-        .replace(/\{\{link_disc\}\}/g, linkDisc);
+        .replace(/\{\{nome\}\}/g, () => escaparHtml(nome))
+        .replace(/\{\{cargo\}\}/g, () => escaparHtml(colab.cargo || ''))
+        .replace(/\{\{empresa\}\}/g, () => escaparHtml(empresa.nome))
+        .replace(/\{\{link\}\}/g, () => escaparHtml(link))
+        .replace(/\{\{link_disc\}\}/g, () => escaparHtml(linkDisc));
 
       if (emailConfigError) { erroDetalhe = emailConfigError; erros++; continue; }
       try {

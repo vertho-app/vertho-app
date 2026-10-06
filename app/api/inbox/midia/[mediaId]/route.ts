@@ -3,6 +3,7 @@ import { checarAcessoPlataforma } from '@/lib/authz-plataforma';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import {
+  cabecalhosDoArquivoRecebido,
   guardarMidiaRecebida,
   urlDaCopia,
   idDeMidiaValido,
@@ -89,13 +90,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ mediaId: strin
   if (guarda.body) {
     return new NextResponse(guarda.body as any, {
       status: 200,
-      headers: {
-        'Content-Type': guarda.mime || 'application/octet-stream',
-        // `private`: conteúdo de conversa de uma pessoa identificável. Cache
-        // compartilhado (CDN) serviria o áudio de um colaborador a outra sessão.
-        'Cache-Control': 'private, max-age=300',
-        'Content-Disposition': 'inline',
-      },
+      // O tipo vem do remetente: `cabecalhosDoArquivoRecebido` só deixa inline o que o navegador mostra
+      // sem executar, e manda o resto como download num sandbox.
+      headers: cabecalhosDoArquivoRecebido(guarda.mime),
     });
   }
 

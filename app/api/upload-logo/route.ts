@@ -24,9 +24,12 @@ export async function POST(req) {
     if (tenantGuard) return tenantGuard;
 
     // Validar tipo
-    const allowed = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp'];
+    // Sem SVG: o tipo vem do cliente, o SVG pode carregar `<script>`, e o bucket `logos` é público. O app só
+    // mostra o logo em `<img>` (onde script não roda), mas o link direto do Storage abriria o SVG como página
+    // (reanálise de 05/10/2026). Os logos SVG que já estão no bucket continuam funcionando.
+    const allowed = ['image/png', 'image/jpeg', 'image/webp'];
     if (!allowed.includes(file.type)) {
-      return NextResponse.json({ error: 'Tipo de arquivo não permitido. Use PNG, JPG, SVG ou WebP.' }, { status: 400 });
+      return NextResponse.json({ error: 'Tipo de arquivo não permitido. Use PNG, JPG ou WebP.' }, { status: 400 });
     }
 
     // Validar tamanho (2MB)
