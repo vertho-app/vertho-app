@@ -30,6 +30,20 @@ function getDatabaseUrl(): string | null {
 }
 const DB = getDatabaseUrl();
 
+// O catálogo normaliza o literal booleano para `false`. Negar tudo não precisa
+// de filtro de tenant. A exceção é exata: `ativo = false` e `false OR true`
+// continuam suspeitos, e USING/WITH CHECK são julgados independentemente.
+// Compartilhado pela consulta real e pela prova sintética para evitar drift.
+const predicadoSemEscopo = (alias: 'p' | 'f') => `(
+  (${alias}.qual IS NOT NULL
+    AND ${alias}.qual !~* '^[[:space:]]*false[[:space:]]*$'
+    AND ${alias}.qual !~* 'empresa_id|current_colaborador_id|can_read_sessao_avaliacao')
+  OR
+  (${alias}.with_check IS NOT NULL
+    AND ${alias}.with_check !~* '^[[:space:]]*false[[:space:]]*$'
+    AND ${alias}.with_check !~* 'empresa_id|current_colaborador_id')
+)`;
+
 /**
  * ⚠️ `skipIf(!DB)` sozinho é a armadilha que a auditoria de 09-10/08 catalogou
  * (F2): sem `DATABASE_URL` o arquivo inteiro pula e o CI fica verde **sem ter
@@ -104,11 +118,7 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
         -- WITH CHECK(true) deixa mover a linha para outro tenant.
         -- IS NOT NULL importa: qual e nulo em INSERT e with_check em
         -- SELECT/DELETE -- sem isso o guard acusaria toda policy correta.
-        AND (
-          (p.qual       IS NOT NULL AND p.qual       !~* 'empresa_id|current_colaborador_id|can_read_sessao_avaliacao')
-          OR
-          (p.with_check IS NOT NULL AND p.with_check !~* 'empresa_id|current_colaborador_id')
-        )
+        AND ${predicadoSemEscopo('p')}
       ORDER BY p.tablename, p.policyname`);
     expect(v).toEqual([]);
   });
@@ -132,18 +142,23 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
         ('colaboradores',  'tenant_ok',                         '{authenticated}'::name[], '(empresa_id = get_empresa_id())', NULL),
         ('colaboradores',  'insert_ok',                         '{authenticated}'::name[], NULL,                              '(empresa_id = get_empresa_id())'),
         ('colaboradores',  'update_self',                       '{authenticated}'::name[], '(id = current_colaborador_id())', '(id = current_colaborador_id())'),
-        ('micro_conteudos','mc_service_all',                    '{service_role}'::name[],  'true',                            'true')
+        ('micro_conteudos','mc_service_all',                    '{service_role}'::name[],  'true',                            'true'),
+        -- Bloqueio explícito usado nas tabelas DRE; nenhuma permissão é aberta:
+        ('dre_contratos',  'deny_all',                          '{anon,authenticated}'::name[], 'false', 'false'),
+        ('colaboradores',  'deny_select',                       '{authenticated}'::name[], 'false', NULL),
+        ('colaboradores',  'deny_insert',                       '{authenticated}'::name[], NULL, 'false'),
+        -- Um lado negado não absolve o outro, nem qualquer expressão com false:
+        ('colaboradores',  'deny_qual_check_true',              '{authenticated}'::name[], 'false', 'true'),
+        ('colaboradores',  'true_qual_deny_check',              '{authenticated}'::name[], 'true', 'false'),
+        ('micro_conteudos','false_or_true',                     '{authenticated}'::name[], '(false OR true)', NULL),
+        ('micro_conteudos','ativo_false',                       '{authenticated}'::name[], '(ativo = false)', NULL)
       )
       SELECT f.tablename || '.' || f.policyname AS policy,
              (EXISTS (SELECT 1 FROM information_schema.columns c
                       WHERE c.table_schema='public' AND c.table_name=f.tablename AND c.column_name='empresa_id')
               AND NOT (f.roles @> '{service_role}' AND array_length(f.roles,1)=1)
               AND f.tablename NOT LIKE 'diag\\_%'
-              AND (
-                (f.qual       IS NOT NULL AND f.qual       !~* 'empresa_id|current_colaborador_id|can_read_sessao_avaliacao')
-                OR
-                (f.with_check IS NOT NULL AND f.with_check !~* 'empresa_id|current_colaborador_id')
-              )) AS acusa
+              AND ${predicadoSemEscopo('f')}) AS acusa
       FROM fake f`);
 
     const veredito = Object.fromEntries(rows.map((r: any) => [r.policy, r.acusa]));
@@ -161,6 +176,13 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
     expect(veredito['colaboradores.insert_ok']).toBe(false);   // qual nulo em INSERT
     expect(veredito['colaboradores.update_self']).toBe(false);
     expect(veredito['micro_conteudos.mc_service_all']).toBe(false);
+    expect(veredito['dre_contratos.deny_all']).toBe(false);
+    expect(veredito['colaboradores.deny_select']).toBe(false);
+    expect(veredito['colaboradores.deny_insert']).toBe(false);
+    expect(veredito['colaboradores.deny_qual_check_true']).toBe(true);
+    expect(veredito['colaboradores.true_qual_deny_check']).toBe(true);
+    expect(veredito['micro_conteudos.false_or_true']).toBe(true);
+    expect(veredito['micro_conteudos.ativo_false']).toBe(true);
   });
 
   it('INV2b — nenhuma policy permissiva USING/CHECK(true) a public/anon (exceto censo diag_*)', async () => {

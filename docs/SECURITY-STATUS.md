@@ -1,8 +1,31 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Ultima revisao: 2026-10-05: **análise dos 8 ataques (nota 4,4) e as correções do plano no mesmo dia**, entre elas a mig 278 que tirou a escrita de `anon` e `authenticated` (ver "05/10"). Antes: 2026-09-18: **secret scanning e push protection ligados no GitHub**; estavam desligados num repo público (ver "18/09"). Antes: 2026-08-30 — **dois guards de tenant estavam cegos e foram corrigidos**: `tenant-mutation-guard` passava verde com 0 arquivos varridos (`ec4d3fdd`) e `tenant-isolation` não alcançava a comparação de tenant em 2 de 9 casos (`26ef9db5`), os dois validados por mutação. **13 dos 35** arquivos de `tests/unit/security/` que tocam isolamento de tenant foram auditados; 22 seguem sem auditoria (ver "Manutenção 30/08"). Antes: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
+> Última revisão: 2026-10-06 — correções de baixo risco (INV2 e CA PostgreSQL), nota 6,3; ver "06/10". Antes: 2026-10-05: **análise dos 8 ataques (nota 4,4) e as correções do plano no mesmo dia**, entre elas a mig 278 que tirou a escrita de `anon` e `authenticated` (ver "05/10"). Antes: 2026-09-18: **secret scanning e push protection ligados no GitHub**; estavam desligados num repo público (ver "18/09"). Antes: 2026-08-30 — **dois guards de tenant estavam cegos e foram corrigidos**: `tenant-mutation-guard` passava verde com 0 arquivos varridos (`ec4d3fdd`) e `tenant-isolation` não alcançava a comparação de tenant em 2 de 9 casos (`26ef9db5`), os dois validados por mutação. **13 dos 35** arquivos de `tests/unit/security/` que tocam isolamento de tenant foram auditados; 22 seguem sem auditoria (ver "Manutenção 30/08"). Antes: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
 > Antes: 2026-07-17 (auditoria geral — detalhes em `docs/LEVANTAMENTO-2026-07.md` §4. **3 achados altos NOVOS**, hoje fechados: (1) `api/bunny-videos` + `api/video-download` sem auth — enumeracao + download anonimo de videos, PII potencial nos personalizados; (2) header `x-tenant-slug` forjavel no apex/vercel.app — enumeracao de e-mails cross-tenant e signup em tenant alheio; (3) open redirect de `token_hash` de sessao em `api/auth/phone-otp/verify`. Numeros corrigidos: service-role = **130 arquivos / 299 usos** (nao 91/168); residuo `internal` = **5 entradas** (nao 8; fase1/fase3 removidos 10/07). As 4 classes criticas de 03/07 seguem confirmadas fechadas.)
 > Anterior: 2026-07-07 (defense-in-depth de tenant nas ações internas + filtro de contas internas demo-aware; ver seção "Endurecimento 06-07/07"). Anterior: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
+
+## 06/10: correções de baixo risco da análise de site
+
+Nova análise sobre a produção `af6e7155`: **6,3 de 10** (2 ataques protegidos,
+6 parciais), com relatório e evidências fora do Git público. O dono autorizou
+apenas os itens de baixo risco. Esta nota usa a mesma régua de 8 ataques da
+skill; os dois ajustes abaixo não mudam o status das categorias.
+
+- **INV2 do guard de RLS:** políticas com o literal `false` negam todo acesso e
+  não precisam mencionar tenant. O guard acusava três tabelas DRE por esse motivo.
+  A exceção agora é exata, com o mesmo predicado nas consultas real e sintética,
+  e cada lado (`USING`/`WITH CHECK`) continua independente. Prova: **9 testes no
+  banco vivo passaram**; aceitar `true` por mutação torna a prova sintética vermelha.
+  `false OR true`, `ativo = false` e combinações de um lado `false` com outro
+  `true` continuam acusados. Nenhuma policy ou permissão do banco foi alterada.
+- **TLS dos scripts PostgreSQL:** `config/supabase-ca.crt` contém a CA pública
+  oficial, obtida pela [URL usada pelo dashboard do Supabase](https://github.com/supabase/supabase/blob/master/apps/studio/hooks/custom-content/custom-content.json).
+  SHA-256 do certificado: `80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`;
+  validade até 26/04/2031. O helper existente ativa `rejectUnauthorized: true`
+  com esse arquivo. Prova read-only contra o pooler: **TLS 1.3, socket autorizado**;
+  CA ausente e hostname incorreto foram rejeitados. O fallback com aviso do helper
+  continua existindo se o arquivo for removido ou `SUPABASE_CA_CERT` apontar para
+  um caminho inexistente; mantenha a CA junto dos scripts.
 
 ## 05/10: análise dos 8 ataques (skill `analise-de-site`) e as correções
 
