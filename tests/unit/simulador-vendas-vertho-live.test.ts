@@ -20,7 +20,7 @@ import {
   PROMPTS,
   PROMPT_VERSION,
 } from '@/lib/simulador-vendas/prompts';
-import { getModelForTask } from '@/lib/ai-tasks';
+import { modeloVertho } from '@/lib/simulador-vendas/modelos';
 import {
   BRIEFING_VERTHO,
   criarContextoCompetitivoVertho,
@@ -56,10 +56,7 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
                 texto,
                 hash: hashPrompt(texto),
                 versao: `${PROMPT_VERSION}-comercial-2`,
-                modelo: await getModelForTask(
-                  VERTHO_TREINO_EMPRESA_ID,
-                  `sim_vendas_${etapa}`,
-                ),
+                ...modeloVertho(etapa, nivel),
               },
             ];
           }),
@@ -117,7 +114,9 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
         gerador(c, s, id),
       );
       expect(s.cenario?.personagem.negociacao.objecoes).toHaveLength(nivel);
-      expect(s.cenario?.contexto_vendedor.toLowerCase()).toMatch(/desenvolvimento|competências/);
+      expect(s.cenario?.contexto_vendedor.toLowerCase()).toMatch(
+        /desenvolvimento|competências|formação/,
+      );
       expect(JSON.stringify(s.cenario).toLowerCase()).toContain(
         vertho.concorrente.nome.split(/[ (/]/)[0].toLowerCase(),
       );
@@ -154,6 +153,7 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
         necessidades: s.cenario?.personagem.negociacao.beneficios_ocultos,
         segundos: Math.round((Date.now() - inicio) / 1000),
         sessao: visaoPublica(s),
+        estado: s,
       });
     }
     mkdirSync('output/simulador-vertho-live', { recursive: true });

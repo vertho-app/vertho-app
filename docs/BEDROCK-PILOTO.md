@@ -12,8 +12,9 @@ sugestão não altera o conteúdo nem publica material.
   credencial SES. Não guardar a chave neste documento, em Git ou em logs.
 - Sem a chave, o botão mantém o modelo anterior. A rota `kimi-k3` da Moonshot
   continua sendo uma rota distinta.
-- Só este piloto pode usar a nova rota Bedrock. Não inclui avaliação de
-  colaboradores, respostas do simulador, dados de PPP ou personalização.
+- O uso com conteúdos reais permanece limitado a este piloto editorial. A
+  comparação separada abaixo usa somente dados fictícios. Não inclui avaliação
+  de colaboradores, sessões reais de vendedores, PPP ou personalização.
 - Sugestões precisam passar pelo schema e referenciar uma competência do
   catálogo antes de chegar ao modal.
 
@@ -80,3 +81,41 @@ Fontes:
 [modelo, IDs e preços](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-moonshot-ai-kimi-k3.html),
 [endpoint e autenticação](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-chat-completions.html),
 [chaves para exploração](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys-generate.html).
+
+## Comparação sintética do simulador comercial (06/10/2026)
+
+Uso autorizado de Kimi K3 para comparação interna com Sonnet, nos níveis médio
+e alto, sem sessões ou dados de vendedores. Tarefa `canario_contrato`, já
+permitida na régua de privacidade para canários fixos. Modelo e endpoint são os
+mesmos do piloto editorial, com JSON Schema estrito e esforço low.
+
+O contador independente `vertho:bedrock:canario:vendas:20261006` reserva
+até 20 tentativas, sem expiração ou estorno. Payload de até 80.000 bytes e saída
+de até 6.000 tokens permitem reserva conservadora de US$ 0,40/tentativa,
+total de US$ 8. Indisponibilidade do Redis bloqueia a chamada. O limite editorial
+de 50 chamadas/US$ 10 permanece separado. Os custos estimados aparecem no ledger
+como `provider = bedrock`, `feature = canario_contrato`.
+
+O modelo não está na lista de modelos autorizados para sessões PACE reais. Não
+há escolha de Kimi na tela, sorteio de participantes ou mudança do perfil de
+produção. O teste opt-in `VENDAS_MODELOS_LIVE=1` compara duas repetições por
+nível com o mesmo contexto sintético de cliente e valida schema, fala e transição
+PACE. Os artefatos locais em `output/simulador-vendas-modelos/` não são
+versionados. Uma amostra assim não estabelece qualidade superior.
+
+Ensaio de integração em 06/10/2026, 18:42–18:47 (Brasília): os três segmentos
+e níveis passaram por criação, planejamento e primeira resposta com provedores
+reais, em 24/30/34 s por fluxo. Sonnet e Kimi passaram nas duas repetições de
+cada nível 2/3, com schema, fala e transição válidos. Opus concluiu duas
+avaliações documentais PACE em 72/66 s; médias 2,60/2,55 na mesma fixture,
+mostrando variação entre execuções sem trocar a régua.
+
+| Amostra sintética | Chamadas | Latência da API | Custo estimado no ledger |
+| --- | ---: | ---: | ---: |
+| Cliente Sonnet 5.5 | 4 | 1,85–3,26 s | US$ 0,049126 |
+| Cliente Kimi K3 no Bedrock | 4 | 3,37–8,56 s | US$ 0,055240 |
+| Avaliação Opus 5.5 | 2 | 65,39–71,92 s | US$ 0,413907 |
+
+São custos destas chamadas e deste cache, não previsão de custo mensal ou
+confirmação de créditos AWS. Os clientes comparados estavam na fase Preparar;
+este ensaio não mede toda a negociação nem demonstra superioridade do Kimi.

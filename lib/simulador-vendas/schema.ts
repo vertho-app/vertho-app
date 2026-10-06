@@ -321,7 +321,7 @@ export const CONFIG_COLUNAS =
   'habilitado,briefing,revisao,periodo_inicio,periodo_fim';
 export type PromptSnapshot = Record<
   Etapa,
-  { texto?: string; id?: string; hash: string; versao: string; modelo: string }
+  { texto?: string; id?: string; hash: string; versao: string; modelo: string; esforco?: 'low' | 'medium' | 'high' }
 >;
 export type Mensagem = {
   id: string;

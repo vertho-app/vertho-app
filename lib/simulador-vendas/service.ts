@@ -278,7 +278,7 @@ export async function executar(c: Contexto, original: Comando) {
         },
         nomeVendedor: c.nomeVendedor || 'Vendedor',
         briefing: c.config.briefing,
-        prompts: await snapshotPrompts(c.empresaId, !!c.vertho),
+        prompts: await snapshotPrompts(c.empresaId, !!c.vertho, cmd.nivel),
         ...(c.vertho && cmd.vertho
           ? {
               vertho: criarContextoCompetitivoVertho(

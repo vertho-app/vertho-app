@@ -28,14 +28,19 @@ import {
 import { SimuladorError, type Gerar } from './core';
 import type { ContextoTreino as Contexto } from './access';
 import { assertAcessoVertho } from './vertho-access';
-import { PROMPT_COMERCIAL_VERTHO } from './vertho';
+import { PROMPT_COMERCIAL_VERTHO, VERTHO_TREINO_EMPRESA_ID } from './vertho';
 import { arquivarPrompt, textoDoSnapshot } from './catalogo';
-import { modeloPaceCompativel } from './modelos';
+import { modeloPaceCompativel, modeloVertho } from './modelos';
 import { periodoVigente, podeEncerrar } from './prazo';
 import { normalizarRelatorio } from './normalizacao';
 import { usaMatrizPace } from './matriz-avaliacao';
 import { usaFontesDocumentais } from './fontes';
-import { maskColaborador, maskDeepPII, unmaskDeepPII, type PIIMapas } from '@/lib/pii-masker';
+import {
+  maskColaborador,
+  maskDeepPII,
+  unmaskDeepPII,
+  type PIIMapas,
+} from '@/lib/pii-masker';
 
 const TAREFAS = {
   criador: 'sim_vendas_criador',
@@ -49,11 +54,17 @@ const PROMPT_VERTHO_VERSION = `${PROMPT_VERSION}-comercial-2`;
 export async function snapshotPrompts(
   empresaId: string,
   vertho = false,
+  nivel: 1 | 2 | 3 = 1,
 ): Promise<PromptSnapshot> {
+  if (vertho && empresaId !== VERTHO_TREINO_EMPRESA_ID)
+    throw new SimuladorError(403, 'O treinamento comercial pertence à Vertho.');
   const tdb = tenantDb(empresaId);
   const entries = await Promise.all(
     ETAPAS.map(async (etapa) => {
-      const modelo = await getModelForTask(empresaId, TAREFAS[etapa]);
+      const perfil = vertho
+        ? modeloVertho(etapa, nivel)
+        : { modelo: await getModelForTask(empresaId, TAREFAS[etapa]) };
+      const modelo = perfil.modelo;
       if (!modeloPaceCompativel(modelo))
         throw new SimuladorError(
           400,
@@ -72,7 +83,7 @@ export async function snapshotPrompts(
           id,
           hash: hashPrompt(texto),
           versao,
-          modelo,
+          ...perfil,
         },
       ];
     }),
@@ -99,7 +110,10 @@ export function mascaraDoVendedor(
   const nome = String(s.nomeVendedor || '').trim();
   const identidade = c.colaboradorId || c.vertho?.id;
   if (!identidade || !nome || nome === 'Vendedor') return null;
-  const { masked, map } = maskColaborador({ id: identidade, nome_completo: nome });
+  const { masked, map } = maskColaborador({
+    id: identidade,
+    nome_completo: nome,
+  });
   return { ida: map.ida, volta: { [masked!.nome]: nome } };
 }
 
@@ -279,13 +293,24 @@ export function gerador(
                   : 60000,
             ),
             maxRetries: 0,
-            responses: {
-              format: {
-                name: `pace_${etapa}`,
-                strict: true,
-                schema: jsonSchema,
-              },
-            },
+            semRetentativa: true,
+            ...(spec.esforco ? { reasoningEffort: spec.esforco } : {}),
+            ...(/^gpt-/.test(spec.modelo)
+              ? {
+                  responses: {
+                    format: {
+                      name: `pace_${etapa}`,
+                      strict: true,
+                      schema: jsonSchema,
+                    },
+                  },
+                }
+              : {
+                  structuredOutput: {
+                    name: `pace_${etapa}`,
+                    schema: jsonSchema,
+                  },
+                }),
           },
         );
         // Volta com o nome ANTES de validar e gravar: a tentativa aceita é a

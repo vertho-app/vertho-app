@@ -40,6 +40,7 @@ import { contextoAtual, fracaoDoOrcamento } from '@/lib/execucao-contexto';
 import { modeloNaReguaDePrivacidade } from '@/lib/ai-regua-privacidade';
 import { buildGeminiGenerationConfig, type GeminiThinkingLevel } from '@/lib/gemini-generation-config';
 import { origemDaChamada } from '@/lib/origem-chamada';
+import { schemaEstruturadoClaude, type StructuredOutput } from '@/lib/ai-structured-output';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -57,6 +58,8 @@ export interface AICallOptions {
   /** Responses com schema estrito, para preservar contratos de agentes migrados.
    * Mantém os prompts literais e não troca de provedor/modelo em caso de falha. */
   responses?: { format: OpenAIJsonSchemaFormat };
+  /** JSON nativo por provedor, sem retry/fallback e sem alterar o prompt congelado. */
+  structuredOutput?: StructuredOutput;
   /** Identificador da tentativa, para conciliar custo sem aproximação por horário. */
   correlationId?: string;
   temperature?: number;
@@ -261,6 +264,10 @@ export async function callAI(
     taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAI',
   });
   options = opcoesDoPilotoBedrock(model, options);
+  if (options.structuredOutput) {
+    if (model !== aiConfig.model) throw new Error('O modelo estruturado foi recusado pela régua de privacidade.');
+    options = { ...options, semRetentativa: true, maxRetries: 0 };
+  }
   // R-57: a resposta das tarefas que escrevem para o cliente sai sem travessão
   // (registro em `lib/ai-saida-sem-travessao.ts`). Tarefa fora do registro passa intacta.
   const saida = (texto: string) => sanitizarSaidaDaTarefa(options.taskKey, texto, [user, options.cachedUserPrefix]);
@@ -268,7 +275,7 @@ export async function callAI(
     return saida(await withAIRetry(() => callResponses(system, [{ role: 'user', content: user }], model, maxTokens, options), model, options.maxRetries ?? 0));
   }
   const locale = await resolveAILocale(options.locale);
-  const localizedSystem = withLanguageInstruction(system, locale, { semTravessao: formaDaSaidaAoCliente(options.taskKey) !== null });
+  const localizedSystem = options.structuredOutput ? system : withLanguageInstruction(system, locale, { semTravessao: formaDaSaidaAoCliente(options.taskKey) !== null });
 
   // Providers sem prompt caching (Gemini/OpenAI) recebem o prefixo concatenado.
   const combinedUser = options.cachedUserPrefix ? `${options.cachedUserPrefix}\n\n${user}` : user;
@@ -345,6 +352,10 @@ export async function callAIChat(
     taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAIChat',
   });
   options = opcoesDoPilotoBedrock(model, options);
+  if (options.structuredOutput) {
+    if (model !== aiConfig.model) throw new Error('O modelo estruturado foi recusado pela régua de privacidade.');
+    options = { ...options, semRetentativa: true, maxRetries: 0 };
+  }
   // R-57: o mesmo registro do gêmeo `callAI` (os dois caminhos, sempre). No chat a
   // entrada de dados é o histórico; o eco só importa para JSON, e as conversas são texto.
   const saida = (texto: string) => sanitizarSaidaDaTarefa(options.taskKey, texto);
@@ -352,7 +363,7 @@ export async function callAIChat(
     return saida(await withAIRetry(() => callResponses(system, messages, model, maxTokens, options), model, options.maxRetries ?? 0));
   }
   const locale = await resolveAILocale(options.locale);
-  const localizedSystem = withLanguageInstruction(system, locale, { semTravessao: formaDaSaidaAoCliente(options.taskKey) !== null });
+  const localizedSystem = options.structuredOutput ? system : withLanguageInstruction(system, locale, { semTravessao: formaDaSaidaAoCliente(options.taskKey) !== null });
 
   // Gemini/OpenAI não têm caching por breakpoint: os sufixos voláteis
   // (systemSuffix e userSuffix) são concatenados ao system. Claude recebe os
@@ -736,10 +747,12 @@ async function callClaude(
   };
 
   aplicarThinkingClaude(params, model, options);
+  if (options.structuredOutput) params.output_config = { ...params.output_config, format: { type: 'json_schema', schema: schemaEstruturadoClaude(options.structuredOutput.schema) } };
 
   const t0 = Date.now();
   if (maxTokens > 8192) {
     let text = '';
+    let stopReason: string | undefined;
     const uso: LedgerUsage = { inTokens: 0, outTokens: 0, cacheRead: 0, cacheWrite: 0 };
     // C1 (auditoria 22/08): o `timeout` do construtor limita o FETCH, e o fetch
     // de um stream resolve quando chegam os HEADERS — o corpo e consumido
@@ -764,6 +777,7 @@ async function callClaude(
           uso.cacheRead = event.message.usage.cache_read_input_tokens || 0;
           uso.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
         } else if (event.type === 'message_delta') {
+          if (event.delta?.stop_reason) stopReason = event.delta.stop_reason;
           if (event.usage?.output_tokens != null) uso.outTokens = event.usage.output_tokens;
           // `max_tokens` aqui = resposta cortada no teto. No stream o sinal vem
           // no delta; sem lê-lo, truncagem só apareceria como coincidência.
@@ -771,6 +785,7 @@ async function callClaude(
         }
       }
       await registrarUsoIA('anthropic', model, uso, Date.now() - t0, options);
+      if (options.structuredOutput && stopReason !== 'end_turn') throw new Error(`Resposta estruturada incompleta da Anthropic: ${stopReason || 'ausente'}`);
       return text;
     } finally {
       clearTimeout(relogio);
@@ -784,6 +799,7 @@ async function callClaude(
     cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0,
     truncou: (response as any).stop_reason === 'max_tokens',
   } : null, Date.now() - t0, options);
+  if (options.structuredOutput && (response as any).stop_reason !== 'end_turn') throw new Error(`Resposta estruturada incompleta da Anthropic: ${(response as any).stop_reason}`);
   // Sempre extrai o bloco de texto (não content[0]): modelos com adaptive
   // thinking por padrão (Sonnet 5, Opus 4.8+) devolvem `thinking` em content[0].
   return extractClaudeText(response.content as any[]);
@@ -865,10 +881,12 @@ async function callClaudeChat(
   };
 
   aplicarThinkingClaude(params, model, options);
+  if (options.structuredOutput) params.output_config = { ...params.output_config, format: { type: 'json_schema', schema: schemaEstruturadoClaude(options.structuredOutput.schema) } };
 
   const t0 = Date.now();
   if (maxTokens > 8192) {
     let text = '';
+    let stopReason: string | undefined;
     const uso: LedgerUsage = { inTokens: 0, outTokens: 0, cacheRead: 0, cacheWrite: 0 };
     // C1 (auditoria 22/08): o `timeout` do construtor limita o FETCH, e o fetch
     // de um stream resolve quando chegam os HEADERS — o corpo e consumido
@@ -892,11 +910,14 @@ async function callClaudeChat(
           uso.inTokens = event.message.usage.input_tokens || 0;
           uso.cacheRead = event.message.usage.cache_read_input_tokens || 0;
           uso.cacheWrite = event.message.usage.cache_creation_input_tokens || 0;
-        } else if (event.type === 'message_delta' && event.usage?.output_tokens != null) {
-          uso.outTokens = event.usage.output_tokens;
+        } else if (event.type === 'message_delta') {
+          if (event.delta?.stop_reason) stopReason = event.delta.stop_reason;
+          if (event.usage?.output_tokens != null) uso.outTokens = event.usage.output_tokens;
+          if (event.delta?.stop_reason === 'max_tokens') uso.truncou = true;
         }
       }
       await registrarUsoIA('anthropic', model, uso, Date.now() - t0, options);
+      if (options.structuredOutput && stopReason !== 'end_turn') throw new Error(`Resposta estruturada incompleta da Anthropic: ${stopReason || 'ausente'}`);
       return text;
     } finally {
       clearTimeout(relogio);
@@ -913,6 +934,7 @@ async function callClaudeChat(
   // Sempre extrai o bloco de texto (não content[0]): modelos com adaptive
   // thinking por padrão (Sonnet 5, Opus 4.8+) devolvem um bloco `thinking` em
   // content[0], sem `.text` → content[0].text seria undefined.
+  if (options.structuredOutput && (response as any).stop_reason !== 'end_turn') throw new Error(`Resposta estruturada incompleta da Anthropic: ${(response as any).stop_reason}`);
   return extractClaudeText(response.content as any[]);
 }
 
@@ -972,13 +994,13 @@ async function callGemini(
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts }],
-    generationConfig: buildGeminiGenerationConfig({
+    generationConfig: { ...buildGeminiGenerationConfig({
       model,
       maxOutputTokens: maxTokens,
       thinkingLevel: geminiThinkingLevel(options),
       responseMimeType: options.geminiResponseSchema ? 'application/json' : undefined,
-      responseSchema: options.geminiResponseSchema,
-    }),
+      responseSchema: options.structuredOutput ? undefined : options.geminiResponseSchema,
+    }), ...(options.structuredOutput ? { responseMimeType: 'application/json', responseJsonSchema: options.structuredOutput.schema } : {}) },
     ...(options.geminiSafetySettings ? { safetySettings: options.geminiSafetySettings } : {}),
   };
 
@@ -1003,6 +1025,7 @@ async function callGemini(
     cacheRead: um.cachedContentTokenCount || 0,
     truncou: data?.candidates?.[0]?.finishReason === 'MAX_TOKENS',
   } : null, Date.now() - t0, options);
+  if (options.structuredOutput && data?.candidates?.[0]?.finishReason !== 'STOP') throw new Error(`Resposta estruturada incompleta do Gemini: ${data?.candidates?.[0]?.finishReason || 'ausente'}`);
   return conteudoGeminiOuFalhaAlto(data, model);
 }
 
@@ -1074,6 +1097,7 @@ async function callOpenAI(
   // ignora `max_tokens` e rodava sem teto efetivo.
   const body: any = {
     model,
+    ...(options.structuredOutput ? { response_format: { type: 'json_schema', json_schema: { ...options.structuredOutput, strict: true } } } : {}),
     ...(provider === 'bedrock' ? { service_tier: 'default' } : {}),
     ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
     ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
@@ -1112,6 +1136,7 @@ async function callOpenAI(
     cacheWrite,
     truncou: data.choices?.[0]?.finish_reason === 'length',
   } : null, Date.now() - t0, options);
+  if (options.structuredOutput && data.choices?.[0]?.finish_reason !== 'stop') throw new Error(`Resposta estruturada incompleta de ${provider}: ${data.choices?.[0]?.finish_reason || 'ausente'}`);
   return conteudoOuFalhaAlto(data, model);
 }
 
@@ -1138,13 +1163,13 @@ async function callGeminiChat(
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents,
-    generationConfig: buildGeminiGenerationConfig({
+    generationConfig: { ...buildGeminiGenerationConfig({
       model,
       maxOutputTokens: maxTokens,
       thinkingLevel: geminiThinkingLevel(options),
       responseMimeType: options.geminiResponseSchema ? 'application/json' : undefined,
-      responseSchema: options.geminiResponseSchema,
-    }),
+      responseSchema: options.structuredOutput ? undefined : options.geminiResponseSchema,
+    }), ...(options.structuredOutput ? { responseMimeType: 'application/json', responseJsonSchema: options.structuredOutput.schema } : {}) },
     ...(options.geminiSafetySettings ? { safetySettings: options.geminiSafetySettings } : {}),
   };
 
@@ -1168,6 +1193,7 @@ async function callGeminiChat(
     cacheRead: um.cachedContentTokenCount || 0,
     truncou: data?.candidates?.[0]?.finishReason === 'MAX_TOKENS',
   } : null, Date.now() - t0, options);
+  if (options.structuredOutput && data?.candidates?.[0]?.finishReason !== 'STOP') throw new Error(`Resposta estruturada incompleta do Gemini: ${data?.candidates?.[0]?.finishReason || 'ausente'}`);
   return conteudoGeminiOuFalhaAlto(data, model);
 }
 
@@ -1188,6 +1214,7 @@ async function callOpenAIChat(
   // ignora `max_tokens` e rodava sem teto efetivo.
   const body: any = {
     model,
+    ...(options.structuredOutput ? { response_format: { type: 'json_schema', json_schema: { ...options.structuredOutput, strict: true } } } : {}),
     ...(provider === 'bedrock' ? { service_tier: 'default' } : {}),
     ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
     ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
@@ -1222,5 +1249,6 @@ async function callOpenAIChat(
     cacheWrite,
     truncou: data.choices?.[0]?.finish_reason === 'length',
   } : null, Date.now() - t0, options);
+  if (options.structuredOutput && data.choices?.[0]?.finish_reason !== 'stop') throw new Error(`Resposta estruturada incompleta de ${provider}: ${data.choices?.[0]?.finish_reason || 'ausente'}`);
   return conteudoOuFalhaAlto(data, model);
 }

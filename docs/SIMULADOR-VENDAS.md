@@ -53,6 +53,50 @@ A migração `281-sim-vendas-vertho-comercial.sql` acrescenta cadastro individua
 
 Correção da orientação comercial em 06/10/2026: retirada a escolha de “Frente da conversa”. Novos treinos usam o suplemento de prompt `comercial-2`, centrado na solução de desenvolvimento e em complementos pertinentes ao diagnóstico. Não houve migração nem reescrita de históricos. O campo legado `frente` continua aceito para abas antigas e para preservar a assinatura idempotente de retomadas; ele não configura novos cenários. Sessões anteriores conservam seu briefing e seus prompts congelados.
 
+### Modelos do treinamento comercial Vertho (06/10/2026)
+
+Somente sessões novas do tenant comercial fixo usam o perfil em
+`lib/simulador-vendas/modelos.ts`, conforme a dificuldade escolhida:
+
+| Etapa | Modelo | Esforço |
+| --- | --- | --- |
+| Criador do cenário, todos os níveis | Claude Sonnet 5.5 (`claude-sonnet-5-5`) | low |
+| Cliente, dificuldade baixa | Gemini 3.8 Flash (`gemini-3.8-flash`) | low |
+| Cliente, dificuldade média ou alta | Claude Sonnet 5.5 | low |
+| Moderador e intenção de encerramento | Gemini 3.8 Flash | low |
+| Avaliação PACE, todos os níveis | Claude Opus 5.5 (`claude-opus-5-5`) | medium |
+
+Modelo e esforço são congelados junto com o prompt na abertura da sessão. A
+atualização não reescreve sessões anteriores: elas continuam com seus modelos,
+histórico, régua e resultados. Os simuladores dos demais tenants mantêm a
+configuração por tarefa, inclusive a rota Responses com GPT já existente.
+
+As chamadas continuam em `actions/ai-client.ts`, com JSON nativo por provedor,
+validação Zod completa, verificação de transição PACE, deadline, checkpoints e
+ledger. Limites de schema que a Anthropic não suporta vão para descrições no
+pedido; a validação original continua obrigatória no retorno. Truncagem ou
+recusa interrompem a etapa depois de registrar o uso informado pelo provedor.
+Não há retry automático ou troca silenciosa do modelo congelado.
+
+Kimi K3 (`global.moonshotai.kimi-k3`) no Bedrock fica restrito à comparação
+interna de clientes fictícios nos níveis 2 e 3, pela tarefa `canario_contrato`.
+Não integra o perfil de sessões de vendedores nem amplia a régua de privacidade
+para dados pessoais. Reserva independente: 20 tentativas de até US$ 0,40,
+total de US$ 8; detalhes em [BEDROCK-PILOTO.md](BEDROCK-PILOTO.md).
+
+Testes pagos opt-in: `VENDAS_VERTHO_LIVE=1` para
+`tests/unit/simulador-vendas-vertho-live.test.ts`; depois
+`VENDAS_MODELOS_LIVE=1` para
+`tests/unit/simulador-vendas-comparacao-live.test.ts`. Usam dados fictícios e
+banco de sessões em memória; o provedor e o ledger são reais. O segundo ensaio
+compara o mesmo contexto com Sonnet/Kimi e verifica a rubrica documental PACE
+com Opus em uma conversa sintética completa. Os testes comuns não chamam APIs.
+Amostras pequenas verificam integração e latência, sem provar superioridade.
+
+Rollback: reverter o perfil no código e publicar. Sessões já abertas mantêm
+seus snapshots; reverter o perfil só afeta aberturas posteriores. Não é preciso
+migration nem alteração das configurações de IA dos clientes.
+
 ## Acesso e liberação
 
 1. No admin da Vertho, abra **Comercial → Simulador de vendas** (`/admin/simulador-vendas`).
@@ -66,6 +110,9 @@ Não exige DISC, cargo com Top 5 ou temporada. A permissão `assessments.answer`
 
 ## Agentes e ferramentas
 
+A tabela abaixo registra a configuração geral por tarefa dos tenants clientes.
+O treinamento comercial Vertho usa o perfil específico descrito acima.
+
 | Responsabilidade | Implementação na Vertho |
 |---|---|
 | Tela e servidor | Next.js 16, React 19, TypeScript, Tailwind/CSS Modules; mesma aplicação/deploy Vercel |
@@ -75,7 +122,7 @@ Não exige DISC, cargo com Top 5 ou temporada. A permissão `assessments.answer`
 | Moderador | `sim_vendas_moderador` — `gpt-5.4-mini` |
 | Intenção de encerramento | `sim_vendas_intencao` — `gpt-5.4-mini` |
 | Gerente / devolutiva | `sim_vendas_gerente` — `gpt-5.4-2026-03-05` |
-| Transporte e custo | `callAI`, Responses API com JSON Schema estrito, `store:false`, ledger `ia_usage_log` |
+| Transporte e custo | `callAI`, JSON nativo por provedor; Responses com `store:false` para GPT; ledger `ia_usage_log` |
 | Ditado opcional | SpeechRecognition do navegador, quando suportado; permissão de microfone por clique e revisão antes de enviar |
 
 Os modelos são os padrões migrados, não uma mudança de modelo. Override explícito por tarefa continua disponível no painel de IA, restrito aos modelos qualificados em `modelos.ts`: provedor genérico compatível com chat não basta para este contrato. Modelos e prompts ficam congelados em cada treino. O modelo efetivo retornado pela API é registrado no ledger, incluindo o snapshot do Mini. Preços: [catálogo oficial do Mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini); a conta é feita pelo catálogo central da Vertho.
