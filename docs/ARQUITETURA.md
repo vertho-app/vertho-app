@@ -41,7 +41,7 @@
 | **IA Validacao** | **GPT 5.6 Terra** — 7 auditores 2a-IA `pinned` em `lib/ai-tasks.ts` (desde 22/07) | — | ✅ |
 | **IA Leve** | Gemini 3.8 Flash (classificações, brief e simulador sintético) | via wrapper | ✅ |
 | **IA em lote** | Batch API da Anthropic **e** da OpenAI (−50%) — `lib/ai-batch.ts` | — | ✅ |
-| **Jobs de fundo** | Trigger.dev (deploy **MANUAL**, nao sai no `git push`) | 4.4.6 | ✅ |
+| **Jobs de fundo** | Trigger.dev (deploy **MANUAL**, nao sai no `git push`) | 4.7.3 | ✅ |
 | **Video** | HeyGen (avatar) + Remotion (render, backend Hetzner) + Bunny Stream (hosting) | Remotion 4.0 | ✅ |
 | **PDF** | @react-pdf/renderer (geracao) | 4.4.0 | ✅ |
 | **PDF Reader** | pdfjs-dist (leitura) | 5.6 | ✅ |

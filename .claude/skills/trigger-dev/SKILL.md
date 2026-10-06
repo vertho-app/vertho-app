@@ -5,7 +5,7 @@ description: Criar, editar e deployar tasks de background (Trigger.dev v4) da Ve
 
 # Trigger.dev (Vertho App)
 
-Jobs de fundo rodam em **Trigger.dev v4** (`@trigger.dev/sdk` + `@trigger.dev/build`, ambos pinados em **4.4.6**). Tasks vivem em **`trigger/`** (ex.: `acumulada-piloto.ts`, `gerar-kit.ts`, `gerar-video-modulo.ts`, `render-video.ts`, `render-chunk.ts`, `extracao-video.ts`, `estruturar-material.ts`).
+Jobs de fundo rodam em **Trigger.dev v4** (`@trigger.dev/sdk` + `@trigger.dev/build`, ambos pinados em **4.7.3**). Tasks vivem em **`trigger/`** (ex.: `acumulada-piloto.ts`, `gerar-kit.ts`, `gerar-video-modulo.ts`, `render-video.ts`, `render-chunk.ts`, `extracao-video.ts`, `estruturar-material.ts`).
 
 Shape padrão de uma task:
 
@@ -56,10 +56,10 @@ passou a excluir.
 estava parada em 14/08 enquanto o repo andava). Refazer o passo 1 SEMPRE antes de deployar.
 
 ```bash
-npx trigger.dev@4.4.6 deploy
+npx trigger.dev@4.7.3 deploy
 ```
 
-- CLI precisa casar com os packages pinados (`@4.4.6`).
+- CLI precisa casar com os packages pinados (`@4.7.3`).
 - Trigger project: `proj_wunoneqnozqrfzlvpqjv`.
 - Receita detalhada: memória `reference_trigger_deploy` e skill `deploy`.
 
@@ -72,7 +72,7 @@ npx trigger.dev@4.4.6 deploy
 ## NUNCA
 
 - Pressumir que editar `trigger/` + `git push` atualiza a task em produção (não atualiza).
-- Rodar `npx trigger.dev deploy` (sem `@4.4.6`) — pode divergir dos packages pinados.
+- Rodar `npx trigger.dev deploy` (sem `@4.7.3`) — pode divergir dos packages pinados.
 - Deployar a partir de `C:\GAS\Vertho App` direto (espaço quebra o builder).
 
 ## Fontes
