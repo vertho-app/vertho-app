@@ -110,6 +110,35 @@ describe('panorama do RH', () => {
     expect(exclusoes).toHaveLength(3);
   });
 
+  it('exclui as contas da EQUIPE (@vertho.ai) de todos os contadores, por id', async () => {
+    // 4Life, 06/10: 27 pessoas na tela com 3 da equipe; eram 24. p1 e p2 são
+    // personas `.demo@` (NÃO são equipe); só p3 é conta interna.
+    await carregarPanoramaRH('emp-1');
+    const cortes = sb.chamadas.filter((c) => c.metodo === 'not' && c.args[1] === 'in');
+    // Os seis contadores recortáveis: 3 sobre `colaboradores.id` e 3 sobre `colaborador_id`.
+    expect(cortes.map((c) => c.args[0]).sort()).toEqual(['colaborador_id', 'colaborador_id', 'colaborador_id', 'id', 'id', 'id']);
+    for (const c of cortes) expect(c.args[2]).toBe('(p3)');
+  });
+
+  it('o corte da equipe soma ao recorte por turma, não o substitui', async () => {
+    await carregarPanoramaRH('emp-1', { colaboradorIds: ['p1', 'p2', 'p3'] });
+    const recortes = sb.chamadas.filter((c) => c.metodo === 'in' && ['id', 'colaborador_id'].includes(c.args[0]));
+    const cortes = sb.chamadas.filter((c) => c.metodo === 'not' && c.args[1] === 'in');
+    expect(recortes.length).toBeGreaterThanOrEqual(6);
+    expect(cortes).toHaveLength(6);
+  });
+
+  it('na DEMO o corte da equipe não vale: persona e convidado são o elenco do tenant', async () => {
+    isDemo = true;
+    await carregarPanoramaRH('emp-1');
+    expect(sb.chamadas.some((c) => c.metodo === 'not' && c.args[1] === 'in')).toBe(false);
+  });
+
+  it('lê as contas internas por `ilike` no domínio, não por `.or` (e-mail nulo sumiria da contagem)', async () => {
+    await carregarPanoramaRH('emp-1');
+    expect(sb.chamadas.some((c) => c.tabela === 'colaboradores' && c.metodo === 'ilike' && c.args[0] === 'email' && c.args[1] === '%@vertho.ai')).toBe(true);
+  });
+
   it('escopa por tenant e só olha trilha ATIVA', async () => {
     await carregarPanoramaRH('emp-1');
     expect(sb.usou('colaboradores', 'eq', 'empresa_id')).toBe(true);
@@ -157,7 +186,13 @@ describe('panorama do RH: recorte por turma', () => {
 
   /** Quantas vezes esta tabela foi CONSULTADA vs. quantas foi RECORTADA. */
   function cobertura(tabela: string, coluna: string) {
-    const selects = sb.chamadas.filter((c) => c.tabela === tabela && c.metodo === 'select').length;
+    // A leitura das contas da EQUIPE (`ilike` no e-mail) é o lookup de quem CORTAR e
+    // olha o tenant inteiro de propósito: não é varredura de população, então não
+    // entra no denominador. Qualquer outro select sem `.in()` continua reprovando.
+    const lookupsDeEquipe = sb.chamadas.filter(
+      (c) => c.tabela === tabela && c.metodo === 'ilike' && c.args[0] === 'email',
+    ).length;
+    const selects = sb.chamadas.filter((c) => c.tabela === tabela && c.metodo === 'select').length - lookupsDeEquipe;
     const recortes = sb.chamadas.filter(
       (c) => c.tabela === tabela && c.metodo === 'in' && c.args[0] === coluna,
     ).length;

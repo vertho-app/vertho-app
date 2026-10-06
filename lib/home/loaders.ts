@@ -17,6 +17,8 @@ import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { colaboradoresComMapeamentoCompleto, distribuicaoMapeamento, progressoMapeamentoPorPessoa } from '@/lib/mapeamento-competencias';
 import { blocoEstaOffline } from '@/lib/blocos-offline';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
+import { INTERNAL_EMAIL_DOMAINS, isInternalEmail } from '@/lib/internal-emails';
+import { escaparLike } from '@/lib/sql-like';
 
 /**
  * Loaders da home do dashboard — queries PURAS, sem 'use server' e sem auth
@@ -783,8 +785,20 @@ export async function carregarPanoramaRH(
   // que transformaria tenant grande em amostra silenciosa. `Medido em 31/08`:
   // `.in()` com 3.000 uuids responde normalmente neste projeto.
   let ids = opts.colaboradorIds ?? null;
-  const recortar = <T>(query: T, coluna: string): T =>
-    ids ? ((query as any).in(coluna, ids) as T) : query;
+  // Contas da EQUIPE Vertho (`@vertho.ai`, fora as personas `.demo@`): a regra de
+  // `lib/internal-emails.ts` as tira de TODA estatística agregada, e este painel
+  // nunca aplicou. Medido 06/10/2026 na 4Life: a tela de Andamento dizia 27
+  // pessoas com 3 delas da equipe (24 reais) e 18 com perfil onde eram 17.
+  // O corte é por ID (`not.in`), não por `.or` no e-mail: e-mail nulo faz o `.or`
+  // devolver NULL e some com a pessoa em silêncio. Preenchido depois de saber se
+  // o tenant é demo (o elenco da demo já é curado por `recortarElencoDemo`).
+  const internos: string[] = [];
+  const recortar = <T>(query: T, coluna: string): T => {
+    let q: any = query;
+    if (ids) q = q.in(coluna, ids);
+    if (internos.length) q = q.not(coluna, 'in', `(${internos.join(',')})`);
+    return q as T;
+  };
 
   // A empresa vem antes das contagens porque a régua de "tem perfil" depende
   // dela: quem usa fonte externa (OPQ32, Hogan) não faz DISC, e ali "sem perfil"
@@ -799,6 +813,21 @@ export async function carregarPanoramaRH(
     const permitidos = recortarElencoDemo<{ id: string; email: string }>(elenco.data || [], true).map(p => p.id);
     const turma = ids;
     ids = turma ? permitidos.filter(id => turma.includes(id)) : permitidos;
+  }
+
+  // Só tenant REAL: na demo o elenco inclui `convidado.*@vertho.ai`, que é
+  // conteúdo do tenant e não equipe.
+  let internosErro: any = null;
+  if (!empresaRes.data?.is_demo) {
+    for (const dominio of INTERNAL_EMAIL_DOMAINS) {
+      const lidos = await lerPaginas((inicio, fim) => tdb.from('colaboradores')
+        .select('id,email')
+        .ilike('email', `%${escaparLike(dominio)}`)
+        .order('id')
+        .range(inicio, fim));
+      internosErro = internosErro || lidos.error;
+      internos.push(...(lidos.data || []).filter((c: any) => isInternalEmail(c.email)).map((c: any) => c.id as string));
+    }
   }
 
   const [pessoasRes, participantesRes, comPerfilRes, trilhasRes, encerradasRes, assessRes, cargosRes] = await Promise.all([
@@ -839,7 +868,7 @@ export async function carregarPanoramaRH(
     tdb.from('cargos_empresa').select('nome, top5_workshop'),
   ]);
 
-  const erro = empresaRes.error || elencoErro || pessoasRes.error || participantesRes.error || comPerfilRes.error || trilhasRes.error
+  const erro = empresaRes.error || elencoErro || internosErro || pessoasRes.error || participantesRes.error || comPerfilRes.error || trilhasRes.error
     || assessRes.error || cargosRes.error || encerradasRes.error;
   if (erro) console.error('[panorama-rh] contagens falharam:', erro.message);
 

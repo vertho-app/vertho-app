@@ -1,5 +1,6 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { carregarPanoramaRH } from '@/lib/home/loaders';
+import { isInternalEmail } from '@/lib/internal-emails';
 import { listarTurmasDoTenant } from '@/lib/turmas';
 import { resolverEscopoDeLote } from '@/lib/turmas/escopo';
 
@@ -44,7 +45,8 @@ const linhaDe = (p: Panorama): AndamentoLinha => ({
  * RH, então o número desta tela é o que o cliente vê na dele. `comPerfil` conta
  * `perfil_dominante` (ou o PDF externo, quando a empresa usa OPQ32/Hogan) e
  * `comMapeamento` exige o Top 5 do cargo inteiro avaliado — quem fez metade
- * não conta. Ambos excluem `role='rh'`, que não participa do programa.
+ * não conta. Ambos excluem `role='rh'`, que não participa do programa, e as
+ * contas da equipe Vertho (`@vertho.ai`, `lib/internal-emails.ts`).
  *
  * Recorte por cargo ou turma: cada grupo é a MESMA função com `colaboradorIds`,
  * nunca uma segunda implementação da régua. O "x de N" depende do cargo (o Top 5
@@ -64,11 +66,14 @@ export async function carregarAndamentoEmpresas(por: RecorteAndamento = 'empresa
     if (por === 'empresa' || base.pessoas === 0) return { id: e.id, nome: e.nome, ...base, grupos: [] };
 
     const { data: colabs, error: erroColabs } = await sb.from('colaboradores')
-      .select('id, cargo, role')
+      .select('id, cargo, role, email')
       .eq('empresa_id', e.id)
       .neq('role', 'rh');
     if (erroColabs) throw new Error(`colaboradores de ${e.nome}: ${erroColabs.message}`);
-    const pessoas = (colabs || []) as Array<{ id: string; cargo: string | null }>;
+    // Equipe fora do agrupamento: o panorama já a descarta dos números, e sem isto
+    // um cargo só com contas internas apareceria como grupo de 0 pessoas.
+    const pessoas = ((colabs || []) as Array<{ id: string; cargo: string | null; email: string | null }>)
+      .filter((p) => !isInternalEmail(p.email));
 
     const porRotulo = new Map<string, string[]>();
     const separar = (rotulo: string, id: string) => {
