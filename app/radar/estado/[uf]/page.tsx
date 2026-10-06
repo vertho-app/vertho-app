@@ -1,3 +1,4 @@
+import { exigirAcessoRadarNaPagina } from '@/lib/radar/acesso-pagina';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
@@ -23,6 +24,7 @@ const UF_NAMES: Record<string, string> = {
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ uf: string }> }): Promise<Metadata> {
+  await exigirAcessoRadarNaPagina();
   const { uf } = await params;
   const ufUp = uf.toUpperCase();
   const nomeUf = UF_NAMES[ufUp] || ufUp;
@@ -37,6 +39,7 @@ export async function generateMetadata({ params }: { params: Promise<{ uf: strin
 }
 
 export default async function EstadoPage({ params }: { params: Promise<{ uf: string }> }) {
+  await exigirAcessoRadarNaPagina();
   const { uf: ufRaw } = await params;
   const uf = ufRaw.toUpperCase();
   if (!UF_NAMES[uf]) return notFound();

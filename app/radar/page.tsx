@@ -1,3 +1,4 @@
+import { exigirAcessoRadarNaPagina } from '@/lib/radar/acesso-pagina';
 import Link from 'next/link';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { loadRadarCountStats } from '@/lib/radar/stats';
@@ -17,6 +18,7 @@ async function getStats() {
 }
 
 export default async function RadarHomePage() {
+  await exigirAcessoRadarNaPagina();
   const stats = await getStats().catch(() => ({ escolas: 0, municipios: 0, saeb: 0 }));
 
   return (

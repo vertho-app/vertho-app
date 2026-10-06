@@ -1,3 +1,4 @@
+import { exigirRadarBettOnline } from '@/lib/radar/acesso-pagina';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GraduationCap, MapPin, ArrowRight, Search } from 'lucide-react';
@@ -28,6 +29,7 @@ export default async function BuscaAvancadaPage({
 }: {
   searchParams: Promise<SP>;
 }) {
+  exigirRadarBettOnline();
   const sp = await searchParams;
   const termo = (sp.termo || '').trim();
   const uf = (sp.uf || '').trim().toUpperCase();

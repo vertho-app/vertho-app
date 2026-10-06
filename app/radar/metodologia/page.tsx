@@ -1,3 +1,4 @@
+import { exigirAcessoRadarNaPagina } from '@/lib/radar/acesso-pagina';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -10,7 +11,8 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://radar.vertho.ai/metodologia' },
 };
 
-export default function MetodologiaPage() {
+export default async function MetodologiaPage() {
+  await exigirAcessoRadarNaPagina();
   return (
     <main className="min-h-dvh"
       style={{

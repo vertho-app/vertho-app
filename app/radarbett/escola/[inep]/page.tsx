@@ -1,3 +1,4 @@
+import { exigirRadarBettOnline } from '@/lib/radar/acesso-pagina';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
@@ -12,6 +13,7 @@ import { EscolaResultadoClient } from './client';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ inep: string }> }): Promise<Metadata> {
+  exigirRadarBettOnline();
   const { inep } = await params;
   const r = await getEscola(inep);
   if (!r?.escola) return { title: 'Escola não encontrada' };
@@ -33,6 +35,7 @@ export default async function EscolaResultadoPage({
   params: Promise<{ inep: string }>;
   searchParams: Promise<{ demo?: string }>;
 }) {
+  exigirRadarBettOnline();
   const { inep } = await params;
   const sp = await searchParams;
   const isDemo = sp?.demo === '1';

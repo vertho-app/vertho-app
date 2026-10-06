@@ -1,3 +1,4 @@
+import { exigirAcessoRadarNaPagina } from '@/lib/radar/acesso-pagina';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, GitCompare } from 'lucide-react';
@@ -22,6 +23,7 @@ export default async function CompararPage({
 }: {
   searchParams: Promise<{ modo?: string; escolas?: string; ibges?: string }>;
 }) {
+  await exigirAcessoRadarNaPagina();
   const sp = await searchParams;
   const modo: CompararModo = sp.modo === 'cidades' ? 'cidades' : 'escolas';
 

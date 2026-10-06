@@ -1,3 +1,4 @@
+import { exigirRadarBettOnline } from '@/lib/radar/acesso-pagina';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import type { Metadata } from 'next';
@@ -17,6 +18,7 @@ import { MunicipioResultadoClient } from './client';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ ibge: string }> }): Promise<Metadata> {
+  exigirRadarBettOnline();
   const { ibge } = await params;
   const m = await getMunicipio(ibge);
   if (!m) return { title: 'Município não encontrado' };
@@ -37,6 +39,7 @@ export default async function MunicipioResultadoPage({
   params: Promise<{ ibge: string }>;
   searchParams: Promise<{ demo?: string }>;
 }) {
+  exigirRadarBettOnline();
   const { ibge } = await params;
   const sp = await searchParams;
   const isDemo = sp?.demo === '1';

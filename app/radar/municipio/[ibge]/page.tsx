@@ -1,3 +1,4 @@
+import { exigirAcessoRadarNaPagina } from '@/lib/radar/acesso-pagina';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -25,6 +26,7 @@ import { FaleConosco } from '../../_components/fale-conosco';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ ibge: string }> }): Promise<Metadata> {
+  await exigirAcessoRadarNaPagina();
   const { ibge } = await params;
   const m = await getMunicipio(ibge);
   if (!m) return { title: 'Município não encontrado' };
@@ -39,6 +41,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ibge: str
 }
 
 export default async function MunicipioPage({ params }: { params: Promise<{ ibge: string }> }) {
+  await exigirAcessoRadarNaPagina();
   const { ibge } = await params;
   const m = await getMunicipio(ibge);
   if (!m) return notFound();

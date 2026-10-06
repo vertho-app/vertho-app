@@ -1,3 +1,4 @@
+import { exigirRadarBettOnline } from '@/lib/radar/acesso-pagina';
 import { Suspense } from 'react';
 import { CompararClient } from './client';
 
@@ -8,6 +9,7 @@ export default async function CompararPage({
 }: {
   searchParams: Promise<{ escolas?: string; ibges?: string }>;
 }) {
+  exigirRadarBettOnline();
   const sp = await searchParams;
   const escolas = (sp.escolas || '').split(',').filter((c) => /^\d{8}$/.test(c)).slice(0, 4);
   const ibges = (sp.ibges || '').split(',').filter((c) => /^\d{7}$/.test(c)).slice(0, 4);

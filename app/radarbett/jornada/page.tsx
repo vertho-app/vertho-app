@@ -1,3 +1,4 @@
+import { exigirRadarBettOnline } from '@/lib/radar/acesso-pagina';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -134,7 +135,8 @@ const ETAPAS: Etapa[] = [
   },
 ];
 
-export default function JornadaPage() {
+export default async function JornadaPage() {
+  exigirRadarBettOnline();
   return (
     <main
       className="min-h-dvh"

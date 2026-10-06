@@ -1,3 +1,4 @@
+import { exigirAcessoRadarNaPagina } from '@/lib/radar/acesso-pagina';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -30,6 +31,7 @@ import { FaleConosco } from '../../_components/fale-conosco';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ inep: string }> }): Promise<Metadata> {
+  await exigirAcessoRadarNaPagina();
   const { inep } = await params;
   const r = await getEscola(inep);
   if (!r?.escola) return { title: 'Escola não encontrada' };
@@ -45,6 +47,7 @@ export async function generateMetadata({ params }: { params: Promise<{ inep: str
 }
 
 export default async function EscolaPage({ params }: { params: Promise<{ inep: string }> }) {
+  await exigirAcessoRadarNaPagina();
   const { inep } = await params;
   const r = await getEscola(inep);
   if (!r?.escola) return notFound();

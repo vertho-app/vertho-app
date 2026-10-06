@@ -1,3 +1,4 @@
+import { exigirRadarBettOnline } from '@/lib/radar/acesso-pagina';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Search, GraduationCap, MapPin, Map } from 'lucide-react';
@@ -69,7 +70,8 @@ const DEMOS: Demo[] = [
   },
 ];
 
-export default function BettPage() {
+export default async function BettPage() {
+  exigirRadarBettOnline();
   return (
     <main className="min-h-dvh"
       style={{

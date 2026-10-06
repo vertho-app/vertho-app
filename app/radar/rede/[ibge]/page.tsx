@@ -1,3 +1,4 @@
+import { exigirAcessoRadarNaPagina } from '@/lib/radar/acesso-pagina';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
@@ -21,6 +22,7 @@ const ETAPA_LABEL: Record<string, string> = {
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ ibge: string }> }): Promise<Metadata> {
+  await exigirAcessoRadarNaPagina();
   const { ibge } = await params;
   const m = await getMunicipio(ibge);
   if (!m) return { title: 'Rede não encontrada' };
@@ -32,6 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ibge: str
 }
 
 export default async function RedeMunicipalPage({ params }: { params: Promise<{ ibge: string }> }) {
+  await exigirAcessoRadarNaPagina();
   const { ibge } = await params;
   const m = await getMunicipio(ibge);
   if (!m) return notFound();
