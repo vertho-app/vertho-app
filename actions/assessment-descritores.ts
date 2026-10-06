@@ -78,6 +78,15 @@ export async function salvarNotaAssessment({ empresaId, colaboradorId, competenc
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
   const sb = await requireEmpresaSupabase(empresaId, 'users.manage', 'salvarNotaAssessment');
   try {
+    // O gate prova a EMPRESA; o colaborador também vem do cliente. Sem esta checagem, quem passasse no gate
+    // de um tenant mandava o id de um colaborador de OUTRO: o upsert é por (colaborador, competência,
+    // descritor), então sobrescrevia a linha dele e ainda trocava o `empresa_id` dela (reanálise de
+    // 05/10/2026). Hoje só platform admin tem `users.manage`; fica fechado para o dia em que o RH a ganhar.
+    const { data: colab, error: errColab } = await sb.from('colaboradores')
+      .select('id').eq('id', colaboradorId).eq('empresa_id', empresaId).maybeSingle();
+    if (errColab) return { success: false, error: errColab.message };
+    if (!colab) return { success: false, error: 'Colaborador não pertence a esta empresa' };
+
     // F-I6: `descritor` é chave do upsert (colaborador+competencia+descritor).
     // Gravar o nome COM prefixo de código ("COO03_D5 — X") cria uma 2ª linha
     // pro mesmo descritor ("X" do blueprint já existe) que a UNIQUE não pega —

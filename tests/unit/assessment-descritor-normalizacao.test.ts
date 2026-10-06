@@ -16,6 +16,7 @@ const requireEmpresaSupabaseMock = vi.fn();
 const requirePermissionMock = vi.fn();
 const assertTenantMock = vi.fn();
 const createSupabaseAdminMock = vi.fn();
+const lerColaboradorMock = vi.fn();
 
 vi.mock('@/lib/admin-supabase', () => ({
   requireAdminSupabase: vi.fn(),
@@ -44,8 +45,20 @@ describe('salvarNotaAssessment — normalização na escrita (F-I6)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     upsertMock.mockResolvedValue({ error: null });
+    lerColaboradorMock.mockReset();
+    lerColaboradorMock.mockResolvedValue({ data: { id: PARAMS.colaboradorId }, error: null });
     requireEmpresaSupabaseMock.mockResolvedValue({
       from: (t: string) => {
+        // O colaborador tem que ser da empresa do gate (reanálise de 05/10/2026): a leitura devolve a linha.
+        if (t === 'colaboradores') {
+          return {
+            select: () => ({
+              eq: (c1: string, v1: any) => ({
+                eq: (c2: string, v2: any) => ({ maybeSingle: () => lerColaboradorMock([c1, v1], [c2, v2]) }),
+              }),
+            }),
+          };
+        }
         if (t !== 'descriptor_assessments') throw new Error(`tabela inesperada: ${t}`);
         return { upsert: upsertMock };
       },
@@ -69,6 +82,29 @@ describe('salvarNotaAssessment — normalização na escrita (F-I6)', () => {
   it('descritor já limpo passa intacto (com acento/caixa originais)', async () => {
     await salvarNotaAssessment({ ...PARAMS, descritor: 'Consciência de limites' });
     expect(upsertMock.mock.calls[0][0].descritor).toBe('Consciência de limites');
+  });
+
+  // Reanálise de 05/10/2026: o gate prova a EMPRESA, mas o `colaboradorId` também vem do cliente.
+  describe('o colaborador tem que ser da empresa do gate', () => {
+    it('🔴 colaborador de OUTRA empresa: nada é gravado', async () => {
+      lerColaboradorMock.mockResolvedValue({ data: null, error: null });
+      const r: any = await salvarNotaAssessment({ ...PARAMS, colaboradorId: 'colab-de-outro-tenant' });
+      expect(r.success).toBe(false);
+      expect(r.error).toMatch(/não pertence/);
+      expect(upsertMock).not.toHaveBeenCalled();
+    });
+
+    it('a leitura filtra pelo colaborador E pela empresa do gate', async () => {
+      await salvarNotaAssessment(PARAMS);
+      expect(lerColaboradorMock).toHaveBeenCalledWith(['id', 'colab-1'], ['empresa_id', 'emp-1']);
+    });
+
+    it('falha na leitura do colaborador não vira gravação', async () => {
+      lerColaboradorMock.mockResolvedValue({ data: null, error: { message: 'timeout no pool' } });
+      const r: any = await salvarNotaAssessment(PARAMS);
+      expect(r).toEqual({ success: false, error: 'timeout no pool' });
+      expect(upsertMock).not.toHaveBeenCalled();
+    });
   });
 });
 
