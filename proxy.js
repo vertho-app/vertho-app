@@ -278,6 +278,12 @@ export async function proxy(request) {
   //      separados onde o header injetado pelo middleware nem sempre chega.
   requestHeaders.set('x-tenant-slug', slug);
 
+  // O mesmo vale para o COOKIE da request: `findColabByEmail` lê o cookie ANTES do header, e o cookie
+  // que chega é entrada do cliente (um cliente HTTP manda o que quiser). Quem tem conta em dois tenants
+  // escolheria o contexto de um (papel, empresa) pelo host do outro. Reescreve com o slug do HOST.
+  const semTenant = stripTenantCookie(requestHeaders.get('cookie'));
+  requestHeaders.set('cookie', `${semTenant ? `${semTenant}; ` : ''}vertho-tenant-slug=${slug}`);
+
   const response = NextResponse.next({
     request: { headers: requestHeaders },
   });

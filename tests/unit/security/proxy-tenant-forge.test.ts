@@ -39,6 +39,28 @@ describe('proxy — tenant não pode vir do cliente', () => {
     expect(cookie).toContain('sb-x-auth-token=abc');
   });
 
+  // Reanálise de 05/10/2026: o cookie só era limpo no apex. No host de tenant ele seguia com o valor do cliente,
+  // e a leitura do tenant pelo cookie (`getTenantSlugFromCookie`) obedecia ao forjado em vez do host.
+  it('🔴 no host de tenant, o cookie forjado é SUBSTITUÍDO pelo slug do host, preservando os demais', async () => {
+    const res = await proxy(fakeRequest('ibipeba.vertho.ai', { cookie: 'sb-x-auth-token=abc; vertho-tenant-slug=macae; outro=1' }));
+    const cookie = headerRepassado(res, 'cookie') || '';
+    expect(cookie).toContain('vertho-tenant-slug=ibipeba');
+    expect(cookie).not.toContain('macae');
+    expect(cookie).toContain('sb-x-auth-token=abc');
+    expect(cookie).toContain('outro=1');
+    expect(cookie.match(/vertho-tenant-slug=/g)).toHaveLength(1);
+  });
+
+  it('no host de tenant sem cookie nenhum, o cookie repassado carrega só o slug do host', async () => {
+    const res = await proxy(fakeRequest('ibipeba.vertho.ai'));
+    expect(headerRepassado(res, 'cookie')).toBe('vertho-tenant-slug=ibipeba');
+  });
+
+  it('no host da apresentação, o cookie forjado vira o alias fixo', async () => {
+    const res = await proxy(fakeRequest('gestor-demo.vertho.ai', { cookie: 'vertho-tenant-slug=macae' }));
+    expect(headerRepassado(res, 'cookie')).toBe('vertho-tenant-slug=acme-demo');
+  });
+
   it('no subdomínio, o slug do HOST vence o header forjado', async () => {
     const res = await proxy(fakeRequest('ibipeba.vertho.ai', { 'x-tenant-slug': 'macae' }));
     expect(headerRepassado(res, 'x-tenant-slug')).toBe('ibipeba');
