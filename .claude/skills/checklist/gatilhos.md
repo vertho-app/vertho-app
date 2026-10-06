@@ -1577,3 +1577,15 @@ Padrão que casa: qualquer arquivo desses caminhos, ou número de receita, custo
 - [ ] **Validar por mutação e olhar a imagem.** 138 testes passaram de primeira e só as 36 mutações provaram algo; no harness, `toLocaleString('pt-BR', {currency})` separa `R$` do número com U+00A0 (normalize antes de `includes`).
 
 **Consequência medida (05/10/2026):** a DRE nasceu com a migration planejada como 273 porque o disco local estava 197 commits atrás (o remoto já ia até a 275, e a DRE virou 276). Memória `project_dre_por_tenant`.
+
+## § Vou levantar, auditar ou afirmar o estado de um fluxo lendo o DISCO (inclusive mandando subagentes lerem)
+
+Padrão que casa: pedido de levantamento ou de auditoria de cobertura ("onde o nome vai para a IA", "quem chama X", "o que está mascarado", "quantos fluxos"), resposta sobre "o que o sistema faz hoje", ou qualquer `Agent` que vá ler o repositório, principalmente quando o SessionStart avisou `SHA DIVERGENTE`.
+
+- [ ] **Meça a distância antes de ler:** `git -C "<repo>" fetch -q origin master` e `git -C "<repo>" rev-list --left-right --count HEAD...origin/master`. O número da direita é quantos commits o disco está atrás.
+- [ ] **Leia de um worktree de `origin/master`** (`git worktree add --detach <scratchpad>/wt origin/master`) e passe ESSE caminho aos subagentes. Agente não vê o aviso do SessionStart: se o prompt aponta para `nextjs-app`, ele audita o disco.
+- [ ] **Antes de chamar um doc canônico de desatualizado, compare com `git show origin/master:docs/<doc>`.** Em 06/10 o `FLUXO-DE-DADOS-PESSOAIS.md` tinha 178 linhas no disco e 301 no remoto.
+- [ ] **Enumere chamadores pelo `import` do wrapper, não só pelo nome da função:** `callAI(` achou 71 arquivos e os imports de `ai-client`/`ai-batch` achavam 88 (medido no disco).
+- [ ] **No Git Bash, `origin/master:.claude/...` é convertido como lista de caminhos** e falha com "unknown revision": exporte `MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'` antes.
+
+**Consequência medida (06/10/2026):** o disco estava 270 commits atrás (6 à frente). Quatro agentes auditaram o disco velho e o relatório disse que 14 de 88 arquivos usavam a máscara e que IA4, PDI, Beto e as extrações iam com nome; em produção eram 23 arquivos, o mascarador tinha sido reescrito em 03/10 e esses fluxos já iam mascarados. O aviso estava no contexto desde a primeira mensagem. Memória `feedback_auditar_no_origin_master_nao_no_disco`.
