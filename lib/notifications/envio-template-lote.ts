@@ -551,6 +551,19 @@ const TEMPLATES_POR_DIA = new Set([
   'votacao_pendente_v3',
 ]);
 
+/**
+ * Reenvio MANUAL livre: o template não tem slot (semana/dia), então quem já
+ * recebeu pode receber de novo quando o admin dispara. Quem decide insistir é
+ * o admin, que lê a prévia e confirma; a trava "uma vez na vida" fazia o
+ * lembrete de perfil pendente sair uma única vez e nunca mais para quem seguia
+ * sem fazer (4Life, 06/10: 11 pessoas elegíveis, lote em 0). Os de cadência e
+ * a votação continuam travados pelo SLOT, porque lá repetir no mesmo slot é o
+ * defeito que a chave existe para impedir.
+ */
+function reenvioLivre(template: string): boolean {
+  return !TEMPLATES_CADENCIA_MANUAL.has(template) && !TEMPLATES_POR_DIA.has(template);
+}
+
 /** Templates que precisam do estado da votação (`carregarVotacao`). */
 const TEMPLATES_VOTACAO = new Set([
   'votacao_pendente_v3',
@@ -899,8 +912,10 @@ export interface LotePreparado {
   aposRefinamentos: number;
   /** Agrupado por motivo — quem some tem que aparecer em algum lugar. */
   excluidos: { motivo: string; quantidade: number; amostra: string[] }[];
-  /** Já receberam ESTE template antes (idempotência por `kind`). */
+  /** PULADOS: já receberam este slot (semana/dia) do template de cadência ou votação. */
   jaReceberam: number;
+  /** Já receberam ESTE template antes e entram no lote de novo (reenvio manual livre). */
+  reenvios: number;
   /** Excedente do teto por disparo, devolvido em vez de cortado em silêncio. */
   adiadosPorTeto: number;
   avisoTeto?: string;
@@ -964,19 +979,25 @@ export async function prepararLoteTemplate(
       : null,
   };
 
-  // Idempotência por TEMPLATE e, nos recorrentes, pelo slot da semana. Usar só
-  // `kind` faria `conteudo_semana` poder sair UMA vez na vida da pessoa — a
-  // primeira semana bloquearia todas as seguintes. O `dedupe_key` preserva a
-  // distinção sem perder a métrica pelo nome técnico do template.
+  // Idempotência só nos templates com SLOT (cadência semanal e votação diária):
+  // a chave `dedupe_key` carrega a semana/dia, então a semana seguinte volta a
+  // valer. Nos demais o reenvio é livre (`reenvioLivre`); o histórico é lido
+  // do mesmo jeito porque o lote usa a data do último envio para ordenar.
   const { data: jaForam, error: eJ } = await sb.from('notification_deliveries')
-    .select('colaborador_id, dedupe_key')
+    .select('colaborador_id, dedupe_key, sent_at')
     .eq('empresa_id', empresaId)
     .eq('kind', template)
     .eq('channel', 'whatsapp')
     .eq('status', 'sucesso');
   if (eJ) throw new Error(`notification_deliveries: ${eJ.message}`);
-  const recebidos = new Set((jaForam || []).map((d: any) => d.colaborador_id));
   const chavesRecebidas = new Set((jaForam || []).map((d: any) => d.dedupe_key).filter(Boolean));
+  const livre = reenvioLivre(template);
+  // Último envio bem-sucedido por pessoa (ms; 0 quando a linha não tem data).
+  const ultimoEnvio = new Map<string, number>();
+  for (const d of jaForam || []) {
+    const t = Date.parse(d.sent_at) || 0;
+    if (t >= (ultimoEnvio.get(d.colaborador_id) ?? -1)) ultimoEnvio.set(d.colaborador_id, t);
+  }
 
   const excl = new Map<string, string[]>();
   const empurra = (motivo: string, nome: string) => {
@@ -987,6 +1008,7 @@ export async function prepararLoteTemplate(
 
   const alvos: AlvoPreparado[] = [];
   let jaReceberam = 0;
+  let reenvios = 0;
   let elegiveisPeloTemplate = 0;
   let removidosPorFiltros = 0;
   let aposRefinamentos = 0;
@@ -1008,10 +1030,9 @@ export async function prepararLoteTemplate(
     aposRefinamentos++;
 
     const dedupeKey = chaveDoDisparo(template, c.id, r.args, ctx);
-    const recebeuEsteSlot = TEMPLATES_CADENCIA_MANUAL.has(template) || TEMPLATES_POR_DIA.has(template)
-      ? chavesRecebidas.has(dedupeKey)
-      : recebidos.has(c.id);
-    if (recebeuEsteSlot) {
+    if (livre) {
+      if (ultimoEnvio.has(c.id)) reenvios++;
+    } else if (chavesRecebidas.has(dedupeKey)) {
       jaReceberam++;
       if (!incluirJaEnviados) continue;
     }
@@ -1023,6 +1044,15 @@ export async function prepararLoteTemplate(
       botaoParam,
       dedupeKey,
     });
+  }
+
+  // Com o reenvio livre, o teto por disparo precisa continuar andando: quem
+  // NUNCA recebeu vem primeiro e, depois, quem recebeu há mais tempo. Sem isso
+  // o segundo clique pegaria sempre as mesmas N primeiras pessoas e o aviso
+  // "dispare o restante depois" ficaria falso. `sort` é estável: sem histórico,
+  // a ordem da turma não muda.
+  if (livre && ultimoEnvio.size) {
+    alvos.sort((a, b) => (ultimoEnvio.get(a.colaboradorId) ?? -1) - (ultimoEnvio.get(b.colaboradorId) ?? -1));
   }
 
   const { enviar, adiados, aviso } = aplicarTetoLote(alvos);
@@ -1038,6 +1068,7 @@ export async function prepararLoteTemplate(
     aposRefinamentos,
     excluidos: [...excl.entries()].map(([motivo, nomes]) => ({ motivo, quantidade: nomes.length, amostra: nomes.slice(0, 5) })),
     jaReceberam,
+    reenvios,
     adiadosPorTeto: adiados.length,
     avisoTeto: aviso,
   };
@@ -1118,7 +1149,9 @@ export interface ResumoEnvio {
  * um orçamento menor ou um envio lento fariam a lambda morrer no
  * meio e ninguém saberia onde parou (o cenário que `cadencia.ts` descreve como
  * pior que o bloqueio). Quem sobrou volta contado em `naoAlcancados`, e a
- * idempotência por `kind` faz o segundo clique continuar de onde ficou.
+ * ordem do lote (quem nunca recebeu primeiro, depois o envio mais antigo; nos
+ * templates de slot, a idempotência da semana/dia) faz o segundo clique
+ * continuar de onde ficou.
  */
 export async function dispararLoteTemplate(lote: LotePreparado, empresaId: string): Promise<ResumoEnvio> {
   if (!cloudApiConfigurada()) throw new Error('Cloud API não configurada');

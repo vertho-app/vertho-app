@@ -708,6 +708,7 @@ export async function previewTemplateWhatsApp(empresaId: string, template: strin
         removidosPorFiltros: lote.removidosPorFiltros,
         aposRefinamentos: lote.aposRefinamentos,
         jaReceberam: lote.jaReceberam,
+        reenvios: lote.reenvios,
         excluidos: lote.excluidos,
         adiadosPorTeto: lote.adiadosPorTeto,
         avisoTeto: lote.avisoTeto,
@@ -754,6 +755,7 @@ export async function dispararTemplateWhatsApp(empresaId: string, template: stri
     const partes = [`${r.enfileirados} mensagem(ns) na fila (${r.duracao})`];
     if (r.falhas.length) partes.push(`${r.falhas.length} não enfileiradas`);
     if (lote.jaReceberam) partes.push(`${lote.jaReceberam} já haviam recebido este template`);
+    if (lote.reenvios) partes.push(`${lote.reenvios} já tinham recebido antes e receberam de novo`);
     if (r.adiadosPorTeto) partes.push(`${r.adiadosPorTeto} adiados pelo teto`);
 
     await logAdminAction({
@@ -769,6 +771,7 @@ export async function dispararTemplateWhatsApp(empresaId: string, template: stri
         removidosPorFiltros: lote.removidosPorFiltros,
         aposRefinamentos: lote.aposRefinamentos,
         jaReceberam: lote.jaReceberam,
+        reenvios: lote.reenvios,
         adiadosPorTeto: r.adiadosPorTeto,
         excluidos: lote.excluidos,
       },

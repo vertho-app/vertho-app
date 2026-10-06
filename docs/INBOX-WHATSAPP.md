@@ -149,9 +149,19 @@ Fora da janela de 24h a Meta só entrega template aprovado. O que existe é:
 
 **O que a tela virou:** seletor de template (não editor), com o corpo literal aprovado, prévia
 renderizada com os parâmetros da PRIMEIRA pessoa do lote, e a composição do lote — quantos recebem,
-quantos já receberam aquele template (idempotência por `kind`) e **quem fica de fora com o motivo**.
+quantos já receberam aquele template e **quem fica de fora com o motivo**.
 Núcleo headless em `lib/notifications/envio-template-lote.ts`; a tela **enfileira** no QStash porque
 `LIMIAR_ENVIO_DIRETO = 1` (6s × 40 pessoas = 4 min dentro de uma Server Action).
+
+🔑 **Reenvio manual é LIVRE (06/10/2026).** Template sem slot (perfil pendente, avaliação, boas-vindas…)
+não tem mais a trava "uma vez na vida": quem já recebeu entra de novo e a prévia diz quantos
+(`reenvios`). Medido na 4Life: 11 pessoas ainda sem o perfil, todas com 1 envio de 28/09, e o lote saía
+em 0 — o lembrete era impossível justamente para quem seguia pendente. A trava **continua** só nos
+templates com slot (`TEMPLATES_CADENCIA_MANUAL`, `TEMPLATES_POR_DIA`): lá a chave carrega a semana/dia.
+Como o teto por disparo (`WHATSAPP_LOTE_MAX`) dependia da trava para "continuar de onde ficou", o lote
+agora ordena **quem nunca recebeu primeiro e depois o envio mais antigo**. O freio contra clique
+duplo é o diálogo de confirmação da tela, não o banco: `notification_deliveries.dedupe_key` não é único
+e `whatsapp_mensagens_enviadas` só grava a chave do inbox.
 
 ⚠️ **Template não leva anexo.** `enviarTemplateCloud` monta apenas `body` e `button`; anexo exigiria
 template com cabeçalho de documento e nenhum dos nossos tem. O seletor de arquivo continuou visível

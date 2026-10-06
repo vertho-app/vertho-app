@@ -368,7 +368,8 @@ export default function EnviosPage() {
     const r: any = await dispararTemplateWhatsApp(empresaId, templateSel, filtrosDoLoteTemplate());
     setResult(r);
     setSending(false);
-    // Recarrega a prévia: quem acabou de receber sai do alvo pela idempotência.
+    // Recarrega a prévia: nos templates de cadência/votação quem acabou de receber
+    // sai do alvo pelo slot; nos demais o reenvio é livre e o lote segue igual.
     const p: any = await previewTemplateWhatsApp(empresaId, templateSel, filtrosDoLoteTemplate());
     if (p?.success) setPreviewLote(p.data);
   }
@@ -967,6 +968,9 @@ export default function EnviosPage() {
                   )}
                   {previewLote.jaReceberam > 0 && (
                     <p className="text-[10px] text-gray-400 mb-1">{t('templateMode.already', { count: previewLote.jaReceberam })}</p>
+                  )}
+                  {previewLote.reenvios > 0 && (
+                    <p className="text-[10px] text-gray-400 mb-1">{t('templateMode.resend', { count: previewLote.reenvios })}</p>
                   )}
                   {previewLote.excluidos?.length > 0 && (
                     <div className="mt-3 border-t border-white/[0.05] pt-2">

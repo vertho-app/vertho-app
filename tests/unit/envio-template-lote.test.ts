@@ -441,15 +441,44 @@ describe('prepararLoteTemplate', () => {
     expect(lote.excluidos.map((e) => e.motivo)).toContain('sem telefone/WhatsApp');
   });
 
-  it('idempotência é POR TEMPLATE: quem já recebeu ESTE não entra, e é contado', async () => {
-    const sb = mock({ jaReceberam: [{ colaborador_id: 'c1' }] });
+  it('reenvio manual é LIVRE: quem já recebeu ESTE template entra de novo e é contado em `reenvios`', async () => {
+    // 4Life, 06/10: 11 elegíveis, todos com 1 envio de 28/09, e o lote saía em 0.
+    const sb = mock({ jaReceberam: [{ colaborador_id: 'c1', sent_at: '2026-09-28T13:49:00.000Z' }] });
     const lote = await prepararLoteTemplate(sb.client, {
       empresaId: 'emp-1', template: 'avaliacao_competencias', colabs: [professor(), professor({ id: 'c2', nome_completo: 'João' })],
     });
-    expect(lote.alvos.map((a) => a.colaboradorId)).toEqual(['c2']);
-    expect(lote.jaReceberam).toBe(1);
+    expect(lote.alvos.map((a) => a.colaboradorId).sort()).toEqual(['c1', 'c2']);
+    expect(lote.jaReceberam).toBe(0);
+    expect(lote.reenvios).toBe(1);
     expect(lote.elegiveisPeloTemplate).toBe(2);
     expect(lote.aposRefinamentos).toBe(2);
+  });
+
+  it('só quem JÁ recebeu é contado em `reenvios`: lote inteiro de primeira vez dá 0', async () => {
+    const sb = mock();
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'avaliacao_competencias', colabs: [professor(), professor({ id: 'c2', nome_completo: 'João' })],
+    });
+    expect(lote.alvos).toHaveLength(2);
+    expect(lote.reenvios).toBe(0);
+  });
+
+  it('o lote começa por quem NUNCA recebeu e depois por quem recebeu há mais tempo (o teto segue andando)', async () => {
+    // c1 tem duas linhas e a mais recente vem PRIMEIRA: vale o maior `sent_at`, não a última linha lida.
+    const sb = mock({
+      jaReceberam: [
+        { colaborador_id: 'c1', sent_at: '2026-10-05T12:00:00.000Z' },
+        { colaborador_id: 'c1', sent_at: '2026-09-01T12:00:00.000Z' },
+        { colaborador_id: 'c3', sent_at: '2026-09-28T12:00:00.000Z' },
+      ],
+    });
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1',
+      template: 'avaliacao_competencias',
+      colabs: [professor(), professor({ id: 'c2', nome_completo: 'João' }), professor({ id: 'c3', nome_completo: 'Ana' })],
+    });
+    expect(lote.alvos.map((a) => a.colaboradorId)).toEqual(['c2', 'c3', 'c1']);
+    expect(lote.reenvios).toBe(2);
   });
 
   it('a consulta de idempotência filtra pelo template ESCOLHIDO', async () => {
@@ -568,6 +597,8 @@ describe('prepararLoteTemplate', () => {
     });
     expect(loteRepetido.alvos).toHaveLength(0);
     expect(loteRepetido.jaReceberam).toBe(1);
+    // O slot continua travado: só o reenvio LIVRE conta em `reenvios`.
+    expect(loteRepetido.reenvios).toBe(0);
   });
 
   it('recusa template sem resolvedor — não envia parâmetro no formato errado', async () => {

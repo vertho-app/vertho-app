@@ -5475,6 +5475,7 @@
       "recipients": "{count} recibirán",
       "removedByFilters": "{count} persona(s) elegible(s) eliminada(s) por los refinamientos opcionales",
       "already": "{count} ya recibieron esta plantilla (omitidos)",
+      "resend": "{count} ya recibieron esta plantilla antes y la recibirán de nuevo",
       "outsideAutomaticRule": "Fuera de la regla automática",
       "deliveryNote": "El disparo pone los mensajes en cola al ritmo de la política de cadencia. La entrega confirmada aparece después, cuando Meta devuelve el estado.",
       "tipFixed": "El cuerpo es fijo y está aprobado por Meta: aquí no se puede formatear ni editar.",

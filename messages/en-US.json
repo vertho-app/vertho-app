@@ -5361,6 +5361,7 @@
       "recipients": "{count} will receive",
       "removedByFilters": "{count} eligible people removed by optional refinements",
       "already": "{count} already received this template (skipped)",
+      "resend": "{count} received this template before and will receive it again",
       "outsideAutomaticRule": "Outside the automatic rule",
       "deliveryNote": "Sending queues the messages at the cadence policy rate. Confirmed delivery shows up later, when Meta returns the status.",
       "tipFixed": "The body is fixed and approved by Meta — it cannot be formatted or edited here.",

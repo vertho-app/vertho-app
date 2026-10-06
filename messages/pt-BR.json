@@ -5361,6 +5361,7 @@
       "recipients": "{count} vão receber",
       "removedByFilters": "{count} elegível(is) removido(s) pelos refinamentos opcionais",
       "already": "{count} já receberam este template (pulados)",
+      "resend": "{count} já receberam este template antes e vão receber de novo",
       "outsideAutomaticRule": "Fora da regra automática",
       "deliveryNote": "O disparo enfileira as mensagens no ritmo da política de cadência. A entrega confirmada aparece depois, quando a Meta devolve o status.",
       "tipFixed": "O corpo é fixo e aprovado pela Meta — não dá para formatar nem editar aqui.",
