@@ -108,7 +108,11 @@ export async function POST(request) {
     if (limited) return limited;
 
     const body = await request.json();
-    const { trilhaId, semana, message, action = 'send', colaboradorId: colabBody, aiConfig = {} } = body;
+    const { trilhaId, semana, message, action = 'send', colaboradorId: colabBody } = body;
+    // O modelo da arguição e da extração é decisão do SERVIDOR (catálogo de tarefas). Já vinha do corpo
+    // da requisição: ninguém mandava, mas quem quisesse escolhia o modelo (custo, ou uma família igual à
+    // do auditor) por uma rota aberta a qualquer logado (reanálise de 05/10/2026). Vazio = o padrão da tarefa.
+    const aiConfig = {};
     if (!trilhaId || !semana) return NextResponse.json({ error: 'trilhaId+semana' }, { status: 400 });
 
     const sb = createSupabaseAdmin();

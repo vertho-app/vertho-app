@@ -9,6 +9,7 @@
  */
 import { linhasDaReflexaoSemanal } from '@/lib/season-engine/evidencia-semana';
 import { DEGRADACAO, registrarDegradacao } from '@/lib/degradacao';
+import { neutralizarFala } from '@/lib/prompt-seguro';
 
 
 /**
@@ -152,7 +153,9 @@ export async function agregarEvidenciasAteAcumulada(
         const aval = avals.find((a: any) => a.descritor === desc);
         const partes = [
           `Sem ${p.semana} (prática${modo === 'pratica' ? ' — missão real' : ' — cenário escrito'})`,
-          modo === 'pratica' && compromisso && `compromisso: "${compromisso}"`,
+          // Texto da pessoa dentro do prompt do scorer final: sem o filtro, aspas e `═══` fecham o trecho
+          // e forjam seção (reanálise de 05/10/2026).
+          modo === 'pratica' && compromisso && `compromisso: "${neutralizarFala(compromisso)}"`,
           aval?.observacao && `avaliação: "${aval.observacao}"`,
           aval?.nota && `nota: ${aval.nota}`,
         ].filter(Boolean).join(' · ');

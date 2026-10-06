@@ -52,12 +52,15 @@ const TRANSCRIPT_COM_ROTULO = /role\s*===\s*['"]user['"]\s*\?\s*(?:['"`][A-ZÀ-�
 const RESPOSTA_POR_PERGUNTA = /(?:→|\\u2192)\s*\$\{[^}]*respostasUser\[/;
 /** As respostas R1..R4 da IA4 passando só pela máscara de PII. */
 const RESPOSTA_IA4 = /maskTextPII\(\s*typeof\s+\w+\s*===\s*['"]string['"]/;
+/** `[${m.role}]: ${m.content}`: o papel como rótulo, para o histórico inteiro (o `/api/chat`, em duas cópias). */
+const SERIALIZADOR_COM_PAPEL = /\[\$\{\w+\.role\}\]:\s*\$\{/;
 
 describe('a fala do colaborador só entra num prompt por neutralizarFala', () => {
   it('🔴 alvo vivo: os três padrões ainda encontram os serializadores que existem hoje', () => {
     // Se o código for reorganizado e o padrão deixar de casar, o guard viraria verde sem vigiar nada.
     expect(pontos(TRANSCRIPT_COM_ROTULO).length).toBeGreaterThanOrEqual(9);
     expect(pontos(RESPOSTA_POR_PERGUNTA).length).toBeGreaterThanOrEqual(3);
+    expect(pontos(SERIALIZADOR_COM_PAPEL).length).toBeGreaterThanOrEqual(2);
     // O padrão da IA4 é o de uma regressão (alguém desfazer a neutralização): hoje ele NÃO casa,
     // porque `neutralizarFala(` vem antes do `typeof`. A prova de que ele enxerga é a mutação abaixo.
     expect(RESPOSTA_IA4.test("maskTextPII(typeof r === 'string' ? r : '', pii)")).toBe(true);
@@ -68,6 +71,7 @@ describe('a fala do colaborador só entra num prompt por neutralizarFala', () =>
     ['transcript com rótulo de turno', TRANSCRIPT_COM_ROTULO],
     ['resposta por pergunta do fechamento', RESPOSTA_POR_PERGUNTA],
     ['respostas R1..R4 da IA4 só mascaradas', RESPOSTA_IA4],
+    ['histórico com o papel como rótulo (`[${m.role}]:`)', SERIALIZADOR_COM_PAPEL],
   ])('%s: nenhum ponto sem neutralizarFala', (_nome, padrao) => {
     const sem = pontos(padrao).filter((p) => !p.neutraliza).map((p) => `${p.arquivo}:${p.linha}  ${p.trecho}`);
     expect(sem, `serializador de fala sem neutralizarFala (lib/prompt-seguro):\n${sem.join('\n')}`).toEqual([]);

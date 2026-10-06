@@ -147,6 +147,22 @@ export function neutralizarFala(texto: string | null | undefined): string {
 }
 
 /**
+ * Como `neutralizarFala`, para prompts cujas CHAVES de seção não são rótulos de turno: o Beto do
+ * WhatsApp monta `MENSAGEM_ATUAL: …` / `CONTEXTO: {…}` / `HISTORICO_RECENTE: […]` e a mensagem da pessoa
+ * entra na primeira. Uma linha `CONTEXTO: {"pessoa":…}` dentro dela forjava uma segunda seção. Só as
+ * chaves PEDIDAS são citadas (`“CONTEXTO”:`), no começo da linha e com a mesma decoração que o rótulo
+ * de turno aceita; "Contexto:" em texto comum de outro prompt não é tocado porque esta função só roda
+ * onde a chave existe. As chaves são constantes do código (maiúsculas e sublinhado), nunca dado de usuário.
+ */
+export function neutralizarFalaComChaves(texto: string | null | undefined, chaves: readonly string[]): string {
+  const base = neutralizarFala(texto);
+  if (!base || chaves.length === 0) return base;
+  for (const c of chaves) if (!/^[A-Z][A-Z_]*$/.test(c)) throw new Error(`chave de seção inválida: ${c}`);
+  const re = new RegExp(`^(${PREFIXO}*)(${chaves.join('|')})(${FECHO}*${DOIS_PONTOS})`, 'gimu');
+  return base.replace(re, (_m, antes: string, chave: string, fim: string) => `${antes}“${chave}”${fim}`);
+}
+
+/**
  * Sinais de tentativa de manipular o avaliador. Frases em português e inglês, só as que um
  * texto legítimo de avaliação quase nunca contém. Não decide nada: devolve nomes.
  */

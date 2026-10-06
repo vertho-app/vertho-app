@@ -17,6 +17,7 @@ import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { comContexto } from '@/lib/execucao-contexto';
 import { escolherCenarioDaCompetencia, notaMinimaDaEmpresa } from '@/lib/assessment/cenario-elegivel';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
+import { neutralizarFala } from '@/lib/prompt-seguro';
 
 // Turno do chat + encerramento (avaliação + auditoria, 2× 8192 tokens) podem
 // levar minutos com retry/backoff — sem isso a rota cai no default da Vercel
@@ -689,7 +690,7 @@ ${comp?.gabarito ? `═══ RÉGUA DE MATURIDADE (referência obrigatória —
 ${JSON.stringify(evidencias, null, 2)}
 
 ═══ HISTÓRICO COMPLETO DA CONVERSA ═══
-${messages.map(m => `[${m.role}]: ${m.content}`).join('\n\n')}
+${messages.map(m => `[${m.role}]: ${m.role === 'user' ? neutralizarFala(m.content) : m.content}`).join('\n\n')}
 
 ═══ REGRAS DE AVALIAÇÃO ═══
 
@@ -836,7 +837,7 @@ ${JSON.stringify(rascunho, null, 2)}
 ${JSON.stringify(evidencias, null, 2)}
 
 ═══ HISTÓRICO DA CONVERSA ═══
-${messages.map(m => `[${m.role}]: ${m.content}`).join('\n\n')}
+${messages.map(m => `[${m.role}]: ${m.role === 'user' ? neutralizarFala(m.content) : m.content}`).join('\n\n')}
 
 ═══ 6 CRITÉRIOS DE AUDITORIA ═══
 
@@ -955,6 +956,15 @@ REGRAS:
   // CRÍTICA, e a pior das sete: sem ela a avaliação final volta para o cliente
   // com nota e nível preenchidos SEM a sessão ter sido concluída no banco — a
   // pessoa vê o resultado, a sessão continua `em_andamento`, e a semana não fecha.
+  // Nível, nota e lacuna que vêm da avaliação corrigida pelo AUDITOR (texto do modelo, e a conversa que
+  // ele leu é da pessoa) entram no banco dentro da escala: só a média recalculada em código era
+  // limitada (reanálise de 05/10/2026). Ausente (`undefined`/`null`) segue como estava; o que não é
+  // número vira "sem valor" em vez de ir ao banco.
+  const naEscala = (v: unknown, min: number, max: number) => {
+    if (v === null || v === undefined) return v as undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : undefined;
+  };
   const { error: errPersist } = await sb.from('sessoes_avaliacao').update({
     status: audit?.status === 'reprovado' ? 'reprovado' : 'concluido',
     fase: 'concluida',
@@ -963,9 +973,9 @@ REGRAS:
     avaliacao_final: avaliacaoFinal,
     modelo_avaliador: modeloAvaliador,
     modelo_validador: modeloValidador,
-    nivel: avaliacaoFinal.nivel || avaliacaoFinal.consolidacao?.nivel_geral,
-    nota_decimal: avaliacaoFinal.nota_decimal || avaliacaoFinal.consolidacao?.media_descritores,
-    lacuna: avaliacaoFinal.lacuna,
+    nivel: naEscala(avaliacaoFinal.nivel || avaliacaoFinal.consolidacao?.nivel_geral, 1, 4),
+    nota_decimal: naEscala(avaliacaoFinal.nota_decimal || avaliacaoFinal.consolidacao?.media_descritores, 1, 4),
+    lacuna: naEscala(avaliacaoFinal.lacuna, -3, 0),
     eval_prompt_version_id: evalPromptVersionId,
     audit_prompt_version_id: auditPromptVersionId,
   }).eq('id', sessaoId);

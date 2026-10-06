@@ -5,6 +5,8 @@
  *
  * 10 turns da IA — turn 10 é fechamento obrigatório sem réplica.
  */
+import { neutralizarFala } from '@/lib/prompt-seguro';
+
 interface ChatMessage {
   role: string;
   content: string;
@@ -181,7 +183,7 @@ MISSÃO PROPOSTA:
 ${missao}
 
 COMPROMISSO QUE O COLAB ASSUMIU NO INÍCIO DA SEMANA:
-"${compromisso || '(não informado)'}"
+"${neutralizarFala(compromisso) || '(não informado)'}"
 
 ${groundingContext ? `GROUNDING (base de conhecimento):
 ${groundingContext}

@@ -29,13 +29,16 @@ export async function POST(request) {
 
     const body = await request.json();
     const { trilhaId, semana, modo, compromisso, colaboradorId: colabBody } = body;
+    // O compromisso é "texto curto: qual situação vai usar" e chega ao scorer final dentro de um prompt.
+    // Antes: só `.trim()`, sem teto e sem checar o tipo (um número ou objeto derrubava a rota com 500).
+    const compromissoTexto = typeof compromisso === 'string' ? compromisso.trim().slice(0, 1000) : '';
     if (!trilhaId || !semana || !modo) {
       return NextResponse.json({ error: 'trilhaId+semana+modo obrigatórios' }, { status: 400 });
     }
     if (!['pratica', 'cenario'].includes(modo)) {
       return NextResponse.json({ error: "modo deve ser 'pratica' ou 'cenario'" }, { status: 400 });
     }
-    if (modo === 'pratica' && !(compromisso || '').trim()) {
+    if (modo === 'pratica' && !compromissoTexto) {
       return NextResponse.json({ error: 'Compromisso obrigatório no modo prática' }, { status: 400 });
     }
 
@@ -94,7 +97,7 @@ export async function POST(request) {
     const novoFeedback = {
       ...existente,
       modo,
-      ...(modo === 'pratica' ? { compromisso: compromisso.trim() } : {}),
+      ...(modo === 'pratica' ? { compromisso: compromissoTexto } : {}),
     };
 
     const payload = {

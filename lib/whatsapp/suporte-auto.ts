@@ -47,6 +47,7 @@
 import { callAI } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { neutralizarFalaComChaves } from '@/lib/prompt-seguro';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { TRILHA } from '@/lib/status';
@@ -90,6 +91,8 @@ export const SUPORTE_AUTO_TASK_KEY = 'suporte_whatsapp';
  * ledger faz lookup exato e `gemini-3.8-flash-high` não existe (o nível de
  * raciocínio vai em `reasoningEffort`, não no id). */
 export const SUPORTE_AUTO_MODEL = 'gemini-3.8-flash';
+/** As chaves de seção do prompt do usuário (`MENSAGEM_ATUAL:`, `CONTEXTO:`, `HISTORICO_RECENTE:`): a fala da pessoa não pode forjá-las. */
+export const CHAVES_DO_PROMPT_DO_SUPORTE = ['MENSAGEM_ATUAL', 'CONTEXTO', 'HISTORICO_RECENTE'] as const;
 /** Resposta curta + thinking `low`: reduz a cauda do WhatsApp sem voltar ao
  * teto que truncava o JSON. O schema nativo mantém o formato sob esse limite. */
 const SUPORTE_AUTO_MAX_TOKENS = 700;
@@ -995,7 +998,9 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
   };
   const mensagemAtual = e.tipo === 'audio'
     ? '[áudio do colaborador anexado nesta mensagem]'
-    : maskTextPII(e.texto?.trim(), pii);
+    // A mensagem entra no meio de um prompt de chaves `MENSAGEM_ATUAL:`/`CONTEXTO:`: uma linha
+    // `CONTEXTO: {…}` escrita pela pessoa forjava uma seção (reanálise de 05/10/2026).
+    : maskTextPII(neutralizarFalaComChaves(e.texto?.trim(), CHAVES_DO_PROMPT_DO_SUPORTE), pii);
   const historicoParaIA = detalhes.historico.map((t) => ({ ...t, texto: maskTextPII(t.texto, pii) }));
   const usuario = [
     `MENSAGEM_ATUAL: ${mensagemAtual}`,
