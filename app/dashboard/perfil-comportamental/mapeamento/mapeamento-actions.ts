@@ -6,6 +6,7 @@ import { findColabByEmail } from '@/lib/authz';
 import { canAccessPerfilComportamental } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { heavyLimiter, limitarAcao } from '@/lib/rate-limit';
+import { DEGRADACAO, registrarDegradacao } from '@/lib/degradacao';
 import {
   computeDiscCompetenciesNatural,
   DISC_COMPETENCY_MODEL_VERSION,
@@ -50,25 +51,74 @@ export async function verificarDisponibilidadeMapeamento() {
   return { permitido: true };
 }
 
+/** Quem está salvando, para o registro de falha saber de quem era (preenchido assim que se resolve). */
+type ContextoSalvamento = { colab: { id: string; empresa_id: string } | null };
+
+/**
+ * Registra em `degradacao_log` por que o DISC NÃO ficou gravado. Nunca lança
+ * (`registrarDegradacao` garante) e nunca leva as respostas nem o e-mail: só o
+ * motivo e a mensagem do erro. As respostas só existem no navegador, então sem este
+ * rastro uma falha aqui não deixava nada para investigar depois.
+ */
+async function registrarFalhaDoSalvamento(
+  motivo: string,
+  contexto: ContextoSalvamento,
+  severidade: 'aviso' | 'critico',
+  detalhe: Record<string, unknown> = {},
+) {
+  const colab = contexto.colab;
+  await registrarDegradacao({
+    fluxo: 'assessment',
+    tipo: DEGRADACAO.DISC_NAO_SALVO,
+    chave: colab ? `${colab.id}:${motivo}` : motivo,
+    empresaId: colab?.empresa_id ?? null,
+    colaboradorId: colab?.id ?? null,
+    severidade,
+    detalhe: { motivo, ...detalhe },
+  });
+}
+
 /**
  * Salva os resultados do mapeamento comportamental DISC no Supabase.
  * Todas as métricas em colunas separadas para facilitar queries e relatórios.
+ *
+ * Toda saída SEM gravar (recusa ou exceção) deixa uma linha em `degradacao_log`
+ * (`disc-nao-salvo`). A exceção é registrada e RELANÇADA: o comportamento para a
+ * tela não muda.
  */
 export async function salvarPerfilComportamental(resultados) {
+  const contexto: ContextoSalvamento = { colab: null };
+  try {
+    return await salvarPerfil(resultados, contexto);
+  } catch (e) {
+    await registrarFalhaDoSalvamento('excecao', contexto, 'critico', { mensagem: e?.message || String(e) });
+    throw e;
+  }
+}
+
+async function salvarPerfil(resultados, contexto: ContextoSalvamento) {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
   if (!email || !resultados) {
+    await registrarFalhaDoSalvamento('dados-incompletos', contexto, 'aviso', { sem_sessao: !email, sem_resultados: !resultados });
     return { success: false, error: 'Dados incompletos' };
   }
   // Salvar dispara a geração dos textos do relatório com IA (em `after()`): freio por
   // pessoa, antes do custo (análise de 05/10/2026).
   const espera = await limitarAcao(heavyLimiter, `perfil:${email}`);
-  if (espera) return { success: false, error: `Muitas solicitações em pouco tempo. Tente de novo em ${espera}s.` };
+  if (espera) {
+    await registrarFalhaDoSalvamento('limite-de-taxa', contexto, 'aviso', { espera_s: espera });
+    return { success: false, error: `Muitas solicitações em pouco tempo. Tente de novo em ${espera}s.` };
+  }
 
   // Resolver o colaborador via tenant. Update por ID, não por email
   // (mesmo email pode existir em múltiplas empresas).
   const colab = await findColabByEmail(email, 'id, empresa_id');
-  if (!colab) return { success: false, error: 'Colaborador não encontrado' };
+  if (!colab) {
+    await registrarFalhaDoSalvamento('colaborador-nao-encontrado', contexto, 'aviso');
+    return { success: false, error: 'Colaborador não encontrado' };
+  }
+  contexto.colab = { id: colab.id, empresa_id: colab.empresa_id };
 
   const sb = createSupabaseAdmin();
   // Config EFETIVA (empresa -> turma -> participacao): o gate do DISC e da TURMA
@@ -77,6 +127,7 @@ export async function salvarPerfilComportamental(resultados) {
   const cfg = await configEfetivaDoColaborador(sb, colab.empresa_id, (colab as any).id);
   const fonteExterna = cfg.perfil_externo_fonte ?? null;
   if (fonteExterna) {
+    await registrarFalhaDoSalvamento('fonte-externa', contexto, 'aviso', { fonte: fonteExterna });
     return {
       success: false,
       error: 'Esta empresa usa mapeamento comportamental próprio. O Mapeamento Comportamental nativo da Vertho não será salvo.',
@@ -84,6 +135,7 @@ export async function salvarPerfilComportamental(resultados) {
   }
   const perfil = canAccessPerfilComportamental(cfg);
   if (!perfil.allowed) {
+    await registrarFalhaDoSalvamento('perfil-nao-liberado', contexto, 'aviso', { code: perfil.code ?? null });
     return {
       success: false,
       error: perfil.message || 'O perfil comportamental ainda não foi liberado pela empresa.',
@@ -171,7 +223,10 @@ export async function salvarPerfilComportamental(resultados) {
     })
     .eq('id', colab.id).eq('empresa_id', colab.empresa_id);
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    await registrarFalhaDoSalvamento('erro-de-gravacao', contexto, 'critico', { mensagem: error.message });
+    return { success: false, error: error.message };
+  }
 
   try {
     const { recordAcmeProspectDiscCompletion } = await import(

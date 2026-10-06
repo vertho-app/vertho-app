@@ -540,6 +540,19 @@ export const DEGRADACAO = {
    * (que refaz a semana). Chave: `<semana_inicio>`. `detalhe.motivo` diz por que falhou.
    */
   DRE_CAMBIO_SEM_PTAX: 'dre-cambio-sem-ptax',
+  /**
+   * Mapeamento comportamental (DISC): a pessoa RESPONDEU e nada ficou gravado, ou o servidor
+   * recusou/lançou ao salvar (`salvarPerfilComportamental`). As respostas só vivem no
+   * navegador, então a falha é perda de 15 minutos de trabalho dela e, até 03/10/2026, a
+   * tela ainda dizia "concluído". Medido 06/10: uma pessoa da 4Life diz que fez e o banco não
+   * tem nada, sem erro no Sentry nem log que explicasse. Fluxo `assessment`. Chave:
+   * `<colaboradorId>:<motivo>`, ou só `<motivo>` quando a pessoa não foi identificada.
+   * `detalhe.motivo`: `erro-de-gravacao` e `excecao` (CRÍTICO: defeito nosso) ou
+   * `dados-incompletos`, `limite-de-taxa`, `colaborador-nao-encontrado`, `fonte-externa`,
+   * `perfil-nao-liberado` (aviso: recusa esperada que a pessoa viu como erro). Nunca grava as
+   * respostas nem o e-mail; só o motivo e a mensagem do erro.
+   */
+  DISC_NAO_SALVO: 'disc-nao-salvo',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
