@@ -33,7 +33,8 @@ import { costFromTokens, openAIWebSearchToolCost } from '@/lib/ia-cost-catalog';
 // (A8, ver o cabeçalho acima). A regra de ORGANIZAÇÃO continua: predicado puro
 // mora em `lib/`, não aqui.
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
-import { PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
+import { BEDROCK_KIMI_K3_MODEL, PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
+import { reservarChamadaBedrock } from '@/lib/bedrock-piloto';
 import { DEFAULT_COPILOTO_RESEARCH_MODEL, fallbackRespeitandoDual } from '@/lib/ai-tasks';
 import { contextoAtual, fracaoDoOrcamento } from '@/lib/execucao-contexto';
 import { modeloNaReguaDePrivacidade } from '@/lib/ai-regua-privacidade';
@@ -161,6 +162,12 @@ export interface ChatMessage {
   content: string;
 }
 
+function opcoesDoPilotoBedrock(model: string, options: AICallOptions): AICallOptions {
+  if (!model.startsWith(BEDROCK_KIMI_K3_MODEL)) return options;
+  if (options.responses) throw new Error('Bedrock: este piloto usa somente Chat Completions.');
+  return { ...options, semRetentativa: true, maxRetries: 0, reasoningEffort: 'low', timeoutMs: Math.min(options.timeoutMs ?? 90000, 90000) };
+}
+
 async function resolveAILocale(explicitLocale?: AppLocale): Promise<AppLocale> {
   if (explicitLocale) return explicitLocale;
 
@@ -253,6 +260,7 @@ export async function callAI(
   const model = await modeloNaReguaDePrivacidade(aiConfig?.model || DEFAULT_MODEL, {
     taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAI',
   });
+  options = opcoesDoPilotoBedrock(model, options);
   // R-57: a resposta das tarefas que escrevem para o cliente sai sem travessão
   // (registro em `lib/ai-saida-sem-travessao.ts`). Tarefa fora do registro passa intacta.
   const saida = (texto: string) => sanitizarSaidaDaTarefa(options.taskKey, texto, [user, options.cachedUserPrefix]);
@@ -336,6 +344,7 @@ export async function callAIChat(
   const model = await modeloNaReguaDePrivacidade(aiConfig?.model || DEFAULT_MODEL, {
     taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAIChat',
   });
+  options = opcoesDoPilotoBedrock(model, options);
   // R-57: o mesmo registro do gêmeo `callAI` (os dois caminhos, sempre). No chat a
   // entrada de dados é o histórico; o eco só importa para JSON, e as conversas são texto.
   const saida = (texto: string) => sanitizarSaidaDaTarefa(options.taskKey, texto);
@@ -420,7 +429,7 @@ interface LedgerUsage {
 }
 
 async function registrarUsoIA(
-  provider: 'anthropic' | 'gemini' | 'openai' | 'kimi' | 'xai' | 'qwen' | 'meta',
+  provider: 'anthropic' | 'gemini' | 'openai' | 'kimi' | 'xai' | 'qwen' | 'meta' | 'bedrock',
   model: string,
   u: LedgerUsage | null,
   latencyMs: number,
@@ -1024,7 +1033,7 @@ async function callGemini(
  * ledger como 'openai' — e o painel de custo passaria a somar xAI dentro da
  * OpenAI, sem nada acusando.
  */
-type ProvedorCompat = 'openai' | 'kimi' | 'xai' | 'qwen' | 'meta';
+type ProvedorCompat = 'openai' | 'kimi' | 'xai' | 'qwen' | 'meta' | 'bedrock';
 function resolverProvedorCompat(model: string): { apiKey: string; url: string; provider: ProvedorCompat } {
   const p = PROVEDORES_OPENAI_COMPAT.find((x) => model.startsWith(x.prefixo));
   const env = p?.env ?? 'OPENAI_API_KEY';
@@ -1065,6 +1074,7 @@ async function callOpenAI(
   // ignora `max_tokens` e rodava sem teto efetivo.
   const body: any = {
     model,
+    ...(provider === 'bedrock' ? { service_tier: 'default' } : {}),
     ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
     ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
     messages: [
@@ -1073,19 +1083,21 @@ async function callOpenAI(
     ],
   };
 
+  const serializedBody = JSON.stringify(body);
+  if (provider === 'bedrock') await reservarChamadaBedrock(options.taskKey, serializedBody);
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify(body),
+    body: serializedBody,
     signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
     const detail = await res.text();
-    throw new Error(`OpenAI ${res.status}: ${detail}`);
+    throw new Error(`${provider} ${res.status}: ${detail}`);
   }
 
   const data = await res.json();
@@ -1173,24 +1185,27 @@ async function callOpenAIChat(
   // ignora `max_tokens` e rodava sem teto efetivo.
   const body: any = {
     model,
+    ...(provider === 'bedrock' ? { service_tier: 'default' } : {}),
     ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
     ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
     messages: [{ role: 'system', content: system }, ...messages],
   };
 
+  const serializedBody = JSON.stringify(body);
+  if (provider === 'bedrock') await reservarChamadaBedrock(options.taskKey, serializedBody);
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify(body),
+    body: serializedBody,
     signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
   });
 
   if (!res.ok) {
     const detail = await res.text();
-    throw new Error(`OpenAI ${res.status}: ${detail}`);
+    throw new Error(`${provider} ${res.status}: ${detail}`);
   }
 
   const data = await res.json();

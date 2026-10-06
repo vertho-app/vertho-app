@@ -15,7 +15,12 @@
  * `ia_usage_log.provider`), NOME da variável de ambiente e URL. A chave em si
  * continua sendo lida em `process.env[env]` no servidor, na hora da chamada.
  */
+export const BEDROCK_KIMI_K3_MODEL = 'global.moonshotai.kimi-k3';
+
 export const PROVEDORES_OPENAI_COMPAT = [
+  // Piloto de classificação editorial: credencial separada, região us-east-1.
+  // Não altera a rota kimi* da Moonshot nem a região usada pelo SES.
+  { prefixo: BEDROCK_KIMI_K3_MODEL, provider: 'bedrock', env: 'AWS_BEARER_TOKEN_BEDROCK', url: 'https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/chat/completions' },
   { prefixo: 'kimi', provider: 'kimi', env: 'KIMI_API_KEY', url: 'https://api.moonshot.ai/v1/chat/completions' },
   { prefixo: 'grok', provider: 'xai',  env: 'XAI_API_KEY',  url: 'https://api.x.ai/v1/chat/completions' },
   // Qwen (Alibaba) e Muse Spark (Meta Superintelligence Labs), 25/08/2026.
@@ -78,6 +83,20 @@ export async function listarModelosDoProvedor(
       return { ids: new Set((d?.models || []).map((m: any) => String(m.name).replace(/^models\//, ''))) };
     }
     const p = PROVEDORES_OPENAI_COMPAT.find((x) => modeloExemplo.startsWith(x.prefixo));
+    if (p?.provider === 'bedrock') {
+      const k = process.env[p.env];
+      if (!k) return { erro: `${p.env} ausente` };
+      // Runtime não implementa GET /models. A lista vem do control plane.
+      const ids = new Set<string>();
+      let nextToken: string | undefined;
+      do {
+        const query = nextToken ? `?nextToken=${encodeURIComponent(nextToken)}` : '';
+        const d = await json(`https://bedrock.us-east-1.amazonaws.com/inference-profiles${query}`, { Authorization: `Bearer ${k}` });
+        for (const profile of d.inferenceProfileSummaries || []) ids.add(profile.inferenceProfileId);
+        nextToken = d.nextToken;
+      } while (nextToken);
+      return { ids };
+    }
     const env = p?.env ?? 'OPENAI_API_KEY';
     const url = (p?.url ?? 'https://api.openai.com/v1/chat/completions').replace(/\/chat\/completions$/, '') + '/models';
     const k = process.env[env];

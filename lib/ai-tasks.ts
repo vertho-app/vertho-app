@@ -630,7 +630,7 @@ export function familiaDoModelo(modelId: string): string {
   if (m.startsWith('gpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return 'openai';
   if (m.startsWith('gemini')) return 'google';
   if (m.startsWith('grok')) return 'xai';
-  if (m.startsWith('kimi')) return 'moonshot';
+  if (m.startsWith('kimi') || m.startsWith('global.moonshotai.kimi-k3')) return 'moonshot';
   if (m.startsWith('qwen')) return 'alibaba';
   if (m.startsWith('muse')) return 'meta';
   // Fail-closed de propósito: devolver 'desconhecida' faria um id novo passar no

@@ -168,7 +168,8 @@ describe('Dual-IA — auditor de família diferente do gerador', () => {
       expect(p.prefixo, 'prefixo vazio').toBeTruthy();
       // `provider` vira ia_usage_log.provider. Se dois provedores compartilhassem
       // o rótulo, o painel de custo somaria um dentro do outro sem nada acusar.
-      expect(p.env, `provedor ${p.prefixo} sem env`).toMatch(/_API(_KEY)?$/);
+      // Nome oficial da credencial Bedrock, também reconhecido pelo SDK AWS.
+      expect(p.env, `provedor ${p.prefixo} sem env`).toMatch(/(?:_API(_KEY)?|^AWS_BEARER_TOKEN_BEDROCK)$/);
       expect(p.url, `provedor ${p.prefixo} com url suspeita`).toMatch(/^https:\/\/.+\/chat\/completions$/);
     }
     const rotulos = PROVEDORES_OPENAI_COMPAT.map((p) => p.provider);

@@ -75,6 +75,9 @@ export const MODELS = {
   'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 1.25, outUsd: 10 },
   // Moonshot (provider kimi no ai-client). Reasoning: o out inclui o thinking.
   'kimi-k3':                    { label: 'Kimi K3',             inUsd: 3,    outUsd: 15, cacheReadUsd: 0.30 },
+  // Bedrock, Global CRIS / Standard. Conferido em 06/10/2026:
+  // docs.aws.amazon.com/bedrock/latest/userguide/model-card-moonshot-ai-kimi-k3.html
+  'global.moonshotai.kimi-k3':   { label: 'Kimi K3 (AWS Bedrock)', inUsd: 3, outUsd: 15, cacheReadUsd: 0.30, cacheWriteUsd: 3.75 },
   // xAI (provider xai no ai-client). Preço LIDO da própria API em 24/08/2026
   // (`GET /v1/language-models`), não de tabela de terceiro: prompt 20000 e
   // completion 60000, na unidade de 1e-10 USD/token → $2 e $6 por 1M.

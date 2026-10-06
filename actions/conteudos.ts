@@ -18,6 +18,8 @@ import { resolverPerfilPublicoDaEmpresa } from '@/lib/season-engine/perfil-publi
 import { anexarFichaCargo, carregarFichaCargo } from '@/lib/cargo-contexto';
 import { ehClienteDoServidor } from '@/lib/auth/cliente-do-servidor';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
+import { BEDROCK_PILOTO_MAX_TOKENS, modeloDoPilotoBedrock } from '@/lib/bedrock-piloto';
+import { validarSugestaoTags } from '@/lib/conteudo-tags';
 
 /** Mínimo de caracteres para conteúdo que vira PDF (texto/case): leitura de
  *  ~5-8 min. Aplicado tanto na geração do conteúdo quanto na hora do PDF.
@@ -1409,22 +1411,20 @@ PRINCÍPIOS INEGOCIÁVEIS:
 
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
-    const competenciasInfo = Object.entries(compMap)
+    const competenciasInfo = JSON.stringify(Object.entries(compMap)
       .sort(([, a], [, b]) => {
         const ap = a.escopo === 'empresa' || a.escopo === 'ambos' ? 0 : 1;
         const bp = b.escopo === 'empresa' || b.escopo === 'ambos' ? 0 : 1;
         return ap - bp;
       })
       .slice(0, 80)
-      .map(([comp, info]) => {
-        const meta = [
-          info.pilares.size ? `pilar: ${[...info.pilares].slice(0, 3).join(', ')}` : null,
-          info.cargos.size ? `cargo: ${[...info.cargos].slice(0, 3).join(', ')}` : null,
-          `escopo: ${info.escopo}`,
-        ].filter(Boolean).join('; ');
-        const descs = info.descritores.size ? ` (${[...info.descritores].slice(0, 8).join(', ')})` : '';
-        return `- ${comp}${descs}${meta ? ` [${meta}]` : ''}`;
-      }).join('\n');
+      .map(([competencia, info]) => ({
+        competencia,
+        descritores: [...info.descritores].slice(0, 8),
+        pilares: [...info.pilares].slice(0, 3),
+        cargos: [...info.cargos].slice(0, 3),
+        escopo: info.escopo,
+      })));
     const corpoConteudo = String(c.conteudo_inline || '').trim();
     const trechoConteudo = corpoConteudo
       ? corpoConteudo.slice(0, 7000)
@@ -1446,7 +1446,7 @@ ${competenciasInfo}
 Retorne JSON:
 {
   "pilar": "pilar sugerido ou null",
-  "competencia": "nome exato da lista acima",
+  "competencia": "copie somente o valor do campo competencia de um item da lista acima",
   "descritor": "descritor sugerido ou null",
   "nivel_min": 1,
   "nivel_max": 2,
@@ -1459,7 +1459,7 @@ Retorne JSON:
 }
 
 REGRAS:
-- competencia deve vir EXATAMENTE da lista fornecida
+- competencia deve vir EXATAMENTE do campo competencia da lista fornecida, sem acrescentar descritores, escopo ou outro complemento
 - use pilar, cargo e descritores como pistas, mas retorne a competência exata
 - se "Pilar informado pelo admin" estiver preenchido, trate como pista prioritária, mas ainda valide contra o conteúdo
 - quando o conteúdo for de Empreendedorismo/MEI, priorize competências desse pilar se elas estiverem na lista e houver evidência no texto
@@ -1470,14 +1470,15 @@ REGRAS:
 
     // Modelo configurado da tarefa conteudo_tags (usa empresa_id do conteúdo)
     const { getModelForTask } = await import('@/lib/ai-tasks');
-    const model = c.empresa_id ? await getModelForTask(c.empresa_id, 'conteudo_tags') : undefined;
-    const resposta = await callAI(system, user, { ...(aiConfig || {}), model: model || aiConfig?.model }, 1000, {
+    const pilotoBedrock = modeloDoPilotoBedrock();
+    const model = pilotoBedrock || (c.empresa_id ? await getModelForTask(c.empresa_id, 'conteudo_tags') : undefined);
+    const resposta = await callAI(system, user, { ...(aiConfig || {}), model: model || aiConfig?.model }, pilotoBedrock ? BEDROCK_PILOTO_MAX_TOKENS : 1000, {
       taskKey: 'conteudo_tags', empresaId: c.empresa_id ?? null,
     });
     const jsonMatch = resposta.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { error: 'IA não retornou JSON válido' };
 
-    const tags = JSON.parse(jsonMatch[0]);
+    const tags = validarSugestaoTags(JSON.parse(jsonMatch[0]), Object.keys(compMap));
     return { ok: true, sugestao: tags };
   } catch (err) {
     console.error('[sugerirTagsIA]', err);
