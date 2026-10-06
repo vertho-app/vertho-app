@@ -28,6 +28,7 @@ export type PermissionKey =
   | 'knowledge_base.manage'
   | 'ai.audit.regenerate'
   | 'ai.costs.view'
+  | 'board.use'
   | 'radar.admin.access'
   | 'radar_empresas.access'
   | 'sales_channel.view'
@@ -94,6 +95,10 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { key: 'knowledge_base.manage', domain: 'Conteúdo', label: 'Gerenciar knowledge base', description: 'Editar base RAG por tenant.', risk: 'high' },
   { key: 'ai.audit.regenerate', domain: 'IA', label: 'Regenerar auditorias IA', description: 'Reprocessar avaliações, checks e scorings com IA.', risk: 'critical' },
   { key: 'ai.costs.view', domain: 'IA', label: 'Ver custos de IA', description: 'Acessar ledger, projeções de custo e catálogo de chamadas.', risk: 'high' },
+  // Reanálise de 06/10/2026: o Board era aberto a qualquer platform admin (inclusive o Sócio) sem permissão
+  // nenhuma. Enfileirar painel executa os CLIs de IA na MÁQUINA do dono, com a raiz do repositório (`lerRepositorio`)
+  // e uma pasta de contexto informada pelo cliente. Só o master tem; o Sócio só ganha por override explícito.
+  { key: 'board.use', domain: 'IA', label: 'Usar o Board multi-modelo', description: 'Criar, acompanhar e cancelar painéis que rodam Claude, GPT, Kimi e Gemini na máquina do dono, com acesso ao repositório e a arquivos de contexto.', risk: 'critical' },
   { key: 'radar.admin.access', domain: 'Radar', label: 'Acessar Radar admin', description: 'Gerenciar ingestão, qualidade e dados do Radar.', risk: 'critical' },
   { key: 'radar_empresas.access', domain: 'Radar Empresas', label: 'Acessar Radar Empresas', description: 'Usar inteligência comercial B2B interna.', risk: 'high' },
   { key: 'sales_channel.view', domain: 'Canal Comercial', label: 'Ver canal de representantes', description: 'Visualizar pipeline, precificação, propostas e comissões dos RCs.', risk: 'medium' },

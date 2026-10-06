@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { CircleDashed, Loader2, CheckCircle2, XCircle, Ban } from 'lucide-react';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { checkAdminAccess } from '@/app/admin/admin-actions';
+import { requirePermissionAction } from '@/lib/auth/action-context';
 import { PAINEL } from '@/lib/status';
 import NovoPainel from './_components/novo-painel';
 
@@ -51,6 +52,8 @@ function duracao(s: number | null) {
 export default async function BoardPage() {
   const acesso = await checkAdminAccess();
   if (!acesso.authorized) redirect('/login?redirect=/admin/vertho/board');
+  // `board.use` (só o master): o Sócio é platform admin e entrava aqui sem permissão nenhuma.
+  try { await requirePermissionAction('board.use'); } catch { redirect('/admin'); }
 
   const sb = createSupabaseAdmin();
   const { data, error } = await sb

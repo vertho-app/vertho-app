@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { ArrowLeft, AlertTriangle } from 'lucide-react';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { checkAdminAccess } from '@/app/admin/admin-actions';
+import { requirePermissionAction } from '@/lib/auth/action-context';
 import { PAINEL } from '@/lib/status';
 import Acompanhar from '../_components/acompanhar';
 
@@ -65,6 +66,8 @@ const md = 'prose prose-invert prose-sm max-w-none prose-headings:text-white pro
 export default async function PainelPage({ params }: { params: Promise<{ id: string }> }) {
   const acesso = await checkAdminAccess();
   if (!acesso.authorized) redirect('/login?redirect=/admin/vertho/board');
+  // `board.use` (só o master): o Sócio é platform admin e entrava aqui sem permissão nenhuma.
+  try { await requirePermissionAction('board.use'); } catch { redirect('/admin'); }
 
   const { id } = await params;
   const sb = createSupabaseAdmin();

@@ -2,8 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
-import { isPlatformAdmin } from '@/lib/authz';
+import { requirePermissionAction } from '@/lib/auth/action-context';
 import { PAINEL } from '@/lib/status';
 
 /**
@@ -11,9 +10,13 @@ import { PAINEL } from '@/lib/status';
  *
  * Toda export aqui é um endpoint HTTP: o gate é aplicado SEMPRE, em cada uma,
  * e a identidade vem 100% do cookie SSR — nunca de parâmetro do cliente.
- * Esta tabela não é multi-tenant e não tem dado de cliente; mesmo assim o
- * acesso é restrito a platform admin, porque enfileirar painel consome as
- * assinaturas pessoais que rodam na máquina local.
+ * Esta tabela não é multi-tenant e não tem dado de cliente, mas enfileirar
+ * painel executa os CLIs de IA na máquina do dono (com a raiz do repositório e
+ * uma pasta de contexto), então o acesso é pela permissão `board.use`, que só
+ * o master tem. Antes era "qualquer platform admin", e o Admin Sócio, que é
+ * platform admin e não tem escrita, entrava (reanálise de 06/10/2026). O
+ * fallback por `ADMIN_EMAILS` saiu: quem não está em `platform_admins` não
+ * tem permissão nenhuma na matriz.
  */
 
 const MOTORES_VALIDOS = ['claude', 'codex', 'kimi', 'gemini'] as const;
@@ -42,18 +45,8 @@ function validarContextoDir(valor?: string): string | null {
 }
 
 async function garantirAdmin(): Promise<string> {
-  const email = await getAuthenticatedEmailFromAction();
-  if (!email) throw new Error('Sessão expirada. Entre de novo para continuar.');
-
-  if (await isPlatformAdmin(email)) return email;
-
-  const fallback = (process.env.ADMIN_EMAILS || '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  if (fallback.includes(email)) return email;
-
-  throw new Error('Esta área é restrita.');
+  const ctx = await requirePermissionAction('board.use');
+  return ctx.email;
 }
 
 /** Texto puro: vai para o Storage como veio. */

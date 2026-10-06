@@ -109,4 +109,15 @@ describe('papel Admin Sócio', () => {
     const manages = BASE_ROLE_PERMISSIONS.socio.filter((p) => p.endsWith('.manage')).sort();
     expect(manages).toEqual(['dre.manage', 'settings.locale.manage']);
   });
+
+  /**
+   * Board multi-modelo (reanálise de 06/10/2026): enfileirar painel executa os CLIs de IA na máquina do dono, com
+   * a raiz do repositório. O gate era "qualquer platform admin", e o Sócio entrava. Só o master tem `board.use`.
+   */
+  it('board.use: só o master tem; sócio, rh, gestor e usuário não', () => {
+    expect(hasBasePermission('platform_admin', 'board.use')).toBe(true);
+    for (const papel of ['socio', 'rh', 'gestor', 'colaborador'] as const) {
+      expect(hasBasePermission(papel, 'board.use'), `${papel} board.use`).toBe(false);
+    }
+  });
 });
