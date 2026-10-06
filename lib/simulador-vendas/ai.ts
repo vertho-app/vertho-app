@@ -26,7 +26,9 @@ import {
   type PromptSnapshot,
 } from './schema';
 import { SimuladorError, type Gerar } from './core';
-import type { Contexto } from './access';
+import type { ContextoTreino as Contexto } from './access';
+import { assertAcessoVertho } from './vertho-access';
+import { PROMPT_COMERCIAL_VERTHO } from './vertho';
 import { arquivarPrompt, textoDoSnapshot } from './catalogo';
 import { modeloPaceCompativel } from './modelos';
 import { periodoVigente, podeEncerrar } from './prazo';
@@ -42,9 +44,11 @@ const TAREFAS = {
   intencao: 'sim_vendas_intencao',
   gerente: 'sim_vendas_gerente',
 } as const;
+const PROMPT_VERTHO_VERSION = `${PROMPT_VERSION}-comercial-1`;
 
 export async function snapshotPrompts(
   empresaId: string,
+  vertho = false,
 ): Promise<PromptSnapshot> {
   const tdb = tenantDb(empresaId);
   const entries = await Promise.all(
@@ -55,18 +59,19 @@ export async function snapshotPrompts(
           400,
           `Configure um modelo compatível com o PACE para o agente ${etapa} antes de iniciar.`,
         );
-      const id = await arquivarPrompt(
-        tdb,
-        etapa,
-        PROMPT_VERSION,
-        PROMPTS[etapa],
-      );
+      const versao = vertho ? PROMPT_VERTHO_VERSION : PROMPT_VERSION;
+      const texto =
+        PROMPTS[etapa] +
+        (vertho && ['criador', 'cliente'].includes(etapa)
+          ? PROMPT_COMERCIAL_VERTHO
+          : '');
+      const id = await arquivarPrompt(tdb, etapa, versao, texto);
       return [
         etapa,
         {
           id,
-          hash: hashPrompt(PROMPTS[etapa]),
-          versao: PROMPT_VERSION,
+          hash: hashPrompt(texto),
+          versao,
           modelo,
         },
       ];
@@ -88,12 +93,13 @@ export async function snapshotPrompts(
  * mascarar a palavra apagaria "vendedor" de todo texto.
  */
 export function mascaraDoVendedor(
-  c: Pick<Contexto, 'colaboradorId'>,
+  c: Pick<Contexto, 'colaboradorId' | 'vertho'>,
   s: Pick<Estado, 'nomeVendedor'>,
 ): PIIMapas | null {
   const nome = String(s.nomeVendedor || '').trim();
-  if (!c.colaboradorId || !nome || nome === 'Vendedor') return null;
-  const { masked, map } = maskColaborador({ id: c.colaboradorId, nome_completo: nome });
+  const identidade = c.colaboradorId || c.vertho?.id;
+  if (!identidade || !nome || nome === 'Vendedor') return null;
+  const { masked, map } = maskColaborador({ id: identidade, nome_completo: nome });
   return { ida: map.ida, volta: { [masked!.nome]: nome } };
 }
 
@@ -111,11 +117,16 @@ export function gerador(
   ): Promise<Saidas[K]> => {
     const spec = s.prompts[etapa];
     const texto = await textoDoSnapshot(c.tdb, etapa, spec);
-    // Sem vendedor identificado, os valores seguem como sempre foram (as falas
-    // já chegam sem e-mail, telefone e CPF: `service.executar`).
+    if (s.vertho && ['criador', 'cliente'].includes(etapa))
+      valores = {
+        ...valores,
+        contexto_competitivo: { ...s.vertho, briefing: s.briefing },
+      };
+    // Todo contexto comercial é congelado antes de mascarar dados pessoais.
     const valoresIA = pii ? maskDeepPII(valores, pii) : valores;
     const mensagens = [
       PROMPT_VERSION,
+      PROMPT_VERTHO_VERSION,
       'pace-rnaves-2.1.2-vertho-6',
       'pace-rnaves-2.1.2-vertho-3',
       'pace-rnaves-2.1.2-vertho-4',
@@ -191,7 +202,9 @@ export function gerador(
     }
     for (let retry = 0; retry < 2; retry++) {
       // Revalida antes de CADA chamada paga; ler relatório/feedback não depende do prazo.
-      if (!c.auth.isPlatformAdmin) {
+      if (c.vertho) {
+        await assertAcessoVertho(c.vertho);
+      } else if (!c.auth?.isPlatformAdmin) {
         const { data, error: prazoError } = await c.tdb
           .from('sim_vendas_config')
           .select('habilitado,periodo_inicio,periodo_fim')
@@ -202,7 +215,10 @@ export function gerador(
             'Não foi possível verificar o prazo de acesso.',
           );
         // O gerente roda no encerramento, que tem 24 h de tolerância depois do prazo.
-        if (!data?.habilitado || !(etapa === 'gerente' ? podeEncerrar(data) : periodoVigente(data)))
+        if (
+          !data?.habilitado ||
+          !(etapa === 'gerente' ? podeEncerrar(data) : periodoVigente(data))
+        )
           throw new SimuladorError(
             403,
             'O prazo de acesso ao treinamento não está vigente. Seu histórico foi preservado.',
@@ -249,13 +265,17 @@ export function gerador(
             empresaId: c.empresaId,
             colaboradorId: c.colaboradorId,
             correlationId: id,
-            source: c.auth.isPlatformAdmin ? 'piloto' : 'wrapper',
+            source: c.auth?.isPlatformAdmin ? 'piloto' : 'wrapper',
             locale: 'pt-BR',
             timeoutMs: Math.min(
               remaining,
               // O gerente da matriz devolve 30 descritores com citações: 110 s
               // cortava antes do teto de 16 mil tokens (revisão de 18/09).
-              etapa === 'gerente' ? 200000 : etapa === 'criador' ? 110000 : 60000,
+              etapa === 'gerente'
+                ? 200000
+                : etapa === 'criador'
+                  ? 110000
+                  : 60000,
             ),
             maxRetries: 0,
             responses: {

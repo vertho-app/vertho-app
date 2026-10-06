@@ -36,6 +36,12 @@ import Ditado from './ditado';
 import { lerResposta } from '@/lib/simuladores/ler-resposta';
 import { CODIGO_LIMITE_INICIOS_VENDAS, INICIOS_POR_HORA_VENDAS } from '@/lib/simulador-vendas/limite-inicios';
 import styles from './treino.module.css';
+import ReferenciasVertho from './referencias-vertho';
+import {
+  FRENTES_VERTHO,
+  SEGMENTOS_VERTHO,
+  type OpcoesVertho,
+} from '@/lib/simulador-vendas/vertho';
 
 type Dados = {
   empresaId: string;
@@ -74,7 +80,20 @@ const feedbackVazio: Feedback = {
   comentario: '',
 };
 
-export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
+export default function TreinoVendas({
+  admin = false,
+  vertho = false,
+}: {
+  admin?: boolean;
+  vertho?: boolean;
+}) {
+  const endpoint = vertho
+    ? '/api/simulador-vendas/vertho'
+    : '/api/simulador-vendas';
+  const [opcoesVertho, setOpcoesVertho] = useState<OpcoesVertho>({
+    segmento: 'empresa',
+    frente: 'competencias',
+  });
   const t = useTranslations('SimuladorVendas'),
     locale = useLocale();
   const empresaUrl = useSearchParams().get('empresa');
@@ -140,7 +159,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     ticket = generation.current,
   ) {
     const request = ++leitura.current;
-    const d: Dados = await api('/api/simulador-vendas?' + params(id, sessaoId));
+    const d: Dados = await api(endpoint + '?' + params(id, sessaoId));
     if (ticket !== generation.current || request !== leitura.current) return;
     setDados((prev) => {
       if (
@@ -290,6 +309,14 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
             ? { feedback }
             : acao === 'iniciar'
               ? {
+                  ...(vertho
+                    ? {
+                        vertho:
+                          sessao?.status === VENDAS_SESSAO.PREPARANDO
+                            ? sessao.treinamentoVertho
+                            : opcoesVertho,
+                      }
+                    : {}),
                   nivel:
                     sessao?.status === VENDAS_SESSAO.PREPARANDO
                       ? sessao.nivel
@@ -328,7 +355,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
         : {}),
     };
     try {
-      const d = await api('/api/simulador-vendas', {
+      const d = await api(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -403,7 +430,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       q.set('historico', '1');
       q.set('cursor', dados.proximoCursor);
       const d: { historico: ResumoTreino[]; proximoCursor: string | null } =
-        await api('/api/simulador-vendas?' + q);
+        await api(endpoint + '?' + q);
       if (ticket === generation.current)
         setDados((prev) =>
           prev
@@ -482,11 +509,16 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     <PageContainer className={styles.root}>
       <PageHero
         showBack={false}
-        eyebrow={t('eyebrow')}
+        eyebrow={vertho ? 'Equipe comercial Vertho' : t('eyebrow')}
         title={t('title')}
         titleAccent={t('titleAccent')}
-        subtitle={t('subtitle')}
+        subtitle={
+          vertho
+            ? 'Pratique a venda consultiva da Vertho com compradores de empresas, escolas e redes de ensino. Os cenários incluem fornecedores concorrentes e decisões reais de compra.'
+            : t('subtitle')
+        }
       />
+      {vertho && <ReferenciasVertho />}
       {admin && (
         <div className={styles.admin}>
           <label>
@@ -597,7 +629,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
               )}
             </div>
           )}
-          {!admin && (
+          {!admin && !vertho && (
             <div className={`${styles.card} mb-4`}>
               <p className={styles.muted}>
                 {dados.prazo.vigente && dados.prazo.inicio && dados.prazo.fim
@@ -676,6 +708,51 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       ))}
                     </select>
                   </label>
+                  {vertho && (
+                    <>
+                      <label className="mt-3">
+                        Segmento do cliente
+                        <select
+                          value={opcoesVertho.segmento}
+                          disabled={travado}
+                          onChange={(e) =>
+                            setOpcoesVertho((o) => ({
+                              ...o,
+                              segmento: e.target
+                                .value as OpcoesVertho['segmento'],
+                            }))
+                          }
+                        >
+                          {Object.entries(SEGMENTOS_VERTHO).map(
+                            ([id, label]) => (
+                              <option key={id} value={id}>
+                                {label}
+                              </option>
+                            ),
+                          )}
+                        </select>
+                      </label>
+                      <label className="mt-3">
+                        Frente da conversa
+                        <select
+                          value={opcoesVertho.frente}
+                          disabled={travado}
+                          onChange={(e) =>
+                            setOpcoesVertho((o) => ({
+                              ...o,
+                              frente: e.target.value as OpcoesVertho['frente'],
+                            }))
+                          }
+                        >
+                          {Object.entries(FRENTES_VERTHO).map(([id, label]) => (
+                            <option key={id} value={id}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
+                  )}
                   <p className={`${styles.muted} my-3`}>{t('levelHelp')}</p>
                   {pesquisaPendente && (
                     <div className={styles.pendingSurvey} role="note">
@@ -1071,77 +1148,82 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                   )}
                   {aberto && !sessao.planejamentoPendente && (
                     <>
-                    {/* No celular, campo e botões ficam presos ao rodapé da
+                      {/* No celular, campo e botões ficam presos ao rodapé da
                         tela enquanto a conversa está à vista (V-9); as ajudas
                         ficam fora, para o rodapé não ocupar meia tela. */}
-                    <form
-                      className={styles.composer}
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void agir('responder');
-                      }}
-                    >
-                      <label htmlFor="pace-mensagem">{t('message')}</label>
-                      <textarea
-                        id="pace-mensagem"
-                        className="mt-2"
-                        rows={3}
-                        maxLength={4000}
-                        value={texto}
-                        // Só o ENVIO fica bloqueado enquanto o cliente responde:
-                        // desabilitar o campo tirava o foco e fechava o teclado
-                        // do celular a cada turno (V-9, 27/09/2026).
-                        disabled={!sessao.turnosRestantes || !dados.podeTreinar}
-                        onChange={(e) => setTexto(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === 'Enter' &&
-                            !e.shiftKey &&
-                            !e.nativeEvent.isComposing
-                          ) {
-                            e.preventDefault();
-                            if (
-                              !travado &&
-                              dados.podeTreinar &&
-                              sessao.turnosRestantes
-                            )
-                              void agir('responder');
-                          }
+                      <form
+                        className={styles.composer}
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void agir('responder');
                         }}
-                        placeholder={t('messagePlaceholder')}
-                      />
-                      <div className={styles.actions}>
-                        <Ditado
+                      >
+                        <label htmlFor="pace-mensagem">{t('message')}</label>
+                        <textarea
+                          id="pace-mensagem"
+                          className="mt-2"
+                          rows={3}
+                          maxLength={4000}
+                          value={texto}
+                          // Só o ENVIO fica bloqueado enquanto o cliente responde:
+                          // desabilitar o campo tirava o foco e fechava o teclado
+                          // do celular a cada turno (V-9, 27/09/2026).
                           disabled={
-                            travado ||
-                            !sessao.turnosRestantes ||
-                            !dados.podeTreinar
+                            !sessao.turnosRestantes || !dados.podeTreinar
                           }
-                          onTexto={(valor) =>
-                            setTexto((prev) =>
-                              (prev + (prev ? ' ' : '') + valor).slice(0, 4000),
-                            )
-                          }
+                          onChange={(e) => setTexto(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === 'Enter' &&
+                              !e.shiftKey &&
+                              !e.nativeEvent.isComposing
+                            ) {
+                              e.preventDefault();
+                              if (
+                                !travado &&
+                                dados.podeTreinar &&
+                                sessao.turnosRestantes
+                              )
+                                void agir('responder');
+                            }
+                          }}
+                          placeholder={t('messagePlaceholder')}
                         />
-                        <button
-                          className={styles.primary}
-                          type="submit"
-                          disabled={
-                            travado ||
-                            !texto.trim() ||
-                            !sessao.turnosRestantes ||
-                            !dados.podeTreinar
-                          }
-                        >
-                          <Send size={16} />
-                          {t('send')}
-                        </button>
-                      </div>
-                    </form>
-                    <p className={`${styles.muted} mt-2`}>
-                      {t('composerHelp')}
-                    </p>
-                    <p className={`${styles.muted} mt-2`}>{t('piiHelp')}</p>
+                        <div className={styles.actions}>
+                          <Ditado
+                            disabled={
+                              travado ||
+                              !sessao.turnosRestantes ||
+                              !dados.podeTreinar
+                            }
+                            onTexto={(valor) =>
+                              setTexto((prev) =>
+                                (prev + (prev ? ' ' : '') + valor).slice(
+                                  0,
+                                  4000,
+                                ),
+                              )
+                            }
+                          />
+                          <button
+                            className={styles.primary}
+                            type="submit"
+                            disabled={
+                              travado ||
+                              !texto.trim() ||
+                              !sessao.turnosRestantes ||
+                              !dados.podeTreinar
+                            }
+                          >
+                            <Send size={16} />
+                            {t('send')}
+                          </button>
+                        </div>
+                      </form>
+                      <p className={`${styles.muted} mt-2`}>
+                        {t('composerHelp')}
+                      </p>
+                      <p className={`${styles.muted} mt-2`}>{t('piiHelp')}</p>
                     </>
                   )}
                   {aberto && !sessao.planejamentoPendente && (

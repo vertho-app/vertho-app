@@ -2,6 +2,55 @@
 
 Integração do núcleo de `C:\GAS\Simulador` na Vertho (13/09/2026). Um produto de treinamento com domínio próprio, usando a infraestrutura, identidade e operação da Vertho. O Copiloto comercial existente permanece independente deste treino.
 
+## Versão Vertho para equipe interna e representantes
+
+Escopo solicitado e implementação/publicação autorizadas em 06/10/2026: treinamento de venda das soluções Vertho para equipe interna e representantes comerciais, com clientes simulados informados sobre concorrentes. A base está em `lib/simulador-vendas/concorrentes-vertho.ts`, versão `vertho-concorrentes-2026-10-06`, integrada ao criador e ao cliente com snapshot por sessão.
+
+Entradas: **Canal Comercial → Treino de vendas** (`/admin/comercial/treinamento`), **Portal do Representante → Treino de vendas** (`/representante/simulador-vendas`) e acesso direto `/treinamento-vendas` para internos cadastrados sem acesso ao admin. O responsável comercial gerencia liberações individuais em `/admin/comercial/treinamento/participantes`; a conta precisa estar confirmada. A migração 281 cadastra uma única vez o responsável comercial master atual com conta e não libera novos administradores automaticamente. RC ativo é vinculado no primeiro acesso; a vinculação nunca reativa cadastro suspenso. Personas de demonstração não treinam nesta versão.
+
+O tenant interno é fixo no servidor (`76520131-a559-4faf-a025-495d29ea5098`). Seu acesso depende da liberação individual e do módulo habilitado. A exceção de período no banco é exclusiva desse tenant; os prazos dos clientes continuam vigentes. O briefing comercial factual está versionado em `lib/simulador-vendas/vertho.ts`; sem tabela de preço aprovada, o comprador negocia escopo e próximo passo, com proposta posterior.
+
+### Experiência
+
+Cada vendedor escolhe segmento, frente da oferta e dificuldade. As frentes iniciais são desenvolvimento de competências, aprendizagem, mentoria e simulação de conversas. O treino preserva planejamento prévio, conversa, pesquisa da experiência, devolutiva PACE e evolução individual.
+
+O cliente representa uma empresa ou instituição fictícia. Pode estar comparando fornecedores, já usar uma solução e avaliar complemento, considerar uma troca ou preferir treinamento interno. Seu fornecedor não implica insatisfação: alguns personagens valorizam a solução atual e exigem uma justificativa concreta para investir novamente. Nas escolas e redes, o comprador atua na formação e desenvolvimento de profissionais; não se pressupõe que todo concorrente seja solução pedagógica para alunos.
+
+O repertório comercial orienta a criação e as respostas do cliente. A matriz PACE e suas fontes documentais continuam fundamentando a nota. O cliente pode pedir uma demonstração, questionar uma promessa sem prova e encerrar sem comprar. Fechamento ou crítica ao concorrente não geram bônus na avaliação.
+
+### Concorrentes e comparações
+
+Lista inicial por sobreposição com a oferta Vertho e pelos fornecedores já presentes no kit comercial, sem ordenação por participação de mercado. As capacidades abaixo são divulgadas pelos próprios fornecedores. As falas são exemplos autorais de objeções para personagens fictícios.
+
+| Fornecedor e frente | Repertório verificável | Exemplo de objeção fictícia |
+|---|---|---|
+| Qulture Rocks — competências e aprendizagem | Avaliação, PDI com IA e conexão com educação corporativa. [Oferta](https://www.qulture.rocks/growth/lp-unificada) e [PDI com IA](https://help.qulture.rocks/gera%C3%A7%C3%A3o-de-pdi-com-ia). | Já temos avaliação, PDI e cursos conectados. Que problema a Vertho resolve além disso? |
+| Gupy — competências e aprendizagem | Performance e Desenvolvimento e Educação Corporativa são soluções próprias, com recursos de IA. [Performance](https://www.gupy.io/plataforma-de-performance-e-desenvolvimento) e [educação](https://www.gupy.io/plataforma-de-educacao-corporativa). | Queremos evitar outra plataforma. Onde vocês complementam nosso processo atual? |
+| Feedz e TOTVS — competências | Avaliação de desempenho e acompanhamento de atividades de PDI, trilhas e onboarding. [Avaliação](https://centraldeatendimento.totvs.com/hc/pt-br/articles/43917664039703-Plataformas-RH-Linha-Feedz-Avalia%C3%A7%C3%A3o-de-Desempenho-Relat%C3%B3rio-de-An%C3%A1lise-Completa-por-Crit%C3%A9rios-na-Avalia%C3%A7%C3%A3o-de-Desempenho) e [desenvolvimento](https://centraldeatendimento.totvs.com/hc/pt-br/articles/41571573050903-Plataformas-RH-Feedz-Desenvolvimento-Como-Atualizar-o-Progresso-do-meu-PDI-Plano-de-Desenvolvimento-Individual). | Já acompanhamos desempenho e PDI. O que mudaria na aplicação prática? |
+| Twygo — competências e aprendizagem | LMS, avaliação de competências, PDI e conexão das lacunas com trilhas. [Produtos](https://twygo.com/produtos/) e [avaliação de competências](https://twygo.com/blog/como-fazer-avaliacao-de-competencias-com-a-twygo/). | Nosso fornecedor já conecta avaliação e desenvolvimento. Mostre a diferença na experiência. |
+| Sólides — competências | Profiler com base em DISC e outras metodologias e PDI com comparação entre pessoa e cargo. [Profiler](https://solides.com.br/profiler-mapeamento-comportamental/) e [PDI](https://ajuda.solides.com.br/hc/pt-br/articles/4411730052749-Como-construir-um-PDI-pela-plataforma-da-S%C3%B3lides). | Precisaremos repetir nosso diagnóstico comportamental? |
+| Mindsight — competências | Assessments, gestão de desempenho, PDI e People Analytics; divulga IA contextual à gestão de pessoas. [Plataforma](https://conteudos.mindsight.com.br/cognitive-ad) e [IA](https://mindsight.com.br/inteligencia-artificial/). | Já temos dados de pessoas. Qual decisão ou ação melhora com a Vertho? |
+| Revvo — aprendizagem | LearningFlix com LMS/LXP, tutora de dúvidas e aprendizagem pelo WhatsApp. [Oferta](https://revvo.com.br/), [IA](https://conteudo.revvo.com.br/lp-ias-da-revvo) e [WhatsApp Learning](https://conteudo.revvo.com.br/lp-whatsapplearning-cbtd-2025). | IA e WhatsApp já estão na oferta que conhecemos. Que resultado adicional consigo observar? |
+| CoachHub e AIMY — mentoria | Coaching personalizado com IA orientado a objetivos. [Oferta](https://www.coachhub.com/ai-innovation). | Como a mentoria se conecta às competências específicas do nosso trabalho? |
+| Yoodli — simulação | Clientes de IA, prática de objeções e negociação e avaliação por metodologia configurada. [Simulação de vendas](https://yoodli.ai/solutions/sales-roleplay). | Também podemos configurar a metodologia em outro simulador. Quero comparar a qualidade do feedback. |
+
+O catálogo vincula cada fato à fonte correspondente e distingue fatos de objeções inventadas para o exercício. A seleção por frente evita comparações fora da solução treinada e prioriza fornecedores ainda não usados nos treinos recentes. Fontes, data de revisão, concorrente e situação competitiva ficam congelados no snapshot da sessão. Uma alteração da base afeta apenas novos treinos. A tela oferece referências públicas para preparação, sem revelar o concorrente selecionado ou as necessidades ocultas do personagem.
+
+Preços, condições privadas, integrações, limitações ou resultados de fornecedores precisam de fonte específica para entrar como fato. Valores fictícios usados em uma negociação devem ser identificados como premissas do exercício. A resposta comercial esperada investiga a necessidade e demonstra capacidades reais da Vertho, sem atribuir ausências ao concorrente a partir de silêncio no site.
+
+O kit anterior em `scripts/seed-sales-kit.mjs` contém afirmações que não servem de base para esta versão: Qulture Rocks sem desenvolvimento ou PDI contextual, Gupy sem trilhas, Revvo sem personalização e Twygo tratada apenas como LMS. Também chama a Revvo de ex-Alura; a [comunicação da própria Revvo](https://pt.linkedin.com/posts/somosrevvo_a-mudan%C3%A7a-%C3%A9-real-a-leo-learning-brasil-agora-activity-6937416771909885954-mU8d) identifica a origem como Leo Learning Brasil. A integração deve substituir esse repertório nos consumidores pertinentes antes da ativação.
+
+### Integração e identidade
+
+1. Manter o motor e a interface PACE compartilhados e acrescentar uma configuração comercial Vertho, com produtos, condições e base competitiva aprovada. O escopo é fixado pelo servidor, sem permitir que o vendedor escolha outra empresa por parâmetro.
+2. Disponibilizar o treino no portal do representante e na área comercial interna. Representante precisa estar ativo. Vendedor interno precisa de cadastro autorizado para o treino; domínio de e-mail ou acesso de administrador não concedem novos vínculos automaticamente. Os treinos empresariais existentes conservam a identidade `colab:<id>`.
+3. Acrescentar identidade de vendedor Vertho vinculada ao usuário autenticado, `vendedor:<auth.users.id>`, com cadastro de participantes autorizado e vínculo verificável ao representante quando houver. Uma pessoa com vínculos interno e externo usa a mesma identidade nos dois acessos. `admin:<id>` continua identificando teste administrativo, e os treinos existentes de colaboradores conservam sua identidade. Cada pessoa consulta suas próprias sessões; gestão comercial autorizada recebe o acompanhamento permitido.
+4. Adaptar constraints e a função de criação para essa identidade, além das projeções que hoje interpretam participante sem `colaborador_id` como teste. A referência ao usuário deve ser garantida pelo banco; status de representante e vínculo de vendedor são conferidos pelo servidor a cada operação. Referência da configuração interna e liberação são resolvidas no servidor. Nunca usar persona compartilhada de demonstração para guardar treino individual.
+5. Acrescentar seleção de segmento e frente e geração com repertório competitivo, sem expor ao vendedor dores ocultas ou critérios reservados. Preservar versão PACE, contratos de saída, leases, idempotência, rate limits e ledger existentes.
+6. Validar acesso cruzado, representante suspenso, vendedor sem vínculo, histórico próprio, separação entre treino e piloto e retomada de sessões. Verificar cenários competitivos nos três graus de dificuldade; então publicar e conferir as duas entradas em produção.
+
+A migração `281-sim-vendas-vertho-comercial.sql` acrescenta cadastro individual com FK para Auth, coluna de vendedor e constraints que amarram dono, usuário e tenant. `sim_vendas_criar` aceita vendedor autorizado sem tratá-lo como piloto e mantém idempotência, exclusividade da sessão e recuperação. As três funções de acesso/cadastro são `SECURITY DEFINER`, com search path fixo e execução somente por `service_role`, pois o serviço não tem leitura direta de `auth.users`; não se concedeu acesso geral a Auth. A API passa o ID de `auth.getUser`, revalida a liberação por operação e antes de cada chamada paga. Gestão de participantes exige `sales_channel.manage`, CSRF e auditoria. A gestão desta versão controla o acesso; evolução e histórico são individuais.
+
 ## Acesso e liberação
 
 1. No admin da Vertho, abra **Comercial → Simulador de vendas** (`/admin/simulador-vendas`).

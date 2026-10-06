@@ -21,6 +21,7 @@ const QUICK_LINKS = [
   { href: '/admin/comercial/propostas', label: 'Propostas', Icon: FileText },
   { href: '/admin/comercial/comissoes', label: 'Comissões', Icon: Coins },
   { href: '/admin/comercial/materiais', label: 'Materiais', Icon: FolderOpen },
+  { href: '/admin/comercial/treinamento', label: 'Treino de vendas', Icon: Briefcase },
 ];
 
 function TotalCard({ label, value, accent, href }: { label: string; value: string; accent: string; href?: string }) {

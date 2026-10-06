@@ -25,19 +25,25 @@ export interface AuthenticatedContext extends UserContext {
   email: string;
 }
 
-async function resolveTokenToEmail(token: string): Promise<string | null> {
+export type AuthenticatedUser = { id: string; email: string };
+
+async function resolveTokenToUser(
+  token: string,
+): Promise<AuthenticatedUser | null> {
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.auth.getUser(token);
   if (error || !data?.user?.email) return null;
-  return data.user.email.trim().toLowerCase();
+  return { id: data.user.id, email: data.user.email.trim().toLowerCase() };
 }
 
-export async function getAuthenticatedEmail(req: Request): Promise<string | null> {
+export async function getAuthenticatedUser(
+  req: Request,
+): Promise<AuthenticatedUser | null> {
   // 1. Bearer
   const auth = req.headers.get('authorization');
   if (auth?.startsWith('Bearer ')) {
-    const email = await resolveTokenToEmail(auth.slice(7));
-    if (email) return email;
+    const user = await resolveTokenToUser(auth.slice(7));
+    if (user) return user;
   }
   // 2. Cookie Supabase SSR
   const cookieHeader = req.headers.get('cookie') || '';
@@ -51,7 +57,9 @@ export async function getAuthenticatedEmail(req: Request): Promise<string | null
       if (raw.startsWith('base64-')) {
         const decoded = Buffer.from(raw.slice(7), 'base64').toString('utf8');
         const parsed = JSON.parse(decoded);
-        token = Array.isArray(parsed) ? parsed[0] : parsed?.access_token || null;
+        token = Array.isArray(parsed)
+          ? parsed[0]
+          : parsed?.access_token || null;
       } else if (raw.startsWith('[')) {
         const parsed = JSON.parse(raw);
         token = Array.isArray(parsed) ? parsed[0] : null;
@@ -63,8 +71,8 @@ export async function getAuthenticatedEmail(req: Request): Promise<string | null
         token = raw;
       }
       if (token) {
-        const email = await resolveTokenToEmail(token);
-        if (email) return email;
+        const user = await resolveTokenToUser(token);
+        if (user) return user;
       }
     } catch {
       /* cookie mal-formado: ignora */
@@ -73,19 +81,37 @@ export async function getAuthenticatedEmail(req: Request): Promise<string | null
   return null;
 }
 
-export async function requireUser(req: Request): Promise<AuthenticatedContext | Response> {
+export async function getAuthenticatedEmail(
+  req: Request,
+): Promise<string | null> {
+  return (await getAuthenticatedUser(req))?.email ?? null;
+}
+
+export async function requireUser(
+  req: Request,
+): Promise<AuthenticatedContext | Response> {
   const email = await getAuthenticatedEmail(req);
-  if (!email) return NextResponse.json({ error: 'não autenticado' }, { status: 401 });
+  if (!email)
+    return NextResponse.json({ error: 'não autenticado' }, { status: 401 });
   const ctx = await getUserContext(email);
-  if (!ctx) return NextResponse.json({ error: 'usuário sem contexto no tenant' }, { status: 401 });
+  if (!ctx)
+    return NextResponse.json(
+      { error: 'usuário sem contexto no tenant' },
+      { status: 401 },
+    );
   return { ...ctx, email };
 }
 
-export async function requireAdmin(req: Request): Promise<AuthenticatedContext | Response> {
+export async function requireAdmin(
+  req: Request,
+): Promise<AuthenticatedContext | Response> {
   const auth = await requireUser(req);
   if (auth instanceof Response) return auth;
   if (!auth.isPlatformAdmin) {
-    return NextResponse.json({ error: 'apenas platform admin' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'apenas platform admin' },
+      { status: 403 },
+    );
   }
   return auth;
 }
@@ -134,11 +160,17 @@ export function assertTenantAccess(
   empresaId: string | null | undefined,
 ): Response | null {
   if (!empresaId) {
-    return NextResponse.json({ error: 'empresaId obrigatório' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'empresaId obrigatório' },
+      { status: 400 },
+    );
   }
   if (auth.isPlatformAdmin) return null;
   if (auth.empresaId !== empresaId) {
-    return NextResponse.json({ error: 'sem acesso a esta empresa' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'sem acesso a esta empresa' },
+      { status: 403 },
+    );
   }
   return null;
 }
@@ -194,7 +226,10 @@ export async function assertColabAccess(
   colabId: string,
 ): Promise<Response | null> {
   if (!colabId) {
-    return NextResponse.json({ error: 'colaboradorId obrigatório' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'colaboradorId obrigatório' },
+      { status: 400 },
+    );
   }
   if (auth.isPlatformAdmin) return null;
   if (auth.colaborador?.id === colabId) return null;

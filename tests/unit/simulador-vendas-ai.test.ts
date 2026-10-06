@@ -2,10 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { criarSupabaseMock, type SupabaseMock } from '../helpers/supabase-mock';
 import { estado, semViolacao } from '../fixtures/simulador-vendas';
 import type { Contexto } from '@/lib/simulador-vendas/access';
+import type { ContextoTreino } from '@/lib/simulador-vendas/access';
 let sb: SupabaseMock;
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn() }));
-vi.mock('@/lib/ai-tasks', () => ({ getModelForTask: vi.fn(async () => 'gpt-5.4-2026-03-05') }));
+vi.mock('@/lib/ai-tasks', () => ({
+  getModelForTask: vi.fn(async () => 'gpt-5.4-2026-03-05'),
+}));
 import { callAI } from '@/actions/ai-client';
 import { tenantDb } from '@/lib/tenant-db';
 import { gerador } from '@/lib/simulador-vendas/ai';
@@ -24,14 +27,26 @@ describe('checkpoint dos agentes PACE', () => {
     sb = criarSupabaseMock({
       resolver: (tabela) =>
         tabela === 'sim_vendas_config'
-          ? { habilitado: true, periodo_inicio: '2020-01-01T00:00:00Z', periodo_fim: '2099-01-01T00:00:00Z' }
+          ? {
+              habilitado: true,
+              periodo_inicio: '2020-01-01T00:00:00Z',
+              periodo_fim: '2099-01-01T00:00:00Z',
+            }
           : null,
     });
-    vi.mocked(callAI).mockReset().mockResolvedValue(JSON.stringify(semViolacao));
+    vi.mocked(callAI)
+      .mockReset()
+      .mockResolvedValue(JSON.stringify(semViolacao));
   });
   it('registra antes de pagar; falha de insert impede a chamada', async () => {
-    sb.falharEm({ tabela: 'sim_vendas_tentativas', op: 'insert', mensagem: 'indisponível' });
-    await expect(gerador(ctx(), estado(), req)('moderador', {})).rejects.toMatchObject({ status: 503 });
+    sb.falharEm({
+      tabela: 'sim_vendas_tentativas',
+      op: 'insert',
+      mensagem: 'indisponível',
+    });
+    await expect(
+      gerador(ctx(), estado(), req)('moderador', {}),
+    ).rejects.toMatchObject({ status: 503 });
     expect(callAI).not.toHaveBeenCalled();
   });
   it('reutiliza saída aceita e aplica de novo a validação sem gastar IA', async () => {
@@ -47,7 +62,9 @@ describe('checkpoint dos agentes PACE', () => {
       ],
     });
     const validar = vi.fn();
-    expect(await gerador(ctx(), estado(), req)('moderador', {}, validar)).toEqual(semViolacao);
+    expect(
+      await gerador(ctx(), estado(), req)('moderador', {}, validar),
+    ).toEqual(semViolacao);
     expect(validar).toHaveBeenCalledOnce();
     expect(callAI).not.toHaveBeenCalled();
     expect(sb.chamadas).toContainEqual({
@@ -68,13 +85,18 @@ describe('checkpoint dos agentes PACE', () => {
         },
       ],
     });
-    await expect(gerador(ctx(), estado(), req)('moderador', {})).rejects.toMatchObject({ status: 409 });
+    await expect(
+      gerador(ctx(), estado(), req)('moderador', {}),
+    ).rejects.toMatchObject({ status: 409 });
     expect(callAI).not.toHaveBeenCalled();
   });
   it('chamada aceita carrega tenant, correlação e snapshot; checkpoint precede retorno', async () => {
     vi.mocked(callAI).mockImplementation(async () => {
       expect(sb.escritas).toHaveLength(1);
-      expect(sb.escritas[0].payload).toMatchObject({ empresa_id: 'empresa-a', request_id: req });
+      expect(sb.escritas[0].payload).toMatchObject({
+        empresa_id: 'empresa-a',
+        request_id: req,
+      });
       return JSON.stringify(semViolacao);
     });
     await gerador(ctx(), estado(), req)('moderador', {});
@@ -90,7 +112,10 @@ describe('checkpoint dos agentes PACE', () => {
         maxRetries: 0,
       }),
     );
-    expect(sb.escritas.at(-1)?.payload).toMatchObject({ status: 'aceita', resultado: semViolacao });
+    expect(sb.escritas.at(-1)?.payload).toMatchObject({
+      status: 'aceita',
+      resultado: semViolacao,
+    });
   });
   it('falha ao salvar nunca retorna sucesso nem refaz chamada paga automaticamente', async () => {
     sb.falharEm({
@@ -99,16 +124,42 @@ describe('checkpoint dos agentes PACE', () => {
       quando: (p) => p.status === 'aceita',
       mensagem: 'timeout',
     });
-    await expect(gerador(ctx(), estado(), req)('moderador', {})).rejects.toMatchObject({ status: 503 });
+    await expect(
+      gerador(ctx(), estado(), req)('moderador', {}),
+    ).rejects.toMatchObject({ status: 503 });
     expect(callAI).toHaveBeenCalledOnce();
   });
   it('JSON inválido tem uma regeneração; falha de rede não tem retry automático', async () => {
     vi.mocked(callAI).mockResolvedValueOnce('não JSON');
-    expect(await gerador(ctx(), estado(), req)('moderador', {})).toEqual(semViolacao);
+    expect(await gerador(ctx(), estado(), req)('moderador', {})).toEqual(
+      semViolacao,
+    );
     expect(callAI).toHaveBeenCalledTimes(2);
     vi.mocked(callAI).mockReset().mockRejectedValue(new Error('fetch failed'));
-    await expect(gerador(ctx(), estado(), req)('moderador', {})).rejects.toMatchObject({ status: 502 });
+    await expect(
+      gerador(ctx(), estado(), req)('moderador', {}),
+    ).rejects.toMatchObject({ status: 502 });
     expect(callAI).toHaveBeenCalledOnce();
+  });
+  it('vendedor Vertho é revalidado antes de cada geração e perde acesso se suspenso durante retry', async () => {
+    const c: ContextoTreino = {
+      ...ctx(),
+      auth: null,
+      vertho: { id: 'vendedor-auth', email: 'pessoa@example.test' },
+    };
+    sb.client.rpc.mockResolvedValue({
+      data: { ativo: true, nome: 'Pessoa' },
+      error: null,
+    });
+    vi.mocked(callAI).mockImplementationOnce(async () => {
+      sb.client.rpc.mockResolvedValue({ data: { ativo: false }, error: null });
+      return 'JSON inválido';
+    });
+    await expect(
+      gerador(c, estado(), req)('moderador', {}),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(callAI).toHaveBeenCalledOnce();
+    expect(sb.client.rpc).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -155,5 +206,15 @@ describe('o nome do vendedor não vai à IA', () => {
     const admin = { ...ctx(), colaboradorId: null } as unknown as Contexto;
     await gerador(admin, comPrompt('Vendedor'), req)('moderador', { username: 'Vendedor', input_vendedor: 'o vendedor responde' });
     expect(String(vi.mocked(callAI).mock.calls[0][1])).toBe('VENDEDOR: Vendedor DIZ: o vendedor responde');
+  });
+  it('vendedor Vertho sem colaborador usa a conta Auth para mascarar o nome', async () => {
+    const id = '20000000-0000-4000-8000-000000000002';
+    const c: ContextoTreino = { ...ctx(), auth: null, colaboradorId: null, vertho: { id, email: 'pessoa@example.test' } };
+    sb.client.rpc.mockResolvedValue({ data: { ativo: true }, error: null });
+    vi.mocked(callAI).mockReset().mockResolvedValue(JSON.stringify(semViolacao));
+    await gerador(c, comPrompt(), req)('moderador', { username: NOME, input_vendedor: 'Olá' });
+    const enviado = String(vi.mocked(callAI).mock.calls[0][1]);
+    expect(enviado).not.toContain(NOME);
+    expect(enviado).toContain(maskColaborador({ id, nome_completo: NOME }).masked!.nome);
   });
 });

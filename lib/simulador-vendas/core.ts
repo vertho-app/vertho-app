@@ -36,7 +36,10 @@ export type Gerar = <K extends Etapa>(
 ) => Promise<Saidas[K]>;
 export function assinatura(cmd: Comando): string {
   // Revisão não entra: retry após recuperar o estado deve reconhecer o mesmo comando.
-  if (cmd.acao === 'iniciar') return JSON.stringify([cmd.acao, cmd.nivel]);
+  if (cmd.acao === 'iniciar')
+    return JSON.stringify(
+      cmd.vertho ? [cmd.acao, cmd.nivel, cmd.vertho] : [cmd.acao, cmd.nivel],
+    );
   if (cmd.acao === 'responder') return JSON.stringify([cmd.acao, cmd.mensagem]);
   if (cmd.acao === 'planejar')
     return JSON.stringify([cmd.acao, cmd.planejamento]);
@@ -59,7 +62,9 @@ export function recebido(s: Estado, cmd: Comando): boolean {
  * continuava no topo em todos os turnos seguintes (V-14 da revisão).
  */
 function avisoDoUltimoTurno(s: Estado): string | null {
-  const ultimoTurno = s.mensagens.filter((m) => m.autor === 'vendedor').at(-1)?.turno;
+  const ultimoTurno = s.mensagens
+    .filter((m) => m.autor === 'vendedor')
+    .at(-1)?.turno;
   const aviso = s.moderacoes
     .filter((m) => m.violacao && m.acao_sugerida !== 'registrar_e_seguir')
     .at(-1);
@@ -101,6 +106,14 @@ export function visaoPublica(s: Estado) {
       s.intencao.confianca !== 'baixa',
     versaoRegua: s.versaoRegua || 'pace-1',
     dadosMascarados: s.dadosMascarados === true,
+    ...(s.vertho
+      ? {
+          treinamentoVertho: {
+            segmento: s.vertho.segmento,
+            frente: s.vertho.frente,
+          },
+        }
+      : {}),
     turnosRestantes: Math.max(
       0,
       MAX_TURNOS - s.mensagens.filter((m) => m.autor === 'vendedor').length,

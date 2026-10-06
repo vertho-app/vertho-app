@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { VendasSessaoStatus } from '@/lib/status';
 import { matrizAvaliacaoSchema } from './matriz-avaliacao';
 import { CODIGOS_DESCRITORES, REFERENCIAS_MANUAL } from './fontes';
+import { opcoesVerthoSchema, type ContextoCompetitivoVertho } from './vertho';
 
 export const ETAPAS = [
   'criador',
@@ -253,6 +254,7 @@ export const comandoSchema = z.discriminatedUnion('acao', [
       ...base,
       acao: z.literal('iniciar'),
       nivel: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+      vertho: opcoesVerthoSchema.optional(),
     })
     .strict(),
   z
@@ -355,4 +357,5 @@ export type Estado = {
   notasBrutas?: Pick<Saidas['gerente'], 'P' | 'A' | 'C' | 'E'>;
   diversidade?: { seed: string; anteriores: string[] };
   dadosMascarados?: boolean;
+  vertho?: ContextoCompetitivoVertho;
 };

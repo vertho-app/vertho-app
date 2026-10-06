@@ -5,7 +5,8 @@ import { can } from '@/lib/permissions';
 import { maskTextPII } from '@/lib/pii-masker';
 import { gerador, snapshotPrompts } from './ai';
 import { SimuladorError, executarCore, recebido, visaoPublica } from './core';
-import type { Contexto } from './access';
+import type { ContextoTreino as Contexto } from './access';
+import { criarContextoCompetitivoVertho } from './vertho';
 import { REGUA_VERSION, type Estado, type Comando } from './schema';
 import { acessoPeloPrazo, periodoVigente, podeEncerrar } from './prazo';
 import { TRACOS_DIVERSIDADE } from './diversidade';
@@ -85,7 +86,10 @@ export async function consultarHistorico(c: Contexto, cursor?: string | null) {
   // medir a experiência (a nota contaminava a resposta) e "Nova simulação"
   // convidava a pular a pesquisa; o item diz "pesquisa pendente". O indicador
   // de relatório também não é exposto nesta lista de navegação.
-  const pagina = paginaDeHistorico(linhas, 30, { notasMatriz, participante: true });
+  const pagina = paginaDeHistorico(linhas, 30, {
+    notasMatriz,
+    participante: true,
+  });
   return {
     ...pagina,
     historico: pagina.historico.map((item) => ({
@@ -147,16 +151,26 @@ export async function consultar(c: Contexto, id?: string | null) {
       throw new SimuladorError(404, 'Treino não encontrado.');
     row = result.data;
   }
-  const acesso = acessoPeloPrazo(c.config, {
-    admin: c.auth.isPlatformAdmin,
-    treina: !c.soAcompanha && (await can(c.auth, 'assessments.answer')),
-  });
+  const acesso = c.vertho
+    ? {
+        podeTreinar: c.config?.habilitado === true,
+        podeEncerrar: c.config?.habilitado === true,
+        vigente: c.config?.habilitado === true,
+        encerrarAte: null,
+      }
+    : acessoPeloPrazo(c.config, {
+        admin: c.auth?.isPlatformAdmin === true,
+        treina:
+          !!c.auth &&
+          !c.soAcompanha &&
+          (await can(c.auth, 'assessments.answer')),
+      });
   return {
     empresaId: c.empresaId,
     empresaNome: c.empresaNome,
     habilitado: c.config?.habilitado === true,
     configurado: !!c.config,
-    admin: c.auth.isPlatformAdmin,
+    admin: c.auth?.isPlatformAdmin === true,
     podeTreinar: acesso.podeTreinar,
     // Pedir a devolutiva tem 24 h de tolerância depois do fim (27/09/2026: a
     // tela usava `podeTreinar` e o botão ficava desabilitado nessa janela).
@@ -169,10 +183,11 @@ export async function consultar(c: Contexto, id?: string | null) {
       vigente: acesso.vigente,
       encerrarAte: acesso.encerrarAte,
     },
-    podeVerEquipe: await podeVerEquipe(c.auth),
+    podeVerEquipe: !!c.auth && (await podeVerEquipe(c.auth)),
     podeConfigurar:
-      c.auth.isPlatformAdmin && (await can(c.auth, 'settings.company.manage')),
-    ...(c.auth.isPlatformAdmin ? { config: c.config } : {}),
+      !!c.auth?.isPlatformAdmin &&
+      (await can(c.auth, 'settings.company.manage')),
+    ...(c.auth?.isPlatformAdmin ? { config: c.config } : {}),
     sessao: row ? publico(row) : null,
     ...pagina,
     ...(c.soAcompanha
@@ -182,6 +197,11 @@ export async function consultar(c: Contexto, id?: string | null) {
 }
 
 export async function executar(c: Contexto, original: Comando) {
+  if (original.acao === 'iniciar' && !!original.vertho !== !!c.vertho)
+    throw new SimuladorError(
+      400,
+      'Selecione o segmento e a frente do treinamento Vertho.',
+    );
   const deadline = Date.now() + 270000;
   const cmd: Comando =
     original.acao === 'responder'
@@ -202,7 +222,7 @@ export async function executar(c: Contexto, original: Comando) {
             }
           : original;
   const exigirPrazo = () => {
-    if (c.auth.isPlatformAdmin) return;
+    if (c.auth?.isPlatformAdmin || c.vertho) return;
     // Encerrar tem 24 h de tolerância: quem estava no meio da conversa recebe a devolutiva.
     const dentro =
       cmd.acao === 'encerrar'
@@ -232,7 +252,7 @@ export async function executar(c: Contexto, original: Comando) {
         );
       const { data: ultimos, error: diversidadeError } = await owned(
         c,
-        'traco:estado->cenario->personagem->>traco_dominante',
+        'traco:estado->cenario->personagem->>traco_dominante,concorrente:estado->vertho->concorrente->>id',
       )
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
@@ -258,7 +278,18 @@ export async function executar(c: Contexto, original: Comando) {
         },
         nomeVendedor: c.nomeVendedor || 'Vendedor',
         briefing: c.config.briefing,
-        prompts: await snapshotPrompts(c.empresaId),
+        prompts: await snapshotPrompts(c.empresaId, !!c.vertho),
+        ...(c.vertho && cmd.vertho
+          ? {
+              vertho: criarContextoCompetitivoVertho(
+                cmd.vertho,
+                indice,
+                ultimos
+                  .map((r: { concorrente?: string }) => r.concorrente)
+                  .filter(Boolean) as string[],
+              ),
+            }
+          : {}),
         cenario: null,
         fase: 'preparar',
         mensagens: [],
@@ -276,7 +307,7 @@ export async function executar(c: Contexto, original: Comando) {
         p_owner: c.ownerKey,
         p_colaborador: c.colaboradorId,
         p_estado: estado,
-        p_admin: c.auth.isPlatformAdmin,
+        p_admin: c.auth?.isPlatformAdmin === true,
       });
       banco(created.error);
       const loaded = await owned(c).eq('id', estado.id).single();
@@ -302,7 +333,7 @@ export async function executar(c: Contexto, original: Comando) {
   // conversa segue restrito à recuperação administrativa.
   if (
     cmd.acao === 'abandonar' &&
-    !c.auth.isPlatformAdmin &&
+    !c.auth?.isPlatformAdmin &&
     row.estado.mensagens.some((m) => m.autor === 'vendedor')
   )
     throw new SimuladorError(
