@@ -1103,10 +1103,13 @@ async function callOpenAI(
   const data = await res.json();
   const uo = data.usage;
   const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
+  // No Bedrock, prompt_tokens inclui leitura E gravação de cache; cada parcela tem sua tarifa.
+  const cacheWrite = provider === 'bedrock' ? (uo?.prompt_tokens_details?.cache_write_tokens || 0) : 0;
   await registrarUsoIA(provider, model, uo ? {
-    inTokens: (uo.prompt_tokens || 0) - cachedIn,
+    inTokens: (uo.prompt_tokens || 0) - cachedIn - cacheWrite,
     outTokens: uo.completion_tokens || 0,
     cacheRead: cachedIn,
+    cacheWrite,
     truncou: data.choices?.[0]?.finish_reason === 'length',
   } : null, Date.now() - t0, options);
   return conteudoOuFalhaAlto(data, model);
@@ -1211,10 +1214,12 @@ async function callOpenAIChat(
   const data = await res.json();
   const uo = data.usage;
   const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
+  const cacheWrite = provider === 'bedrock' ? (uo?.prompt_tokens_details?.cache_write_tokens || 0) : 0;
   await registrarUsoIA(provider, model, uo ? {
-    inTokens: (uo.prompt_tokens || 0) - cachedIn,
+    inTokens: (uo.prompt_tokens || 0) - cachedIn - cacheWrite,
     outTokens: uo.completion_tokens || 0,
     cacheRead: cachedIn,
+    cacheWrite,
     truncou: data.choices?.[0]?.finish_reason === 'length',
   } : null, Date.now() - t0, options);
   return conteudoOuFalhaAlto(data, model);

@@ -37,7 +37,7 @@ custo esperado e não é uma medição do faturamento AWS.
 
 Duas chamadas com peça fictícia sobre escuta ativa, sem conteúdo de tenant:
 
-| Chamada | Entrada sem cache | Leitura de cache | Saída | Latência da API | Custo estimado |
+| Chamada | Entrada registrada | Leitura de cache | Saída | Latência da API | Estimativa original |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | 1 | 1.473 | 0 | 251 | 7,39 s | US$ 0,008184 |
 | 2 | 681 | 850 | 267 | 3,19 s | US$ 0,006303 |
@@ -47,6 +47,21 @@ A lista foi convertida em JSON com campos separados e a validação passou a
 recusar nomes fora do catálogo. A segunda resposta respeitou o contrato e
 classificou a peça em Comunicação. É uma verificação de integração com uma
 peça sintética, não uma avaliação abrangente da qualidade do modelo.
+
+### Ensaio básico depois do deploy (06/10, 09:39)
+
+Uma chamada real, pelo código da classificação com peça e catálogo sintéticos,
+retornou Comunicação → Escuta ativa, níveis 1–2, contexto corporativo e confiança
+alta. O schema aceitou a sugestão; tempo do fluxo: 4,4 s. O navegador não estava
+conectado nesta sessão, portanto este ensaio não verificou o modal em produção.
+
+A AWS informou 1.531 tokens de prompt, dos quais 1.524 foram escritos no cache,
+e 264 tokens de saída. A estimativa correta é US$ 0,009696: 7 tokens de entrada
+comum, 1.524 de cache-write e 264 de saída. O wrapper single-turn e chat agora
+separam a gravação de cache para não precificá-la como entrada comum. A linha
+deste ensaio foi corrigida no ledger com backup e os tokens da resposta original.
+Os valores das duas chamadas anteriores acima são os registros originais e podem
+subestimar gravações de cache; sem a resposta original completa, não são recalculados.
 
 O ledger `ia_usage_log` registra `provider = bedrock`,
 `model = global.moonshotai.kimi-k3`, `feature = conteudo_tags`, tokens,

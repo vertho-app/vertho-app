@@ -56,6 +56,20 @@ describe('piloto editorial do Bedrock', () => {
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
+  it.each(['single', 'chat'])('%s: precifica a gravação de cache informada pela AWS sem contar a entrada duas vezes', async (tipo) => {
+    // Uso observado no ensaio real de 06/10: prompt inclui os tokens escritos no cache.
+    mocks.fetch.mockResolvedValue({ ok: true, json: async () => ({
+      choices: [{ message: { content: 'ok' } }],
+      usage: { prompt_tokens: 1531, completion_tokens: 264, prompt_tokens_details: { cached_tokens: 0, cache_write_tokens: 1524 } },
+    }) });
+    const options = { taskKey: 'conteudo_tags', locale: 'pt-BR' as const };
+    if (tipo === 'single') await callAI('SYS', 'USER', { model: BEDROCK_KIMI_K3_MODEL }, 6000, options);
+    else await callAIChat('SYS', [{ role: 'user', content: 'USER' }], { model: BEDROCK_KIMI_K3_MODEL }, 6000, options);
+    expect(mocks.ledger).toHaveLength(1);
+    expect(mocks.ledger[0]).toMatchObject({ input_tokens: 7, output_tokens: 264, cache_write_tokens: 1524 });
+    expect(mocks.ledger[0].cost_usd).toBeCloseTo(0.009696, 8);
+  });
+
   it('erro 503 não repete nem troca para outra conta', async () => {
     mocks.fetch.mockResolvedValue({ ok: false, status: 503, text: async () => 'indisponível' });
     await expect(callAI('SYS', 'USER', { model: BEDROCK_KIMI_K3_MODEL }, 6000, { taskKey: 'conteudo_tags', locale: 'pt-BR' })).rejects.toThrow('503');

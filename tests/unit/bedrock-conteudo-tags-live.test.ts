@@ -38,9 +38,10 @@ test.runIf(process.env.BEDROCK_TAGS_LIVE === '1')('classifica uma peça fictíci
     expect(resultado, JSON.stringify(resultado)).toMatchObject({ ok: true, sugestao: { competencia: 'Comunicação' } });
     const tags = (resultado as any).sugestao;
     const custo = medicao?.usage ? costFromTokens('global.moonshotai.kimi-k3', {
-      inTokens: (medicao.usage.prompt_tokens || 0) - (medicao.usage.prompt_tokens_details?.cached_tokens || 0),
+      inTokens: (medicao.usage.prompt_tokens || 0) - (medicao.usage.prompt_tokens_details?.cached_tokens || 0) - (medicao.usage.prompt_tokens_details?.cache_write_tokens || 0),
       outTokens: medicao.usage.completion_tokens || 0,
       cacheRead: medicao.usage.prompt_tokens_details?.cached_tokens || 0,
+      cacheWrite: medicao.usage.prompt_tokens_details?.cache_write_tokens || 0,
     }) : null;
     mkdirSync('backups', { recursive: true });
     writeFileSync('backups/bedrock-piloto-medicao.json', JSON.stringify({ ...medicao, latency_ms: Date.now() - inicio, cost_usd: custo, sugestao: tags }, null, 2));
