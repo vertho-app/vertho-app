@@ -4502,6 +4502,7 @@
       "rel-ind": "Generate POI",
       "rel-gestor": "Manager",
       "rel-rh": "HR",
+      "fluxo-previa": "Complete flow",
       "envios-rel": "Send Reports",
       "iniciar-envios": "Start Sends",
       "pausar-envios": "Pause Sends",

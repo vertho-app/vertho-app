@@ -4502,6 +4502,7 @@
       "rel-ind": "Generar PDI",
       "rel-gestor": "Gestor",
       "rel-rh": "RR. HH.",
+      "fluxo-previa": "Flujo completo",
       "envios-rel": "Enviar Informes",
       "iniciar-envios": "Iniciar Envíos",
       "pausar-envios": "Pausar Envíos",
