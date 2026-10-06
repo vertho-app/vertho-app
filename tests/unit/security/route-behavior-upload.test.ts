@@ -38,6 +38,9 @@ let mockAuthResult: any = null;
 vi.mock('@/lib/auth/request-context', () => ({
   requireUser: async () => mockAuthResult,
   requireRole: async () => mockAuthResult,
+  // A rota pede `content.manage` (reanálise de 05/10/2026), e não mais o papel RH. A decisão por permissão
+  // real está em `portas-por-permissao.test.ts`; aqui o resultado da autenticação é controlado por variável.
+  requirePermission: async () => mockAuthResult,
   requireAdmin: async () => mockAuthResult,
   assertTenantAccess: () => null,
   assertColabAccess: async () => null,
@@ -63,7 +66,7 @@ describe('POST /api/upload/signed-url — comportamento real', () => {
     expect([401, 403]).toContain(res.status);
   });
 
-  it('retorna 403 quando colaborador sem role rh/admin tenta upload', async () => {
+  it('retorna 403 quando quem chama não tem a permissão content.manage', async () => {
     const { NextResponse } = await import('next/server');
     mockAuthResult = NextResponse.json({ error: 'acesso negado' }, { status: 403 });
 

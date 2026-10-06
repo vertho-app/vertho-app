@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireRole, assertTenantAccess } from '@/lib/auth/request-context';
+import { requirePermission } from '@/lib/auth/request-context';
 import { heavyLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 
@@ -20,8 +20,12 @@ export async function POST(request: Request) {
     const csrf = csrfCheck(request);
     if (csrf) return csrf;
 
-    // Só RH ou platform admin pode fazer upload de conteúdo curado
-    const auth = await requireRole(request, ['rh', 'admin']);
+    // Upload de conteúdo curado é `content.manage`, e não "papel RH": o R-73 (03/10/2026) tirou essa
+    // permissão do RH, mas esta rota seguia aberta a ele por papel e assinava upload no bucket PÚBLICO
+    // `conteudos` (sem limite de tipo nem de tamanho), com o RH como dono do caminho. O fluxo inteiro
+    // (`registrarUpload`) já exigia a permissão, então o RH ficava só com um balde público para hospedar
+    // arquivo sob o domínio do Storage. Nenhuma tela chama esta rota.
+    const auth = await requirePermission(request, 'content.manage');
     if (auth instanceof Response) return auth;
 
     const limited = await heavyLimiter.check(request, auth.email);
