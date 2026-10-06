@@ -17,6 +17,11 @@
 > **Regra de manutenção:** fluxo novo que manda dado de pessoa a um fornecedor entra na tabela
 > da §2 no mesmo commit, com a coluna "mascarado" preenchida. Linha "sim" só com teste que
 > prova a máscara no prompt (os testes de 03/10 estão citados em cada linha).
+>
+> **Adendo de 06/10/2026:** a §2.2 ganha quatro fluxos que mandam nome de pessoa e não estavam na
+> tabela (adequação ao cargo, leitura executiva do Fit, Copiloto de reunião e assistente comercial),
+> e a §2.3 registra o que se mediu sobre treinamento e retenção nos provedores. Conferido contra
+> `origin/master` (`586c56d8`): nenhum desses quatro importa o mascarador.
 
 ---
 
@@ -126,6 +131,10 @@ empresa (§2.3), e aí o provedor é o do modelo escolhido.
 | Saudação nominal do vídeo | primeiro nome | **Google** (TTS, no servidor Hetzner) | **não, por desenho** | `worker-hetzner/personalizar.mjs` |
 | Fase 5 (evolução) | nome, cargo, respostas | modelo da tarefa | **não** | `actions/fase5/evolucao.ts` |
 | Simulador de conversas (ferramenta do admin) | nome, cargo | modelo escolhido | **não** (ferramenta interna, gera respostas sintéticas) | `actions/simulador-conversas.ts` |
+| Adequação ao cargo: análise por pessoa | nome de várias pessoas por chamada, aderência, perfil DISC e gaps; a resposta volta indexada pelo nome | modelo configurado | **não** | `lib/adequacao-cargo/narrative.ts` |
+| Leitura executiva do Fit | nome, resultado do fit (gaps, forças e alertas) | modelo configurado | **não** | `actions/fit-v2.ts`, `lib/prompts/fit-executive-prompt.js` |
+| Copiloto de reunião (ao vivo, planejamento e memória da conversa) | falas da reunião, nome e cargo dos participantes do cliente, notas do CRM; **terceiros, não colaboradores** | **OpenAI** e **Google** (Gemini) | **não** | `app/api/copiloto/`, `lib/copiloto/conversation-analysis.ts` |
+| Assistente comercial (objeções e contexto da oportunidade) | nome e função do contato, texto digitado pelo representante | modelo configurado (padrão Anthropic) | **não** | `actions/sales/ai-assistant.ts` |
 
 ### 2.3 Provedores de IA
 
@@ -174,6 +183,33 @@ produção dependia deles.
 ⚠️ **Pergunta que o jurídico vai fazer e a engenharia precisa responder:** os contratos com esses
 provedores incluem cláusula de **não-treinamento** com os dados enviados? Isso depende do plano
 contratado em cada um e não é verificável no código.
+
+**O que se mediu em 06/10/2026 sobre treinamento e retenção** (documentação oficial dos provedores
+lida nesse dia; os contratos e os painéis NÃO foram conferidos):
+
+- **Treinamento.** Anthropic: o dado retido nunca é usado para treinar sem permissão expressa.
+  OpenAI: dado enviado à API não treina os modelos, salvo adesão expressa (desde 01/03/2023).
+  Google: o plano gratuito da API do Gemini usa o conteúdo para melhorar produtos e permite revisão
+  humana; o plano pago (projeto com Cloud Billing ativo) não usa. No Vertex AI o Google não treina
+  sem permissão.
+- **A chave do Gemini é paga?** Indício, não prova: dois modelos sem camada gratuita
+  (`gemini-3.1-pro-preview`, em 20/07, e `gemini-3.1-flash-image`, em 24/09) responderam com a
+  `GEMINI_API_KEY`. A linha do registro de chamadas não diz se rodou em produção ou com a chave
+  local. **Falta conferir no painel do Google AI Studio.**
+- **Retenção por abuso.** A OpenAI guarda logs de abuso por até 30 dias; o Google, no plano pago,
+  guarda prompts e respostas por período limitado; a política padrão da Anthropic não foi lida.
+- **Retenção zero (ZDR).** Anthropic e OpenAI concedem por contato comercial e aprovação própria;
+  não vi piso de gasto. Na Anthropic entram Messages, cache de prompt, raciocínio e busca na web;
+  **não entra o Batch API** (retenção de 29 dias), conteúdo sinalizado pode ser retido por até 2
+  anos mesmo com ZDR, e os modelos Fable e Mythos exigem 30 dias. Na OpenAI não entram Batch API
+  nem File Search, e o `store` passa a ser `false` à força (o código já manda `store: false` nas
+  chamadas Responses). A API do Gemini com chave do AI Studio não tem opção de ZDR (não encontrei);
+  no Vertex dá para pedir exceção ao monitoramento de abuso e desligar o cache de 24 h por projeto,
+  e a busca do Google como fonte (*grounding*) quebra o ZDR (não usamos).
+- **O que o ZDR custaria no nosso uso.** Nos 90 dias até 06/10, 867 chamadas e cerca de US$ 49 (9%
+  do gasto na Anthropic) foram por Batch API. Passá-las para chamada síncrona perderia o desconto de
+  50%: uns US$ 16 por mês, estimados pelo registro de custo, que conta menos que a fatura.
+- Não há registro de ZDR contratado com nenhum provedor.
 
 ### 2.4 Voz
 
@@ -266,7 +302,9 @@ em 6 tenants. "Excluir os dados desta pessoa" não é uma operação única.
 ## 7. Lacunas que a engenharia precisa fechar
 
 1. **Região de Supabase e Vercel**: verificar no painel e declarar.
-2. **Cláusula de não-treinamento** nos contratos de IA: verificar plano de cada provedor.
+2. **Cláusula de não-treinamento** nos contratos de IA: a documentação dos provedores foi lida em
+   06/10 (§2.3); falta conferir nos painéis o plano de cada chave (Google AI Studio), o
+   compartilhamento de dados da organização na OpenAI e se há acordo de retenção na Anthropic.
 3. **Rotina de exclusão a pedido**: não existe.
 4. **Prazo de descarte**: não existe para nenhum dado além de chat abandonado e backup.
 5. **Registro de consentimento**: o cadastro é feito pelo contratante; não há registro de aceite
