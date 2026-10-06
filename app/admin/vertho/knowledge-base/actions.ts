@@ -1,12 +1,31 @@
 'use server';
 
-import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context';
+import { requireAdminAction, requireUserAction, requirePermissionAction, assertTenantAccessAction } from '@/lib/auth/action-context';
 import { ingestDoc, deactivateDoc, listDocs } from '@/lib/rag';
 import { parseAndChunk } from '@/lib/rag-ingest';
 import { seedKnowledgeBase } from '@/lib/rag-seed';
 import { escaparLike } from '@/lib/sql-like';
+
+/**
+ * 🔴 O gate desta tela é de PERMISSÃO, e não de papel (reanálise de 05/10/2026).
+ *
+ * Todas as actions daqui abriam com `ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === id)`.
+ * Só que o R-73 (02/10) tirou `knowledge_base.manage` do RH justamente porque nenhuma tela do RH usa
+ * a base, e as actions seguiram abertas ao RH da empresa pelo action id (e ao Admin Sócio, que é
+ * `isPlatformAdmin` mas não tem escrita). A tela mora em `/admin/vertho`, que é da plataforma.
+ *  · LER (listar, abrir, testar a busca): `admin.access`, que o RH não tem e o sócio tem;
+ *  · ESCREVER (criar, editar, desativar, subir arquivo, semear): `knowledge_base.manage`, só do admin
+ *    master. O tenant continua conferido (`requireEmpresaSupabase`/`assertTenantAccessAction`).
+ * A recusa volta como `{ error }`, o contrato que a tela já trata; falha de login segue lançando.
+ */
+// `any` de propósito: com o tipo `{ error: string }` declarado, a união que a tela lê (`r.error`, `r.docs`)
+// perdia a normalização que os literais `{ error }` e `{ ok, docs }` tinham no mesmo corpo, e a tela não compilava.
+function recusaDaKB(e: any): any {
+  if (/^FORBIDDEN/.test(String(e?.message))) return { error: 'Acesso restrito' };
+  throw e;
+}
 
 /**
  * Lista empresas pra seletor (apenas platform admin enxerga todas).
@@ -22,13 +41,10 @@ export async function listarEmpresas() {
 }
 
 /**
- * Lista docs ativos do tenant. RH da empresa ou platform admin.
+ * Lista docs ativos do tenant. Só a plataforma (leitura: `admin.access`).
  */
 export async function listarDocsKB(empresaId) {
-  const ctx = await requireUserAction();
-  // Platform admin pode ver qualquer empresa; RH só a sua
-  const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
-  if (!podeAcessar) return { error: 'Acesso restrito' };
+  try { await requireEmpresaSupabase(empresaId, 'admin.access', 'kb.listar'); } catch (e) { return recusaDaKB(e); }
   if (!empresaId) return { error: 'empresaId obrigatório' };
 
   const docs = await listDocs(empresaId);
@@ -39,9 +55,7 @@ export async function listarDocsKB(empresaId) {
  * Carrega 1 doc completo pra editar.
  */
 export async function carregarDocKB(empresaId, docId) {
-  const ctx = await requireUserAction();
-  const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
-  if (!podeAcessar) return { error: 'Acesso restrito' };
+  try { await requireEmpresaSupabase(empresaId, 'admin.access', 'kb.carregar'); } catch (e) { return recusaDaKB(e); }
 
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('knowledge_base')
@@ -56,9 +70,8 @@ export async function carregarDocKB(empresaId, docId) {
  * Cria novo doc.
  */
 export async function criarDocKB(payload) {
+  try { await requireEmpresaSupabase(payload?.empresaId, 'knowledge_base.manage', 'kb.criar'); } catch (e) { return recusaDaKB(e); }
   const ctx = await requireUserAction();
-  const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === payload.empresaId);
-  if (!podeAcessar) return { error: 'Acesso restrito' };
 
   const { empresaId, titulo, conteudo, categoria, sourceUrl } = payload;
   if (!empresaId || !titulo || !conteudo) return { error: 'empresaId+titulo+conteudo obrigatórios' };
@@ -84,16 +97,17 @@ export async function criarDocKB(payload) {
  * Atualiza doc existente.
  */
 export async function atualizarDocKB(docId, payload) {
-  const ctx = await requireUserAction();
+  // Permissão ANTES de tocar o banco (não vira oráculo de id) e o tenant vem da LINHA, como em
+  // `deletarNotaAssessment`: o cliente manda o id do documento, não o da empresa.
+  let ctx;
+  try { ctx = await requirePermissionAction('knowledge_base.manage'); } catch (e) { return recusaDaKB(e); }
 
   const sb = createSupabaseAdmin();
-  // Confere ownership
   const { data: existing } = await sb.from('knowledge_base')
     .select('empresa_id').eq('id', docId).maybeSingle();
   if (!existing) return { error: 'Doc não encontrado' };
 
-  const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === existing.empresa_id);
-  if (!podeAcessar) return { error: 'Acesso restrito' };
+  try { await assertTenantAccessAction(ctx, existing.empresa_id); } catch (e) { return recusaDaKB(e); }
 
   const updates: any = {};
   if (typeof payload.titulo === 'string') {
@@ -120,9 +134,7 @@ export async function atualizarDocKB(docId, payload) {
  * Soft delete (desativa).
  */
 export async function desativarDocKB(empresaId, docId) {
-  const ctx = await requireUserAction();
-  const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
-  if (!podeAcessar) return { error: 'Acesso restrito' };
+  try { await requireEmpresaSupabase(empresaId, 'knowledge_base.manage', 'kb.desativar'); } catch (e) { return recusaDaKB(e); }
 
   try {
     await deactivateDoc(empresaId, docId);
@@ -144,15 +156,13 @@ export async function desativarDocKB(empresaId, docId) {
  * @param {FormData} formData - { empresaId, categoria?, sourceUrl?, file: File }
  */
 export async function uploadDocsArquivo(formData) {
+  const empresaId = formData?.get?.('empresaId');
+  const categoria = formData?.get?.('categoria') || null;
+  const sourceUrl = formData?.get?.('sourceUrl') || null;
+  const file = formData?.get?.('file');
+
+  try { await requireEmpresaSupabase(empresaId, 'knowledge_base.manage', 'kb.upload'); } catch (e) { return recusaDaKB(e); }
   const ctx = await requireUserAction();
-
-  const empresaId = formData.get('empresaId');
-  const categoria = formData.get('categoria') || null;
-  const sourceUrl = formData.get('sourceUrl') || null;
-  const file = formData.get('file');
-
-  const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
-  if (!podeAcessar) return { error: 'Acesso restrito' };
   if (!empresaId) return { error: 'empresaId obrigatório' };
   if (!file || typeof file === 'string') return { error: 'Arquivo obrigatório' };
   if (file.size > 4 * 1024 * 1024) return { error: 'Arquivo > 4MB. Quebre em partes.' };
@@ -194,9 +204,7 @@ export async function uploadDocsArquivo(formData) {
  * Idempotente: pula docs que já existem (por título).
  */
 export async function seedKB(empresaId) {
-  const ctx = await requireUserAction();
-  const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
-  if (!podeAcessar) return { error: 'Acesso restrito' };
+  try { await requireEmpresaSupabase(empresaId, 'knowledge_base.manage', 'kb.seed'); } catch (e) { return recusaDaKB(e); }
   if (!empresaId) return { error: 'empresaId obrigatório' };
 
   try {
@@ -211,9 +219,7 @@ export async function seedKB(empresaId) {
  * Preview de busca: roda kb_search pra testar relevância.
  */
 export async function testarBuscaKB(empresaId, query) {
-  const ctx = await requireUserAction();
-  const podeAcessar = ctx.isPlatformAdmin || (ctx.role === 'rh' && ctx.empresaId === empresaId);
-  if (!podeAcessar) return { error: 'Acesso restrito' };
+  try { await requireEmpresaSupabase(empresaId, 'admin.access', 'kb.testar'); } catch (e) { return recusaDaKB(e); }
   if (!query?.trim()) return { ok: true, resultados: [] };
 
   const sb = createSupabaseAdmin();
