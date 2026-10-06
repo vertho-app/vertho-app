@@ -19,6 +19,7 @@ import { computeProtectionWindow, computeProtectionStatus, protectionAlertLabel 
 import { groupByStage, oportunidadesSemProximaAcao, pipelinePonderado, pipelineQualificado, pipelineTotal, protecoesVencendo } from '@/lib/sales/kpis';
 import { PIPELINE_STAGES, type PipelineStage } from '@/lib/sales/constants';
 import type { SalesOpportunity } from '@/lib/sales/types';
+import { escaparLike } from '@/lib/sql-like';
 
 const OPP_SELECT = `*,
   account:sales_accounts (id, legal_name, trade_name, segment, city, state),
@@ -48,7 +49,7 @@ export async function listOpportunities(filters?: {
   if (filters?.stage) q = q.eq('stage', filters.stage);
   if (filters?.status) q = q.eq('status', filters.status);
   if (filters?.productInterest) q = q.eq('product_interest', filters.productInterest);
-  if (filters?.search) q = q.ilike('opportunity_name', `%${filters.search}%`);
+  if (filters?.search) q = q.ilike('opportunity_name', `%${escaparLike(filters.search)}%`);
 
   const { data, error } = await q;
   if (error) return { success: false as const, error: error.message };

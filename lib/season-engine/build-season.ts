@@ -20,6 +20,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import type { AppLocale } from '@/i18n/routing';
 import type { BlueprintBindingSemana } from '@/lib/blueprint/to-descriptors';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 interface MicroConteudo {
   id: string;
@@ -288,7 +289,7 @@ export async function repararCoreOrfaoDaSemana(
       .eq('ativo', true)
       .is('kit_id', null)
       .eq('competencia', competencia);
-    if (empresaId) q = q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+    if (empresaId) q = q.or(empresaOuGlobal(empresaId));
     else q = q.is('empresa_id', null);
     const { data: poolRows } = await q;
     // O que o motor SERVIRIA a este cargo hoje: fora de kit e do cargo ou genérico.
@@ -681,7 +682,7 @@ async function montarSemanaConteudo(
       .is('disc', null)
       .eq('competencia', competencia);
     if (withNivel) q = q.lte('nivel_min', nivelMedio).gte('nivel_max', nivelMedio);
-    if (empresaId) q = q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+    if (empresaId) q = q.or(empresaOuGlobal(empresaId));
     else q = q.is('empresa_id', null);
     return q;
   };

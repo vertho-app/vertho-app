@@ -4,6 +4,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { guidDoEmbedBunny } from '@/lib/conteudo/bunny-embed';
 import { findReadyPersonalizedVideo, personalizedGreetingCopy } from '@/lib/video/personalized-ready';
 import ContentExperience, { type ContentExperienceData } from './content-experience';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +37,7 @@ export default async function RecommendedContentPage({ params }: { params: Promi
     .eq('id', id)
     // A consulta já nasce no alcance da sessão: catálogo global OU tenant
     // atual. O teste posterior permanece como defesa em profundidade.
-    .or(`empresa_id.is.null,empresa_id.eq.${auth.empresaId}`)
+    .or(empresaOuGlobal(auth.empresaId))
     .maybeSingle();
 
   if (error) throw new Error(`Falha ao carregar conteúdo: ${error.message}`);

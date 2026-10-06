@@ -6,6 +6,7 @@
  * docs/KIT-SEMANAL.md (Fase 3: cobrança de quinta cobra o desafio do kit).
  */
 import { normDescritor } from '@/lib/blueprint/to-descriptors';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 /**
  * O brief serve a este colaborador? Brief GENÉRICO é curinga — sem cargo ou com
@@ -44,7 +45,7 @@ export async function resolverDesafioDoKit(
   // .eq exato deixava esses caírem no genérico apesar do Kit existir. Busca por
   // competência e casa por normDescritor (tira prefixo CÓDIGO —, acentos, caixa).
   let q = sb.from('kit_briefs').select('id, empresa_id, cargo, descritor').eq('competencia', args.competencia).is('archived_at', null).eq('status', 'published');
-  q = args.empresaId ? q.or(`empresa_id.eq.${args.empresaId},empresa_id.is.null`) : q.is('empresa_id', null);
+  q = args.empresaId ? q.or(empresaOuGlobal(args.empresaId)) : q.is('empresa_id', null);
   const { data: briefsRaw } = await q;
   if (!briefsRaw?.length) return null;
   const alvo = normDescritor(args.descritor);

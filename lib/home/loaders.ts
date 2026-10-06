@@ -16,6 +16,7 @@ import { semanaLiberadaEm, semanaLiberadaPorData } from '@/lib/season-engine/wee
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { colaboradoresComMapeamentoCompleto, distribuicaoMapeamento, progressoMapeamentoPorPessoa } from '@/lib/mapeamento-competencias';
 import { blocoEstaOffline } from '@/lib/blocos-offline';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 /**
  * Loaders da home do dashboard — queries PURAS, sem 'use server' e sem auth
@@ -690,7 +691,7 @@ export async function carregarCapacitacoes(empresaId: string | null, competencia
     // Sempre escopa: tenant do usuário + conteúdo global (NULL). Sem tenant
     // (ex.: platform admin sem empresa_id) → só o conteúdo global.
     q = empresaId
-      ? q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`)
+      ? q.or(empresaOuGlobal(empresaId))
       : q.is('empresa_id', null);
 
     const { data, error } = await q;

@@ -4,6 +4,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { getSegmento } from '@/lib/radarempresas/segmentos';
 import { CLASSIFICACAO_LABEL, type Classificacao } from '@/lib/radarempresas/score';
 import { assertBlocoOnline } from '@/lib/blocos-offline';
+import { escaparLike } from '@/lib/sql-like';
 
 export interface FunilEtapa {
   etapa: string;
@@ -285,8 +286,8 @@ export async function listarEmpresas(
   if (f.priorizados) q = q.gte('priority_rank', 90); // top 10% (mesma régua do funil)
   if (f.segmento_key) q = q.eq('score_explanation->>segmento_key', f.segmento_key);
   if (f.uf) q = q.eq('radarempresas_estabelecimentos.uf', f.uf);
-  if (f.municipio) q = q.ilike('radarempresas_estabelecimentos.municipio_nome', `%${f.municipio}%`);
-  if (f.busca) q = q.ilike('radarempresas_estabelecimentos.nome_fantasia', `%${f.busca}%`);
+  if (f.municipio) q = q.ilike('radarempresas_estabelecimentos.municipio_nome', `%${escaparLike(f.municipio)}%`);
+  if (f.busca) q = q.ilike('radarempresas_estabelecimentos.nome_fantasia', `%${escaparLike(f.busca)}%`);
 
   const { data, count, error } = await q
     .order('score_total', { ascending: false })

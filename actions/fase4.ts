@@ -4,6 +4,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { colunasDoFoco, focoComPrincipal, focoDoCargo } from '@/lib/foco-cargo';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 // ── PDIs legados: REMOVIDOS em 27/08/2026 ──────────────────────────────────
 //
@@ -156,7 +157,7 @@ export async function _montarTrilhasLote_legacy(empresaId: string) {
     const { data: catalogo } = await sb.from('micro_conteudos')
       .select('id, titulo, formato, url, competencia, descritor, nivel_min, nivel_max, cargo, contexto, taxa_conclusao')
       .eq('ativo', true)
-      .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+      .or(empresaOuGlobal(empresaId));
 
     // Agrupar respostas por colaborador com gap (nível esperado 4 - nível avaliado)
     const porColab: Record<string, Array<{ competencia: string; nivel: number; gap: number }>> = {};

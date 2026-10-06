@@ -3,6 +3,7 @@ import type { AuthenticatedContext } from '@/lib/auth/request-context';
 import type { PermissionKey } from '@/lib/permissions';
 import { tenantDb } from '@/lib/tenant-db';
 import { isIpiEmail, type IpiPlan, type IpiEvidence } from './contracts';
+import { escaparLike } from '@/lib/sql-like';
 
 /** Catálogo fechado de SELECTs. O modelo nunca escolhe tabela, coluna, SQL ou empresa. */
 export async function readIpiData(auth: AuthenticatedContext, permissions: Set<PermissionKey>, empresaId: string | null, plan: IpiPlan): Promise<IpiEvidence[]> {
@@ -28,7 +29,7 @@ export async function readIpiData(auth: AuthenticatedContext, permissions: Set<P
     if (!permissions.has('users.view')) { add('Colaboradores', { aviso: 'Sem permissão para consultar colaboradores.' }); return evidence; }
     const term = plan.person.trim().replace(/[%_\\]/g, '');
     if (term.length < 2) { add('Busca de pessoa', { aviso: 'Informe um nome com pelo menos dois caracteres.' }); return evidence; }
-    const result = await tdb.from('colaboradores').select('id, nome_completo, cargo, perfil_dominante', { count: 'exact' }).ilike('nome_completo', `%${term}%`).order('nome_completo').limit(6);
+    const result = await tdb.from('colaboradores').select('id, nome_completo, cargo, perfil_dominante', { count: 'exact' }).ilike('nome_completo', `%${escaparLike(term)}%`).order('nome_completo').limit(6);
     if (result.error) { add('Busca de pessoa', { erro: 'Consulta indisponível. Não concluir que a pessoa não existe.' }); return evidence; }
     add('Pessoas encontradas', { registros: result.data, total: result.count, limite: 6 });
     // Nome ambíguo não vira diagnóstico de uma pessoa escolhida pelo modelo.

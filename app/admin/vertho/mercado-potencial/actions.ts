@@ -3,6 +3,7 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
+import { escaparLike } from '@/lib/sql-like';
 
 /**
  * Mercado potencial — uso interno comercial.
@@ -71,7 +72,7 @@ function aplicarFiltrosBase(query: any, filtros: MercadoFilters, inseCol: 'inse_
   if (filtros.municipioBusca?.trim()) {
     // ilike é case-insensitive; unaccent ficaria melhor, mas o índice gin trgm
     // em diag_escolas não está nas MVs — usar ilike simples.
-    query = query.ilike('municipio', `%${filtros.municipioBusca.trim()}%`);
+    query = query.ilike('municipio', `%${escaparLike(filtros.municipioBusca.trim())}%`);
   }
   return query;
 }

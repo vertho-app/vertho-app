@@ -3,6 +3,7 @@ import { chaveDoPar, gerarDesafioDaSemana } from './desafio-par';
 import { normDescritor } from '@/lib/blueprint/to-descriptors';
 import { normalizarComp } from '@/lib/workshop-competencias';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 type Nucleo = { descritor: string; ideia_central: string; pontos_chave: string[]; exemplo_ancora: string };
 export interface DemandaDesafio {
@@ -31,7 +32,7 @@ export async function levantarPlanoDesafios(sb: any, empresaId: string, semanasA
     todas(sb, 'trilhas', 'id,colaborador_id,numero_temporada,criado_em,temporada_plano,programa_modo,programa_config', q => q.eq('empresa_id', empresaId)),
     todas(sb, 'colaboradores', 'id,cargo,perfil_dominante', q => q.eq('empresa_id', empresaId)),
     todas(sb, 'kit_desafios_semana', 'id,competencia,descritores_norm,cargo,disc,desafio', q => q.eq('empresa_id', empresaId).eq('status', 'published')),
-    todas(sb, 'kit_briefs', 'id,empresa_id,competencia,descritor,cargo,brief,modulo_base_id', q => q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`).eq('status', 'published').not('modulo_base_id', 'is', null)),
+    todas(sb, 'kit_briefs', 'id,empresa_id,competencia,descritor,cargo,brief,modulo_base_id', q => q.or(empresaOuGlobal(empresaId)).eq('status', 'published').not('modulo_base_id', 'is', null)),
   ]);
   const porPessoa = new Map(colabs.map(c => [c.id, c]));
   const ultimas = new Map<string, any>();

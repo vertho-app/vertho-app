@@ -14,6 +14,8 @@
 
 import { embedQuery, moduloEmbeddingCompativel } from '@/lib/embeddings';
 import { idsDasCopiasEquivalentes } from '@/lib/matriz-por-cargo';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
+import { escaparLike } from '@/lib/sql-like';
 
 type Nivel = 'N1' | 'N2' | 'N3' | 'N4';
 
@@ -81,13 +83,13 @@ export async function resolverModuloBaseParaConteudo(
   // (a do seu descritor), então precisamos casar contra TODOS os ids do nome —
   // não LIMIT 1 (que pegava a linha errada e o match por id falhava).
   const { data: comps } = await sb.from('competencias_base')
-    .select('id').ilike('nome', opts.competenciaNome);
+    .select('id').ilike('nome', escaparLike(opts.competenciaNome));
   const competencia_base_ids: string[] = (comps || []).map((c: any) => c.id);
 
   let competencia_ids: string[] = [];
   if (opts.empresaId) {
     const { data: ec, error: errEc } = await sb.from('competencias')
-      .select('id, cargo, cod_comp, cod_desc, nome_curto').eq('empresa_id', opts.empresaId).ilike('nome', opts.competenciaNome);
+      .select('id, cargo, cod_comp, cod_desc, nome_curto').eq('empresa_id', opts.empresaId).ilike('nome', escaparLike(opts.competenciaNome));
     if (errEc) throw new Error(`módulo-base: competências de "${opts.competenciaNome}": ${errEc.message}`);
     // REGRA: "Autocuidado" de Coordenação ≠ de Gestão Escolar (descritores/níveis
     // próprios) — nunca sourceia o MB de uma matriz DIFERENTE. Mas o módulo-base é
@@ -135,7 +137,7 @@ export async function resolverModuloBaseParaConteudo(
       competencia_ids.length ? `competencia_id.in.(${competencia_ids.join(',')})` : null,
     ].filter(Boolean).join(',');
     q = q.or(compOr);
-    q = opts.empresaId ? q.or(`empresa_id.is.null,empresa_id.eq.${opts.empresaId}`) : q.is('empresa_id', null);
+    q = opts.empresaId ? q.or(empresaOuGlobal(opts.empresaId)) : q.is('empresa_id', null);
     const { data } = await q;
     return data || [];
   }
@@ -206,7 +208,7 @@ export async function resolverModuloBaseParaConteudo(
   const jaUsados = new Set<string>();
   try {
     let uq = sb.from('micro_conteudos').select('modulo_base_id').eq('competencia', opts.competenciaNome).not('modulo_base_id', 'is', null).limit(500);
-    if (opts.empresaId) uq = uq.or(`empresa_id.is.null,empresa_id.eq.${opts.empresaId}`);
+    if (opts.empresaId) uq = uq.or(empresaOuGlobal(opts.empresaId));
     const { data: usados } = await uq;
     for (const u of usados || []) if (u.modulo_base_id) jaUsados.add(u.modulo_base_id);
   } catch { /* best-effort */ }

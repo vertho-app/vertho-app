@@ -2,6 +2,7 @@
 
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { escaparLike } from '@/lib/sql-like';
 
 export type AuditRow = {
   id: string;
@@ -29,7 +30,7 @@ export async function loadAuditLog(filtros: {
   let q = sb.from('admin_audit_log').select('*').order('criado_em', { ascending: false }).limit(filtros.limit || 200);
   if (filtros.acao) q = q.eq('acao', filtros.acao);
   if (filtros.empresaId) q = q.eq('empresa_id', filtros.empresaId);
-  if (filtros.adminEmail) q = q.ilike('admin_email', `%${filtros.adminEmail}%`);
+  if (filtros.adminEmail) q = q.ilike('admin_email', `%${escaparLike(filtros.adminEmail)}%`);
 
   const { data, error } = await q;
   if (error) {

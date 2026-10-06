@@ -6,6 +6,7 @@ import { getSegmento, RADAR_DISCLAIMER } from '@/lib/radarempresas/segmentos';
 import { CLASSIFICACAO_LABEL, type Classificacao } from '@/lib/radarempresas/score';
 import type { RadarFiltros } from './busca';
 import { assertBlocoOnline } from '@/lib/blocos-offline';
+import { escaparLike } from '@/lib/sql-like';
 
 async function audit(sb: any, action: string, meta: any) {
   const email = (await getAuthenticatedEmailFromAction()) || 'admin';
@@ -103,7 +104,7 @@ async function montarExport(
   else {
     const f = src.filtros || {};
     if (f.uf) q = q.eq('uf', f.uf);
-    if (f.municipio) q = q.ilike('municipio_nome', `%${f.municipio}%`);
+    if (f.municipio) q = q.ilike('municipio_nome', `%${escaparLike(f.municipio)}%`);
     q = q.limit(20000); // teto de export por filtro
   }
   const { data: ests } = await q;

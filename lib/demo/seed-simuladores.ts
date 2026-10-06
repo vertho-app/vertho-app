@@ -10,6 +10,7 @@ import { PROMPTS } from '@/lib/simulador-lideranca/prompts';
 import { resolveTaskModel } from '@/lib/ai-tasks';
 import type { Estado as EstadoLideranca, Etapa } from '@/lib/simulador-lideranca/schema';
 import { DEMO_SIMULADORES_VERSION, dataDemo, idDemoSimulador, jornadaLiderancaDemo, treinoAtendimentoDemo, treinoVendasDemo } from './simuladores-fixture';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 /** Nenhum tenant real, convidado ou e-mail apenas parecido entra no seed. */
 export function elencoSimuladoresDemo(slug: string, isDemo: boolean): Set<string> {
@@ -43,7 +44,7 @@ export async function seedSimuladoresDemo(sb: SupabaseClient, empresaId: string,
   const modelos = {} as EstadoLideranca['modelos'];
   if (cfg) for (const etapa of Object.keys(PROMPTS) as Etapa[]) modelos[etapa] = resolveTaskModel(empresa.sys_config, `sim_lideranca_${etapa}`);
   const cenarios = atendimento?.habilitado
-    ? (await checked(sb.from('recepcao_cenarios').select('id,conteudo,empresa_id').eq('estado', 'publicado').or(`empresa_id.is.null,empresa_id.eq.${empresaId}`).order('versao', { ascending: false })))
+    ? (await checked(sb.from('recepcao_cenarios').select('id,conteudo,empresa_id').eq('estado', 'publicado').or(empresaOuGlobal(empresaId)).order('versao', { ascending: false })))
       .filter((c: any) => (c.conteudo.dominio || 'recepcao_medica') === atendimento.dominio && c.conteudo.desfechos.includes('encaminhado')).slice(0, 3)
     : [];
   if (atendimento?.habilitado && !cenarios.length) throw new Error('Demo de atendimento sem cenário publicado compatível.');

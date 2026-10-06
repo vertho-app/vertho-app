@@ -27,6 +27,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
 import { assertBlocoOnline } from '@/lib/blocos-offline';
+import { escaparLike } from '@/lib/sql-like';
 
 export interface PotencialFiltros {
   uf?: string;
@@ -94,7 +95,7 @@ export async function loadPotencialCidades(
         .select('municipio_ibge, municipio_nome, uf, total_ativos, n_priorizados, n_priorizados_b2b, head_estimado_b2b, n_abordar, n_redes, score_medio, xlsx_path')
         .order('municipio_ibge', { ascending: true }).range(from, to);
       if (f.uf) q = q.eq('uf', f.uf);
-      if (busca) q = q.ilike('municipio_nome', `%${busca}%`);
+      if (busca) q = q.ilike('municipio_nome', `%${escaparLike(busca)}%`);
       return q;
     });
     const empMap = new Map<string, any>();
@@ -106,7 +107,7 @@ export async function loadPotencialCidades(
         .select('municipio_ibge, municipio, uf, qt_escolas, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial')
         .order('municipio_ibge', { ascending: true }).range(from, to);
       if (f.uf) q = q.eq('uf', f.uf);
-      if (busca) q = q.ilike('municipio', `%${busca}%`);
+      if (busca) q = q.ilike('municipio', `%${escaparLike(busca)}%`);
       return q;
     });
     const escMap = new Map<string, any>();

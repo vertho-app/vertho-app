@@ -25,6 +25,7 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { marcarSemanaConsumida } from '@/lib/season-engine/consumo-conteudo';
 import { statusAoTocarSemana } from '@/lib/season-engine/progresso-semana';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 interface GerarTemporadaParams {
   colaboradorId?: string;
@@ -260,7 +261,7 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
           const { data: conteudos, error: errConteudos } = await sbRaw.from('micro_conteudos')
             .select('descritor, formato, cargo')
             .eq('ativo', true).is('kit_id', null).is('disc', null).eq('competencia', comp)
-            .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+            .or(empresaOuGlobal(empresaId));
           if (errConteudos) throw new Error(`Falha ao ler os conteúdos de "${comp}": ${errConteudos.message}`);
           conteudoCache[comp] = conteudos || [];
         }
@@ -747,7 +748,7 @@ function entregasDoPlano(plano: any[]): any[] {
 async function anotarOrigemDisc(sb: any, items: any[], empresaId: string) {
   try {
     const [{ data: mcs }, { data: vids }] = await Promise.all([
-      sb.from('micro_conteudos').select('id, kit_id, modulo_base_id').or(`empresa_id.eq.${empresaId},empresa_id.is.null`),
+      sb.from('micro_conteudos').select('id, kit_id, modulo_base_id').or(empresaOuGlobal(empresaId)),
       sb.from('videos_gerados').select('id, modulo_base_id, cargo, disc_dominante, bunny_video_id, bunny_library').eq('empresa_id', empresaId).eq('status', 'done'),
     ]);
     // O que a pessoa REALMENTE vê é o videos_personalizados (COM saudação nominal);

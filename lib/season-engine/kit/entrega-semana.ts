@@ -12,6 +12,7 @@ import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { normDescritor } from '@/lib/blueprint/to-descriptors';
 import { normalizarComp } from '@/lib/workshop-competencias';
 import { resolverDesafioDaSemana, chaveDoPar } from './desafio-par';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 const FMTS = ['video', 'audio', 'texto', 'case'] as const;
 export type Formato = (typeof FMTS)[number];
@@ -122,7 +123,7 @@ export async function precarregarKits(
 
   // 1) briefs (empresa + global) — conjunto pequeno por empresa.
   let bq = sb.from('kit_briefs').select('id, competencia, descritor, cargo, empresa_id').is('archived_at', null).eq('status', 'published');
-  bq = args.empresaId ? bq.or(`empresa_id.eq.${args.empresaId},empresa_id.is.null`) : bq.is('empresa_id', null);
+  bq = args.empresaId ? bq.or(empresaOuGlobal(args.empresaId)) : bq.is('empresa_id', null);
   const { data: briefs, error: errBriefs } = await bq;
   if (errBriefs) falhou('briefs', errBriefs);
   if (!briefs?.length) return out;

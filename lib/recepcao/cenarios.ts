@@ -10,6 +10,7 @@ import { fichaPublica, ordenarPorNivel } from './core';
 import { can } from '@/lib/permissions';
 import type { z } from 'zod';
 import { aplicarMatrizAtendimento } from './matriz-avaliacao';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 export async function catalogo(c: ContextoRecepcao, editor = false) {
   // Só os casos do segmento da empresa (mig 263): uma loja não recebe caso de clínica.
@@ -50,7 +51,7 @@ export async function cenarioPublicado(
   let q = c.sb
     .from('recepcao_cenarios')
     .select('id,conteudo')
-    .or(`empresa_id.eq.${c.empresaId},empresa_id.is.null`)
+    .or(empresaOuGlobal(c.empresaId))
     .eq('conteudo->>dominio', c.dominio)
     .eq('estado', 'publicado');
   if (id) q = q.eq('id', id);
@@ -121,7 +122,7 @@ export async function editarCenario(
   }
   let busca = c.sb.from('recepcao_cenarios').select('*').eq('id', cmd.id);
   busca = c.auth.isPlatformAdmin
-    ? busca.or(`empresa_id.eq.${c.empresaId},empresa_id.is.null`)
+    ? busca.or(empresaOuGlobal(c.empresaId))
     : busca.eq('empresa_id', c.empresaId);
   const { data: atual, error: readError } = await busca.maybeSingle();
   if (readError)

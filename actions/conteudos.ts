@@ -17,6 +17,7 @@ import { buildPersonalizacaoPrompt } from '@/lib/season-engine/prompts/personali
 import { resolverPerfilPublicoDaEmpresa } from '@/lib/season-engine/perfil-publico';
 import { anexarFichaCargo, carregarFichaCargo } from '@/lib/cargo-contexto';
 import { ehClienteDoServidor } from '@/lib/auth/cliente-do-servidor';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 /** Mínimo de caracteres para conteúdo que vira PDF (texto/case): leitura de
  *  ~5-8 min. Aplicado tanto na geração do conteúdo quanto na hora do PDF.
@@ -755,7 +756,7 @@ export async function listarConteudos({ formato, competencia, semClassificacao, 
     }
 
     let q = sb.from('micro_conteudos').select('*, empresa:empresas(id, nome, slug)').order('created_at', { ascending: false }).limit(limit);
-    if (empresaUuid) q = q.or(`empresa_id.eq.${empresaUuid},empresa_id.is.null`);
+    if (empresaUuid) q = q.or(empresaOuGlobal(empresaUuid));
     if (formato) q = q.eq('formato', formato);
     if (competencia) q = q.eq('competencia', competencia);
     if (semClassificacao) q = q.eq('competencia', 'Não classificado');

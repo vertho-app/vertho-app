@@ -144,9 +144,9 @@
       "07f35498": 1,
       "18a07841": 1,
       "1bec12ad": 1,
+      "5a82fc21": 1,
       "9473348d": 1,
       "9f3a86c8": 1,
-      "ad117fd0": 1,
       "bfab053d": 1,
       "ed557c8d": 1
     },
@@ -596,8 +596,8 @@
       "d312f45c": 1
     },
     "app/admin/vertho/knowledge-base/actions.ts": {
-      "6e1d58d7": 1,
-      "8793d8d6": 1,
+      "6035b987": 1,
+      "e66524b2": 1,
       "fc779f9a": 1
     },
     "app/admin/whatsapp/actions.ts": {
@@ -989,12 +989,12 @@
       "cf2e1f1f": 1
     },
     "lib/relatorio-individual-prompt.ts": {
-      "27223824": 1,
       "45eaf0cc": 1,
       "6a535c21": 1,
       "7e86babd": 1,
       "b22c2b6b": 1,
-      "b601d527": 1
+      "b601d527": 1,
+      "e741aeda": 1
     },
     "lib/relatorios/gestor-rh-core.ts": {
       "16d45e67": 1,
@@ -1061,7 +1061,7 @@
       "e0b12c0d": 1
     },
     "lib/season-engine/modulo-base-integration.ts": {
-      "8fdceddb": 1
+      "227433d2": 1
     },
     "lib/season-engine/perfil-publico.ts": {
       "4aaa1814": 1

@@ -8,6 +8,7 @@
  * + cargo + nível), não semântica: `micro_conteudos` não tem embedding.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 export interface ConteudoRelacionado {
   id: string;
@@ -84,7 +85,7 @@ export async function buscarConteudosRelacionados(
     if (t.contexto) q = q.eq('contexto', contexto);
     if (t.cargo) q = q.eq('cargo', cargo);
 
-    if (empresaId) q = q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+    if (empresaId) q = q.or(empresaOuGlobal(empresaId));
     else q = q.is('empresa_id', null);
 
     q = q.order('versao', { ascending: false })

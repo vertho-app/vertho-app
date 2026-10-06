@@ -6,6 +6,7 @@ import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context
 import { ingestDoc, deactivateDoc, listDocs } from '@/lib/rag';
 import { parseAndChunk } from '@/lib/rag-ingest';
 import { seedKnowledgeBase } from '@/lib/rag-seed';
+import { escaparLike } from '@/lib/sql-like';
 
 /**
  * Lista empresas pra seletor (apenas platform admin enxerga todas).
@@ -237,7 +238,7 @@ export async function testarBuscaKB(empresaId, query) {
     .select('id, titulo, conteudo, categoria')
     .eq('empresa_id', empresaId)
     .neq('ativo', false)
-    .ilike('conteudo', `%${termo}%`)
+    .ilike('conteudo', `%${escaparLike(termo)}%`)
     .limit(5);
 
   if (fallback?.length) {
@@ -247,7 +248,7 @@ export async function testarBuscaKB(empresaId, query) {
       .select('id, titulo, conteudo, categoria')
       .eq('empresa_id', empresaId)
       .neq('ativo', false)
-      .ilike('titulo', `%${termo}%`)
+      .ilike('titulo', `%${escaparLike(termo)}%`)
       .limit(5);
     resultados = (byTitulo || []).map(r => ({ ...r, score: 0 }));
   }

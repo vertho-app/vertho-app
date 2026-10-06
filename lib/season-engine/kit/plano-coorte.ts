@@ -15,6 +15,7 @@
 
 import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
 import { COLUNAS_PREFERENCIA_KIT, formatosDaCelula, type FormatosDaCelula } from './formatos-por-preferencia';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 export const DISC_OK = ['D', 'I', 'S', 'C'];
 
@@ -201,7 +202,7 @@ export async function levantarPlanoKitsCoorte(
   const { data: briefs, error: briefsErr } = await sb.from('kit_briefs')
     .select('id, competencia, descritor, cargo, contexto, nivel_min, nivel_max, empresa_id')
     .is('archived_at', null).eq('status', 'published')
-    .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+    .or(empresaOuGlobal(empresaId));
   if (briefsErr) return { error: `Falha ao ler os briefs publicados: ${briefsErr.message}` };
   const briefById = new Map((briefs || []).map((b: any) => [b.id, b]));
   const existente = new Set<string>();

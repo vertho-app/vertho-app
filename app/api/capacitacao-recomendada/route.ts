@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, assertTenantAccess } from '@/lib/auth/request-context';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 /**
  * Capacitação recomendada na home do colaborador.
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
     // Sempre escopa: tenant do usuário + conteúdo global (NULL). Sem tenant
     // (ex.: platform admin sem empresa_id) → só o conteúdo global.
     q = empresaId
-      ? q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`)
+      ? q.or(empresaOuGlobal(empresaId))
       : q.is('empresa_id', null);
 
     const { data, error } = await q;

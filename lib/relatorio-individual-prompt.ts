@@ -15,6 +15,7 @@ import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 import { getProgramaConfigDaGeracao } from '@/lib/season-engine/programa-config';
 import { carregarContextoTurma } from '@/lib/turmas';
 import { valorDeFiltro } from '@/lib/postgrest-valor';
+import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
 export interface DadoComp {
   competencia: string;
@@ -226,7 +227,7 @@ export async function buildRelatorioIndividualPrompt(
   const emailFilter = (colab.email || '').trim().toLowerCase();
   const { data: respostas, error: erroRespostas } = await tdb.from('respostas')
     .select('competencia_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, colaborador_id, email_colaborador, cenario_id, r1, r2, r3, r4, r1_situacao, r2_acao, r3_raciocinio, r4_cis')
-    .or(`colaborador_id.eq.${colaboradorId}${emailFilter ? `,email_colaborador.eq.${valorDeFiltro(emailFilter)}` : ''}`);
+    .or(`colaborador_id.eq.${valorDeFiltro(colaboradorId)}${emailFilter ? `,email_colaborador.eq.${valorDeFiltro(emailFilter)}` : ''}`);
   // Leitura que falha não pode virar "não respondeu": seria um PDI construído
   // sem a avaliação, ou o erro enganoso de "nenhuma resposta".
   if (erroRespostas) return { error: `Falha ao ler as respostas: ${erroRespostas.message}` };
@@ -301,7 +302,7 @@ export async function buildRelatorioIndividualPrompt(
   // OR com empresa_id.is.null cobre catálogo nacional → mantém raw.
   const { data: compsByName } = await sbRaw.from('competencias')
     .select('id, nome, empresa_id')
-    .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+    .or(empresaOuGlobal(empresaId));
   const nomeToId: Record<string, string> = {};
   for (const c of (compsByName || [])) {
     nomeToId[normKey(c.nome)] = c.id;
