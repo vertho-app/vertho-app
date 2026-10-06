@@ -21,7 +21,7 @@ const user = {
   id: '20000000-0000-4000-8000-000000000002',
   email: 'vendedor@example.test',
 };
-const opcoes = { segmento: 'empresa', frente: 'competencias' } as const;
+const opcoes = { segmento: 'empresa' } as const;
 describe('treinamento comercial Vertho', () => {
   beforeEach(() => {
     sb = criarSupabaseMock({
@@ -67,21 +67,28 @@ describe('treinamento comercial Vertho', () => {
       status: 503,
     });
   });
-  it('congela fatos e fontes pertinentes e não expõe o concorrente ou situação reservada', () => {
+  it('congela o repertório sem predeterminar a oferta ou expor o concorrente reservado', () => {
     const snapshot = criarContextoCompetitivoVertho(
-      { segmento: 'rede_publica', frente: 'simulacao' },
-      9,
+      { segmento: 'rede_publica' },
+      8,
     );
     expect(snapshot.concorrente.id).toBe('yoodli');
     const publica = visaoPublica({ ...estado(), vertho: snapshot });
     expect(publica.treinamentoVertho).toEqual({
       segmento: 'rede_publica',
-      frente: 'simulacao',
     });
+    expect(snapshot).not.toHaveProperty('frente');
+    // Uma aba anterior ainda pode enviar o campo: isso não deve restringir a oferta.
+    expect(
+      criarContextoCompetitivoVertho(
+        { segmento: 'rede_publica', frente: 'competencias' },
+        8,
+      ),
+    ).toEqual(snapshot);
     expect(JSON.stringify(publica)).not.toContain('yoodli');
     expect(publica).not.toHaveProperty('vertho');
   });
-  it('repetir o request com outro segmento/frente é conflito; assinatura legada é preservada', () => {
+  it('repetir o request com outro segmento é conflito; assinatura legada é preservada', () => {
     const cmd = comandoSchema.parse({
       acao: 'iniciar',
       requestId: user.id,
@@ -90,25 +97,48 @@ describe('treinamento comercial Vertho', () => {
     });
     const s = {
       ...estado(),
+      vertho: criarContextoCompetitivoVertho(opcoes, 0),
       recibos: [{ requestId: user.id, assinatura: assinatura(cmd) }],
     };
     expect(recebido(s, cmd)).toBe(true);
+    expect(recebido(s, comandoSchema.parse({
+      acao: 'iniciar', requestId: user.id, nivel: 1,
+      vertho: { ...opcoes, frente: 'simulacao' },
+    }))).toBe(true);
     expect(() =>
       recebido(s, {
         ...cmd,
         acao: 'iniciar',
         nivel: 1,
-        vertho: { ...opcoes, frente: 'mentoria' },
+        vertho: { segmento: 'escola_privada' },
       }),
     ).toThrow(/outra ação/);
     expect(assinatura({ acao: 'iniciar', requestId: user.id, nivel: 1 })).toBe(
       '["iniciar",1]',
     );
   });
+  it('retomar um treino anterior conserva o recibo mesmo sem o seletor antigo', () => {
+    const legado = { segmento: 'empresa', frente: 'mentoria' } as const;
+    const s = {
+      ...estado(),
+      vertho: { ...criarContextoCompetitivoVertho(opcoes, 0), ...legado },
+      recibos: [{ requestId: user.id, assinatura: JSON.stringify(['iniciar', 1, legado]) }],
+    };
+    const retomada = comandoSchema.parse({
+      acao: 'iniciar', requestId: user.id, nivel: 1,
+      vertho: visaoPublica(s).treinamentoVertho,
+    });
+    expect(recebido(s, retomada)).toBe(true);
+    expect(() => recebido(s, comandoSchema.parse({
+      acao: 'iniciar', requestId: user.id, nivel: 1,
+      vertho: { ...legado, frente: 'simulacao' },
+    }))).toThrow(/outra ação/);
+  });
   it('rejeita frente, segmento e campos não autorizados', () => {
     const base = { acao: 'iniciar', requestId: user.id, nivel: 1 };
     for (const vertho of [
       { segmento: 'outro', frente: 'mentoria' },
+      { ...opcoes, frente: 'inexistente' },
       { ...opcoes, concorrente: 'inventado' },
     ])
       expect(comandoSchema.safeParse({ ...base, vertho }).success).toBe(false);

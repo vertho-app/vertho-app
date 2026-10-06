@@ -331,23 +331,18 @@ export const CONCORRENTES_VERTHO: readonly ConcorrenteVertho[] = [
 ];
 
 /**
- * Mantém a comparação pertinente à solução treinada e varia os fornecedores.
- * Se todos já apareceram, reabre apenas o conjunto pertinente à mesma frente.
+ * Varia os fornecedores que o cliente pode conhecer ou usar em seu desenvolvimento.
+ * As frentes do catálogo classificam capacidades, sem predeterminar a oferta Vertho.
+ * Se todos já apareceram, reabre o conjunto completo.
  * O chamador registra o item e a versão no snapshot; não relê a base no meio da sessão.
  */
 export function selecionarConcorrenteVertho(
-  frente: FrenteCompetitiva,
   indice: number,
   anteriores: readonly string[] = [],
 ): ConcorrenteVertho {
-  if (!FRENTES_COMPETITIVAS.includes(frente))
-    throw new Error('Frente competitiva inválida.');
   if (!Number.isSafeInteger(indice) || indice < 0)
     throw new Error('Índice de seleção inválido.');
-  const pertinentes = CONCORRENTES_VERTHO.filter((c) =>
-    c.frentes.includes(frente),
-  );
-  const novos = pertinentes.filter((c) => !anteriores.includes(c.id));
-  const candidatos = novos.length ? novos : pertinentes;
+  const novos = CONCORRENTES_VERTHO.filter((c) => !anteriores.includes(c.id));
+  const candidatos = novos.length ? novos : CONCORRENTES_VERTHO;
   return candidatos[indice % candidatos.length];
 }

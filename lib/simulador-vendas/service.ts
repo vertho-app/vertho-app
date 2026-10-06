@@ -200,7 +200,7 @@ export async function executar(c: Contexto, original: Comando) {
   if (original.acao === 'iniciar' && !!original.vertho !== !!c.vertho)
     throw new SimuladorError(
       400,
-      'Selecione o segmento e a frente do treinamento Vertho.',
+      'Selecione o segmento do cliente para o treinamento Vertho.',
     );
   const deadline = Date.now() + 270000;
   const cmd: Comando =

@@ -55,7 +55,7 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
               {
                 texto,
                 hash: hashPrompt(texto),
-                versao: `${PROMPT_VERSION}-comercial-1`,
+                versao: `${PROMPT_VERSION}-comercial-2`,
                 modelo: await getModelForTask(
                   VERTHO_TREINO_EMPRESA_ID,
                   `sim_vendas_${etapa}`,
@@ -68,11 +68,11 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
       const id = randomUUID();
       const vertho = criarContextoCompetitivoVertho(
         nivel === 1
-          ? { segmento: 'empresa', frente: 'competencias' }
+          ? { segmento: 'empresa' }
           : nivel === 2
-            ? { segmento: 'escola_privada', frente: 'aprendizagem' }
-            : { segmento: 'rede_publica', frente: 'simulacao' },
-        nivel * 23,
+            ? { segmento: 'escola_privada' }
+            : { segmento: 'rede_publica' },
+        nivel === 1 ? 0 : nivel === 2 ? 6 : 8,
       );
       const c: ContextoTreino = {
         auth: null,
@@ -111,12 +111,13 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
         {
           acao: 'iniciar',
           nivel,
-          vertho: { segmento: vertho.segmento, frente: vertho.frente },
+          vertho: { segmento: vertho.segmento },
           requestId: id,
         },
         gerador(c, s, id),
       );
       expect(s.cenario?.personagem.negociacao.objecoes).toHaveLength(nivel);
+      expect(s.cenario?.contexto_vendedor.toLowerCase()).toMatch(/desenvolvimento|competências/);
       expect(JSON.stringify(s.cenario).toLowerCase()).toContain(
         vertho.concorrente.nome.split(/[ (/]/)[0].toLowerCase(),
       );
@@ -150,7 +151,7 @@ test.runIf(process.env.VENDAS_VERTHO_LIVE === '1')(
         nivel,
         concorrente: vertho.concorrente.nome,
         segmento: vertho.segmento,
-        frente: vertho.frente,
+        necessidades: s.cenario?.personagem.negociacao.beneficios_ocultos,
         segundos: Math.round((Date.now() - inicio) / 1000),
         sessao: visaoPublica(s),
       });

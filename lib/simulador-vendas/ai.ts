@@ -44,7 +44,7 @@ const TAREFAS = {
   intencao: 'sim_vendas_intencao',
   gerente: 'sim_vendas_gerente',
 } as const;
-const PROMPT_VERTHO_VERSION = `${PROMPT_VERSION}-comercial-1`;
+const PROMPT_VERTHO_VERSION = `${PROMPT_VERSION}-comercial-2`;
 
 export async function snapshotPrompts(
   empresaId: string,
@@ -127,6 +127,7 @@ export function gerador(
     const mensagens = [
       PROMPT_VERSION,
       PROMPT_VERTHO_VERSION,
+      `${PROMPT_VERSION}-comercial-1`,
       'pace-rnaves-2.1.2-vertho-6',
       'pace-rnaves-2.1.2-vertho-3',
       'pace-rnaves-2.1.2-vertho-4',

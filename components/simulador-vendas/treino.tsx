@@ -38,7 +38,6 @@ import { CODIGO_LIMITE_INICIOS_VENDAS, INICIOS_POR_HORA_VENDAS } from '@/lib/sim
 import styles from './treino.module.css';
 import ReferenciasVertho from './referencias-vertho';
 import {
-  FRENTES_VERTHO,
   SEGMENTOS_VERTHO,
   type OpcoesVertho,
 } from '@/lib/simulador-vendas/vertho';
@@ -92,7 +91,6 @@ export default function TreinoVendas({
     : '/api/simulador-vendas';
   const [opcoesVertho, setOpcoesVertho] = useState<OpcoesVertho>({
     segmento: 'empresa',
-    frente: 'competencias',
   });
   const t = useTranslations('SimuladorVendas'),
     locale = useLocale();
@@ -514,7 +512,7 @@ export default function TreinoVendas({
         titleAccent={t('titleAccent')}
         subtitle={
           vertho
-            ? 'Pratique a venda consultiva da Vertho com compradores de empresas, escolas e redes de ensino. Os cenários incluem fornecedores concorrentes e decisões reais de compra.'
+            ? 'Pratique a venda consultiva da solução de desenvolvimento da Vertho com compradores de empresas, escolas e redes de ensino. Descubra as necessidades do cliente e construa a proposta a partir delas.'
             : t('subtitle')
         }
       />
@@ -730,25 +728,6 @@ export default function TreinoVendas({
                               </option>
                             ),
                           )}
-                        </select>
-                      </label>
-                      <label className="mt-3">
-                        Frente da conversa
-                        <select
-                          value={opcoesVertho.frente}
-                          disabled={travado}
-                          onChange={(e) =>
-                            setOpcoesVertho((o) => ({
-                              ...o,
-                              frente: e.target.value as OpcoesVertho['frente'],
-                            }))
-                          }
-                        >
-                          {Object.entries(FRENTES_VERTHO).map(([id, label]) => (
-                            <option key={id} value={id}>
-                              {label}
-                            </option>
-                          ))}
                         </select>
                       </label>
                     </>

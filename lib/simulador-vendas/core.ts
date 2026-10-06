@@ -38,7 +38,9 @@ export function assinatura(cmd: Comando): string {
   // Revisão não entra: retry após recuperar o estado deve reconhecer o mesmo comando.
   if (cmd.acao === 'iniciar')
     return JSON.stringify(
-      cmd.vertho ? [cmd.acao, cmd.nivel, cmd.vertho] : [cmd.acao, cmd.nivel],
+      cmd.vertho
+        ? [cmd.acao, cmd.nivel, { segmento: cmd.vertho.segmento }]
+        : [cmd.acao, cmd.nivel],
     );
   if (cmd.acao === 'responder') return JSON.stringify([cmd.acao, cmd.mensagem]);
   if (cmd.acao === 'planejar')
@@ -49,7 +51,17 @@ export function assinatura(cmd: Comando): string {
 export function recebido(s: Estado, cmd: Comando): boolean {
   const recibo = s.recibos.find((r) => r.requestId === cmd.requestId);
   if (!recibo) return false;
-  if (recibo.assinatura !== assinatura(cmd))
+  // Abas antigas ainda enviam frente, mas esse campo não muda os novos treinos.
+  // Sessões anteriores conservam o recibo completo e a opção congelada.
+  const legado = cmd.acao === 'iniciar' && !!s.vertho?.frente;
+  const assinaturaAntiga =
+    legado && cmd.acao === 'iniciar' && cmd.vertho
+      ? JSON.stringify([cmd.acao, cmd.nivel, cmd.vertho])
+      : null;
+  if (
+    (legado && cmd.acao === 'iniciar' && cmd.vertho?.frente !== s.vertho?.frente) ||
+    (recibo.assinatura !== assinatura(cmd) && recibo.assinatura !== assinaturaAntiga)
+  )
     throw new SimuladorError(
       409,
       'Este envio já foi usado para outra ação. Atualize o treino.',
@@ -110,7 +122,8 @@ export function visaoPublica(s: Estado) {
       ? {
           treinamentoVertho: {
             segmento: s.vertho.segmento,
-            frente: s.vertho.frente,
+            // Mantém a assinatura original no retry dos treinos anteriores.
+            ...(s.vertho.frente ? { frente: s.vertho.frente } : {}),
           },
         }
       : {}),
