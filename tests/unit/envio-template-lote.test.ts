@@ -27,6 +27,7 @@ function mock(opts: {
   jaReceberam?: any[];
   respostas?: any[];
   cenarios?: any[];
+  competencias?: any[];
   trilhas?: any[];
   envios?: any[];
   progressos?: any[];
@@ -40,6 +41,9 @@ function mock(opts: {
       if (tabela === 'notification_deliveries') return opts.jaReceberam ?? [];
       if (tabela === 'respostas') return opts.respostas ?? [];
       if (tabela === 'banco_cenarios') return opts.cenarios ?? [{ cargo: 'Professor(a)', competencia_id: 'comp-1' }];
+      // A avaliação é medida pelas competências do Top 5 (a régua da tela): é daqui que o lote sabe
+      // que `comp-1` é "Autocuidado e bem-estar profissional" (a do `top5_workshop` padrão).
+      if (tabela === 'competencias') return opts.competencias ?? [{ id: 'comp-1', nome: 'Autocuidado e bem-estar profissional', cargo: 'Professor(a)' }];
       if (tabela === 'trilhas') return opts.trilhas ?? [];
       if (tabela === 'fase4_envios') return opts.envios ?? [];
       if (tabela === 'temporada_semana_progresso') return opts.progressos ?? [];
@@ -188,6 +192,12 @@ describe('prepararLoteTemplate', () => {
 
   it('avaliação parcial usa o progresso individual e exclui quem ainda não começou', async () => {
     const sb = mock({
+      // Top 5 de duas competências, as duas com cenário: "1 de 2" é o que a tela mostra.
+      cargos: [{ nome: 'Professor(a)', top5_workshop: ['Autocuidado e bem-estar profissional', 'Planejamento'] }],
+      competencias: [
+        { id: 'comp-1', nome: 'Autocuidado e bem-estar profissional', cargo: 'Professor(a)' },
+        { id: 'comp-2', nome: 'Planejamento', cargo: 'Professor(a)' },
+      ],
       cenarios: [
         { cargo: 'Professor(a)', competencia_id: 'comp-1' },
         { cargo: 'Professor(a)', competencia_id: 'comp-2' },

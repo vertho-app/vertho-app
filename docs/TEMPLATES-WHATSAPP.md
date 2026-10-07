@@ -102,8 +102,14 @@ semana/slot, portanto uma semana não bloqueia a seguinte.
 | `boas_vindas_v2` | APPROVED/UTILITY | Está no escopo e tem WhatsApp cadastrado |
 | `votacao_pendente_v3` (substitui a v2 `votacao_pendente`, que era APPROVED/UTILITY desde 25/09) | conferir na Meta (submetido 05/10) | Votação aberta, ainda não votou e o cargo tem competências na cédula; um por pessoa **por dia** (Brasília). Sem prazo: a votação só fecha quando o admin a desliga (R-117) |
 | `avaliacao_pendente` | APPROVED/UTILITY | Ainda não tem perfil comportamental (`perfil_dominante`); independe de cenários e respostas da avaliação técnica |
-| `avaliacao_competencias` | APPROVED/UTILITY | Tem perfil comportamental, cargo/cenários/top5 configurados e zero respostas |
-| `avaliacao_parcial` | APPROVED/UTILITY | Respondeu pelo menos um cenário, mas ainda não todos |
+| `avaliacao_competencias` | APPROVED/UTILITY | Tem perfil comportamental, cargo/cenários/top5 configurados e zero respostas **às competências do Top 5 de hoje** |
+| `avaliacao_parcial` | APPROVED/UTILITY | Respondeu pelo menos uma competência do Top 5 de hoje, mas ainda não todas |
+
+> **A avaliação é medida pela régua da tela do assessment (07/10/2026).** "Iniciada", "respondidas" e "total" contam só as
+> competências do `top5_workshop` do cargo que têm cenário servível (não é `cenario_b` e atende `cenario_nota_minima`,
+> quando ligada), casadas pelo nome em minúsculas. Resposta de competência que saiu do Top 5 (jornada anterior) não conta.
+> Antes, contava qualquer resposta da empresa contra todas as competências com cenário: em Ibipeba, na 2ª jornada, 41 de
+> 53 pessoas eram excluídas do convite e a parcial mostraria "x de 7". O convite nomeia a primeira competência servível.
 | `resultado_perfil` | APPROVED/UTILITY | Tem `perfil_dominante` disponível |
 | `plano_desenvolvimento` | APPROVED/UTILITY | Tem relatório `individual` em `relatorios` |
 | `trilha_liberada_v2` | APPROVED/UTILITY | A trilha mais recente está ativa e ainda não tem atividade iniciada |

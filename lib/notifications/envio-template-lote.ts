@@ -38,6 +38,8 @@ import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 import { estadoDoFechamento, type EstadoFechamento } from '@/lib/season-engine/estado-fechamento';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
+import { cenarioAtendeNotaMinima, notaMinimaDoTenant } from '@/lib/assessment/cenario-elegivel';
+import { lerTudoPaginado } from '@/lib/paginacao';
 import { montarCedula, normalizarCargoDaCedula } from '@/lib/votacao/cedula';
 
 const FUSO_BRASILIA = 'America/Sao_Paulo';
@@ -78,8 +80,14 @@ export interface ContextoEnvio {
   perfilExternoFonte: string | null;
   /** `cargos_empresa.top5_workshop` por cargo (minúsculo) — régua da tela do assessment. */
   top5PorCargo: Map<string, string[]>;
-  /** Progresso individual que define os públicos dos templates de avaliação. */
-  avaliacaoPorColab: Map<string, { respondidas: number; total: number }>;
+  /**
+   * Progresso individual que define os públicos dos templates de avaliação. É o da tela do
+   * assessment: SÓ as competências do Top 5 do cargo que têm cenário servível (`total`), e
+   * quantas delas a pessoa já respondeu (`respondidas`). Resposta de competência que saiu do
+   * Top 5 (a jornada anterior) não conta. `primeira` é a primeira competência servível, a que
+   * o convite nomeia.
+   */
+  avaliacaoPorColab: Map<string, { respondidas: number; total: number; primeira?: string | null }>;
   /** Pessoas cujo relatório individual/PDI já existe. */
   pdiPorColab: Set<string>;
   /** Trilha mais recente por pessoa — insumo dos templates de abertura/fechamento. */
@@ -214,14 +222,20 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
     // EXTERNO ele não exige `perfil_dominante`, que ali nunca existe. Exigir aqui
     // excluía a empresa inteira do convite (R-87).
     if (!c.perfil_dominante && !ctx.perfilExternoFonte) return { excluir: 'perfil comportamental ainda não concluído' };
-    const progresso = ctx.avaliacaoPorColab.get(c.id);
-    if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
-    if (progresso.respondidas > 0) return { excluir: 'avaliação já iniciada' };
-    const competencia = (ctx.top5PorCargo.get(String(c.cargo || '').toLowerCase()) || [])[0];
+    const top5 = ctx.top5PorCargo.get(String(c.cargo || '').toLowerCase()) || [];
     // Sem competência resolvida o `{{2}}` sairia vazio ("sua avaliação de  ainda
     // não foi iniciada"). Excluir é a falha ALTA na construção, que é onde há
     // humano para corrigir — ver CLAUDE.md §fallback silencioso.
-    if (!competencia) return { excluir: 'cargo sem competência em top5_workshop' };
+    if (!top5.length) return { excluir: 'cargo sem competência em top5_workshop' };
+    const progresso = ctx.avaliacaoPorColab.get(c.id);
+    if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
+    // "Iniciada" é sobre as competências do Top 5 de HOJE: quem respondeu a jornada anterior
+    // (outra competência) ainda não começou esta. Medido em Ibipeba, 07/10/2026: 41 de 53 pessoas
+    // tinham resposta antiga e eram excluídas daqui por contarem qualquer resposta da empresa.
+    if (progresso.respondidas > 0) return { excluir: 'avaliação já iniciada' };
+    // A primeira competência SERVÍVEL, não a primeira do Top 5: uma sem cenário não pode ser a
+    // que o convite promete.
+    const competencia = progresso.primeira || top5[0];
     return { args: base(c, ctx, { competencia }) };
   },
   avaliacao_parcial: (c, ctx) => {
@@ -589,42 +603,93 @@ export function listarTemplatesDisparaveis(): TemplateDisparavel[] {
     });
 }
 
+/**
+ * Progresso da AVALIAÇÃO de cada pessoa, pela régua da TELA do assessment
+ * (`resolverTop5ComCenario`): as competências são as do Top 5 do cargo, e só conta a que tem
+ * cenário servível (não é `cenario_b` e atende a nota mínima da empresa, quando ligada).
+ *
+ * Até 07/10/2026 isto contava, por pessoa, QUALQUER competência já respondida na empresa, contra
+ * TODAS as competências com cenário no cargo. Na reentrada (Ibipeba, 2ª jornada, competência nova)
+ * isso excluía do convite quem tinha resposta da jornada 1 ("avaliação já iniciada") e mandava a
+ * "avaliação parcial" com um total que não existe na tela ("x de 7"): 41 de 53 pessoas atingidas.
+ *
+ * A competência é casada pelo nome em minúsculas (a mesma chave da tela) e a resposta conta se o
+ * id dela é de uma linha de `competencias` daquele nome no cargo OU se o nome gravado nela casa.
+ * Leitura que falha LANÇA: sem isso, "ninguém respondeu" reenviaria o convite para a base inteira.
+ */
 async function carregarProgressoAvaliacao(
   sb: any,
   empresaId: string,
   colabs: ColaboradorAlvo[],
-): Promise<Map<string, { respondidas: number; total: number }>> {
-  const [{ data: respostas, error: eR }, { data: cenarios, error: eC }] = await Promise.all([
-    sb.from('respostas').select('colaborador_id, competencia_id').eq('empresa_id', empresaId),
-    sb.from('banco_cenarios').select('cargo, competencia_id').eq('empresa_id', empresaId),
+  top5PorCargo: Map<string, string[]>,
+  notaMinima: number | null,
+): Promise<Map<string, { respondidas: number; total: number; primeira: string | null }>> {
+  // Três leituras que decidem por AUSÊNCIA ("não respondeu", "sem cenário"): paginadas, porque o
+  // PostgREST corta em 1.000 linhas sem avisar.
+  const [respQ, cenQ, compQ] = await Promise.all([
+    lerTudoPaginado((de, ate) => sb.from('respostas')
+      .select('colaborador_id, competencia_id, competencia_nome').eq('empresa_id', empresaId).order('id').range(de, ate)),
+    lerTudoPaginado((de, ate) => sb.from('banco_cenarios')
+      .select('cargo, competencia_id, tipo_cenario, nota_check').eq('empresa_id', empresaId).order('id').range(de, ate)),
+    lerTudoPaginado((de, ate) => sb.from('competencias')
+      .select('id, nome, cargo').eq('empresa_id', empresaId).order('id').range(de, ate)),
   ]);
-  if (eR) throw new Error(`respostas: ${eR.message}`);
-  if (eC) throw new Error(`banco_cenarios: ${eC.message}`);
+  if (respQ.error) throw new Error(`respostas: ${respQ.error}`);
+  if (cenQ.error) throw new Error(`banco_cenarios: ${cenQ.error}`);
+  if (compQ.error) throw new Error(`competencias: ${compQ.error}`);
 
-  const esperadoPorCargo = new Map<string, Set<string>>();
-  for (const c of (cenarios || [])) {
-    if (!c.competencia_id) continue;
-    const cargo = String(c.cargo || '').toLowerCase();
-    const ids = esperadoPorCargo.get(cargo) || new Set<string>();
+  const chave = (s: unknown) => String(s || '').toLowerCase();
+
+  // Ids de `competencias` por (cargo, nome): a competência tem uma linha por descritor, e o cenário
+  // aponta para uma delas.
+  const idsDaCompetencia = new Map<string, Set<string>>();
+  for (const c of compQ.data) {
+    if (!c.id || !c.nome) continue;
+    const k = `${chave(c.cargo)}\u0000${chave(c.nome)}`;
+    const ids = idsDaCompetencia.get(k) || new Set<string>();
+    ids.add(String(c.id));
+    idsDaCompetencia.set(k, ids);
+  }
+
+  // Competências com cenário servível, por cargo. `cenario_b` é do fechamento, não do diagnóstico.
+  const comCenarioPorCargo = new Map<string, Set<string>>();
+  for (const c of cenQ.data) {
+    if (!c.competencia_id || c.tipo_cenario === 'cenario_b' || !cenarioAtendeNotaMinima(c, notaMinima)) continue;
+    const k = chave(c.cargo);
+    const ids = comCenarioPorCargo.get(k) || new Set<string>();
     ids.add(String(c.competencia_id));
-    esperadoPorCargo.set(cargo, ids);
+    comCenarioPorCargo.set(k, ids);
   }
 
-  const respondidasPorColab = new Map<string, Set<string>>();
-  for (const r of (respostas || [])) {
-    if (!r.colaborador_id || !r.competencia_id) continue;
-    const ids = respondidasPorColab.get(r.colaborador_id) || new Set<string>();
-    ids.add(String(r.competencia_id));
-    respondidasPorColab.set(r.colaborador_id, ids);
+  // As competências que a tela serve, na ordem do Top 5 do cargo.
+  const servidasPorCargo = new Map<string, Array<{ nome: string; chave: string; ids: Set<string> }>>();
+  for (const [cargo, top5] of top5PorCargo) {
+    const comCenario = comCenarioPorCargo.get(cargo) || new Set<string>();
+    const lista: Array<{ nome: string; chave: string; ids: Set<string> }> = [];
+    for (const nome of top5) {
+      const ids = idsDaCompetencia.get(`${cargo}\u0000${chave(nome)}`) || new Set<string>();
+      if ([...ids].some((id) => comCenario.has(id))) lista.push({ nome, chave: chave(nome), ids });
+    }
+    servidasPorCargo.set(cargo, lista);
   }
 
-  return new Map(colabs.map((c) => [
-    c.id,
-    {
-      respondidas: respondidasPorColab.get(c.id)?.size || 0,
-      total: esperadoPorCargo.get(String(c.cargo || '').toLowerCase())?.size || 0,
-    },
-  ]));
+  const respondidasPorColab = new Map<string, { ids: Set<string>; nomes: Set<string> }>();
+  for (const r of respQ.data) {
+    if (!r.colaborador_id) continue;
+    const ja = respondidasPorColab.get(r.colaborador_id) || { ids: new Set<string>(), nomes: new Set<string>() };
+    if (r.competencia_id) ja.ids.add(String(r.competencia_id));
+    if (r.competencia_nome) ja.nomes.add(chave(r.competencia_nome));
+    respondidasPorColab.set(r.colaborador_id, ja);
+  }
+
+  return new Map(colabs.map((c) => {
+    const servidas = servidasPorCargo.get(chave(c.cargo)) || [];
+    const feitas = respondidasPorColab.get(c.id);
+    const respondidas = feitas
+      ? servidas.filter((s) => s.chave && (feitas.nomes.has(s.chave) || [...s.ids].some((id) => feitas.ids.has(id)))).length
+      : 0;
+    return [c.id, { respondidas, total: servidas.length, primeira: servidas[0]?.nome ?? null }];
+  }));
 }
 
 async function carregarPdisDisponiveis(
@@ -956,14 +1021,17 @@ export async function prepararLoteTemplate(
   const { data: cargos, error: eC } = await sb.from('cargos_empresa')
     .select('nome, top5_workshop').eq('empresa_id', empresaId);
   if (eC) throw new Error(`cargos_empresa: ${eC.message}`);
+  const top5PorCargo = new Map<string, string[]>(
+    (cargos || []).map((c: any) => [String(c.nome || '').toLowerCase(), (c.top5_workshop || []) as string[]]),
+  );
   const ctx: ContextoEnvio = {
     empresaId,
     empresaNome: empresa.nome,
     empresaSlug: empresa.slug,
     perfilExternoFonte: (empresa.sys_config as any)?.perfil_externo_fonte || null,
-    top5PorCargo: new Map((cargos || []).map((c: any) => [String(c.nome || '').toLowerCase(), (c.top5_workshop || []) as string[]])),
+    top5PorCargo,
     avaliacaoPorColab: TEMPLATES_AVALIACAO_MANUAL.has(template)
-      ? await carregarProgressoAvaliacao(sb, empresaId, colabs)
+      ? await carregarProgressoAvaliacao(sb, empresaId, colabs, top5PorCargo, notaMinimaDoTenant(empresa.sys_config))
       : new Map(),
     pdiPorColab: template === 'plano_desenvolvimento'
       ? await carregarPdisDisponiveis(sb, empresaId, colabs)
