@@ -3198,6 +3198,12 @@
       "decision": "Decision"
     }
   },
+  "AdminTurmaFiltro": {
+    "aria": "Filter by cohort",
+    "all": "All cohorts",
+    "ended": "{name} (ended)",
+    "noTurma": "No cohort"
+  },
   "AdminPhase1": {
     "top10BallotHint": "Each position's Top 10 is the voting ballot: this is the list people will see to choose their 5. Review it before opening the vote.",
     "title": "Phase 1 — Parameterization",
@@ -3372,6 +3378,7 @@
       "checkNotaMedio": "Check 80–89 (w/ adjustments)",
       "checkNotaBaixo": "Check <80 (review)",
       "checkNotaSem": "No check",
+      "turmaLoadError": "The cohort could not be loaded. Nothing is shown until it loads.",
       "clearAll": "Clear filters"
     },
     "status": {
@@ -4365,7 +4372,8 @@
       "paused": "Pauses",
       "completed": "Completed",
       "archived": "Archived",
-      "all": "All"
+      "all": "All",
+      "turmaLoadError": "The cohort could not be loaded. Nothing is shown until it loads."
     },
     "status": {
       "ativa": "Active",

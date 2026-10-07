@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
@@ -14,6 +14,13 @@ import { listarTemporadasEmpresa, pausarRetomarTemporada, arquivarTemporada, reg
 import { simularUmaSemanaSimulacao } from '@/actions/simulador-temporada';
 import { getSupabase } from '@/lib/supabase-browser';
 import { rotuloOrigemCompromisso } from '@/lib/season-engine/compromisso';
+import SeletorTurma from '@/components/admin/seletor-turma';
+import { carregarEscopoDaTurma, listarTurmasDaEmpresa } from '@/actions/escopo-turma';
+import { trilhasDaTurma, type EscopoTurmaDeTela } from '@/lib/turmas/escopo-tela';
+import type { TurmaFiltro } from '@/lib/turmas/escopo-leitura';
+
+// Turma escolhida cujo escopo ainda não chegou (ou falhou): a lista fica VAZIA, nunca a empresa toda.
+const ESCOPO_TURMA_VAZIO: EscopoTurmaDeTela = { turmaId: '', turmaNome: '', janelas: {}, participacoes: {} };
 
 const STATUS_COLORS = {
   ativa: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -34,6 +41,9 @@ export default function TemporadasAdminPage() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
   const [statusFiltro, setStatusFiltro] = useState('ativa');
+  const [turmas, setTurmas] = useState<TurmaFiltro[]>([]);
+  const [turmaSel, setTurmaSel] = useState('');
+  const [escopoTurma, setEscopoTurma] = useState<EscopoTurmaDeTela | null>(null);
   const [busy, setBusy] = useState(false);
   const [detalhe, setDetalhe] = useState(null);
   const [semanaDet, setSemanaDet] = useState(null); // { t, semana } — entregas da semana (plano já vem pós-overlay + anotado)
@@ -181,9 +191,33 @@ export default function TemporadasAdminPage() {
 
   useEffect(() => { recarregar(); }, [empresaId]);
 
+  // As turmas do seletor (só com uma empresa escolhida). Falhar aqui só esconde o seletor.
+  useEffect(() => {
+    setTurmaSel(''); setEscopoTurma(null);
+    if (!empresaId) { setTurmas([]); return undefined; }
+    let vivo = true;
+    listarTurmasDaEmpresa(empresaId).then((lista) => { if (vivo) setTurmas(lista || []); }).catch(() => { if (vivo) setTurmas([]); });
+    return () => { vivo = false; };
+  }, [empresaId]);
+
+  async function escolherTurma(id: string) {
+    setTurmaSel(id);
+    setEscopoTurma(null);
+    if (!id || !empresaId) return;
+    try { setEscopoTurma(await carregarEscopoDaTurma(empresaId, id)); }
+    catch { toast.error(t('filters.turmaLoadError')); }   // sem escopo a lista fica VAZIA, nunca a empresa toda
+  }
+
+  // Turma escolhida e escopo ainda não chegou (ou falhou): lista VAZIA. A trilha entra na turma pelo
+  // carimbo da participação (ou, se legada, pela janela), a mesma régua das telas de servidor.
+  const escopoEfetivo = turmaSel ? (escopoTurma ?? ESCOPO_TURMA_VAZIO) : null;
+  const itemsDaTurma = useMemo(
+    () => (escopoEfetivo ? trilhasDaTurma(items as any[], escopoEfetivo) : items),
+    [items, escopoEfetivo],
+  );
   const itemsFiltrados = statusFiltro === 'todas'
-    ? items
-    : items.filter(t => (t.status || 'ativa') === statusFiltro);
+    ? itemsDaTurma
+    : itemsDaTurma.filter(t => (t.status || 'ativa') === statusFiltro);
 
   return (
     <div className="min-h-full text-white">
@@ -192,7 +226,7 @@ export default function TemporadasAdminPage() {
         <AdminPageHeader
           icon={CalendarDays}
           title={t('title')}
-          subtitle={<>{empresaId ? t('scope.company') : t('scope.allCompanies')} · {itemsFiltrados.length}/{items.length}</>}
+          subtitle={<>{empresaId ? t('scope.company') : t('scope.allCompanies')} · {itemsFiltrados.length}/{itemsDaTurma.length}</>}
           actions={
             <>
               {empresaId && (
@@ -202,6 +236,7 @@ export default function TemporadasAdminPage() {
                   Prontidão piloto
                 </button>
               )}
+              {empresaId && <SeletorTurma turmas={turmas} value={turmaSel} onChange={(id) => { void escolherTurma(id); }} />}
               <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value)}
                 className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white">
                 <option value="ativa" className="bg-[#0d1426]">{t('filters.active')}</option>

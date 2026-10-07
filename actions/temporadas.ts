@@ -794,7 +794,9 @@ export async function listarTemporadasEmpresa(empresaId: string) {
     if (!empresaId) return { error: 'empresaId obrigatório' };
     const tdb = tenantDb(empresaId);
     const { data, error } = await tdb.from('trilhas')
-      .select('id, colaborador_id, competencia_foco, competencias_foco, numero_temporada, status, criado_em, descritores_selecionados, temporada_plano, programa_modo')
+      // `turma_membro_id` é o carimbo da participação que originou a trilha: é por ele que a tela
+      // recorta por turma (`lib/turmas/escopo-tela.ts`).
+      .select('id, colaborador_id, competencia_foco, competencias_foco, numero_temporada, status, criado_em, descritores_selecionados, temporada_plano, programa_modo, turma_membro_id')
       .not('temporada_plano', 'is', null)
       .order('criado_em', { ascending: false });
     if (error) return { error: error.message };

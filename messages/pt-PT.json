@@ -3198,6 +3198,12 @@
       "decision": "Decisão"
     }
   },
+  "AdminTurmaFiltro": {
+    "aria": "Filtrar por turma",
+    "all": "Todas as turmas",
+    "ended": "{name} (encerrada)",
+    "noTurma": "Sem turma"
+  },
   "AdminPhase1": {
     "top10BallotHint": "O Top 10 de cada cargo é o boletim da votação: é esta lista que as pessoas vão ver para escolher as 5. Reveja antes de abrir a votação.",
     "title": "Fase 1 — Parametrização",
@@ -3372,6 +3378,7 @@
       "checkNotaMedio": "Check 80–89 (com ajustes)",
       "checkNotaBaixo": "Check <80 (revisar)",
       "checkNotaSem": "Sem check",
+      "turmaLoadError": "Não foi possível carregar a turma. Nada é mostrado até ela carregar.",
       "clearAll": "Limpar filtros"
     },
     "status": {
@@ -4365,7 +4372,8 @@
       "paused": "Pausadas",
       "completed": "Concluídas",
       "archived": "Arquivadas",
-      "all": "Todas"
+      "all": "Todas",
+      "turmaLoadError": "Não foi possível carregar a turma. Nada é mostrado até ela carregar."
     },
     "status": {
       "ativa": "Ativa",

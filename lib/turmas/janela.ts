@@ -154,13 +154,19 @@ export function trilhaDaParticipacao<T extends TrilhaDatada>(
   j: Janela,
   trilhasDaPessoa: T[],
 ): T | null {
-  const candidatas = (trilhasDaPessoa || []).filter((t) => {
-    if (!janelaTemCorte(j)) return true;
-    if (t.turma_membro_id) return t.turma_membro_id === participacaoId;
-    return dentroDaJanela(t.criado_em, j);
-  });
+  const candidatas = (trilhasDaPessoa || []).filter((t) => trilhaPertence(participacaoId, j, t));
   if (!candidatas.length) return null;
   return candidatas.reduce((a, b) => ((ms(b.criado_em) ?? 0) > (ms(a.criado_em) ?? 0) ? b : a));
+}
+
+/**
+ * Esta trilha é da participação? A regra de `trilhaDaParticipacao` como PREDICADO, para
+ * filtrar listas inteiras (a tela de temporadas) sem escrever a regra uma segunda vez.
+ */
+export function trilhaPertence(participacaoId: string, j: Janela, t: TrilhaDatada): boolean {
+  if (!janelaTemCorte(j)) return true;
+  if (t.turma_membro_id) return t.turma_membro_id === participacaoId;
+  return dentroDaJanela(t.criado_em, j);
 }
 
 /** Instante gravado em `marco_jornada` e em `created_at` ao abrir uma jornada nova. */

@@ -1,7 +1,7 @@
 'use client';
 import { toast } from 'sonner';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, useMemo, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
@@ -20,6 +20,13 @@ import { loadTrilhas } from '@/actions/trilhas-load';
 import VideoModal from '@/components/video-modal';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { progressoDiagnostico } from '@/lib/diagnostico-progresso';
+import SeletorTurma from '@/components/admin/seletor-turma';
+import { carregarEscopoDaTurma, listarTurmasDaEmpresa } from '@/actions/escopo-turma';
+import { pessoasDaTurma, respostasDaTurma, trilhasDaTurma, type EscopoTurmaDeTela } from '@/lib/turmas/escopo-tela';
+import type { TurmaFiltro } from '@/lib/turmas/escopo-leitura';
+
+// Turma escolhida cujo escopo ainda não chegou (ou falhou): as listas ficam VAZIAS, nunca a empresa toda.
+const ESCOPO_TURMA_VAZIO: EscopoTurmaDeTela = { turmaId: '', turmaNome: '', janelas: {}, participacoes: {} };
 
 // Ícone por formato de conteúdo (consistente com dashboard do colab).
 const FORMATO_ICON = {
@@ -202,11 +209,32 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   const locale = useLocale();
 
   const [tab, setTab] = useState(searchParams.get('tab') || 'diagnostico');
-  const [respostas, setRespostas] = useState([]);
-  const [trilhas, setTrilhas] = useState([]);
-  const [roster, setRoster] = useState<Awaited<ReturnType<typeof loadRosterDiagnostico>>>({
+  // O que veio do servidor, inteiro. `respostas`, `trilhas` e `roster` (abaixo) são esta mesma
+  // lista recortada pela TURMA escolhida: todo o resto da tela (filtros, chips, fila do lote,
+  // progresso do diagnóstico) lê os derivados e passa a falar só da turma, sem mudar mais nada.
+  const [respostasBrutas, setRespostasBrutas] = useState([]);
+  const [trilhasBrutas, setTrilhasBrutas] = useState([]);
+  const [rosterBruto, setRosterBruto] = useState<Awaited<ReturnType<typeof loadRosterDiagnostico>>>({
     pessoas: [], cargos: [], perfilExternoFonte: null, erro: null,
   });
+  const [turmas, setTurmas] = useState<TurmaFiltro[]>([]);
+  const [turmaSel, setTurmaSel] = useState('');
+  const [escopoTurma, setEscopoTurma] = useState<EscopoTurmaDeTela | null>(null);
+  const [erroTurma, setErroTurma] = useState(false);
+  // Turma escolhida e escopo ainda não chegou (ou falhou): listas VAZIAS, nunca a empresa toda.
+  const escopoEfetivo = turmaSel ? (escopoTurma ?? ESCOPO_TURMA_VAZIO) : null;
+  const respostas = useMemo(
+    () => (escopoEfetivo ? respostasDaTurma(respostasBrutas as any[], escopoEfetivo) : respostasBrutas),
+    [respostasBrutas, escopoEfetivo],
+  );
+  const trilhas = useMemo(
+    () => (escopoEfetivo ? trilhasDaTurma(trilhasBrutas as any[], escopoEfetivo) : trilhasBrutas),
+    [trilhasBrutas, escopoEfetivo],
+  );
+  const roster = useMemo(
+    () => (escopoEfetivo ? { ...rosterBruto, pessoas: pessoasDaTurma(rosterBruto.pessoas, escopoEfetivo) } : rosterBruto),
+    [rosterBruto, escopoEfetivo],
+  );
   const [showFaltam, setShowFaltam] = useState(false);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
@@ -293,13 +321,31 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
       loadTrilhas(empresaId),
       loadRosterDiagnostico(empresaId),
     ]);
-    setRespostas(d);
-    setTrilhas(t);
-    setRoster(r);
+    setRespostasBrutas(d);
+    setTrilhasBrutas(t);
+    setRosterBruto(r);
     setLoading(false);
   }
 
   useEffect(() => { refresh(); }, [empresaId]);
+
+  // As turmas do seletor. Falhar aqui só esconde o seletor: a tela segue com a empresa inteira.
+  useEffect(() => {
+    let vivo = true;
+    listarTurmasDaEmpresa(empresaId).then((lista) => { if (vivo) setTurmas(lista || []); }).catch(() => { if (vivo) setTurmas([]); });
+    return () => { vivo = false; };
+  }, [empresaId]);
+
+  async function escolherTurma(id: string) {
+    setTurmaSel(id);
+    setEscopoTurma(null);
+    setErroTurma(false);
+    // As escolhas de cargo e de pessoa eram da turma anterior e podem nem existir nesta.
+    setFiltroCargo(''); setFiltroColab('');
+    if (!id) return;
+    try { setEscopoTurma(await carregarEscopoDaTurma(empresaId, id)); }
+    catch { setErroTurma(true); }   // sem escopo, as listas ficam VAZIAS (escopoEfetivo), nunca a empresa toda
+  }
 
   const cargos = [...new Set(respostas.map(r => r.colaborador_cargo).filter(c => c && c !== '—'))].sort();
   // Colaboradores filtrados pelo cargo selecionado (cascading)
@@ -314,7 +360,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   }, [filtroCargo]);
 
   // Limpa a seleção ao trocar filtros (uma resposta pode sair do conjunto visível).
-  useEffect(() => { setSelecionados(new Set()); }, [filtroCargo, filtroColab, filtroStatus, filtroNota]);
+  useEffect(() => { setSelecionados(new Set()); }, [filtroCargo, filtroColab, filtroStatus, filtroNota, turmaSel]);
 
   const filtros = { colab: filtroColab, cargo: filtroCargo, status: filtroStatus, nota: filtroNota };
   const filtered = filtrarRespostas(respostas as any[], filtros);
@@ -559,6 +605,10 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
       {/* Filtros */}
       <div className="flex items-center gap-3 mb-5 flex-wrap">
         <Filter size={14} className="text-gray-500" />
+        {/* Turma: recorta respostas, progresso do diagnóstico, fila do lote e temporadas ao que é da
+            participação da turma. Só aparece com 2+ turmas. */}
+        <SeletorTurma turmas={turmas} value={turmaSel} onChange={(id) => { void escolherTurma(id); }} comIcone={false} />
+        {erroTurma && <span role="alert" className="text-[11px] text-amber-400">{tr('filters.turmaLoadError')}</span>}
         <select value={filtroCargo} onChange={e => setFiltroCargo(e.target.value)}
           className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none" style={{ background: '#091D35' }}>
           <option value="">{tr('filters.allRoles')}</option>

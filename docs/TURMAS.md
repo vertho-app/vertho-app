@@ -215,6 +215,29 @@ antiga como `removido`, que o painel não conta.
   `carregarTurmaWorkspace` (página de etapa) usam a mesma janela. `TurmaResumo`
   ganhou `encerrados` e `participantes` (`membros + encerrados`, o denominador).
 
+### Telas de acompanhamento por turma (07/10/2026)
+
+Nenhuma tela que mostra uma turma pode contar por PESSOA. O que existe, e a régua de cada uma:
+
+- **Escopo de LEITURA** (`lib/turmas/escopo-leitura.ts`): quem está na turma E quem já passou por ela,
+  cada um com a janela da participação. `resolverEscopoDeLote` (`./escopo.ts`) segue OPERACIONAL e só
+  enxerga `ativo`: é o certo para lote e envio, e o errado para VER uma turma (a que passou todo mundo
+  adiante ficaria com 0). Erro de leitura LANÇA; a turma tem que ser da empresa (o id vem do cliente).
+- **Engajamento** (admin e RH, visão atual e evolução semanal): seletor de turma (só com 2+). Cada turma
+  lê a trilha da PARTICIPAÇÃO dela. `fase4_envios` é UMA linha por pessoa e a cadência da jornada nova a
+  reescreve: se a trilha da turma é a mais recente, a linha é dela; se não é, a linha entra com o relógio
+  e os carimbos de envio neutralizados (`lib/engajamento/escopo-turma.ts`), nunca com o ✓ de outra
+  turma. O estado de cadência da jornada anterior NÃO sobrevive à jornada nova; consumo e evidência sim
+  (`temporada_semana_progresso` tem `trilha_id`). O relatório e o PDF seguem com a empresa inteira.
+- **Panorama do RH** (`carregarPanoramaRH`, aceita `escopoTurma`): usado pelo **Andamento "por turma"**
+  (turma sem ativos vira grupo "(encerrada)" com os números do período), pela **home do RH** (seletor com
+  2+ turmas) e pela **Central de relatórios** (turma escolhida). Perfil e mapeamento seguem da PESSOA.
+- **Fase 2 (IA4)** e **/admin/temporadas**: o seletor recorta, no cliente, as listas que a tela já tem
+  (`lib/turmas/escopo-tela.ts`): resposta pela janela, trilha pelo carimbo (`turma_membro_id`). Enquanto
+  o escopo não chega, a lista fica VAZIA (nunca a empresa toda). A fila de "Re-avaliar" herda o recorte.
+- **Lista de pessoas**: filtro por turma ATIVA ("Sem turma" = `turma_id === null`); leitura que falhou vira
+  `undefined` e nunca casa com nada.
+
 🔴 **O que isto NÃO resolve (de propósito, ver abaixo):** a conta do Fluxo completo e
 das filas de blueprint, PDI e trilha continua **por pessoa** ("já tem?"). Blueprint e
 PDI são **um por pessoa** (`UNIQUE (empresa_id, colaborador_id)` e

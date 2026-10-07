@@ -15,6 +15,9 @@ import {
   loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores, importarCargosLote,
   derivarGestorEmailPorNome,
 } from './actions';
+import SeletorTurma, { SEM_TURMA } from '@/components/admin/seletor-turma';
+import { listarTurmasDaEmpresa } from '@/actions/escopo-turma';
+import type { TurmaFiltro } from '@/lib/turmas/escopo-leitura';
 const CARGO_FIELDS = [
   { key: 'descricao', rows: 3 },
   { key: 'principais_entregas', rows: 2 },
@@ -44,7 +47,16 @@ export default function GerenciarPage() {
     else { setSortBy(col); setSortDir('asc'); }
   }
 
-  const colabsSorted = [...colabs].sort((a: any, b: any) => {
+  // Turma ATIVA de cada pessoa: o filtro só vale com 2+ turmas ativas (com uma só, não há o que
+  // separar). `turma_id` undefined é "não foi possível ler": nunca casa com turma nem com "Sem turma".
+  const [turmas, setTurmas] = useState<TurmaFiltro[]>([]);
+  const [turmaSel, setTurmaSel] = useState('');
+  const turmasAtivas = turmas.filter((turma) => turma.ativos > 0);
+  const colabsDaTurma = turmaSel
+    ? colabs.filter((c: any) => (turmaSel === SEM_TURMA ? c.turma_id === null : c.turma_id === turmaSel))
+    : colabs;
+
+  const colabsSorted = [...colabsDaTurma].sort((a: any, b: any) => {
     const va = (a?.[sortBy] ?? '').toString().toLowerCase();
     const vb = (b?.[sortBy] ?? '').toString().toLowerCase();
     if (va < vb) return sortDir === 'asc' ? -1 : 1;
@@ -98,6 +110,15 @@ export default function GerenciarPage() {
       loadColaboradores(tenantId).then(setColabs);
       loadCargos(tenantId).then(setCargos);
     } else { setResumo(null); setColabs([]); setCargos([]); }
+  }, [tenantId]);
+
+  // As turmas do seletor. Falhar aqui só esconde o seletor: a lista segue completa.
+  useEffect(() => {
+    setTurmaSel('');
+    if (!tenantId) { setTurmas([]); return undefined; }
+    let vivo = true;
+    listarTurmasDaEmpresa(tenantId).then((lista) => { if (vivo) setTurmas(lista || []); }).catch(() => { if (vivo) setTurmas([]); });
+    return () => { vivo = false; };
   }, [tenantId]);
 
   async function refresh() {
@@ -376,6 +397,12 @@ export default function GerenciarPage() {
           </div>
 
           {/* Tab: Lista */}
+          {tab === 'lista' && turmasAtivas.length >= 2 && (
+            <div className="mb-3 flex items-center gap-3 flex-wrap">
+              <SeletorTurma turmas={turmasAtivas} value={turmaSel} onChange={setTurmaSel} comSemTurma />
+              {turmaSel && <span className="text-[11px] text-gray-400">{colabsDaTurma.length} / {colabs.length}</span>}
+            </div>
+          )}
           {tab === 'lista' && (
             <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
               {colabs.length === 0 && editId !== 'new' ? (
@@ -521,7 +548,12 @@ export default function GerenciarPage() {
                             </>
                           ) : (
                             <>
-                              <td className="px-4 py-2 text-white font-semibold">{c.nome_completo || '—'}</td>
+                              <td className="px-4 py-2 text-white font-semibold">
+                                {c.nome_completo || '—'}
+                                {turmasAtivas.length >= 2 && c.turma_nome && (
+                                  <span className="ml-2 text-[10px] font-normal text-gray-500">{c.turma_nome}</span>
+                                )}
+                              </td>
                               <td className="px-4 py-2 text-gray-400 text-xs">
                                 {c.sem_email_real
                                   ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-400/10 text-green-400">{t('badges.whatsappOnly')}</span>

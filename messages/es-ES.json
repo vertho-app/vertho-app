@@ -3198,6 +3198,12 @@
       "decision": "Decisión"
     }
   },
+  "AdminTurmaFiltro": {
+    "aria": "Filtrar por cohorte",
+    "all": "Todas las cohortes",
+    "ended": "{name} (cerrada)",
+    "noTurma": "Sin cohorte"
+  },
   "AdminPhase1": {
     "top10BallotHint": "El Top 10 de cada puesto es la papeleta de la votación: es esta lista la que las personas verán para elegir sus 5. Revísala antes de abrir la votación.",
     "title": "Fase 1 — Parametrización",
@@ -3372,6 +3378,7 @@
       "checkNotaMedio": "Check 80–89 (con ajustes)",
       "checkNotaBaixo": "Check <80 (revisar)",
       "checkNotaSem": "Sin check",
+      "turmaLoadError": "No fue posible cargar la cohorte. No se muestra nada hasta que cargue.",
       "clearAll": "Limpiar filtros"
     },
     "status": {
@@ -4365,7 +4372,8 @@
       "paused": "Pausadas",
       "completed": "Concluidas",
       "archived": "Archivadas",
-      "all": "Todas"
+      "all": "Todas",
+      "turmaLoadError": "No fue posible cargar la cohorte. No se muestra nada hasta que cargue."
     },
     "status": {
       "ativa": "Activa",

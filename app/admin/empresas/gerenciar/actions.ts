@@ -13,6 +13,8 @@ import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsApp, normalizePhone } from '@/lib/phone';
 import { proxyEmailFromPhone, isProxyEmail } from '@/lib/phone-otp';
 import { getLocale } from 'next-intl/server';
+import { TURMA_MEMBRO } from '@/lib/status';
+import { lerTudoPaginado } from '@/lib/paginacao';
 
 const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
@@ -174,6 +176,28 @@ export async function importarColaboradoresLote(input: z.infer<typeof ImportarLo
   return _importarColaboradoresLote(input);
 }
 
+/**
+ * A turma ATIVA de cada pessoa da empresa (`colaborador_id` -> turma), ou `null` se a leitura
+ * falhou. A lista de pessoas usa o resultado para o filtro por turma, e a diferença importa:
+ * `undefined` na linha da pessoa é "não sei", e o filtro nunca o trata como "sem turma".
+ */
+async function turmaAtivaPorColaborador(sb: any, empresaId: string): Promise<Map<string, { id: string; nome: string }> | null> {
+  const membros = await lerTudoPaginado((de: number, ate: number) => sb.from('turma_membros')
+    .select('id, colaborador_id, turma_id')
+    .eq('empresa_id', empresaId)
+    .eq('status', TURMA_MEMBRO.ATIVO)
+    .order('id')
+    .range(de, ate));
+  const { data: turmas, error } = await sb.from('turmas').select('id, nome').eq('empresa_id', empresaId);
+  if (membros.error || error) return null;
+  const nomePorTurma = new Map<string, string>((turmas || []).map((t: any) => [t.id, t.nome]));
+  const mapa = new Map<string, { id: string; nome: string }>();
+  for (const m of membros.data as any[]) {
+    if (nomePorTurma.has(m.turma_id)) mapa.set(m.colaborador_id, { id: m.turma_id, nome: nomePorTurma.get(m.turma_id)! });
+  }
+  return mapa;
+}
+
 const _loadColaboradores = protectedLoader<[any], any[]>([], async (_ctx, empresaId) => {
   const sb = await requireAdminSupabase();
   const { data: d1, error: e1 } = await sb.from('colaboradores')
@@ -183,7 +207,16 @@ const _loadColaboradores = protectedLoader<[any], any[]>([], async (_ctx, empres
   // sem_email_real = e-mail é o proxy interno (login só por WhatsApp). A UI mostra
   // o badge por ISTO (não por login_por_whatsapp), pois um colab pode logar por
   // WhatsApp E ter e-mail real — aí o e-mail aparece normalmente.
-  if (!e1) return (d1 || []).map((c: any) => ({ ...c, sem_email_real: isProxyEmail(c.email) }));
+  if (!e1) {
+    const turmaDe = await turmaAtivaPorColaborador(sb, empresaId);
+    return (d1 || []).map((c: any) => ({
+      ...c,
+      sem_email_real: isProxyEmail(c.email),
+      // string = turma ativa · null = sem turma · undefined = não foi possível ler (o filtro não adivinha)
+      turma_id: turmaDe ? (turmaDe.get(c.id)?.id ?? null) : undefined,
+      turma_nome: turmaDe ? (turmaDe.get(c.id)?.nome ?? null) : undefined,
+    }));
+  }
   const { data: d2 } = await sb.from('colaboradores')
     .select('id, nome_completo, email, cargo, role, area_depto, mapeamento_em')
     .eq('empresa_id', empresaId)

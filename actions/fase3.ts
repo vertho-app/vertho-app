@@ -225,7 +225,7 @@ export async function loadRespostasAvaliadas(empresaId: string) {
   if (!empresaId) return [];
   const tdb = tenantDb(empresaId);
   const { data, error } = await tdb.from('respostas')
-    .select('id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, nivel_simulado, avaliacao_ia, nivel_ia4, nota_ia4, status_ia4, payload_ia4, pontos_fortes, pontos_atencao, feedback_ia4, created_at')
+    .select('id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, nivel_simulado, avaliacao_ia, nivel_ia4, nota_ia4, status_ia4, payload_ia4, pontos_fortes, pontos_atencao, feedback_ia4, created_at, timestamp_resposta')
     .not('r1', 'is', null)
     .order('created_at', { ascending: false });
 
