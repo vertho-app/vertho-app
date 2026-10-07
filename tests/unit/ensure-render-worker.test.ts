@@ -59,6 +59,27 @@ describe('box nova recebe um reaper compatível com o watchdog e a pull zone', (
     expect(env).toMatch(/BUNNY_REFERER=https:\/\/www\.[a-z.]+\//);
   });
 
+  it('a box NÃO recebe chave de TTS: a saudação é sintetizada pelo app e a box só a lê do Storage', async () => {
+    // O worker antigo sintetizava no AI Studio e precisava de GEMINI_API_KEY, VIDEO_TTS_VOICE e GEMINI_TTS_MODEL. Saíram quando o
+    // snapshot novo entrou. Box descartável com segredo que ninguém usa é superfície; e o que ela PRECISA (versão do elenco
+    // para a chave do áudio e credencial do Storage para lê-lo) tem de continuar chegando: sem isso a personalização é pulada.
+    ambiente();
+    vi.stubEnv('GEMINI_API_KEY', 'segredo-gemini-que-nao-pode-ir');
+    vi.stubEnv('VIDEO_TTS_VOICE', 'Aoede');
+    vi.stubEnv('GEMINI_TTS_MODEL', 'gemini-x');
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-teste');
+    vi.stubEnv('SUPABASE_URL', 'https://sb.exemplo');
+    const posts = provisiona([criada()]);
+    await ensureRenderWorker();
+    const env = String(posts[0].user_data);
+    expect(env).not.toContain('segredo-gemini-que-nao-pode-ir');
+    expect(env).not.toMatch(/GEMINI_API_KEY|GEMINI_TTS_MODEL|VIDEO_TTS_VOICE/);
+    // controles positivos: o que a box lê para montar o nominal
+    expect(env).toMatch(/VOZ_VERSAO=\d{4}-\d{2}-\d{2}/);
+    expect(env).toContain('SUPABASE_SERVICE_ROLE_KEY=service-role-teste');
+    expect(env).toContain('SUPABASE_URL=https://sb.exemplo');
+  });
+
   it('a fórmula do orquestrador é a mesma do worker', () => {
     for (const ms of [600_000, 2_400_000, 5_400_000, 7_200_000]) {
       expect(reapSemSinalMin(ms)).toBe(reapDoWorker({ MAX_RENDER_MS: String(ms) }));

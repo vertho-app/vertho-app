@@ -17,7 +17,7 @@
  *
  * Envs necessárias (no ambiente do orquestrador / trigger.dev):
  *   HCLOUD_TOKEN, RENDER_SNAPSHOT_ID, DATABASE_URL, BUNNY_LIBRARY_ID,
- *   BUNNY_STREAM_API_KEY, GEMINI_API_KEY (opcional → liga personalização).
+ *   BUNNY_STREAM_API_KEY, SUPABASE_SERVICE_ROLE_KEY (liga a personalização: a box lê o áudio da saudação do Storage).
  *   Opcionais: RENDER_SERVER_TYPES (lista CSV de tipos EM ORDEM que o LADDER varre,
  *   ex. 'cx43,cx53,cx33,cpx32,cpx22,ccx13' — CX primeiro, CPX shared depois, CCX
  *   dedicada por último; precede o par abaixo), RENDER_SERVER_TYPE/RENDER_FALLBACK_TYPE
@@ -131,16 +131,12 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     `DATABASE_URL=${process.env.DATABASE_URL}`,
     `BUNNY_LIBRARY_ID=${process.env.BUNNY_LIBRARY_ID || ''}`,
     `BUNNY_STREAM_API_KEY=${process.env.BUNNY_STREAM_API_KEY || ''}`,
-    // 🔁 TRANSIÇÃO (07/10/2026): `GEMINI_API_KEY`, `VIDEO_TTS_VOICE` e `GEMINI_TTS_MODEL` só servem ao worker ANTIGO, que
-    // sintetizava a saudação no AI Studio. O worker novo lê o WAV que o app gravou (Vertex) e não os usa. Ficam até o
-    // snapshot novo estar em `RENDER_SNAPSHOT_ID` no Trigger E na Vercel: tirá-los antes faria o worker velho pular toda
-    // personalização ("sem GEMINI_API_KEY"). Depois da troca, apague as três linhas.
-    `GEMINI_API_KEY=${process.env.GEMINI_API_KEY || ''}`,
-    // Saudação nominal exige SUPABASE_URL + SERVICE_ROLE_KEY (personalizar.mjs: ler o WAV da saudação e hospedar o voice-over).
+    // A box NÃO recebe chave de TTS (07/10/2026): a saudação é sintetizada pelo app no Vertex e a box só a lê do Storage
+    // (`personalizar.mjs`). `GEMINI_API_KEY`, `VIDEO_TTS_VOICE` e `GEMINI_TTS_MODEL` serviam ao worker antigo (AI Studio) e
+    // saíram quando o snapshot novo entrou em `RENDER_SNAPSHOT_ID`; box descartável com segredo que ninguém usa é só superfície.
+    // Saudação nominal exige SUPABASE_URL + SERVICE_ROLE_KEY (personalizar.mjs: ler o áudio da saudação e hospedar o voice-over).
     `SUPABASE_URL=${process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''}`,
     `SUPABASE_SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY || ''}`,
-    `VIDEO_TTS_VOICE=${process.env.VIDEO_TTS_VOICE || ELENCO.mentora.voz}`,
-    `GEMINI_TTS_MODEL=${process.env.GEMINI_TTS_MODEL || ELENCO.mentora.modeloAiStudio}`,
     // Versão do casting: entra na CHAVE DO ARQUIVO da saudação (`saudacao-audio.mjs`), a mesma que o app usa ao gravá-lo.
     // Recastar a voz torna o áudio antigo invisível, em vez de servir a locutora velha. Sem ela a box pula a personalização.
     `VOZ_VERSAO=${ELENCO.mentora.versao}`,
