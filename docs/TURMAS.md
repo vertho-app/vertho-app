@@ -189,6 +189,43 @@ modelo — a safra 2026.2 pode ter professores e diretores juntos. E não é
 `escola_id` (mig 126), que é eixo organizacional, não temporal: em Macaé os dois
 cargos estão nas mesmas escolas. Os eixos convivem.
 
+### Reentrada com jornada nova: a participação é a unidade (07/10/2026)
+
+Medido em Ibipeba: passar as 53 pessoas para uma turma nova ("Temporada 2") fez a
+turma nova nascer com 41/53 respondidos, 40/53 avaliados e 39/53 jornadas, e a
+antiga ficar com 0. O painel perguntava "esta **pessoa** tem alguma
+resposta/IA4/trilha na empresa?", e o `moverParaTurma` fechava a participação
+antiga como `removido`, que o painel não conta.
+
+- **Passar a pessoa para outra turma abre uma jornada nova por padrão**
+  (`novaJornada`, ligado na tela de composição). A participação antiga fecha como
+  `concluido` e a turma de origem **guarda os números do período**; a de destino
+  recebe `turma_membros.marco_jornada` (mig 282) e **nasce zerada**. O DISC e o
+  cadastro são da pessoa e acompanham. Desligar a opção é o **desmembramento** (a
+  mesma jornada segue em outro grupo): a antiga fica `removido` e a conta continua
+  por pessoa, como sempre foi (Macaé não muda de número).
+- **Janela** (`lib/turmas/janela.ts`): participação com marco abre uma jornada; vai
+  até o marco da PRÓXIMA participação da mesma pessoa que também tenha marco.
+  Participação sem marco continua a jornada em curso. `removido` não entra na
+  sequência. Início inclusivo, fim exclusivo: nenhum instante cai nas duas.
+- **O que a janela recorta:** respostas (`timestamp_resposta`), a nota da IA4 só se for de
+  uma resposta da janela, PDI (`gerado_em`) e trilha (carimbo `turma_membro_id`; legada
+  sem carimbo só se nasceu na janela). Sem corte nenhum, vale a conta antiga.
+- **Dois cálculos, uma régua:** `levantarPortfolioTurmas` (cartões) e
+  `carregarTurmaWorkspace` (página de etapa) usam a mesma janela. `TurmaResumo`
+  ganhou `encerrados` e `participantes` (`membros + encerrados`, o denominador).
+
+🔴 **O que isto NÃO resolve (de propósito, ver abaixo):** a conta do Fluxo completo e
+das filas de blueprint, PDI e trilha continua **por pessoa** ("já tem?"). Blueprint e
+PDI são **um por pessoa** (`UNIQUE (empresa_id, colaborador_id)` e
+`(empresa_id, colaborador_id, tipo)`, gravados por upsert): regenerar na jornada nova
+**sobrescreve** o da anterior. Tornar essas filas "por janela" sem antes arquivar o da
+jornada anterior destruiria o histórico que esta regra existe para guardar, e a trilha
+nova seria montada em cima do blueprint antigo. Ficou para uma etapa própria.
+Também não há **encerramento das atividades** da turma anterior (envio, trilha): `pausada`
+mostra ao participante "pausada pelo gestor" e só `concluida` aparece como temporada
+anterior; encerrar exige um estado próprio com mensagem e leitura.
+
 ## 2. Módulos opcionais: o Pulso é uma etapa da turma
 
 O Pulso é **contratado à parte**. Quando contratado, é **uma etapa da turma** —

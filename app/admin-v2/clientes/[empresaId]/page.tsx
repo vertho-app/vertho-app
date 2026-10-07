@@ -8,8 +8,9 @@ import TurmasPanel from '../../cliente/TurmasPanel';
 export const dynamic = 'force-dynamic';
 
 function etapaDaTurma(turma: TurmaResumo) {
-  if (turma.membros === 0) return 'preparar';
-  if (turma.comResposta < turma.membros || turma.comIa4 < turma.comResposta) return 'diagnostico';
+  if (turma.participantes === 0) return 'preparar';
+  if (turma.membros === 0) return 'acompanhamento';   // só histórico: todo mundo passou para outra turma
+  if (turma.comResposta < turma.participantes || turma.comIa4 < turma.comResposta) return 'diagnostico';
   if (turma.comIa4 > turma.comTrilha) return 'lancamento';
   if (turma.comTrilha > 0) return 'acompanhamento';
   return 'diagnostico';
@@ -130,12 +131,12 @@ export default async function EmpresaPage({ params }: { params: Promise<{ empres
                 <span className="absolute left-[21px] top-1/2 h-[13px] w-[13px] -translate-y-1/2 rounded-full border-2 border-[var(--cyan)] bg-[var(--navy-card)] transition-colors group-hover:bg-[var(--cyan)]" />
                 <span>
                   <b className="block text-[13px] group-hover:text-[var(--cyan)]">{turma.nome}</b>
-                  <span className="mt-0.5 block text-[10.5px] text-[var(--ink-faint)]">{turma.membros} pessoa(s) · {turma.programaModo || 'programa herdado'}</span>
+                  <span className="mt-0.5 block text-[10.5px] text-[var(--ink-faint)]">{turma.membros} pessoa(s){turma.encerrados > 0 ? ` · ${turma.encerrados} encerrada(s) aqui` : ''} · {turma.programaModo || 'programa herdado'}</span>
                 </span>
                 <span className="grid grid-cols-3 gap-2 font-[family-name:var(--font-manrope)] text-[9px] text-[var(--ink-faint)]">
-                  <Contagem valor={turma.comResposta} total={turma.membros} rotulo="responderam" />
-                  <Contagem valor={turma.comIa4} total={turma.membros} rotulo="avaliados" />
-                  <Contagem valor={turma.comTrilha} total={turma.membros} rotulo="jornadas" />
+                  <Contagem valor={turma.comResposta} total={turma.participantes} rotulo="responderam" />
+                  <Contagem valor={turma.comIa4} total={turma.participantes} rotulo="avaliados" />
+                  <Contagem valor={turma.comTrilha} total={turma.participantes} rotulo="jornadas" />
                 </span>
                 <span className="text-[11.5px] leading-snug text-[var(--ink-dim)]">
                   {turma.proximaAcao ? <><span className="text-[var(--cyan)]">Próxima:</span> {turma.proximaAcao}</> : 'Sem ação imediata'}

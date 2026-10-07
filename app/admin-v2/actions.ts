@@ -9,6 +9,10 @@ import {
   semanaDaTrilha,
   type PortfolioTurmas,
 } from '@/lib/turmas/portfolio';
+import {
+  JANELA_ABERTA, dentroDaJanela, janelasDasParticipacoes, respondeuNaJanela,
+  type ParticipacaoLinha, type RespostaDatada,
+} from '@/lib/turmas/janela';
 
 /**
  * Dados reais de /admin-v2. Toda consulta a tabela tenant-owned vai com
@@ -335,6 +339,8 @@ export type PessoaTurma = {
   temTrilha: boolean;
   trilhaConcluida: boolean;
   semana: number | null;
+  /** A participação desta pessoa nesta turma terminou (ela passou para outra turma). */
+  encerrada: boolean;
   estado: string;
   proximoPasso: string;
 };
@@ -349,7 +355,12 @@ export type TurmaWorkspace = {
     programaModo: string | null;
   };
   contagens: {
+    /** Denominador de tudo abaixo: quem está na turma + quem já passou por ela (`ativos + encerrados`). */
     membros: number;
+    /** Participação ATIVA: só quem ainda se pode mobilizar. */
+    ativos: number;
+    /** Participação TERMINADA aqui (passou para outra turma); os números dela são do período em que esteve na turma. */
+    encerrados: number;
     comResposta: number;
     comIa4: number;
     comPdi: number;
@@ -385,53 +396,76 @@ export async function carregarTurmaWorkspace(
       sb.from('empresas').select('id, nome').eq('id', empresaId).maybeSingle(),
       sb.from('turmas').select('id, nome, status, data_inicio, sys_config')
         .eq('empresa_id', empresaId).eq('id', turmaId).maybeSingle(),
-      sb.from('turma_membros').select('id, colaborador_id')
-        .eq('empresa_id', empresaId).eq('turma_id', turmaId).eq('status', TURMA_MEMBRO.ATIVO),
+      // Ativos E encerrados: a turma que passou as pessoas adiante guarda os números do período delas.
+      sb.from('turma_membros').select('id, turma_id, colaborador_id, status, created_at, marco_jornada')
+        .eq('empresa_id', empresaId).eq('turma_id', turmaId).in('status', [TURMA_MEMBRO.ATIVO, TURMA_MEMBRO.CONCLUIDO]),
     ]);
 
     if (empresaRes.error || !empresaRes.data) return { erro: empresaRes.error?.message || 'empresa não encontrada' };
     if (turmaRes.error || !turmaRes.data) return { erro: turmaRes.error?.message || 'turma não encontrada nesta empresa' };
     if (membrosRes.error) return { erro: membrosRes.error.message };
 
-    const membros = (membrosRes.data || []) as Array<{ id: string; colaborador_id: string }>;
-    const colaboradorIds = membros.map((m) => m.colaborador_id);
+    const membros = (membrosRes.data || []) as ParticipacaoLinha[];
+    const colaboradorIds = [...new Set(membros.map((m) => m.colaborador_id))];
     const participacaoIds = membros.map((m) => m.id);
+    const ativoIds = new Set(membros.filter((m) => m.status === TURMA_MEMBRO.ATIVO).map((m) => m.colaborador_id));
 
     let colabs: any[] = [];
     let respostas: any[] = [];
     let trilhas: any[] = [];
     let relatorios: any[] = [];
+    let todasParticipacoes: ParticipacaoLinha[] = [];
 
     if (colaboradorIds.length > 0) {
-      const [colabsRes, respostasRes, trilhasRes, relatoriosRes] = await Promise.all([
+      const [colabsRes, respostasRes, trilhasRes, relatoriosRes, participacoesRes] = await Promise.all([
         sb.from('colaboradores').select('id, nome_completo, cargo, email')
           .eq('empresa_id', empresaId).in('id', colaboradorIds),
-        sb.from('respostas').select('colaborador_id, nivel_ia4')
+        sb.from('respostas').select('colaborador_id, nivel_ia4, timestamp_resposta, created_at')
           .eq('empresa_id', empresaId).in('colaborador_id', colaboradorIds),
         sb.from('trilhas').select('id, colaborador_id, status, data_inicio, evolution_report, criado_em')
           .eq('empresa_id', empresaId).in('turma_membro_id', participacaoIds)
           .order('criado_em', { ascending: false }),
         sb.from('relatorios').select('colaborador_id, gerado_em')
           .eq('empresa_id', empresaId).eq('tipo', 'individual').in('colaborador_id', colaboradorIds),
+        // Todas as participações vivas ou terminadas dessas pessoas (em qualquer turma):
+        // o fim da janela de uma participação é o marco da PRÓXIMA da mesma pessoa.
+        sb.from('turma_membros').select('id, turma_id, colaborador_id, status, created_at, marco_jornada')
+          .eq('empresa_id', empresaId).in('colaborador_id', colaboradorIds)
+          .in('status', [TURMA_MEMBRO.ATIVO, TURMA_MEMBRO.CONCLUIDO]),
       ]);
       if (colabsRes.error) throw new Error(`colaboradores: ${colabsRes.error.message}`);
       if (respostasRes.error) throw new Error(`respostas: ${respostasRes.error.message}`);
       if (trilhasRes.error) throw new Error(`trilhas: ${trilhasRes.error.message}`);
       if (relatoriosRes.error) throw new Error(`relatórios: ${relatoriosRes.error.message}`);
+      if (participacoesRes.error) throw new Error(`participações: ${participacoesRes.error.message}`);
       colabs = colabsRes.data || [];
       respostas = respostasRes.data || [];
       trilhas = trilhasRes.data || [];
       relatorios = relatoriosRes.data || [];
+      todasParticipacoes = (participacoesRes.data || []) as ParticipacaoLinha[];
     }
 
+    // Respostas e PDI são da PESSOA e não carregam turma: o que é "desta turma" é o
+    // que caiu na janela da participação (lib/turmas/janela.ts). Trilha é carimbada
+    // com a participação, então já vem escopada pela consulta acima.
+    const janelas = janelasDasParticipacoes(todasParticipacoes);
+    const respostasPorPessoa = new Map<string, RespostaDatada[]>();
+    for (const r of respostas as RespostaDatada[]) {
+      if (!r.colaborador_id) continue;
+      const lista = respostasPorPessoa.get(r.colaborador_id) || [];
+      lista.push(r);
+      respostasPorPessoa.set(r.colaborador_id, lista);
+    }
     const comResposta = new Set<string>();
     const comIa4 = new Set<string>();
-    for (const resposta of respostas) {
-      if (!resposta.colaborador_id) continue;
-      comResposta.add(resposta.colaborador_id);
-      if (resposta.nivel_ia4 !== null && resposta.nivel_ia4 !== undefined) comIa4.add(resposta.colaborador_id);
+    const comPdi = new Set<string>();
+    for (const p of membros) {
+      const janela = janelas.get(p.id) ?? JANELA_ABERTA;
+      const { respondeu, avaliado } = respondeuNaJanela(respostasPorPessoa.get(p.colaborador_id) || [], janela);
+      if (respondeu) comResposta.add(p.colaborador_id);
+      if (avaliado) comIa4.add(p.colaborador_id);
+      if (relatorios.some((r) => r.colaborador_id === p.colaborador_id && dentroDaJanela(r.gerado_em, janela))) comPdi.add(p.colaborador_id);
     }
-    const comPdi = new Set<string>(relatorios.map((r) => r.colaborador_id).filter(Boolean));
     const trilhaDe = new Map<string, any>();
     for (const trilha of trilhas) {
       if (trilha.colaborador_id && !trilhaDe.has(trilha.colaborador_id)) trilhaDe.set(trilha.colaborador_id, trilha);
@@ -444,7 +478,10 @@ export async function carregarTurmaWorkspace(
         .map(([id]) => id),
     );
 
-    const total = membros.length;
+    // Denominador = quem está + quem já passou pela turma (pessoas distintas).
+    const total = colaboradorIds.length;
+    const nAtivos = ativoIds.size;
+    const nEncerrados = total - nAtivos;
     const nResposta = comResposta.size;
     const nIa4 = comIa4.size;
     const nPdi = comPdi.size;
@@ -455,7 +492,11 @@ export async function carregarTurmaWorkspace(
 
     let etapaAtual: EtapaTurma = 'preparar';
     let proximaAcao = { titulo: 'Definir a composição da turma', detalhe: 'Inclua as pessoas e confirme as regras do programa.' };
-    if (total > 0 && !preparacaoConfirmada) {
+    if (nAtivos === 0 && nEncerrados > 0) {
+      // Turma que já passou todo mundo adiante: nada a mobilizar, só histórico.
+      etapaAtual = 'evolucao';
+      proximaAcao = { titulo: 'Turma encerrada', detalhe: `${nEncerrados} participante(s) passaram para outra turma. Os números abaixo são do período em que estiveram aqui.` };
+    } else if (total > 0 && !preparacaoConfirmada) {
       proximaAcao = { titulo: 'Confirmar a prontidão da turma', detalhe: 'Revise participantes, calendário, programa e canais antes de abrir o diagnóstico.' };
     } else if (total > 0 && nResposta === 0) {
       etapaAtual = 'diagnostico';
@@ -506,9 +547,12 @@ export async function carregarTurmaWorkspace(
         const trilhaConcluida = concluidas.has(colab.id);
         const semana = trilha ? semanaDaTrilha(trilha.data_inicio) : null;
 
+        const encerrada = !ativoIds.has(colab.id);
+
         let estado = 'Preparação';
         let proximoPasso = 'Confirmar acesso';
-        if (!respondeu) { estado = 'Diagnóstico aberto'; proximoPasso = 'Responder diagnóstico'; }
+        if (encerrada) { estado = 'Encerrada nesta turma'; proximoPasso = 'Sem ação nesta turma'; }
+        else if (!respondeu) { estado = 'Diagnóstico aberto'; proximoPasso = 'Responder diagnóstico'; }
         else if (!avaliado) { estado = 'Aguardando IA4'; proximoPasso = 'Avaliar resposta'; }
         else if (!temPdi) { estado = 'Diagnóstico pronto'; proximoPasso = 'Gerar PDI'; }
         else if (!temTrilha) { estado = 'PDI pronto'; proximoPasso = 'Gerar jornada'; }
@@ -526,6 +570,7 @@ export async function carregarTurmaWorkspace(
           temTrilha,
           trilhaConcluida,
           semana,
+          encerrada,
           estado,
           proximoPasso,
         };
@@ -544,6 +589,8 @@ export async function carregarTurmaWorkspace(
         },
         contagens: {
           membros: total,
+          ativos: nAtivos,
+          encerrados: nEncerrados,
           comResposta: nResposta,
           comIa4: nIa4,
           comPdi: nPdi,

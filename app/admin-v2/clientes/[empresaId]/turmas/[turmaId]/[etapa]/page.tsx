@@ -177,6 +177,8 @@ export default async function TurmaEtapaPage({ params }: {
 
 function bloqueiosDaTurma(contagens: {
   membros: number;
+  ativos: number;
+  encerrados: number;
   comResposta: number;
   comIa4: number;
   comPdi: number;
@@ -185,6 +187,9 @@ function bloqueiosDaTurma(contagens: {
 }) {
   const itens: string[] = [];
   if (contagens.membros === 0) return ['Turma sem participantes.'];
+  if (contagens.ativos === 0 && contagens.encerrados > 0) {
+    return ['Turma encerrada: as pessoas passaram para outra turma. Os números são do período em que estiveram aqui.'];
+  }
   if (contagens.comResposta < contagens.membros) itens.push(`${contagens.membros - contagens.comResposta} de ${contagens.membros} ainda não responderam.`);
   if (contagens.comIa4 < contagens.comResposta) itens.push(`${contagens.comResposta - contagens.comIa4} resposta(s) aguardam IA4.`);
   if (contagens.comPdi < contagens.comIa4) itens.push(`${contagens.comIa4 - contagens.comPdi} pessoa(s) elegível(is) ainda não têm PDI.`);

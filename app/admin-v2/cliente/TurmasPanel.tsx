@@ -67,6 +67,10 @@ export default function TurmasPanel({ empresaId, portfolio }: { empresaId: strin
   const [vendo, setVendo] = useState<{ turmaId: string; pessoas: Pessoa[]; titulo: string } | null>(null);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [destino, setDestino] = useState<string>('');
+  // Padrão LIGADO: passar a pessoa para outra turma abre uma jornada nova (a turma de
+  // origem guarda o histórico e os números, a de destino começa do zero). Desligue só
+  // para desmembrar uma turma em duas, em que a mesma jornada segue em outro grupo.
+  const [novaJornada, setNovaJornada] = useState(true);
 
   const ativas = portfolio.turmas.filter((t) => !TURMA_ENCERRADAS.includes(t.status as any));
 
@@ -82,7 +86,7 @@ export default function TurmasPanel({ empresaId, portfolio }: { empresaId: strin
   };
 
   const abrirMembros = (t: TurmaResumo) => {
-    setErro(null); setSelecionados(new Set()); setDestino('');
+    setErro(null); setSelecionados(new Set()); setDestino(''); setNovaJornada(true);
     startTransition(async () => {
       const r: any = await listarMembrosTurma({ empresaId, turmaId: t.id });
       if (r?.success === false) { setErro(r.error); return; }
@@ -91,7 +95,7 @@ export default function TurmasPanel({ empresaId, portfolio }: { empresaId: strin
   };
 
   const abrirSemTurma = () => {
-    setErro(null); setSelecionados(new Set()); setDestino('');
+    setErro(null); setSelecionados(new Set()); setDestino(''); setNovaJornada(true);
     startTransition(async () => {
       const r: any = await listarSemTurma({ empresaId });
       if (r?.success === false) { setErro(r.error); return; }
@@ -105,8 +109,8 @@ export default function TurmasPanel({ empresaId, portfolio }: { empresaId: strin
   const mover = () => {
     if (!destino || selecionados.size === 0) return;
     executar(
-      () => moverParaTurma({ empresaId, turmaId: destino, colaboradorIds: [...selecionados] }),
-      () => { setVendo(null); setSelecionados(new Set()); setDestino(''); },
+      () => moverParaTurma({ empresaId, turmaId: destino, colaboradorIds: [...selecionados], novaJornada }),
+      () => { setVendo(null); setSelecionados(new Set()); setDestino(''); setNovaJornada(true); },
     );
   };
 
@@ -165,6 +169,7 @@ export default function TurmasPanel({ empresaId, portfolio }: { empresaId: strin
                   <h3 className="text-sm font-semibold">{t.nome}</h3>
                   <span className="font-mono text-[11px] text-[var(--ink-faint)]">
                     {t.membros} pessoa(s)
+                    {t.encerrados > 0 ? ` · ${t.encerrados} encerrada(s) aqui` : ''}
                     {t.programaModo ? ` · ${t.programaModo}` : ''}
                     {t.dataInicio ? ` · início ${t.dataInicio}` : ''}
                   </span>
@@ -194,9 +199,9 @@ export default function TurmasPanel({ empresaId, portfolio }: { empresaId: strin
               </div>
 
               <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[11px] text-[var(--ink-dim)]">
-                <span>responderam: {fracao(t.comResposta, t.membros)}</span>
-                <span>avaliados: {fracao(t.comIa4, t.membros)}</span>
-                <span>com trilha: {fracao(t.comTrilha, t.membros)}</span>
+                <span>responderam: {fracao(t.comResposta, t.participantes)}</span>
+                <span>avaliados: {fracao(t.comIa4, t.participantes)}</span>
+                <span>com trilha: {fracao(t.comTrilha, t.participantes)}</span>
               </div>
 
               {t.semanas.length > 0 && (
@@ -208,7 +213,7 @@ export default function TurmasPanel({ empresaId, portfolio }: { empresaId: strin
               {t.proximaAcao && (
                 <a
                   href={`/admin-v2/clientes/${empresaId}/turmas/${t.id}/${
-                    t.comResposta < t.membros || t.comIa4 < t.comResposta
+                    t.comResposta < t.participantes || t.comIa4 < t.comResposta
                       ? 'diagnostico'
                       : t.comIa4 > t.comTrilha
                         ? 'lancamento'
@@ -275,6 +280,17 @@ export default function TurmasPanel({ empresaId, portfolio }: { empresaId: strin
               </span>
             )}
           </div>
+
+          {/* Jornada nova x mesma jornada: muda o que a turma de origem guarda e o que a de destino mostra. */}
+          <label className="mt-2 flex cursor-pointer items-start gap-2 text-[12px] text-[var(--ink-dim)]">
+            <input type="checkbox" className="mt-0.5" checked={novaJornada} onChange={(e) => setNovaJornada(e.target.checked)} />
+            <span>
+              <b className="text-[var(--ink)]">Começa uma jornada nova.</b>{' '}
+              {novaJornada
+                ? 'A turma de origem mantém o histórico e os números do período; a de destino começa do zero. O DISC e o cadastro seguem com a pessoa.'
+                : 'Desmembramento: a mesma jornada segue em outra turma. A pessoa sai da turma de origem e a contagem continua por pessoa, como antes.'}
+            </span>
+          </label>
 
           <div className="mt-2.5 max-h-[320px] overflow-y-auto">
             {vendo.pessoas.map((p) => {

@@ -21,8 +21,9 @@ function percentual(parte: number, total: number) {
 }
 
 function etapaDaTurma(turma: TurmaResumo) {
-  if (turma.membros === 0) return 'preparar';
-  if (turma.comResposta < turma.membros || turma.comIa4 < turma.comResposta) return 'diagnostico';
+  if (turma.participantes === 0) return 'preparar';
+  if (turma.membros === 0) return 'acompanhamento';   // só histórico: todo mundo passou para outra turma
+  if (turma.comResposta < turma.participantes || turma.comIa4 < turma.comResposta) return 'diagnostico';
   if (turma.comIa4 > turma.comTrilha) return 'lancamento';
   if (turma.comTrilha > 0) return 'acompanhamento';
   return 'diagnostico';
@@ -119,7 +120,7 @@ export default function CarteiraOperacional({ clientes }: { clientes: ClienteLin
                     <span className="min-w-0">
                       <span className="block truncate text-[13px] font-semibold group-hover:text-[var(--cyan)]">{turma.nome}</span>
                       <span className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-[var(--ink-faint)]">
-                        <UsersRound size={11} /> {turma.membros} · {STATUS[turma.status] || turma.status}
+                        <UsersRound size={11} /> {turma.membros}{turma.encerrados > 0 ? ` + ${turma.encerrados} enc.` : ''} · {STATUS[turma.status] || turma.status}
                       </span>
                     </span>
                     <MiniFluxo turma={turma} />
@@ -180,10 +181,10 @@ function MiniFluxo({ turma }: { turma: TurmaResumo }) {
       {partes.map((parte) => (
         <div key={parte.rotulo} className="min-w-0">
           <div className="mb-1 flex items-baseline justify-between gap-1 font-[family-name:var(--font-manrope)] text-[8px] uppercase tracking-[0.08em] text-[var(--ink-faint)]">
-            <span>{parte.rotulo}</span><span>{parte.valor}/{turma.membros}</span>
+            <span>{parte.rotulo}</span><span>{parte.valor}/{turma.participantes}</span>
           </div>
           <span className="block h-1 overflow-hidden rounded-full bg-white/[0.07]">
-            <span className={`block h-full rounded-full ${parte.cor}`} style={{ width: `${percentual(parte.valor, turma.membros)}%` }} />
+            <span className={`block h-full rounded-full ${parte.cor}`} style={{ width: `${percentual(parte.valor, turma.participantes)}%` }} />
           </span>
         </div>
       ))}

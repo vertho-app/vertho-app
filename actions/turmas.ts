@@ -16,6 +16,7 @@ import { assertTenantAccessAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { TURMA, TURMA_MEMBRO, TURMA_ENCERRADAS } from '@/lib/status';
 import { levantarPortfolioTurmas } from '@/lib/turmas/portfolio';
+import { marcoAgora } from '@/lib/turmas/janela';
 
 const STATUS_TURMA = [
   TURMA.PLANEJADA, TURMA.DIAGNOSTICO, TURMA.TRILHAS_EM_GERACAO,
@@ -193,14 +194,24 @@ const MoverInput = z.object({
   empresaId: z.string().min(1),
   turmaId: z.string().min(1),
   colaboradorIds: z.array(z.string().min(1)).min(1).max(2000),
+  /**
+   * `true` (padrão): a pessoa abre uma JORNADA NOVA na turma de destino. A turma de
+   * origem fica com o histórico e os números dela (participação `concluido`) e a de
+   * destino nasce zerada (`marco_jornada`). `false`: a mesma jornada segue em outra
+   * turma (desmembrar uma turma em duas): a participação antiga sai (`removido`) e a
+   * conta continua por pessoa, como sempre foi.
+   */
+  novaJornada: z.boolean().default(true),
 });
 
 /**
  * Move pessoas para uma turma.
  *
- * Reentrada é **linha nova**: a participação anterior fecha com `saiu_em` e o
- * status vira `REMOVIDO`. Não se reaproveita a linha antiga — perder `entrou_em`
- * apagaria o histórico que a tabela existe para guardar.
+ * Reentrada é **linha nova**: a participação anterior fecha com `saiu_em` e não se
+ * reaproveita a linha antiga, porque perder `entrou_em` apagaria o histórico que a
+ * tabela existe para guardar. O status da antiga depende de `novaJornada`:
+ * `CONCLUIDO` quando a pessoa abre jornada nova (a turma de origem mantém os números
+ * dela), `REMOVIDO` quando é só o desmembramento da mesma jornada.
  *
  * ⚠️ Move quem já está na turma-alvo? Não: é no-op silencioso por pessoa, para
  * que reexecutar o mesmo lote não gere participação duplicada (e o índice
@@ -226,6 +237,19 @@ const _moverParaTurma = protectedAction('content.manage', MoverInput, async (ctx
     .eq('status', TURMA_MEMBRO.ATIVO)
     .in('colaborador_id', validos);
 
+  // Quem já participou de alguma turma (ativa agora ou terminada antes) abre jornada
+  // NOVA ao entrar; quem entra pela primeira vez não tem o que cortar.
+  const { data: concluidas, error: erroConcluidas } = await sb.from('turma_membros')
+    .select('colaborador_id')
+    .eq('empresa_id', input.empresaId)
+    .eq('status', TURMA_MEMBRO.CONCLUIDO)
+    .in('colaborador_id', validos);
+  if (erroConcluidas) throw new Error(erroConcluidas.message);
+  const jaTinhaParticipacao = new Set<string>([
+    ...(atuais || []).map((m: any) => m.colaborador_id),
+    ...(concluidas || []).map((m: any) => m.colaborador_id),
+  ]);
+
   const jaNaTurma = new Set<string>();
   const paraFechar: string[] = [];
   for (const m of atuais || []) {
@@ -233,9 +257,14 @@ const _moverParaTurma = protectedAction('content.manage', MoverInput, async (ctx
     else paraFechar.push(m.id);
   }
 
+  const agora = new Date();
   if (paraFechar.length) {
     const { error } = await sb.from('turma_membros')
-      .update({ status: TURMA_MEMBRO.REMOVIDO, saiu_em: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString() })
+      .update({
+        status: input.novaJornada ? TURMA_MEMBRO.CONCLUIDO : TURMA_MEMBRO.REMOVIDO,
+        saiu_em: agora.toISOString().slice(0, 10),
+        updated_at: agora.toISOString(),
+      })
       .in('id', paraFechar);
     if (error) throw new Error(error.message);
   }
@@ -243,7 +272,12 @@ const _moverParaTurma = protectedAction('content.manage', MoverInput, async (ctx
   const novos = validos.filter((id) => !jaNaTurma.has(id));
   if (novos.length) {
     const { error } = await sb.from('turma_membros').insert(
-      novos.map((id) => ({ empresa_id: input.empresaId, turma_id: input.turmaId, colaborador_id: id })),
+      novos.map((id) => ({
+        empresa_id: input.empresaId, turma_id: input.turmaId, colaborador_id: id,
+        // Só abre jornada nova quem JÁ tinha uma participação: a primeira entrada na
+        // primeira turma não corta nada.
+        ...(input.novaJornada && jaTinhaParticipacao.has(id) ? { marco_jornada: marcoAgora(agora) } : {}),
+      })),
     );
     if (error) throw new Error(error.message);
   }
@@ -251,7 +285,10 @@ const _moverParaTurma = protectedAction('content.manage', MoverInput, async (ctx
   await logAdminAction({
     adminEmail: ctx.email, acao: 'turma.mover_membros', empresaId: input.empresaId,
     turmaId: input.turmaId, alvo: `${novos.length} colaborador(es)`,
-    detalhes: { movidos: novos.length, jaEstavam: jaNaTurma.size, participacoesFechadas: paraFechar.length },
+    detalhes: {
+      movidos: novos.length, jaEstavam: jaNaTurma.size, participacoesFechadas: paraFechar.length,
+      novaJornada: input.novaJornada,
+    },
   });
   return { movidos: novos.length, jaEstavam: jaNaTurma.size, participacoesFechadas: paraFechar.length };
 });

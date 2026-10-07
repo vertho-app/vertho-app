@@ -15,6 +15,10 @@
  */
 
 import { TURMA_MEMBRO, type TurmaStatus } from '@/lib/status';
+import {
+  JANELA_ABERTA, janelasDasParticipacoes, participacaoConta, respondeuNaJanela, trilhaDaParticipacao,
+  type ParticipacaoLinha, type RespostaDatada, type TrilhaDatada,
+} from '@/lib/turmas/janela';
 
 export interface TurmaResumo {
   id: string;
@@ -22,8 +26,16 @@ export interface TurmaResumo {
   status: TurmaStatus;
   dataInicio: string | null;
   programaModo: string | null;
-  /** Denominador de tudo abaixo. */
+  /** Pessoas com participação ATIVA: o número operacional (lotes, envios, próxima ação). */
   membros: number;
+  /** Pessoas cuja participação TERMINOU aqui (passaram para outra turma) e seguem no histórico. */
+  encerrados: number;
+  /**
+   * `membros + encerrados`: o denominador de tudo abaixo. Uma turma que já passou
+   * as pessoas adiante continua mostrando os números do período em que elas
+   * estiveram nela (o `membros` dela vai a zero).
+   */
+  participantes: number;
   comResposta: number;
   comIa4: number;
   comTrilha: number;
@@ -61,61 +73,94 @@ export async function levantarPortfolioTurmas(
     .order('created_at');
 
   const [membrosRes, colabsRes, respostasRes, trilhasRes] = await Promise.all([
-    sb.from('turma_membros').select('turma_id, colaborador_id, status').eq('empresa_id', empresaId),
+    sb.from('turma_membros').select('id, turma_id, colaborador_id, status, created_at, marco_jornada').eq('empresa_id', empresaId),
     sb.from('colaboradores').select('id', { count: 'exact', head: true }).eq('empresa_id', empresaId),
-    sb.from('respostas').select('colaborador_id, nivel_ia4').eq('empresa_id', empresaId),
-    sb.from('trilhas').select('colaborador_id, data_inicio, status').eq('empresa_id', empresaId),
+    sb.from('respostas').select('colaborador_id, nivel_ia4, timestamp_resposta, created_at').eq('empresa_id', empresaId),
+    sb.from('trilhas').select('id, colaborador_id, data_inicio, status, turma_membro_id, criado_em').eq('empresa_id', empresaId),
   ]);
 
-  const comResposta = new Set<string>();
-  const comIa4 = new Set<string>();
-  for (const r of respostasRes.data || []) {
+  // Respostas e trilhas por PESSOA; quem decide o que é "desta turma" é a janela
+  // da participação (lib/turmas/janela.ts), não a pessoa inteira.
+  const respostasPorPessoa = new Map<string, RespostaDatada[]>();
+  for (const r of (respostasRes.data || []) as RespostaDatada[]) {
     if (!r.colaborador_id) continue;
-    comResposta.add(r.colaborador_id);
-    if (r.nivel_ia4 !== null && r.nivel_ia4 !== undefined) comIa4.add(r.colaborador_id);
+    const lista = respostasPorPessoa.get(r.colaborador_id) || [];
+    lista.push(r);
+    respostasPorPessoa.set(r.colaborador_id, lista);
+  }
+  const trilhasPorPessoa = new Map<string, TrilhaDatada[]>();
+  for (const t of (trilhasRes.data || []) as TrilhaDatada[]) {
+    if (!t.colaborador_id) continue;
+    const lista = trilhasPorPessoa.get(t.colaborador_id) || [];
+    lista.push(t);
+    trilhasPorPessoa.set(t.colaborador_id, lista);
   }
 
-  const trilhaDe = new Map<string, { data_inicio: string | null }>();
-  for (const t of trilhasRes.data || []) {
-    if (t.colaborador_id) trilhaDe.set(t.colaborador_id, { data_inicio: t.data_inicio });
-  }
+  const participacoes = (membrosRes.data || []) as ParticipacaoLinha[];
+  const janelas = janelasDasParticipacoes(participacoes);
 
-  const ativosPorTurma = new Map<string, string[]>();
+  const participacoesPorTurma = new Map<string, ParticipacaoLinha[]>();
   const comParticipacao = new Set<string>();
-  for (const m of membrosRes.data || []) {
-    if (m.status !== TURMA_MEMBRO.ATIVO) continue;
-    comParticipacao.add(m.colaborador_id);
-    const lista = ativosPorTurma.get(m.turma_id) || [];
-    lista.push(m.colaborador_id);
-    ativosPorTurma.set(m.turma_id, lista);
+  for (const m of participacoes) {
+    if (!participacaoConta(m.status)) continue;       // `removido` não é participante nem histórico
+    if (m.status === TURMA_MEMBRO.ATIVO) comParticipacao.add(m.colaborador_id);
+    const lista = participacoesPorTurma.get(m.turma_id) || [];
+    lista.push(m);
+    participacoesPorTurma.set(m.turma_id, lista);
   }
 
   const resumos: TurmaResumo[] = (turmas || []).map((t: any) => {
-    const ids = ativosPorTurma.get(t.id) || [];
-    const nResposta = ids.filter((id) => comResposta.has(id)).length;
-    const nIa4 = ids.filter((id) => comIa4.has(id)).length;
-    const comTrilhaIds = ids.filter((id) => trilhaDe.has(id));
+    // Uma linha por PESSOA na turma (reentrada na mesma turma não conta duas vezes).
+    type Estado = { ativo: boolean; respondeu: boolean; avaliado: boolean; trilha: TrilhaDatada | null };
+    const porPessoa = new Map<string, Estado>();
+    for (const p of participacoesPorTurma.get(t.id) || []) {
+      const janela = janelas.get(p.id) ?? JANELA_ABERTA;
+      const { respondeu, avaliado } = respondeuNaJanela(respostasPorPessoa.get(p.colaborador_id) || [], janela);
+      const trilha = trilhaDaParticipacao(p.id, janela, trilhasPorPessoa.get(p.colaborador_id) || []);
+      const atual = porPessoa.get(p.colaborador_id);
+      porPessoa.set(p.colaborador_id, {
+        ativo: (atual?.ativo ?? false) || p.status === TURMA_MEMBRO.ATIVO,
+        respondeu: (atual?.respondeu ?? false) || respondeu,
+        avaliado: (atual?.avaliado ?? false) || avaliado,
+        trilha: atual?.trilha ?? trilha,
+      });
+    }
+
+    const todos = [...porPessoa.values()];
+    const ativos = todos.filter((e) => e.ativo);
+    const conta = (lista: Estado[]) => ({
+      resposta: lista.filter((e) => e.respondeu).length,
+      ia4: lista.filter((e) => e.avaliado).length,
+      trilha: lista.filter((e) => e.trilha).length,
+    });
+    const doPeriodo = conta(todos);   // o que a turma mostra: quem está e quem já passou por ela
+    const operacional = conta(ativos); // o que ainda se pode fazer: só quem está
 
     const porSemana = new Map<number, number>();
-    for (const id of comTrilhaIds) {
-      const semana = semanaDaTrilha(trilhaDe.get(id)?.data_inicio ?? null, agora);
+    for (const e of ativos) {
+      if (!e.trilha) continue;
+      const semana = semanaDaTrilha(e.trilha.data_inicio ?? null, agora);
       if (semana === null) continue;
       porSemana.set(semana, (porSemana.get(semana) || 0) + 1);
     }
 
+    const encerrados = todos.length - ativos.length;
     return {
       id: t.id,
       nome: t.nome,
       status: t.status,
       dataInicio: t.data_inicio,
       programaModo: (t.sys_config as any)?.programa_modo ?? null,
-      membros: ids.length,
-      comResposta: nResposta,
-      comIa4: nIa4,
-      comTrilha: comTrilhaIds.length,
+      membros: ativos.length,
+      encerrados,
+      participantes: todos.length,
+      comResposta: doPeriodo.resposta,
+      comIa4: doPeriodo.ia4,
+      comTrilha: doPeriodo.trilha,
       semanas: [...porSemana.entries()].sort((a, b) => a[0] - b[0]).map(([semana, pessoas]) => ({ semana, pessoas })),
       proximaAcao: proximaAcaoDaTurma({
-        membros: ids.length, comResposta: nResposta, comIa4: nIa4, comTrilha: comTrilhaIds.length,
+        membros: ativos.length, encerrados,
+        comResposta: operacional.resposta, comIa4: operacional.ia4, comTrilha: operacional.trilha,
       }),
     };
   });
@@ -137,8 +182,10 @@ export async function levantarPortfolioTurmas(
  */
 export function proximaAcaoDaTurma(t: {
   membros: number; comResposta: number; comIa4: number; comTrilha: number;
+  /** Quem já passou por esta turma e seguiu adiante: turma sem ninguém ATIVO mas com histórico não está "vazia". */
+  encerrados?: number;
 }): string | null {
-  if (t.membros === 0) return 'turma vazia — atribua pessoas';
+  if (t.membros === 0) return (t.encerrados ?? 0) > 0 ? null : 'turma vazia — atribua pessoas';
 
   const prontosSemTrilha = Math.max(0, t.comIa4 - t.comTrilha);
   if (prontosSemTrilha > 0) return `gerar trilha para ${prontosSemTrilha} elegível(is)`;
