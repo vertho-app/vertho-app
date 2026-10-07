@@ -245,9 +245,11 @@ trilha nem conclui semanas. Vídeos prontos são reaproveitados sem geração de
 delay do fecho), 3,0 a 3,4 min. Os de antes eram de 3.1 e saíam com a voz variando entre cenas
 (F0 de 168 a 258 Hz na semana 3, queda de 4 dB na 1). Os nominais de S1 e S2 das outras
 seis personas moram só no banco (a linha de `videos_personalizados` que o reset restaura por
-e-mail); o da Marina nas três semanas vem da saudação sintetizada no **Vertex** (candidata 6,
-escolhida de ouvido pelo dono), porque a do AI Studio é um sorteio guardado por pessoa e saía
-em tom diferente do corpo. Marina: S3 está no roster; S1 e S2 também estão no banco e no
+e-mail). **Todas as sete personas têm a saudação em Vertex**, a mesma voz do corpo: a da Marina é a
+candidata 6, escolhida de ouvido pelo dono; as das outras seis foram geradas pelo próprio módulo de
+produção (`garantirSaudacoes` + `personalizar.mjs`, FMEA F-V9) e trocadas no banco em 07/10. A do
+AI Studio era um sorteio guardado por pessoa e saía em tom diferente do corpo; os nominais antigos
+seguem no Bunny para rollback (`rollback-6-personas.txt` em `Downloadsstaging-escolas-backup`). Marina: S3 está no roster; S1 e S2 também estão no banco e no
 pacote offline (`media/semana-1-video.mp4` e `media/semana-2-video.mp4`, `play_720p` do
 nominal em `conteudos/demo-offline/escolas/<sha256>.mp4`).
 
