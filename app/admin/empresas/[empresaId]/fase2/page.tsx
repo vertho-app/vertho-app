@@ -362,7 +362,7 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   const pctCenarios = cenariosEsperados > 0 ? Math.round((cenariosRespondidos / cenariosEsperados) * 100) : 0;
   const gruposFaltam = [
     { chave: 'canAnswer', lista: prog.podemResponder, chip: 'bg-amber-400/10 text-amber-300 border-amber-400/20' },
-    { chave: 'needsProfile', lista: prog.faltaPerfil, chip: 'bg-white/[0.04] text-gray-300 border-white/10' },
+    { chave: 'needsProfile', lista: prog.semPerfil, chip: 'bg-white/[0.04] text-gray-300 border-white/10' },
     { chave: 'noCompetencies', lista: prog.semCompetencias, chip: 'bg-white/[0.04] text-gray-400 border-white/10' },
   ].filter((g) => g.lista.length > 0);
 
@@ -439,16 +439,31 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
               </div>
             </div>
           </div>
-          {faltam.length > 0 ? (
+          {/* O aviso de Perfil não depende de a pessoa ter respondido cenário: é a
+              mesma contagem da tela de Perfis comportamentais. Por isso aparece
+              também quando todos já responderam. */}
+          {faltam.length > 0 || prog.semPerfil.length > 0 ? (
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-              <button onClick={() => setShowFaltam(v => !v)}
-                className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition-colors">
-                <AlertTriangle size={11} />
-                {tr('diagProgress.missingCount', { count: faltam.length })}
-                <ChevronDown size={12} className={`transition-transform ${showFaltam ? 'rotate-180' : ''}`} />
-              </button>
-              {prog.faltaPerfil.length > 0 && (
-                <span className="text-[11px] text-gray-500">{tr('diagProgress.needsProfileCount', { count: prog.faltaPerfil.length })}</span>
+              {faltam.length > 0 ? (
+                <button onClick={() => setShowFaltam(v => !v)}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition-colors">
+                  <AlertTriangle size={11} />
+                  {tr('diagProgress.missingCount', { count: faltam.length })}
+                  <ChevronDown size={12} className={`transition-transform ${showFaltam ? 'rotate-180' : ''}`} />
+                </button>
+              ) : (
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-green-400">
+                  <CheckCircle size={11} /> {tr('diagProgress.allDone')}
+                </span>
+              )}
+              {prog.semPerfil.length > 0 && (
+                <button onClick={() => setShowFaltam(v => !v)}
+                  className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors">
+                  {tr('diagProgress.needsProfileCount', { count: prog.semPerfil.length })}
+                  {faltam.length === 0 && (
+                    <ChevronDown size={12} className={`transition-transform ${showFaltam ? 'rotate-180' : ''}`} />
+                  )}
+                </button>
               )}
             </div>
           ) : (

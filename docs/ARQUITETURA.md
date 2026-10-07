@@ -861,7 +861,10 @@ O painel admin da Fase 2 lê o MESMO `canAccessDiagnosticoNaOrdem` para separar 
 ("Falta o Perfil comportamental") de quem já pode responder (`lib/diagnostico-progresso.ts`). Antes, o roster do card
 cortava quem não tinha DISC e essa pessoa sumia do total e da lista de quem falta, justo a que o RH precisa cobrar
 primeiro (Bowling, 02/10/2026: "1 de 13" com 14 pessoas). Denominador filtrado pelo pré-requisito esconde quem está
-travado no pré-requisito.
+travado no pré-requisito. O aviso "sem Perfil comportamental" e a lista de nomes usam `semPerfil`, que NÃO filtra por
+resposta de cenário (07/10/2026, 4Life: a tela de Perfis dizia 4 e o card dizia 2, porque 2 já tinham respondido um
+cenário em 28/09, antes da trava): é a mesma pergunta ("tem perfil?") das duas telas. `faltaPerfil` segue só com quem
+ainda não respondeu, para o "ainda não responderam" fechar a conta.
 
 **Preferências de aprendizagem (01/10/2026):** o formulário (8 formatos, 1 a 5 estrelas) é a última etapa do
 mapeamento DISC e só era gravado junto dele (`salvarPerfilComportamental`). Quem tem fonte externa nunca passava

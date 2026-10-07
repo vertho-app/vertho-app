@@ -14,7 +14,7 @@
  *   tela dizia "1 de 13" sem citar a 14ª.
  *
  * Os grupos são disjuntos e somam `total`: respondeu → cargo sem competências →
- * falta o Perfil → pode responder.
+ * falta o Perfil → pode responder. `semPerfil` é a exceção, um recorte à parte.
  */
 import { progressoMapeamentoPorPessoa, type CargoMapeamento } from '@/lib/mapeamento-competencias';
 import { canAccessDiagnosticoNaOrdem } from '@/lib/access-gates/diagnostico-ordem';
@@ -41,6 +41,14 @@ export type ProgressoDiagnostico = {
   faltaPerfil: PessoaDiagnostico[];
   /** Cargo sem Top 5: não há cenário para responder, fica fora da conta de cenários. */
   semCompetencias: PessoaDiagnostico[];
+  /**
+   * Todo mundo sem o Perfil comportamental, tenha respondido cenário ou não e
+   * tenha o cargo Top 5 ou não. NÃO é disjunto dos outros grupos: é a mesma
+   * pergunta da tela de Perfis comportamentais ("tem perfil?"), para os dois
+   * números baterem. `faltaPerfil` segue sendo só o recorte de quem ainda não
+   * respondeu, que sustenta o "ainda não responderam".
+   */
+  semPerfil: PessoaDiagnostico[];
   cenarios: { respondidos: number; esperados: number };
 };
 
@@ -65,11 +73,17 @@ export function progressoDiagnostico(
     podemResponder: [],
     faltaPerfil: [],
     semCompetencias: [],
+    semPerfil: [],
     cenarios: { respondidos: 0, esperados: 0 },
   };
 
   for (const pessoa of pessoas || []) {
     out.total++;
+    // Sem o filtro de resposta: quem respondeu um cenário antes da trava de
+    // 02/10 (4Life: 2 pessoas) continua sem Perfil e o RH precisa cobrar.
+    if (!canAccessDiagnosticoNaOrdem({ perfil_externo_fonte: perfilExternoFonte }, pessoa, false).allowed) {
+      out.semPerfil.push(pessoa);
+    }
     const { feitas, total } = porPessoa.get(pessoa.id) || { feitas: 0, total: 0 };
     out.cenarios.esperados += total;
     out.cenarios.respondidos += feitas;

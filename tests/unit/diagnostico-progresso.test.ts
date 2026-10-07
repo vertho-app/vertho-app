@@ -59,6 +59,36 @@ describe('progresso do Diagnóstico no painel da Fase 2', () => {
     expect(p.faltaPerfil).toHaveLength(0);
   });
 
+  it('semPerfil NÃO filtra por resposta de cenário: a forma da 4Life em 07/10/2026 (4 sem Perfil, 2 já responderam)', () => {
+    const cargos = [{ nome: 'Prof', top5_workshop: SEIS }];
+    const pessoas = [
+      pessoa('ana', 'Prof', null),
+      pessoa('eduarda', 'Prof', null),
+      pessoa('kelly', 'Prof', null),
+      pessoa('priscilla', 'Prof', null),
+      ...Array.from({ length: 21 }, (_, i) => pessoa(`ok${i}`, 'Prof')),
+    ];
+    const respostas = [
+      { colaborador_id: 'ana', competencia_nome: 'Comunicação' },
+      { colaborador_id: 'priscilla', competencia_nome: 'Comunicação' },
+    ];
+    const p = progressoDiagnostico(pessoas, cargos, respostas, null);
+
+    expect(p.total).toBe(25);
+    // Mesma pergunta da tela de Perfis comportamentais: "4 pendentes".
+    expect(p.semPerfil.map((x) => x.id).sort()).toEqual(['ana', 'eduarda', 'kelly', 'priscilla']);
+    // O "ainda não responderam" não mudou: as 2 que já responderam seguem em "responderam".
+    expect(p.faltaPerfil.map((x) => x.id).sort()).toEqual(['eduarda', 'kelly']);
+    expect(p.responderam.map((x) => x.id)).toEqual(expect.arrayContaining(['ana', 'priscilla']));
+  });
+
+  it('semPerfil inclui quem tem cargo sem Top 5, e fica vazio com fonte externa de perfil', () => {
+    const cargos = [{ nome: 'Vazio', top5_workshop: [] }];
+    const pessoas = [pessoa('a', 'Vazio', null)];
+    expect(progressoDiagnostico(pessoas, cargos, [], null).semPerfil.map((x) => x.id)).toEqual(['a']);
+    expect(progressoDiagnostico(pessoas, cargos, [], 'opq32').semPerfil).toHaveLength(0);
+  });
+
   it('cargo sem Top 5 não entra na conta de cenários nem passa por "falta o Perfil"', () => {
     const cargos = [{ nome: 'Loja', top5_workshop: SEIS }, { nome: 'Vazio', top5_workshop: [] }];
     const p = progressoDiagnostico([pessoa('a', 'Vazio', null), pessoa('b', 'Sem cadastro'), pessoa('c', 'Loja')], cargos, [], null);
