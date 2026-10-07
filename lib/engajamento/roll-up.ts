@@ -23,6 +23,8 @@ import { formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { PROGRESSO } from '@/lib/status';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { derivarPosicaoJornada } from '@/lib/engajamento/posicao-jornada';
+import { aplicarEscopoDeTurma } from '@/lib/engajamento/escopo-turma';
+import type { EscopoDeLeitura } from '@/lib/turmas/escopo-leitura';
 import {
   contagemVazia, normalizarQualidade, qualidadeMaisRecente, type QualidadeEvidencia,
 } from '@/lib/engajamento/qualidade-evidencia';
@@ -75,6 +77,12 @@ export async function rollUpEngajamento(
   semana?: number | null,
   colaboradorIds?: string[] | null,
   cargo?: string | null,
+  /**
+   * Escopo de TURMA (`lib/turmas/escopo-leitura.ts`). Ausente = como sempre foi
+   * (a trilha mais recente de cada pessoa). Presente = a população é a da turma e
+   * cada pessoa é medida na trilha DA PARTICIPAÇÃO nela (`lib/engajamento/escopo-turma.ts`).
+   */
+  escopoTurma?: EscopoDeLeitura | null,
 ) {
   if (!empresaId) return { resumo: null, colaboradores: [], semanas: [] };
   // tenantDb embute o empresa_id no WHERE — o escopo deixa de depender de
@@ -84,7 +92,12 @@ export async function rollUpEngajamento(
 
   // 1) População = inscritos na cadência. Traz as prefs p/ derivar o formato PRINCIPAL
   //    de cada colab (o denominador das métricas por formato).
-  const recorte = Array.isArray(colaboradorIds) ? colaboradorIds : null;
+  // A turma é um recorte como o do gestor; se vierem os dois (equipe dentro da turma),
+  // vale a interseção. Turma sem ninguém = ninguém (fail-closed), nunca a empresa toda.
+  const recorteBase = Array.isArray(colaboradorIds) ? colaboradorIds : null;
+  const recorte = escopoTurma
+    ? (recorteBase ? recorteBase.filter((id) => escopoTurma.participacaoPorColab.has(id)) : escopoTurma.colaboradorIds)
+    : recorteBase;
   // Recorte fail-closed: lista VAZIA nao vira 'empresa toda'. Um gestor sem
   // liderados tem que ver zero, nunca o tenant inteiro.
   if (recorte && recorte.length === 0) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: [1] };
@@ -99,7 +112,25 @@ export async function rollUpEngajamento(
     // cadencia" para uma consulta que nem chegou a responder.
     return { resumo: { inscritos: 0, erro: enviosRes.error.message }, colaboradores: [], semanas: [1] };
   }
-  const enviosTodos = enviosRes.data;
+  let enviosTodos = enviosRes.data;
+  // Com turma: cada pessoa é medida na trilha da participação dela, não na mais recente.
+  let trilhaDaTurmaPorColab: Map<string, any> | null = null;
+  let jornadaSeguinte = 0;
+  if (escopoTurma && enviosTodos?.length) {
+    const idsDaCadencia = [...new Set((enviosTodos as any[]).map((e) => e.colaborador_id).filter(Boolean))];
+    const trilhasDaTurma = await tdb.from('trilhas')
+      .select('id, colaborador_id, numero_temporada, temporada_plano, data_inicio, turma_membro_id, criado_em')
+      .in('colaborador_id', idsDaCadencia)
+      .order('numero_temporada', { ascending: false });
+    if (trilhasDaTurma.error) {
+      console.error('[engajamento] turma — trilhas:', trilhasDaTurma.error.message);
+      return { resumo: { inscritos: 0, erro: trilhasDaTurma.error.message }, colaboradores: [], semanas: [1] };
+    }
+    const escopado = aplicarEscopoDeTurma({ envios: enviosTodos as any[], trilhas: (trilhasDaTurma.data || []) as any[], escopo: escopoTurma });
+    enviosTodos = escopado.envios;
+    trilhaDaTurmaPorColab = escopado.trilhaPorColab;
+    jornadaSeguinte = escopado.comJornadaSeguinte;
+  }
   if (!enviosTodos?.length) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: [1], cargos: [] };
 
   /**
@@ -133,7 +164,10 @@ export async function rollUpEngajamento(
     .filter(Boolean))];
   const trilhaPorColab = new Map<string, any>();
   let trilhasConfiaveis = colaboradorIdsDaPopulacao.length > 0;
-  if (colaboradorIdsDaPopulacao.length) {
+  if (trilhaDaTurmaPorColab) {
+    // A trilha já foi escolhida pela participação (acima): não se relê "a mais recente".
+    for (const [colab, trilha] of trilhaDaTurmaPorColab) trilhaPorColab.set(colab, trilha);
+  } else if (colaboradorIdsDaPopulacao.length) {
     const trilhasRes = await tdb.from('trilhas')
       .select('id, colaborador_id, numero_temporada, temporada_plano, data_inicio')
       .in('colaborador_id', colaboradorIdsDaPopulacao)
@@ -255,9 +289,13 @@ export async function rollUpEngajamento(
       && Number(evento.semana) === semanaDosSinais
     ));
     const inicioTrilha = trilhaAtual?.data_inicio ? new Date(trilhaAtual.data_inicio).getTime() : null;
+    // `videos_watched` não tem `trilha_id`: com turma, o play também tem que ser anterior
+    // ao fim da janela da participação (a jornada seguinte da pessoa não conta aqui).
+    const fimDaJanela = escopoTurma?.participacaoPorColab.get(e.colaborador_id)?.janela.ate ?? null;
     const vids = (vidPorColab[e.colaborador_id] || []).filter((video) => (
       Number(video.semana) === semanaDosSinais
       && (inicioTrilha == null || !video.created_at || new Date(video.created_at).getTime() >= inicioTrilha)
+      && (fimDaJanela == null || !video.created_at || new Date(video.created_at).getTime() < fimDaJanela)
     ));
     const progressoDaEtapa = (progressoJornadaPorColab.get(e.colaborador_id) || [])
       .filter((p) => Number(p.semana) === semanaDosSinais);
@@ -420,6 +458,9 @@ export async function rollUpEngajamento(
   const resumo = {
     inscritos: colaboradores.length,
     semanaFiltro: semFiltro,
+    // Só com turma: quantas pessoas dela já seguiram para a jornada seguinte (a cadência
+    // delas é de outra turma e entra aqui sem relógio nem carimbo de envio).
+    ...(escopoTurma ? { turma: { id: escopoTurma.turmaId, nome: escopoTurma.turmaNome, jornadaSeguinte } } : {}),
     abriramLink: colaboradores.filter((c) => c.abriuLink).length,
     abriramAlgumFormato: colaboradores.filter((c) => c.formatosAbertos.length > 0).length,
     terminaramVideo: colaboradores.filter((c) => c.terminouVideo).length,

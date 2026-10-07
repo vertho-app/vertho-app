@@ -1,8 +1,7 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { carregarPanoramaRH } from '@/lib/home/loaders';
 import { isInternalEmail } from '@/lib/internal-emails';
-import { listarTurmasDoTenant } from '@/lib/turmas';
-import { resolverEscopoDeLote } from '@/lib/turmas/escopo';
+import { listarTurmasParaFiltro, resolverEscopoDeLeitura, type EscopoDeLeitura } from '@/lib/turmas/escopo-leitura';
 
 export type RecorteAndamento = 'empresa' | 'cargo' | 'turma';
 
@@ -76,6 +75,7 @@ export async function carregarAndamentoEmpresas(por: RecorteAndamento = 'empresa
       .filter((p) => !isInternalEmail(p.email));
 
     const porRotulo = new Map<string, string[]>();
+    const escopoPorRotulo = new Map<string, EscopoDeLeitura>();
     const separar = (rotulo: string, id: string) => {
       const ids = porRotulo.get(rotulo) || [];
       ids.push(id);
@@ -85,23 +85,28 @@ export async function carregarAndamentoEmpresas(por: RecorteAndamento = 'empresa
     if (por === 'cargo') {
       for (const p of pessoas) separar(p.cargo?.trim() || 'Sem cargo', p.id);
     } else {
-      const turmas = await listarTurmasDoTenant(sb, e.id);
+      // Turma = quem está nela E quem já passou por ela. Só os ativos faziam a turma que
+      // passou todo mundo adiante sumir daqui, e o panorama por pessoa fazia a turma nova
+      // herdar a jornada da antiga: o escopo de leitura resolve os dois (07/10/2026).
+      const turmas = await listarTurmasParaFiltro(sb, e.id);
       const emTurma = new Set<string>();
       for (const t of turmas) {
-        const escopo = await resolverEscopoDeLote(sb, e.id, { tipo: 'turma', turmaId: t.id });
+        const escopo = await resolverEscopoDeLeitura(sb, e.id, t.id);
         const nela = new Set(escopo.colaboradorIds);
+        const rotulo = t.ativos === 0 ? `${t.nome} (encerrada)` : t.nome;
         for (const p of pessoas) {
           if (!nela.has(p.id)) continue;
-          separar(t.nome, p.id);
+          separar(rotulo, p.id);
           emTurma.add(p.id);
         }
+        escopoPorRotulo.set(rotulo, escopo);
       }
       for (const p of pessoas) if (!emTurma.has(p.id)) separar('Sem turma', p.id);
     }
 
     const grupos = await Promise.all([...porRotulo].map(async ([rotulo, ids]): Promise<AndamentoGrupo> => ({
       rotulo,
-      ...linhaDe(await carregarPanoramaRH(e.id, { colaboradorIds: ids })),
+      ...linhaDe(await carregarPanoramaRH(e.id, { colaboradorIds: ids, escopoTurma: escopoPorRotulo.get(rotulo) ?? null })),
     })));
     grupos.sort((a, b) => b.pessoas - a.pessoas);
     return { id: e.id, nome: e.nome, ...base, grupos };

@@ -19,6 +19,8 @@ import { blocoEstaOffline } from '@/lib/blocos-offline';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
 import { INTERNAL_EMAIL_DOMAINS, isInternalEmail } from '@/lib/internal-emails';
 import { escaparLike } from '@/lib/sql-like';
+import { trilhaDaParticipacao } from '@/lib/turmas/janela';
+import type { EscopoDeLeitura } from '@/lib/turmas/escopo-leitura';
 
 /**
  * Loaders da home do dashboard — queries PURAS, sem 'use server' e sem auth
@@ -767,7 +769,17 @@ export function intercalarPorFormato<T extends { formato?: string | null }>(iten
  */
 export async function carregarPanoramaRH(
   empresaId: string,
-  opts: { colaboradorIds?: string[] | null } = {},
+  opts: {
+    colaboradorIds?: string[] | null;
+    /**
+     * Escopo de LEITURA de uma turma (`lib/turmas/escopo-leitura.ts`). Com ele, a população é
+     * a da turma (quem está e quem já passou por ela) e a jornada de cada pessoa é a trilha DA
+     * PARTICIPAÇÃO, não "qualquer trilha da pessoa": a Temporada 2 não herda a trilha ativa da
+     * Turma 1 e a Turma 1 não some quando as pessoas seguem adiante. Perfil e mapeamento
+     * continuam da PESSOA (o DISC acompanha quem muda de turma).
+     */
+    escopoTurma?: EscopoDeLeitura | null;
+  } = {},
 ) {
   // `tenantDb` e não `createSupabaseAdmin`: os três números são de UMA empresa,
   // e o wrapper injeta o `empresa_id` em toda cadeia. `empresas` é a própria
@@ -785,6 +797,10 @@ export async function carregarPanoramaRH(
   // que transformaria tenant grande em amostra silenciosa. `Medido em 31/08`:
   // `.in()` com 3.000 uuids responde normalmente neste projeto.
   let ids = opts.colaboradorIds ?? null;
+  const escopoTurma = opts.escopoTurma ?? null;
+  // Com turma, a lista de pessoas é a da turma (interseção com a equipe, se vier os dois);
+  // turma vazia = ninguém, nunca a empresa toda.
+  if (escopoTurma) ids = ids ? ids.filter((id) => escopoTurma.participacaoPorColab.has(id)) : escopoTurma.colaboradorIds;
   // Contas da EQUIPE Vertho (`@vertho.ai`, fora as personas `.demo@`): a regra de
   // `lib/internal-emails.ts` as tira de TODA estatística agregada, e este painel
   // nunca aplicou. Medido 06/10/2026 na 4Life: a tela de Andamento dizia 27
@@ -830,7 +846,10 @@ export async function carregarPanoramaRH(
     }
   }
 
-  const [pessoasRes, participantesRes, comPerfilRes, trilhasRes, encerradasRes, assessRes, cargosRes] = await Promise.all([
+  // Sem turma, a jornada é "qualquer trilha da pessoa" (como sempre foi). Com turma, as trilhas
+  // vêm de uma leitura única e cada pessoa é medida na trilha da PARTICIPAÇÃO (abaixo).
+  const semConsulta = { data: [] as any[], error: null as any };
+  const [pessoasRes, participantesRes, comPerfilRes, trilhasPessoaRes, encerradasPessoaRes, assessRes, cargosRes, trilhasTurmaRes] = await Promise.all([
     recortar(tdb.from('colaboradores')
       .select('id', { count: 'exact', head: true })
       .neq('role', 'rh'), 'id'),
@@ -853,20 +872,47 @@ export async function carregarPanoramaRH(
           .select('id', { count: 'exact', head: true })
           .neq('role', 'rh')
           .or('perfil_dominante.not.is.null,perfil_externo_dados.not.is.null'), 'id'),
-    recortar(tdb.from('trilhas')
+    escopoTurma ? semConsulta : recortar(tdb.from('trilhas')
       .select('id, colaborador_id, data_inicio, temporada_plano, programa_modo, programa_config')
       .eq('status', TRILHA.ATIVA), 'colaborador_id'),
     // Jornadas ENCERRADAS: é o que libera a tela de evolução. O veredito
     // (confirmada · parcial · estagnação · regressão) nasce no fechamento, então
     // antes da primeira conclusão aquela tela é seis KPIs zerados — e um atalho
     // para ela é um convite para o vazio.
-    lerPaginas((inicio, fim) => recortar(tdb.from('trilhas')
+    escopoTurma ? semConsulta : lerPaginas((inicio, fim) => recortar(tdb.from('trilhas')
       .select('colaborador_id').eq('status', TRILHA.CONCLUIDA).order('id').range(inicio, fim), 'colaborador_id')),
     // O Top 5 exige todas as páginas: as demos com simuladores passam de
     // mil descritores. Truncar a consulta transforma completos em pendentes.
     lerPaginas((inicio, fim) => recortar(tdb.from('descriptor_assessments').select('colaborador_id, competencia').order('id').range(inicio, fim), 'colaborador_id')),
     tdb.from('cargos_empresa').select('nome, top5_workshop'),
+    escopoTurma
+      ? lerPaginas((inicio, fim) => recortar(tdb.from('trilhas')
+        .select('id, colaborador_id, data_inicio, temporada_plano, programa_modo, programa_config, status, turma_membro_id, criado_em')
+        .in('status', [TRILHA.ATIVA, TRILHA.CONCLUIDA]).order('id').range(inicio, fim), 'colaborador_id'))
+      : semConsulta,
   ]);
+
+  // Com turma: cada pessoa na trilha da participação dela; ativa vira "em jornada", concluída vira "encerrada".
+  let trilhasRes: { data: any[]; error: any } = trilhasPessoaRes as any;
+  let encerradasRes: { data: any[]; error: any } = encerradasPessoaRes as any;
+  if (escopoTurma) {
+    const porPessoa = new Map<string, any[]>();
+    for (const t of (trilhasTurmaRes.data || []) as any[]) {
+      const lista = porPessoa.get(t.colaborador_id) || [];
+      lista.push(t);
+      porPessoa.set(t.colaborador_id, lista);
+    }
+    const ativas: any[] = [];
+    const concluidas: any[] = [];
+    for (const [colab, p] of escopoTurma.participacaoPorColab) {
+      const alvo = trilhaDaParticipacao(p.id, p.janela, porPessoa.get(colab) || []);
+      if (!alvo) continue;
+      if (alvo.status === TRILHA.ATIVA) ativas.push(alvo);
+      else if (alvo.status === TRILHA.CONCLUIDA) concluidas.push(alvo);
+    }
+    trilhasRes = { data: ativas, error: trilhasTurmaRes.error };
+    encerradasRes = { data: concluidas, error: null };   // uma leitura só: o erro dela vive em `trilhasRes`
+  }
 
   const erro = empresaRes.error || elencoErro || internosErro || pessoasRes.error || participantesRes.error || comPerfilRes.error || trilhasRes.error
     || assessRes.error || cargosRes.error || encerradasRes.error;

@@ -9,6 +9,7 @@ import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
 import { type TurmaDoTenant } from '@/lib/turmas';
 import { resolverRecorteDeTurma } from '@/lib/relatorios/recorte-turma';
+import { resolverEscopoDeLeitura } from '@/lib/turmas/escopo-leitura';
 import { tipoRelatorioForaDoAr } from '@/lib/relatorios/tipos-pulso';
 import {
   normalizeRhDescriptorAnalysis,
@@ -172,10 +173,13 @@ export async function carregarCentralRelatoriosRH(
     .select('id', { count: 'exact', head: true })
     .neq('role', 'rh');
   const idsNoEscopo = colaboradorIds ? new Set(colaboradorIds) : null;
+  // Com turma escolhida, a jornada de cada pessoa no panorama é a trilha DA PARTICIPAÇÃO nela
+  // (07/10/2026): sem isto, a turma nova herdava a trilha ativa da antiga.
+  const escopoTurma = turmaEscolhida ? await resolverEscopoDeLeitura(tdb.raw, empresaId, turmaEscolhida.id) : null;
 
   const [gerenciais, panorama, evolucao, reportsResult, insightResult, descriptorResult] = await Promise.all([
     carregarRelatoriosGerenciais(empresaId),
-    carregarPanoramaRH(empresaId, { colaboradorIds }),
+    carregarPanoramaRH(empresaId, { colaboradorIds, escopoTurma }),
     carregarEvolucaoRH(empresaId, { colaboradorIds }),
     tdb.from('relatorios')
       .select('id,colaborador_id,tipo,gerado_em')

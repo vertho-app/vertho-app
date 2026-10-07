@@ -28,13 +28,23 @@ const sb = criarSupabaseMock({
   },
 });
 
-const chamadasPanorama: Array<{ empresaId: string; ids: string[] | null }> = [];
+const chamadasPanorama: Array<{ empresaId: string; ids: string[] | null; turma: string | null }> = [];
+
+// Turmas do tenant (ativas E encerradas) e o escopo de leitura de cada uma; os testes de "por turma" trocam.
+let TURMAS: any[] = [];
+let ESCOPOS: Record<string, string[]> = {};
 
 vi.mock('@/lib/admin-supabase', () => ({ requireAdminSupabase: async () => sb.client }));
+vi.mock('@/lib/turmas/escopo-leitura', () => ({
+  listarTurmasParaFiltro: async () => TURMAS,
+  resolverEscopoDeLeitura: async (_sb: unknown, _empresaId: string, turmaId: string) => ({
+    turmaId, turmaNome: turmaId, turmaStatus: 'x', colaboradorIds: ESCOPOS[turmaId] || [], participacaoPorColab: new Map(),
+  }),
+}));
 vi.mock('@/lib/home/loaders', () => ({
-  carregarPanoramaRH: async (empresaId: string, opts: { colaboradorIds?: string[] | null } = {}) => {
+  carregarPanoramaRH: async (empresaId: string, opts: { colaboradorIds?: string[] | null; escopoTurma?: { turmaId: string } | null } = {}) => {
     const ids = opts.colaboradorIds ?? null;
-    chamadasPanorama.push({ empresaId, ids });
+    chamadasPanorama.push({ empresaId, ids, turma: opts.escopoTurma?.turmaId ?? null });
     return {
       pessoas: ids ? ids.length : 3,
       comPerfil: 0,
@@ -45,13 +55,10 @@ vi.mock('@/lib/home/loaders', () => ({
     };
   },
 }));
-vi.mock('@/lib/turmas', () => ({ listarTurmasDoTenant: async () => [] }));
-vi.mock('@/lib/turmas/escopo', () => ({ resolverEscopoDeLote: async () => ({ colaboradorIds: [] }) }));
-
 import { carregarAndamentoEmpresas } from '@/lib/admin/andamento-empresas';
 
 describe('andamento da base: equipe Vertho fora do agrupamento', () => {
-  beforeEach(() => { sb.reset(); chamadasPanorama.length = 0; });
+  beforeEach(() => { sb.reset(); chamadasPanorama.length = 0; TURMAS = []; ESCOPOS = {}; });
 
   it('por cargo, o grupo recebe só os ids de quem NÃO é da equipe', async () => {
     const [empresa] = await carregarAndamentoEmpresas('cargo');
@@ -68,5 +75,48 @@ describe('andamento da base: equipe Vertho fora do agrupamento', () => {
     // 'Coordenação' tem a equipe (d) e uma persona demo (e): sobra 1, não 0.
     expect(empresa.grupos.find((g) => g.rotulo === 'Coordenação')?.pessoas).toBe(1);
     expect(empresa.grupos.every((g) => g.pessoas > 0)).toBe(true);
+  });
+});
+
+describe('andamento da base: recorte por TURMA (07/10/2026)', () => {
+  beforeEach(() => {
+    sb.reset(); chamadasPanorama.length = 0;
+    // Ibipeba em miniatura: a Turma 1 passou todo mundo para a Temporada 2 (0 ativos, 2 encerrados).
+    TURMAS = [
+      { id: 'T1', nome: 'Turma 1', status: 'em_jornada', ativos: 0, encerrados: 2, encerrada: false },
+      { id: 'T2', nome: 'Temporada 2', status: 'diagnostico', ativos: 2, encerrados: 0, encerrada: false },
+    ];
+    // O escopo inclui a conta da equipe (c) de propósito: ela tem que ficar de fora do grupo.
+    ESCOPOS = { T1: ['a', 'b', 'c'], T2: ['a', 'b', 'c'] };
+  });
+
+  it('a turma que passou todo mundo adiante continua como grupo "(encerrada)", com os números do período', async () => {
+    const [empresa] = await carregarAndamentoEmpresas('turma');
+    const porRotulo = new Map(empresa.grupos.map((g) => [g.rotulo, g.pessoas]));
+    expect(porRotulo.get('Turma 1 (encerrada)')).toBe(2);
+    expect(porRotulo.get('Temporada 2')).toBe(2);
+    expect(porRotulo.has('Turma 1')).toBe(false);
+  });
+
+  it('cada grupo chama o panorama com o escopo da PRÓPRIA turma (a nova não herda a jornada da antiga)', async () => {
+    await carregarAndamentoEmpresas('turma');
+    const turmasChamadas = chamadasPanorama.filter((c) => c.ids && c.turma).map((c) => c.turma).sort();
+    expect(turmasChamadas).toEqual(['T1', 'T2']);
+    // O grupo "Sem turma" (a persona demo, que não está em nenhuma) não carrega escopo de turma.
+    expect(chamadasPanorama.filter((c) => c.ids && !c.turma)).toHaveLength(1);
+  });
+
+  it('a equipe Vertho continua fora do grupo da turma', async () => {
+    await carregarAndamentoEmpresas('turma');
+    const ids = chamadasPanorama.filter((c) => c.ids).flatMap((c) => c.ids as string[]);
+    expect(ids).not.toContain('c');
+  });
+
+  it('quem não está em nenhuma turma vai para "Sem turma"', async () => {
+    ESCOPOS = { T1: ['a'], T2: ['a'] };
+    const [empresa] = await carregarAndamentoEmpresas('turma');
+    const semTurma = empresa.grupos.find((g) => g.rotulo === 'Sem turma');
+    // b (real) e e (persona demo): c e d são da equipe e não entram em grupo nenhum.
+    expect(semTurma?.pessoas).toBe(2);
   });
 });

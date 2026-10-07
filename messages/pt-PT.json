@@ -812,6 +812,9 @@
       "titlePrefix": "O panorama da",
       "fallbackCompany": "sua empresa",
       "overview": "Panorama",
+      "turmaAria": "Ver o panorama de uma turma",
+      "allTurmas": "Todas as turmas",
+      "turmaEnded": "{name} (encerrada)",
       "people": "Pessoas",
       "withProfile": "Com perfil comportamental",
       "withMapping": "Com mapeamento de competências",
@@ -1179,6 +1182,10 @@
       "weekOption": "Semana {week}",
       "roleAria": "Filtrar métricas por função",
       "allRoles": "Todas as funções",
+      "turmaAria": "Filtrar métricas por turma",
+      "allTurmas": "Todas as turmas",
+      "turmaEnded": "{name} (encerrada)",
+      "turmaNextJourney": "{count, plural, one {# pessoa desta turma já seguiu para a jornada seguinte: o envio dela aparece sem registo aqui, porque a cadência atual é de outra turma.} other {# pessoas desta turma já seguiram para a jornada seguinte: o envio delas aparece sem registo aqui, porque a cadência atual é de outra turma.}}",
       "refresh": "Atualizar"
     },
     "noCompany": {

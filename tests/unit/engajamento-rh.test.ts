@@ -2,13 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { engagementLinks } from '@/lib/engajamento/surface';
 import { engagementDetailHref } from '@/lib/engajamento/prioridades';
 
-const mock = vi.hoisted(() => ({ gate: vi.fn(), rollup: vi.fn(), evolution: vi.fn(), coordinator: vi.fn(), tenant: vi.fn() }));
+const mock = vi.hoisted(() => ({
+  gate: vi.fn(), rollup: vi.fn(), evolution: vi.fn(), coordinator: vi.fn(), tenant: vi.fn(),
+  resolver: vi.fn(), listar: vi.fn(),
+}));
 vi.mock('@/lib/auth/action-context', () => ({ requireRoleAction: mock.gate }));
 vi.mock('@/lib/tenant-db', () => ({ tenantDb: mock.tenant }));
 vi.mock('@/lib/engajamento/roll-up', () => ({ rollUpEngajamento: mock.rollup }));
 vi.mock('@/lib/engajamento/evolucao', () => ({ carregarEvolucaoEngajamento: mock.evolution }));
 vi.mock('@/lib/engajamento/coordenadores', () => ({ anexarCoordenador: mock.coordinator }));
-import { getEngajamentoRh, getEvolucaoEngajamentoRh } from '@/actions/engajamento-rh';
+vi.mock('@/lib/turmas/escopo-leitura', () => ({ resolverEscopoDeLeitura: mock.resolver, listarTurmasParaFiltro: mock.listar }));
+import { getEngajamentoRh, getEvolucaoEngajamentoRh, listarTurmasEngajamentoRh } from '@/actions/engajamento-rh';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -23,12 +27,14 @@ describe('RH: painel e evolução da própria empresa', () => {
   it('usa a empresa da sessão e mantém os eixos de semana, função e coordenação', async () => {
     const result = await getEngajamentoRh(5, 'Professor');
     expect(mock.gate).toHaveBeenCalledWith(['rh', 'admin']);
-    expect(mock.rollup).toHaveBeenCalledWith('empresa-da-sessao', 5, null, 'Professor');
+    // Sem turma escolhida, o quinto argumento (escopo de turma) é null: a empresa inteira, como sempre foi.
+    expect(mock.rollup).toHaveBeenCalledWith('empresa-da-sessao', 5, null, 'Professor', null);
     expect(mock.coordinator).toHaveBeenCalledWith({}, 'empresa-da-sessao', [{ colaboradorId: 'p1', nome: 'Ana' }]);
     expect(result.colaboradores[0].coordenadorNome).toBe('Carla');
     expect(result.coordenacaoDisponivel).toBe(true);
     await getEvolucaoEngajamentoRh('Operações');
-    expect(mock.evolution).toHaveBeenCalledWith('empresa-da-sessao', 'Operações');
+    expect(mock.evolution).toHaveBeenCalledWith('empresa-da-sessao', 'Operações', null);
+    expect(mock.resolver).not.toHaveBeenCalled();
   });
 
   it('uma nova sessão muda o recorte da evolução sem aceitar empresa do navegador', async () => {
@@ -36,8 +42,34 @@ describe('RH: painel e evolução da própria empresa', () => {
     mock.gate.mockResolvedValue({ role: 'rh', empresaId: 'outra-sessao', isPlatformAdmin: false });
     await getEvolucaoEngajamentoRh('empresa-forjada-no-filtro');
     expect(mock.evolution.mock.calls).toEqual([
-      ['empresa-da-sessao', undefined], ['outra-sessao', 'empresa-forjada-no-filtro'],
+      ['empresa-da-sessao', undefined, null], ['outra-sessao', 'empresa-forjada-no-filtro', null],
     ]);
+  });
+
+  it('a turma vem do cliente, mas é resolvida contra a empresa da SESSÃO; turma alheia derruba a leitura', async () => {
+    mock.tenant.mockReturnValue({ raw: 'leitor-da-sessao' });
+    mock.resolver.mockResolvedValue({ turmaId: 'T1' });
+    await getEngajamentoRh(null, null, 'T1');
+    expect(mock.resolver).toHaveBeenCalledWith('leitor-da-sessao', 'empresa-da-sessao', 'T1');
+    expect(mock.rollup).toHaveBeenCalledWith('empresa-da-sessao', null, null, null, { turmaId: 'T1' });
+    await getEvolucaoEngajamentoRh(null, 'T1');
+    expect(mock.evolution).toHaveBeenCalledWith('empresa-da-sessao', null, { turmaId: 'T1' });
+
+    // Turma de OUTRA empresa: o resolvedor recusa (filtra por empresa_id) e NADA é lido.
+    mock.rollup.mockClear();
+    mock.evolution.mockClear();
+    mock.resolver.mockRejectedValue(new Error('Turma não encontrada nesta empresa'));
+    await expect(getEngajamentoRh(null, null, 'T-DE-OUTRA')).rejects.toThrow('Turma não encontrada');
+    await expect(getEvolucaoEngajamentoRh(null, 'T-DE-OUTRA')).rejects.toThrow('Turma não encontrada');
+    expect(mock.rollup).not.toHaveBeenCalled();
+    expect(mock.evolution).not.toHaveBeenCalled();
+  });
+
+  it('a lista de turmas do seletor é a da empresa da sessão', async () => {
+    mock.tenant.mockReturnValue({ raw: 'leitor-da-sessao' });
+    mock.listar.mockResolvedValue([{ id: 'T1' }]);
+    await expect(listarTurmasEngajamentoRh()).resolves.toEqual([{ id: 'T1' }]);
+    expect(mock.listar).toHaveBeenCalledWith('leitor-da-sessao', 'empresa-da-sessao');
   });
 
   it.each(['UNAUTHORIZED', 'FORBIDDEN'])('interrompe os leitores se o gate retorna %s', async (error) => {

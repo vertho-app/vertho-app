@@ -812,6 +812,9 @@
       "titlePrefix": "The overview of",
       "fallbackCompany": "your company",
       "overview": "Overview",
+      "turmaAria": "View the overview of a cohort",
+      "allTurmas": "All cohorts",
+      "turmaEnded": "{name} (ended)",
       "people": "People",
       "withProfile": "With behavioral profile",
       "withMapping": "With competency mapping",
@@ -1179,6 +1182,10 @@
       "weekOption": "Week {week}",
       "roleAria": "Filter metrics by role",
       "allRoles": "All roles",
+      "turmaAria": "Filter metrics by cohort",
+      "allTurmas": "All cohorts",
+      "turmaEnded": "{name} (ended)",
+      "turmaNextJourney": "{count, plural, one {# person in this cohort has already moved on to the next journey: their sends show as unrecorded here, because the current cadence belongs to another cohort.} other {# people in this cohort have already moved on to the next journey: their sends show as unrecorded here, because the current cadence belongs to another cohort.}}",
       "refresh": "Refresh"
     },
     "noCompany": {

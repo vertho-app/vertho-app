@@ -35,7 +35,8 @@ import { EntregaDaEtapa, QualidadeEvidenciaResumo } from '@/components/engajamen
 import { useFormatadores } from '@/components/engajamento/use-formatadores';
 import { BLOCKER_META, blockerMeta, engagementBlocker, hasEngagementSignal, isEngagementBlocker, type EngagementBlocker } from '@/lib/engajamento/prioridades';
 import { dataDoMarcoDeAbertura, rotuloCargo } from '@/lib/engajamento/rotulos';
-import { engagementLinks, type EngagementPanelProps } from '@/lib/engajamento/surface';
+import { engagementLinks, type EngagementEvolutionLoader, type EngagementPanelProps } from '@/lib/engajamento/surface';
+import type { TurmaFiltro } from '@/lib/turmas/escopo-leitura';
 
 /**
  * Todo texto desta tela vem de `EngagementWorkspace` nos quatro idiomas (R-67):
@@ -632,7 +633,7 @@ export function Coordenacoes({ pessoas, abrir }: { pessoas: any[]; abrir: boolea
   </div>;
 }
 
-export default function EngagementPanel({ empresaId, empresaNome, surface, loadRollup, loadEvolution }: EngagementPanelProps) {
+export default function EngagementPanel({ empresaId, empresaNome, surface, loadRollup, loadEvolution, loadTurmas }: EngagementPanelProps) {
   const t = useTranslations('EngagementWorkspace');
   const locale = useLocale();
   const { num } = useFormatadores();
@@ -642,6 +643,9 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
   const [data, setData] = useState<any>(null);
   const [semanaSel, setSemanaSel] = useState<number | null>(null);
   const [cargoSel, setCargoSel] = useState<string>('');
+  // Turma: '' = a empresa inteira, como sempre foi. O seletor só aparece com 2+ turmas.
+  const [turmaSel, setTurmaSel] = useState<string>('');
+  const [turmas, setTurmas] = useState<TurmaFiltro[]>([]);
   const [posicaoSel, setPosicaoSel] = useState<number | null>(null);
   const [foco, setFoco] = useState<Foco>('todos');
   const [busca, setBusca] = useState('');
@@ -658,7 +662,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
     if (!empresaId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const result = await loadRollup(semanaSel, cargoSel || null);
+      const result = await loadRollup(semanaSel, cargoSel || null, turmaSel || null);
       if (currentRequest !== requestId.current) return;
       if (result.resumo && 'erro' in result.resumo && result.resumo.erro) throw new Error(String(result.resumo.erro));
       setData(result);
@@ -669,12 +673,38 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
     } finally {
       if (currentRequest === requestId.current) setLoading(false);
     }
-  }, [empresaId, semanaSel, cargoSel, loadRollup]);
+  }, [empresaId, semanaSel, cargoSel, turmaSel, loadRollup]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void carregar(); }, 0);
     return () => window.clearTimeout(timer);
   }, [carregar]);
+
+  // As turmas do seletor. Falhar aqui só esconde o seletor: a tela segue com a empresa inteira.
+  useEffect(() => {
+    if (!empresaId || !loadTurmas) { setTurmas([]); return undefined; }
+    let vivo = true;
+    loadTurmas().then((lista) => { if (vivo) setTurmas(lista || []); }).catch(() => { if (vivo) setTurmas([]); });
+    return () => { vivo = false; };
+  }, [empresaId, loadTurmas]);
+
+  // A evolução semanal usa a mesma turma da visão atual. A identidade da função muda com a
+  // turma, e é isso que faz o painel de evolução recarregar.
+  const loadEvolutionDaTurma = useCallback<EngagementEvolutionLoader>(
+    (area) => loadEvolution(area ?? null, turmaSel || null),
+    [loadEvolution, turmaSel],
+  );
+  // Trocar de turma troca de jornada: a semana, a função e as listas guardadas da turma
+  // anterior não valem (a lista de funções e de semanas só encolheria, e a pessoa ficaria presa).
+  const trocarTurma = (id: string) => {
+    setTurmaSel(id);
+    setSemanaSel(null);
+    setCargoSel('');
+    setSemanasDisponiveis([]);
+    setCargosDisponiveis([]);
+    setPosicaoSel(null);
+    setMotivoSel('');
+  };
 
   // Compatibilidade com links antigos: seleciona a aba e limpa o marcador da
   // URL. Depois disso, alternar abas não navega nem altera o endereço.
@@ -788,6 +818,32 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
           </Link>
         ) : null}
       />
+
+      {/* Turma: a pessoa que passou de uma turma para outra tem uma jornada em cada, e
+          cada turma enxerga a sua. Só aparece com 2+ turmas; empresa de uma turma só
+          segue como antes. Vale para a visão atual e para a evolução semanal. */}
+      {empresaId && turmas.length >= 2 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <select
+            aria-label={t('filters.turmaAria')}
+            value={turmaSel}
+            onChange={(event) => trocarTurma(event.target.value)}
+            className="min-h-8 rounded-[10px] border border-white/[0.09] bg-[#081a2f] px-2.5 text-[10px] font-semibold text-white/65 outline-none focus:border-cyan-300/35"
+          >
+            <option value="">{t('filters.allTurmas')}</option>
+            {turmas.map((turma) => (
+              <option key={turma.id} value={turma.id}>
+                {turma.encerrada || turma.ativos === 0 ? t('filters.turmaEnded', { name: turma.nome }) : turma.nome}
+              </option>
+            ))}
+          </select>
+          {turmaSel && Number(resumo?.turma?.jornadaSeguinte) > 0 && (
+            <p role="status" className="text-[10px] text-amber-200/80">
+              {t('filters.turmaNextJourney', { count: Number(resumo.turma.jornadaSeguinte) })}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="mb-5 flex flex-col gap-2 border-b border-white/[0.08] lg:flex-row lg:items-end lg:justify-between">
         <div role="tablist" aria-label={t('tabs.aria')} className="flex items-center gap-5 sm:gap-7">
@@ -1084,7 +1140,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
             key={empresaId}
             empresaId={empresaId}
             active={aba === 'evolucao'}
-            loadEvolution={loadEvolution}
+            loadEvolution={loadEvolutionDaTurma}
             surface={surface}
           />
         )}

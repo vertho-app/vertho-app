@@ -13,8 +13,11 @@
  * três telas de leitura que ele já alcança. Nenhum botão de operação — pela
  * decisão de 24/08, configuração, conteúdo e disparo são da Vertho.
  */
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
+import { carregarPanoramaRHDaTurma, listarTurmasDaHomeRH } from './home-rh-actions';
+import type { TurmaFiltro } from '@/lib/turmas/escopo-leitura';
 import { Users2, Brain, Route, ListOrdered, TrendingUp, ArrowRight, ClipboardCheck, CalendarCheck, CalendarClock, FileText, Eye } from 'lucide-react';
 
 const serifStyle: React.CSSProperties = {
@@ -124,9 +127,30 @@ export default function HomeRH({ firstName, panorama, relatorios }: { firstName:
   const t = useTranslations('DashboardHome');
   const router = useRouter();
 
-  const p: Panorama = panorama ?? {
+  // Turma: '' = a empresa inteira (o panorama que a home sempre mostrou). O seletor só aparece
+  // com 2+ turmas; falhar ao listá-las só o esconde.
+  const [turmas, setTurmas] = useState<TurmaFiltro[]>([]);
+  const [turmaSel, setTurmaSel] = useState('');
+  const [doRecorte, setDoRecorte] = useState<Panorama | null>(null);
+  const [carregandoTurma, setCarregandoTurma] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    listarTurmasDaHomeRH().then((lista) => { if (vivo) setTurmas(lista || []); }).catch(() => { if (vivo) setTurmas([]); });
+    return () => { vivo = false; };
+  }, []);
+  const escolherTurma = async (id: string) => {
+    setTurmaSel(id);
+    setDoRecorte(null);
+    if (!id) return;
+    setCarregandoTurma(true);
+    try { setDoRecorte((await carregarPanoramaRHDaTurma(id)) as Panorama); }
+    catch { setDoRecorte(null); }   // sem recorte, a tela cai em "indisponível": nunca nos números da empresa
+    finally { setCarregandoTurma(false); }
+  };
+
+  const p: Panorama = (turmaSel ? doRecorte : panorama) ?? {
     empresaNome: null, pessoas: 0, comPerfil: 0, comMapeamento: 0,
-    emJornada: 0, emDia: 0, atrasadas: 0, jornadasEncerradas: 0, indisponivel: true,
+    emJornada: 0, emDia: 0, atrasadas: 0, jornadasEncerradas: 0, indisponivel: !carregandoTurma,
   };
 
   return (
@@ -143,6 +167,22 @@ export default function HomeRH({ firstName, panorama, relatorios }: { firstName:
           <h3 className="text-[11px] font-bold tracking-[0.18em] uppercase mb-3" style={{ color: ACCENT }}>
             {t('rh.overview')}
           </h3>
+          {turmas.length >= 2 && (
+            <select
+              aria-label={t('rh.turmaAria')}
+              value={turmaSel}
+              onChange={(event) => { void escolherTurma(event.target.value); }}
+              disabled={carregandoTurma}
+              className="mb-3 min-h-9 w-full rounded-xl border border-white/10 bg-[#081a2f] px-3 text-xs font-semibold text-white/70 outline-none focus:border-cyan-300/40 disabled:opacity-50"
+            >
+              <option value="">{t('rh.allTurmas')}</option>
+              {turmas.map((turma) => (
+                <option key={turma.id} value={turma.id}>
+                  {turma.encerrada || turma.ativos === 0 ? t('rh.turmaEnded', { name: turma.nome }) : turma.nome}
+                </option>
+              ))}
+            </select>
+          )}
           {/* Funil: cada degrau em proporção do TOPO (pessoas), porque a
               pergunta do RH é "onde elas param?". Jornadas iniciadas incluem as concluídas. O atraso é um
               subconjunto das em andamento e usa a mesma base de iniciadas. */}

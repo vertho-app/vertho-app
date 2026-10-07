@@ -812,6 +812,9 @@
       "titlePrefix": "El panorama de",
       "fallbackCompany": "tu empresa",
       "overview": "Panorama",
+      "turmaAria": "Ver el panorama de una cohorte",
+      "allTurmas": "Todas las cohortes",
+      "turmaEnded": "{name} (cerrada)",
       "people": "Personas",
       "withProfile": "Con perfil comportamental",
       "withMapping": "Con mapeo de competencias",
@@ -1179,6 +1182,10 @@
       "weekOption": "Semana {week}",
       "roleAria": "Filtrar métricas por puesto",
       "allRoles": "Todos los puestos",
+      "turmaAria": "Filtrar métricas por cohorte",
+      "allTurmas": "Todas las cohortes",
+      "turmaEnded": "{name} (cerrada)",
+      "turmaNextJourney": "{count, plural, one {# persona de esta cohorte ya pasó al siguiente recorrido: su envío aparece sin registro aquí, porque la cadencia actual es de otra cohorte.} other {# personas de esta cohorte ya pasaron al siguiente recorrido: su envío aparece sin registro aquí, porque la cadencia actual es de otra cohorte.}}",
       "refresh": "Actualizar"
     },
     "noCompany": {

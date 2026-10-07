@@ -7,6 +7,7 @@ import { PROGRESSO } from '@/lib/status';
 import type { EngagementEvolutionDashboard } from '@/lib/engagement-evolution';
 import { carregarEvolucaoEngajamento } from '@/lib/engajamento/evolucao';
 import { rollUpEngajamento } from '@/lib/engajamento/roll-up';
+import { listarTurmasParaFiltro, resolverEscopoDeLeitura } from '@/lib/turmas/escopo-leitura';
 
 /**
  * Telemetria de engajamento da trilha. Duas frentes:
@@ -95,10 +96,20 @@ export async function getEngajamentoEmpresa(
   empresaId: string,
   semana?: number | null,
   cargo?: string | null,
+  /** Turma a olhar (vem do cliente: a turma tem que ser desta empresa). Ausente = a empresa inteira. */
+  turmaId?: string | null,
 ) {
   await requireAdminAction();
   if (!empresaId) return { resumo: null, colaboradores: [], semanas: [], cargos: [] };
-  return rollUpEngajamento(empresaId, semana, null, cargo);
+  const escopo = turmaId ? await resolverEscopoDeLeitura(tenantDb(empresaId).raw, empresaId, turmaId) : null;
+  return rollUpEngajamento(empresaId, semana, null, cargo, escopo);
+}
+
+/** Turmas que têm gente (ativa ou encerrada), para o seletor da tela de engajamento. */
+export async function listarTurmasEngajamento(empresaId: string) {
+  await requireAdminAction();
+  if (!empresaId) return [];
+  return listarTurmasParaFiltro(tenantDb(empresaId).raw, empresaId);
 }
 
 /**
@@ -113,12 +124,14 @@ export async function getEngajamentoEmpresa(
 export async function getEvolucaoEngajamentoEmpresa(
   empresaId: string,
   area?: string | null,
+  turmaId?: string | null,
 ): Promise<
   | { ok: true; data: EngagementEvolutionDashboard }
   | { ok: false; error: string }
 > {
   await requireAdminAction();
-  return carregarEvolucaoEngajamento(empresaId, area);
+  const escopo = turmaId && empresaId ? await resolverEscopoDeLeitura(tenantDb(empresaId).raw, empresaId, turmaId) : null;
+  return carregarEvolucaoEngajamento(empresaId, area, escopo);
 }
 
 /**
