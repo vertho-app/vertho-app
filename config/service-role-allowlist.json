@@ -181,6 +181,7 @@
     "lib/pipeline-health/core.ts": 5,
     "lib/cron-lock.ts": 1,
     "lib/video/reconciliar-personalizados.ts": 1,
+    "lib/video/saudacao-vertex.ts": 1,
     "app/admin/vertho/board/page.tsx": 1,
     "app/admin/vertho/board/[id]/page.tsx": 1,
     "app/admin/vertho/board/actions.ts": 4,
