@@ -132,7 +132,7 @@ empresa (§2.3), e aí o provedor é o do modelo escolhido.
 | Plano de desenvolvimento (blueprint), síncrono e lote | nome, cargo, perfil, competências | modelo da tarefa | **não** (pendente: é a base do PDI, que já é mascarado) | `lib/blueprint/core.ts`, `trigger/gerar-blueprint-batch.ts` |
 | Relatório comportamental (DISC) e insights executivos | nome, perfil DISC | modelo da tarefa | **não** | `lib/prompts/behavioral-report-prompt.js`, `lib/prompts/insights-executivos-prompt.js` |
 | Devolutiva comportamental em áudio | primeiro nome no roteiro e na voz | modelo da tarefa + **Google** (TTS) | **não, por desenho** (a voz diz o nome) | `lib/relatorio-comportamental/devolutiva-audio.ts` |
-| Saudação nominal do vídeo | primeiro nome | **Google** (TTS, no servidor Hetzner) | **não, por desenho** | `worker-hetzner/personalizar.mjs` |
+| Saudação nominal do vídeo | primeiro nome | **Google** (TTS Vertex, chamado pelo app/Trigger desde 07/10/2026; antes, pela box de render) | **não, por desenho** | `lib/video/saudacao-vertex.ts`, `worker-hetzner/personalizar.mjs` |
 | Fase 5 (evolução) | nome, cargo, respostas | modelo da tarefa | **não** | `actions/fase5/evolucao.ts` |
 | Simulador de conversas (ferramenta do admin) | nome, cargo | modelo escolhido | **não** (ferramenta interna, gera respostas sintéticas) | `actions/simulador-conversas.ts` |
 | Adequação ao cargo: análise por pessoa | nome de várias pessoas por chamada, aderência, perfil DISC e gaps; a resposta volta indexada pelo nome | modelo configurado | **não** | `lib/adequacao-cargo/narrative.ts` |
@@ -343,7 +343,7 @@ em 6 tenants. "Excluir os dados desta pessoa" não é uma operação única.
    pessoa também nasce no bucket privado e só sai por link assinado de 1 hora
    (`lib/conteudo/audio-personalizado.ts`). Seguem pendentes: a migração dos arquivos antigos que
    ainda estão no bucket público (relatórios e os 288 áudios, `scripts/_migrar-*.mjs`, fora do
-   repo), a saudação nominal dos vídeos (`video-assets/greetings*`, que o render lê pela URL
+   repo), a saudação nominal dos vídeos (`video-assets/greetings*` e, desde 07/10/2026, `video-assets/saudacoes/`, que leva o primeiro nome falado no arquivo e no caminho; o render lê pela URL
    pública) e as fotos de perfil (`avatars`). O PDF personalizado (`conteudos/final/perso/`) NÃO
    tem dado de pessoa: é por conteúdo, empresa e arquétipo DISC, e uma amostra de 62 PDFs das 6
    empresas não trouxe nome de ninguém (conferido em 03/10/2026).

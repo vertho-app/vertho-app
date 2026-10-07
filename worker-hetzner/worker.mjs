@@ -17,12 +17,13 @@ import path from 'node:path';
 import { readFile, access, rm } from 'node:fs/promises';
 import { ensureBrowser, selectComposition, renderMedia } from '@remotion/renderer';
 import { personalizar, primeiroNome } from './personalizar.mjs';
+import { DEGRADACAO_SAUDACAO_AUSENTE } from './saudacao-audio.mjs';
 import { COLUNAS_PREFERENCIA, destinatariosDaSaudacao } from './saudacao.mjs';
 import { masterizarAudio } from './masterizar-audio.mjs';
 import { registrarPublicacao, confirmarPublicacoes } from './publicacao-bunny.mjs';
 import {
   claim as claimFila, reap as reapFila, reapSemSinalMin, REAP_COM_SINAL_MIN, iniciarSinalDeVida,
-  processarJob, preservarDeckNaFalha,
+  processarJob, preservarDeckNaFalha, registrarDegradacaoVideo,
 } from './fila.mjs';
 
 const {
@@ -135,7 +136,16 @@ async function reap() {
  *  cada colaborador da célula e sobe no Bunny. Idempotente (pula quem já está
  *  'done'). Roda na própria box (o deck já está em /tmp). */
 async function personalizeCell(job, deckPath) {
-  if (!process.env.GEMINI_API_KEY) { log(`personalização pulada (sem GEMINI_API_KEY) ${job.id}`); return; }
+  // A saudação vem PRONTA do app (mp3 no Storage, sintetizado no Vertex): a box não sintetiza e não precisa de chave de TTS.
+  // Precisa ler o Storage e saber a versão do elenco que o app usou na chave do arquivo. Sem uma das duas, pular a célula
+  // inteira é o certo, e é CRÍTICO: todas as pessoas dela ficariam sem nominal sem que nada dissesse por quê.
+  const semStorage = !(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) || !process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (semStorage || !process.env.VOZ_VERSAO) {
+    const falta = semStorage ? 'credencial do Storage' : 'VOZ_VERSAO';
+    log(`personalização pulada (sem ${falta}) ${job.id}`);
+    await registrarDegradacaoVideo(pool, { tipo: DEGRADACAO_SAUDACAO_AUSENTE, chave: `config:${falta}`, empresaId: job.empresa_id || null, severidade: 'critico', detalhe: { celula: job.id, falta } }, log);
+    return;
+  }
   const disc = String(job.disc_dominante || '').trim().charAt(0).toUpperCase();
   if (!job.empresa_id || !job.cargo || !['D', 'I', 'S', 'C'].includes(disc)) {
     log(`personalização pulada (célula incompleta) ${job.id}`); return;
@@ -191,6 +201,11 @@ async function personalizeCell(job, deckPath) {
       ok++; log(`  ✓ upload ${nome} → ${guid} (publicação confirmada pelo Bunny/cron)`);
     } catch (e) {
       err++; log(`  ✗ ${nome} (${c.id}): ${e?.message || e}`);
+      // Sem o áudio da saudação a pessoa fica sem nominal e o deck genérico segue no ar; a reconciliação refaz depois que o
+      // app gerar o áudio. Não cai em outro sintetizador (ver `personalizar.mjs`), então a falta TEM de deixar rastro.
+      if (e?.name === 'SaudacaoAusenteError') {
+        await registrarDegradacaoVideo(pool, { tipo: DEGRADACAO_SAUDACAO_AUSENTE, chave: c.id, empresaId: job.empresa_id || null, severidade: 'aviso', detalhe: { celula: job.id, objeto: e.chave } }, log);
+      }
       await pool.query("UPDATE videos_personalizados SET status=CASE WHEN status='done' THEN 'done' ELSE 'error' END, error=$3, updated_at=now() WHERE cell_video_id=$1 AND colaborador_id=$2",
         [job.id, c.id, String(e?.message || e).slice(0, 300)]).catch(() => {});
     }

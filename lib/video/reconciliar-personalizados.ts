@@ -70,6 +70,12 @@ export interface ResultadoReconciliacao {
    */
   ignoradasPorDemo: number;
   executado: boolean;
+  /**
+   * Células que ficaram de fora desta rodada porque NENHUM áudio de saudação ficou pronto para as pessoas delas (Vertex fora,
+   * síntese reprovada, prazo esgotado). Só aparece quando não está vazio. Sem o áudio a caixa não monta o nominal, então
+   * enfileirar seria pagar uma box para produzir erro. A falta já tem rastro em `degradacao_log`.
+   */
+  celulasSemSaudacao?: string[];
 }
 
 /** Considera travado o que está 'processing'/'pending' há mais de N horas. */
@@ -304,7 +310,18 @@ export async function reconciliarPersonalizados(opts: {
   }
 
   // 3) Devolve à fila, respeitando o teto.
-  const alvos = lacunas.slice(0, limite);
+  const alvosPedidos = lacunas.slice(0, limite);
+
+  // 3a) O ÁUDIO DA SAUDAÇÃO vem antes da box (07/10/2026). A caixa não sintetiza mais: ela lê o áudio que o app gravou no
+  //     Vertex. Esta rodada gera o das pessoas que faltam (o que já existe fica) e só enfileira a célula se ao menos uma
+  //     delas tem áudio. O prazo é do orçamento de síntese da rodada inteira, não por célula: a rota tem 800 s.
+  const alvos: LacunaPersonalizacao[] = [];
+  const celulasSemSaudacao: string[] = [];
+  const prazoSaudacoes = Date.now() + PRAZO_SAUDACOES_MS;
+  for (const l of alvosPedidos) {
+    if (await algumaSaudacaoPronta(sb, l, prazoSaudacoes)) alvos.push(l);
+    else celulasSemSaudacao.push(l.cellVideoId);
+  }
   const reenfileiradas: string[] = [];
   const falhas: string[] = [];
   for (const l of alvos) {
@@ -367,10 +384,11 @@ export async function reconciliarPersonalizados(opts: {
         return {
           lacunas, pessoasSemVideoNominal,
           celulasReenfileiradas: [],   // nada ficou enfileirado: dizer 3 seria mentir no log do cron
-          ignoradasPorLimite: Math.max(0, lacunas.length - alvos.length),
+          ignoradasPorLimite: Math.max(0, lacunas.length - alvosPedidos.length),
           ignoradasPorDemo,
           executado: true,
           bloqueio: motivo,
+          ...(celulasSemSaudacao.length ? { celulasSemSaudacao } : {}),
         };
       }
       throw new Error(`reconciliar: sem worker (${motivo}) e rollback falhou: ${error.message}`);
@@ -380,9 +398,34 @@ export async function reconciliarPersonalizados(opts: {
   return {
     lacunas, pessoasSemVideoNominal,
     celulasReenfileiradas: reenfileiradas,
-    ignoradasPorLimite: Math.max(0, lacunas.length - alvos.length),
+    ignoradasPorLimite: Math.max(0, lacunas.length - alvosPedidos.length),
     ignoradasPorDemo,
     executado: true,
     ...(falhas.length ? { bloqueio: `falha ao enfileirar: ${falhas.join('; ')}` } : {}),
+    ...(celulasSemSaudacao.length ? { celulasSemSaudacao } : {}),
   };
+}
+
+/** Orçamento de síntese de áudio de saudação da rodada inteira. A rota do cron tem `maxDuration` de 800 s. */
+const PRAZO_SAUDACOES_MS = 240_000;
+
+/**
+ * Garante o áudio da saudação das pessoas que faltam nesta célula e diz se ao menos UMA tem áudio. Não lança: se a geração
+ * quebrar, a célula fica de fora desta rodada (e a falha tem rastro), em vez de derrubar a reconciliação das outras.
+ * Import dinâmico: o módulo puxa o cliente de TTS e só interessa a quem executa.
+ */
+async function algumaSaudacaoPronta(sb: any, l: LacunaPersonalizacao, prazoAteMs: number): Promise<boolean> {
+  try {
+    const { garantirSaudacoes } = await import('@/lib/video/saudacao-vertex');
+    const r = await garantirSaudacoes({
+      empresaId: l.empresaId,
+      pessoas: l.faltantes.map((f) => ({ colaboradorId: f.colaboradorId, nome: f.nome })),
+      prazoAteMs, sb,
+    });
+    console.log(`[reconciliar] saudações da célula ${l.cellVideoId}: ${r.geradas.length} geradas, ${r.jaExistiam.length} já existiam, ${r.falhas.length} falharam, ${r.adiadas.length} adiadas`);
+    return r.geradas.length + r.jaExistiam.length > 0;
+  } catch (e: any) {
+    console.error(`[reconciliar] saudações da célula ${l.cellVideoId} falharam:`, e?.message || e);
+    return false;
+  }
 }

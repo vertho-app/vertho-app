@@ -1,4 +1,5 @@
-import { task } from '@trigger.dev/sdk';
+import { task, tasks } from '@trigger.dev/sdk';
+import type { gerarSaudacoesCelulaTask } from './gerar-saudacoes-celula';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { writeFile, readFile, mkdtemp, rm } from 'node:fs/promises';
@@ -711,6 +712,17 @@ export async function executarGeracaoVideoModulo(p: {
         // Best-effort: se o provision falhar, o job fica na fila p/ a próxima box.
         const prov = await ensureRenderWorker().catch((e) => ({ provisioned: false, reason: String(e?.message || e) }));
         console.log(`${videoId}: ensureRenderWorker → ${prov.provisioned ? 'boxes ' + ((prov as any).created || []).join(',') : 'no-op'} (${prov.reason})`);
+        // Saudação nominal em VERTEX (07/10/2026): o áudio de cada pessoa da célula é sintetizado no app, na voz do corpo do
+        // vídeo, enquanto a box renderiza; a box só o lê (`personalizar.mjs` não sintetiza mais). Task própria, sem esperar:
+        // o retorno daqui é aguardado (a mãe de um grupo devolve o avatar às irmãs). Falhou ao DISPARAR: a box registra
+        // `saudacao-vertex-ausente` por pessoa e a reconciliação refaz, então o rastro fica de qualquer jeito.
+        try {
+          await tasks.trigger<typeof gerarSaudacoesCelulaTask>('gerar-saudacoes-celula', { celulaId: videoId }, regionOpts());
+        } catch (e: any) {
+          const erro = String(e?.message || e).slice(0, 300);
+          console.error(`${videoId}: não consegui disparar as saudações em Vertex:`, erro);
+          await registrarDegradacao({ fluxo: 'video', tipo: DEGRADACAO.SAUDACAO_VERTEX_FALHOU, chave: `celula:${videoId}`, severidade: 'aviso', detalhe: { fase: 'disparo', erro } });
+        }
         return { ok: true, videoId, queued: 'hetzner', frames: props.totalFrames, worker: prov, grupo: await grupoDaMae() };
       }
 

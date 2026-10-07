@@ -11,6 +11,8 @@ import { masterizarAudio } from '../lib/video/masterizar-audio.mjs';
 // @ts-ignore — reusa o MESMO renderizador de saudação do worker (ESM puro, sem cópia nova).
 import { personalizar, primeiroNome } from '../worker-hetzner/personalizar.mjs';
 import { COLUNAS_PREFERENCIA, destinatariosDaSaudacao } from '../worker-hetzner/saudacao.mjs';
+import { garantirSaudacoes } from '../lib/video/saudacao-vertex';
+import { ELENCO } from '../lib/tts/elenco';
 
 const exec = promisify(execFile);
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
@@ -82,7 +84,6 @@ async function upsertPerso(videoId: string, colabId: string, fields: Record<stri
  * derruba as outras nem o deck.
  */
 async function personalizarCelula(deckPath: string, videoId: string, inputProps: any): Promise<void> {
-  if (!process.env.GEMINI_API_KEY) { console.warn(`[${videoId}] personalização pulada (sem GEMINI_API_KEY)`); return; }
   const rows = await pgGet(`videos_gerados?id=eq.${videoId}&select=empresa_id,cargo,disc_dominante,kit_id`).catch(() => []);
   const job = rows[0];
   if (!job) return; // jobId não é um vídeo de célula (render genérico/spike) → pula
@@ -111,6 +112,11 @@ async function personalizarCelula(deckPath: string, videoId: string, inputProps:
   const limit = Number(process.env.PERSONALIZE_LIMIT) || 0;
   const targets = limit > 0 ? inCell.slice(0, limit) : inCell;
   if (limit > 0) console.log(`[${videoId}] PERSONALIZE_LIMIT=${limit} → ${targets.length}/${inCell.length} colaborador(es)`);
+  // Backend `trigger` (override de teste): o áudio da saudação mora no Storage, sintetizado no Vertex pelo app, e `personalizar`
+  // só o lê. Aqui não há box que receba `VOZ_VERSAO`, então a versão do elenco vem do próprio código, a mesma que a chave usa.
+  process.env.VOZ_VERSAO = process.env.VOZ_VERSAO || ELENCO.mentora.versao;
+  const audios = await garantirSaudacoes({ empresaId: job.empresa_id, pessoas: targets.map((c) => ({ colaboradorId: c.id, nome: c.nome_completo })) });
+  console.log(`[${videoId}] áudios da saudação: ${audios.geradas.length} gerados, ${audios.jaExistiam.length} já existiam, ${audios.falhas.length} falharam`);
   const bundle = await resolveBundle();
   let ok = 0, err = 0;
   for (const c of targets) {

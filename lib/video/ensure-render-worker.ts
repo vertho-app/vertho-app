@@ -131,16 +131,18 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     `DATABASE_URL=${process.env.DATABASE_URL}`,
     `BUNNY_LIBRARY_ID=${process.env.BUNNY_LIBRARY_ID || ''}`,
     `BUNNY_STREAM_API_KEY=${process.env.BUNNY_STREAM_API_KEY || ''}`,
+    // 🔁 TRANSIÇÃO (07/10/2026): `GEMINI_API_KEY`, `VIDEO_TTS_VOICE` e `GEMINI_TTS_MODEL` só servem ao worker ANTIGO, que
+    // sintetizava a saudação no AI Studio. O worker novo lê o WAV que o app gravou (Vertex) e não os usa. Ficam até o
+    // snapshot novo estar em `RENDER_SNAPSHOT_ID` no Trigger E na Vercel: tirá-los antes faria o worker velho pular toda
+    // personalização ("sem GEMINI_API_KEY"). Depois da troca, apague as três linhas.
     `GEMINI_API_KEY=${process.env.GEMINI_API_KEY || ''}`,
-    // Saudação nominal exige SUPABASE_URL + SERVICE_ROLE_KEY (personalizar.mjs).
+    // Saudação nominal exige SUPABASE_URL + SERVICE_ROLE_KEY (personalizar.mjs: ler o WAV da saudação e hospedar o voice-over).
     `SUPABASE_URL=${process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''}`,
     `SUPABASE_SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY || ''}`,
     `VIDEO_TTS_VOICE=${process.env.VIDEO_TTS_VOICE || ELENCO.mentora.voz}`,
-    // A saudação é sintetizada NA BOX (personalizar.mjs, AI Studio). Sem o modelo
-    // ela caía no default do arquivo (3.1 preview) e saía noutra mentora que o corpo.
     `GEMINI_TTS_MODEL=${process.env.GEMINI_TTS_MODEL || ELENCO.mentora.modeloAiStudio}`,
-    // Versão do casting: entra na chave do cache da saudação (recast com o mesmo nome
-    // de voz e modelo invalida o cache sozinho).
+    // Versão do casting: entra na CHAVE DO ARQUIVO da saudação (`saudacao-audio.mjs`), a mesma que o app usa ao gravá-lo.
+    // Recastar a voz torna o áudio antigo invisível, em vez de servir a locutora velha. Sem ela a box pula a personalização.
     `VOZ_VERSAO=${ELENCO.mentora.versao}`,
     // 720p por padrão: 1080p em cx33/8GB com vídeos longos estourava RAM e travava.
     `VIDEO_RENDER_SCALE=${process.env.VIDEO_RENDER_SCALE || '0.6667'}`,

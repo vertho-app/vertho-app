@@ -289,6 +289,23 @@ export const DEGRADACAO = {
    */
   DECK_PRESERVADO_APOS_FALHA: 'deck-preservado-apos-falha',
   /**
+   * video: o APP não conseguiu produzir o áudio da saudação nominal ("Olá, {nome}") de uma pessoa, depois de todas as
+   * tentativas (fala curta que repete ou acrescenta frase, Vertex fora, prazo esgotado). Chave: `colaboradorId`.
+   * Desde 07/10/2026 a saudação é sintetizada no app, no Vertex, na voz do elenco (`lib/video/saudacao-vertex.ts`), e
+   * a caixa de render só a lê. Sem o áudio, a pessoa fica sem nominal (o deck genérico segue no ar) e a reconciliação
+   * refaz na semana seguinte. NÃO há fallback para o AI Studio: aquele sorteio soa como outra locutora, e foi o que o
+   * dono ouviu como "tom de saudação diferente do resto do vídeo". `aviso`: ninguém piora, só deixa de melhorar.
+   */
+  SAUDACAO_VERTEX_FALHOU: 'saudacao-vertex-falhou',
+  /**
+   * video: a CAIXA de render foi montar o nominal e o áudio da saudação não estava no Storage (o app ainda não o gerou,
+   * ou a versão do elenco da box não é a do app). `critico` quando falta configuração da box inteira (`chave` =
+   * `config:…`, todas as pessoas da célula ficam sem nominal), `aviso` por pessoa. Escrito pelo worker Hetzner
+   * (`worker-hetzner/worker.mjs`), que não importa TypeScript: o literal é repetido em `saudacao-audio.mjs` e um teste
+   * confere os dois.
+   */
+  SAUDACAO_VERTEX_AUSENTE: 'saudacao-vertex-ausente',
+  /**
    * envio: o gate de tenant-demo não conseguiu LER `empresas.is_demo`.
    *
    * A política do `envio-guard` é fail-open declarada (não derrubar envio real

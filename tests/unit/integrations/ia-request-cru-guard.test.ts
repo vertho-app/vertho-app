@@ -47,9 +47,11 @@ const DIRS = ['actions', 'lib', 'app', 'trigger', 'components'];
  * refutação acertou uma e errou a outra:
  *
  *  · **`worker-hetzner/` não tem alvo.** O único request cru dele
- *    (`personalizar.mjs`) é TTS do Gemini — a modalidade que a decisão de 11/08
+ *    (`personalizar.mjs`) era TTS do Gemini — a modalidade que a decisão de 11/08
  *    declara legítima, porque `callAI` só transporta texto. Sem parâmetro de
  *    raciocínio, sem risco de troca de geração. **C8 refutado, corretamente.**
+ *    (Desde 07/10/2026 nem esse existe: a saudação é sintetizada no app, pelo
+ *    mesmo caminho da narração, e a caixa só lê o áudio.)
  *
  *  · **`scripts/` tem alvo, e é o formato MORTO.** Três scripts versionados
  *    montam `thinking: { type: 'enabled', budget_tokens }` — exatamente o que a
