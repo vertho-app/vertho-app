@@ -39,6 +39,14 @@ import { COLUNAS_PREFERENCIA_KIT, videoNoTopDois } from '@/lib/season-engine/kit
 import { BUCKET_SAUDACAO, chaveDoAudioDaSaudacao, primeiroNome, textoDaSaudacao } from '@/worker-hetzner/saudacao-audio.mjs';
 
 /**
+ * ÚNICO ponto deste módulo que cria o cliente service-role (a allowlist de `config/service-role-allowlist.json` conta 1 chamada
+ * aqui). Os dois chamadores abaixo o criam sob demanda e DENTRO do `try`, para a promessa de "nunca lança" cobrir env ausente.
+ * O acesso é de verdade service-role: ler `colaboradores`/`kits` de qualquer empresa e gravar no bucket `video-assets` é o que
+ * o render faz hoje, e quem chama já escolheu a célula (o tenant vem dela). A tabela `degradacao_log` vai por `registrarDegradacao`.
+ */
+const clienteAdmin = () => createSupabaseAdmin();
+
+/**
  * Direção de estilo: a MESMA que o dono ouviu na comparação cega de 07/10/2026 (e que a caixa usava no AI Studio). Mudá-la
  * muda o take e invalida a calibração de duração abaixo.
  */
@@ -194,7 +202,7 @@ export async function garantirSaudacoes(a: {
   const r: ResultadoSaudacoes = { geradas: [], jaExistiam: [], falhas: [], adiadas: [], semNome: [] };
   // Cliente criado sob demanda e DENTRO do try de cada pessoa: a promessa de "nunca lança" inclui env ausente.
   let criado: any;
-  const sb = () => a.sb || (criado ??= createSupabaseAdmin());
+  const sb = () => a.sb || (criado ??= clienteAdmin());
   const unicas = [...new Map(a.pessoas.map((p) => [p.colaboradorId, p])).values()];
   await mapPool(unicas, a.concorrencia ?? 3, async (p) => {
     const nome = primeiroNome(p.nome);
@@ -273,7 +281,7 @@ export async function garantirSaudacoesDaCelula(celulaId: string, opts: { prazoA
 > {
   let sb: any = opts.sb;
   try {
-    sb ??= createSupabaseAdmin();
+    sb ??= clienteAdmin();
     const d = await destinatariosDaCelula(sb, celulaId);
     if (!d) return { pulada: 'célula incompleta (sem empresa, cargo ou DISC válido)' };
     if (!d.pessoas.length) return { pulada: 'célula sem pessoas para saudar' };
