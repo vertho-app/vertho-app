@@ -240,6 +240,23 @@ reset e pela manutenção pontual: restaura o catálogo, o vínculo dos quatro
 formatos ao módulo correto e o vídeo nominal da persona atual. Não altera a
 trilha nem conclui semanas. Vídeos prontos são reaproveitados sem geração de IA.
 
+**Decks e nominais de 07/10/2026.** Os três decks (semanas 1, 2 e 3) são do pipeline: narração
+única em Aoede/Vertex, avatar `avatar_iii` com o sopro do áudio aparado antes da HeyGen (o
+delay do fecho), 3,0 a 3,4 min. Os de antes eram de 3.1 e saíam com a voz variando entre cenas
+(F0 de 168 a 258 Hz na semana 3, queda de 4 dB na 1). Os nominais de S1 e S2 das outras
+seis personas moram só no banco (a linha de `videos_personalizados` que o reset restaura por
+e-mail); o da Marina nas três semanas vem da saudação sintetizada no **Vertex** (candidata 6,
+escolhida de ouvido pelo dono), porque a do AI Studio é um sorteio guardado por pessoa e saía
+em tom diferente do corpo. Marina: S3 está no roster; S1 e S2 também estão no banco e no
+pacote offline (`media/semana-1-video.mp4` e `media/semana-2-video.mp4`, `play_720p` do
+nominal em `conteudos/demo-offline/escolas/<sha256>.mp4`).
+
+Para trocar de novo: gere deck e nominais pelo pipeline; reponha `bunnyVideoId` e `duracaoMin`
+no JSON (S1 e S2) ou no roster (S3), o nominal da Marina S3, e a entrada da mídia no
+`lib/demo/offline/media.json` (arquivo, bytes e hash). O banco precisa dos mesmos GUIDs nas
+células, no catálogo e nas linhas nominais: o reset só regrava deck, catálogo e o nominal S3
+da Marina, e o restante dos nominais ele restaura do que encontrar no banco.
+
 Uma célula fixa com erro de renderização continua ocupando seu ID no banco.
 O reset deve recuperá-la por atualização quando não houver uma célula viva que
 a substitua; tentar inserir novamente o ID aborta a recomposição da demo.

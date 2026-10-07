@@ -464,11 +464,13 @@ export const ROSTER_ESCOLAR: DemoRoster = {
     moduloId: 'b7e4c1a2-3d5f-4e88-9a10-6c2f8d3b7e41',
     celulaId: '58df245a-f782-415b-a0fb-1eaf9003ac26',
     competenciaBaseId: 'c9a7f3d1-25b8-4c6e-9f04-3ab1d7e58c62',
-    bunnyVideoId: 'b5c988e1-6726-40b6-b6ca-847512e4c546',
-    // Mesmo conteúdo, aberto por "Olá, Marina" com a arte da marca. Montado
-    // pelo caminho OFICIAL (`worker-hetzner/personalizar.mjs`, o mesmo que o
-    // render usa em produção) via `scripts/_gerar-video-nominal-escolas.ts`.
-    nominal: { bunnyVideoId: '83d70333-6167-4fd0-a768-ffab4c102695', personaKey: 'marina' },
+    bunnyVideoId: 'a601ca7e-3faa-424e-87ca-339a1c6e4298',
+    duracaoMin: 3.03,
+    // Mesmo conteúdo, aberto por "Olá, Marina" com a arte da marca. Desde
+    // 07/10/2026 o deck é do pipeline (narração única Aoede/Vertex, avatar_iii)
+    // e a saudação é a candidata 6 do Vertex, a que o dono escolheu de ouvido:
+    // a do AI Studio é um sorteio por pessoa e saía em tom diferente do corpo.
+    nominal: { bunnyVideoId: '10c3bb83-26b9-4031-9466-6cfe6f9c702f', personaKey: 'marina' },
     competencia: TOP5_DOCENCIA[0],
     descritor: 'Recursos didáticos',
     cargo: DOCENCIA,

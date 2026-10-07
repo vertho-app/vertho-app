@@ -25,9 +25,9 @@
   },
   {
     "path": "media/semana-1-video.mp4",
-    "source": "/apresentacao-offline/midia/595429554384bd7953621d2599c931f44fcb00a9d7e64911ad80164f891b1c57.mp4",
-    "bytes": 17850910,
-    "sha256": "595429554384bd7953621d2599c931f44fcb00a9d7e64911ad80164f891b1c57",
+    "source": "/apresentacao-offline/midia/a4c960212990fc8c5faf779aed55faf0516e7d710e15304e76f9a5cbc294e8a6.mp4",
+    "bytes": 15921169,
+    "sha256": "a4c960212990fc8c5faf779aed55faf0516e7d710e15304e76f9a5cbc294e8a6",
     "type": "video/mp4",
     "label": "Semana 1 · vídeo da Marina"
   },
@@ -57,9 +57,9 @@
   },
   {
     "path": "media/semana-2-video.mp4",
-    "source": "/apresentacao-offline/midia/3d434ed2ec839b5d3b4ff6d48b58d1b09ee21970b8de28c5150f33478b9e3485.mp4",
-    "bytes": 14923172,
-    "sha256": "3d434ed2ec839b5d3b4ff6d48b58d1b09ee21970b8de28c5150f33478b9e3485",
+    "source": "/apresentacao-offline/midia/fbc8a508d14dee6eb4b13aca6562fd3886d4e9e454440523b612ef309076db28.mp4",
+    "bytes": 15689332,
+    "sha256": "fbc8a508d14dee6eb4b13aca6562fd3886d4e9e454440523b612ef309076db28",
     "type": "video/mp4",
     "label": "Semana 2 · vídeo da Marina"
   }

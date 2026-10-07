@@ -62,6 +62,24 @@ describe('vídeos de várias semanas da demo', () => {
     }
   });
 
+  it('as três semanas usam os decks do pipeline de 07/10/2026 (narração única Aoede), não os de 3.1', () => {
+    // Os de antes tinham F0 de 168 a 258 Hz entre cenas (S3, gerado em 3.1) e quedas de 4 dB (S1): a queixa era "variação na voz".
+    // O comentário do fixture dizia o contrário sem o arquivo ter sido regerado, então os ids ficam fixados aqui.
+    const [s1, s2] = ROSTER_ESCOLAR.videosDaJornada || [];
+    const s3 = ROSTER_ESCOLAR.videoDaJornada!;
+    expect([s1.bunnyVideoId, s2.bunnyVideoId, s3.bunnyVideoId]).toEqual([
+      '88170e79-1125-4763-bae4-83da09caade4',
+      'fc050c58-0e0d-419c-81ba-78896118a668',
+      'a601ca7e-3faa-424e-87ca-339a1c6e4298',
+    ]);
+    expect(s3.nominal?.bunnyVideoId).toBe('10c3bb83-26b9-4031-9466-6cfe6f9c702f');
+    // A duração do catálogo vem do deck (203, 202 e 182 s): o antigo da semana 1 dizia 4,13 min.
+    for (const video of [s1, s2, s3]) {
+      expect(video.duracaoMin).toBeGreaterThan(3);
+      expect(video.duracaoMin).toBeLessThan(3.5);
+    }
+  });
+
   it('restaura cada tema, todos os formatos e o nominal sem duplicar no próximo reset', async () => {
     const configs = ['Ritmo e transições', 'Engajamento ativo'].map((descritor, index) => ({
       ...ROSTER_ESCOLAR.videoDaJornada!, descritor, moduloId: `modulo-${index}`,
