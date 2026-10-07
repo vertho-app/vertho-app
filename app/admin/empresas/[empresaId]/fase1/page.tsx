@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
   Loader2, Trophy, Trash2, Plus, X, Search, ChevronDown,
-  Briefcase, FileText, Target, Brain, RefreshCw, CheckCircle, AlertTriangle
+  Briefcase, FileText, Target, Brain, RefreshCw, CheckCircle, AlertTriangle, Filter
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
@@ -17,6 +17,10 @@ import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { avisosSpecClinica } from '@/lib/scoring/spec-warnings';
 import { loadCargos, salvarTop5 } from '@/app/admin/cargos/actions';
 import { useConfirm } from '@/components/admin/confirm-dialog';
+import {
+  filtrarCenarios, agruparPorCargo, opcoesDeCargo, opcoesDeCompetencia, ajustarCompetencia,
+  podarSelecao, temFiltroCenarios, SEM_COMPETENCIA,
+} from '@/lib/fase1-cenarios-filtro';
 
 export default function Fase1Page({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
@@ -52,6 +56,8 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
   const [cenAction, setCenAction] = useState(null);
   const [cenProgress, setCenProgress] = useState<{ current: number; total: number; label: string; cargo: string } | null>(null);
   const [selectedCen, setSelectedCen] = useState<Set<string>>(new Set());
+  const [filtroCargoCen, setFiltroCargoCen] = useState('');
+  const [filtroCompCen, setFiltroCompCen] = useState('');
   function toggleSelCen(id: string) {
     setSelectedCen(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
@@ -144,11 +150,30 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
     aderencia: 'Aderência', realismo: 'Realismo', contencao: 'Contenção', decisao: 'Decisão', discriminante: 'Discriminante',
   };
 
-  const cenariosPorCargo = {};
-  cenarios.forEach(c => {
-    if (!cenariosPorCargo[c.cargo]) cenariosPorCargo[c.cargo] = [];
-    cenariosPorCargo[c.cargo].push(c);
-  });
+  // Filtro por cargo e competência. O recorte é aplicado ANTES de agrupar: o
+  // cabeçalho de cada cargo e as filas de "Revisar todos", "Validar todos" e
+  // "Regerar selecionados" saem do que está na tela, nunca do cargo inteiro
+  // (ver lib/fase1-cenarios-filtro.ts).
+  const filtrosCen = { cargo: filtroCargoCen, competencia: filtroCompCen };
+  const cenariosVisiveis = filtrarCenarios(cenarios, filtrosCen);
+  const cenariosPorCargo = agruparPorCargo(cenariosVisiveis);
+  const opcoesCargoCen = opcoesDeCargo(cenarios);
+  const opcoesCompCen = opcoesDeCompetencia(cenarios, filtroCargoCen);
+
+  function escolherCargoCen(cargo: string) {
+    const competencia = ajustarCompetencia(cenarios, cargo, filtroCompCen);
+    setFiltroCargoCen(cargo);
+    setFiltroCompCen(competencia);
+    setSelectedCen(prev => podarSelecao(prev, filtrarCenarios(cenarios, { cargo, competencia })));
+  }
+  function escolherCompetenciaCen(competencia: string) {
+    setFiltroCompCen(competencia);
+    setSelectedCen(prev => podarSelecao(prev, filtrarCenarios(cenarios, { cargo: filtroCargoCen, competencia })));
+  }
+  function limparFiltrosCen() {
+    setFiltroCargoCen('');
+    setFiltroCompCen('');
+  }
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
@@ -609,6 +634,46 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
           {cenarios.length === 0 ? (
             <Empty icon={FileText} text={tr('empty.scenarios')} />
           ) : (<>
+          {/* Filtros: cargo e competência. Desligados durante um lote para a
+              barra de progresso (que vive dentro do grupo do cargo) não sumir. */}
+          <div className="flex items-center gap-3 mb-5 flex-wrap">
+            <Filter size={14} className="text-gray-500" />
+            <select value={filtroCargoCen} onChange={e => escolherCargoCen(e.target.value)}
+              disabled={!!cenAction} aria-label={tr('filters.role')}
+              className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none disabled:opacity-50" style={{ background: '#091D35' }}>
+              <option value="">{tr('filters.allRoles')}</option>
+              {opcoesCargoCen.map(o => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
+            </select>
+            <select value={filtroCompCen} onChange={e => escolherCompetenciaCen(e.target.value)}
+              disabled={!!cenAction} aria-label={tr('filters.competency')}
+              className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 outline-none disabled:opacity-50" style={{ background: '#091D35' }}>
+              <option value="">{tr('filters.allCompetencies')}</option>
+              {opcoesCompCen.map(o => (
+                <option key={o.valor} value={o.valor}>{o.valor === SEM_COMPETENCIA ? tr('filters.noCompetency') : o.rotulo}</option>
+              ))}
+            </select>
+            {temFiltroCenarios(filtrosCen) && (<>
+              <span className="text-[11px] text-gray-400">
+                {tr('filters.showing', { shown: cenariosVisiveis.length, total: cenarios.length })}
+              </span>
+              <button onClick={limparFiltrosCen} disabled={!!cenAction}
+                className="text-[11px] font-bold text-cyan-400 hover:underline disabled:opacity-50">
+                {tr('filters.clearAll')}
+              </button>
+            </>)}
+          </div>
+          {/* Lista vazia POR FILTRO é diferente de "não há cenário": sem esta
+              mensagem a tela fica em branco embaixo dos filtros, como se o
+              carregamento tivesse falhado. */}
+          {cenariosVisiveis.length === 0 && (
+            <div className="text-center py-12">
+              <Filter size={32} className="text-gray-600 mx-auto mb-3" />
+              <p className="text-sm text-gray-500">{tr('filters.noMatch')}</p>
+              <button onClick={limparFiltrosCen} className="mt-2 text-xs font-bold text-cyan-400 hover:underline">
+                {tr('filters.clearAll')}
+              </button>
+            </div>
+          )}
           {Object.entries(cenariosPorCargo).map(([cargo, cens]: [string, any]) => {
             const aprovados = cens.filter(c => c.status_check === 'aprovado').length;
             const ressalvas = cens.filter(c => c.status_check === 'aprovado_com_ressalvas').length;

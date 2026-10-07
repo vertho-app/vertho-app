@@ -3227,6 +3227,16 @@
     "modal": {
       "addTitle": "Adicionar — {role}"
     },
+    "filters": {
+      "role": "Cargo",
+      "competency": "Competência",
+      "allRoles": "Todos os cargos",
+      "allCompetencies": "Todas as competências",
+      "noCompetency": "Sem competência",
+      "showing": "{shown} de {total} cenários",
+      "clearAll": "Limpar filtros",
+      "noMatch": "Nenhum cenário com os filtros atuais."
+    },
     "searchPlaceholder": "Procurar...",
     "workshop": {
       "title": "Workshop presencial",

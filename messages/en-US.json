@@ -3227,6 +3227,16 @@
     "modal": {
       "addTitle": "Add — {role}"
     },
+    "filters": {
+      "role": "Position",
+      "competency": "Competency",
+      "allRoles": "All positions",
+      "allCompetencies": "All competencies",
+      "noCompetency": "No competency",
+      "showing": "{shown} of {total} scenarios",
+      "clearAll": "Clear filters",
+      "noMatch": "No scenarios match the current filters."
+    },
     "searchPlaceholder": "Search...",
     "workshop": {
       "title": "In-person workshop",
