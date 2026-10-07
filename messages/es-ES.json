@@ -4880,6 +4880,7 @@
     "questions": {
       "counter": "Pregunta {current} de {total}",
       "minToast": "Mínimo 20 caracteres.",
+      "textRequired": "Escribe tu respuesta con palabras. No se aceptan solo puntos, números o símbolos.",
       "voiceTipPrefix": "Consejo:",
       "voiceTip": "Haz clic en <strong>Grabar por voz</strong> y habla con naturalidad. El texto aparece en el campo mientras hablas. Haz clic de nuevo para parar y edita si lo necesitas. Permite el acceso al micrófono la primera vez.",
       "placeholder": "Describe tu respuesta con detalle…",

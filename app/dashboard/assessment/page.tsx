@@ -9,6 +9,7 @@ import { Loader2, CheckCircle, ArrowRight, Target, Calendar, FileText, Trophy } 
 import BackButton from '@/components/back-button';
 import { getDiagnosticoDoDia, salvarRespostaDiagnostico } from './assessment-actions';
 import MicInput from '@/components/mic-input';
+import { respostaDiagnosticoTemTexto } from '@/lib/assessment/resposta-texto';
 
 const PHASE = {
   LOADING: 'loading',
@@ -185,6 +186,7 @@ function AssessmentInner() {
 
   function avancarPergunta() {
     if (currentR.trim().length < 20) { flash(t('questions.minToast')); return; }
+    if (!respostaDiagnosticoTemTexto(currentR)) { flash(t('questions.textRequired')); return; }
     if (pergIdx === 3) { setPhase(PHASE.REPR); return; }
     setPergIdx(i => i + 1);
   }
@@ -207,7 +209,7 @@ function AssessmentInner() {
       // Porta fechada no meio do caminho (ex.: cenários bloqueados enquanto a
       // pessoa respondia): a mesma tela de bloqueio da carga, com saída.
       if (BLOQUEIOS_CONHECIDOS.has(r.code)) { setError(r.error); setErrorCode(r.code); setPhase(PHASE.ERROR); return; }
-      flash(ERROS_DE_ENVIO.has(r.code) ? t(`envio.${r.code}`) : r.error);
+      flash(r.code === 'RESPOSTA_SEM_TEXTO' ? t('questions.textRequired') : ERROS_DE_ENVIO.has(r.code) ? t(`envio.${r.code}`) : r.error);
       return;
     }
     setSaveResult(r);
@@ -355,6 +357,7 @@ function AssessmentInner() {
         const cen = data.cenarioDoDia;
         const enunciados = [cen.p1, cen.p2, cen.p3, cen.p4];
         const len = currentR.trim().length;
+        const semTexto = len >= 20 && !respostaDiagnosticoTemTexto(currentR);
         return (
           <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
             <div className="flex items-center justify-between mb-2">
@@ -395,7 +398,8 @@ function AssessmentInner() {
               maxLength={5000}
               className="w-full p-3 rounded-xl border-2 border-white/10 bg-[#091D35] text-white text-sm outline-none focus:border-brand-400 transition-colors placeholder:text-gray-500"
             />
-            <p className={`text-right text-[11px] mt-1 ${len < 20 ? 'text-red-400' : 'text-gray-500'}`}>{t('questions.minChars', { count: len })}</p>
+            <p className={`text-right text-[11px] mt-1 ${len < 20 || semTexto ? 'text-red-400' : 'text-gray-500'}`}>{t('questions.minChars', { count: len })}</p>
+            {semTexto && <p role="alert" className="text-[11px] text-red-400 mt-1">{t('questions.textRequired')}</p>}
             <div className="flex gap-2 mt-4">
               <button onClick={voltarPergunta}
                 className="flex-1 py-2.5 rounded-xl text-xs font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">

@@ -4880,6 +4880,7 @@
     "questions": {
       "counter": "Pergunta {current} de {total}",
       "minToast": "Mínimo 20 caracteres.",
+      "textRequired": "Escreva a sua resposta por palavras. Pontos, números ou símbolos isolados não são aceites.",
       "voiceTipPrefix": "Dica:",
       "voiceTip": "Clique em <strong>Gravar por voz</strong> e fale naturalmente em português. O texto aparece no campo enquanto fala. Clique de novo para parar e edite se precisar. Permita o acesso ao microfone na primeira vez.",
       "placeholder": "Descreva a sua resposta com detalhe…",

@@ -73,6 +73,32 @@ beforeEach(() => {
   montar();
 });
 
+describe('diagnóstico: pontuação sem texto não vira resposta', () => {
+  it.each(['r1', 'r2', 'r3', 'r4'])('recusa pontos em %s mesmo com mais de 20 caracteres', async (campo) => {
+    const r: any = await salvarRespostaDiagnostico('cen-1', 'c-1', 'Prospecção', {
+      ...valida, [campo]: '.'.repeat(31),
+    });
+    expect(r).toMatchObject({ code: 'RESPOSTA_SEM_TEXTO' });
+    expect(gravadas()).toHaveLength(0);
+  });
+
+  it.each(['!?—… '.repeat(8), '👍🙂'.repeat(10), '1234567890'.repeat(3)])('recusa símbolos ou números sem palavras: %s', async (texto) => {
+    const r: any = await salvarRespostaDiagnostico('cen-1', 'c-1', 'Prospecção', { ...valida, r2: texto });
+    expect(r).toMatchObject({ code: 'RESPOSTA_SEM_TEXTO' });
+    expect(gravadas()).toHaveLength(0);
+  });
+
+  it('aceita texto com acentos, números e pontuação', async () => {
+    const texto = 'Às 19:45, organizo a equipe e atendo o cliente.';
+    const r: any = await salvarRespostaDiagnostico('cen-1', 'c-1', 'Prospecção', {
+      r1: texto, r2: texto, r3: texto, r4: texto, repr: 7,
+    });
+    expect(r.success).toBe(true);
+    expect(gravadas()).toHaveLength(1);
+    expect(gravadas()[0].payload.r1).toBe(texto);
+  });
+});
+
 describe('R-80: o bloqueio sai com código, e "sem competência" vem antes do Perfil', () => {
   it('sem Top 5 a pessoa sabe que não há o que responder ANTES de ouvir "faça o seu Perfil"', async () => {
     montar({ top5: [], perfil: null });

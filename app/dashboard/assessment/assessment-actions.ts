@@ -12,6 +12,7 @@ import {
 } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { assessmentCompetencyWasAnswered, findAssessmentAnswer } from '@/lib/assessment/completion';
+import { respostaDiagnosticoTemTexto } from '@/lib/assessment/resposta-texto';
 import { competenciasDaDegustacao, isAssessmentDeDegustacao } from '@/lib/demo/convidado-demo';
 import { resolverTrilhoLideranca, respondeuHojeNoTrilho, trilhoDe, type Trilho } from '@/lib/prontidao-lideranca/trilho';
 import { escolherCenarioDaCompetencia, cenarioAtendeNotaMinima, notaMinimaDaEmpresa } from '@/lib/assessment/cenario-elegivel';
@@ -533,6 +534,9 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
   // Teto que a rota antiga aplicava: a resposta vai inteira para o prompt da IA4.
   if (textos.some((r) => r.length > MAX_CARACTERES_RESPOSTA)) {
     return { error: `Cada resposta pode ter até ${MAX_CARACTERES_RESPOSTA} caracteres`, code: 'RESPOSTA_LONGA' };
+  }
+  if (textos.some((r) => !respostaDiagnosticoTemTexto(r))) {
+    return { error: 'Escreva sua resposta em palavras. Pontos, números ou símbolos sozinhos não são aceitos.', code: 'RESPOSTA_SEM_TEXTO' };
   }
   if (!repr || repr < 1 || repr > 10) {
     return { error: 'Representatividade inválida' };

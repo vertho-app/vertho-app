@@ -5765,6 +5765,7 @@
     "questions": {
       "counter": "Question {current} from {total}",
       "minToast": "Minimum 20 characters.",
+      "textRequired": "Write your answer in words. Dots, numbers or symbols alone are not accepted.",
       "voiceTipPrefix": "Tip:",
       "voiceTip": "Click <strong>Voice Record</strong> and speak naturally in Portuguese. The text appears in the field as you speak. Click again to stop and edit if necessary. Allow microphone access the first time.",
       "placeholder": "Describe your answer in detail…",
