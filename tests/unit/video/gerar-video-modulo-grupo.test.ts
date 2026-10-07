@@ -44,7 +44,9 @@ vi.mock('@/lib/video/montar-inputprops', () => ({
 }));
 vi.mock('@/lib/video/ensure-render-worker', () => ({ ensureRenderWorker: vi.fn(async () => ({ provisioned: false, reason: 'teste' })) }));
 vi.mock('@/trigger/render-video', () => ({ renderVideoTask: { triggerAndWait: vi.fn() } }));
-vi.mock('@trigger.dev/sdk', () => ({ task: (d: any) => d }));
+// `tasks.trigger` dispara a task das saudações em Vertex logo depois de enfileirar o render (ver o teste da irmã).
+const { dispararSaudacoes } = vi.hoisted(() => ({ dispararSaudacoes: vi.fn(async (..._a: any[]) => ({ id: 'run-1' })) }));
+vi.mock('@trigger.dev/sdk', () => ({ task: (d: any) => d, tasks: { trigger: (...a: any[]) => dispararSaudacoes(...a) } }));
 vi.mock('@/lib/trigger-region', () => ({ regionOpts: () => ({}) }));
 const degradacoes: any[] = [];
 vi.mock('@/lib/degradacao', async (orig) => ({
@@ -121,6 +123,7 @@ beforeEach(() => {
   assetsIniciais = {};
   pcmBytes = 48000;
   degradacoes.length = 0;
+  dispararSaudacoes.mockClear();
   gerarClip.mockClear();
   tts.mockReset().mockImplementation(async () => ({ buffer: Buffer.alloc(4000), qa: { ok: true, tentativas: 1 } }));
   transcribe.mockReset().mockImplementation(async () => dezA2pps());
@@ -185,6 +188,7 @@ describe('mãe', () => {
 describe('irmã', () => {
   it('sintetiza só o miolo, com o alvo da mãe, e não paga HeyGen', async () => {
     const ass = await assinaturaDaMae();
+    dispararSaudacoes.mockClear();            // o helper acima rodou a MÃE, que também disparou: aqui só conta a irmã
     await executarGeracaoVideoModulo({ videoId: 'v-irma', roteiro: roteiro(), avatarGrupo: payload({ assinatura: ass }) });
 
     expect(tts).toHaveBeenCalledTimes(1);
@@ -200,6 +204,20 @@ describe('irmã', () => {
     expect(final['scene-1']).toMatchObject({ src: MAE.intro.src, audioSrc: MAE.intro.audioSrc });
     expect(final['scene-4']).toMatchObject({ src: MAE.outro.src, audioSrc: MAE.outro.audioSrc });
     expect(degradacoes).toEqual([]);
+    // O render foi para a fila e, sem esperar por ela, a task das saudações em Vertex foi disparada para ESTA célula.
+    expect(dispararSaudacoes).toHaveBeenCalledTimes(1);
+    expect(dispararSaudacoes.mock.calls[0].slice(0, 2)).toEqual(['gerar-saudacoes-celula', { celulaId: 'v-irma' }]);
+  });
+
+  it('o disparo das saudações que FALHA não derruba o render e deixa rastro (a caixa ainda registra a falta por pessoa)', async () => {
+    const ass = await assinaturaDaMae();
+    degradacoes.length = 0;                   // o helper rodou a MÃE; aqui só conta a irmã
+    dispararSaudacoes.mockRejectedValueOnce(new Error('trigger api fora'));   // armado DEPOIS do helper da mãe
+    const r: any = await executarGeracaoVideoModulo({ videoId: 'v-irma', roteiro: roteiro(), avatarGrupo: payload({ assinatura: ass }) });
+    expect(r.queued).toBe('hetzner');                    // o render segue na fila
+    expect(degradacoes).toHaveLength(1);
+    expect(degradacoes[0]).toMatchObject({ fluxo: 'video', tipo: 'saudacao-vertex-falhou', chave: 'celula:v-irma' });
+    expect(degradacoes[0].detalhe).toMatchObject({ fase: 'disparo', erro: expect.stringContaining('trigger api fora') });
   });
 
   it('portão recusa o miolo contra a altura da mãe: sai do grupo e refaz TUDO como hoje', async () => {

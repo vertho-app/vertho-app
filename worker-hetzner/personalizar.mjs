@@ -6,70 +6,61 @@
  *     mesmo padrão visual do deck (fundo, logo, eyebrow, tipografia);
  *   • "Olá, {nome}" entra à esquerda + a FOTO da mentora desliza pela direita
  *     (estática → reuso total, sem lip-sync nem custo HeyGen);
- *   • voz-over TTS na voz do elenco (VIDEO_TTS_VOICE, hoje Aoede) "Olá, {nome}!".
+ *   • voz-over "Olá, {nome}. Que bom ter você aqui." SINTETIZADO PELO APP no Vertex (voz do
+ *     elenco, a mesma do corpo do vídeo) e lido do Storage; esta box não sintetiza (ver
+ *     `saudacao-audio.mjs` e `audioDaSaudacao`).
  * O deck NÃO fala o nome → continua reutilizável por todos da célula; só esta
  * cena é por pessoa.
  *
  * Node + ffmpeg + @remotion/renderer (já na imagem do worker). Precisa de
- * GEMINI_API_KEY (TTS) e SUPABASE_URL/SERVICE_ROLE_KEY (hospedar o áudio do
- * voice-over como URL pública p/ o <Audio> do Remotion).
+ * SUPABASE_URL/SERVICE_ROLE_KEY (ler o áudio da saudação e hospedar o áudio do
+ * voice-over como URL pública p/ o <Audio> do Remotion) e de VOZ_VERSAO.
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { writeFile, readFile, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { selectComposition, renderMedia, ensureBrowser } from '@remotion/renderer';
+import { BUCKET_SAUDACAO, chaveDoAudioDaSaudacao, primeiroNome, slugSaudacao } from './saudacao-audio.mjs';
 
 const exec = promisify(execFile);
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
-// Defaults ALINHADOS à narração do vídeo (lib/gemini-tts.ts: 2.5 Flash + Aoede desde
-// 05/09/2026). O mesmo nome de voz soa DIFERENTE entre modelos (0,6σ de timbre
-// entre 3.1 e 2.5, medido no bake-off): com o default antigo (3.1 preview) a
-// saudação "Olá, {nome}" saía numa mentora e o corpo do vídeo em outra. O
-// orquestrador passa GEMINI_TTS_MODEL e VIDEO_TTS_VOICE (ensure-render-worker).
-const TTS_MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
-const VOICE = process.env.VIDEO_TTS_VOICE || 'Aoede';
 const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const BUCKET = 'video-assets';
+const BUCKET = BUCKET_SAUDACAO;
 const DEFAULT_BRAND = { primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: 'Inter, system-ui, sans-serif' };
 
-export function primeiroNome(nome) {
-  const first = String(nome || '').trim().split(/\s+/)[0] || '';
-  return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : '';
+// Reexportado: o worker e o trigger importam `primeiroNome` daqui. Vive em `saudacao-audio.mjs` para o app usar o MESMO
+// (o nome falado no áudio e o da chave do objeto têm que sair da mesma função).
+export { primeiroNome };
+
+/**
+ * A saudação NÃO é mais sintetizada aqui (07/10/2026): o app a faz no Vertex, na voz do elenco, e grava o mp3 em
+ * `chaveDoAudioDaSaudacao`. Esta função só LÊ. Sem o arquivo, lança `SaudacaoAusenteError`, e o chamador deixa a pessoa
+ * sem nominal (o deck genérico segue no ar) e registra a degradação. NÃO há fallback para outro sintetizador: o AI Studio
+ * é um sorteio por pessoa que soa como outra locutora, e cair nele em silêncio reabre exatamente a queixa de tom.
+ */
+export class SaudacaoAusenteError extends Error {
+  constructor(chave) {
+    super(`saudação em Vertex ausente (${chave}): o app não a gerou ainda, ou a versão do elenco da box (${process.env.VOZ_VERSAO || 'sem VOZ_VERSAO'}) não é a do app`);
+    this.name = 'SaudacaoAusenteError';
+    this.chave = chave;
+  }
 }
 
-function pcmToWav(pcm, rate = 24000, ch = 1, bits = 16) {
-  const ba = (ch * bits) / 8, br = rate * ba, h = Buffer.alloc(44);
-  h.write('RIFF', 0); h.writeUInt32LE(36 + pcm.length, 4); h.write('WAVE', 8); h.write('fmt ', 12);
-  h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(ch, 22); h.writeUInt32LE(rate, 24);
-  h.writeUInt32LE(br, 28); h.writeUInt16LE(ba, 32); h.writeUInt16LE(bits, 34); h.write('data', 36); h.writeUInt32LE(pcm.length, 40);
-  return Buffer.concat([h, pcm]);
-}
-
-/** Gera o áudio "Olá, {nome}!" (Gemini TTS) num WAV. `voice` casa a voz da narração. */
-async function ttsSaudacao(nome, outWav, voice = VOICE) {
-  if (!GEMINI_KEY) throw new Error('GEMINI_API_KEY ausente');
-  // Direção ESPELHANDO o estilo da narração do avatar (NARRATION_STYLE_INTRO de
-  // gerar-video-modulo): mesma mentora, "energia que prende a atenção" — nem
-  // festivo (sobreatuava) nem sereno demais (ficava abaixo do avatar). O volume é
-  // casado por loudnorm -14 LUFS (loudnormWav), igual ao deck masterizado.
-  const styled = `Fale como uma mentora calorosa e próxima, em português do Brasil, cumprimentando alguém ao abrir uma conversa. Tom acolhedor e com energia que prende a atenção, ritmo natural com respiros leves — sem pressa e sem arrastar, e sem soar festivo:\n\nOlá, ${nome}. Que bom ter você aqui.`;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent?key=${GEMINI_KEY}`;
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-    contents: [{ parts: [{ text: styled }] }],
-    generationConfig: { responseModalities: ['AUDIO'], speechConfig: { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
-  }) });
-  if (!res.ok) throw new Error(`TTS ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const data = await res.json();
-  const part = data?.candidates?.[0]?.content?.parts?.find((p) => p?.inlineData?.data);
-  if (!part) throw new Error('TTS sem áudio');
-  const pcm = Buffer.from(part.inlineData.data, 'base64');
-  const rate = parseInt(part.inlineData.mimeType?.match(/rate=(\d+)/)?.[1] ?? '24000', 10);
-  await writeFile(outWav, pcmToWav(pcm, rate));
+/** Áudio (mp3) da saudação da pessoa. `opts.saudacaoWav` (Buffer) é para teste/script; em produção vem do Storage. */
+async function audioDaSaudacao(p) {
+  if (p.saudacaoWav) return Buffer.from(p.saudacaoWav);
+  if (!p.colaboradorId) throw new Error('saudação: colaboradorId ausente (a chave do áudio é por pessoa)');
+  const versao = process.env.VOZ_VERSAO;
+  if (!versao) throw new Error('VOZ_VERSAO ausente: sem a versão do elenco a chave do áudio da saudação não existe');
+  const chave = chaveDoAudioDaSaudacao({ colaboradorId: p.colaboradorId, nome: p.nome, versao });
+  const buf = await downloadFromStorage(chave);
+  if (!buf || buf.length < 2000) throw new SaudacaoAusenteError(chave);
+  return buf;
 }
 
 async function dur(file) {
@@ -116,19 +107,17 @@ async function downloadFromStorage(key) {
   } catch { return null; }
 }
 
-/** Slug ASCII p/ a chave de cache (nome/voz). */
-function slug(s) {
-  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x';
-}
+/** Slug ASCII p/ a chave de cache (nome). */
+const slug = slugSaudacao;
 
 /**
- * Renderiza a cena de SAUDAÇÃO (TTS "Olá, {nome}" + Remotion `AvatarGreeting`),
- * escalada igual ao output do deck. É a parte CARA (Vertex TTS + Chromium).
+ * Renderiza a cena de SAUDAÇÃO (voz do `p.wav` + Remotion `AvatarGreeting`),
+ * escalada igual ao output do deck. É a parte CARA (Chromium).
  */
 async function renderGreeting(outMp4, p) {
   const work = p.work;
-  const greetRaw = path.join(work, 'greet.wav');
-  await ttsSaudacao(p.nome, greetRaw, p.voice);
+  const greetRaw = path.join(work, 'greet-in'); // mp3 do app (ou wav de script): o ffmpeg reconhece pelo conteúdo
+  await writeFile(greetRaw, p.wav);
   // Casa o volume da saudação ao deck masterizado (-14 LUFS). Se falhar, usa o cru.
   const greetNorm = path.join(work, 'greet-norm.wav');
   const greetWav = await loudnormWav(greetRaw, greetNorm).then(() => greetNorm).catch(() => greetRaw);
@@ -139,7 +128,7 @@ async function renderGreeting(outMp4, p) {
   // scale (output do deck, ex. 720p) → bate pixel a pixel com o avatar_intro.
   const gScale = p.scale || (p.height / p.designH);
   // áudio do voice-over precisa de URL pública (o headless do Remotion faz fetch).
-  const stamp = `${p.colaboradorId || slug(p.nome)}_${slug(p.voice)}`.replace(/[^A-Za-z0-9_-]/g, '');
+  const stamp = `${p.colaboradorId || slug(p.nome)}_${p.audioId}`.replace(/[^A-Za-z0-9_-]/g, '');
   const audioSrc = await uploadAudio(await readFile(greetWav), `greetings/${stamp}.wav`);
   const props = { nome: p.nome, audioSrc, brand: p.brand, durationInFrames, fps: p.fps, width: p.designW, height: p.designH };
   await ensureBrowser();
@@ -149,20 +138,25 @@ async function renderGreeting(outMp4, p) {
 }
 
 /**
- * Saudação CACHEADA por (colaborador × voz × nome × formato): grava o greetMp4
- * 1× no storage e o REUTILIZA em todos os materiais do usuário — pula TTS+render
- * (caros, rate-limited) nas próximas células. Chave determinística (sem tabela);
- * nome/voz/formato na chave invalidam sozinhos. Sem colaboradorId → sempre gera.
+ * Saudação CACHEADA por (colaborador × ÁUDIO × nome × formato): grava o greetMp4
+ * 1× no storage e o REUTILIZA em todos os materiais do usuário — pula o render
+ * (caro, rate-limited) nas próximas células. Chave determinística (sem tabela).
+ *
+ * O ÁUDIO entra na chave pelo hash dos seus bytes (07/10/2026), e por isso ele é lido ANTES do cache: trocar a voz, o
+ * modelo ou só re-sintetizar a saudação gera outro hash e o mp4 antigo deixa de ser servido. Antes a chave levava o nome da
+ * voz, o modelo e `VOZ_VERSAO`, e uma saudação do AI Studio sorteada uma vez valia para sempre. As antigas (`__aoede__…`)
+ * não casam mais com nenhuma chave nova: ficam órfãs no bucket e nunca são reservidas.
+ * Sem colaboradorId → sempre gera.
  */
 async function getOrCreateGreeting(outMp4, p) {
-  // O MODELO entra na chave: a mesma voz em outro modelo é outra locutora, e o cache
-  // servia a saudação do modelo antigo depois da troca (06/09).
-  const key = `greetings-cache/${p.colaboradorId}__${slug(p.voice)}__${slug(TTS_MODEL)}__${slug(process.env.VOZ_VERSAO || 'v0')}__${slug(primeiroNome(p.nome))}__${p.width}x${p.height}.mp4`;
+  const wav = await audioDaSaudacao(p);
+  const audioId = createHash('sha1').update(wav).digest('hex').slice(0, 10);
+  const key = `greetings-cache/${p.colaboradorId}__vertex-${audioId}__${slug(primeiroNome(p.nome))}__${p.width}x${p.height}.mp4`;
   if (p.colaboradorId) {
     const buf = await downloadFromStorage(key);
     if (buf && buf.length > 2000) { await writeFile(outMp4, buf); return { cached: true, key }; }
   }
-  await renderGreeting(outMp4, p);
+  await renderGreeting(outMp4, { ...p, wav, audioId });
   if (p.colaboradorId) await uploadBuffer(await readFile(outMp4), key, 'video/mp4').catch(() => {});
   return { cached: false, key };
 }
@@ -181,7 +175,7 @@ export async function personalizar(deckPath, nomeCompleto, outPath, opts = {}) {
     const { width, height, fps } = await probeVideo(deckPath);
     const greetMp4 = path.join(work, 'greet.mp4');
     const g = await getOrCreateGreeting(greetMp4, {
-      nome, voice: opts.voice || VOICE, brand, width, height, fps, work, bundleDir,
+      nome, brand, width, height, fps, work, bundleDir, saudacaoWav: opts.saudacaoWav,
       colaboradorId: opts.colaboradorId, designW: opts.width || 1920, designH: opts.height || 1080, scale: opts.scale,
     });
     if (g.cached) console.log(`[personalizar] saudação REUSADA do cache (${g.key})`);

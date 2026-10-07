@@ -34,6 +34,16 @@ vi.mock('@/lib/video/ensure-render-worker', () => ({
   ensureRenderWorker: (...a: any[]) => ensureMock(...a),
 }));
 
+// O áudio da saudação (Vertex) é gerado ANTES de a célula voltar à fila. Aqui ele é de mentira: por padrão todo mundo fica
+// com áudio, e o bloco "o áudio da saudação vem antes da box" liga as falhas. Sem este mock o import dinâmico chamaria o
+// TTS de verdade.
+const { garantirMock } = vi.hoisted(() => ({ garantirMock: vi.fn() }));
+vi.mock('@/lib/video/saudacao-vertex', () => ({ garantirSaudacoes: (...a: any[]) => garantirMock(...a) }));
+beforeEach(() => {
+  garantirMock.mockReset();
+  garantirMock.mockImplementation(async (a: any) => ({ geradas: a.pessoas.map((p: any) => p.colaboradorId), jaExistiam: [], falhas: [], adiadas: [], semNome: [] }));
+});
+
 /**
  * F-V1 — vídeo nominal que nunca chega.
  *
@@ -457,5 +467,79 @@ describe('reconciliarPersonalizados · célula de kit por preferência', () => {
     dados = { videos_gerados: [CEL], colaboradores: [querVideo], videos_personalizados: [] };
     sb.falharEm({ tabela: 'kits', op: 'select', mensagem: 'kits fora' });
     await expect(reconciliarPersonalizados({ executar: false })).rejects.toThrow(/kits fora/);
+  });
+});
+
+/**
+ * O áudio da saudação (07/10/2026). A caixa não sintetiza mais: lê o mp3 que o app gravou no Vertex. Então a reconciliação
+ * gera o que falta ANTES de devolver a célula à fila, e só paga a box se ao menos uma pessoa tem áudio. Sem isso, a box
+ * subiria para produzir `saudacao-vertex-ausente` em todo mundo.
+ */
+describe('reconciliarPersonalizados · o áudio da saudação vem antes da box', () => {
+  const CELULA = { id: 'cel-1', empresa_id: 'emp-1', cargo: 'Diretor(a) Escolar', disc_dominante: 'S', modulo_base_id: 'mb-1', created_at: '2026-08-17T00:00:00Z' };
+  const colab = (id: string, nome: string) => ({ id, nome_completo: nome, cargo: 'Diretor(a) Escolar', perfil_dominante: 'S', empresa_id: 'emp-1' });
+  const enfileirou = () => sb.escritas.some((e) => e.tabela === 'videos_gerados' && e.op === 'update' && e.payload.status === 'render_queued');
+
+  beforeEach(() => {
+    sb.reset();
+    escritaCasa = true;
+    ensureMock.mockReset();
+    ensureMock.mockResolvedValue({ provisioned: true, alive: 1, reason: 'ok' });
+    dados = { videos_gerados: [CELULA], colaboradores: [colab('colab-1', 'Ana Souza'), colab('colab-2', 'Bia Lima')], videos_personalizados: [] };
+  });
+
+  it('gera o áudio de QUEM FALTA, com a empresa, ANTES de qualquer escrita de enfileiramento', async () => {
+    let escritasNaChamada = -1;
+    garantirMock.mockImplementation(async (a: any) => { escritasNaChamada = sb.escritas.length; return { geradas: ['colab-1', 'colab-2'], jaExistiam: [], falhas: [], adiadas: [], semNome: [] }; });
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(garantirMock).toHaveBeenCalledTimes(1);
+    const arg = garantirMock.mock.calls[0][0];
+    expect(arg.empresaId).toBe('emp-1');
+    expect(arg.pessoas).toEqual([{ colaboradorId: 'colab-1', nome: 'Ana Souza' }, { colaboradorId: 'colab-2', nome: 'Bia Lima' }]);
+    expect(arg.prazoAteMs).toBeGreaterThan(Date.now());
+    expect(escritasNaChamada).toBe(0);               // a síntese vem antes de qualquer update da fila
+    expect(r.celulasReenfileiradas).toEqual(['cel-1']);
+    expect(r.celulasSemSaudacao).toBeUndefined();
+  });
+
+  it('NENHUM áudio pronto (Vertex fora): a célula NÃO volta à fila e sai em celulasSemSaudacao', async () => {
+    garantirMock.mockResolvedValue({ geradas: [], jaExistiam: [], falhas: [{ colaboradorId: 'colab-1', motivo: 'x' }, { colaboradorId: 'colab-2', motivo: 'x' }], adiadas: [], semNome: [] });
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(enfileirou()).toBe(false);
+    expect(ensureMock).not.toHaveBeenCalled();         // nenhuma box paga para produzir erro
+    expect(r.celulasReenfileiradas).toEqual([]);
+    expect(r.celulasSemSaudacao).toEqual(['cel-1']);
+    expect(r.pessoasSemVideoNominal).toBe(2);          // a lacuna segue REPORTADA
+    expect(r.ignoradasPorLimite).toBe(0);              // sair por falta de áudio não é "ignorada por limite"
+  });
+
+  it('áudio de ao menos UMA pessoa basta: a célula volta à fila', async () => {
+    garantirMock.mockResolvedValue({ geradas: [], jaExistiam: ['colab-1'], falhas: [{ colaboradorId: 'colab-2', motivo: 'x' }], adiadas: [], semNome: [] });
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(enfileirou()).toBe(true);
+    expect(r.celulasReenfileiradas).toEqual(['cel-1']);
+  });
+
+  it('prazo esgotado (todas adiadas) conta como sem áudio: não paga a box', async () => {
+    garantirMock.mockResolvedValue({ geradas: [], jaExistiam: [], falhas: [], adiadas: ['colab-1', 'colab-2'], semNome: [] });
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(enfileirou()).toBe(false);
+    expect(r.celulasSemSaudacao).toEqual(['cel-1']);
+  });
+
+  it('a geração que LANÇA não derruba a reconciliação: a célula fica de fora, com a falha no log', async () => {
+    garantirMock.mockRejectedValue(new Error('vertex explodiu'));
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(enfileirou()).toBe(false);
+    expect(r.celulasSemSaudacao).toEqual(['cel-1']);
+    expect(spy.mock.calls.some((c) => String(c.join(' ')).includes('vertex explodiu'))).toBe(true);
+    spy.mockRestore();
+  });
+
+  it('só LÊ no modo simulação: não sintetiza nada (executar: false não paga TTS)', async () => {
+    const r = await reconciliarPersonalizados({ executar: false });
+    expect(garantirMock).not.toHaveBeenCalled();
+    expect(r.lacunas).toHaveLength(1);
   });
 });

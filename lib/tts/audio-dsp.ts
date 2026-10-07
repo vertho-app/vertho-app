@@ -31,7 +31,7 @@ const MP3_SAMPLE_RATE = 44100;
  * arquivo carrega, o player mostra "0:00 / 0:00". Mesma narração a 96 kbps mono
  * fica em 2,54 MB, sem diferença audível em voz.
  */
-const MP3_BITRATE_KBPS = 96;
+export const MP3_BITRATE_KBPS = 96;
 const MP3_CANAIS = 1;
 const TARGET_LUFS = -14;
 const TRUE_PEAK_DB = -1.5;
