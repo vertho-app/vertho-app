@@ -20,6 +20,8 @@ const C = {
   natural: '#34C5CC',
 };
 const FAT_COLOR: Record<Fator, string> = { D: C.d, I: C.i, S: C.s, C: C.c };
+/** Números do relatório saem com 1 casa decimal (08/10/2026: 64.36 → 64.4). Só no TEXTO: largura de barra segue o valor bruto. */
+const f1 = (v: number) => (Math.round(v * 10) / 10).toFixed(1);
 
 const s = StyleSheet.create({
   page: { fontFamily: 'NotoSans', fontSize: 9, color: C.text, paddingBottom: 44 },
@@ -138,7 +140,7 @@ function FocoCards({ p }: { p: PerfilOrg }) {
     <View>
       {p.fatoresOrdem.map((f) => (
         <View key={f.fator} style={s.focoCard}>
-          <Text style={s.focoMedia}>{f.nome} Média: {f.media}</Text>
+          <Text style={s.focoMedia}>{f.nome} Média: {f1(f.media)}</Text>
           <Text style={[s.focoTema, { color: FAT_COLOR[f.fator] }]}>Indica Foco Em {f.foco}</Text>
         </View>
       ))}
@@ -163,7 +165,7 @@ function LiderancaPie({ p }: { p: PerfilOrg }) {
   return (
     <Svg width={160} height={160}>
       {slices.map((sl, i) => <Path key={i} d={sl.path} fill={sl.col} />)}
-      {slices.map((sl, i) => <Text key={'t' + i} x={sl.lx} y={sl.ly} style={{ fontSize: 8, fontWeight: 700 }} fill={C.white} textAnchor="middle">{sl.pct}%</Text>)}
+      {slices.map((sl, i) => <Text key={'t' + i} x={sl.lx} y={sl.ly} style={{ fontSize: 8, fontWeight: 700 }} fill={C.white} textAnchor="middle">{f1(sl.pct)}%</Text>)}
     </Svg>
   );
 }
@@ -201,7 +203,7 @@ function CompCompare({ c }: { c: PerfilOrg['competencias'][number] }) {
           <View style={{ flex: 1, height: 11, backgroundColor: '#E8EDF3', borderRadius: 6 }}>
             <View style={{ width: `${Math.min(100, v)}%`, height: 11, backgroundColor: col, borderRadius: 6 }} />
           </View>
-          <Text style={{ width: 34, fontSize: 8, fontWeight: 700, color: C.navy, textAlign: 'right' }}>{v}</Text>
+          <Text style={{ width: 34, fontSize: 8, fontWeight: 700, color: C.navy, textAlign: 'right' }}>{f1(v)}</Text>
         </View>
       ))}
     </View>
@@ -243,7 +245,7 @@ function CargoBlock({ cargo, n, perfil }: { cargo: string; n: number; perfil: Pe
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 8, fontWeight: 700, color: C.navy }}>{perfil.arquetipo.nome}</Text>
-          <Text style={{ fontSize: 8, color: C.sub, marginTop: 3 }}>Liderança: <Text style={{ fontWeight: 700, color: C.navy }}>O {perfil.lideranca.nome}</Text> ({perfil.lideranca.pct}%)</Text>
+          <Text style={{ fontSize: 8, color: C.sub, marginTop: 3 }}>Liderança: <Text style={{ fontWeight: 700, color: C.navy }}>O {perfil.lideranca.nome}</Text> ({f1(perfil.lideranca.pct)}%)</Text>
           <Text style={{ fontSize: 8, color: C.sub, marginTop: 3 }}>Talentos: <Text style={{ fontWeight: 700, color: C.navy }}>{perfil.talentos.slice(0, 2).map((t) => t.nome).join(', ')}</Text></Text>
         </View>
         <View style={{ width: 150 }}>
@@ -371,7 +373,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
                   <View style={{ flex: 1, height: 11, backgroundColor: '#E8EDF3', borderRadius: 6 }}>
                     <View style={{ width: `${d.pct}%`, height: 11, backgroundColor: [C.d, C.i, C.s, C.c][i], borderRadius: 6 }} />
                   </View>
-                  <Text style={{ width: 36, fontSize: 8.5, fontWeight: 700, color: C.navy, textAlign: 'right' }}>{d.pct}%</Text>
+                  <Text style={{ width: 36, fontSize: 8.5, fontWeight: 700, color: C.navy, textAlign: 'right' }}>{f1(d.pct)}%</Text>
                 </View>
               ))}
             </View>
@@ -402,12 +404,12 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
             <View style={{ width: 170, alignItems: 'center' }}><LiderancaPie p={p} /></View>
             <View style={s.col}>
               <Text style={{ fontSize: 14, fontWeight: 700, color: C.navy }}>O {p.lideranca.nome}</Text>
-              <Text style={{ fontSize: 10, color: C.sub, marginBottom: 6 }}>{p.lideranca.vinculo} ({p.lideranca.pct}%)</Text>
+              <Text style={{ fontSize: 10, color: C.sub, marginBottom: 6 }}>{p.lideranca.vinculo} ({f1(p.lideranca.pct)}%)</Text>
               {p.lideranca.dist.map((d, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                   <View style={{ width: 10, height: 10, borderRadius: 5, marginRight: 6, backgroundColor: [C.d, C.i, C.s, C.c][i] }} />
                   <Text style={{ fontSize: 9, color: C.navy, fontWeight: 700, width: 90 }}>{d.nome}</Text>
-                  <Text style={{ fontSize: 9, color: C.sub }}>{d.pct}%</Text>
+                  <Text style={{ fontSize: 9, color: C.sub }}>{f1(d.pct)}%</Text>
                 </View>
               ))}
             </View>
@@ -448,8 +450,8 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
           {p.fatoresAltoBaixo.map((f) => (
             <View key={f.fator} style={{ marginBottom: 8 }}>
               <View style={s.fbBar}>
-                <View style={[s.fbLeft, { width: `${f.pctAlto}%`, backgroundColor: FAT_COLOR[f.fator] }]}><Text style={s.fbPct}>{f.pctAlto}%</Text><Text style={s.fbLbl}>{f.nome} Alto</Text></View>
-                <View style={[s.fbRight, { width: `${f.pctBaixo}%`, backgroundColor: FAT_COLOR[f.fator], opacity: 0.4 }]}><Text style={s.fbPct}>{f.pctBaixo}%</Text><Text style={s.fbLbl}>{f.nome} Baixo</Text></View>
+                <View style={[s.fbLeft, { width: `${f.pctAlto}%`, backgroundColor: FAT_COLOR[f.fator] }]}><Text style={s.fbPct}>{f1(f.pctAlto)}%</Text><Text style={s.fbLbl}>{f.nome} Alto</Text></View>
+                <View style={[s.fbRight, { width: `${f.pctBaixo}%`, backgroundColor: FAT_COLOR[f.fator], opacity: 0.4 }]}><Text style={s.fbPct}>{f1(f.pctBaixo)}%</Text><Text style={s.fbLbl}>{f.nome} Baixo</Text></View>
               </View>
               <View style={s.fbCounts}><Text style={s.fbCount}>{f.nAlto} <Text style={{ fontSize: 8, color: C.sub, fontWeight: 400 }}>perfis acima de 50</Text></Text><Text style={s.fbCount}>{f.nBaixo} <Text style={{ fontSize: 8, color: C.sub, fontWeight: 400 }}>até 50</Text></Text></View>
             </View>
@@ -461,7 +463,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
             <View key={t.nome} style={s.talRow}>
               <Text style={s.talNome}>{t.nome}</Text>
               <View style={s.talBarBg}><View style={[s.talBar, { width: `${t.pct}%`, backgroundColor: C.cyan }]} /></View>
-              <Text style={s.talPct}>{t.pct}%</Text>
+              <Text style={s.talPct}>{f1(t.pct)}%</Text>
             </View>
           ))}
         </View>
