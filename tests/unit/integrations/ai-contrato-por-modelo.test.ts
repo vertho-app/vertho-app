@@ -82,8 +82,14 @@ import { MODELOS_DISPONIVEIS, familiaDoModelo } from '@/lib/ai-tasks';
 const dialeto = (id: string): 'anthropic' | 'google' | 'openai' =>
   id.startsWith('claude') ? 'anthropic' : id.startsWith('gemini') ? 'google' : 'openai';
 
-/** Claude que usa thinking adaptativo + output_config.effort (geração 5 / 4.7+). */
-const claudeAdaptativo = (id: string) => /^claude-(opus-5|sonnet-5|fable-5|mythos-5|opus-4-7|opus-4-8)/.test(id);
+/**
+ * Claude que usa thinking adaptativo + output_config.effort (geração 5 / 4.7+).
+ *
+ * É um ORÁCULO PRÓPRIO, escrito à mão e de propósito diferente do regex de `ehClaudeAdaptativo` no wrapper: se
+ * fosse importado, o teste atestaria o código contra ele mesmo. Modelo novo no dropdown obriga a atualizar as
+ * DUAS pontas, e foi assim que o `claude-haiku-5-5` (08/10/2026) apareceu aqui reprovado antes de ir ao ar.
+ */
+const claudeAdaptativo = (id: string) => /^claude-(opus-5|sonnet-5|haiku-5|fable-5|mythos-5|opus-4-7|opus-4-8)/.test(id);
 const gemini38 = (id: string) => id.startsWith('gemini-3.8');
 
 const TODOS = MODELOS_DISPONIVEIS.map((m) => m.id);

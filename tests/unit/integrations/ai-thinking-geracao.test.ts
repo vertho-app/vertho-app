@@ -101,4 +101,65 @@ describe('ai-client · thinking e effort por geração de modelo Claude', () => 
       'cortar temperature no 4.6 mudaria o comportamento de 16 call-sites em produção',
     ).toBe(0.7);
   });
+
+  // ── Haiku 5.5 (08/10/2026) ──────────────────────────────────────────────────
+  // Entrou como default do Copiloto ao vivo, do brief da escola e do moderador/intenção do PACE. Ele é da
+  // geração 5, mas o regex do wrapper não o reconhecia: o corpo sairia no formato ANTIGO, com `temperature`
+  // (400), `budget_tokens` (400) e `reasoningEffort` DESCARTADO. O último é o pior: o modelo roda em
+  // esforço `medium` com o raciocínio ligado e a chamada fica rotulada `low` no ledger.
+  it('Haiku 5.5 recebe effort em output_config (o `low` do Copiloto não pode ser descartado)', async () => {
+    await callAI('SYS', 'USER', { model: 'claude-haiku-5-5' }, 1500, { reasoningEffort: 'low' });
+    expect(
+      ultimo().output_config,
+      'sem isto o Haiku roda em medium com o rótulo low',
+    ).toEqual({ effort: 'low' });
+    expect(ultimo().thinking, '`low` baixa o esforço mas NÃO desliga o raciocínio').toBeUndefined();
+  });
+
+  // `none` desliga o raciocínio no Haiku 5.x. Medido em 08/10/2026 com o prompt real do Copiloto ao vivo (15 chamadas
+  // por variante): em `low` o Haiku ainda raciocina (saída p50 1.153 tokens, latência p95 7,7 s, perto do timeout de
+  // 8 s da rota); com `thinking: disabled`, saída p50 381 e p95 2,2 s, 15/15 JSON válidos.
+  it('Haiku 5.5 com reasoningEffort none desliga o raciocínio e não manda effort', async () => {
+    await callAI('SYS', 'USER', { model: 'claude-haiku-5-5' }, 700, { reasoningEffort: 'none' });
+    expect(
+      ultimo().thinking,
+      'sem isto o `none` do Copiloto roda com raciocínio padrão: 3x a latência',
+    ).toEqual({ type: 'disabled' });
+    expect(ultimo().output_config, '`none` não é nível de effort do Claude (400)').toBeUndefined();
+  });
+
+  it('thinking pedido de propósito vence o `none` no Haiku 5.5', async () => {
+    await callAI('SYS', 'USER', { model: 'claude-haiku-5-5' }, 4096, { thinking: true, reasoningEffort: 'none' });
+    expect(ultimo().thinking).toEqual({ type: 'adaptive' });
+    expect(ultimo().output_config).toBeUndefined();
+  });
+
+  it.each(['claude-sonnet-5-5', 'claude-opus-5-5'])(
+    '%s NUNCA recebe thinking disabled: a API devolve 400 nesses modelos',
+    async (modelo) => {
+      await callAI('SYS', 'USER', { model: modelo }, 4096, { reasoningEffort: 'none' });
+      expect(ultimo().thinking, `o desligamento é só do Haiku 5.x; ${modelo} recusa 'disabled'`).toBeUndefined();
+    },
+  );
+
+  it('Haiku 5.5 recebe thinking adaptive, sem budget_tokens', async () => {
+    await callAI('SYS', 'USER', { model: 'claude-haiku-5-5' }, 4096, { thinking: true });
+    expect(ultimo().thinking).toEqual({ type: 'adaptive' });
+    expect(ultimo().thinking?.budget_tokens, 'budget_tokens no Haiku 5.5 devolve 400').toBeUndefined();
+  });
+
+  it('Haiku 5.5 NÃO recebe temperature, top_p nem top_k', async () => {
+    await callAI('SYS', 'USER', { model: 'claude-haiku-5-5' }, 4096, {
+      temperature: 0.2, top_p: 0.9, top_k: 40,
+    } as any);
+    expect(ultimo().temperature, 'valor não padrão de sampling no Haiku 5.5 é 400').toBeUndefined();
+    expect(ultimo().top_p).toBeUndefined();
+    expect(ultimo().top_k).toBeUndefined();
+  });
+
+  it('o Haiku 4.5 (geração anterior) segue no formato antigo', async () => {
+    await callAI('SYS', 'USER', { model: 'claude-haiku-4-5' }, 4096, { thinking: true, temperature: 0.5 });
+    expect(ultimo().thinking?.type).toBe('enabled');
+    expect(ultimo().temperature).toBe(0.5);
+  });
 });

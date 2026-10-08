@@ -135,6 +135,8 @@ export interface AICallOptions {
   //  - Claude geração 5 / 4.7+ : vira `output_config.effort` (07/08). Antes era
   //    IGNORADO no ramo Anthropic, então "opus-5 em high" rodava em esforço
   //    PADRÃO com o rótulo errado — pior que falhar, porque a tabela mente.
+  //    Exceção: `none` no Haiku 5.x vira `thinking: {type:'disabled'}` (sem `effort`); nos demais Claude
+  //    `none` não existe como nível e a API devolve 400.
   //  - Gemini 3.8: vira `generationConfig.thinkingConfig.thinkingLevel`.
   //    `none|minimal` caem em `low` porque o 3.8 não aceita esses níveis.
   //    Nos Gemini legados segue ignorado para não mudar o contrato do fallback.
@@ -669,9 +671,21 @@ export async function callOpenAIWebSearch(
 // ⚠️ Em Opus 5 o thinking é LIGADO POR PADRÃO (ao contrário do 4.8/4.7), e
 // `max_tokens` limita thinking + texto JUNTOS: rota que nunca setou `thinking` e
 // dimensionou max_tokens justo pode truncar no meio da resposta.
+//
+// 08/10/2026: o Haiku 5.5 é da geração 5 (adaptive por padrão, sem sampling, effort em
+// `output_config`). Fora deste regex ele cairia no ramo antigo: `temperature` seguiria no corpo,
+// `thinking` viraria `budget_tokens` (400) e o `reasoningEffort` seria DESCARTADO, rodando em
+// `medium` com o rótulo `low` — o mesmo defeito silencioso que o opus-5 teve em agosto.
 function ehClaudeAdaptativo(model: string): boolean {
-  return /^claude-(opus-5|sonnet-5|fable-5|mythos-5|opus-4-7|opus-4-8)/.test(model);
+  return /^claude-(opus-5|sonnet-5|haiku-5|fable-5|mythos-5|opus-4-7|opus-4-8)/.test(model);
 }
+
+// Quem aceita `thinking: {type:'disabled'}` na geração 5 NÃO é todo mundo: Opus 5.5 e Sonnet 5.5 devolvem 400.
+// Só o Haiku 5.x entra aqui, e ele foi medido com chamada real em 08/10/2026 (45 chamadas, 100% JSON válido): a
+// API aceita em effort `high` ou abaixo, e sem ele o Copiloto ao vivo caiu de p95 7,7 s para 2,2 s. O motivo é
+// que o raciocínio é LIGADO por padrão no Haiku 5.5, mesmo em effort `low`: a saída média do JSON do Copiloto
+// subiu de 381 para 1.153 tokens, e o p95 de saída batia no teto de `max_tokens`, cortando a resposta.
+const ACEITA_THINKING_DESLIGADO = /^claude-haiku-5/;
 
 /** Aplica thinking/effort no corpo da chamada Claude conforme a geração. */
 function aplicarThinkingClaude(params: any, model: string, options: AICallOptions) {
@@ -689,7 +703,11 @@ function aplicarThinkingClaude(params: any, model: string, options: AICallOption
     delete params.top_k;
     if (options.thinking) params.thinking = { type: 'adaptive' };
     // `effort` é GA nesses modelos e vive DENTRO de output_config.
-    if (options.reasoningEffort) {
+    if (options.reasoningEffort === 'none' && ACEITA_THINKING_DESLIGADO.test(model)) {
+      // `none` = sem raciocínio (o vocabulário de `reasoningEffort` já o usa assim no OpenAI). Quem pediu
+      // `thinking` de propósito vence: ligar e desligar na mesma chamada não tem leitura possível.
+      if (!options.thinking) params.thinking = { type: 'disabled' };
+    } else if (options.reasoningEffort) {
       params.output_config = { ...(params.output_config || {}), effort: options.reasoningEffort };
     }
     return;

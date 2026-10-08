@@ -39,6 +39,11 @@ export const MODELS = {
   // está morta: o custo medido é o custo definitivo.
   // (Batch = 50% → $1/$5; cache read 0,1× → $0,20 — ambos saem dos multiplicadores.)
   'claude-sonnet-5':            { label: 'Claude Sonnet 5',      inUsd: 2,    outUsd: 10 },
+  // Haiku 5.5: tabela oficial (08/10/2026) é $0,10/$0,50 para prompts de até 100K tokens e
+  // $0,50/$2,50 acima disso. O catálogo só tem uma faixa e guarda a de até 100K, porque nenhum
+  // uso nosso passa dela (brief da escola: PPP truncado em 60.000 caracteres, cerca de 20K tokens).
+  // Se um uso longo entrar, esta linha SUBESTIMA o custo dele em 5x.
+  'claude-haiku-5-5':           { label: 'Claude Haiku 5.5',     inUsd: 0.10, outUsd: 0.50 },
   // ── Linhas históricas (ledger pré-ago/2026) — manter p/ custo retroativo ──
   'claude-opus-4-8':            { label: 'Claude Opus 4.8',     inUsd: 5,    outUsd: 25 },
   'claude-opus-4-7':            { label: 'Claude Opus 4.7',     inUsd: 5,    outUsd: 25 },

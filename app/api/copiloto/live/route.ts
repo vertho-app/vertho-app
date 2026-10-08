@@ -7,6 +7,7 @@ import { requireRepresentativeOrAdminRequest } from '@/lib/copiloto/auth';
 import { comContexto } from '@/lib/execucao-contexto';
 import { buildFallbackLiveReading, knownReturnCoverage } from '@/lib/copiloto/live-support';
 import { DISCOVERY_CHECKLIST, PACE_PHASES, type DiscoveryKey, type PacePhase } from '@/lib/copiloto/types';
+import { DEFAULT_COPILOTO_LIVE_MODEL } from '@/lib/ai-tasks';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -73,13 +74,14 @@ async function generateLiveReading(system: string, prompt: string): Promise<{
   parsed: any;
   recoveredProvider: boolean;
 } | null> {
-  // 3.8 em `low` mantém o apoio de reunião rápido. O wrapper tenta 3.7 antes
-  // de devolver erro; Luna continua como fallback de outra família.
-  const preferredModel = process.env.COPILOTO_LIVE_MODEL || 'gemini-3.8-flash';
+  // Haiku 5.5 sem raciocínio mantém o apoio de reunião rápido (08/10/2026; antes Gemini 3.8 Flash). Se ele falha, o
+  // Gemini 3.8 assume (o wrapper tenta o 3.7 dentro dele) e o Luna fecha a escada, de outra família.
+  const preferredModel = process.env.COPILOTO_LIVE_MODEL || DEFAULT_COPILOTO_LIVE_MODEL;
   // O 3.7 explícito cobre também resposta 200 com JSON inválido, que só o
   // caller consegue detectar; falha HTTP/vazia já cai nele dentro do wrapper.
   const models = [...new Set([
     preferredModel,
+    ...(preferredModel.startsWith('claude') ? ['gemini-3.8-flash'] : []),
     ...(preferredModel.startsWith('gemini-3.8') ? ['gemini-3.7-flash'] : []),
     'gpt-5.6-luna',
   ])];
@@ -95,6 +97,9 @@ async function generateLiveReading(system: string, prompt: string): Promise<{
         {
           taskKey: 'copiloto_ao_vivo',
           timeoutMs: 8000,
+          // `none` desliga o raciocínio no Haiku 5.x e no OpenAI. É o que mantém o Haiku rápido: com o
+          // raciocínio padrão (mesmo em `low`) o p95 foi de 7,7 s contra 2,2 s, e a saída passou de 381 para
+          // 1.153 tokens. O Gemini 3.8 não aceita `none`, então fica em `low`.
           reasoningEffort: model.startsWith('gemini') ? 'low' : 'none',
         },
       );

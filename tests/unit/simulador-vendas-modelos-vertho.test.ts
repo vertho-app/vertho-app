@@ -30,8 +30,10 @@ describe('modelos por dificuldade no treinamento comercial', () => {
         modelo: 'claude-sonnet-5-5',
         esforco: 'medium',
       });
-      expect(s.moderador.modelo).toBe('gemini-3.8-flash');
-      expect(s.intencao.modelo).toBe('gemini-3.8-flash');
+      // 08/10/2026: moderador e intenção migraram do Gemini 3.8 Flash para o Haiku 5.5, com o raciocínio desligado
+      // (`none`): o Haiku raciocina por padrão mesmo em `low`, e a saída desses dois é de 19 a 40 tokens.
+      expect(s.moderador).toMatchObject({ modelo: 'claude-haiku-5-5', esforco: 'none' });
+      expect(s.intencao).toMatchObject({ modelo: 'claude-haiku-5-5', esforco: 'none' });
       expect(s.criador.versao).toMatch(/-comercial-3$/);
       expect(s.cliente.versao).toMatch(/-comercial-3$/);
       const textos = mocks.archive.mock.calls as unknown as Array<unknown[]>;
@@ -71,6 +73,10 @@ describe('modelos por dificuldade no treinamento comercial', () => {
     expect(modeloPaceCompativel('gpt-5.4-mini-2026-03-17')).toBe(true);
     expect(modeloPaceCompativel('global.moonshotai.kimi-k3')).toBe(true);
     expect(modeloPaceCompativel('claude-sonnet-5-5')).toBe(true);
+    expect(modeloPaceCompativel('claude-haiku-5-5')).toBe(true);
+    // O Gemini 3.8 SAIU do perfil Vertho mas segue compatível: sessão aberta antes da troca tem o snapshot
+    // dele congelado, e `snapshotPrompts` recusaria o treino se `modeloPaceCompativel` o negasse.
+    expect(modeloPaceCompativel('gemini-3.8-flash')).toBe(true);
     expect(modeloPaceCompativel('kimi-k3')).toBe(false);
     expect(modeloPaceCompativel('claude-sonnet-4-6')).toBe(false);
   });

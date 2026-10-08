@@ -23,6 +23,8 @@ describe('catálogo de preços de IA', () => {
     expect(MODELS['claude-opus-5']).toMatchObject({ inUsd: 5, outUsd: 25 });
     expect(MODELS['claude-sonnet-5']).toMatchObject({ inUsd: 2, outUsd: 10 });
     expect(MODELS['claude-sonnet-4-6']).toMatchObject({ inUsd: 3, outUsd: 15 });
+    // Haiku 5.5, conferido em 08/10/2026 (faixa de até 100K tokens de prompt).
+    expect(MODELS['claude-haiku-5-5']).toMatchObject({ inUsd: 0.1, outUsd: 0.5 });
     expect(MODELS['muse-spark-1.2']).toMatchObject({ inUsd: 1.25, cacheReadUsd: 0.15, outUsd: 4.25 });
     expect(MODELS['muse-spark-1.3']).toMatchObject({ inUsd: 1.25, cacheReadUsd: 0.15, outUsd: 4.25 });
     expect(MODELS['qwen3.8-max']).toMatchObject({ inUsd: 2, cacheReadUsd: 0.25, outUsd: 6 });
@@ -43,6 +45,13 @@ describe('catálogo de preços de IA', () => {
       'gemini-3.8-flash',
       'kimi-k3',
     ]);
+  });
+
+  it('o Haiku 5.5 tem custo calculável: sem a linha o ledger gravaria cost_usd nulo', () => {
+    // Chamada média do Copiloto ao vivo no ledger de 30 dias: 2.651 tokens de entrada, 276 de saída.
+    const custo = costFromTokens('claude-haiku-5-5', { inTokens: 2651, cacheRead: 0, outTokens: 276 });
+    expect(custo).not.toBeNull();
+    expect(custo).toBeCloseTo((2651 * 0.1 + 276 * 0.5) / 1_000_000, 10);
   });
 
   it('usa preço de cache por provedor e a faixa longa do Grok', () => {

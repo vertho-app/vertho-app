@@ -185,6 +185,10 @@ export const MODELOS_DISPONIVEIS = [
   // código". Ele é o FALLBACK_GLOBAL e o default da maioria das tasks; não poder
   // selecioná-lo tornava a reversão um deploy em vez de uma configuração.
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+  // Haiku 5.5 (08/10/2026): entrou como default de tarefas de leitura curta, o Copiloto ao vivo e o brief da
+  // escola (`DEFAULT_TASK_MODELS`). O contrato por modelo, o preço e a rota são travados por
+  // `ai-contrato-por-modelo` e `ai-dual-familia`, que derivam desta lista.
+  { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5' },
   // ── OpenAI ──
   // 6.1 Sol: já tinha preço (`ia-cost-catalog`), rota e uso na escada do IA3, mas ficou
   // fora do dropdown até 02/10/2026 — dava para pagar por ele e não dava para escolhê-lo.
@@ -222,6 +226,14 @@ export const DEFAULT_COPILOTO_RESEARCH_MODEL = 'gpt-5.6-terra';
 export const DEFAULT_COPILOTO_RESEARCH_FALLBACK_MODEL = 'gpt-5.6-sol';
 
 /**
+ * Leitura ao vivo do Copiloto PACE (`app/api/copiloto/live/route.ts`).
+ *
+ * Mesma razão do par acima: a rota e a tela de custo partem de uma decisão só. Antes eram duas cópias do
+ * mesmo id (uma literal na rota, outra na tabela), e a próxima troca de modelo mudaria uma e esqueceria a outra.
+ */
+export const DEFAULT_COPILOTO_LIVE_MODEL = 'claude-haiku-5-5';
+
+/**
  * Defaults por task quando não há config explícita no sys_config da empresa
  * (ou quando a task é platform-level, sem empresa associada).
  *
@@ -245,7 +257,7 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   recepcao_rascunho: 'claude-sonnet-4-6',
   copiloto_pesquisa_empresa: DEFAULT_COPILOTO_RESEARCH_MODEL,
   copiloto_planejamento:     'gpt-5.6-terra',
-  copiloto_ao_vivo:          'gemini-3.8-flash',
+  copiloto_ao_vivo:          DEFAULT_COPILOTO_LIVE_MODEL,
   // As chamadas de pesquisa resolvem o primário pela env
   // COPILOTO_RESEARCH_MODEL e caem nos defaults daqui. Manter todas explícitas
   // evita que o runtime e a tela de custo atribuam modelos diferentes.
@@ -287,7 +299,10 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   conteudo_tags:       'gemini-3.8-flash',
   // Fluxo direto em lib/escola-brief.ts também resolve por esta tabela; assim
   // runtime, configuração da empresa e tela de custo apontam para o mesmo id.
-  escola_brief:        'gemini-3.8-flash',
+  // 08/10/2026: Haiku 5.5 no lugar do Gemini 3.8 Flash. Resumo de PPP em JSON, saída curta, sem auditor e sem
+  // nota derivada; roda com `reasoningEffort: 'low'` (lib/escola-brief.ts), que o wrapper converte em
+  // `output_config.effort` para a geração 5.
+  escola_brief:        'claude-haiku-5-5',
   // O colaborador fictício do simulador precisa ser de OUTRA família do mentor
   // Claude: usar Sonnet aqui faria o benchmark conversar consigo mesmo e tender
   // ao mesmo estilo. Gemini 3.8 substitui o Haiku 4.5; low é aplicado no caller.

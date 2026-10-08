@@ -2750,3 +2750,50 @@ equipe, 68 s), sem rodada de retentativa nas duas. **Não medido:** o custo em U
 ledger depois das gerações. `Suponho:` centavos por rodada (uma geração de ~8 mil tokens de saída e uma
 auditoria curta); confirme por `select sum(cost_usd) … where feature in ('ia3_cenarios','ia3_check') and empresa_id is null`
 antes de citar um número.
+
+## 08/10/2026: Copiloto ao vivo, brief da escola e PACE (Vertho) passam do Gemini 3.8 Flash para o Haiku 5.5
+
+**O que mudou.** `copiloto_ao_vivo` (rota `app/api/copiloto/live/route.ts`, escada Haiku → Gemini 3.8 → Luna),
+`escola_brief` (`DEFAULT_TASK_MODELS`) e o moderador e a intenção do treinamento comercial Vertho
+(`lib/simulador-vendas/modelos.ts`, `esforco: 'none'`). Ficaram no Gemini, de propósito: o Beto no WhatsApp e o TTS
+(decisão do dono), a extração de vídeo (o Claude não recebe vídeo) e a de cargo (manda PDF por REST cru).
+
+**O que o piloto ensinou: o Haiku 5.5 raciocina por padrão, e `low` não desliga.** `Medido:` com o prompt real do
+Copiloto (a própria rota, 5 cenários, ~2.400 tokens), 15 chamadas por variante, SDK direto:
+
+| Variante | p50 | p95 | saída p50 | JSON/estrutura |
+|---|---|---|---|---|
+| Haiku, `effort: low`, raciocínio padrão (o que o wrapper mandaria) | 5,8 s | 7,7 s | 1.153 tokens | 15/15 |
+| Haiku, `thinking: disabled` | 2,1 s | 2,2 s | 381 tokens | 15/15 |
+
+No benchmark pelo wrapper (30 chamadas por modelo), o Haiku em `low` chegou a 29 de 30 JSON válidos: o p95 de saída
+bateu no teto de 1.500 tokens e cortou a resposta. A rota tem timeout de 8 s, e o p95 em `low` era 7,8 s. A decisão
+foi desligar o raciocínio: no wrapper, **`reasoningEffort: 'none'` vira `thinking: {type:'disabled'}` só no Haiku 5.x**
+(Opus 5.5 e Sonnet 5.5 devolvem 400 para `disabled`; nenhum outro Claude foi tocado). Dois defeitos achados no
+caminho: `ehClaudeAdaptativo` não reconhecia `haiku-5` (o corpo sairia no formato antigo: `temperature` e
+`budget_tokens` dão 400 e o `reasoningEffort` era descartado), e o oráculo do guard `ai-contrato-por-modelo` é uma
+cópia escrita à mão do regex, que também precisou saber do Haiku. Os dois movem juntos; é o desenho do guard.
+
+**Resultado final, pelo caminho real do wrapper** (`Medido:` ledger, linhas `canario`):
+
+| Fluxo | Haiku 5.5 sem raciocínio | Gemini 3.8 Flash, mesma rodada |
+|---|---|---|
+| Copiloto ao vivo (30 chamadas) | p50 2,4 s, p95 2,8 s, 30/30 JSON e estrutura, saída média 391 tokens, US$ 0,00063/chamada | p50 4,4 s, p95 6,9 s (pico de 15 s com fallback ao 3.7), 29/30 estrutura, US$ 0,00306/chamada |
+| PACE moderador (16) | p50 1,5 s, p95 2,4 s, 16/16 no schema Zod, 16/16 de acerto contra o rótulo | p50 3,1 s, p95 5,6 s, 16/16 e 16/16 |
+| PACE intenção (16) | p50 1,4 s, p95 2,1 s, 16/16 e 16/16 | p50 2,6 s, p95 3,5 s, 16/16 e 16/16 |
+| Brief da escola (9, 3 PPPs reais) | p50 3,0 s, p95 5,9 s, 9/9 JSON, 6/6 campos (em `low`, como roda) | p50 3,9 s, p95 4,1 s, 9/9 e 6/6 |
+
+O brief roda com `reasoningEffort: 'low'` (código inalterado, raciocínio padrão do Haiku): ali o raciocínio não pesou
+(saída p50 de 531 tokens com e sem ele, e p50 de 2,7 s sem), e o texto do Haiku sai cerca de 70% mais longo
+(1.242 contra 734 caracteres no total). É ação de admin ao subir o PPP, sem espera ao vivo.
+
+**Custo.** O Haiku 5.5 custa US$ 0,10/0,50 por 1M tokens (faixa de até 100K de prompt) e **conta ~60% mais tokens de
+entrada** que o Gemini para o mesmo texto (4.385 contra 2.726); já está nos números acima. Com os volumes de 30 dias
+(1.224 chamadas do Copiloto), a economia é de cerca de **US$ 3 por mês**; brief e PACE somam centavos. O ganho real
+foi de latência e de uma escada com menos dependência do Gemini no caminho principal.
+
+**Não medido.** A qualidade das perguntas do Copiloto numa reunião real (a amostra é de 5 cenários escritos para o
+teste, com leitura humana de 2); o PACE foi medido com 8 mensagens rotuladas por mim, não com sessões de treino;
+uma sessão do treinamento Vertho aberta antes da troca segue com o snapshot do Gemini (por isso `gemini-3.8-flash`
+continua em `MODELOS_PACE`). **Rollback:** Copiloto, `COPILOTO_LIVE_MODEL=gemini-3.8-flash` na Vercel (+ redeploy;
+a env não existe hoje); brief, `ESCOLA_BRIEF_MODEL` ou override por tarefa na tela; PACE, `modeloVertho`.

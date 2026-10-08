@@ -52,9 +52,10 @@ describe('rota de apoio ao vivo', () => {
     expect(callAI).toHaveBeenCalledWith(
       expect.any(String),
       expect.stringContaining('[vertho_local]'),
-      { model: 'gemini-3.8-flash' },
+      { model: 'claude-haiku-5-5' },
       700,
-      expect.objectContaining({ timeoutMs: 8000, reasoningEffort: 'low' }),
+      // `none` = sem raciocínio. Em `low` o Haiku 5.5 ainda raciocina (p95 de 7,7 s, perto do timeout de 8 s).
+      expect.objectContaining({ timeoutMs: 8000, reasoningEffort: 'none' }),
     );
   });
 
@@ -99,7 +100,7 @@ describe('rota de apoio ao vivo', () => {
     expect(prompt).not.toContain('PERGUNTA_12');
   });
 
-  it('tenta o fallback 3.7 quando o 3.8 devolve JSON inválido', async () => {
+  it('cai no Gemini 3.8 quando o Haiku devolve JSON inválido', async () => {
     vi.mocked(callAI)
       .mockResolvedValueOnce('resposta sem JSON')
       .mockResolvedValueOnce(JSON.stringify({
@@ -110,8 +111,45 @@ describe('rota de apoio ao vivo', () => {
     const response = await POST(request());
 
     expect(response.status).toBe(200);
-    expect(vi.mocked(callAI).mock.calls[0][2]).toEqual({ model: 'gemini-3.8-flash' });
-    expect(vi.mocked(callAI).mock.calls[1][2]).toEqual({ model: 'gemini-3.7-flash' });
+    expect(vi.mocked(callAI).mock.calls[0][2]).toEqual({ model: 'claude-haiku-5-5' });
+    expect(vi.mocked(callAI).mock.calls[1][2]).toEqual({ model: 'gemini-3.8-flash' });
+  });
+
+  it('percorre a escada inteira (Haiku, Gemini 3.8, Luna) e cada degrau recebe o esforço que o provedor aceita', async () => {
+    vi.mocked(callAI)
+      .mockResolvedValueOnce('sem JSON')
+      .mockResolvedValueOnce('sem JSON')
+      .mockResolvedValueOnce(JSON.stringify({
+        fase: 'analisar', sinal: 'neutro', objecao: null, descobertas_cobertas: [],
+        alerta: null, foco: 'Continue ouvindo.', perguntas: [],
+      }));
+
+    const response = await POST(request());
+    const data = await response.json();
+    const chamadas = vi.mocked(callAI).mock.calls;
+
+    expect(response.status).toBe(200);
+    expect(data.meta.mode).toBe('provider_fallback');
+    expect(chamadas.map((c) => (c[2] as any).model)).toEqual(['claude-haiku-5-5', 'gemini-3.8-flash', 'gpt-5.6-luna']);
+    // Haiku e Luna aceitam `none`; o Gemini 3.8 não (o menor nível dele é `low`).
+    expect(chamadas.map((c) => (c[4] as any).reasoningEffort)).toEqual(['none', 'low', 'none']);
+    expect(chamadas.map((c) => c[3])).toEqual([700, 700, 700]);
+  });
+
+  it('COPILOTO_LIVE_MODEL no Gemini 3.8 devolve a escada e o teto antigos (porta de volta sem deploy de código)', async () => {
+    process.env.COPILOTO_LIVE_MODEL = 'gemini-3.8-flash';
+    vi.mocked(callAI)
+      .mockResolvedValueOnce('sem JSON')
+      .mockResolvedValueOnce(JSON.stringify({
+        fase: 'analisar', sinal: 'neutro', objecao: null, descobertas_cobertas: [],
+        alerta: null, foco: 'Continue ouvindo.', perguntas: [],
+      }));
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(callAI).mock.calls.map((c) => (c[2] as any).model)).toEqual(['gemini-3.8-flash', 'gemini-3.7-flash']);
+    expect(vi.mocked(callAI).mock.calls[0][3]).toBe(700);
   });
 
   it('devolve o banco PACE local quando todos os provedores falham', async () => {
