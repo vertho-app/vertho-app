@@ -1589,3 +1589,16 @@ Padrão que casa: pedido de levantamento ou de auditoria de cobertura ("onde o n
 - [ ] **No Git Bash, `origin/master:.claude/...` é convertido como lista de caminhos** e falha com "unknown revision": exporte `MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'` antes.
 
 **Consequência medida (06/10/2026):** o disco estava 270 commits atrás (6 à frente). Quatro agentes auditaram o disco velho e o relatório disse que 14 de 88 arquivos usavam a máscara e que IA4, PDI, Beto e as extrações iam com nome; em produção eram 23 arquivos, o mascarador tinha sido reescrito em 03/10 e esses fluxos já iam mascarados. O aviso estava no contexto desde a primeira mensagem. Memória `feedback_auditar_no_origin_master_nao_no_disco`.
+
+## § Vou trocar a FONTE ou a COR de MARCA (app, PDF, certificado, capa de relatório)
+
+Padrão que casa: `app/layout.tsx` (`localFont`) · `app/globals.css` (`--vh-font-*`, `--color-cyan-*`, `--color-brand-*`) · `components/pdf/fontes.ts` e `tokens.ts` · `lib/certificado-pdf.tsx` · `lib/ui-resolver.ts` (accent padrão) · qualquer hex de ciano ou roxo de marca · "brand book".
+
+- [ ] **A rampa de ciano mora em DOIS lugares** (fallback de `brand-*` e o `cyan-*` do Tailwind no `@theme`). Mexeu em um, mexa no outro: `tests/unit/branding/rampa-ciano.test.ts` falha se divergirem. O `cyan-400` do Tailwind NÃO é o ciano da marca, e só sobrescrever `--color-cyan-*` o troca. `rgba(52, 197, 204,…)` COM ESPAÇO dentro de classe arbitrária do Tailwind quebra a classe sem erro.
+- [ ] **Fonte nova em PDF: meça o subset antes** (fontTools sobre o TTF do CDN; a lista de ausentes mora em `tests/unit/pdf-glifos-guard.test.ts`). Glifo ausente sai em BRANCO, sem erro, e o `pdf-idiomas-render` mede a fonte REAL que o PDF baixa.
+- [ ] **Fonte ou logo lido por `fs`** (`lib/pdf-fontes/`, `public/logo-*`): precisa estar no `outputFileTracingIncludes` (`next.config.mjs`) E no `additionalFiles` (`trigger.config.ts`). O Trigger NÃO sobe no push: deploy manual pela receita do `git archive`, com o CLI na versão do SDK do COMMIT (`trigger.dev@4.7.3`, não o 4.4.6 do `node_modules` compartilhado).
+- [ ] **Olhou a IMAGEM, com título longo, número grande e celular?** Uma fonte mais larga cobre o que estava ao lado (o número do `ContentThumb` escondeu o título), e nenhum teste enxerga isso. Harness lado a lado ANTES × DEPOIS com os componentes reais.
+- [ ] **A fonte é paga?** Leia a EULA no próprio arquivo (tabela `name`, id 13) e o nome do peso: o "Bold" do Codec é médio, e o slide mostrava o Extra Bold. Arquivo gratuito não prova licença.
+- [ ] **Cor e logo se medem no ARQUIVO, não no slide.** O PDF vetorial do logo usa `#0F2B54`/`#34C5CC` e os PNGs do repo usam `#040027`/`#30B9B5`: o navy do slide era real, e eu cheguei a dizer que era renderização.
+
+**Consequência medida (08/10/2026, brand book):** o ciano que a UI mostrava era o do Tailwind (866 usos de `cyan-400` contra 252 de `brand-400`); a Roboto não tem `↑ ≈ ■` e três PDFs os usavam; o Codec cobriu o título dos cards; e 9 de 14 empresas tinham o ciano antigo GRAVADO em `ui_config` (dado, não código). Detalhe: `docs/DESIGN-SYSTEM.md` §Tipografia.
