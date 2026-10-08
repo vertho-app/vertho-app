@@ -314,6 +314,37 @@ export const TEMPLATES = {
   },
 
   /**
+   * ABERTURA de uma temporada nova (turma depois da primeira): boas-vindas e o primeiro passo, o
+   * mapeamento de competências. SUBMETIDO à Meta em 08/10/2026 (id 1632488078229341, PENDING):
+   * só vale depois de APPROVED (antes disso a Meta recusa o envio, 132001, e a tela de Envios o
+   * mostra indisponível). A categoria é provisória até a revisão acabar.
+   *
+   * Por que existe ao lado do `avaliacao_competencias`: aquele é um LEMBRETE ("ainda não foi
+   * iniciada"); quem entra numa 2ª temporada precisa de uma abertura que reconheça o ciclo novo.
+   *
+   * Escolhas de texto, todas conferidas na tela do assessment (`Assessment.explanation`):
+   *  - "mapeamento de competências" é como a tela chama a etapa ("Começar mapeamento"), não
+   *    "avaliação diagnóstica";
+   *  - "4 perguntas sobre uma situação real, cerca de 10 minutos por competência" é o que a tela
+   *    diz. O `avaliacao_competencias` diz "São 4 cenários", que é impreciso (é 1 cenário com 4
+   *    perguntas por competência) e foi aceito pelo dono só porque corrigi-lo custaria ~6×;
+   *  - "Boas-vindas", e não "bem-vinda/o": o template vai para todo mundo e o projeto escreve sem
+   *    presumir gênero (17/09/2026).
+   *
+   * ⚠️ RISCO DE CATEGORIA: o `mapeamento_pendente` (nome, competência, uma ação, "ele orienta o
+   * conteúdo da sua Jornada") é parente próximo deste texto e voltou MARKETING em 05/10/2026.
+   * A frase "É a partir dele que montamos a sua trilha" é o trecho de benefício; se este voltar
+   * MARKETING, a versão enxuta (sem ela) é a próxima a tentar, com nome novo.
+   */
+  inicio_temporada: {
+    name: 'inicio_temporada',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Boas-vindas à sua temporada de {{2}}.\n\nPara começar, faça o mapeamento de competências no link abaixo:\n{{3}}\n\nSão 4 perguntas sobre uma situação real, cerca de 10 minutos por competência. É a partir dele que montamos a sua trilha de desenvolvimento.\n\nBoa temporada!',
+    example: ['Maria', 'Comunicação', 'https://ibipeba.vertho.ai/dashboard/assessment'],
+  },
+
+  /**
    * Avaliação COMEÇADA E PARADA — com o denominador na mensagem.
    *
    * Medido: **39 pessoas** com cenários parcialmente respondidos (29 só em

@@ -104,6 +104,7 @@ semana/slot, portanto uma semana não bloqueia a seguinte.
 | `avaliacao_pendente` | APPROVED/UTILITY | Ainda não tem perfil comportamental (`perfil_dominante`); independe de cenários e respostas da avaliação técnica |
 | `avaliacao_competencias` | APPROVED/UTILITY | Tem perfil comportamental, cargo/cenários/top5 configurados e zero respostas **às competências do Top 5 de hoje** |
 | `avaliacao_parcial` | APPROVED/UTILITY | Respondeu pelo menos uma competência do Top 5 de hoje, mas ainda não todas |
+| `inicio_temporada` ⏳ | conferir na Meta (submetido 08/10/2026, id 1632488078229341, PENDING/UTILITY provisório) | A mesma regra do `avaliacao_competencias`: perfil comportamental, Top 5 com cenário e zero respostas ao Top 5 de hoje |
 
 > **A avaliação é medida pela régua da tela do assessment (07/10/2026).** "Iniciada", "respondidas" e "total" contam só as
 > competências do `top5_workshop` do cargo que têm cenário servível (não é `cenario_b` e atende `cenario_nota_minima`,
@@ -168,6 +169,7 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `recorte_demonstracao` | nome | link do Mapa (`linkDireto`) | — | — | — |
 | `avaliacao_pendente` | nome | **instituição** | link de `/dashboard/perfil-comportamental/mapeamento` | — | — |
 | `avaliacao_competencias` | nome | **competência** (`top5_workshop`) | link de `/dashboard/assessment` | — | — |
+| `inicio_temporada` ⏳ | nome | **competência(s)** do Top 5 de hoje, juntas com "e" | link de `/dashboard/assessment` | — | — |
 | `boas_vindas_v2` | nome | **instituição** | link de `/entrar` | — | — |
 | `votacao_pendente_v3` ⏳ | nome | **instituição** | link de `/dashboard/votacao` | (3 variáveis: **sem prazo**) |  |
 | `votacao_competencias` ⛔ | — | — | — | — | **sem contrato** (MARKETING): nenhum caminho envia; nunca saiu |
@@ -753,6 +755,35 @@ R-50), aceitas pelo dono porque corrigi-las custaria ~6× em cada convite.
 
 `avaliacao_parcial` ("X de Y cenários registrados") não entrou: conferir se a unidade "cenário" ainda
 é a que a tela de resposta do Mapeamento mostra antes de decidir.
+
+### `inicio_temporada`: a abertura de uma temporada nova (SUBMETIDO à Meta em 08/10/2026, id 1632488078229341)
+
+Boas-vindas e o primeiro passo para quem entra numa turma depois da primeira (Ibipeba, "Temporada 2").
+Existe ao lado do `avaliacao_competencias` porque aquele é um **lembrete** ("ainda não foi iniciada"); a
+abertura reconhece o ciclo novo. Quem recebe é a mesma regra do lembrete (`aptaAoMapeamento`), então os dois
+nunca divergem sobre o público; muda só o `{{2}}`, que aqui nomeia **todas** as competências servíveis do Top 5.
+
+> Olá, **{{1}}**. Boas-vindas à sua temporada de **{{2}}**.
+>
+> Para começar, faça o mapeamento de competências no link abaixo:
+> **{{3}}**
+>
+> São 4 perguntas sobre uma situação real, cerca de 10 minutos por competência. É a partir dele que montamos a sua trilha de desenvolvimento.
+>
+> Boa temporada!
+
+Exemplo: Maria, Comunicação, `https://ibipeba.vertho.ai/dashboard/assessment`. Escolhas conferidas na tela do
+assessment (`Assessment.explanation`): "mapeamento" (o botão é "Começar mapeamento"), "4 perguntas" e "~10 min
+por competência"; sem presumir gênero ("Boas-vindas", nunca "bem-vinda"); sem "São 4 cenários".
+
+⚠️ **Risco de categoria.** O `mapeamento_pendente` (nome, competência, uma ação, "ele orienta o conteúdo da sua
+Jornada") é parente próximo deste texto e voltou MARKETING em 05/10/2026 (~6× o custo). O trecho de benefício
+("É a partir dele que montamos a sua trilha") é o ponto de dúvida: o `avaliacao_competencias` APPROVED/UTILITY
+também tem um, então não há prova de que seja ele. Só vale **depois de APPROVED** e com a categoria conferida
+na Meta (`correct_category`); se voltar MARKETING, a decisão de usar é do dono (custo). A versão enxuta, sem a
+frase de benefício, é a próxima a tentar, com nome novo. Submetido com o OK do dono em 08/10/2026
+(`scripts/_sync-templates-whatsapp.ts --so=inicio_temporada --executar`): nasceu `PENDING/UTILITY`, lido de volta
+na Meta no mesmo dia. **O estado de hoje se confere lá:** `GET /{WABA_ID}/message_templates?name=inicio_temporada&fields=id,name,status,category,correct_category`.
 
 ## 4. Como conferir sem confiar neste arquivo
 

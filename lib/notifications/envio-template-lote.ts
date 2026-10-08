@@ -40,6 +40,7 @@ import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
 import { cenarioAtendeNotaMinima, notaMinimaDoTenant } from '@/lib/assessment/cenario-elegivel';
 import { lerTudoPaginado } from '@/lib/paginacao';
+import { listaEmPortugues } from '@/lib/notifications/lista-em-portugues';
 import { montarCedula, normalizarCargoDaCedula } from '@/lib/votacao/cedula';
 
 const FUSO_BRASILIA = 'America/Sao_Paulo';
@@ -85,9 +86,9 @@ export interface ContextoEnvio {
    * assessment: SÓ as competências do Top 5 do cargo que têm cenário servível (`total`), e
    * quantas delas a pessoa já respondeu (`respondidas`). Resposta de competência que saiu do
    * Top 5 (a jornada anterior) não conta. `primeira` é a primeira competência servível, a que
-   * o convite nomeia.
+   * o convite nomeia; `nomes` são todas elas, na ordem do Top 5 (o início de temporada nomeia todas).
    */
-  avaliacaoPorColab: Map<string, { respondidas: number; total: number; primeira?: string | null }>;
+  avaliacaoPorColab: Map<string, { respondidas: number; total: number; primeira?: string | null; nomes?: string[] }>;
   /** Pessoas cujo relatório individual/PDI já existe. */
   pdiPorColab: Set<string>;
   /** Trilha mais recente por pessoa — insumo dos templates de abertura/fechamento. */
@@ -135,6 +136,32 @@ export interface ColaboradorAlvo {
 
 /** Args montados, ou o motivo de a pessoa NÃO poder receber este template. */
 type Resolucao = { args: PilulaTemplateArgs } | { excluir: string };
+
+/**
+ * Quem pode receber um convite para o MAPEAMENTO DE COMPETÊNCIAS (`avaliacao_competencias` e
+ * `inicio_temporada`): regra única, para os dois textos não divergirem sobre quem entra.
+ */
+function aptaAoMapeamento(
+  c: ColaboradorAlvo,
+  ctx: ContextoEnvio,
+): { excluir: string } | { top5: string[]; progresso: { respondidas: number; total: number; primeira?: string | null; nomes?: string[] } } {
+  // A mesma régua do gate do Diagnóstico (`gateDiagnosticoDaPessoa`): com perfil
+  // EXTERNO ele não exige `perfil_dominante`, que ali nunca existe. Exigir aqui
+  // excluía a empresa inteira do convite (R-87).
+  if (!c.perfil_dominante && !ctx.perfilExternoFonte) return { excluir: 'perfil comportamental ainda não concluído' };
+  const top5 = ctx.top5PorCargo.get(String(c.cargo || '').toLowerCase()) || [];
+  // Sem competência resolvida o `{{2}}` sairia vazio ("sua avaliação de  ainda
+  // não foi iniciada"). Excluir é a falha ALTA na construção, que é onde há
+  // humano para corrigir — ver CLAUDE.md §fallback silencioso.
+  if (!top5.length) return { excluir: 'cargo sem competência em top5_workshop' };
+  const progresso = ctx.avaliacaoPorColab.get(c.id);
+  if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
+  // "Iniciada" é sobre as competências do Top 5 de HOJE: quem respondeu a jornada anterior
+  // (outra competência) ainda não começou esta. Medido em Ibipeba, 07/10/2026: 41 de 53 pessoas
+  // tinham resposta antiga e eram excluídas daqui por contarem qualquer resposta da empresa.
+  if (progresso.respondidas > 0) return { excluir: 'avaliação já iniciada' };
+  return { top5, progresso };
+}
 
 function exigirCadencia(c: ColaboradorAlvo, ctx: ContextoEnvio): ContextoCadenciaEnvio | { excluir: string } {
   const cadencia = ctx.cadenciaPorColab.get(c.id);
@@ -218,25 +245,20 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
     return { args: base(c, ctx) };
   },
   avaliacao_competencias: (c, ctx) => {
-    // A mesma régua do gate do Diagnóstico (`gateDiagnosticoDaPessoa`): com perfil
-    // EXTERNO ele não exige `perfil_dominante`, que ali nunca existe. Exigir aqui
-    // excluía a empresa inteira do convite (R-87).
-    if (!c.perfil_dominante && !ctx.perfilExternoFonte) return { excluir: 'perfil comportamental ainda não concluído' };
-    const top5 = ctx.top5PorCargo.get(String(c.cargo || '').toLowerCase()) || [];
-    // Sem competência resolvida o `{{2}}` sairia vazio ("sua avaliação de  ainda
-    // não foi iniciada"). Excluir é a falha ALTA na construção, que é onde há
-    // humano para corrigir — ver CLAUDE.md §fallback silencioso.
-    if (!top5.length) return { excluir: 'cargo sem competência em top5_workshop' };
-    const progresso = ctx.avaliacaoPorColab.get(c.id);
-    if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
-    // "Iniciada" é sobre as competências do Top 5 de HOJE: quem respondeu a jornada anterior
-    // (outra competência) ainda não começou esta. Medido em Ibipeba, 07/10/2026: 41 de 53 pessoas
-    // tinham resposta antiga e eram excluídas daqui por contarem qualquer resposta da empresa.
-    if (progresso.respondidas > 0) return { excluir: 'avaliação já iniciada' };
+    const apta = aptaAoMapeamento(c, ctx);
+    if ('excluir' in apta) return apta;
     // A primeira competência SERVÍVEL, não a primeira do Top 5: uma sem cenário não pode ser a
     // que o convite promete.
-    const competencia = progresso.primeira || top5[0];
-    return { args: base(c, ctx, { competencia }) };
+    return { args: base(c, ctx, { competencia: apta.progresso.primeira || apta.top5[0] }) };
+  },
+  // O início de uma temporada nova: a MESMA regra de quem recebe o convite acima (tem o perfil e
+  // ainda não respondeu o Top 5 de hoje), com outro texto. Nomeia TODAS as competências servíveis,
+  // porque o Top 5 pode ter mais de uma e "a sua temporada de A" esconderia a B.
+  inicio_temporada: (c, ctx) => {
+    const apta = aptaAoMapeamento(c, ctx);
+    if ('excluir' in apta) return apta;
+    const nomes = apta.progresso.nomes?.length ? apta.progresso.nomes : apta.top5;
+    return { args: base(c, ctx, { competencia: listaEmPortugues(nomes) }) };
   },
   avaliacao_parcial: (c, ctx) => {
     const progresso = ctx.avaliacaoPorColab.get(c.id);
@@ -454,6 +476,7 @@ const VARIAVEIS_DE: Record<string, string[]> = {
   votacao_pendente_v3: ['primeiro nome', 'nome da instituição', 'link da votação'],
   avaliacao_pendente: ['primeiro nome', 'nome da instituição', 'link do mapeamento comportamental'],
   avaliacao_competencias: ['primeiro nome', 'competência do cargo (top5_workshop)', 'link do assessment'],
+  inicio_temporada: ['primeiro nome', 'competência(s) do Top 5 de hoje, juntas com "e"', 'link do mapeamento de competências'],
   avaliacao_parcial: ['primeiro nome', 'cenários respondidos', 'total de cenários', 'link do assessment'],
   resultado_perfil: ['primeiro nome', 'link do perfil comportamental'],
   plano_desenvolvimento: ['primeiro nome', 'link do PDI'],
@@ -480,6 +503,7 @@ const ALVO_DE: Record<string, string> = {
   votacao_pendente_v3: 'votação aberta, ainda não votou e o cargo tem competências na cédula',
   avaliacao_pendente: 'ainda não concluiu o mapeamento comportamental; não depende de cenários de avaliação',
   avaliacao_competencias: 'concluiu o perfil comportamental e ainda não iniciou a avaliação de competências',
+  inicio_temporada: 'concluiu o perfil comportamental e ainda não respondeu as competências do Top 5 de hoje (abertura de uma temporada nova)',
   avaliacao_parcial: 'iniciou a avaliação, mas ainda tem cenários pendentes',
   resultado_perfil: 'tem perfil comportamental disponível',
   plano_desenvolvimento: 'tem relatório individual/PDI gerado',
@@ -501,6 +525,7 @@ const ROTULO_DE: Record<string, string> = {
   votacao_pendente_v3: 'Voto de competências pendente',
   avaliacao_pendente: 'Mapeamento comportamental pendente',
   avaliacao_competencias: 'Avaliação de competências pendente',
+  inicio_temporada: 'Início da temporada',
   avaliacao_parcial: 'Avaliação em andamento',
   resultado_perfil: 'Perfil comportamental disponível',
   plano_desenvolvimento: 'Plano de desenvolvimento disponível',
@@ -521,6 +546,7 @@ const ETAPA_DE: Record<string, string> = {
   boas_vindas_v2: 'Entrada',
   votacao_pendente_v3: 'Entrada',
   avaliacao_pendente: 'Avaliação',
+  inicio_temporada: 'Entrada',
   avaliacao_competencias: 'Avaliação',
   avaliacao_parcial: 'Avaliação',
   resultado_perfil: 'Resultados',
@@ -553,6 +579,7 @@ const TEMPLATES_CADENCIA_MANUAL = new Set([
 const TEMPLATES_AVALIACAO_MANUAL = new Set([
   'avaliacao_competencias',
   'avaliacao_parcial',
+  'inicio_temporada',
 ]);
 
 const TEMPLATES_TRILHA_MANUAL = new Set([
@@ -623,7 +650,7 @@ async function carregarProgressoAvaliacao(
   colabs: ColaboradorAlvo[],
   top5PorCargo: Map<string, string[]>,
   notaMinima: number | null,
-): Promise<Map<string, { respondidas: number; total: number; primeira: string | null }>> {
+): Promise<Map<string, { respondidas: number; total: number; primeira: string | null; nomes: string[] }>> {
   // Três leituras que decidem por AUSÊNCIA ("não respondeu", "sem cenário"): paginadas, porque o
   // PostgREST corta em 1.000 linhas sem avisar.
   const [respQ, cenQ, compQ] = await Promise.all([
@@ -688,7 +715,7 @@ async function carregarProgressoAvaliacao(
     const respondidas = feitas
       ? servidas.filter((s) => s.chave && (feitas.nomes.has(s.chave) || [...s.ids].some((id) => feitas.ids.has(id)))).length
       : 0;
-    return [c.id, { respondidas, total: servidas.length, primeira: servidas[0]?.nome ?? null }];
+    return [c.id, { respondidas, total: servidas.length, primeira: servidas[0]?.nome ?? null, nomes: servidas.map((s) => s.nome) }];
   }));
 }
 

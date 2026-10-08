@@ -59,7 +59,7 @@ export interface PilulaTemplateArgs {
   linkDireto?: string | null;
   /**
    * Nome da COMPETÊNCIA que a pessoa vai avaliar — só para
-   * `avaliacao_competencias`.
+   * `avaliacao_competencias` e `inicio_temporada` (neste, todas as do Top 5 de hoje, juntas).
    *
    * Não é `tema` (que descreve o conteúdo da semana) nem derivável de
    * `semana`/`formato`: a régua é `cargos_empresa.top5_workshop`, a mesma que a
@@ -498,6 +498,17 @@ const CONTRATOS: Record<string, MontarParams> = {
    * `tema`: prometer uma competência e abrir outra é pior que não mandar.
    */
   avaliacao_competencias: (a) => ({
+    params: [a.nome, a.competencia || '', `${a.baseUrl}/dashboard/assessment`],
+    botaoParam: null,
+  }),
+
+  /**
+   * Abertura de uma temporada nova (`inicio_temporada`, submetido em 08/10/2026, só vale depois de
+   * APPROVED na Meta). `{{1}}`=nome, `{{2}}`=COMPETÊNCIA(S) do Top 5 de hoje, juntas com "e",
+   * `{{3}}`=link do assessment. Sem botão. A fonte de `{{2}}` é a mesma da tela
+   * (`top5_workshop`): prometer uma competência e abrir outra é pior que não mandar.
+   */
+  inicio_temporada: (a) => ({
     params: [a.nome, a.competencia || '', `${a.baseUrl}/dashboard/assessment`],
     botaoParam: null,
   }),
