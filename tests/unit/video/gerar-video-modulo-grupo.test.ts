@@ -15,14 +15,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const tts = vi.fn();
 vi.mock('@/lib/gemini-tts', () => ({ generateNarrationAudio: (...a: any[]) => tts(...a), modeloTtsEfetivo: () => 'gemini-2.5-flash-tts' }));
 const gerarClip = vi.fn(async (..._a: any[]) => 'hg-novo');
+const aguardarClip = vi.fn(async (..._a: any[]) => 'https://heygen.test/clip.mp4');
 vi.mock('@/lib/video/heygen', () => ({
   gerarClipHeyGen: (...a: any[]) => (gerarClip as any)(...a),
-  aguardarClipHeyGen: vi.fn(async () => 'https://heygen.test/clip.mp4'),
+  aguardarClipHeyGen: (...a: any[]) => (aguardarClip as any)(...a),
   motorHeyGen: () => 'avatar_iii', fotoPadraoHeyGen: () => 'foto-1',
 }));
 const subidos: Record<string, Buffer> = {};
+let falharUploadAparado = false;
 vi.mock('@/lib/video/render-helpers', () => ({
-  storagePut: vi.fn(async (_b: string, p: string, buf: Buffer) => { subidos[p] = buf; return `https://st.test/${p}`; }),
+  storagePut: vi.fn(async (_b: string, p: string, buf: Buffer) => {
+    if (falharUploadAparado && p.includes('-aparado-')) throw new Error('storage fora do ar');
+    subidos[p] = buf; return `https://st.test/${p}`;
+  }),
   storageGet: vi.fn(async () => Buffer.alloc(4000)), SUPA: 'https://supa.test', KEY: 'k',
 }));
 const transcribe = vi.fn();
@@ -61,10 +66,26 @@ function tomPcm(bytes: number): Buffer {
   for (let i = 0; i < bytes / 2; i++) b.writeInt16LE(Math.round(0.1 * 32767 * Math.sin((2 * Math.PI * 220 * i) / 24000)), i * 2);
   return b;
 }
-vi.mock('node:util', async (orig) => ({ ...(await orig<typeof import('node:util')>()), promisify: () => async (cmd: string) => ({ stdout: /ffprobe/.test(cmd) ? '10.0' : '' }) }));
+/** Toda chamada de ffmpeg/ffprobe da task, com os argumentos: é como o teste vê se os quadros foram repostos. */
+const chamadasExec: { cmd: string; args: string[] }[] = [];
+/** Perfil de energia (dBFS por janela de 50 ms) dos arquivos lidos; depois dele, fala a −20 dB. `null` = o seno de sempre. */
+let perfilDb: number[] | null = null;
+function pcmDePerfil(perfil: number[], bytes: number): Buffer {
+  const janela = 1200; // 50 ms a 24 kHz
+  const b = Buffer.alloc(bytes);
+  for (let j = 0; j * janela * 2 < bytes; j++) {
+    const amp = Math.round(32768 * 10 ** ((j < perfil.length ? perfil[j] : -20) / 20));
+    for (let k = 0; k < janela && (j * janela + k) * 2 + 1 < bytes; k++) b.writeInt16LE(k % 2 ? -amp : amp, (j * janela + k) * 2);
+  }
+  return b;
+}
+vi.mock('node:util', async (orig) => ({
+  ...(await orig<typeof import('node:util')>()),
+  promisify: () => async (cmd: string, args: string[] = []) => { chamadasExec.push({ cmd, args }); return { stdout: /ffprobe/.test(cmd) ? '10.0' : '' }; },
+}));
 vi.mock('node:fs/promises', async (orig) => ({
   ...(await orig<typeof import('node:fs/promises')>()),
-  mkdtemp: async () => '/tmp/teste', writeFile: async () => {}, rm: async () => {}, readFile: async () => tomPcm(pcmBytes),
+  mkdtemp: async () => '/tmp/teste', writeFile: async () => {}, rm: async () => {}, readFile: async () => (perfilDb ? pcmDePerfil(perfilDb, pcmBytes) : tomPcm(pcmBytes)),
 }));
 
 import { executarGeracaoVideoModulo } from '@/trigger/gerar-video-modulo';
@@ -122,9 +143,14 @@ beforeEach(() => {
   patches = [];
   assetsIniciais = {};
   pcmBytes = 48000;
+  perfilDb = null;
+  falharUploadAparado = false;
+  chamadasExec.length = 0;
+  vi.unstubAllEnvs();
   degradacoes.length = 0;
   dispararSaudacoes.mockClear();
   gerarClip.mockClear();
+  aguardarClip.mockReset().mockResolvedValue('https://heygen.test/clip.mp4');
   tts.mockReset().mockImplementation(async () => ({ buffer: Buffer.alloc(4000), qa: { ok: true, tentativas: 1 } }));
   transcribe.mockReset().mockImplementation(async () => dezA2pps());
   planejar.mockReset().mockImplementation((_w: any, cenas: any[]) => fatiasDe(cenas));
@@ -351,5 +377,146 @@ describe('caminho por cena: fala A MAIS no fim (25/09/2026)', () => {
     await executarGeracaoVideoModulo({ videoId: 'v-1', roteiro: roteiro() });
     expect(patches.at(-1).assets['scene-4']).not.toHaveProperty('sobraCortadaS');
     expect(patches.at(-1).assets['scene-4'].words).toHaveLength(OUTRO.split(' ').length);
+  });
+});
+
+/**
+ * SOPRO antes da fala no fecho (08/10/2026). O `avatar_iii` é determinístico: um fecho que abre com sopro de ~−50 dB sai com
+ * a boca atrasada e re-sortear não conserta. A task apara o começo do áudio ENVIADO à HeyGen e repõe os mesmos quadros no
+ * clipe devolvido, para ele voltar a casar com o mp3 ORIGINAL que a composição toca. A régua é a de `aparar-sopro.test.ts`;
+ * aqui se prova a FIAÇÃO: o que vai à HeyGen, o que volta, o que fica gravado e o que acontece quando algo falha.
+ */
+describe('aparo do sopro antes da fala (avatar)', () => {
+  // As 12 primeiras janelas do fecho REAL da e405782d (Boehringer): sopro de −50 dB e fala em 0,40 s → 8 quadros.
+  const COM_SOPRO = [-76, -52, -55, -52, -52, -54, -50, -72, -28, -21, -26, -31];
+  // A abertura REAL da mesma célula: pico de −63 dB antes da fala em 0,25 s.
+  const LIMPO = [-93, -63, -63, -64, -64, -36, -20, -17, -36, -39, -16, -23];
+  const AMOSTRAS_8_QUADROS = Math.round((8 / 30) * 24000); // 6.400
+  const aparados = () => Object.keys(subidos).filter((k) => /-aparado-.*\.mp3$/.test(k));
+  const tpads = () => chamadasExec.filter((c) => c.args.some((a) => /tpad=start_mode=clone/.test(a)));
+  const filtroDe = (c: { args: string[] }) => c.args[c.args.indexOf('-filter_complex') + 1];
+
+  it('com sopro: a HeyGen recebe o áudio APARADO, o clipe volta com os quadros repostos e o mp3 original segue como áudio da cena', async () => {
+    perfilDb = COM_SOPRO; pcmBytes = 24000 * 2 * 3;
+    await executarGeracaoVideoModulo({ videoId: 'v-ap', roteiro: roteiro() });
+
+    // abertura e fecho, cada um com o seu mp3 aparado (o perfil é o mesmo nos dois)
+    expect(aparados()).toHaveLength(2);
+    for (const k of aparados()) expect(subidos[k].toString()).toBe(`MP3-PCM:${(pcmBytes / 2 - AMOSTRAS_8_QUADROS) * 2}`);
+    expect(gerarClip).toHaveBeenCalledTimes(2);
+    for (const c of gerarClip.mock.calls) expect(String(c[0])).toMatch(/\/v-ap\/scene-[14]-aparado-.*\.mp3$/);
+
+    // 8 quadros a 30 fps = 0,2667 s: imagem parada e voz embutida atrasada pelo mesmo tempo
+    expect(tpads()).toHaveLength(2);
+    for (const c of tpads()) expect(filtroDe(c)).toBe('[0:v]tpad=start_mode=clone:start_duration=0.2667[v];[0:a]adelay=267|267[a]');
+    // ... DEPOIS de normalizar para CFR (a ordem que o dono validou de ouvido): o ffmpeg de `-r 30` sem filtro vem antes
+    const cfr = chamadasExec.findIndex((c) => c.args.includes('-r') && !c.args.includes('-filter_complex') && c.args.includes('libx264'));
+    const pad = chamadasExec.findIndex((c) => c.args.some((a) => /tpad/.test(a)));
+    expect(cfr).toBeGreaterThanOrEqual(0);
+    expect(cfr).toBeLessThan(pad);
+
+    // o que fica gravado: o áudio da cena é o ORIGINAL (a composição toca ele), e dá para contar quantos foram aparados
+    const final = patches.at(-1).assets;
+    for (const id of ['scene-1', 'scene-4']) {
+      expect(final[id].audioSrc).not.toMatch(/aparado/);
+      expect(final[id].audioSrc).toMatch(new RegExp(`/v-ap/${id}-[a-z0-9]+\\.mp3$`));
+      expect(final[id].aparouQuadros).toBe(8);
+    }
+    // e o aparo foi persistido junto do id do clipe ANTES de esperar a HeyGen (a retomada precisa dos dois). O patch
+    // certo é o INTERMEDIÁRIO (id do clipe e ainda sem `audioSrc`): o estado final também os tem e não prova nada.
+    expect(patches.some((p) => { const a = p.assets?.['scene-1']; return a?.heygenVideoId === 'hg-novo' && a.aparouQuadros === 8 && !a.audioSrc; })).toBe(true);
+    expect(degradacoes).toEqual([]);
+  });
+
+  it('abertura limpa: a HeyGen recebe o áudio como veio e nenhum quadro é reposto', async () => {
+    perfilDb = LIMPO; pcmBytes = 24000 * 2 * 3;
+    await executarGeracaoVideoModulo({ videoId: 'v-ap', roteiro: roteiro() });
+    expect(aparados()).toEqual([]);
+    for (const c of gerarClip.mock.calls) expect(String(c[0])).not.toMatch(/aparado/);
+    expect(tpads()).toEqual([]);
+    expect(patches.at(-1).assets['scene-1']).not.toHaveProperty('aparouQuadros');
+  });
+
+  it('VIDEO_APARAR_SOPRO=off desliga sem deploy: mesmo com sopro, o áudio vai inteiro', async () => {
+    vi.stubEnv('VIDEO_APARAR_SOPRO', 'off');
+    perfilDb = COM_SOPRO; pcmBytes = 24000 * 2 * 3;
+    await executarGeracaoVideoModulo({ videoId: 'v-ap', roteiro: roteiro() });
+    expect(aparados()).toEqual([]);
+    for (const c of gerarClip.mock.calls) expect(String(c[0])).not.toMatch(/aparado/);
+    expect(tpads()).toEqual([]);
+  });
+
+  it('o aparo QUEBRA (storage fora): o vídeo sai com o áudio inteiro, como antes, e a falha fica em degradacao_log', async () => {
+    falharUploadAparado = true;
+    perfilDb = COM_SOPRO; pcmBytes = 24000 * 2 * 3;
+    const r: any = await executarGeracaoVideoModulo({ videoId: 'v-ap', roteiro: roteiro() });
+    expect(r.queued).toBe('hetzner');                        // o render segue na fila
+    for (const c of gerarClip.mock.calls) expect(String(c[0])).not.toMatch(/aparado/);
+    expect(tpads()).toEqual([]);                             // sem aparo, nada a repor (repor aqui seria boca ADIANTADA)
+    const falhas = degradacoes.filter((d) => d.tipo === 'avatar-aparo-falhou');
+    expect(falhas.map((d) => d.chave).sort()).toEqual(['v-ap:scene-1', 'v-ap:scene-4']);
+    expect(falhas[0]).toMatchObject({ fluxo: 'video', severidade: 'aviso', empresaId: 'emp-1' });
+    expect(falhas[0].detalhe.erro).toContain('storage fora do ar');
+  });
+
+  it('retomada de um clipe JÁ PAGO com aparo: repõe os MESMOS quadros e não paga outro clipe', async () => {
+    assetsIniciais = {
+      'scene-1': { src: 'https://st.test/v-ap/scene-1-x.mp3', durationSec: 0, heygenVideoId: 'hg-pago', aparouQuadros: 8 },
+      'scene-2': { src: 'https://st.test/v-ap/scene-2-x.mp3', durationSec: 0 },
+      'scene-3': { src: 'https://st.test/v-ap/scene-3-x.mp3', durationSec: 0 },
+      'scene-4': { src: 'https://st.test/v-ap/scene-4-x.mp3', durationSec: 0, heygenVideoId: 'hg-pago-2', aparouQuadros: 11 },
+    };
+    await executarGeracaoVideoModulo({ videoId: 'v-ap', roteiro: roteiro() });
+    expect(gerarClip).not.toHaveBeenCalled();
+    expect(aparados()).toEqual([]);                          // não re-analisa nem re-sobe áudio: o clipe já existe
+    expect(tpads().map(filtroDe).sort()).toEqual([
+      '[0:v]tpad=start_mode=clone:start_duration=0.2667[v];[0:a]adelay=267|267[a]',
+      '[0:v]tpad=start_mode=clone:start_duration=0.3667[v];[0:a]adelay=367|367[a]',
+    ]);
+    expect(patches.at(-1).assets['scene-4'].aparouQuadros).toBe(11);
+  });
+
+  it('o clipe anterior NÃO retoma e a cena é gerada de novo: o aparo antigo não vaza para o clipe novo', async () => {
+    // O clipe `hg-morto` foi pago com 8 quadros aparados, mas a HeyGen não o entrega mais. O áudio desta cena não tem
+    // sopro, então o clipe NOVO sai sem aparo: repor 8 quadros nele seria boca atrasada de novo, por herança.
+    aguardarClip.mockRejectedValueOnce(new Error('clipe sumiu na HeyGen'));
+    perfilDb = LIMPO; pcmBytes = 24000 * 2 * 3;
+    assetsIniciais = {
+      'scene-1': { src: 'https://st.test/v-ap/scene-1-x.mp3', durationSec: 0, heygenVideoId: 'hg-morto', aparouQuadros: 8 },
+      'scene-2': { src: 'https://st.test/v-ap/scene-2-x.mp3', durationSec: 0 },
+      'scene-3': { src: 'https://st.test/v-ap/scene-3-x.mp3', durationSec: 0 },
+      'scene-4': { src: 'https://st.test/v-ap/scene-4-x.mp3', durationSec: 0 },
+    };
+    await executarGeracaoVideoModulo({ videoId: 'v-ap', roteiro: roteiro() });
+    expect(gerarClip).toHaveBeenCalledTimes(2);              // a cena 1 refeita e a 4 que ainda não tinha clipe
+    expect(tpads()).toEqual([]);
+    expect(patches.at(-1).assets['scene-1']).not.toHaveProperty('aparouQuadros');
+    expect(patches.at(-1).assets['scene-1'].heygenVideoId).toBe('hg-novo');
+    // E o estado INTERMEDIÁRIO, o que uma retomada leria se a task caísse agora, também não traz o aparo do clipe morto.
+    const intermediarios = patches.map((p) => p.assets?.['scene-1']).filter((a) => a?.heygenVideoId === 'hg-novo');
+    expect(intermediarios.length).toBeGreaterThan(0);
+    for (const a of intermediarios) expect(a).not.toHaveProperty('aparouQuadros');
+  });
+
+  it('retomada de um clipe pago ANTES do aparo existir (sem `aparouQuadros`): nada é reposto', async () => {
+    assetsIniciais = {
+      'scene-1': { src: 'https://st.test/v-ap/scene-1-x.mp3', durationSec: 0, heygenVideoId: 'hg-velho' },
+      'scene-2': { src: 'https://st.test/v-ap/scene-2-x.mp3', durationSec: 0 },
+      'scene-3': { src: 'https://st.test/v-ap/scene-3-x.mp3', durationSec: 0 },
+      'scene-4': { src: 'https://st.test/v-ap/scene-4-x.mp3', durationSec: 0, heygenVideoId: 'hg-velho-2' },
+    };
+    await executarGeracaoVideoModulo({ videoId: 'v-ap', roteiro: roteiro() });
+    expect(tpads()).toEqual([]);
+    expect(patches.at(-1).assets['scene-1']).not.toHaveProperty('aparouQuadros');
+  });
+
+  it('a irmã de um grupo usa o avatar da mãe como veio: não analisa, não apara e não repõe nada', async () => {
+    const ass = await assinaturaDaMae();
+    chamadasExec.length = 0;
+    perfilDb = COM_SOPRO; pcmBytes = 24000 * 2 * 3;
+    await executarGeracaoVideoModulo({ videoId: 'v-irma', roteiro: roteiro(), avatarGrupo: payload({ assinatura: ass }) });
+    expect(gerarClip).not.toHaveBeenCalled();
+    expect(aparados()).toEqual([]);
+    expect(tpads()).toEqual([]);
   });
 });

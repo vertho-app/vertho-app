@@ -298,6 +298,13 @@ export const DEGRADACAO = {
    */
   SAUDACAO_VERTEX_FALHOU: 'saudacao-vertex-falhou',
   /**
+   * video: não deu para APARAR o sopro do áudio que vai à HeyGen (análise, corte ou upload falhou), e o clipe de avatar
+   * foi gerado com o áudio inteiro, como antes de 08/10/2026. O vídeo sai, só que um fecho com sopro volta a poder sair
+   * com a boca atrasada (o delay do fecho; ver `lib/video/aparar-sopro.ts`). `aviso`: ninguém piora, só deixa de melhorar.
+   * Chave: `<videoId>:<cena>`.
+   */
+  AVATAR_APARO_FALHOU: 'avatar-aparo-falhou',
+  /**
    * video: a CAIXA de render foi montar o nominal e o áudio da saudação não estava no Storage (o app ainda não o gerou,
    * ou a versão do elenco da box não é a do app). `critico` quando falta configuração da box inteira (`chave` =
    * `config:…`, todas as pessoas da célula ficam sem nominal), `aviso` por pessoa. Escrito pelo worker Hetzner

@@ -114,6 +114,8 @@ export type AssetMap = Record<string, {
   src: string; durationSec: number; audioSrc?: string; words?: WordTime[]; heygenVideoId?: string;
   /** Segundos de fala A MAIS cortados do fim da cena narrada sozinha (repetição do TTS). */
   sobraCortadaS?: number;
+  /** Quadros (30 fps) aparados do COMEÇO do áudio enviado à HeyGen por sopro antes da fala, e repostos no clipe. */
+  aparouQuadros?: number;
 }>;
 
 export const BRAND_PADRAO: Brand = {

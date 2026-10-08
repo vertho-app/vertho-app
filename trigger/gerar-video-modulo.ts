@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { transcribeWords, type WordTime } from '../lib/video/whisper-align';
 import { montarTextoUnico, planejarNarracaoUnica, classeDaRecusa, fatiarPcm16, garantirCabecaSilenciosa, fimDoTextoNaFala } from '../lib/video/narracao-unica';
 import { pcmToMp3SemMaster } from '../lib/tts/audio-dsp';
+import { analisarSopro, pcmSemOComeco, APARO } from '../lib/video/aparar-sopro';
 import { ELENCO } from '../lib/tts/elenco';
 import { regionOpts } from '../lib/trigger-region';
 import { registrarDegradacao, DEGRADACAO } from '../lib/degradacao';
@@ -155,6 +156,66 @@ async function normalizarFps(mp4: Buffer, fps: number): Promise<Buffer> {
     return mp4;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+/**
+ * Repõe, no começo do clipe devolvido pela HeyGen, os `quadros` que foram aparados do áudio enviado: o primeiro quadro
+ * fica parado (tpad clone) e a voz embutida entra atrasada pelo mesmo tempo (adelay), então a fala volta a começar no
+ * MESMO instante do mp3 original que a composição toca. Roda DEPOIS do `normalizarFps` (CFR 30 fps), a mesma ordem
+ * validada de ouvido pelo dono em 06/10/2026. Sem fallback silencioso: um clipe sem os quadros repostos sairia com a boca
+ * ADIANTADA (o contrário do defeito que isto conserta), então a falha aqui derruba a cena.
+ */
+async function reporQuadros(mp4: Buffer, quadros: number, fps: number): Promise<Buffer> {
+  const dir = await mkdtemp(nodePath.join(os.tmpdir(), 'avpad-'));
+  const inP = nodePath.join(dir, 'in.mp4');
+  const outP = nodePath.join(dir, 'out.mp4');
+  try {
+    await writeFile(inP, mp4);
+    const pad = quadros / fps;
+    const ms = Math.round(pad * 1000);
+    await exec(FFMPEG, ['-y', '-i', inP,
+      '-filter_complex', `[0:v]tpad=start_mode=clone:start_duration=${pad.toFixed(4)}[v];[0:a]adelay=${ms}|${ms}[a]`,
+      '-map', '[v]', '-map', '[a]', '-r', String(fps), '-fps_mode', 'cfr',
+      '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-ar', '48000', '-movflags', '+faststart', outP],
+      { timeout: 180_000, maxBuffer: 64 * 1024 * 1024 });
+    return await readFile(outP);
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+/** Liga/desliga o aparo sem deploy (env do Trigger, lida em RUNTIME). Default: ligado. */
+const aparoLigado = () => (process.env.VIDEO_APARAR_SOPRO || 'on').toLowerCase() !== 'off';
+
+/**
+ * O mp3 que vai à HeyGen, sem o sopro do começo. Devolve `null` quando não há o que aparar (abertura limpa, sem fala nos
+ * primeiros segundos, corte de menos de 3 quadros) OU quando algo falha: nesse caso a cena segue com o áudio inteiro,
+ * como antes, e a falha fica em `degradacao_log`. Não lança: aparar é uma melhoria, não pré-condição do vídeo.
+ */
+async function audioAparado(videoId: string, cena: string, audioUrl: string, empresaId: string | null): Promise<{ url: string; quadros: number } | null> {
+  if (!aparoLigado()) return null;
+  try {
+    const pcm = await pcmDaUrl(audioUrl);
+    const a = analisarSopro(pcm, 24000);
+    if (!a.aplicar) {
+      const porque = !a.fala ? 'sem fala nos primeiros segundos'
+        : `sem aparo (fala em ${a.inicioS!.toFixed(2)} s, pico antes ${a.picoAntesDb!.toFixed(0)} dB, ${a.sopro ? `corte de só ${a.quadros} quadro(s)` : 'sem sopro'})`;
+      console.log(`[aparo] ${videoId}/${cena}: ${porque}`);
+      return null;
+    }
+    const mp3 = pcmToMp3SemMaster(pcmSemOComeco(pcm, 24000, a.quadros), 24000);
+    const url = await storagePut('video-assets', `${videoId}/${cena}-aparado-${GERACAO_TAG()}.mp3`, mp3, 'audio/mpeg');
+    console.log(`[aparo] ${videoId}/${cena}: sopro de ${a.picoAntesDb!.toFixed(0)} dB antes da fala em ${a.inicioS!.toFixed(2)} s, aparando ${a.quadros} quadros (${(a.quadros / APARO.fps).toFixed(2)} s)`);
+    return { url, quadros: a.quadros };
+  } catch (e) {
+    const erro = String((e as Error)?.message || e).slice(0, 300);
+    console.warn(`[aparo] ${videoId}/${cena} falhou, a HeyGen recebe o áudio inteiro:`, erro);
+    void registrarDegradacao({
+      fluxo: 'video', tipo: DEGRADACAO.AVATAR_APARO_FALHOU, chave: `${videoId}:${cena}`, empresaId, severidade: 'aviso', detalhe: { videoId, cena, erro },
+    });
+    return null;
   }
 }
 
@@ -614,6 +675,9 @@ export async function executarGeracaoVideoModulo(p: {
       const ledgerAvatar = { feature: 'heygen_avatar', empresaId: empresaIdDoVideo };
       await mapPool(avatares, 2, async (s) => {
         const audioUrl = assets[s.id].src;
+        // Quadros aparados do áudio que a HeyGen recebeu (08/10/2026): ficam gravados junto do id do clipe, para a
+        // retomada repor os MESMOS quadros no clipe já pago.
+        let quadros = assets[s.id]?.aparouQuadros ?? 0;
         // RESUME do clipe PAGO: o id da HeyGen é persistido antes do polling, então um
         // re-run depois de queda no meio da espera retoma o MESMO clipe em vez de pagar
         // outro. Clipe que falhou ou sumiu na HeyGen → gera um novo.
@@ -627,21 +691,27 @@ export async function executarGeracaoVideoModulo(p: {
           }
         }
         if (!heygenUrl) {
-          const heygenId = await gerarClipHeyGen(audioUrl, { width: 1920, height: 1080 });
-          assets[s.id] = { ...assets[s.id], heygenVideoId: heygenId };
+          // SOPRO antes da fala desalinha a boca do avatar_iii no fecho (determinístico: re-sortear não conserta). Aparar
+          // o começo do áudio ENVIADO e repor os quadros no clipe é o que o dono aprovou de ouvido (lib/video/aparar-sopro.ts).
+          const aparo = await audioAparado(videoId, s.id, audioUrl, empresaIdDoVideo);
+          quadros = aparo?.quadros ?? 0;
+          const heygenId = await gerarClipHeyGen(aparo?.url ?? audioUrl, { width: 1920, height: 1080 });
+          const { aparouQuadros: _antigo, ...semAparo } = assets[s.id];
+          assets[s.id] = { ...semAparo, heygenVideoId: heygenId, ...(quadros ? { aparouQuadros: quadros } : {}) };
           await patchVideo(videoId, { assets });
           heygenUrl = await aguardarClipHeyGen(heygenId, { ledger: ledgerAvatar });
         }
         const resp = await fetch(heygenUrl);
         if (!resp.ok) throw new Error(`HeyGen: download do mp4 falhou (${resp.status}) em ${s.id}`);
         const mp4 = Buffer.from(await resp.arrayBuffer());
-        const norm = await normalizarFps(mp4, VIDEO_FPS); // 25fps→30fps CFR (lip-sync)
+        let norm = await normalizarFps(mp4, VIDEO_FPS); // 25fps→30fps CFR (lip-sync)
+        if (quadros > 0) norm = await reporQuadros(norm, quadros, VIDEO_FPS);
         const src = await storagePut('video-assets', `${videoId}/${s.id}-${GERACAO_TAG()}.mp4`, norm, 'video/mp4');
         duracaoLocal[s.id] = await duracaoDoBuffer(norm, 'mp4'); // o `src` da cena passa a ser o mp4
         // Mantém o mp3 da narração como áudio SEPARADO: o vídeo (mp4) entra mutado e
         // o áudio é tocado alinhado pelo Remotion → lip-sync sem o offset do OffthreadVideo.
         // Preserva `words` (timing Whisper) capturado no passo da narração.
-        assets[s.id] = { src, durationSec: 0, audioSrc: audioUrl, words: assets[s.id]?.words, heygenVideoId: assets[s.id]?.heygenVideoId, ...(assets[s.id]?.sobraCortadaS ? { sobraCortadaS: assets[s.id].sobraCortadaS } : {}) };
+        assets[s.id] = { src, durationSec: 0, audioSrc: audioUrl, words: assets[s.id]?.words, heygenVideoId: assets[s.id]?.heygenVideoId, ...(assets[s.id]?.sobraCortadaS ? { sobraCortadaS: assets[s.id].sobraCortadaS } : {}), ...(quadros ? { aparouQuadros: quadros } : {}) };
       });
 
       // 3) DURAÇÕES reais (ffprobe) → timeline correta. Paralelo.
