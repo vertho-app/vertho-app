@@ -1,14 +1,19 @@
 # AWS Bedrock — piloto editorial e treinamento comercial (06/10/2026)
 
-O botão de sugestão de tags em `/admin/conteudos` usa Kimi K3 no Amazon Bedrock
-quando `AWS_BEARER_TOKEN_BEDROCK` está configurada no servidor. O administrador
+> ✅ **O piloto editorial foi ENCERRADO em 08/10/2026** (decisão do dono, depois da comparação que passou o `conteudo_tags`
+> para o Claude Sonnet 5.5; ver `docs/CUSTO-QUALIDADE.md`, "parte 3"). O botão de sugestão de tags deixou de escolher o Kimi
+> pela existência da credencial: `modeloDoPilotoBedrock` saiu do código e o botão usa o modelo da tarefa
+> (`DEFAULT_TASK_MODELS.conteudo_tags`, ou o que a empresa configurou). **A credencial `AWS_BEARER_TOKEN_BEDROCK` CONTINUA na
+> Vercel**: o treinamento comercial Vertho (abaixo) usa a mesma chave, e o comentário dela ("Piloto editorial Kimi K3") ficou
+> desatualizado. O piloto rodou 3 chamadas (06/10) das 50 reservadas. As seções seguintes são o REGISTRO histórico do piloto.
+
+(Histórico) O botão de sugestão de tags em `/admin/conteudos` usava Kimi K3 no Amazon Bedrock
+quando `AWS_BEARER_TOKEN_BEDROCK` estava configurada no servidor. O administrador
 revê a classificação no modal e aplica as tags numa operação separada. Gerar a
 sugestão não altera o conteúdo nem publica material.
 
 - Tarefa: `conteudo_tags`, já liberada para Moonshot na régua de privacidade.
-  Desde 08/10/2026 o PADRÃO da tarefa é Claude Sonnet 5.5 (`DEFAULT_TASK_MODELS`); o piloto continua tendo
-  prioridade no botão enquanto a credencial existir no servidor. Ao encerrar o piloto (remover a credencial
-  seria desligar também o Kimi do treinamento comercial, que usa a mesma chave), o botão passa a usar o padrão.
+  Desde 08/10/2026 o PADRÃO da tarefa é Claude Sonnet 5.5 (`DEFAULT_TASK_MODELS`) e o piloto deixou de ter prioridade.
 - Modelo: `global.moonshotai.kimi-k3`, via Chat Completions em `us-east-1`.
 - Credencial: chave Bedrock da conta com créditos Activate; para o piloto,
   configurar somente em production, como segredo criptografado. Não usa a
@@ -72,13 +77,12 @@ O ledger `ia_usage_log` registra `provider = bedrock`,
 latência e custo estimado. A aplicação dos créditos deve ser conferida no
 Billing da AWS; elegibilidade dos créditos não é confirmação do lançamento.
 
-Teste pago, opt-in: `BEDROCK_TAGS_LIVE=1` e executar apenas
-`tests/unit/bedrock-conteudo-tags-live.test.ts` carregando o `.env.local`.
-Cada execução consome uma tentativa. Os testes comuns não chamam a AWS.
+O teste pago opt-in do piloto (`tests/unit/bedrock-conteudo-tags-live.test.ts`) foi removido junto com o piloto (08/10/2026).
 
-Rollback do piloto editorial: desligar sua seleção de modelo em código e publicar.
-Não remover a chave compartilhada com o treinamento comercial. O contador permanece. Renovar a chave ou ampliar o
-orçamento exige uma decisão explícita depois de revisar o piloto.
+Encerramento do piloto editorial (feito em 08/10/2026): a seleção de modelo em código saiu (`modeloDoPilotoBedrock` e o uso dela
+em `sugerirTagsIA`). Não se removeu a chave compartilhada com o treinamento comercial. O contador permanece, e
+`reservarChamadaBedrock` continua autorizando `conteudo_tags` em Bedrock apenas para quem o configurar por empresa de forma
+explícita (nenhum código escolhe isso hoje). Renovar a chave ou ampliar o orçamento exige uma decisão explícita.
 
 Fontes:
 [modelo, IDs e preços](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-moonshot-ai-kimi-k3.html),

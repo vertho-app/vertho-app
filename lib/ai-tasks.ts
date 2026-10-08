@@ -335,8 +335,8 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // (Gemini 124/124, Sonnet `low` 122/124); o que separa e a CONFIANCA. Onde o vocabulario NAO tem o rotulo (16 conteudos sem
   // empresa) o Gemini respondeu `alta` em 26 de 32 e o Sonnet em 4 de 32; dentro do vocabulario o Gemini diz `alta` em 124 de 124,
   // ou seja, a confianca dele nao informa nada ao admin que revisa. O esforco e o teto vivem em `configDaChamadaDeTags`
-  // (lib/conteudo-tags.ts). ATENCAO: enquanto `AWS_BEARER_TOKEN_BEDROCK` existir na Vercel, o piloto Kimi/Bedrock
-  // (`modeloDoPilotoBedrock`, ate 50 tentativas) tem PRIORIDADE sobre este default no botao "Sugerir tags".
+  // (lib/conteudo-tags.ts). O piloto Kimi/Bedrock que sobrescrevia este default no botao "Sugerir tags" (pela existencia de
+  // `AWS_BEARER_TOKEN_BEDROCK`) foi ENCERRADO em 08/10/2026; a chave segue na Vercel porque o treino comercial Vertho a usa.
   conteudo_tags:       'claude-sonnet-5-5',
   // Fluxo direto em lib/escola-brief.ts também resolve por esta tabela; assim
   // runtime, configuração da empresa e tela de custo apontam para o mesmo id.

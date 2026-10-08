@@ -16,12 +16,9 @@ export const BEDROCK_CANARIO_CONTADOR =
   'vertho:bedrock:canario:vendas:20261006';
 export const BEDROCK_CANARIO_MAX_CHAMADAS = 20;
 
-/** A credencial liga somente o botão de sugestão editorial. */
-export function modeloDoPilotoBedrock(): string | null {
-  return process.env.AWS_BEARER_TOKEN_BEDROCK?.trim()
-    ? BEDROCK_KIMI_K3_MODEL
-    : null;
-}
+// O piloto editorial (botão "Sugerir tags" em Kimi K3) foi ENCERRADO em 08/10/2026: `modeloDoPilotoBedrock`, que ligava o botão
+// pela simples existência da credencial, saiu. A credencial CONTINUA na Vercel porque o treinamento comercial Vertho usa a mesma
+// chave. Esta reserva e o contador seguem valendo para quem chamar `conteudo_tags` em Bedrock por configuração explícita.
 
 // Sem expiração e sem estorno: timeout/erro podem ter sido cobrados pela AWS.
 // 25 KB de entrada (incluindo mensagens) + 6.000 tokens de saída/raciocínio

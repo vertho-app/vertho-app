@@ -84,14 +84,17 @@ describe('sugerirTagsIA: modelo, teto e esforço da chamada', () => {
     expect(opts).not.toHaveProperty('reasoningEffort');
   });
 
-  it('o piloto Bedrock/Kimi (token na Vercel) segue com PRIORIDADE, o teto dele e sem esforço', async () => {
+  it('🔴 piloto Kimi/Bedrock ENCERRADO (08/10/2026): a credencial na Vercel NÃO escolhe mais o modelo do botão', async () => {
+    // A mesma chave sustenta o Kimi do treinamento comercial, então ela continua existindo em produção; o que acabou foi
+    // ela ligar o botão. Com ela presente, o botão segue o padrão da tarefa (Sonnet 5.5, teto 3.000, esforço low).
     process.env.AWS_BEARER_TOKEN_BEDROCK = 'token-de-teste';
     await sugerirTagsIA('c1');
     const [, , cfg, teto, opts] = chamada();
-    expect(cfg).toMatchObject({ model: 'global.moonshotai.kimi-k3' });
-    expect(teto).toBe(6000);
-    expect(opts).not.toHaveProperty('reasoningEffort');
-    expect(vi.mocked(getModelForTask)).not.toHaveBeenCalled();
+    expect(cfg).toMatchObject({ model: 'claude-sonnet-5-5' });
+    expect(cfg).not.toMatchObject({ model: 'global.moonshotai.kimi-k3' });
+    expect(teto).toBe(3000);
+    expect(opts).toMatchObject({ reasoningEffort: 'low' });
+    expect(vi.mocked(getModelForTask)).toHaveBeenCalledWith('emp-1', 'conteudo_tags');
   });
 });
 

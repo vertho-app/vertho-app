@@ -2909,9 +2909,12 @@ rótulo deles; antes a action nem consultava o padrão da tarefa para eles (caí
 **Mudança:** `DEFAULT_TASK_MODELS.conteudo_tags` = `claude-sonnet-5-5`; `configDaChamadaDeTags` (`lib/conteudo-tags.ts`) dá teto 3.000 e esforço `low`
 só ao Claude (a action usava 1.000, que o raciocínio da geração 5 comeria); empresa nula resolve o padrão da tarefa.
 
-🔴 **Em produção o botão continua no Kimi K3/Bedrock.** `AWS_BEARER_TOKEN_BEDROCK` existe na Vercel (production, comentário "Piloto editorial Kimi K3:
-conteudo_tags, máximo 50 tentativas/US$ 10") e `modeloDoPilotoBedrock()` tem prioridade sobre o padrão. A troca só vale quando o piloto terminar. A mesma
-chave sustenta o Kimi do treinamento comercial Vertho, então remover a variável desligaria os dois: encerrar o piloto exige mudar a precedência no código.
+🔴 **No primeiro deploy (`ae7aa7bc`) o botão continuava no Kimi K3/Bedrock:** `AWS_BEARER_TOKEN_BEDROCK` existe na Vercel (production, comentário "Piloto editorial
+Kimi K3: conteudo_tags, máximo 50 tentativas/US$ 10") e `modeloDoPilotoBedrock()` tinha prioridade sobre o padrão. A mesma chave sustenta o Kimi do treinamento
+comercial Vertho, então remover a variável desligaria os dois. ✅ **Piloto encerrado no mesmo dia, por decisão do dono:** a seleção de modelo saiu do código
+(`modeloDoPilotoBedrock` e o uso dela em `sugerirTagsIA`), o teste pago do piloto foi removido, e o botão usa o modelo da tarefa também com a chave presente
+(teste com mutação). A chave segue na Vercel; o contador, a autorização de `conteudo_tags` em `reservarChamadaBedrock` e o ledger ficam como registro. O piloto
+usou 3 das 50 tentativas.
 
 **Não medido.** Nenhum rótulo humano (o rótulo é o alvo da geração); os 4 braços erraram quase tudo nas 3 competências cujo rótulo não está no vocabulário.
 Instrumentos e dados em `Downloads\Comparativo-modelos-2026-10-08\parte-3-conteudo-tags\`.

@@ -5,7 +5,8 @@ vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => ({ from: () => ({ 
 import { callAI, callAIChat } from '@/actions/ai-client';
 import { BEDROCK_KIMI_K3_MODEL, modeloTemRota } from '@/lib/ai-provedores';
 import { familiaDoModelo, modeloPermitidoNaTarefa } from '@/lib/ai-tasks';
-import { BEDROCK_PILOTO_CONTADOR, modeloDoPilotoBedrock } from '@/lib/bedrock-piloto';
+import * as piloto from '@/lib/bedrock-piloto';
+import { BEDROCK_PILOTO_CONTADOR } from '@/lib/bedrock-piloto';
 
 describe('piloto editorial do Bedrock', () => {
   beforeEach(() => {
@@ -19,14 +20,15 @@ describe('piloto editorial do Bedrock', () => {
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-  it('liga apenas com credencial e respeita a régua de privacidade existente', () => {
-    expect(modeloDoPilotoBedrock()).toBe(BEDROCK_KIMI_K3_MODEL);
+  it('respeita a régua de privacidade existente', () => {
     expect(modeloTemRota(BEDROCK_KIMI_K3_MODEL)).toBe(true);
     expect(familiaDoModelo(BEDROCK_KIMI_K3_MODEL)).toBe('moonshot');
     expect(modeloPermitidoNaTarefa(BEDROCK_KIMI_K3_MODEL, 'conteudo_tags')).toBe(true);
     expect(modeloPermitidoNaTarefa(BEDROCK_KIMI_K3_MODEL, 'ia4_avaliacao')).toBe(false);
-    vi.stubEnv('AWS_BEARER_TOKEN_BEDROCK', '');
-    expect(modeloDoPilotoBedrock()).toBeNull();
+  });
+
+  it('🔴 encerrado em 08/10/2026: a credencial NÃO liga mais o botão (a função que escolhia o Kimi pela credencial saiu)', () => {
+    expect((piloto as Record<string, unknown>).modeloDoPilotoBedrock).toBeUndefined();
   });
 
   it.each(['single', 'chat'])('%s: reserva antes de enviar, usa AWS e registra custo separado', async (tipo) => {
