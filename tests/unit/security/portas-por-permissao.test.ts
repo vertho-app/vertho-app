@@ -12,42 +12,16 @@
  * antigo reprova).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { criarSupabaseMock, type SupabaseMock } from '../../helpers/supabase-mock';
 
 const h = vi.hoisted(() => ({
   contextos: {} as Record<string, any>,
   assinou: [] as string[],
-  leituras: [] as Array<{ tabela: string; filtros: Array<[string, any]> }>,
-  cenarios: [{ id: 'c1', empresa_id: 'emp-A', cargo: 'Professor', alternativas: ['gabarito'], competencia: { nome: 'Comp', cod_comp: 'C1' }, ppp_escola_id: null }],
+  sb: null as unknown as SupabaseMock,
 }));
 
 vi.mock('@/lib/supabase', () => ({
-  createSupabaseAdmin: () => ({
-    auth: {
-      getUser: async (token: string) => {
-        const ctx = h.contextos[token];
-        return ctx ? { data: { user: { email: ctx.email } }, error: null } : { data: { user: null }, error: { message: 'jwt inválido' } };
-      },
-    },
-    storage: {
-      from: () => ({
-        createSignedUploadUrl: async (path: string) => {
-          h.assinou.push(path);
-          return { data: { signedUrl: `https://storage/${path}`, token: 't', path }, error: null };
-        },
-      }),
-    },
-    from: (tabela: string) => {
-      const leitura = { tabela, filtros: [] as Array<[string, any]> };
-      h.leituras.push(leitura);
-      const q: any = {
-        select: () => q,
-        eq: (c: string, v: any) => { leitura.filtros.push([c, v]); return q; },
-        order: () => q,
-        then: (res: any) => res({ data: h.cenarios, error: null }),
-      };
-      return q;
-    },
-  }),
+  createSupabaseAdmin: () => h.sb.client,
 }));
 vi.mock('@/lib/authz', () => ({
   getUserContext: async (email: string) => Object.values(h.contextos).find((c: any) => c.email === email) || null,
@@ -84,7 +58,23 @@ const cenarios = (token: string | null, empresa: string | null = 'emp-A') =>
     headers: token ? { authorization: `Bearer ${token}` } : {},
   }) as any;
 
-beforeEach(() => { h.assinou = []; h.leituras = []; });
+beforeEach(() => {
+  h.assinou = [];
+  h.sb = criarSupabaseMock({ lista: (tabela, _cols, cadeia) => {
+    const tenant = cadeia.find(c => c.metodo === 'eq' && c.args[0] === 'empresa_id')?.args[1];
+    if (tabela === 'banco_cenarios') return [{ id: 'c1', empresa_id: tenant, competencia_id: 'comp1', cargo: 'Professor', alternativas: ['gabarito'], ppp_escola_id: null }];
+    if (tabela === 'competencias') return [{ id: 'comp1', empresa_id: tenant, nome: 'Comp', cod_comp: 'C1' }];
+    return [];
+  } });
+  h.sb.client.auth = { getUser: async (token: string) => {
+    const ctx = h.contextos[token];
+    return ctx ? { data: { user: { email: ctx.email } }, error: null } : { data: { user: null }, error: { message: 'jwt inválido' } };
+  } };
+  h.sb.client.storage.from = () => ({ createSignedUploadUrl: async (path: string) => {
+    h.assinou.push(path);
+    return { data: { signedUrl: `https://storage/${path}`, token: 't', path }, error: null };
+  } });
+});
 
 describe('POST /api/upload/signed-url pede content.manage', () => {
   it.each([['RH', 'tk-rh'], ['colaborador', 'tk-colab'], ['gestor', 'tk-gestor'], ['Admin Sócio', 'tk-socio']])(
@@ -121,13 +111,13 @@ describe('GET /api/cenarios: RH ou plataforma, nunca o colaborador', () => {
     '🔴 %s da própria empresa: 403 e o banco não é lido', async (_n, token) => {
       const res = await listarCenarios(cenarios(token));
       expect(res.status).toBe(403);
-      expect(h.leituras).toEqual([]);
+      expect(h.sb.chamadas).toEqual([]);
     },
   );
 
   it('sem login: 401', async () => {
     expect((await listarCenarios(cenarios(null))).status).toBe(401);
-    expect(h.leituras).toEqual([]);
+    expect(h.sb.chamadas).toEqual([]);
   });
 
   it('RH da empresa: lê os cenários dela, filtrados pela empresa', async () => {
@@ -136,20 +126,20 @@ describe('GET /api/cenarios: RH ou plataforma, nunca o colaborador', () => {
     const corpo = await res.json();
     expect(corpo).toHaveLength(1);
     expect(corpo[0].competencia_nome).toBe('Comp');
-    expect(h.leituras[0].filtros).toContainEqual(['empresa_id', 'emp-A']);
+    expect(h.sb.chamadas).toContainEqual({ tabela: 'banco_cenarios', metodo: 'eq', args: ['empresa_id', 'emp-A'] });
   });
 
   it('o tenant continua conferido: RH de uma empresa não lê a outra', async () => {
     const res = await listarCenarios(cenarios('tk-rh', 'emp-B'));
     expect(res.status).toBe(403);
-    expect(h.leituras).toEqual([]);
+    expect(h.sb.chamadas).toEqual([]);
   });
 
   it('plataforma (sócio e master) lê qualquer empresa', async () => {
     for (const t of ['tk-socio', 'tk-master']) {
-      h.leituras = [];
+      h.sb.reset();
       expect((await listarCenarios(cenarios(t, 'emp-B'))).status).toBe(200);
-      expect(h.leituras[0].filtros).toContainEqual(['empresa_id', 'emp-B']);
+      expect(h.sb.chamadas).toContainEqual({ tabela: 'banco_cenarios', metodo: 'eq', args: ['empresa_id', 'emp-B'] });
     }
   });
 

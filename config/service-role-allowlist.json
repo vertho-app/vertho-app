@@ -61,7 +61,6 @@
     "app/api/auth/magic-link/route.ts": 1,
     "app/api/auth/signup/route.ts": 1,
     "app/api/capacitacao-recomendada/route.ts": 1,
-    "app/api/cenarios/route.ts": 1,
     "app/api/chat/route.ts": 1,
     "app/api/colaboradores/route.ts": 4,
     "app/api/conteudo/[id]/podcast/route.ts": 1,
