@@ -122,6 +122,20 @@ Siga a skill `deploy` (build-first, `git add` SELETIVO — nunca `-A`/`.` —, `
 
 Commite **separado por natureza**: correção num commit, doc noutro. O commit de doc não precisa de build.
 
+### 5.1 Faxina dos worktrees (depois do push, nunca antes)
+
+A faxina é **automática e sem perda** (`C:/GAS/Vertho App/.claude/hooks/worktrees-limpar.js`, fora do repo): o hook `SessionEnd` remove o `catraca-<sid>` desta sessão e o `SessionStart` varre os ociosos (catraca 3 dias, manual 7). O que o automático **não** alcança a tempo é o worktree **manual que EU criei nesta rodada**: ele só sairia daqui a 7 dias. Então, ao fechar e **só depois do push**:
+
+```bash
+node "C:/GAS/Vertho App/.claude/hooks/worktrees-limpar.js" --nome <pasta-do-worktree> --aplicar
+```
+
+Ele só remove se o trabalho já estiver no `origin/master` (sem commit único em risco), sem arquivo sujo real e sem link desconhecido, e faz a ordem segura (junção do `node_modules` antes do worktree, sentinelas do `node_modules` real conferidas a cada passo). **Saiu com 3 = recusou**, e o motivo vem na saída: resolva (suba ou descarte de propósito) em vez de forçar. Se faltar `node_modules` real ou a sentinela mudar, ele aborta a rodada inteira e não apaga nada.
+
+🔴 **NUNCA** `git worktree remove --force`, `Remove-Item -Recurse` ou `rm -rf` à mão num worktree com `node_modules` por junção: o recursivo segue o link e apaga o `node_modules` REAL, derrubando todas as sessões. Os worktrees fora de `.worktrees/` (scratchpad, `~/codex-worktrees`, `~/work`) não são alcançados pela faxina: quem os criou os remove.
+
+O `SessionStart` avisa quais worktrees ficaram **com trabalho** (sujos ou com commit único) e por isso a faxina não os tocou. Esses não saem sozinhos de propósito: commite/suba ou descarte, senão ficam parados e atrasados. `Medido: 08/10/2026`: o acúmulo era de um worktree por sessão que ninguém removia (59 → 44 numa faxina manual, e 3 dias antes tinha sido 79 → 42).
+
 ## 6. Fechar em voz alta
 
 Termine dizendo, em uma linha cada:
@@ -129,6 +143,7 @@ Termine dizendo, em uma linha cada:
 1. o que foi gravado na memória;
 2. quais `.md` mudaram;
 3. **o resultado da sincronização do Project** — quantas das 20 estavam defasadas, quais subi e a contagem antiga → nova de cada uma. Fechar contando: tem que sobrar **exatamente 20**, um por nome. Se parei antes de remover as velhas (trava que não bateu), dizer isso explicitamente e por quê;
-4. o que **ficou aberto** — o que você não conseguiu verificar.
+4. **a faxina de worktrees**: os que removi com `--nome` (e a saída 0/3 de cada) e os que ficaram com trabalho, com o motivo;
+5. o que **ficou aberto**: o que você não conseguiu verificar.
 
 O que não foi medido tem que sair rotulado como não medido.
