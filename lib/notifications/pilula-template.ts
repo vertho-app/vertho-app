@@ -59,7 +59,8 @@ export interface PilulaTemplateArgs {
   linkDireto?: string | null;
   /**
    * Nome da COMPETÊNCIA que a pessoa vai avaliar — só para
-   * `avaliacao_competencias` e `inicio_temporada` (neste, todas as do Top 5 de hoje, juntas).
+   * `avaliacao_competencias`, `inicio_temporada` e `inicio_temporada_v2` (nos dois últimos, todas
+   * as do Top 5 de hoje, juntas).
    *
    * Não é `tema` (que descreve o conteúdo da semana) nem derivável de
    * `semana`/`formato`: a régua é `cargos_empresa.top5_workshop`, a mesma que a
@@ -510,6 +511,16 @@ const CONTRATOS: Record<string, MontarParams> = {
    */
   inicio_temporada: (a) => ({
     params: [a.nome, a.competencia || '', `${a.baseUrl}/dashboard/assessment`],
+    botaoParam: null,
+  }),
+
+  /**
+   * A versão ENXUTA da abertura (`inicio_temporada_v2`, 08/10/2026). 4 parâmetros: `{{1}}`=nome,
+   * `{{2}}`=COMPETÊNCIA(S) do Top 5 de hoje, `{{3}}`=INSTITUIÇÃO, `{{4}}`=link do assessment. Sem
+   * botão. Mandar 3 para um corpo de 4 variáveis faz a Meta recusar a mensagem.
+   */
+  inicio_temporada_v2: (a) => ({
+    params: [a.nome, a.competencia || '', a.instituicao || '', `${a.baseUrl}/dashboard/assessment`],
     botaoParam: null,
   }),
 

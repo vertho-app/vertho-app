@@ -104,7 +104,8 @@ semana/slot, portanto uma semana não bloqueia a seguinte.
 | `avaliacao_pendente` | APPROVED/UTILITY | Ainda não tem perfil comportamental (`perfil_dominante`); independe de cenários e respostas da avaliação técnica |
 | `avaliacao_competencias` | APPROVED/UTILITY | Tem perfil comportamental, cargo/cenários/top5 configurados e zero respostas **às competências do Top 5 de hoje** |
 | `avaliacao_parcial` | APPROVED/UTILITY | Respondeu pelo menos uma competência do Top 5 de hoje, mas ainda não todas |
-| `inicio_temporada` ⏳ | conferir na Meta (submetido 08/10/2026, id 1632488078229341, PENDING/UTILITY provisório) | A mesma regra do `avaliacao_competencias`: perfil comportamental, Top 5 com cenário e zero respostas ao Top 5 de hoje |
+| `inicio_temporada` | **APPROVED/MARKETING** (submetido UTILITY em 08/10/2026, reclassificado ~8 min depois; custa ~6×) | A mesma regra do `avaliacao_competencias`: perfil comportamental, Top 5 com cenário e zero respostas ao Top 5 de hoje |
+| `inicio_temporada_v2` ⏳ | **conferir na Meta** (submetido 08/10/2026 08:36 BRT, id 1120910870528165, PENDING/UTILITY provisório) | A mesma regra, e exige o nome da instituição (o corpo a cita) |
 
 > **A avaliação é medida pela régua da tela do assessment (07/10/2026).** "Iniciada", "respondidas" e "total" contam só as
 > competências do `top5_workshop` do cargo que têm cenário servível (não é `cenario_b` e atende `cenario_nota_minima`,
@@ -169,7 +170,8 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `recorte_demonstracao` | nome | link do Mapa (`linkDireto`) | — | — | — |
 | `avaliacao_pendente` | nome | **instituição** | link de `/dashboard/perfil-comportamental/mapeamento` | — | — |
 | `avaliacao_competencias` | nome | **competência** (`top5_workshop`) | link de `/dashboard/assessment` | — | — |
-| `inicio_temporada` ⏳ | nome | **competência(s)** do Top 5 de hoje, juntas com "e" | link de `/dashboard/assessment` | — | — |
+| `inicio_temporada` | nome | **competência(s)** do Top 5 de hoje, juntas com "e" | link de `/dashboard/assessment` | — | — |
+| `inicio_temporada_v2` ⏳ | nome | **competência(s)** do Top 5 de hoje, juntas com "e" | **instituição** | link de `/dashboard/assessment` | — |
 | `boas_vindas_v2` | nome | **instituição** | link de `/entrar` | — | — |
 | `votacao_pendente_v3` ⏳ | nome | **instituição** | link de `/dashboard/votacao` | (3 variáveis: **sem prazo**) |  |
 | `votacao_competencias` ⛔ | — | — | — | — | **sem contrato** (MARKETING): nenhum caminho envia; nunca saiu |
@@ -756,7 +758,15 @@ R-50), aceitas pelo dono porque corrigi-las custaria ~6× em cada convite.
 `avaliacao_parcial` ("X de Y cenários registrados") não entrou: conferir se a unidade "cenário" ainda
 é a que a tela de resposta do Mapeamento mostra antes de decidir.
 
-### `inicio_temporada`: a abertura de uma temporada nova (SUBMETIDO à Meta em 08/10/2026, id 1632488078229341)
+### `inicio_temporada`: a abertura de uma temporada nova (id 1632488078229341; VOLTOU MARKETING em 08/10/2026)
+
+🔴 **Reclassificado.** Submetido UTILITY em 08/10/2026, a Meta o aprovou e o reclassificou para **MARKETING** às 08:08 BRT
+(`previous_category: UTILITY`), cerca de 8 minutos depois, como já tinha feito com `perfil_pendente` e
+`mapeamento_pendente` em 05/10. A leitura da API 5 minutos depois ainda mostrava `PENDING/UTILITY`: a reclassificação
+defasa (o mesmo aconteceu com o `conteudo_semana_pendente`). Custo por mensagem, pelo comentário de 15/08 em
+`pilula-template.ts` (não reconferido no rate card): ~R$ 0,45 em MARKETING contra ~R$ 0,08 em UTILITY. O código declara
+MARKETING e a tela de Envios o rotula "(cobrado como MARKETING)". **Usar ou não é decisão do dono.** A tentativa de ficar
+em UTILITY é o `inicio_temporada_v2`, abaixo.
 
 Boas-vindas e o primeiro passo para quem entra numa turma depois da primeira (Ibipeba, "Temporada 2").
 Existe ao lado do `avaliacao_competencias` porque aquele é um **lembrete** ("ainda não foi iniciada"); a
@@ -783,7 +793,30 @@ também tem um, então não há prova de que seja ele. Só vale **depois de APPR
 na Meta (`correct_category`); se voltar MARKETING, a decisão de usar é do dono (custo). A versão enxuta, sem a
 frase de benefício, é a próxima a tentar, com nome novo. Submetido com o OK do dono em 08/10/2026
 (`scripts/_sync-templates-whatsapp.ts --so=inicio_temporada --executar`): nasceu `PENDING/UTILITY`, lido de volta
-na Meta no mesmo dia. **O estado de hoje se confere lá:** `GET /{WABA_ID}/message_templates?name=inicio_temporada&fields=id,name,status,category,correct_category`.
+na Meta no mesmo dia. **O estado de hoje se confere lá:** `GET /{WABA_ID}/message_templates?name=inicio_temporada&fields=id,name,status,category,previous_category,correct_category`.
+
+### `inicio_temporada_v2`: a versão enxuta (SUBMETIDO à Meta em 08/10/2026 08:36 BRT, id 1120910870528165)
+
+A 2ª e última tentativa de ficar em UTILITY. Sai o que o `inicio_temporada` tinha de acolhimento ("Boas-vindas", "Boa
+temporada!") e a frase de benefício ("É a partir dele que montamos a sua trilha"); entra a **instituição** como âncora, o
+traço do `boas_vindas_v2` e do `votacao_pendente_v3`, que seguem APPROVED/UTILITY (lido na Meta em 08/10/2026). Mesma regra
+de quem recebe; exige o nome da instituição (sem ele o corpo diria "no programa da , já está disponível").
+
+> Olá, **{{1}}**. O mapeamento de competências da sua temporada de **{{2}}**, no programa da **{{3}}**, já está disponível.
+>
+> Você pode fazê-lo em:
+> **{{4}}**
+>
+> São 4 perguntas sobre uma situação real, cerca de 10 minutos por competência.
+
+Exemplo: Maria, Comunicação, Secretaria Municipal de Ibipeba/BA, `https://ibipeba.vertho.ai/dashboard/assessment`. Diz
+"já está disponível" e não "já começou" porque a turma abre em diagnóstico e a trilha só começa na data dela.
+
+⚠️ **Sem garantia.** O `mapeamento_pendente` também era um aviso de estado, sem benefício vendido, e voltou MARKETING:
+o classificador da Meta não é previsível pelo conteúdo. **Só vale depois de APPROVED e com a categoria lida na Meta**,
+esperando alguns minutos (a reclassificação defasa). Se voltar MARKETING, não há terceira tentativa: a escolha fica entre
+usar o `inicio_temporada` cobrado como MARKETING e mandar o `avaliacao_competencias` (UTILITY), e o texto que perder sai
+de `TEMPLATES`, de `CONTRATOS` e da tela, como foi feito com `perfil_pendente` e `mapeamento_pendente`.
 
 ## 4. Como conferir sem confiar neste arquivo
 

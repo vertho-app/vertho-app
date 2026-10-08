@@ -34,8 +34,10 @@ describe('o texto que vai à Meta', () => {
     expect(renderTemplate(def, [...INICIO_TEMPORADA.example])).toBe(INICIO_TEMPORADA.renderizadoComExemplo);
   });
 
-  it('nasce UTILITY e com nome válido na API', () => {
-    expect(def.category).toBe('UTILITY');
+  it('foi submetido UTILITY, a Meta o reclassificou MARKETING (08/10/2026) e o código declara o que ela cobra', () => {
+    // 🔴 `previous_category: UTILITY` na Meta. O código diz MARKETING para a listagem e o custo não
+    // mentirem; a tentativa de UTILITY é o `inicio_temporada_v2` (whatsapp-template-inicio-temporada-v2.test.ts).
+    expect(def.category).toBe('MARKETING');
     expect(def.name).toBe('inicio_temporada');
     expect(def.name).toMatch(/^[a-z0-9_]+$/);
   });
@@ -105,7 +107,8 @@ describe('na tela de Envios', () => {
     expect(item).toBeTruthy();
     expect(item!.corpo).toBe(INICIO_TEMPORADA.body);
     expect(item!.variaveis).toHaveLength(3);
-    expect(item!.rotulo).toBe('Início da temporada');
+    // O rótulo carrega o custo: as duas aberturas ficam lado a lado na tela e esta é cobrada como MARKETING.
+    expect(item!.rotulo).toBe('Início da temporada (cobrado como MARKETING)');
   });
 
   it('fica na entrada, ao lado das boas-vindas, e não entre os lembretes de avaliação', () => {

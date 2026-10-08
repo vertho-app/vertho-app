@@ -139,7 +139,7 @@ type Resolucao = { args: PilulaTemplateArgs } | { excluir: string };
 
 /**
  * Quem pode receber um convite para o MAPEAMENTO DE COMPETÊNCIAS (`avaliacao_competencias` e
- * `inicio_temporada`): regra única, para os dois textos não divergirem sobre quem entra.
+ * `inicio_temporada` e `inicio_temporada_v2`): regra única, para os textos não divergirem sobre quem entra.
  */
 function aptaAoMapeamento(
   c: ColaboradorAlvo,
@@ -161,6 +161,19 @@ function aptaAoMapeamento(
   // tinham resposta antiga e eram excluídas daqui por contarem qualquer resposta da empresa.
   if (progresso.respondidas > 0) return { excluir: 'avaliação já iniciada' };
   return { top5, progresso };
+}
+
+/**
+ * As duas aberturas de temporada (`inicio_temporada` e a enxuta `inicio_temporada_v2`): a regra de
+ * quem recebe é a do convite (`aptaAoMapeamento`), e `{{2}}` nomeia TODAS as competências servíveis
+ * do Top 5, porque ele pode ter mais de uma e "a sua temporada de A" esconderia a B.
+ */
+function resolverAberturaDeTemporada(c: ColaboradorAlvo, ctx: ContextoEnvio, exigeInstituicao: boolean): Resolucao {
+  const apta = aptaAoMapeamento(c, ctx);
+  if ('excluir' in apta) return apta;
+  if (exigeInstituicao && !String(ctx.empresaNome || '').trim()) return { excluir: 'empresa sem nome cadastrado' };
+  const nomes = apta.progresso.nomes?.length ? apta.progresso.nomes : apta.top5;
+  return { args: base(c, ctx, { competencia: listaEmPortugues(nomes) }) };
 }
 
 function exigirCadencia(c: ColaboradorAlvo, ctx: ContextoEnvio): ContextoCadenciaEnvio | { excluir: string } {
@@ -254,12 +267,10 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
   // O início de uma temporada nova: a MESMA regra de quem recebe o convite acima (tem o perfil e
   // ainda não respondeu o Top 5 de hoje), com outro texto. Nomeia TODAS as competências servíveis,
   // porque o Top 5 pode ter mais de uma e "a sua temporada de A" esconderia a B.
-  inicio_temporada: (c, ctx) => {
-    const apta = aptaAoMapeamento(c, ctx);
-    if ('excluir' in apta) return apta;
-    const nomes = apta.progresso.nomes?.length ? apta.progresso.nomes : apta.top5;
-    return { args: base(c, ctx, { competencia: listaEmPortugues(nomes) }) };
-  },
+  inicio_temporada: (c, ctx) => resolverAberturaDeTemporada(c, ctx, false),
+  // A versão enxuta do mesmo texto: o corpo cita a instituição (`{{3}}`), então sem o nome dela a
+  // mensagem sairia "no programa da , já está disponível".
+  inicio_temporada_v2: (c, ctx) => resolverAberturaDeTemporada(c, ctx, true),
   avaliacao_parcial: (c, ctx) => {
     const progresso = ctx.avaliacaoPorColab.get(c.id);
     if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
@@ -477,6 +488,7 @@ const VARIAVEIS_DE: Record<string, string[]> = {
   avaliacao_pendente: ['primeiro nome', 'nome da instituição', 'link do mapeamento comportamental'],
   avaliacao_competencias: ['primeiro nome', 'competência do cargo (top5_workshop)', 'link do assessment'],
   inicio_temporada: ['primeiro nome', 'competência(s) do Top 5 de hoje, juntas com "e"', 'link do mapeamento de competências'],
+  inicio_temporada_v2: ['primeiro nome', 'competência(s) do Top 5 de hoje, juntas com "e"', 'nome da instituição', 'link do mapeamento de competências'],
   avaliacao_parcial: ['primeiro nome', 'cenários respondidos', 'total de cenários', 'link do assessment'],
   resultado_perfil: ['primeiro nome', 'link do perfil comportamental'],
   plano_desenvolvimento: ['primeiro nome', 'link do PDI'],
@@ -504,6 +516,7 @@ const ALVO_DE: Record<string, string> = {
   avaliacao_pendente: 'ainda não concluiu o mapeamento comportamental; não depende de cenários de avaliação',
   avaliacao_competencias: 'concluiu o perfil comportamental e ainda não iniciou a avaliação de competências',
   inicio_temporada: 'concluiu o perfil comportamental e ainda não respondeu as competências do Top 5 de hoje (abertura de uma temporada nova)',
+  inicio_temporada_v2: 'concluiu o perfil comportamental e ainda não respondeu as competências do Top 5 de hoje (abertura enxuta de uma temporada nova)',
   avaliacao_parcial: 'iniciou a avaliação, mas ainda tem cenários pendentes',
   resultado_perfil: 'tem perfil comportamental disponível',
   plano_desenvolvimento: 'tem relatório individual/PDI gerado',
@@ -525,7 +538,10 @@ const ROTULO_DE: Record<string, string> = {
   votacao_pendente_v3: 'Voto de competências pendente',
   avaliacao_pendente: 'Mapeamento comportamental pendente',
   avaliacao_competencias: 'Avaliação de competências pendente',
-  inicio_temporada: 'Início da temporada',
+  // O rótulo carrega o custo: a Meta cobra este como MARKETING (~6×), e as duas entradas da tela
+  // não podem parecer a mesma coisa.
+  inicio_temporada: 'Início da temporada (cobrado como MARKETING)',
+  inicio_temporada_v2: 'Início da temporada',
   avaliacao_parcial: 'Avaliação em andamento',
   resultado_perfil: 'Perfil comportamental disponível',
   plano_desenvolvimento: 'Plano de desenvolvimento disponível',
@@ -547,6 +563,7 @@ const ETAPA_DE: Record<string, string> = {
   votacao_pendente_v3: 'Entrada',
   avaliacao_pendente: 'Avaliação',
   inicio_temporada: 'Entrada',
+  inicio_temporada_v2: 'Entrada',
   avaliacao_competencias: 'Avaliação',
   avaliacao_parcial: 'Avaliação',
   resultado_perfil: 'Resultados',
@@ -580,6 +597,7 @@ const TEMPLATES_AVALIACAO_MANUAL = new Set([
   'avaliacao_competencias',
   'avaliacao_parcial',
   'inicio_temporada',
+  'inicio_temporada_v2',
 ]);
 
 const TEMPLATES_TRILHA_MANUAL = new Set([

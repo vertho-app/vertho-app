@@ -131,6 +131,50 @@ describe('inicio_temporada: a regra é a mesma do convite antigo', () => {
   });
 });
 
+describe('inicio_temporada_v2 (a versão enxuta): os parâmetros e o público', () => {
+  it('nome, competência, INSTITUIÇÃO e link do assessment, na ordem do contrato', async () => {
+    const lote = await preparar(banco(), 'inicio_temporada_v2', [pessoa('ana')]);
+    expect(lote.alvos[0].params).toEqual([
+      'Elda', 'Comunicação', 'Secretaria de Ibipeba', 'https://ibipeba.vertho.ai/dashboard/assessment',
+    ]);
+  });
+
+  it('com várias competências servíveis, nomeia TODAS, como o texto anterior', async () => {
+    const sb = banco({ cargos: [{ nome: 'Gestão Escolar', top5_workshop: ['Comunicação', 'Liderança', 'Planejamento'] }] });
+    const lote = await preparar(sb, 'inicio_temporada_v2', [pessoa('ana')]);
+    expect(lote.alvos[0].params[1]).toBe('Comunicação, Liderança e Planejamento');
+  });
+
+  it('os TRÊS textos escolhem as MESMAS pessoas e dão os mesmos motivos de exclusão', async () => {
+    const sb = banco({
+      respostas: [respostaAntiga, { colaborador_id: 'caio', competencia_id: 'c-com', competencia_nome: 'Comunicação' }],
+    });
+    const colabs = [
+      pessoa('ana'), pessoa('bia'), pessoa('caio'),
+      pessoa('dora', { perfil_dominante: null }),
+      pessoa('edu', { cargo: 'Cargo sem Top 5' }),
+    ];
+    const v2 = await preparar(sb, 'inicio_temporada_v2', colabs);
+    const v1 = await preparar(sb, 'inicio_temporada', colabs);
+    const convite = await preparar(sb, 'avaliacao_competencias', colabs);
+    expect(ids(v2)).toEqual(['ana', 'bia']);
+    expect(ids(v2)).toEqual(ids(v1));
+    expect(ids(v2)).toEqual(ids(convite));
+    const motivos = (l: any) => l.excluidos.map((e: any) => [e.motivo, e.quantidade]).sort();
+    expect(motivos(v2)).toEqual(motivos(convite));
+  });
+
+  it('sem o nome da instituição NÃO sai: o corpo diria "no programa da , já está disponível"', async () => {
+    const empresa = { ...EMPRESA, nome: '' };
+    const v2 = await preparar(banco({ empresa }), 'inicio_temporada_v2', [pessoa('ana')]);
+    expect(v2.alvos).toHaveLength(0);
+    expect(motivo(v2, 'empresa sem nome cadastrado')).toBe(1);
+    // O texto anterior não cita a instituição, então não depende dela.
+    const v1 = await preparar(banco({ empresa }), 'inicio_temporada', [pessoa('ana')]);
+    expect(ids(v1)).toEqual(['ana']);
+  });
+});
+
 describe('inicio_temporada: leitura que falha lança', () => {
   it.each(['respostas', 'banco_cenarios', 'competencias'])('erro em %s derruba a montagem do lote', async (tabela) => {
     const sb = banco();

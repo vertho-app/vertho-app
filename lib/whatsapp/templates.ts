@@ -331,17 +331,47 @@ export const TEMPLATES = {
    *  - "Boas-vindas", e não "bem-vinda/o": o template vai para todo mundo e o projeto escreve sem
    *    presumir gênero (17/09/2026).
    *
-   * ⚠️ RISCO DE CATEGORIA: o `mapeamento_pendente` (nome, competência, uma ação, "ele orienta o
-   * conteúdo da sua Jornada") é parente próximo deste texto e voltou MARKETING em 05/10/2026.
-   * A frase "É a partir dele que montamos a sua trilha" é o trecho de benefício; se este voltar
-   * MARKETING, a versão enxuta (sem ela) é a próxima a tentar, com nome novo.
+   * 🔴 VOLTOU MARKETING (08/10/2026): submetido UTILITY, a Meta o aprovou e o reclassificou ~8 min
+   * depois (`previous_category: UTILITY`), como já tinha feito com `perfil_pendente` e
+   * `mapeamento_pendente` em 05/10. Custa ~6× por mensagem (~R$ 0,45 contra ~R$ 0,08, números do
+   * comentário de 15/08 em `pilula-template.ts`, não reconferidos no rate card). O código declara
+   * MARKETING porque é o que a Meta cobra; a decisão de USAR é do dono. A tentativa de ficar em
+   * UTILITY é o `inicio_temporada_v2`, logo abaixo.
    */
   inicio_temporada: {
     name: 'inicio_temporada',
-    category: 'UTILITY',
+    category: 'MARKETING',
     language: 'pt_BR',
     body: 'Olá, {{1}}. Boas-vindas à sua temporada de {{2}}.\n\nPara começar, faça o mapeamento de competências no link abaixo:\n{{3}}\n\nSão 4 perguntas sobre uma situação real, cerca de 10 minutos por competência. É a partir dele que montamos a sua trilha de desenvolvimento.\n\nBoa temporada!',
     example: ['Maria', 'Comunicação', 'https://ibipeba.vertho.ai/dashboard/assessment'],
+  },
+
+  /**
+   * A versão ENXUTA da abertura de temporada (08/10/2026, submetida às 08:36 BRT, id
+   * 1120910870528165): a segunda tentativa de ficar em UTILITY depois que o `inicio_temporada`
+   * voltou MARKETING. Nome novo, porque template aprovado
+   * não se edita sem nova revisão e apagar um nome o queima.
+   *
+   * O que saiu: "Boas-vindas", "Boa temporada!" e a frase de benefício ("É a partir dele que
+   * montamos a sua trilha"). O que entrou: a instituição (`{{3}}`), a âncora do `boas_vindas_v2` e
+   * do `votacao_pendente_v3`, os dois que seguem APPROVED/UTILITY: informa um fato ligado à
+   * inscrição e não promove nada.
+   *
+   * "Já está disponível" é verdade hoje, e "já começou" não seria: a turma abre em diagnóstico e a
+   * trilha só começa na data da turma. O vocabulário é o da tela do assessment ("mapeamento",
+   * "4 perguntas", "~10 min por competência"), sem presumir gênero.
+   *
+   * ⚠️ Sem garantia: o `mapeamento_pendente` também era um aviso de estado, sem benefício vendido,
+   * e voltou MARKETING. Só vale depois de APPROVED e com a categoria lida na Meta
+   * (`correct_category`), que defasa alguns minutos. Uma tentativa; se voltar MARKETING, a decisão
+   * é do dono (usar o `inicio_temporada` cobrado como MARKETING, ou o `avaliacao_competencias`).
+   */
+  inicio_temporada_v2: {
+    name: 'inicio_temporada_v2',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. O mapeamento de competências da sua temporada de {{2}}, no programa da {{3}}, já está disponível.\n\nVocê pode fazê-lo em:\n{{4}}\n\nSão 4 perguntas sobre uma situação real, cerca de 10 minutos por competência.',
+    example: ['Maria', 'Comunicação', 'Secretaria Municipal de Ibipeba/BA', 'https://ibipeba.vertho.ai/dashboard/assessment'],
   },
 
   /**
