@@ -18,6 +18,20 @@ export function modeloPaceCompativel(modelo: string): boolean {
   return MODELOS_PACE.has(modelo);
 }
 
+/**
+ * Esforço do avaliador (gerente) FORA do treino Vertho. Só o gerente em Claude recebe esforço: `medium`, que foi o medido
+ * (08/10/2026: o padrão do Sonnet 5.5 é `high`, mais lento e não testado). Os demais agentes e o GPT seguem sem esforço, como
+ * sempre rodaram (o snapshot não ganha a chave `esforco`).
+ */
+export function esforcoPadraoPace(etapa: string, modelo: string): 'medium' | undefined {
+  return etapa === 'gerente' && modelo.startsWith('claude') ? 'medium' : undefined;
+}
+
+/** O gerente em Claude leva a conferência de evidências no prompt (ver `conferencia-evidencias.ts`). */
+export function gerenteComConferencia(etapa: string, modelo: string): boolean {
+  return etapa === 'gerente' && modelo.startsWith('claude');
+}
+
 export function modeloVertho(
   etapa: 'criador' | 'cliente' | 'moderador' | 'intencao' | 'gerente',
   _nivel: 1 | 2 | 3,
@@ -26,8 +40,14 @@ export function modeloVertho(
     return { modelo: 'claude-sonnet-5-5', esforco: 'medium' as const };
   if (etapa === 'criador' || etapa === 'cliente')
     return { modelo: BEDROCK_KIMI_K3_MODEL, esforco: 'low' as const };
-  // Moderador e intenção: classificação com saída de 19 a 40 tokens (ledger de 30 dias). `none` desliga o raciocínio
-  // do Haiku 5.5, que é LIGADO por padrão mesmo em `low`: num JSON desse tamanho o raciocínio seria a maior parte
-  // da espera de cada turno do treino (no Copiloto, a saída foi de 381 para 1.153 tokens).
+  // Moderador (corrigido em 08/10/2026): `medium`, não `none`. O Haiku 5.5 sem raciocínio SUBESTIMA a severidade (em 56 casos,
+  // com 3 repetições: acerta 18 de 26 violações, contra 23 de 26 em `medium` e no Gemini que ele substituiu). Cinco violações
+  // não leves ficavam sem alerta (jailbreak explícito, generalização discriminatória) e a severidade vira penalidade na nota
+  // (`PENALIDADE` em avaliacao.ts: leve 0,5, moderada 1,5, grave 2,5). `medium` repetiu 23/26 em duas execuções e NÃO custou
+  // latência nesta tarefa curta (p50 de 1,2 s, igual ao `none`). Detalhe em docs/CUSTO-QUALIDADE.md.
+  if (etapa === 'moderador')
+    return { modelo: 'claude-haiku-5-5', esforco: 'medium' as const };
+  // Intenção: decisão binária com saída de 19 a 40 tokens. `none` desliga o raciocínio do Haiku 5.5, que é LIGADO por padrão
+  // mesmo em `low`, e acertou 35 de 35 (105 de 105 chamadas), igual ao `medium`. Aqui não há severidade para calibrar.
   return { modelo: 'claude-haiku-5-5', esforco: 'none' as const };
 }

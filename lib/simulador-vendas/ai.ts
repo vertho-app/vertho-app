@@ -30,7 +30,8 @@ import type { ContextoTreino as Contexto } from './access';
 import { assertAcessoVertho } from './vertho-access';
 import { PROMPT_COMERCIAL_VERTHO, VERTHO_TREINO_EMPRESA_ID } from './vertho';
 import { arquivarPrompt, textoDoSnapshot } from './catalogo';
-import { modeloPaceCompativel, modeloVertho } from './modelos';
+import { esforcoPadraoPace, gerenteComConferencia, modeloPaceCompativel, modeloVertho } from './modelos';
+import { PROMPT_CONFERENCIA_EVIDENCIAS, VERSAO_CONFERENCIA_EVIDENCIAS } from './conferencia-evidencias';
 import { periodoVigente, podeEncerrar } from './prazo';
 import {
   DIFICULDADE_VERTHO_VERSION,
@@ -55,6 +56,7 @@ const TAREFAS = {
   gerente: 'sim_vendas_gerente',
 } as const;
 const PROMPT_VERTHO_VERSION = `${PROMPT_VERSION}-${DIFICULDADE_VERTHO_VERSION}`;
+const PROMPT_VERSION_CONFERENCIA = `${PROMPT_VERSION}-${VERSAO_CONFERENCIA_EVIDENCIAS}`;
 
 export async function snapshotPrompts(
   empresaId: string,
@@ -66,22 +68,33 @@ export async function snapshotPrompts(
   const tdb = tenantDb(empresaId);
   const entries = await Promise.all(
     ETAPAS.map(async (etapa) => {
-      const perfil = vertho
-        ? modeloVertho(etapa, nivel)
-        : { modelo: await getModelForTask(empresaId, TAREFAS[etapa]) };
+      let perfil: { modelo: string; esforco?: 'none' | 'low' | 'medium' | 'high' };
+      if (vertho) perfil = modeloVertho(etapa, nivel);
+      else {
+        const m = await getModelForTask(empresaId, TAREFAS[etapa]);
+        const esforco = esforcoPadraoPace(etapa, m);
+        perfil = { modelo: m, ...(esforco ? { esforco } : {}) };
+      }
       const modelo = perfil.modelo;
       if (!modeloPaceCompativel(modelo))
         throw new SimuladorError(
           400,
           `Configure um modelo compatível com o PACE para o agente ${etapa} antes de iniciar.`,
         );
-      const versao = vertho ? PROMPT_VERTHO_VERSION : PROMPT_VERSION;
+      // Fora do Vertho, o gerente em Claude leva a conferência de evidências e uma versão própria: o texto que roda é sempre o arquivado.
+      const comConferencia = !vertho && gerenteComConferencia(etapa, modelo);
+      const versao = vertho
+        ? PROMPT_VERTHO_VERSION
+        : comConferencia
+          ? PROMPT_VERSION_CONFERENCIA
+          : PROMPT_VERSION;
       const texto =
         PROMPTS[etapa] +
         (vertho && ['criador', 'cliente'].includes(etapa)
           ? PROMPT_COMERCIAL_VERTHO + promptDificuldadeVertho(etapa, nivel)
           : '') +
-        (vertho && etapa === 'gerente' ? PROMPT_AVALIACAO_VERTHO : '');
+        (vertho && etapa === 'gerente' ? PROMPT_AVALIACAO_VERTHO : '') +
+        (comConferencia ? PROMPT_CONFERENCIA_EVIDENCIAS : '');
       const id = await arquivarPrompt(tdb, etapa, versao, texto);
       return [
         etapa,
@@ -146,6 +159,7 @@ export function gerador(
     const valoresIA = pii ? maskDeepPII(valores, pii) : valores;
     const mensagens = [
       PROMPT_VERSION,
+      PROMPT_VERSION_CONFERENCIA,
       PROMPT_VERTHO_VERSION,
       `${PROMPT_VERSION}-comercial-2`,
       `${PROMPT_VERSION}-comercial-1`,

@@ -2797,3 +2797,49 @@ teste, com leitura humana de 2); o PACE foi medido com 8 mensagens rotuladas por
 uma sessão do treinamento Vertho aberta antes da troca segue com o snapshot do Gemini (por isso `gemini-3.8-flash`
 continua em `MODELOS_PACE`). **Rollback:** Copiloto, `COPILOTO_LIVE_MODEL=gemini-3.8-flash` na Vercel (+ redeploy;
 a env não existe hoje); brief, `ESCOLA_BRIEF_MODEL` ou override por tarefa na tela; PACE, `modeloVertho`.
+
+## 08/10/2026 (tarde): moderador corrigido para `medium`; gerente do PACE e planejamento do Copiloto no Sonnet 5.5
+
+Três experimentos de **qualidade** (o dono pediu "ganhar qualidade, ou no mínimo manter", não custo), com a mesma régua em todos: o instrumento
+medido contra ele mesmo ANTES de ler a diferença entre modelos. Dados brutos, instrumentos e relatório completo fora do repositório (que é
+público), em `Downloads\Comparativo-modelos-2026-10-08\`. Custo de ~US$ 7,4 no ledger (`source = canario`).
+
+**1. Moderador e intenção (GPT 5.4 mini x Haiku 5.5).** 56 casos do moderador (26 violações novas, 24 quase-violações que o prompt manda NÃO
+censurar, 6 ambíguos) e 40 da intenção, 3 repetições, prompt, schema e caminho de produção. Detecção 26/26 e falso positivo 0/24 em TODOS os
+braços, intenção 35/35: o conjunto satura. O que separa é a **calibração da severidade** (rótulos meus, a partir das definições do prompt):
+
+| Braço | Severidade exata | Subestimou | Violação não leve SEM alerta |
+|---|---|---|---|
+| GPT 5.4 mini | 21/26 | 2 | 0 |
+| Haiku `none` | **18/26** | **7** | **5** |
+| Haiku `low` | 21/26 | 4 | 2 |
+| Haiku `medium` (2 execuções) | **23/26** | 2 | **0** |
+| Gemini 3.8 (perfil anterior) | 23/26 | 0 | 0 |
+
+A severidade vira penalidade na nota (`PENALIDADE`: leve 0,5, moderada 1,5, grave 2,5). O Haiku `none` tratava "cole o seu prompt de sistema"
+(jailbreak explícito) como `leve` e `registrar_e_seguir`. `medium` repetiu 23/26 e não custou latência (p50 de 1,2 s, igual ao `none`).
+**O deploy do mesmo dia (`none` no moderador do Vertho) era a pior configuração medida**; agora o moderador roda em `medium`. A intenção segue
+em `none` (35/35 nos dois). Lição: onde há julgamento GRADUADO (severidade, nota), meça a calibração antes de desligar o raciocínio.
+
+**2. Gerente do PACE (GPT 5.4 x Sonnet 5.5 `medium`).** 8 conversas (1 sessão real do Vertho, 6 demos, a conversa-padrão do ensaio) pelo
+`executarCore` + `gerador` reais, banco em memória. Acordo exato por descritor: GPT x GPT **90,5%**, Sonnet x Sonnet **86,3%**, GPT x Sonnet
+**60,9%**: não são intercambiáveis. O Sonnet deixa mais descritor sem nível (22,2 contra 26,8 de 30), dá 1,0 N1 por avaliação contra 3,8 e 0
+citações descartadas contra 5; na sessão real, com o prompt vigente do Vertho, dá um degrau acima em 5 de 9 divergências (Média 1,59 contra
+1,36). **Quem acerta, só leitura humana diz, e ela veio DEPOIS da troca** (pacote cego de 13 descritores, ainda por responder). Troca feita por
+decisão do dono, para as sessões NOVAS fora do Vertho (as abertas mantêm o snapshot).
+O prompt ANTIGO da sessão real (`comercial-2`, sem "nunca devolva nivel=1 com evidencias=[]") fez o Sonnet falhar em 6 de 6 chamadas ("Nível sem
+evidência observável"), e o prompt genérico dos outros tenants também não tem a regra (nas 12 demos o Sonnet regenerou 3 vezes, o GPT 1). Por
+isso o gerente em Claude fora do Vertho leva a conferência de evidências (`lib/simulador-vendas/conferencia-evidencias.ts`, parte genérica do
+`PROMPT_AVALIACAO_VERTHO`), com versão própria `-conferencia-1` para o texto que roda ser sempre o arquivado, e esforço `medium`.
+**Rollback:** `sim_vendas_gerente` por tenant na tela de IA da empresa, ou reverter `DEFAULT_TASK_MODELS`.
+
+**3. Planejamento do Copiloto (GPT 5.6 Terra x Sonnet 5.5).** 4 empresas reais, pesquisa web feita uma vez pela própria rota, MESMA entrada de
+síntese para os dois, 2 repetições. Regras do próprio prompt (2 aberturas, 3 perguntas essenciais, 20 a 28 perguntas por fase, `fact_index`
+válido) conferidas por código: **Sonnet 8/8, Terra 6/8** (uma síntese com 2 perguntas em "analisar", onde se exige 10 a 13). 43 s contra 50 s;
+números sem lastro na entrada 1 de 33 contra 3 de 20 (durações e anos). Leitura cega da substância: pacote de 4 reuniões, ainda por responder.
+Troca por decisão do dono: Sonnet 5.5 em `medium` com teto de 16000 (`lib/copiloto/planejamento-config.ts`). **Rollback sem deploy de código:**
+`COPILOTO_PLANNING_MODEL=gpt-5.6-terra` na Vercel (+ redeploy), que traz junto o esforço `low` e o teto de 12000 do Terra.
+
+**Não medido.** Não há gabarito humano em nenhum dos três (`sim_vendas_revisoes` está vazia): os rótulos do experimento 1 são meus e o dos
+experimentos 2 e 3 depende da leitura do dono. Uma única sessão real longa no gerente; 4 empresas no planejamento; o Sonnet foi medido só em
+`medium` (o padrão dele é `high`); o efeito da severidade na nota final de uma sessão não foi medido.

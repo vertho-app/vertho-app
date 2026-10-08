@@ -14,6 +14,7 @@ import {
   type CopilotPlanningMemory,
 } from '@/lib/copiloto/accounts';
 import { comContexto } from '@/lib/execucao-contexto';
+import { configDaSinteseDoPlanejamento } from '@/lib/copiloto/planejamento-config';
 import {
   prioritizeResearchFacts, researchAsPrivateContext, researchCompany, researchPersonInDepth,
 } from '@/lib/copiloto/research';
@@ -753,6 +754,8 @@ async function planejarConversa(req: Request) {
     // descoberto completa cargo ou acrescenta quem ele ainda não conhecia.
     const participantesFinais = fundirComDescobertos(participantes, pessoasDescobertas);
 
+    // Sonnet 5.5 em `medium` (08/10/2026; antes Terra em `low`). `COPILOTO_PLANNING_MODEL` continua sendo a porta de volta.
+    const sintese = configDaSinteseDoPlanejamento(process.env.COPILOTO_PLANNING_MODEL);
     const raw = await callAI(
       SYNTHESIS_SYSTEM,
       synthesisPrompt({
@@ -785,9 +788,9 @@ async function planejarConversa(req: Request) {
         factsCount: Array.isArray(research?.fatos_relevantes) ? Math.min(research.fatos_relevantes.length, 8) : 0,
         memory,
       }),
-      { model: process.env.COPILOTO_PLANNING_MODEL || 'gpt-5.6-terra' },
-      12000,
-      { taskKey: 'copiloto_planejamento', timeoutMs: 150000, reasoningEffort: 'low' },
+      { model: sintese.modelo },
+      sintese.maxTokens,
+      { taskKey: 'copiloto_planejamento', timeoutMs: 150000, reasoningEffort: sintese.reasoningEffort },
     );
     const synthesis = await extractJSON(raw);
     if (!synthesis) throw new Error('síntese sem JSON válido');

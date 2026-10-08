@@ -234,6 +234,17 @@ export const DEFAULT_COPILOTO_RESEARCH_FALLBACK_MODEL = 'gpt-5.6-sol';
 export const DEFAULT_COPILOTO_LIVE_MODEL = 'claude-haiku-5-5';
 
 /**
+ * Síntese do planejamento do Copiloto PACE (`app/api/copiloto/planejamento/route.ts`), a mesma decisão para rota e tela de custo.
+ *
+ * 08/10/2026: Sonnet 5.5 no lugar do GPT 5.6 Terra, por decisão do dono. `Medido:` na MESMA entrada (4 empresas reais, pesquisa
+ * pública feita uma vez, 2 repetições): o Sonnet cumpriu as regras que o próprio prompt impõe (2 aberturas, 3 perguntas
+ * essenciais, 20 a 28 perguntas por fase, `fact_index` válido) em 8 de 8; o Terra em 6 de 8 (uma síntese com 2 perguntas em
+ * "analisar", onde se exige 10 a 13). 43 s contra 50 s. A leitura cega da substância pelo dono NÃO foi feita antes da troca.
+ * Rollback sem deploy de código: `COPILOTO_PLANNING_MODEL=gpt-5.6-terra` (a rota volta ao esforço e ao teto do Terra).
+ */
+export const DEFAULT_COPILOTO_PLANNING_MODEL = 'claude-sonnet-5-5';
+
+/**
  * Defaults por task quando não há config explícita no sys_config da empresa
  * (ou quando a task é platform-level, sem empresa associada).
  *
@@ -251,12 +262,17 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   sim_vendas_cliente: 'gpt-5.4-2026-03-05',
   sim_vendas_moderador: 'gpt-5.4-mini',
   sim_vendas_intencao: 'gpt-5.4-mini',
-  sim_vendas_gerente: 'gpt-5.4-2026-03-05',
+  // 08/10/2026: Sonnet 5.5 no lugar do GPT 5.4 (decisão do dono). `Medido:` nas mesmas conversas, o acordo por descritor é de
+  // 90,5% GPT x GPT, 86,3% Sonnet x Sonnet e só 60,9% GPT x Sonnet: NÃO são intercambiáveis, e o Sonnet dá um degrau acima nas
+  // conversas fracas (Média 1,59 contra 1,36 numa sessão real). Fora do Vertho ele roda em `medium` e com a conferência de
+  // evidências no prompt (`lib/simulador-vendas/conferencia-evidencias.ts`): sem ela falhou 6 de 6 numa sessão real. Sessões
+  // abertas antes da troca mantêm o snapshot (modelo e prompt congelados). A leitura cega do dono veio DEPOIS da troca.
+  sim_vendas_gerente: 'claude-sonnet-5-5',
   recepcao_paciente: 'claude-sonnet-4-6',
   recepcao_avaliacao: 'claude-sonnet-4-6',
   recepcao_rascunho: 'claude-sonnet-4-6',
   copiloto_pesquisa_empresa: DEFAULT_COPILOTO_RESEARCH_MODEL,
-  copiloto_planejamento:     'gpt-5.6-terra',
+  copiloto_planejamento:     DEFAULT_COPILOTO_PLANNING_MODEL,
   copiloto_ao_vivo:          DEFAULT_COPILOTO_LIVE_MODEL,
   // As chamadas de pesquisa resolvem o primário pela env
   // COPILOTO_RESEARCH_MODEL e caem nos defaults daqui. Manter todas explícitas

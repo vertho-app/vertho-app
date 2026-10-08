@@ -56,13 +56,16 @@ Correção da orientação comercial em 06/10/2026: retirada a escolha de “Fre
 ### Modelos do treinamento comercial Vertho (06/10/2026)
 
 Somente sessões novas do tenant comercial fixo usam o perfil em
-`lib/simulador-vendas/modelos.ts`, com Kimi em todos os clientes, Gemini nos auxiliares e Sonnet na avaliação:
+`lib/simulador-vendas/modelos.ts`, com Kimi em todos os clientes, Haiku 5.5 nos auxiliares e Sonnet na avaliação.
+(Os auxiliares eram o Gemini 3.8 Flash até 08/10/2026, quando passaram ao Haiku 5.5; o moderador foi corrigido de `none` para `medium` no mesmo dia,
+ver `docs/CUSTO-QUALIDADE.md`.)
 
 | Etapa | Modelo | Esforço |
 | --- | --- | --- |
 | Criador do cenário, todos os níveis | Kimi K3 via AWS Bedrock (`global.moonshotai.kimi-k3`) | low |
 | Cliente, dificuldades baixa, média e alta | Kimi K3 via AWS Bedrock | low |
-| Moderador e intenção de encerramento | Gemini 3.8 Flash | low |
+| Moderador | Claude Haiku 5.5 (`claude-haiku-5-5`) | medium |
+| Intenção de encerramento | Claude Haiku 5.5 | none (sem raciocínio) |
 | Avaliação PACE, todos os níveis | Claude Sonnet 5.5 (`claude-sonnet-5-5`) | medium |
 
 A calibração `comercial-3` torna o nível fácil introdutório: perfil Estável ou
@@ -95,7 +98,7 @@ recusa interrompem a etapa depois de registrar o uso informado pelo provedor.
 Não há retry automático ou troca silenciosa do modelo congelado.
 
 Perfil vigente autorizado em 06/10/2026: Kimi K3 via AWS Bedrock no criador e nos
-clientes dos três níveis; Gemini somente nos auxiliares; Sonnet 5.5 na avaliação.
+clientes dos três níveis; Haiku 5.5 somente nos auxiliares (desde 08/10/2026; antes Gemini); Sonnet 5.5 na avaliação.
 A permissão de execução exige o tenant comercial fixo e uma das tarefas
 `sim_vendas_criador` / `sim_vendas_cliente`; não libera a API direta da Moonshot,
 outros tenants, PDI, avaliação ou os seletores gerais. AWS Bedrock está declarado
@@ -145,11 +148,11 @@ O treinamento comercial Vertho usa o perfil específico descrito acima.
 | Cliente simulado | `sim_vendas_cliente` — `gpt-5.4-2026-03-05` |
 | Moderador | `sim_vendas_moderador` — `gpt-5.4-mini` |
 | Intenção de encerramento | `sim_vendas_intencao` — `gpt-5.4-mini` |
-| Gerente / devolutiva | `sim_vendas_gerente` — `gpt-5.4-2026-03-05` |
+| Gerente / devolutiva | `sim_vendas_gerente` — `claude-sonnet-5-5` em esforço `medium`, com a conferência de evidências no prompt (versão `-conferencia-1`; desde 08/10/2026, antes `gpt-5.4-2026-03-05`) |
 | Transporte e custo | `callAI`, JSON nativo por provedor; Responses com `store:false` para GPT; ledger `ia_usage_log` |
 | Ditado opcional | SpeechRecognition do navegador, quando suportado; permissão de microfone por clique e revisão antes de enviar |
 
-Os modelos são os padrões migrados, não uma mudança de modelo. Override explícito por tarefa continua disponível no painel de IA, restrito aos modelos qualificados em `modelos.ts`: provedor genérico compatível com chat não basta para este contrato. Modelos e prompts ficam congelados em cada treino. O modelo efetivo retornado pela API é registrado no ledger, incluindo o snapshot do Mini. Preços: [catálogo oficial do Mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini); a conta é feita pelo catálogo central da Vertho.
+Os modelos são os padrões migrados, exceto o gerente, que passou ao Sonnet 5.5 em 08/10/2026 (sessões abertas antes mantêm o snapshot do GPT 5.4). Override explícito por tarefa continua disponível no painel de IA, restrito aos modelos qualificados em `modelos.ts`: provedor genérico compatível com chat não basta para este contrato. Modelos e prompts ficam congelados em cada treino. O modelo efetivo retornado pela API é registrado no ledger, incluindo o snapshot do Mini. Preços: [catálogo oficial do Mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini); a conta é feita pelo catálogo central da Vertho.
 
 Fluxo normal: criador → planejamento registrado pelo participante → (moderador → cliente → intenção) por turno → gerente no encerramento → avaliação da experiência → devolutiva PACE. O relatório é gerado e persistido antes da avaliação, mas a projeção pública não entrega seu conteúdo enquanto o participante não responder aos cinco aspectos da experiência. A tela informa que essa resposta não altera a nota PACE; qualquer pontuação válida libera a devolutiva, e a primeira avaliação fica preservada. **Decisão D2 do dono (27/09/2026), que reverte a de 14/09 (`84fed6cb`):** no histórico individual, a nota do treino também só aparece depois da avaliação da experiência, como níveis por competência, foco sugerido e a devolutiva (pace-7, abaixo); antes disso o item diz "Pesquisa pendente" e o indicador de relatório continua fora da lista. Com a nota à vista a pesquisa deixava de medir a experiência (a nota contaminava a resposta) e o botão primário "Nova simulação" convidava a pular a pesquisa: enquanto houver devolutiva esperando a pesquisa, "Nova simulação" deixa de ser o botão primário e a tela explica que a devolutiva e a nota abrem depois da pesquisa (com "Responder à pesquisa" quando ela é de outro treino). A regra mora na projeção pura `resumoPublico` (`lib/simulador-vendas/resumo.ts`), usada pelo serviço e pelo harness da tela. A gestão continua vendo a nota sem depender da pesquisa. A gestão autorizada continua consultando o relatório persistido sem depender dessa etapa de interface. Um treino concluído com N turnos usa normalmente `3N + 2` chamadas, além de eventual regeneração de resposta inválida. Não há LangChain, banco vetorial ou serviço de agentes novo neste módulo. O ditado não utiliza Whisper/OpenAI no backend nem grava áudio no banco do módulo; o processamento de voz depende do navegador.
 
