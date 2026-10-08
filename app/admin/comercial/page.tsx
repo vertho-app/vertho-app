@@ -82,7 +82,7 @@ export default function ComercialDashboardPage() {
           <>
             {/* Totais do canal */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-              <TotalCard label="Pipeline total" value={fmtBRL(data.totals.pipelineTotal)} accent="#22D3EE" />
+              <TotalCard label="Pipeline total" value={fmtBRL(data.totals.pipelineTotal)} accent="#34C5CC" />
               <TotalCard label="Pipeline qualificado" value={fmtBRL(data.totals.pipelineQualificado)} accent="#3B82F6" />
               <TotalCard label="Exposição de comissão" value={fmtBRL(data.totals.commissionExposure)} accent="#F59E0B" />
               <TotalCard

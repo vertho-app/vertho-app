@@ -293,7 +293,7 @@ export default function ComissoesAdminPage() {
         {/* Totais */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <TotalCard label="Previsto" value={fmtBRL(totals?.previsto ?? 0)} accent="#F59E0B" />
-          <TotalCard label="A receber" value={fmtBRL(totals?.aReceber ?? 0)} accent="#06B6D4" />
+          <TotalCard label="A receber" value={fmtBRL(totals?.aReceber ?? 0)} accent="#34C5CC" />
           <TotalCard label="Pago" value={fmtBRL(totals?.pago ?? 0)} accent="#10B981" />
           <TotalCard
             label="NF pendentes"

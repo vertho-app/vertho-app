@@ -233,7 +233,7 @@ export default function NovoPainel({ workerAtivo }: { workerAtivo: boolean }) {
                       : 'border-white/[0.08] bg-white/[0.02] opacity-50 hover:opacity-80'
                   }`}
                 >
-                  <span className={`font-serif text-lg leading-none ${on ? 'text-cyan-300' : 'text-white/40'}`}>{m.letra}</span>
+                  <span className={`font-display text-lg leading-none ${on ? 'text-cyan-300' : 'text-white/40'}`}>{m.letra}</span>
                   <span className="flex flex-col">
                     <span className="text-sm text-white/85">{m.nome}</span>
                     <span className="text-[11px] text-white/35">{m.via}</span>

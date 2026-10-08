@@ -14,11 +14,28 @@
 | Swatch | Hex | Token CSS | Uso |
 |--------|-----|-----------|-----|
 | 🟦 | `#9AE2E6` | `--cyan-soft` | Destaques suaves, backgrounds claros |
-| 🟦 | `#34C5CC` | `--cyan` | **Acento principal**, CTAs, links, badges |
+| 🟦 | `#34C5CC` | `--cyan` | **Ciano do brand book**: acento principal, CTAs, links, badges. É também o degrau 400 da rampa `cyan-*`/`brand-*` (ver abaixo) |
 | 🟦 | `#0F2B54` | `--navy` | **Background principal**, headers, cards |
 | 🟪 | `#E1AAEF` | `--lilac` | Acento lilás, secundário |
-| 🟪 | `#9E4EDD` | `--purple` | Acento roxo, auditoria, checks |
-| 🟪 | `#3B0A6D` | `--purple-deep` | Profundidade, contraste escuro |
+| 🟪 | `#9E4EDD` | `--purple` | Tom luminoso do roxo, **derivado** para a UI escura (3,7:1 sobre o navy). Não está na paleta principal do brand book |
+| 🟪 | `#3B0A6D` | `--purple-deep` | **Roxo do brand book** (acento, "com moderação"). Sobre o fundo navy da UI tem contraste ~1,2:1: só como preenchimento sob texto branco, nunca como texto ou linha |
+| ⬜ | `#F7F7F7` | `bgLight` (PDFs) | **Branco do brand book**: fundo do certificado e das seções claras dos PDFs |
+
+### Rampa de ciano (brand book out/2026)
+
+O Tailwind traz o seu `cyan-*` (`#22d3ee` no 400), e a UI usa `cyan-400` **866 vezes** contra 252 de
+`brand-400` (medido em 08/10/2026), então o ciano que o usuário via NÃO era o da marca. A rampa `--color-cyan-*`
+do `app/globals.css` substitui a do Tailwind e tem o Ciano Vertho **no degrau 400** (o accent da UI escura):
+
+`50 #EEFBFB · 100 #DBF6F7 · 200 #B9EDEF · 300 #76D8DD · 400 #34C5CC · 500 #28A8AE · 600 #1C8A90 · 700 #166E73 · 800 #115659 · 900 #0C3E41 · 950 #072A2C`
+
+O fallback de `--color-brand-100..700` é a MESMA rampa (tenant sem branding fica no ciano da marca; quem tem
+`accent_color` continua sobrescrevendo em runtime). `tests/unit/branding/rampa-ciano.test.ts` mantém os dois
+blocos juntos. O padrão do accent do tenant (`lib/ui-resolver.ts`, `dashboard-shell.tsx`) é `#34C5CC`.
+✅ **Dado corrigido em 08/10/2026:** 9 das 14 empresas tinham `#00B4D8` GRAVADO em `empresas.ui_config.accent_color` (o padrão
+antigo do formulário de Branding). Passaram a `#34C5CC` por UPDATE só do `accent_color` (transação, 9 linhas conferidas, SQL de
+reversão guardado). As outras 4 (cores próprias) não foram tocadas. ⚠️ O `primary_color` das mesmas empresas ainda é o teal
+`#0D9488` (7 de 9) do mesmo padrão antigo: não foi pedido e segue como está.
 
 ## Tokens Funcionais
 
@@ -78,19 +95,34 @@ DS de marca vale na superfície clara — em fundo navy o indigo simplesmente so
 
 ## Tipografia
 
-`app/layout.tsx` carrega 5 famílias por `next/font`. Inter é o default do `<body>`.
+**Brand book (out/2026): títulos em Codec (corte Extra Bold), textos e apoio em Roboto.** `app/layout.tsx` carrega as duas
+por `next/font/local` e o `<body>` usa Roboto. Os tokens vivem no `:root` do `app/globals.css`:
 
-| Fonte | Var | Uso | Peso |
-|-------|-----|-----|------|
-| **Inter** | `--font-inter` | UI, corpo, labels, botões — e corpo dos PDFs | 400–900 |
-| **Instrument Serif** | `--font-serif` | **display do produto**: `PageHero`/`SectionHeader` e ~36 telas | 400 |
-| **Fraunces** | `--font-fraunces` | display de **marca**: capas de PDF, certificado, `/radarbett`, `/imprensa` | 400–700 |
-| **Plus Jakarta Sans** | `--font-jakarta` | eyebrows/labels dos PDFs e do `/radarbett` | 400–800 |
-| **Manrope** | `--font-manrope` | eyebrows caixa-alta do radar (`.eyebrow-manrope`) | 500–800 |
+| Token | Valor | Tailwind | Uso |
+|---|---|---|---|
+| `--vh-font-body` | Roboto | `font-sans` | texto, UI, labels, botões, `.eyebrow-manrope` (nome histórico) |
+| `--vh-font-display` | Codec Cold Extra Bold | `font-display` | títulos: `PageHero`/`SectionHeader`, monogramas, números grandes, ~40 telas |
 
-Fora dessas: **Dancing Script** é registrada localmente no `lib/certificado-pdf.tsx`, só para a
-assinatura. **JetBrains Mono não é carregada** em lugar nenhum e **Codec Cold não existe em código** —
-o wordmark é PNG (`lib/pdf-assets.ts`).
+Codec só tem o peso 800 (e a face `italic` aponta para o mesmo arquivo, então itálico sai reto). Licença comercial:
+ver `app/fonts/README.md`. **Codec é fonte de display**: em título longo e em card estreito ele é bem mais largo
+que a Instrument Serif — o `ContentThumb` precisou de número menor e título mais estreito (medido na imagem).
+
+**Superfícies que NÃO migraram** e seguem com a tipografia antiga, de propósito (a Inter, a Instrument Serif, a
+Fraunces, a Jakarta e a Manrope continuam carregadas só para elas): `/radar`, `/radarbett`, `/imprensa`,
+`/proposta` (Space Grotesk + IBM Plex), `/conarh`, `/copiloto`, os vídeos Remotion e `lib/demo/offline`.
+
+**Logo nos PDFs:** o certificado mostra no topo só o V com o ponto na tinta escura do PNG oficial (`vertho-icone-escuro.png`),
+SEM selo ao redor (pedido do dono, 08/10/2026), e o rodapé usa o logo horizontal escuro. A capa dos relatórios (`PdfReportCover`) mostra o
+logo oficial claro (V ciano + `vertho.ai` branco, `logo-vertho.png`) quando a marca Vertho está liberada: antes, sem logo explícito, ela
+escrevia o texto "vertho.ai". Cliente white-label (`mostrarVertho=false`) segue sem logo e sem texto. Os PNGs têm tinta `#040027` /
+`#30B9B5`, diferente da dos PDFs vetoriais oficiais do kit (navy `#0F2B54` / ciano `#34C5CC`); regenerá-los é decisão em aberto.
+
+**PDFs:** `components/pdf/fontes.ts` registra Roboto (CDN fontsource, alias histórico `NotoSans`) e Codec (OTF local) e exporta
+`FONTE_TEXTO` / `FONTE_TITULO`. ⚠️ O subset latin da Roboto não tem `→ ← ↑ ↓ ≈ ✓ ● ■ ★ ≥ ≤` (a Inter tinha ↑ ↓):
+`tests/unit/pdf-glifos-guard.test.ts` vigia. `ranking-pdf` e `parecer-pdf` migraram só a fonte; a paleta "Tinta & Sinal" deles é própria.
+
+Fora disso: **Dancing Script** é registrada localmente no `lib/certificado-pdf.tsx`, só para a assinatura.
+**JetBrains Mono não é carregada** em lugar nenhum. O wordmark é PNG (`lib/pdf-assets.ts`).
 
 ## Componentes
 

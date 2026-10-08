@@ -78,7 +78,7 @@ function InstructionCard({ numero, titulo, descricao }) {
   return (
     <div className="flex gap-3 p-4 rounded-xl bg-white/[0.03] border border-white/10">
       <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm flex-shrink-0"
-        style={{ background: 'rgba(0,180,216,0.15)', color: '#00B4D8' }}>
+        style={{ background: 'rgba(52,197,204,0.15)', color: '#34C5CC' }}>
         {numero}
       </div>
       <div>
@@ -379,7 +379,7 @@ export default function MapeamentoPage() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                 <span className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-110"
-                  style={{ background: 'rgba(0,180,216,0.92)' }}>
+                  style={{ background: 'rgba(52,197,204,0.92)' }}>
                   <Play size={24} className="text-white translate-x-0.5" fill="currentColor" />
                 </span>
               </div>
@@ -420,7 +420,7 @@ export default function MapeamentoPage() {
             <button
               onClick={() => setPhase(irPra)}
               className="w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all hover:opacity-90 active:scale-[0.99]"
-              style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)' }}
+              style={{ background: 'linear-gradient(135deg, #34C5CC, #0D9488)' }}
             >
               {t('onboarding.start')}
             </button>
@@ -489,7 +489,7 @@ export default function MapeamentoPage() {
           disabled={!canStart}
           onClick={() => setPhase(PHASE.NATURAL_INTRO)}
           className="mt-8 w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all disabled:opacity-40"
-          style={{ background: canStart ? 'linear-gradient(135deg, #00B4D8, #0D9488)' : '#374151' }}
+          style={{ background: canStart ? 'linear-gradient(135deg, #34C5CC, #0D9488)' : '#374151' }}
         >
           {t('welcome.start')}
         </button>
@@ -530,7 +530,7 @@ export default function MapeamentoPage() {
         <button
           onClick={() => { setGroupIdx(0); setPhase(PHASE.RANK1); }}
           className="mt-8 w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all hover:opacity-90 active:scale-[0.99]"
-          style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)' }}
+          style={{ background: 'linear-gradient(135deg, #34C5CC, #0D9488)' }}
         >
           {t('naturalIntro.start')}
         </button>
@@ -548,7 +548,7 @@ export default function MapeamentoPage() {
       <div className="h-1.5 rounded-full overflow-hidden bg-white/5">
         <div
           className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #00B4D8, #0D9488)' }}
+          style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #34C5CC, #0D9488)' }}
         />
       </div>
     </div>
@@ -562,7 +562,7 @@ export default function MapeamentoPage() {
           key={i}
           className="w-2 h-2 rounded-full transition-all"
           style={{
-            background: i < current ? '#00B4D8' : i === current ? '#0D9488' : 'rgba(255,255,255,0.1)',
+            background: i < current ? '#34C5CC' : i === current ? '#0D9488' : 'rgba(255,255,255,0.1)',
             transform: i === current ? 'scale(1.3)' : 'scale(1)',
           }}
         />
@@ -605,7 +605,7 @@ export default function MapeamentoPage() {
             {/* Dots */}
             <div className="flex gap-1 mb-6">
               {Array.from({ length: 8 }, (_, i) => (
-                <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < groupIdx ? 'bg-teal-500' : i === groupIdx ? 'bg-brand-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
+                <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < groupIdx ? 'bg-teal-500' : i === groupIdx ? 'bg-brand-400 shadow-[0_0_8px_rgba(52,197,204,0.5)]' : 'bg-white/[0.08]'}`} />
               ))}
             </div>
 
@@ -700,7 +700,7 @@ export default function MapeamentoPage() {
             {/* Dots */}
             <div className="flex gap-1 mb-6">
               {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < pairIdx ? 'bg-teal-500' : i === pairIdx ? 'bg-brand-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
+                <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < pairIdx ? 'bg-teal-500' : i === pairIdx ? 'bg-brand-400 shadow-[0_0_8px_rgba(52,197,204,0.5)]' : 'bg-white/[0.08]'}`} />
               ))}
             </div>
 
@@ -767,7 +767,7 @@ export default function MapeamentoPage() {
 
         {/* Tag + title */}
         <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{t('learning.lastStep')}</p>
-        <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('learning.title')}</h1>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "var(--vh-font-display)" }}>{t('learning.title')}</h1>
         <p className="text-[14px] text-gray-400 mb-5">{t('learning.subtitle')}</p>
 
         <PreferenciasAprendizagemForm
@@ -823,7 +823,7 @@ export default function MapeamentoPage() {
     return (
       <div className="mx-auto w-full max-w-4xl py-3">
         <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{t('closing.tag')}</p>
-        <h1 className="text-[26px] font-black text-white leading-tight mb-2" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('closing.title')}</h1>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-2" style={{ fontFamily: "var(--vh-font-display)" }}>{t('closing.title')}</h1>
         <p className="text-[14px] text-gray-400 leading-relaxed mb-6">{t('closing.subtitle')}</p>
 
         <p className="text-[13px] text-gray-300 leading-relaxed mb-6 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.03]">

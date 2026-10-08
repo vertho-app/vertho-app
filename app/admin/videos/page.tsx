@@ -67,7 +67,7 @@ function Heatmap({ points, length }: { points?: any[]; length?: number }) {
             className="flex-1 rounded-sm"
             style={{
               height: `${Math.max(2, (s.pct / maxPct) * 100)}%`,
-              background: s.pct >= 75 ? '#00B4D8' : s.pct >= 40 ? 'rgba(0,180,216,0.5)' : 'rgba(0,180,216,0.2)',
+              background: s.pct >= 75 ? '#34C5CC' : s.pct >= 40 ? 'rgba(52,197,204,0.5)' : 'rgba(52,197,204,0.2)',
             }}
           />
         ))}
@@ -259,7 +259,7 @@ export default function AdminVideosPage() {
                   className="flex-1 rounded-sm"
                   style={{
                     height: `${h}%`,
-                    background: s.views > 0 ? '#00B4D8' : 'rgba(255,255,255,0.04)',
+                    background: s.views > 0 ? '#34C5CC' : 'rgba(255,255,255,0.04)',
                   }} />
               );
             })}

@@ -63,17 +63,17 @@ export default function ShellV2({ children }: { children: React.ReactNode }) {
         <aside className="border-b border-white/[0.08] bg-[#071a31] md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:border-b-0 md:border-r">
           <div className="flex items-center justify-between gap-3 px-4 py-4 md:px-5 md:pb-6 md:pt-5">
             <Link href="/admin-v2" className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--cyan)]">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-[#34c5cc55] bg-[#34c5cc12] font-[family-name:var(--font-serif)] text-lg italic text-[var(--cyan-soft)]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-[#34c5cc55] bg-[#34c5cc12] font-display text-lg italic text-[var(--cyan-soft)]">
                 V
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-[14px] font-semibold tracking-[-0.02em]">vertho.ai</span>
-                <span className="block font-[family-name:var(--font-manrope)] text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-faint)]">
+                <span className="block font-sans text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-faint)]">
                   operação
                 </span>
               </span>
             </Link>
-            <span className="rounded-full border border-[#e1aaef3b] bg-[#e1aaef0f] px-2 py-1 font-[family-name:var(--font-manrope)] text-[8px] font-bold uppercase tracking-[0.14em] text-[var(--lilac)]">
+            <span className="rounded-full border border-[#e1aaef3b] bg-[#e1aaef0f] px-2 py-1 font-sans text-[8px] font-bold uppercase tracking-[0.14em] text-[var(--lilac)]">
               local
             </span>
           </div>
@@ -129,7 +129,7 @@ export default function ShellV2({ children }: { children: React.ReactNode }) {
         <div className="min-w-0">
           <header className="sticky top-0 z-40 flex min-h-[62px] items-center gap-4 border-b border-white/[0.08] bg-[#06172cf2] px-4 backdrop-blur-xl sm:px-6 lg:px-8">
             <div className="min-w-0">
-              <div className="flex items-center gap-1 font-[family-name:var(--font-manrope)] text-[9px] font-semibold uppercase tracking-[0.13em] text-[var(--ink-faint)]">
+              <div className="flex items-center gap-1 font-sans text-[9px] font-semibold uppercase tracking-[0.13em] text-[var(--ink-faint)]">
                 {secao.trilha.map((item, index) => (
                   <span key={`${item}-${index}`} className="flex items-center gap-1">
                     {index > 0 && <ChevronRight size={10} />}
@@ -145,7 +145,7 @@ export default function ShellV2({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
             <div className="ml-auto hidden items-center gap-2 sm:flex">
-              <span className="rounded-full border border-[#34c5cc32] bg-[#34c5cc0d] px-3 py-1.5 font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--cyan-soft)]">
+              <span className="rounded-full border border-[#34c5cc32] bg-[#34c5cc0d] px-3 py-1.5 font-sans text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--cyan-soft)]">
                 Admin por fluxo
               </span>
               <Link

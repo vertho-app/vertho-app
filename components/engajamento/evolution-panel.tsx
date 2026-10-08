@@ -90,7 +90,7 @@ export function TrajectoriesCard({
       <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">{t('evolution.rhythm.eyebrow')}</p>
       <h3
         className="mt-1 text-[21px] leading-tight text-white"
-        style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+        style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}
       >
         {t('evolution.rhythm.title')}
       </h3>
@@ -142,7 +142,7 @@ export function AreaHeatmap({ areas, weeks }: { areas: EngagementAreaMetric[]; w
           <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">{t('evolution.heatmap.eyebrow')}</p>
           <h3
             className="mt-1 text-[21px] leading-tight text-white"
-            style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+            style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}
           >
             {t('evolution.heatmap.title')}
           </h3>
@@ -206,7 +206,7 @@ export function RiskTable({ data, empresaId, surface }: { data: EngagementEvolut
         <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">{t('evolution.risk.eyebrow')}</p>
         <h3
           className="mt-1 text-[21px] leading-tight text-white"
-          style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+          style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}
         >
           {t('evolution.risk.title')}
         </h3>

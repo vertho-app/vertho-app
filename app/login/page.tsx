@@ -29,7 +29,7 @@ export default async function LoginPage({
     fontColorSecondary: uiConfig.font_color_secondary || '#FFFFFF99',
     primaryColor: uiConfig.primary_color || '#0D9488',
     primaryColorEnd: uiConfig.primary_color_end || '#0F766E',
-    accentColor: uiConfig.accent_color || '#00B4D8',
+    accentColor: uiConfig.accent_color || '#34C5CC',
     bgGradientStart: uiConfig.bg_gradient_start || '#091D35',
     bgGradientEnd: uiConfig.bg_gradient_end || '#0F2A4A',
     subtitle: uiConfig.login_subtitle || t('defaultSubtitle'),

@@ -8,12 +8,13 @@
 import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
 import '@/components/pdf/styles'; // registra NotoSans (efeito colateral)
-import PdfReportCover from '@/components/pdf/PdfReportCover'; // capa editorial + registra Fraunces
+import PdfReportCover from '@/components/pdf/PdfReportCover'; // capa editorial (registra as fontes via ./styles)
 import { getLogoCoverBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { rotuloNivel } from '@/lib/nivel-regua';
 import type { DnaAggregate, CompetenciaStat, Dist } from './dna-organizacional/aggregate';
 import type { DnaNarrative } from './dna-organizacional/narrative';
 import { nivelDaDistribuicao } from '@/lib/relatorios/niveis-do-rh';
+import { FONTE_TITULO } from '@/components/pdf/fontes';
 
 const C = {
   navy: '#142F57', cyan: '#34C5CC', gold: '#C8941F', white: '#FFFFFF',
@@ -44,7 +45,7 @@ const s = StyleSheet.create({
   intro: { fontStyle: 'italic', color: '#2A3B55', fontSize: 10, lineHeight: 1.5, marginBottom: 18 },
   secTitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14, marginBottom: 10 },
   secBar: { width: 5, height: 18, backgroundColor: C.cyan, marginRight: 8, borderRadius: 2 },
-  secTitle: { fontFamily: 'Fraunces', fontWeight: 600, fontSize: 15, color: C.navy, letterSpacing: 0.3 },
+  secTitle: { fontFamily: FONTE_TITULO, fontWeight: 600, fontSize: 15, color: C.navy, letterSpacing: 0.3 },
   forcaCard: { backgroundColor: C.cardTeal, borderLeftWidth: 4, borderLeftColor: C.cyan, borderRadius: 4, padding: 12, marginBottom: 9 },
   forcaTit: { color: '#0F6B70', fontSize: 10, fontWeight: 700 },
   forcaDest: { color: C.navy, fontSize: 19, fontWeight: 700, marginVertical: 3 },

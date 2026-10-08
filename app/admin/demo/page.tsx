@@ -467,7 +467,7 @@ export default function AdminDemoPage() {
       <BackButton href="/admin/dashboard" />
 
       <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#0d1726]">
-        <div className="border-b border-white/10 bg-[linear-gradient(120deg,rgba(34,211,238,0.10),transparent_55%)] p-5 sm:p-6">
+        <div className="border-b border-white/10 bg-[linear-gradient(120deg,rgba(52,197,204,0.10),transparent_55%)] p-5 sm:p-6">
           <div className="mb-2 flex items-center gap-2 text-cyan-300">
             <Building2 size={16} aria-hidden="true" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Sala de demonstração</span>
@@ -767,7 +767,7 @@ export default function AdminDemoPage() {
 
           <div className="my-6 border-t border-white/10" />
 
-          <section className="overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(255,255,255,0.015)_55%)]">
+          <section className="overflow-hidden rounded-2xl border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(52,197,204,0.08),rgba(255,255,255,0.015)_55%)]">
             <div className="p-4 sm:p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -867,7 +867,7 @@ export default function AdminDemoPage() {
 
           <div className="my-6 border-t border-white/10" />
 
-          <section className="overflow-hidden rounded-2xl border border-emerald-300/20 bg-[linear-gradient(145deg,rgba(16,185,129,0.075),rgba(8,21,35,0.72)_52%,rgba(34,211,238,0.04))]">
+          <section className="overflow-hidden rounded-2xl border border-emerald-300/20 bg-[linear-gradient(145deg,rgba(16,185,129,0.075),rgba(8,21,35,0.72)_52%,rgba(52,197,204,0.04))]">
             <div className="border-b border-dashed border-emerald-200/15 px-4 py-4 sm:px-5">
               <div className="flex items-start justify-between gap-4">
                 <div>

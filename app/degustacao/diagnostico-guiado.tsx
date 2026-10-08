@@ -34,7 +34,7 @@ const COR = {
   bordaAcento: 'rgba(52,197,204,0.35)',
 } as const;
 
-const SERIF = 'var(--font-serif, "Instrument Serif"), Georgia, serif';
+const SERIF = 'var(--vh-font-display)';
 
 const ICONES: Record<IconeDoDesafio, typeof TrendingUp> = {
   resultado: TrendingUp,

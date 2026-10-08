@@ -204,7 +204,7 @@
   margin: 36px auto;
 }
 .intro h2 {
-  font-family: var(--font-serif), Georgia, serif;
+  font-family: var(--vh-font-display);
   font-style: italic;
   font-size: 2.5rem;
   font-weight: 400;

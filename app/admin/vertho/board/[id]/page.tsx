@@ -175,7 +175,7 @@ export default async function PainelPage({ params }: { params: Promise<{ id: str
                   {r.verificacao.quebradas.map((q, i) => (
                     <li key={i} className="rounded-xl border border-amber-400/25 bg-amber-400/[0.04] px-4 py-3">
                       <p className="text-[13px] text-amber-100/90">
-                        <span className="font-serif text-base text-amber-300 mr-1.5">{q.letra}</span>
+                        <span className="font-display text-base text-amber-300 mr-1.5">{q.letra}</span>
                         {q.claim}
                       </p>
                       <p className="text-[11.5px] text-amber-200/60 font-mono mt-1">
@@ -193,7 +193,7 @@ export default async function PainelPage({ params }: { params: Promise<{ id: str
                     .filter((t) => t.estourou)
                     .map((t) => (
                       <li key={t.letra} className="text-[12.5px] text-white/45">
-                        <span className="font-serif text-base text-cyan-300/80 mr-1.5">{t.letra}</span>
+                        <span className="font-display text-base text-cyan-300/80 mr-1.5">{t.letra}</span>
                         declarou <b className="text-white/70 tabular-nums">{t.declarada}</b> de confiança, mas a
                         evidência sustenta no máximo <b className="text-white/70 tabular-nums">{t.teto}</b> — {t.motivo}
                       </li>
@@ -241,7 +241,7 @@ export default async function PainelPage({ params }: { params: Promise<{ id: str
                 return (
                   <article key={p.letra} className="rounded-2xl border border-white/[0.06] px-5 py-4" style={{ background: '#091D35' }}>
                     <div className="flex items-center gap-3 pb-3 border-b border-white/[0.06]">
-                      <span className="font-serif text-3xl text-cyan-300 leading-none">{p.letra}</span>
+                      <span className="font-display text-3xl text-cyan-300 leading-none">{p.letra}</span>
                       <div>
                         <p className="text-white/90 text-sm font-medium">{p.nome}</p>
                         <p className="text-[10.5px] text-white/30 font-mono">{p.via}</p>
@@ -290,7 +290,7 @@ export default async function PainelPage({ params }: { params: Promise<{ id: str
                 {r.premissas_comuns.map((p) => (
                   <li key={p.letra} className="rounded-2xl border border-white/[0.06] px-5 py-4" style={{ background: '#091D35' }}>
                     <div className="flex items-start gap-3">
-                      <span className="font-serif text-2xl text-cyan-300 leading-none">{p.letra}</span>
+                      <span className="font-display text-2xl text-cyan-300 leading-none">{p.letra}</span>
                       <div className="min-w-0">
                         <p className="text-white/90 text-[14.5px] font-medium">{p.premissa}</p>
                         {p.tentativa_de_refutacao && (
@@ -378,7 +378,7 @@ export default async function PainelPage({ params }: { params: Promise<{ id: str
               <ul className="flex flex-col gap-1.5 mb-4">
                 {s.creditos.map((c, i) => (
                   <li key={i}>
-                    <span className="font-serif text-cyan-300/70 text-base mr-1.5">{c.letra}</span>
+                    <span className="font-display text-cyan-300/70 text-base mr-1.5">{c.letra}</span>
                     {c.contribuicao}
                   </li>
                 ))}

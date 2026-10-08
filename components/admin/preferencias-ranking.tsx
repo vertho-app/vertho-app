@@ -42,8 +42,8 @@ export default function PreferenciasRanking({ data, title, subtitle, compact = f
           const pct = max > 0 ? Math.min(100, (media / max) * 100) : 0;
           const isTop = i === 0;
           const barBg = isTop
-            ? 'linear-gradient(90deg, #00B4D8, #0D9488)'
-            : 'rgba(0,180,216,0.45)';
+            ? 'linear-gradient(90deg, #34C5CC, #0D9488)'
+            : 'rgba(52,197,204,0.45)';
           const cardStyle = compact
             ? undefined
             : { background: '#091D35' };

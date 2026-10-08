@@ -14,7 +14,7 @@ import { locales } from '@/i18n/routing';
 const ROLE_LABELS = {
   colaborador: { labelKey: 'colaborador', color: '#6B7280' },
   gestor: { labelKey: 'gestor', color: '#F59E0B' },
-  rh: { labelKey: 'rh', color: '#00B4D8' },
+  rh: { labelKey: 'rh', color: '#34C5CC' },
 };
 
 // ── Avatar render ────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 /* Mesmo shell, superfícies e controles do simulador de vendas. */
 .root {
-  --atendimento-accent: var(--brand-400, #22d3ee);
+  --atendimento-accent: var(--brand-400, #34C5CC);
   --atendimento-ink: #e2e8f0;
   --atendimento-muted: #94a3b8;
   --atendimento-line: #ffffff18;

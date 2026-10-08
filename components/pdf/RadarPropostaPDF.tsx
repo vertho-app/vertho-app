@@ -970,7 +970,7 @@ export default function RadarPropostaPDF({
           </Text>
           <Text style={s.text}>
             <Text style={{ fontWeight: 700, color: colors.navy }}>VAAR:</Text> parcela do FUNDEB
-            (≈ 2,5% da complementação federal) condicionada a 5 critérios da Lei nº 14.113/2020,
+            (cerca de 2,5% da complementação federal) condicionada a 5 critérios da Lei nº 14.113/2020,
             art. 14, §1º — (I) gestor por mérito, (II) participação ≥ 80% no Saeb, (III) redução de
             desigualdades raciais/socioeconômicas, (IV) ICMS Educacional estadual, (V) currículo
             BNCC com Computação. Aferição CIF/SEB-MEC. Indicador binário de habilitação por ano.

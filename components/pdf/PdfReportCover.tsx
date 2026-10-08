@@ -1,25 +1,27 @@
 import React from 'react';
-import { Page, View, Text, Image, StyleSheet, Font, Svg, Defs, LinearGradient, Stop, Rect } from '@react-pdf/renderer';
-import './styles'; // side-effect: registra 'NotoSans' (Inter) p/ o subtítulo
+import { Page, View, Text, Image, StyleSheet, Svg, Defs, LinearGradient, Stop, Rect } from '@react-pdf/renderer';
+import './styles'; // side-effect: registra as fontes (via ./fontes) e o alias 'NotoSans'
+import { FONTE_TEXTO, FONTE_TITULO } from './fontes';
 import { brand } from './tokens';
 import { tradutorDoPdf } from '@/lib/pdf-i18n';
+import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 
-// ── Fontes do design system (display + UI). Inter (corpo) já é 'NotoSans'. ──
-const CDN = 'https://cdn.jsdelivr.net/fontsource/fonts';
-try {
-  Font.register({ family: 'Fraunces', fonts: [
-    { src: `${CDN}/fraunces@latest/latin-400-normal.ttf`, fontWeight: 400 },
-    { src: `${CDN}/fraunces@latest/latin-600-normal.ttf`, fontWeight: 600 },
-    { src: `${CDN}/fraunces@latest/latin-400-italic.ttf`, fontWeight: 400, fontStyle: 'italic' },
-  ] });
-  Font.register({ family: 'Jakarta', fonts: [
-    { src: `${CDN}/plus-jakarta-sans@latest/latin-500-normal.ttf`, fontWeight: 500 },
-    { src: `${CDN}/plus-jakarta-sans@latest/latin-600-normal.ttf`, fontWeight: 600 },
-  ] });
-} catch { /* fontsource indisponível → fallback do react-pdf, não quebra */ }
-
+// ── Fontes: Codec Bold (título) e Roboto (texto), registradas em `./fontes`. ──
 const CYAN_LIGHT = '#9AE2E6';
 const SUB = '#8FA6C4';
+
+/** `vertho.ai` é sempre em caixa baixa (brand book out/2026), inclusive dentro de um rótulo em caixa alta.
+ *  O `textTransform: 'uppercase'` do estilo pai o transformaria; o Text interno o desfaz. */
+function ComMarca({ texto }: { texto: string }) {
+  return (
+    <>
+      {texto.split(/(vertho\.ai)/i).map((parte, i) =>
+        /^vertho\.ai$/i.test(parte)
+          ? <Text key={i} style={{ textTransform: 'none' }}>vertho.ai</Text>
+          : parte)}
+    </>
+  );
+}
 
 const s = StyleSheet.create({
   page: { position: 'relative', backgroundColor: '#FFFFFF' },
@@ -32,17 +34,17 @@ const s = StyleSheet.create({
   content: { position: 'absolute', top: 58, left: 55, right: 55, bottom: 56, flexDirection: 'column' },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   logo: { height: 22, width: 92, objectFit: 'contain' },
-  mentor: { fontFamily: 'Jakarta', fontWeight: 500, fontSize: 7.5, letterSpacing: 1.3, textTransform: 'uppercase', color: CYAN_LIGHT, paddingTop: 4 },
+  mentor: { fontFamily: FONTE_TEXTO, fontWeight: 500, fontSize: 7.5, letterSpacing: 1.3, textTransform: 'uppercase', color: CYAN_LIGHT, paddingTop: 4 },
   block: { marginTop: 88 },
-  overline: { fontFamily: 'Jakarta', fontWeight: 600, fontSize: 8.25, letterSpacing: 1.6, textTransform: 'uppercase', color: CYAN_LIGHT, marginBottom: 16 },
-  h1: { fontFamily: 'Fraunces', fontWeight: 400, fontSize: 42, color: '#FFFFFF', lineHeight: 1 },
-  h1b: { fontFamily: 'Fraunces', fontWeight: 600, fontSize: 42, color: '#FFFFFF', lineHeight: 1.02 },
-  name: { fontFamily: 'Jakarta', fontWeight: 500, fontSize: 12.75, color: brand.cyan[500], marginTop: 15 },
+  overline: { fontFamily: FONTE_TEXTO, fontWeight: 600, fontSize: 8.25, letterSpacing: 1.6, textTransform: 'uppercase', color: CYAN_LIGHT, marginBottom: 16 },
+  h1: { fontFamily: FONTE_TITULO, fontWeight: 400, fontSize: 42, color: '#FFFFFF', lineHeight: 1 },
+  h1b: { fontFamily: FONTE_TITULO, fontWeight: 600, fontSize: 42, color: brand.cyan[500], lineHeight: 1.02 },
+  name: { fontFamily: FONTE_TEXTO, fontWeight: 500, fontSize: 12.75, color: brand.cyan[500], marginTop: 15 },
   sub: { fontFamily: 'NotoSans', fontSize: 9.4, color: SUB, marginTop: 3 },
-  jornada: { fontFamily: 'Jakarta', fontWeight: 500, fontSize: 9, color: CYAN_LIGHT, marginTop: 12 },
+  jornada: { fontFamily: FONTE_TEXTO, fontWeight: 500, fontSize: 9, color: CYAN_LIGHT, marginTop: 12 },
   spacer: { flex: 1 },
-  tagline: { fontFamily: 'Fraunces', fontStyle: 'italic', fontSize: 11.25, color: '#FFFFFF' },
-  confid: { fontFamily: 'Jakarta', fontWeight: 500, fontSize: 7.5, letterSpacing: 1, textTransform: 'uppercase', color: SUB, marginTop: 5 },
+  tagline: { fontFamily: FONTE_TITULO, fontStyle: 'italic', fontSize: 11.25, color: '#FFFFFF' },
+  confid: { fontFamily: FONTE_TEXTO, fontWeight: 500, fontSize: 7.5, letterSpacing: 1, textTransform: 'uppercase', color: SUB, marginTop: 5 },
 });
 
 function Divider() {
@@ -68,7 +70,7 @@ export default function PdfReportCover({
   logoBase64?: string | null;
   /**
    * false = tenant white-label: nenhuma identificação da Vertho nesta página.
-   * Some o fallback de texto "vertho.ai" do topo, o "· vertho.ai" da linha de
+   * Some o logo/texto "vertho.ai" do topo, o "· vertho.ai" da linha de
    * confidencialidade e o slogan. Ver `lib/pdf-marca.ts`.
    */
   mostrarVertho?: boolean;
@@ -95,14 +97,17 @@ export default function PdfReportCover({
   const overline = overlinePedido === undefined ? t('cover.defaultOverline') : overlinePedido;
   const tagline = taglinePedida ?? t('cover.tagline');
   const subtitulo = [cargo, empresa].filter(Boolean).join(' · ');
+  // Sem logo explícito e COM a marca Vertho liberada, a capa mostra o logo oficial (antes escrevia o texto
+  // "vertho.ai"). Tenant white-label (`mostrarVertho=false`) segue sem nada da Vertho: ver `lib/pdf-marca.ts`.
+  const logo = logoBase64 ?? (mostrarVertho ? getLogoCoverBase64() : null);
   return (
     <Page size="A4" style={s.page}>
       {bgBase64 ? <View style={s.bgWrap}><Image src={bgBase64} style={s.bgImg} /></View> : null}
       <View style={s.content}>
         <View style={s.topRow}>
-          {logoBase64
-            ? <Image src={logoBase64} style={s.logo} />
-            : mostrarVertho ? <Text style={{ ...s.mentor, fontSize: 12 }}>vertho.ai</Text> : <View />}
+          {logo
+            ? <Image src={logo} style={s.logo} />
+            : mostrarVertho ? <Text style={{ ...s.mentor, fontSize: 12, textTransform: 'none' }}>vertho.ai</Text> : <View />}
           {mentorLabel ? <Text style={s.mentor}>{mentorLabel}</Text> : null}
         </View>
 
@@ -119,17 +124,17 @@ export default function PdfReportCover({
         <View style={s.spacer} />
 
         {tagline && mostrarVertho ? <Text style={s.tagline}>{tagline}</Text> : null}
-        <Text style={s.confid}>{mostrarVertho ? t('cover.confidentialUseBrand') : t('cover.confidentialUse')}</Text>
+        <Text style={s.confid}><ComMarca texto={mostrarVertho ? t('cover.confidentialUseBrand') : t('cover.confidentialUse')} /></Text>
       </View>
     </Page>
   );
 }
 
-// ── Bridge: título de seção editorial (Fraunces) p/ o miolo do relatório ──
+// ── Bridge: título de seção (Codec Bold) p/ o miolo do relatório ──
 const ts = StyleSheet.create({
   wrap: { marginBottom: 7, marginTop: 2, flexDirection: 'row', alignItems: 'center' },
   accent: { width: 3, height: 15, borderRadius: 1.5, backgroundColor: brand.cyan[500], marginRight: 8 },
-  title: { fontFamily: 'Fraunces', fontWeight: 600, fontSize: 15, color: brand.navy[500], letterSpacing: -0.15 },
+  title: { fontFamily: FONTE_TITULO, fontWeight: 600, fontSize: 15, color: brand.navy[500], letterSpacing: -0.15 },
 });
 
 export function ReportSectionTitle({ children }: { children?: React.ReactNode }) {

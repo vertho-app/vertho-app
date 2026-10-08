@@ -35,7 +35,7 @@ const PHASE_TOKENS: Record<number, { accent: string; deep: string; glow: string 
 
 // Serif itálico — reutilizado em vários lugares
 const serifStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontFamily: 'var(--vh-font-display)',
   fontStyle: 'italic',
   fontWeight: 400,
 };
@@ -291,7 +291,7 @@ export default function DashboardHomePage() {
       {/* Header */}
       <header className="px-5 pt-6 pb-4">
         <p className="text-sm text-white/60 mb-1">{t('header.hello', { name: firstName })}</p>
-        {/* ✅ h1 em Instrument Serif — momento editorial */}
+        {/* ✅ h1 em Codec Bold (font-display) — momento editorial */}
         <h1 style={{
           ...serifStyle,
           fontSize: 'clamp(32px, 6vw, 52px)',
@@ -511,7 +511,7 @@ export default function DashboardHomePage() {
               </div>
               <span className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold"
                 style={{
-                  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                  fontFamily: 'var(--vh-font-display)',
                   fontStyle: 'italic',
                   background: `color-mix(in oklab, var(--phase-accent) 16%, transparent)`,
                   border: `1px solid color-mix(in oklab, var(--phase-accent) 40%, transparent)`,

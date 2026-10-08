@@ -334,7 +334,7 @@ export function DistribuicaoJornada({
           <h2
             id="distribuicao-jornada-titulo"
             className="mt-1 text-[21px] leading-tight text-white"
-            style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+            style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}
           >
             {t('distribution.title')}
           </h2>
@@ -1036,7 +1036,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
                   <h2
                     id="pessoas-title"
                     className="mt-1 text-[21px] leading-tight text-white"
-                    style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+                    style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}
                   >
                     {t('people.title')}
                   </h2>

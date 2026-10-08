@@ -31,7 +31,7 @@ const fmt = {
 };
 
 const REDE_COR: Record<string, string> = {
-  MUNICIPAL: '#0891B2',
+  MUNICIPAL: '#1C8A90',
   ESTADUAL: '#7C3AED',
   FEDERAL: '#059669',
   PRIVADA: '#D97706',
@@ -321,7 +321,7 @@ function MercadoTab() {
             <KPI label={t('kpis.schools')} value={fmt.int(totais.qt_escolas, locale)} cor="#A78BFA" />
             <KPI label={t('kpis.teachers', { age: idadeLabel })} value={fmt.int(totais.qt_professores_onboarding, locale)} cor="#F4B740" />
             <KPI label={t('kpis.share')} value={t('kpis.shareValue', { total: fmt.int(totais.qt_professores_total, locale), pct: fmt.pct(totais.qt_professores_onboarding / Math.max(1, totais.qt_professores_total)) })} cor="#2ECC71" />
-            <KPI label={t('kpis.managers')} value={fmt.int(totais.qt_gestores, locale)} cor="#06B6D4" />
+            <KPI label={t('kpis.managers')} value={fmt.int(totais.qt_gestores, locale)} cor="#34C5CC" />
             <KPI label={t('kpis.mentorTam')} value={fmt.brl(totais.tam_mensal_mentor_ia, locale)} cor="#34c5cc" big />
             <KPI label={t('kpis.onboardingTam')} value={fmt.brl(totais.tam_mensal_onboarding, locale)} cor="#F97354" big />
           </div>

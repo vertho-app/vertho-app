@@ -19,7 +19,7 @@ export function isHidden(elementId, uiConfig) {
  *
  * Lê as MESMAS chaves de ui_config usadas na tela de login
  * (bg_gradient_start/end, accent_color, logo_url) e devolve tokens prontos
- * para o dashboard. Os fallbacks são EXATAMENTE o tema Vertho atual do shell,
+ * para o dashboard. Os fallbacks são EXATAMENTE o tema Vertho do shell (Ciano #34C5CC),
  * então tenants sem branding não mudam em nada.
  */
 export function resolveTheme(uiConfig) {
@@ -28,7 +28,7 @@ export function resolveTheme(uiConfig) {
   return {
     bgStart,
     bgEnd,
-    accent: c.accent_color || '#22d3ee', // cyan-400 (cor atual do nav ativo)
+    accent: c.accent_color || '#34C5CC', // Ciano Vertho (brand book out/2026) = cyan-400 do tema
     // Accent cru (null se o tenant NÃO configurou) — usado para só sobrescrever
     // o token --brand-accent quando há branding real, mantendo Vertho idêntico.
     accentRaw: c.accent_color || null,

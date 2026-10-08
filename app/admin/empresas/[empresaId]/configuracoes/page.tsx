@@ -68,7 +68,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
     font_color_secondary: '#FFFFFF99',
     primary_color: '#0D9488',
     primary_color_end: '#0F766E',
-    accent_color: '#00B4D8',
+    accent_color: '#34C5CC',
     bg_gradient_start: '#091D35',
     bg_gradient_end: '#0F2A4A',
     login_subtitle: '',
@@ -391,7 +391,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               ))}
             </div>
             {config.programa_modo === 'onboarding' && (
-              <div className="flex items-start gap-2 mt-3 p-3 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.06)' }}>
+              <div className="flex items-start gap-2 mt-3 p-3 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(52,197,204,0.06)' }}>
                 <CheckCircle size={13} className="text-cyan-400 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-cyan-300/85 leading-relaxed">
                   {t.rich('program.onboardingNote', {
@@ -670,7 +670,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
 
           <Panel title={t('branding.colorsTitle')}>
             {/* Puxar cores do site do cliente (IA + contraste garantido em código) */}
-            <div className="mb-4 p-3 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.06)' }}>
+            <div className="mb-4 p-3 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(52,197,204,0.06)' }}>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{t('branding.palette.title')}</p>
               <div className="flex items-center gap-2">
                 <input
@@ -943,7 +943,7 @@ function CustomBuilder({ value, onChange, t }: {
 
   const selectCls = 'px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40';
   return (
-    <div className="mt-3 p-3 rounded-lg border border-cyan-400/20 space-y-3" style={{ background: 'rgba(6,182,212,0.06)' }}>
+    <div className="mt-3 p-3 rounded-lg border border-cyan-400/20 space-y-3" style={{ background: 'rgba(52,197,204,0.06)' }}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <label className="flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-wide text-gray-400">{t('program.customSemanas')}</span>

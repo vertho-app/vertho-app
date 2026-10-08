@@ -194,7 +194,7 @@ export default function BetoChat() {
       >
         <BetoAvatar size={36} state="idle" />
         <span className="text-white text-sm font-bold tracking-wide hidden sm:inline"
-          style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic', fontWeight: 400, fontSize: 16, letterSpacing: '-0.01em' }}>
+          style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic', fontWeight: 400, fontSize: 16, letterSpacing: '-0.01em' }}>
           Beto
         </span>
       </button>
@@ -222,7 +222,7 @@ export default function BetoChat() {
           <BetoAvatar size={36} state={loading ? 'thinking' : 'idle'} />
           <div>
             <p className="font-bold text-white leading-tight"
-              style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic', fontWeight: 400, fontSize: 17 }}>
+              style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic', fontWeight: 400, fontSize: 17 }}>
               Beto
             </p>
             <p className="text-[10px] font-semibold tracking-widest uppercase"

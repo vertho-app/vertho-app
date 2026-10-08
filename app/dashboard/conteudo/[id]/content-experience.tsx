@@ -94,7 +94,7 @@ export default function ContentExperience({
           </div>
           <h1
             className="line-clamp-2 text-[19px] leading-tight text-white md:text-2xl"
-            style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+            style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}
           >
             {content.title}
           </h1>

@@ -24,7 +24,7 @@ import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 const TIPO_LABEL_KEY = { conteudo: 'episode', aplicacao: 'practice', avaliacao: 'assessment' };
-const TIPO_COR = { conteudo: '#06B6D4', aplicacao: '#F59E0B', avaliacao: '#A78BFA', mapeamento: '#34D399' };
+const TIPO_COR = { conteudo: '#34C5CC', aplicacao: '#F59E0B', avaliacao: '#A78BFA', mapeamento: '#34D399' };
 
 // Fase 4 = Temporada — disciplinado
 const PHASE_NUM = 4;
@@ -35,7 +35,7 @@ const PHASE_VARS = {
 } as React.CSSProperties;
 
 const serifStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontFamily: 'var(--vh-font-display)',
   fontStyle: 'italic',
   fontWeight: 400,
 };

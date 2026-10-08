@@ -93,7 +93,7 @@ export function ContentThumb({
         className="relative z-10 flex items-center gap-1.5 font-semibold tracking-[.16em] uppercase"
         style={{ color: t.accent, fontSize: 'clamp(8px, 3cqw, 9.5px)' }}
       >
-        <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontSize: 'clamp(14px, 5.5cqw, 18px)', lineHeight: '.8' }}>
+        <span style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic', fontSize: 'clamp(14px, 5.5cqw, 18px)', lineHeight: '.8' }}>
           {t.glyph}
         </span>
         <span>{t.label}</span>
@@ -110,19 +110,20 @@ export function ContentThumb({
       {/* Onda SVG — só para áudio */}
       {isAudio && <AudioWave color={t.accent} />}
 
-      {/* Número em itálico — para todos exceto áudio */}
+      {/* Número grande — para todos exceto áudio */}
       {!isAudio && ordem != null && (
         <span
-          className="absolute opacity-90 select-none pointer-events-none"
+          className="absolute opacity-60 select-none pointer-events-none"
           style={{
-            // O itálico da Instrument Serif inclina para a direita: com o
-            // `right` negativo do handoff, o segundo dígito era cortado pelo
+            // Codec Bold é largo (bem mais que a serifa condensada de antes): a 34cqw o número cobria o
+            // título do card (medido na imagem, 08/10/2026). 24cqw + opacity-60 + título em 58% fecham. Com o
+            // `right` negativo do handoff, o segundo dígito seria cortado pelo
             // `overflow-hidden` em qualquer largura.
             right: '1.5cqw',
             bottom: '-5cqw',
-            fontFamily: "'Instrument Serif', serif",
+            fontFamily: 'var(--vh-font-display)',
             fontStyle: 'italic',
-            fontSize: '34cqw',
+            fontSize: '24cqw',
             lineHeight: '.85',
             letterSpacing: '-.04em',
             color: t.accent,
@@ -137,8 +138,8 @@ export function ContentThumb({
       {/* Título (última palavra em itálico) */}
       {titulo && (
         <h3
-          className="relative z-10 max-w-[68%] leading-tight line-clamp-3"
-          style={{ fontFamily: "'Instrument Serif', serif", fontSize: 'clamp(13px, 5.6cqw, 18px)' }}
+          className={`relative z-10 leading-tight line-clamp-3 ${!isAudio && ordem != null ? 'max-w-[58%]' : 'max-w-[80%]'}`}
+          style={{ fontFamily: 'var(--vh-font-display)', fontSize: 'clamp(13px, 5.6cqw, 18px)' }}
         >
           <EmphasizedTitle text={titulo} color={t.accent} />
         </h3>
@@ -165,10 +166,11 @@ function EmphasizedTitle({ text, color }: { text: string; color: string }) {
   );
 }
 
+// A onda sobe 12%: o título em Codec Bold (largo) quebra em 2 linhas em card estreito e cruzava a onda.
 function AudioWave({ color }: { color: string }) {
   return (
     <svg
-      className="absolute inset-x-0 bottom-0 h-[58%] w-full opacity-90"
+      className="absolute inset-x-0 bottom-[12%] h-[50%] w-full opacity-90"
       viewBox="0 0 280 100"
       preserveAspectRatio="none"
       aria-hidden

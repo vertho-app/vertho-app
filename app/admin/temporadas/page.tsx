@@ -30,7 +30,7 @@ const STATUS_COLORS = {
 };
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen, pdf: FileType };
-const FORMAT_COLOR = { video: '#06B6D4', audio: '#A78BFA', texto: '#10B981', case: '#F59E0B', pdf: '#94A3B8' };
+const FORMAT_COLOR = { video: '#34C5CC', audio: '#A78BFA', texto: '#10B981', case: '#F59E0B', pdf: '#94A3B8' };
 
 const TIPO_COLOR = { conteudo: '#3B82F6', aplicacao: '#F59E0B', avaliacao: '#A78BFA', mapeamento: '#34D399' };
 export default function TemporadasAdminPage() {

@@ -46,7 +46,7 @@ export default function VideoModal({ libraryId, videoId, title, onClose, colabor
         aria-label={title || 'Vídeo'}
         onClick={e => e.stopPropagation()}
         className="relative w-full max-w-[1100px] rounded-2xl overflow-hidden border border-white/10"
-        style={{ background: '#0A1D35', boxShadow: '0 0 60px rgba(0,180,216,0.15)' }}
+        style={{ background: '#0A1D35', boxShadow: '0 0 60px rgba(52,197,204,0.15)' }}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
           <p className="text-sm font-semibold text-white truncate">{title || 'Vídeo'}</p>

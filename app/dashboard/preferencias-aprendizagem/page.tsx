@@ -70,7 +70,7 @@ export default function PreferenciasAprendizagemPage() {
     <div className="mx-auto w-full max-w-[1200px] px-4 pb-10 pt-5 sm:px-6 lg:px-10" data-preferencias="container">
       <div className="mx-auto w-full max-w-5xl py-3" data-preferencias="aprendizagem">
         <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{t('tag')}</p>
-        <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('title')}</h1>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "var(--vh-font-display)" }}>{t('title')}</h1>
         <p className="text-[14px] text-gray-400 mb-5">{t('subtitle')}</p>
 
         <PreferenciasAprendizagemForm

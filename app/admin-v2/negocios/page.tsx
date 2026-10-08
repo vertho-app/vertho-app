@@ -59,9 +59,9 @@ export default function NegociosPage() {
     <div className="space-y-8">
       <section className="grid gap-6 border-b border-white/[0.08] pb-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-end">
         <div>
-          <p className="font-[family-name:var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Fluxo comercial</p>
+          <p className="font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Fluxo comercial</p>
           <h1 className="mt-2 max-w-[790px] text-[clamp(30px,4vw,50px)] font-semibold leading-[0.98] tracking-[-0.045em]">
-            Do mercado ao <span className="font-[family-name:var(--font-serif)] font-normal italic text-[var(--cyan-soft)]">handoff</span>
+            Do mercado ao <span className="font-display font-normal italic text-[var(--cyan-soft)]">handoff</span>
           </h1>
           <p className="mt-4 max-w-[70ch] text-[13.5px] leading-relaxed text-[var(--ink-dim)]">
             As ferramentas comerciais continuam especializadas; esta página organiza quando cada uma entra no trabalho e qual é a próxima passagem.
@@ -78,14 +78,14 @@ export default function NegociosPage() {
 
       <div className="flex items-center gap-2">
         <Radar size={14} className="text-[var(--cyan)]" />
-        <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Trilho de negócios</p>
+        <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Trilho de negócios</p>
       </div>
 
       <ol className="overflow-hidden rounded-[16px] border border-white/[0.08] bg-[var(--navy-card)]">
         {ETAPAS.map((etapa, index) => (
           <li key={etapa.titulo} className="group relative grid gap-4 border-b border-white/[0.06] px-4 py-4 last:border-b-0 sm:grid-cols-[48px_minmax(0,1fr)_minmax(220px,0.7fr)] sm:items-center sm:px-5">
             <div className="relative self-stretch">
-              <span className="grid h-8 w-8 place-items-center rounded-full border border-[#34c5cc45] bg-[#34c5cc0c] font-[family-name:var(--font-manrope)] text-[9px] font-bold text-[var(--cyan)]">{etapa.numero}</span>
+              <span className="grid h-8 w-8 place-items-center rounded-full border border-[#34c5cc45] bg-[#34c5cc0c] font-sans text-[9px] font-bold text-[var(--cyan)]">{etapa.numero}</span>
               {index < ETAPAS.length - 1 && <span aria-hidden className="absolute bottom-[-17px] left-[15px] top-8 hidden w-px bg-[#34c5cc24] sm:block" />}
             </div>
             <div className="min-w-0">

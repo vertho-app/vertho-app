@@ -68,7 +68,7 @@ export default function CarteiraOperacional({ clientes }: { clientes: ClienteLin
         >
           Só com próxima ação
         </button>
-        <span className="px-2 font-[family-name:var(--font-manrope)] text-[9px] uppercase tracking-[0.12em] text-[var(--ink-faint)]">
+        <span className="px-2 font-sans text-[9px] uppercase tracking-[0.12em] text-[var(--ink-faint)]">
           {filtrados.length} empresa(s)
         </span>
       </div>
@@ -80,7 +80,7 @@ export default function CarteiraOperacional({ clientes }: { clientes: ClienteLin
             <header className="grid gap-4 border-b border-white/[0.07] bg-white/[0.018] px-4 py-4 lg:grid-cols-[minmax(220px,1.25fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center">
               <div className="min-w-0">
                 <Link href={`/admin-v2/clientes/${cliente.id}`} className="group inline-flex max-w-full items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cyan)]">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#34c5cc38] bg-[#34c5cc0d] font-[family-name:var(--font-serif)] text-lg italic text-[var(--cyan-soft)]">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#34c5cc38] bg-[#34c5cc0d] font-display text-lg italic text-[var(--cyan-soft)]">
                     {cliente.nome.trim()[0]?.toUpperCase() || '?'}
                   </span>
                   <span className="truncate text-[15px] font-semibold tracking-[-0.02em] group-hover:text-[var(--cyan)]">{cliente.nome}</span>
@@ -180,7 +180,7 @@ function MiniFluxo({ turma }: { turma: TurmaResumo }) {
     <div className="grid grid-cols-3 gap-2">
       {partes.map((parte) => (
         <div key={parte.rotulo} className="min-w-0">
-          <div className="mb-1 flex items-baseline justify-between gap-1 font-[family-name:var(--font-manrope)] text-[8px] uppercase tracking-[0.08em] text-[var(--ink-faint)]">
+          <div className="mb-1 flex items-baseline justify-between gap-1 font-sans text-[8px] uppercase tracking-[0.08em] text-[var(--ink-faint)]">
             <span>{parte.rotulo}</span><span>{parte.valor}/{turma.participantes}</span>
           </div>
           <span className="block h-1 overflow-hidden rounded-full bg-white/[0.07]">

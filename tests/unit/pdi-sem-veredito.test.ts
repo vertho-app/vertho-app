@@ -94,7 +94,7 @@ describe('tela do PDI', () => {
     expect(TELA).not.toMatch(/nivelLabel|nivelColor|nivelBg\b|level\.(excellent|good|developing|attention)/);
     expect(TELA).toContain("t('levelValue'");
     // uma cor só para os quatro níveis (as outras cores da tela são de outras seções)
-    expect(TELA).toContain("const NIVEL_COR = '#06B6D4'");
+    expect(TELA).toContain("const NIVEL_COR = '#34C5CC'");
     expect(TELA).not.toMatch(/n >= 4 \? '#|nivel >= 4 \? '#/);
   });
 

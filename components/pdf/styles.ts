@@ -1,26 +1,13 @@
-import { StyleSheet, Font } from '@react-pdf/renderer';
+import { StyleSheet } from '@react-pdf/renderer';
 import { brand, neutralRamps, statusPalettes, NEUTRAL_RAMP, STATUS_PALETTE } from './tokens';
 import { rotuloNivel } from '@/lib/nivel-regua';
 
-// ── Fonte dos PDFs (registrada sob o alias 'NotoSans' — os relatórios referenciam
-//    esse nome). Usamos INTER: o subset NotoSans do fontsource "comia" as ligaduras
-//    fi/fl (GSUB sem o glifo → "Perfil"→"Perfl"); a Inter do fontsource renderiza
-//    essas combinações corretamente no react-pdf. Cobertura PT completa. ──────────
-Font.register({
-  family: 'NotoSans',
-  fonts: [
-    { src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf', fontWeight: 400 },
-    { src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-italic.ttf', fontWeight: 400, fontStyle: 'italic' },
-    { src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-500-normal.ttf', fontWeight: 500 },
-    { src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-600-normal.ttf', fontWeight: 600 },
-    { src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.ttf', fontWeight: 700 },
-  ],
-});
-
-// ── Desativar hifenização automática ────────────────────────────────────────
-// Por padrão o @react-pdf/renderer quebra palavras com hífen ao final de linha.
-// Retornar a palavra como array de 1 item força a quebra por palavra inteira.
-Font.registerHyphenationCallback((word: string) => [word]);
+// ── Fontes dos PDFs ─────────────────────────────────────────────────────────
+// Registradas em `./fontes` (brand book out/2026: Roboto no texto, Codec Bold nos
+// títulos). O alias 'NotoSans' que os relatórios referenciam continua valendo e
+// aponta para a Roboto; ver o comentário em `./fontes`. A hifenização automática
+// também é desligada lá.
+import './fontes';
 
 // ── Paleta Vertho Premium ───────────────────────────────────────────────────
 // Derivada de `tokens.ts` (Vertho Design System). Marca (navy/cyan/purple) vem

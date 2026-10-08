@@ -18,7 +18,7 @@ const FORMAT_ICONS = {
   video: Video, audio: Headphones, texto: FileText, case: BookOpen, pdf: FileType,
 };
 const FORMAT_COLORS = {
-  video: '#06B6D4', audio: '#A78BFA', texto: '#10B981', case: '#F59E0B', pdf: '#94A3B8',
+  video: '#34C5CC', audio: '#A78BFA', texto: '#10B981', case: '#F59E0B', pdf: '#94A3B8',
 };
 
 function isPodcastDupla(c: any) {
@@ -31,7 +31,7 @@ function getFormatIcon(c: any) {
 }
 
 function getFormatColor(c: any) {
-  if (c?.formato === 'audio' && isPodcastDupla(c)) return '#67E8F9';
+  if (c?.formato === 'audio' && isPodcastDupla(c)) return '#76D8DD';
   return FORMAT_COLORS[c?.formato] || '#94A3B8';
 }
 
@@ -980,7 +980,7 @@ function GerarModal({ empresaFiltro, onClose, onGenerate, busy }) {
   const formatoOpts = [
     { v: 'texto', label: t('generate.formats.text'), icon: FileText, cor: '#10B981', nota: t('generate.notes.ready') },
     { v: 'case', label: t('generate.formats.case'), icon: BookOpen, cor: '#F59E0B', nota: t('generate.notes.ready') },
-    { v: 'video', label: t('generate.formats.video'), icon: Video, cor: '#06B6D4', nota: t('generate.notes.recordLater') },
+    { v: 'video', label: t('generate.formats.video'), icon: Video, cor: '#34C5CC', nota: t('generate.notes.recordLater') },
     { v: 'audio', label: t('generate.formats.audio'), icon: Headphones, cor: '#A78BFA', nota: t('generate.notes.recordLater') },
   ];
 

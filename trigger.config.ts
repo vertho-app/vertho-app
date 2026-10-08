@@ -82,6 +82,9 @@ export default defineConfig({
       // Vinheta de abertura/encerramento do podcast: `gerarPodcastAudioCore` lê de `public/audio/podcast/`. Sem isto o áudio
       // pré-renderizado do Kit falhava na task com ENOENT (`/app/public/audio/podcast/mentorIA-abertura.wav`, 03/10/2026).
       additionalFiles({ files: ['public/audio/podcast/**'] }),
+      // Codec Bold dos PDFs: `components/pdf/fontes.ts` lê por fs. Sem isto a task de lote de relatórios
+      // renderiza os títulos em Roboto (queda segura, sem erro) até o próximo deploy do Trigger.
+      additionalFiles({ files: ['lib/pdf-fontes/**'] }),
     ],
   },
 });

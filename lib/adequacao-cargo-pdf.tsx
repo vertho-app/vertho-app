@@ -14,6 +14,7 @@ import type { AdequacaoCargo, PessoaAdequacao, SubScore, Classe } from './adequa
 import { formatLinhaBloqueio } from './adequacao-cargo/evidencia';
 import { formatFaixaPorDirecao } from './scoring/faixa-display';
 import { trilhaParaTraco } from './adequacao-cargo/trilhas';
+import { FONTE_TITULO } from '@/components/pdf/fontes';
 
 const C = {
   navy: '#142F57', cyan: '#34C5CC', gold: '#C8941F', white: '#FFFFFF',
@@ -50,7 +51,7 @@ const s = StyleSheet.create({
   body: { paddingHorizontal: 34, paddingTop: 6 },
   secBar: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 },
   secBarV: { width: 5, height: 16, backgroundColor: C.cyan, marginRight: 7, borderRadius: 2 },
-  secBarT: { fontFamily: 'Fraunces', fontSize: 14, fontWeight: 600, color: C.navy, letterSpacing: -0.15 },
+  secBarT: { fontFamily: FONTE_TITULO, fontSize: 14, fontWeight: 600, color: C.navy, letterSpacing: -0.15 },
   // legenda
   legendBox: { borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 10, marginBottom: 10 },
   legendRow: { flexDirection: 'row', gap: 18, flexWrap: 'wrap', marginTop: 4 },

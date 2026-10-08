@@ -3,10 +3,11 @@
  *
  * 🔴 O QUE ELE PEGA, e por que um teste comum não pegaria
  *
- * O corpo de todo PDF do produto é a Inter no subset `latin` do fontsource,
- * registrada como 'NotoSans' em `components/pdf/styles.ts`. Esse subset cobre
- * U+2191 (↑) e U+2193 (↓) e **pula o U+2192 (→)** — junto com ✓, ✗, ●, ★, ≥ e
- * ≤, que são exatamente os caracteres que se quer usar num relatório.
+ * O corpo de todo PDF do produto é a Roboto no subset `latin` do fontsource,
+ * registrada em `components/pdf/fontes.ts` (e como 'NotoSans' para os relatórios
+ * antigos). Esse subset **pula o U+2192 (→)** — junto com ✓, ✗, ●, ★, ≥ e ≤, que são
+ * exatamente os caracteres que se quer usar num relatório. Desde a troca da Inter
+ * pela Roboto (08/10/2026) pula também ↑ ↓ ≈ ‰ ■ □ ▲ ▼ ◆, que a Inter cobria.
  *
  * Quando o glifo falta, o `@react-pdf/renderer` não lança: ele desenha um vazio.
  * O PDF é gerado, o job termina com sucesso, o teste de conteúdo passa — e quem
@@ -17,8 +18,9 @@
  * defeito, nenhuma das duas virou verificação — é para isso que este arquivo
  * existe.
  *
- * `Medido: 03/09/2026` — fontkit sobre o TTF que o PDF baixa do CDN. A lista
- * abaixo é o resultado dessa medição, não um palpite.
+ * `Medido: 03/09/2026` (Inter) e `08/10/2026` (Roboto) — fontTools sobre o TTF que
+ * o PDF baixa do CDN (latin-400/600/700 e 400-italic, 229 glifos, idênticos entre
+ * pesos). A lista abaixo é o resultado dessa medição, não um palpite.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'fs';
@@ -27,7 +29,7 @@ import { join, basename, relative } from 'path';
 const RAIZ = join(__dirname, '..', '..');
 
 /**
- * Code points AUSENTES do subset latin da Inter (medidos com fontkit).
+ * Code points AUSENTES do subset latin da Roboto (medidos com fontTools).
  * Ao lado de cada um, o substituto que renderiza.
  */
 const AUSENTES: Record<string, string> = {
@@ -50,6 +52,16 @@ const AUSENTES: Record<string, string> = {
   '≠': 'diferente ≠ → escreva "diferente de"',
   '†': 'adaga † → use "*" ou nota numerada',
   '‡': 'adaga dupla ‡ → idem',
+  // A Inter cobria estes; a Roboto não (medido 08/10/2026, ao trocar a fonte).
+  '↑': 'seta ↑ → desenhe em <Svg> (ver `seta-cima` em CompetencyBlock) ou escreva "sobe"',
+  '↓': 'seta ↓ → desenhe em <Svg> ou escreva "desce"',
+  '≈': 'aproximado ≈ → escreva "cerca de"',
+  '‰': 'por mil ‰ → escreva "por mil"',
+  '■': 'quadrado cheio ■ → use um View com fundo, ou a palavra ("área em verde")',
+  '□': 'quadrado vazado □ → use um View com borda',
+  '▲': 'triângulo ▲ → use um Svg',
+  '▼': 'triângulo ▼ → use um Svg',
+  '◆': 'losango ◆ → use "•" (U+2022, coberto) ou um Svg',
 };
 
 /**
@@ -105,7 +117,7 @@ describe('guard: glifos ausentes da fonte dos PDFs', () => {
     expect(arquivos.length).toBeGreaterThan(20);
   });
 
-  it('nenhum literal usa glifo que a Inter (subset latin) não tem', () => {
+  it('nenhum literal usa glifo que a Roboto (subset latin) não tem', () => {
     const violacoes: string[] = [];
 
     for (const arquivo of arquivos) {

@@ -27,6 +27,8 @@ const nextConfig = {
       './public/template-fundo-relatorios.png',
       './public/audio/podcast/mentorIA-abertura.wav',
       './public/audio/podcast/mentorIA-encerramento.wav',
+      // Codec Extra Bold dos PDFs (components/pdf/fontes.ts lê por fs; sem isto os títulos caem para Roboto só na Vercel).
+      './lib/pdf-fontes/CodecCold-ExtraBold.otf',
     ],
   },
 

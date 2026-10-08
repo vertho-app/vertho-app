@@ -7,7 +7,7 @@ import { useFormatadores } from './use-formatadores';
 
 // O rótulo de cada série mora em `EngagementWorkspace.trend.series.<chave>` (R-67).
 const SERIES = [
-  { field: 'ativacaoPct', chave: 'activation', color: '#22d3ee', dash: '6 5' },
+  { field: 'ativacaoPct', chave: 'activation', color: '#34C5CC', dash: '6 5' },
   { field: 'consumoPct', chave: 'consumption', color: '#34d399', dash: undefined },
   { field: 'evidenciaPct', chave: 'evidence', color: '#fbbf24', dash: undefined },
 ] as const;
@@ -48,7 +48,7 @@ export default function WeeklyTrendChart({ weeks, illustrative = false }: {
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/50">{t('trend.eyebrow')}</p>
           <h3 id={`${id}-title`} className="mt-1 text-[24px] leading-tight text-white"
-            style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
+            style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}>
             {t('trend.title')}
           </h3>
           <p className="mt-2 max-w-2xl text-xs leading-relaxed text-white/55">

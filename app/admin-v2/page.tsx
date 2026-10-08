@@ -41,11 +41,11 @@ export default async function HojePage() {
     <div className="space-y-7">
       <section className="grid gap-6 border-b border-white/[0.08] pb-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div>
-          <p className="font-[family-name:var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">
+          <p className="font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">
             Central de operação
           </p>
           <h1 className="mt-2 max-w-[760px] text-[clamp(30px,4vw,52px)] font-semibold leading-[0.98] tracking-[-0.045em]">
-            O que precisa <span className="font-[family-name:var(--font-serif)] font-normal italic text-[var(--cyan-soft)]">andar</span> hoje
+            O que precisa <span className="font-display font-normal italic text-[var(--cyan-soft)]">andar</span> hoje
           </h1>
           <p className="mt-4 max-w-[68ch] text-[13.5px] leading-relaxed text-[var(--ink-dim)]">
             Uma fila única entre clientes, turmas e áreas internas. Cada linha mostra o bloqueio, o escopo e a ação que resolve.
@@ -72,10 +72,10 @@ export default async function HojePage() {
           <section aria-labelledby="fila-titulo">
             <div className="mb-3 flex items-baseline justify-between gap-4">
               <div>
-                <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Agora</p>
+                <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Agora</p>
                 <h2 id="fila-titulo" className="mt-1 text-lg font-semibold tracking-[-0.02em]">Prioridade da equipe</h2>
               </div>
-              <span className="font-[family-name:var(--font-manrope)] text-[10px] text-[var(--ink-faint)]">ordenado por impacto</span>
+              <span className="font-sans text-[10px] text-[var(--ink-faint)]">ordenado por impacto</span>
             </div>
 
             <div className="overflow-hidden rounded-[16px] border border-white/[0.08] bg-[var(--navy-card)]">
@@ -86,11 +86,11 @@ export default async function HojePage() {
                   <div key={fila.id} className={`border-l-2 ${tom.borda}`}>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-white/[0.06] bg-white/[0.018] px-4 py-2.5">
                       <Icone size={14} className={tom.cor} />
-                      <span className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--ink-faint)]">
+                      <span className="font-sans text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--ink-faint)]">
                         {ETAPA[fila.id] ?? 'Operação'}
                       </span>
                       <span className="text-[12.5px] font-semibold">{fila.titulo}</span>
-                      <span className={`ml-auto rounded-full border border-white/[0.08] px-2 py-0.5 font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.1em] ${tom.cor}`}>
+                      <span className={`ml-auto rounded-full border border-white/[0.08] px-2 py-0.5 font-sans text-[9px] font-bold uppercase tracking-[0.1em] ${tom.cor}`}>
                         {fila.total} · {tom.rotulo}
                       </span>
                     </div>
@@ -120,8 +120,8 @@ export default async function HojePage() {
 
           <aside className="space-y-5">
             <section className="rounded-[16px] border border-white/[0.08] bg-[#091d35] p-4">
-              <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Trilho operacional</p>
-              <h2 className="mt-2 font-[family-name:var(--font-serif)] text-xl italic text-[var(--cyan-soft)]">Empresa alimenta turmas</h2>
+              <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Trilho operacional</p>
+              <h2 className="mt-2 font-display text-xl italic text-[var(--cyan-soft)]">Empresa alimenta turmas</h2>
               <div className="mt-4 space-y-2 text-[11.5px] text-[var(--ink-dim)]">
                 <FluxoItem numero="1" titulo="Fundação" detalhe="Base e régua compartilhadas" />
                 <FluxoItem numero="2" titulo="Diagnóstico e PDI" detalhe="Execução por turma" />
@@ -133,7 +133,7 @@ export default async function HojePage() {
             </section>
 
             <section>
-              <p className="mb-2 font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Sem pendência</p>
+              <p className="mb-2 font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Sem pendência</p>
               <ul className="space-y-1.5">
                 {limpas.map((fila) => (
                   <li key={fila.id} className="flex items-start gap-2 text-[11.5px] leading-snug text-[var(--ink-faint)]">
@@ -152,8 +152,8 @@ export default async function HojePage() {
 function Resumo({ valor, rotulo, destaque }: { valor: number; rotulo: string; destaque?: boolean }) {
   return (
     <div className="min-w-[74px]">
-      <div className={`font-[family-name:var(--font-serif)] text-[30px] leading-none ${destaque ? 'text-[#ff9b90]' : 'text-[var(--ink)]'}`}>{valor}</div>
-      <div className="mt-1 font-[family-name:var(--font-manrope)] text-[9px] uppercase tracking-[0.1em] text-[var(--ink-faint)]">{rotulo}</div>
+      <div className={`font-display text-[30px] leading-none ${destaque ? 'text-[#ff9b90]' : 'text-[var(--ink)]'}`}>{valor}</div>
+      <div className="mt-1 font-sans text-[9px] uppercase tracking-[0.1em] text-[var(--ink-faint)]">{rotulo}</div>
     </div>
   );
 }
@@ -161,7 +161,7 @@ function Resumo({ valor, rotulo, destaque }: { valor: number; rotulo: string; de
 function FluxoItem({ numero, titulo, detalhe, ultimo }: { numero: string; titulo: string; detalhe: string; ultimo?: boolean }) {
   return (
     <div className="grid grid-cols-[20px_1fr] gap-2.5">
-      <span className="relative grid h-5 w-5 place-items-center rounded-full border border-[#34c5cc55] bg-[#34c5cc0f] font-[family-name:var(--font-manrope)] text-[9px] font-bold text-[var(--cyan)]">
+      <span className="relative grid h-5 w-5 place-items-center rounded-full border border-[#34c5cc55] bg-[#34c5cc0f] font-sans text-[9px] font-bold text-[var(--cyan)]">
         {numero}
         {!ultimo && <span className="absolute left-1/2 top-full h-[17px] w-px -translate-x-1/2 bg-[#34c5cc30]" />}
       </span>

@@ -564,7 +564,7 @@ function PPPPageInner() {
                       {(() => {
                         const s1 = getSecao(ext.perfil_organizacional);
                         return (
-                          <Section num="1" title={t('viewer.sections.organizationalProfile')} color="#00B4D8" confianca={s1.confianca} origem={s1.origem}>
+                          <Section num="1" title={t('viewer.sections.organizationalProfile')} color="#34C5CC" confianca={s1.confianca} origem={s1.origem}>
                             {s1.c && typeof s1.c === 'object' ? (
                               <div className="space-y-0.5">
                                 {safeEntries(s1.c).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k.replace(/_/g, ' ')}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v || '')}</p>)}
@@ -644,7 +644,7 @@ function PPPPageInner() {
                       {(() => {
                         const s6 = getSecao(ext.governanca_decisao);
                         return (
-                          <Section num="6" title={t('viewer.sections.governanceDecision')} color="#06B6D4" confianca={s6.confianca} origem={s6.origem}>
+                          <Section num="6" title={t('viewer.sections.governanceDecision')} color="#34C5CC" confianca={s6.confianca} origem={s6.origem}>
                             {s6.c && typeof s6.c === 'object' ? (
                               <>
                                 {s6.c.estrutura && <p><span className="text-gray-500 font-semibold">{t('viewer.labels.structure')}:</span> {String(s6.c.estrutura)}</p>}
@@ -705,7 +705,7 @@ function PPPPageInner() {
                   ) : (
                     <>
                       {/* ── EDUCACIONAL: PPP clássico ── */}
-                      <Section num="1" title={t('viewer.sections.institutionProfile')} color="#00B4D8">
+                      <Section num="1" title={t('viewer.sections.institutionProfile')} color="#34C5CC">
                         {ext.perfil_instituicao ? (
                           <div className="space-y-0.5">
                             {Object.entries(ext.perfil_instituicao).map(([k, v]) => <p key={k}><span className="text-gray-500 font-semibold">{k}:</span> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</p>)}
@@ -746,7 +746,7 @@ function PPPPageInner() {
                         <p>{ext.inclusao_diversidade || t('viewer.notDeclared')}</p>
                       </Section>
 
-                      <Section num="6" title={t('viewer.sections.managementParticipation')} color="#06B6D4">
+                      <Section num="6" title={t('viewer.sections.managementParticipation')} color="#34C5CC">
                         <p>{ext.gestao_participacao || t('viewer.notDeclared')}</p>
                       </Section>
 

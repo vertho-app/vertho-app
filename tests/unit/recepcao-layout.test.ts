@@ -23,7 +23,7 @@ describe('layout do simulador de atendimento', () => {
       rule.walkDecls(d => { declarations.set(d.prop, d.value); });
     });
     expect(declarations.get('color-scheme')).toBe('dark');
-    expect(declarations.get('--atendimento-accent')).toBe('var(--brand-400, #22d3ee)');
+    expect(declarations.get('--atendimento-accent')).toBe('var(--brand-400, #34C5CC)');
     for (const prop of ['background', 'font-family', 'padding', 'max-width']) {
       expect(declarations.has(prop), prop).toBe(false);
     }

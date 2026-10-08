@@ -17,25 +17,18 @@
  * sai em branco (medido: 19 glifos fora do subset). Usa "—".
  */
 import React from 'react';
-import { Document, Page, View, Text, StyleSheet, Font, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, View, Text, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
 import type { Parecer, ProntidaoLideranca } from './agregar';
 import { QUADRANTE_LABEL, RECOMENDACAO_POR_QUADRANTE, ORDEM_QUADRANTES, type Quadrante } from './matriz';
 import { DESCRITORES_MIN_CONFIAVEL, POSICAO_LABEL } from './posicao';
 import { ESTILO_LABEL } from './estilo';
 import { nivelMeta } from './cliente';
 import { nivelDaNota } from '@/lib/nivel-regua';
+import { FONTE_TEXTO, FONTE_TITULO } from '@/components/pdf/fontes';
 
-const CDN = 'https://cdn.jsdelivr.net/fontsource/fonts';
-try {
-  Font.register({ family: 'Fraunces', fonts: [{ src: `${CDN}/fraunces@latest/latin-600-normal.ttf`, fontWeight: 600 }] });
-  Font.register({ family: 'Inter', fonts: [
-    { src: `${CDN}/inter@latest/latin-400-normal.ttf`, fontWeight: 400 },
-    { src: `${CDN}/inter@latest/latin-600-normal.ttf`, fontWeight: 600 },
-  ] });
-  Font.registerHyphenationCallback((w: string) => [w]);
-} catch { /* fontsource indisponível → default do react-pdf, render não quebra */ }
-const DISPLAY = 'Fraunces';
-const BODY = 'Inter';
+// Fontes: Codec Bold (DISPLAY) e Roboto (BODY), registradas em `@/components/pdf/fontes`.
+const DISPLAY = FONTE_TITULO;
+const BODY = FONTE_TEXTO;
 
 const T = { navy: '#0B1B2E', cyan: '#3DD2E6', teal: '#14808C', clay: '#E0A156', verde: '#1D9E75', vermelho: '#C0504D', lilas: '#8E7CC3', off: '#F4F1EA', ink: '#22303C', mute: '#6B7B88' };
 const CL = { card: '#FFFFFF', cardBorda: '#E9E3D6', linha: '#E4DECF', zVerde: '#D4EBDF', zClay: '#F5E5CE', zVerm: '#F0DBD7', zCyan: '#D7F1F5', zLilas: '#E6E1F3' };

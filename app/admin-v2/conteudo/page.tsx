@@ -59,9 +59,9 @@ export default async function ConteudoPage({ searchParams }: { searchParams: Pro
     <div className="space-y-7">
       <section className="grid gap-6 border-b border-white/[0.08] pb-7 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
         <div>
-          <p className="font-[family-name:var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Estúdio operacional</p>
+          <p className="font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Estúdio operacional</p>
           <h1 className="mt-2 max-w-[780px] text-[clamp(30px,4vw,50px)] font-semibold leading-[0.98] tracking-[-0.045em]">
-            Conteúdo anda por <span className="font-[family-name:var(--font-serif)] font-normal italic text-[var(--cyan-soft)]">estado</span>, não por ferramenta
+            Conteúdo anda por <span className="font-display font-normal italic text-[var(--cyan-soft)]">estado</span>, não por ferramenta
           </h1>
           <p className="mt-4 max-w-[70ch] text-[13.5px] leading-relaxed text-[var(--ink-dim)]">
             A lacuna nasce na cobertura, vira produção, passa por revisão e só termina quando chega à jornada com qualidade.
@@ -70,9 +70,9 @@ export default async function ConteudoPage({ searchParams }: { searchParams: Pro
         <div className="border-l border-[#34c5cc35] pl-4">
           <div className="flex items-center gap-2 text-[var(--cyan)]">
             <GitBranch size={15} />
-            <span className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em]">Etapa em foco</span>
+            <span className="font-sans text-[9px] font-bold uppercase tracking-[0.14em]">Etapa em foco</span>
           </div>
-          <p className="mt-2 font-[family-name:var(--font-serif)] text-2xl italic text-[var(--ink)]">{etapaAtual.rotulo}</p>
+          <p className="mt-2 font-display text-2xl italic text-[var(--ink)]">{etapaAtual.rotulo}</p>
           <p className="mt-1 text-[11.5px] text-[var(--ink-faint)]">{etapaAtual.sub}</p>
         </div>
       </section>
@@ -85,7 +85,7 @@ export default async function ConteudoPage({ searchParams }: { searchParams: Pro
               <li key={item.chave} className="relative flex-1 pr-2 last:pr-0">
                 {index < ABAS.length - 1 && <span aria-hidden className="absolute left-6 right-0 top-[13px] h-px bg-white/[0.12]" />}
                 <Link href={`/admin-v2/conteudo?aba=${item.chave}`} aria-current={ativo ? 'step' : undefined} className="group relative block rounded-[12px] px-1 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cyan)]">
-                  <span className={`relative z-10 grid h-6 w-6 place-items-center rounded-full border font-[family-name:var(--font-manrope)] text-[9px] font-bold transition-colors ${
+                  <span className={`relative z-10 grid h-6 w-6 place-items-center rounded-full border font-sans text-[9px] font-bold transition-colors ${
                     ativo
                       ? 'border-[var(--cyan)] bg-[var(--cyan)] text-[#06252a]'
                       : 'border-white/[0.16] bg-[var(--navy-deep)] text-[var(--ink-faint)] group-hover:border-[#34c5cc70] group-hover:text-[var(--cyan)]'
@@ -104,7 +104,7 @@ export default async function ConteudoPage({ searchParams }: { searchParams: Pro
       <section aria-labelledby="leitura-etapa" className="overflow-hidden rounded-[16px] border border-white/[0.08] bg-[var(--navy-card)]">
         <div className="flex items-baseline justify-between gap-4 border-b border-white/[0.07] px-4 py-3.5 sm:px-5">
           <div>
-            <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Leitura da etapa</p>
+            <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Leitura da etapa</p>
             <h2 id="leitura-etapa" className="mt-1 text-[15px] font-semibold">{etapaAtual.rotulo}</h2>
           </div>
           <span className="hidden text-[10.5px] text-[var(--ink-faint)] sm:block">dados do acervo em tempo real</span>
@@ -112,7 +112,7 @@ export default async function ConteudoPage({ searchParams }: { searchParams: Pro
         <div className="grid sm:grid-cols-2 xl:grid-cols-4">
           {cartoes.map((cartao) => (
             <div key={cartao.rotulo} className="min-w-0 border-b border-white/[0.06] px-4 py-4 last:border-b-0 sm:border-r sm:[&:nth-child(2n)]:border-r-0 xl:border-b-0 xl:[&:nth-child(2n)]:border-r xl:last:border-r-0">
-              <span className={`font-[family-name:var(--font-serif)] text-[31px] leading-none tabular-nums ${TOM[cartao.tom]}`}>{cartao.valor}</span>
+              <span className={`font-display text-[31px] leading-none tabular-nums ${TOM[cartao.tom]}`}>{cartao.valor}</span>
               <h3 className="mt-2 text-[12.5px] font-semibold">{cartao.rotulo}</h3>
               <p className="mt-1 text-[10.5px] leading-snug text-[var(--ink-faint)]">{cartao.detalhe}</p>
             </div>
@@ -122,7 +122,7 @@ export default async function ConteudoPage({ searchParams }: { searchParams: Pro
 
       <div className="grid gap-7 xl:grid-cols-[minmax(0,1fr)_340px]">
         <section aria-labelledby="acoes-conteudo">
-          <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Ferramentas da etapa</p>
+          <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Ferramentas da etapa</p>
           <h2 id="acoes-conteudo" className="mt-1 text-lg font-semibold tracking-[-0.02em]">Onde a equipe trabalha agora</h2>
           <div className="mt-3 overflow-hidden rounded-[14px] border border-white/[0.08]">
             {(ATALHOS[atual] ?? []).map((atalho) => (
@@ -140,14 +140,14 @@ export default async function ConteudoPage({ searchParams }: { searchParams: Pro
         <aside className="border-l border-white/[0.08] pl-0 xl:pl-6">
           <div className="flex items-center gap-2">
             <TriangleAlert size={14} className={dados.lacunas.length ? 'text-[var(--warning)]' : 'text-[var(--success)]'} />
-            <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Sinais do acervo</p>
+            <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Sinais do acervo</p>
           </div>
           <p className="mt-2 text-sm font-semibold">{dados.lacunas.length ? `${dados.lacunas.length} lacuna(s) pedem atenção` : 'Nenhuma lacuna detectada'}</p>
           <div className="mt-3 space-y-2">
             {dados.lacunas.slice(0, 4).map((lacuna) => (
               <div key={lacuna.titulo} className={`border-l pl-3 ${lacuna.tom === 'critico' ? 'border-[#ff786b]' : 'border-[var(--warning)]'}`}>
                 <p className="text-[11.5px] font-medium leading-snug">{lacuna.titulo}</p>
-                <p className="mt-0.5 font-[family-name:var(--font-manrope)] text-[9.5px] text-[var(--ink-faint)]">{lacuna.quantos}</p>
+                <p className="mt-0.5 font-sans text-[9.5px] text-[var(--ink-faint)]">{lacuna.quantos}</p>
                 {lacuna.href && <Link href={lacuna.href} className="mt-1 inline-flex items-center gap-1 text-[10.5px] font-semibold text-[var(--cyan)] hover:underline">Resolver <ArrowRight size={10} /></Link>}
               </div>
             ))}

@@ -87,9 +87,9 @@ export default async function TurmaEtapaPage({ params }: {
         </Link>
         <div className="mt-4 flex flex-wrap items-end gap-5">
           <div className="min-w-0 flex-1">
-            <p className="font-[family-name:var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Turma · {conteudo.eyebrow}</p>
+            <p className="font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Turma · {conteudo.eyebrow}</p>
             <h1 className="mt-2 text-[clamp(30px,4vw,48px)] font-semibold leading-[0.98] tracking-[-0.045em]">
-              <span className="font-[family-name:var(--font-serif)] font-normal italic text-[var(--cyan-soft)]">{ws.turma.nome}</span>
+              <span className="font-display font-normal italic text-[var(--cyan-soft)]">{ws.turma.nome}</span>
             </h1>
             <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-[var(--ink-dim)]">
               <span className="inline-flex items-center gap-1.5"><UsersRound size={12} /> {ws.contagens.membros} pessoa(s)</span>
@@ -120,7 +120,7 @@ export default async function TurmaEtapaPage({ params }: {
                   <span className={`absolute left-[calc(50%+16px)] right-[calc(-50%+16px)] top-[20px] h-px ${item.estado === 'feito' ? 'bg-[#2ecc7160]' : 'bg-white/[0.1]'}`} aria-hidden="true" />
                 )}
                 <span className="relative z-10 flex items-center gap-2">
-                  <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border font-[family-name:var(--font-manrope)] text-[8px] font-bold ${
+                  <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border font-sans text-[8px] font-bold ${
                     item.estado === 'feito'
                       ? 'border-[#2ecc7160] bg-[#2ecc7115] text-[var(--success)]'
                       : item.estado === 'ativo'
@@ -131,7 +131,7 @@ export default async function TurmaEtapaPage({ params }: {
                   </span>
                   <span className={`text-[10.5px] font-semibold ${selecionada ? 'text-[var(--cyan)]' : 'text-[var(--ink-dim)] group-hover:text-[var(--ink)]'}`}>{item.rotulo}</span>
                 </span>
-                <span className="relative z-10 ml-7 mt-1 block font-[family-name:var(--font-manrope)] text-[8.5px] text-[var(--ink-faint)]">{item.feitos} de {item.total}</span>
+                <span className="relative z-10 ml-7 mt-1 block font-sans text-[8.5px] text-[var(--ink-faint)]">{item.feitos} de {item.total}</span>
               </Link>
             );
           })}
@@ -140,7 +140,7 @@ export default async function TurmaEtapaPage({ params }: {
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)]">
         <div className="rounded-[16px] border border-[#34c5cc30] bg-[#34c5cc0a] p-5">
-          <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--cyan)]">Próxima ação da turma</p>
+          <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--cyan)]">Próxima ação da turma</p>
           <div className="mt-2 flex flex-wrap items-end gap-4">
             <div className="min-w-0 flex-1">
               <h2 className="text-xl font-semibold tracking-[-0.025em]">{ws.proximaAcao.titulo}</h2>
@@ -152,7 +152,7 @@ export default async function TurmaEtapaPage({ params }: {
           </div>
         </div>
         <div className="rounded-[16px] border border-white/[0.08] bg-[var(--navy-card)] p-5">
-          <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Leitura do escopo</p>
+          <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Leitura do escopo</p>
           <ul className="mt-2 space-y-1.5 text-[11.5px] text-[var(--ink-dim)]">
             {bloqueios.map((item) => <li key={item}>· {item}</li>)}
           </ul>
@@ -161,7 +161,7 @@ export default async function TurmaEtapaPage({ params }: {
 
       <section className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--cyan)]">Momento selecionado</p>
+          <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--cyan)]">Momento selecionado</p>
           <h2 className="mt-1 text-lg font-semibold tracking-[-0.02em]">{conteudo.titulo}</h2>
           <p className="mt-1 max-w-[76ch] text-[12px] leading-relaxed text-[var(--ink-dim)]">{conteudo.descricao}</p>
         </div>

@@ -36,9 +36,9 @@ export default function FirstViewVideo({ videoId, title, label, sectionKey, cola
       <button
         onClick={() => setOpen(true)}
         className="flex items-center gap-2.5 w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold text-brand-400 border border-brand-400/25 hover:bg-brand-400/10 transition"
-        style={{ background: 'rgba(0,180,216,0.06)' }}
+        style={{ background: 'rgba(52,197,204,0.06)' }}
       >
-        <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(0,180,216,0.18)' }}>
+        <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgba(52,197,204,0.18)' }}>
           <Play size={12} className="text-brand-400 ml-0.5" fill="currentColor" aria-hidden="true" />
         </span>
         {label}

@@ -3,17 +3,19 @@
 /* Ramp de marca (white-label). `inline` faz os utilitários (bg-brand-400,
    text-brand-300, from-brand-400 to-brand-600…) referenciarem a CSS var
    diretamente, então sobrescrever --brand-N em runtime (no root do dashboard,
-   por tenant) re-tinge tudo. Os fallbacks são as tonalidades EXATAS do cyan do
-   Tailwind → Vertho e tenants sem branding ficam pixel-idênticos. Modificadores
-   de opacidade (brand-400/15) funcionam via color-mix do Tailwind v4. */
+   por tenant) re-tinge tudo. Os fallbacks são a rampa do Ciano Vertho (brand book
+   out/2026, #34C5CC no degrau 400, que é o accent da UI escura) — a MESMA rampa
+   do `--color-cyan-*` mais abaixo; os dois blocos têm de andar juntos
+   (tests/unit/branding/rampa-ciano.test.ts). Modificadores de opacidade
+   (brand-400/15) funcionam via color-mix do Tailwind v4. */
 @theme inline {
-  --color-brand-100: var(--brand-100, #cffafe);
-  --color-brand-200: var(--brand-200, #a5f3fc);
-  --color-brand-300: var(--brand-300, #67e8f9);
-  --color-brand-400: var(--brand-400, #22d3ee);
-  --color-brand-500: var(--brand-500, #06b6d4);
-  --color-brand-600: var(--brand-600, #0891b2);
-  --color-brand-700: var(--brand-700, #0e7490);
+  --color-brand-100: var(--brand-100, #DBF6F7);
+  --color-brand-200: var(--brand-200, #B9EDEF);
+  --color-brand-300: var(--brand-300, #76D8DD);
+  --color-brand-400: var(--brand-400, #34C5CC);
+  --color-brand-500: var(--brand-500, #28A8AE);
+  --color-brand-600: var(--brand-600, #1C8A90);
+  --color-brand-700: var(--brand-700, #166E73);
 }
 
 :root {
@@ -30,6 +32,13 @@
   --lilac: #E1AAEF;
   --purple: #9E4EDD;
   --purple-deep: #3B0A6D;
+
+  /* Tipografia — brand book (out/2026): títulos em Codec Bold, textos em Roboto.
+     Definidas aqui (e não só no @theme) porque `@theme inline` não emite a var no
+     :root quando nenhuma utility a usa, e os estilos inline/CSS modules precisam
+     dela. O @theme abaixo só aponta para estas duas. */
+  --vh-font-body: var(--font-roboto), "Roboto", system-ui, sans-serif;
+  --vh-font-display: var(--font-codec), "Codec Cold", var(--font-roboto), "Roboto", system-ui, sans-serif;
 
   /* Tokens de fase — setados por data-phase no shell de página */
   --phase-accent: #34c5cc;
@@ -77,6 +86,7 @@ body {
     radial-gradient(900px 500px at -10% 30%, rgba(59, 10, 109, 0.12), transparent 60%),
     linear-gradient(180deg, #06172C 0%, #091D35 35%, #0F2B54 100%);
   color: var(--ink);
+  font-family: var(--vh-font-body);
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.01em;
 }
@@ -109,9 +119,11 @@ body {
   font-family: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
 }
 
-/* Tipografia radarbett — eyebrow Manrope (categorias curtas em uppercase) */
+/* Eyebrow (categorias curtas em uppercase). O NOME é histórico: era Manrope e hoje
+   é Roboto (brand book out/2026). Dentro do .radarbett-shell segue Jakarta (regra
+   acima), que ainda não migrou. */
 .eyebrow-manrope {
-  font-family: var(--font-manrope), "Manrope", system-ui, sans-serif;
+  font-family: var(--vh-font-body);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -120,7 +132,7 @@ body {
 
 /* Pequena variante (PDI labels, Metric labels) */
 .eyebrow-manrope-sm {
-  font-family: var(--font-manrope), "Manrope", system-ui, sans-serif;
+  font-family: var(--vh-font-body);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -137,6 +149,27 @@ body {
   --color-cyan-soft: #9AE2E6;
   --color-purple: #9E4EDD;
   --color-purple-deep: #3B0A6D;
+
+  /* Rampa `cyan-*` do Tailwind SUBSTITUÍDA pela do Ciano Vertho: o degrau 400 é o
+     accent da UI escura (866 usos de `cyan-400` contra 252 de `brand-400`, medido
+     em 08/10/2026) e passou de #22d3ee (cyan do Tailwind) para #34C5CC, o Ciano do
+     brand book. Quem quer o ciano que o tenant pode trocar usa `brand-*`. */
+  --color-cyan-50: #EEFBFB;
+  --color-cyan-100: #DBF6F7;
+  --color-cyan-200: #B9EDEF;
+  --color-cyan-300: #76D8DD;
+  --color-cyan-400: #34C5CC;
+  --color-cyan-500: #28A8AE;
+  --color-cyan-600: #1C8A90;
+  --color-cyan-700: #166E73;
+  --color-cyan-800: #115659;
+  --color-cyan-900: #0C3E41;
+  --color-cyan-950: #072A2C;
+
+  /* Tipografia: `font-sans` = Roboto (texto e apoio), `font-display` = Codec Bold
+     (títulos). Valores em `--vh-font-*` no :root. */
+  --font-sans: var(--vh-font-body);
+  --font-display: var(--vh-font-display);
 
   /* Funcionais */
   --color-success: #2ECC71;

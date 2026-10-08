@@ -21,7 +21,7 @@ import type { TurmaFiltro } from '@/lib/turmas/escopo-leitura';
 import { Users2, Brain, Route, ListOrdered, TrendingUp, ArrowRight, ClipboardCheck, CalendarCheck, CalendarClock, FileText, Eye } from 'lucide-react';
 
 const serifStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontFamily: 'var(--vh-font-display)',
   fontStyle: 'italic',
   fontWeight: 400,
 };

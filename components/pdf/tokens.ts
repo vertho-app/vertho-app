@@ -14,7 +14,7 @@
 /** Primitivas de marca — batem 1:1 com o DS e com o que os PDFs já usam. */
 export const brand = {
   navy: { 900: '#06152B', 700: '#0A1F3F', 500: '#0F2B54', 300: '#2F568C' },
-  /** Tinta do logo/wordmark — NÃO é cor de texto de UI (decisão do DS vds3). */
+  /** Valor do bundle v1 do DS; sem consumidor. O PNG oficial do wordmark escuro mede #040027 (08/10/2026). NÃO é cor de texto de UI (decisão do DS vds3). */
   indigoLogo: '#3C385F',
   cyan: { 100: '#DBF6F7', 300: '#9AE2E6', 500: '#34C5CC', 700: '#1C8A90' },
   purple: { 100: '#F3E3FF', 300: '#E1AAFF', 500: '#9E4EDD', 700: '#3B0A6D' },
@@ -29,15 +29,16 @@ export const gradient = { from: brand.cyan[500], to: brand.purple[500], angle: 1
  *  - `slate`  = o que os PDFs usam hoje (Tailwind Slate, cinza azulado).
  *  - `indigo` = a rampa indigo-tinted do DS (levemente roxa, marca mais coesa).
  * Papéis nomeados por lightness para trocar de família sem quebrar mapeamento.
+ * `bgLight` é o Branco do brand book (#F7F7F7, out/2026) nas duas famílias.
  */
 export const neutralRamps = {
   slate: {
-    bgLight: '#F8FAFC', border: '#E2E8F0', borderStrong: '#CBD5E1',
+    bgLight: '#F7F7F7', border: '#E2E8F0', borderStrong: '#CBD5E1',
     g400: '#94A3B8', g500: '#64748B', g600: '#475569', g700: '#334155', g800: '#1E293B',
     textStrong: '#1E293B', textBody: '#475569', textMuted: '#64748B',
   },
   indigo: {
-    bgLight: '#F7F7FB', border: '#E0DEE9', borderStrong: '#C9C6D6',
+    bgLight: '#F7F7F7', border: '#E0DEE9', borderStrong: '#C9C6D6',
     g400: '#A4A0B8', g500: '#7D7994', g600: '#5A566F', g700: '#403C56', g800: '#2A2740',
     // DS: text forte = navy (não o cinza mais escuro).
     textStrong: brand.navy[500], textBody: '#403C56', textMuted: '#7D7994',
@@ -53,11 +54,9 @@ export const statusPalettes = {
   ds: { success: '#1F9D6B', warning: '#D9932B', danger: '#D6455C', info: '#1C8A90' },
 } as const;
 
-/** Famílias tipográficas do DS (produto). Corpo já é Inter nos PDFs. */
-export const fontFamilies = {
-  body: 'Inter', // corpo/UI — DS + PDF default (registrado como 'NotoSans' no styles.ts)
-  display: 'Fraunces', // títulos (serif editorial) — só o ranking-pdf usa hoje
-} as const;
+// Tipografia: NÃO mora aqui. `./fontes.ts` registra e exporta `FONTE_TEXTO` (Roboto) e
+// `FONTE_TITULO` (Codec Bold, com queda para a Roboto). O antigo `fontFamilies` daqui não
+// tinha consumidor e foi removido (08/10/2026).
 
 // ─── FLAGS DE MIGRAÇÃO ───────────────────────────────────────────────────────
 // Padrão = look ATUAL (nenhuma mudança visual). Troque, salve e re-renderize

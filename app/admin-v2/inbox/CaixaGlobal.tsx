@@ -46,7 +46,7 @@ function Numero({ valor, rotulo, destaque }: { valor: number; rotulo: string; de
   return (
     <div className="flex items-baseline gap-2 rounded-xl border border-white/[0.08] bg-[var(--navy-card)] px-3.5 py-2.5">
       <span
-        className={`font-[family-name:var(--font-serif)] text-[22px] leading-none ${
+        className={`font-display text-[22px] leading-none ${
           destaque && valor > 0 ? 'text-[var(--warning)]' : 'text-[var(--cyan)]'
         }`}
       >

@@ -160,9 +160,9 @@ export function PresentationControls({
               data-sala="voltar-ao-inicio"
               aria-label="Voltar ao início"
               title="Voltar ao início"
-              className="flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]/40"
+              className="flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#34C5CC)]/40"
             >
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[var(--brand-400,#22d3ee)]/10 text-[var(--brand-300,#67e8f9)]" aria-hidden="true">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[var(--brand-400,#34C5CC)]/10 text-[var(--brand-300,#76D8DD)]" aria-hidden="true">
                 <ArrowLeft size={14} />
               </span>
               <span className="hidden min-w-0 sm:block">
@@ -175,10 +175,10 @@ export function PresentationControls({
             <span className="my-1 w-px shrink-0 bg-white/10" aria-hidden="true" />
           </>
         )}
-        <label className="group flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05] focus-within:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[var(--brand-400,#22d3ee)]/25">
+        <label className="group flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05] focus-within:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[var(--brand-400,#34C5CC)]/25">
           {/* No celular, sem o ícone (a não ser girando): com o "Voltar" e os dois
               seletores, a barra cobria o botão do Beto (medido no iPhone, 17/09/2026). */}
-          <span className={`${switching ? 'grid' : 'hidden sm:grid'} h-7 w-7 shrink-0 place-items-center rounded-lg bg-[var(--brand-400,#22d3ee)]/10 text-[var(--brand-300,#67e8f9)]`} aria-hidden="true">
+          <span className={`${switching ? 'grid' : 'hidden sm:grid'} h-7 w-7 shrink-0 place-items-center rounded-lg bg-[var(--brand-400,#34C5CC)]/10 text-[var(--brand-300,#76D8DD)]`} aria-hidden="true">
             {switching ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
           </span>
 
@@ -211,7 +211,7 @@ export function PresentationControls({
 
         <span className="my-1 w-px shrink-0 bg-white/10" aria-hidden="true" />
 
-        <label className="group flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05] focus-within:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[var(--brand-400,#22d3ee)]/25">
+        <label className="group flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05] focus-within:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[var(--brand-400,#34C5CC)]/25">
           <span className="hidden h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/[0.06] text-white/65 sm:grid" aria-hidden="true">
             <DeviceIcon size={14} />
           </span>

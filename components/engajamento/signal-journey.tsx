@@ -22,7 +22,7 @@ const TONE: Record<SignalTone, {
     icon: 'border-brand-300/25 bg-brand-300/10 text-brand-300',
     value: 'text-brand-100',
     bar: 'bg-brand-400',
-    halo: 'shadow-[0_0_22px_rgba(34,211,238,0.08)]',
+    halo: 'shadow-[0_0_22px_rgba(52,197,204,0.08)]',
   },
   teal: {
     icon: 'border-teal-300/25 bg-teal-300/10 text-teal-300',
@@ -85,7 +85,7 @@ export function SignalJourney({
           <h2
             id="signal-journey-title"
             className="mt-1 text-[23px] leading-tight text-white"
-            style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+            style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}
           >
             {title}
           </h2>

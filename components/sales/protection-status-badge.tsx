@@ -7,7 +7,7 @@ import type { ProtectionStatus } from '@/lib/sales/types';
 
 const CFG: Record<ProtectionStatus, { color: string; Icon: typeof Shield }> = {
   active: { color: '#22C55E', Icon: Shield },
-  extended: { color: '#06B6D4', Icon: Shield },
+  extended: { color: '#34C5CC', Icon: Shield },
   expiring: { color: '#F59E0B', Icon: ShieldAlert },
   expired: { color: '#EF4444', Icon: ShieldX },
 };

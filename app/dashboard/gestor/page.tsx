@@ -304,7 +304,7 @@ export default function GestorHomePage({ dadosIniciais }: { dadosIniciais?: Gest
             <header className="flex shrink-0 items-center justify-between gap-4 border-b border-white/[0.08] px-4 py-3 md:px-6">
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300">{t('reportDashboard.pdfEyebrow')}</p>
-                <h2 className="mt-0.5 text-xl text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>{t('reportDashboard.pdfTitle')}</h2>
+                <h2 className="mt-0.5 text-xl text-white" style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}>{t('reportDashboard.pdfTitle')}</h2>
               </div>
               <button
                 type="button"
@@ -359,7 +359,7 @@ function ManagerReportDashboard({
       <header className="flex flex-col gap-3 border-b border-white/[0.08] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.22em] text-violet-300"><Sparkles size={12} /> {t('reportDashboard.eyebrow')}</p>
-          <h2 className="mt-1 text-[25px] leading-none text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>{t('reportDashboard.title')}</h2>
+          <h2 className="mt-1 text-[25px] leading-none text-white" style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}>{t('reportDashboard.title')}</h2>
           {generatedAt && <p className="mt-1 font-mono text-[9px] text-white/30">{t('reportDashboard.updated', { date: generatedAt })}</p>}
         </div>
         <button type="button" onClick={onOpenPdf} className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-xl border border-violet-300/20 bg-violet-300/[0.07] px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-violet-200 transition hover:bg-violet-300/[0.12] sm:self-auto">
@@ -371,7 +371,7 @@ function ManagerReportDashboard({
         <div className="grid gap-3 lg:grid-cols-[1.35fr_.65fr]">
           <div className="rounded-[20px] border border-white/[0.07] bg-black/10 p-5">
             <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-brand-300">{t('reportDashboard.reading')}</p>
-            <p className="mt-2 text-[21px] leading-[1.28] text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>{insight.executive.reading || '—'}</p>
+            <p className="mt-2 text-[21px] leading-[1.28] text-white" style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}>{insight.executive.reading || '—'}</p>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
               <div className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.05] p-3">
                 <p className="text-[9px] font-bold uppercase tracking-[0.13em] text-emerald-300">{t('reportDashboard.strength')}</p>
@@ -416,7 +416,7 @@ function ManagerReportDashboard({
                     </div>
                     <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-white/[0.05]">
                       {competency.distribution.map((item, index) => (
-                        <div key={item.level} title={`${rotuloNivel(item.level, { forma: 'curto' })}: ${item.people}`} style={{ width: `${total > 0 ? (item.people / total) * 100 : 0}%`, background: ['#FB7185', '#FBBF24', '#22D3EE', '#34D399'][index] }} />
+                        <div key={item.level} title={`${rotuloNivel(item.level, { forma: 'curto' })}: ${item.people}`} style={{ width: `${total > 0 ? (item.people / total) * 100 : 0}%`, background: ['#FB7185', '#FBBF24', '#34C5CC', '#34D399'][index] }} />
                       ))}
                     </div>
                     {competency.pattern && <p className="mt-3 text-[11px] leading-relaxed text-white/45">{competency.pattern}</p>}
@@ -804,7 +804,7 @@ function PerfisSection({ perfis, fonteExterna }: { perfis: any[]; fonteExterna?:
             )}
             {p.fonte === 'disc' && (
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold tabular-nums" style={{ color: '#34c5cc', fontFamily: 'var(--font-serif, "Instrument Serif", serif)' }}>
+                <span className="text-2xl font-bold tabular-nums" style={{ color: '#34c5cc', fontFamily: 'var(--vh-font-display)' }}>
                   {p.letraDom || '—'}
                 </span>
                 <span className="text-[10px] text-white/45">{t('profiles.discDominant')}</span>

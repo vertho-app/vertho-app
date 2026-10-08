@@ -13,21 +13,13 @@
  * (display) + Inter (corpo), o padrão dos PDFs Vertho (NÃO a sans-bold do mockup).
  */
 import React from 'react';
-import { Document, Page, View, Text, StyleSheet, Svg, Rect, Line, Circle, Font, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, View, Text, StyleSheet, Svg, Rect, Line, Circle, renderToBuffer } from '@react-pdf/renderer';
 import type { AdequacaoCargo, PessoaAdequacao, GateDef } from './aggregate';
+import { FONTE_TEXTO, FONTE_TITULO } from '@/components/pdf/fontes';
 
-const CDN = 'https://cdn.jsdelivr.net/fontsource/fonts';
-// CORPO = Inter (não liga fi/fl, provado em todos os PDFs). DISPLAY = Fraunces (serifa T&S).
-try {
-  Font.register({ family: 'Fraunces', fonts: [{ src: `${CDN}/fraunces@latest/latin-600-normal.ttf`, fontWeight: 600 }] });
-  Font.register({ family: 'Inter', fonts: [
-    { src: `${CDN}/inter@latest/latin-400-normal.ttf`, fontWeight: 400 },
-    { src: `${CDN}/inter@latest/latin-600-normal.ttf`, fontWeight: 600 },
-  ] });
-  Font.registerHyphenationCallback((w: string) => [w]);
-} catch { /* fontsource indisponível → default do react-pdf, render não quebra */ }
-const DISPLAY = 'Fraunces';
-const BODY = 'Inter';
+// Fontes: Codec Bold (DISPLAY) e Roboto (BODY), registradas em `@/components/pdf/fontes`.
+const DISPLAY = FONTE_TITULO;
+const BODY = FONTE_TEXTO;
 
 // ── Tinta & Sinal ────────────────────────────────────────────────────────────
 const T = { navy: '#0B1B2E', cyan: '#3DD2E6', teal: '#14808C', clay: '#E0A156', verde: '#1D9E75', vermelho: '#C0504D', off: '#F4F1EA', ink: '#22303C', mute: '#6B7B88' };
@@ -311,7 +303,7 @@ function PaginaGabarito({ perfilIdeal }: { perfilIdeal: AdequacaoCargo['perfilId
         ) : <Text style={{ fontSize: 8, color: T.mute, marginBottom: 16 }}>Cortes não gravados neste snapshot. Regere o relatório para incluí-los.</Text>}
 
         <Text style={{ fontSize: 8.5, fontWeight: 600, marginBottom: 2, color: T.navy }}>Faixas ideais por competência</Text>
-        <Text style={{ fontSize: 6.5, color: T.mute, marginBottom: 5 }}>A <Text style={{ color: T.verde }}>■</Text> área destacada é a faixa desejada (0–100); a linha tracejada marca o piso.</Text>
+        <Text style={{ fontSize: 6.5, color: T.mute, marginBottom: 5 }}>A <Text style={{ color: T.verde }}>área em verde</Text> é a faixa desejada (0–100); a linha tracejada marca o piso.</Text>
         <View style={{ marginBottom: 14 }}>
           {perfilIdeal.competencias.slice(0, 14).map((c: any, i: number) => (
             <BarraFaixa key={i} nome={c.nome} lo={c.min} hi={c.max} direcao={c.direcao} />

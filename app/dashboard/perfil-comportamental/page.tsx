@@ -308,7 +308,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
         style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
         {/* glow decorativo */}
         <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -mr-12 -mt-12"
-          style={{ background: 'rgba(0,180,216,0.08)' }} />
+          style={{ background: 'rgba(52,197,204,0.08)' }} />
 
         <div className="relative">
           <h2 className="font-extrabold text-xl md:text-2xl text-white">{c.nome_completo}</h2>
@@ -340,9 +340,9 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
         <div className="flex items-center gap-5 md:gap-6">
           {/* Letra dominante grande */}
           <div className="relative w-20 h-20 md:w-24 md:h-24 shrink-0 flex items-center justify-center rounded-full border border-brand-400/30"
-            style={{ background: 'rgba(0,180,216,0.08)' }}>
+            style={{ background: 'rgba(52,197,204,0.08)' }}>
             <div className="flex flex-col items-center">
-              <span className="text-4xl md:text-5xl font-black text-brand-400" style={{ textShadow: '0 0 20px rgba(0,180,216,0.4)' }}>
+              <span className="text-4xl md:text-5xl font-black text-brand-400" style={{ textShadow: '0 0 20px rgba(52,197,204,0.4)' }}>
                 {letraDominante}
               </span>
               <span className="text-[8px] uppercase font-bold text-gray-400 tracking-[0.18em] -mt-1">
@@ -387,7 +387,7 @@ function ResumoExecutivo({ colaborador: c, arquetipo, tags, insights, insightsCa
           {insightsLocal.slice(0, 3).map((insight, i) => (
             <li key={i} className="flex items-start gap-3">
               <div className="mt-1.5 h-2 w-2 rounded-full bg-brand-400 shrink-0"
-                style={{ boxShadow: '0 0 8px rgba(0,180,216,0.6)' }} />
+                style={{ boxShadow: '0 0 8px rgba(52,197,204,0.6)' }} />
               <p className="text-gray-300 text-sm leading-relaxed">
                 <InsightText text={insight} />
               </p>
@@ -686,7 +686,7 @@ export default function PerfilComportamentalPage() {
             )}
             <button onClick={handleDownloadPdf} disabled={downloading}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)', boxShadow: '0 0 20px rgba(0,180,216,0.25)' }}>
+              style={{ background: 'linear-gradient(135deg, #34C5CC, #0D9488)', boxShadow: '0 0 20px rgba(52,197,204,0.25)' }}>
               {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               {downloading ? t('download.preparing') : t('download.button')}
             </button>

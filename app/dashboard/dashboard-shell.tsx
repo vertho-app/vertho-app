@@ -36,7 +36,7 @@ type NavItem = {
 const DEFAULT_THEME: TenantTheme = {
   bgStart: '#091D35',
   bgEnd: '#0F2A4A',
-  accent: '#22d3ee',
+  accent: '#34C5CC',
   accentRaw: null,
   logoUrl: '/logo-vertho.png',
 };

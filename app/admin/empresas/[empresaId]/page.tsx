@@ -88,7 +88,7 @@ const STATUS_CFG = {
 
 // ── Phase config ───────────────────────────────────────────────────────────
 const PHASE_CONFIG = [
-  { num: 0, icon: Building2, color: '#06B6D4', groups: [
+  { num: 0, icon: Building2, color: '#34C5CC', groups: [
     { label: 'Cadastro', actions: [
       { key: 'gerenciar',      label: 'Colaboradores & Cargos', icon: Users,        href: '/admin/empresas/gerenciar' },
       { key: 'competencias',   label: 'Competências',            icon: BookOpen,     href: '/admin/competencias' },
@@ -198,7 +198,7 @@ async function comRetry<T>(fn: () => Promise<T>, tentativas = 3, esperaMs = 6000
 
 // ── Serif italic shorthand ─────────────────────────────────────────────────
 const serif: React.CSSProperties = {
-  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontFamily: 'var(--vh-font-display)',
   fontStyle: 'italic',
   fontWeight: 400,
 };

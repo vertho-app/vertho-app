@@ -99,7 +99,7 @@ export default function OrientacaoDaDegustacao({ papel, casa, texto, links }: {
             key={link.href}
             href={link.href}
             className="group flex min-h-11 min-w-0 items-center justify-between gap-3 rounded-xl border border-white/15 px-3 py-2.5 text-left text-[13px] font-semibold leading-snug transition-colors hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-            style={{ color: 'var(--brand-200, #a5f3fc)' }}
+            style={{ color: 'var(--brand-200, #B9EDEF)' }}
           >
             <span className="min-w-0">{link.rotulo}</span>
             <ArrowRight size={15} className="shrink-0" aria-hidden="true" />

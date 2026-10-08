@@ -24,7 +24,7 @@ type DashboardTab = 'overview' | 'evolution' | 'roles' | 'priorities' | 'documen
 type DocumentSection = 'organization' | 'managers' | 'people';
 
 const serifStyle = {
-  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontFamily: 'var(--vh-font-display)',
   fontStyle: 'italic' as const,
   fontWeight: 400,
 };
@@ -54,7 +54,7 @@ const DOCUMENT_ICONS: Record<RhReportKind, any> = {
   individual: UserRound,
 };
 
-const LEVEL_COLORS = ['#FB7185', '#FBBF24', '#22D3EE', '#34D399'];
+const LEVEL_COLORS = ['#FB7185', '#FBBF24', '#34C5CC', '#34D399'];
 
 /** "N2", ou o travessão quando não há nível a mostrar (ausência não é N1). */
 function nivelDe(nivel: number | null): string {
@@ -118,7 +118,7 @@ function BotaoBaixarPdf({ url, reserva, t, className, ariaLabel, children }: {
 function SectionTitle({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
   return (
     <div className="mb-4">
-      <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">{eyebrow}</p>
+      <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#76D8DD)]">{eyebrow}</p>
       <h2 className="mt-1 text-[26px] leading-none text-white" style={serifStyle}>{title}</h2>
       {subtitle && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/45">{subtitle}</p>}
     </div>
@@ -137,14 +137,14 @@ function DashboardNavigation({ active, onChange, t }: { active: DashboardTab; on
               type="button"
               onClick={() => onChange(key)}
               aria-current={selected ? 'page' : undefined}
-              className="flex h-10 items-center gap-2 rounded-xl px-4 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]"
+              className="flex h-10 items-center gap-2 rounded-xl px-4 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#34C5CC)]"
               style={{
                 color: selected ? '#fff' : 'rgba(255,255,255,.42)',
-                background: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 18%, #0b2138)' : 'transparent',
-                boxShadow: selected ? 'inset 0 0 0 1px color-mix(in oklab, var(--brand-400, #22d3ee) 30%, transparent)' : 'none',
+                background: selected ? 'color-mix(in oklab, var(--brand-400, #34C5CC) 18%, #0b2138)' : 'transparent',
+                boxShadow: selected ? 'inset 0 0 0 1px color-mix(in oklab, var(--brand-400, #34C5CC) 30%, transparent)' : 'none',
               }}
             >
-              <Icon size={15} className={selected ? 'text-[var(--brand-300,#67e8f9)]' : ''} />
+              <Icon size={15} className={selected ? 'text-[var(--brand-300,#76D8DD)]' : ''} />
               {t(`dashboard.tabs.${key}`)}
             </button>
           );
@@ -186,7 +186,7 @@ function ScopeFilter({ scope, t }: { scope: RhReportsScope; t: any }) {
   return (
     <section aria-label={t('dashboard.scope.eyebrow')} className={`mb-4 rounded-2xl border border-white/[0.08] bg-[#071829]/75 px-4 py-3 transition-opacity ${pending ? 'opacity-50' : ''}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <p className="flex shrink-0 items-center gap-2 text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">
+        <p className="flex shrink-0 items-center gap-2 text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#76D8DD)]">
           <Layers size={13} /> {t('dashboard.scope.eyebrow')}
         </p>
         <div className="flex flex-wrap gap-2">
@@ -199,11 +199,11 @@ function ScopeFilter({ scope, t }: { scope: RhReportsScope; t: any }) {
                 onClick={() => selecionar(opcao.id)}
                 aria-pressed={selected}
                 disabled={pending}
-                className="flex items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)] disabled:cursor-wait"
+                className="flex items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#34C5CC)] disabled:cursor-wait"
                 style={{
                   color: selected ? '#fff' : 'rgba(255,255,255,.45)',
-                  borderColor: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 55%, transparent)' : 'rgba(255,255,255,.09)',
-                  background: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 14%, transparent)' : 'transparent',
+                  borderColor: selected ? 'color-mix(in oklab, var(--brand-400, #34C5CC) 55%, transparent)' : 'rgba(255,255,255,.09)',
+                  background: selected ? 'color-mix(in oklab, var(--brand-400, #34C5CC) 14%, transparent)' : 'transparent',
                 }}
               >
                 {opcao.nome}
@@ -256,10 +256,10 @@ function JourneyPulse({ reports, t }: { reports: RhReportsCenter; t: any }) {
 
   return (
     <Panel className="relative overflow-hidden p-5 md:p-6">
-      <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-[var(--brand-400,#22d3ee)]/[0.09] blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-[var(--brand-400,#34C5CC)]/[0.09] blur-3xl" />
       <div className="relative flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.pulse.eyebrow')}</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#76D8DD)]">{t('dashboard.pulse.eyebrow')}</p>
           <h2 className="mt-1 text-[27px] leading-none text-white" style={serifStyle}>{t('dashboard.pulse.title')}</h2>
         </div>
         <p className="max-w-sm text-xs leading-relaxed text-white/40">{t('dashboard.pulse.subtitle')}</p>
@@ -417,7 +417,7 @@ function CompetencyRow({ item, descritores, t }: { item: EvolucaoAgregadoTela; d
             type="button"
             onClick={() => setAberto((v) => !v)}
             aria-expanded={aberto}
-            className="mt-4 shrink-0 rounded-md p-1 text-white/35 transition hover:bg-white/[0.06] hover:text-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]"
+            className="mt-4 shrink-0 rounded-md p-1 text-white/35 transition hover:bg-white/[0.06] hover:text-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#34C5CC)]"
             title={t('dashboard.evolution.toggleDescriptors')}
           >
             <ChevronRight size={14} className={`transition-transform ${aberto ? 'rotate-90' : ''}`} />
@@ -508,14 +508,14 @@ export function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: an
             url={`/api/relatorios/evolucao/pdf${scope.turmaId ? `?turma=${encodeURIComponent(scope.turmaId)}` : ''}`}
             reserva="vertho-evolucao.pdf"
             t={t}
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-4 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#34C5CC)]/25 bg-[var(--brand-400,#34C5CC)]/10 px-4 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#76D8DD)] transition hover:bg-[var(--brand-400,#34C5CC)]/15"
           >
             PDF
           </BotaoBaixarPdf>
         </div>
 
-        <div className="rounded-2xl border border-[var(--brand-400,#22d3ee)]/20 bg-[var(--brand-400,#22d3ee)]/[0.06] p-5">
-          <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">
+        <div className="rounded-2xl border border-[var(--brand-400,#34C5CC)]/20 bg-[var(--brand-400,#34C5CC)]/[0.06] p-5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#76D8DD)]">
             {t('dashboard.evolution.coverageTitle')}
           </p>
           <p className="mt-2 text-[19px] leading-snug text-white/90" style={serifStyle}>
@@ -531,7 +531,7 @@ export function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: an
                 <p className="text-[11px] text-white/45">{item.rotulo}</p>
                 <p className="mt-1 flex items-baseline gap-2">
                   <strong className="text-2xl text-white tabular-nums" style={serifStyle}>{item.valor}</strong>
-                  {item.extra && <span className="font-mono text-[11px] text-[var(--brand-300,#67e8f9)]">{item.extra}</span>}
+                  {item.extra && <span className="font-mono text-[11px] text-[var(--brand-300,#76D8DD)]">{item.extra}</span>}
                 </p>
               </div>
             ))}
@@ -679,7 +679,7 @@ export function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: an
             )}
           </div>
           <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
-            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--brand-300,#67e8f9)]">
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--brand-300,#76D8DD)]">
               {t('dashboard.evolution.actionsNextCycle')}
             </p>
             <p className="mt-1 text-[11px] text-white/35">{t('dashboard.evolution.actionsNextCycleHelp')}</p>
@@ -720,8 +720,8 @@ function ExecutiveReading({ reports, t }: { reports: RhReportsCenter; t: any }) 
       <CompanyScopeNotice scope={reports.scope} t={t} />
       <div className="grid gap-3 lg:grid-cols-[1.35fr_.65fr]">
       <Panel className="relative overflow-hidden p-5 md:p-6">
-        <span className="absolute right-5 top-4 text-[72px] leading-none text-[var(--brand-300,#67e8f9)]/[0.07]" style={serifStyle}>“</span>
-        <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.executive.eyebrow')}</p>
+        <span className="absolute right-5 top-4 text-[72px] leading-none text-[var(--brand-300,#76D8DD)]/[0.07]" style={serifStyle}>“</span>
+        <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#76D8DD)]">{t('dashboard.executive.eyebrow')}</p>
         <h2 className="mt-2 max-w-3xl text-[22px] leading-[1.25] text-white md:text-[26px]" style={serifStyle}>{insight.executive.reading || t('dashboard.executive.fallback')}</h2>
         <div className="mt-6 grid gap-2 sm:grid-cols-2">
           <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.05] p-4">
@@ -773,7 +773,7 @@ function OverviewTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
         <div className="grid gap-3 lg:grid-cols-2">
           {comparison?.analysis && (
             <Panel className="p-5">
-              <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]"><BarChart3 size={13} /> {t('dashboard.comparison.title')}</p>
+              <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#76D8DD)]"><BarChart3 size={13} /> {t('dashboard.comparison.title')}</p>
               <p className="mt-3 text-sm leading-relaxed text-white/65">{comparison.analysis}</p>
               <div className="mt-4 space-y-2">
                 {comparison.positive && <p className="rounded-xl bg-emerald-400/[0.06] px-3 py-2 text-xs leading-relaxed text-emerald-100/75">+ {comparison.positive}</p>}
@@ -829,13 +829,13 @@ function DescriptorAnalysis({
     <section aria-labelledby="descriptor-analysis-title">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.roles.descriptors.eyebrow')}</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.23em] text-[var(--brand-300,#76D8DD)]">{t('dashboard.roles.descriptors.eyebrow')}</p>
           <h3 id="descriptor-analysis-title" className="mt-1 text-[26px] leading-none text-white" style={serifStyle}>{t('dashboard.roles.descriptors.title')}</h3>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/45">{t('dashboard.roles.descriptors.subtitle')}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {turmaNome && (
-            <span className="rounded-full border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)]">
+            <span className="rounded-full border border-[var(--brand-400,#34C5CC)]/25 bg-[var(--brand-400,#34C5CC)]/10 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--brand-300,#76D8DD)]">
               {t('dashboard.scope.reading', { name: turmaNome })}
             </span>
           )}
@@ -863,10 +863,10 @@ function DescriptorAnalysis({
               type="button"
               onClick={() => setSelectedName(item.competency)}
               aria-pressed={selected}
-              className="shrink-0 rounded-2xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]"
+              className="shrink-0 rounded-2xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#34C5CC)]"
               style={{
-                borderColor: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 48%, transparent)' : 'rgba(255,255,255,.08)',
-                background: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 12%, rgba(8,26,46,.94))' : 'rgba(8,26,46,.72)',
+                borderColor: selected ? 'color-mix(in oklab, var(--brand-400, #34C5CC) 48%, transparent)' : 'rgba(255,255,255,.08)',
+                background: selected ? 'color-mix(in oklab, var(--brand-400, #34C5CC) 12%, rgba(8,26,46,.94))' : 'rgba(8,26,46,.72)',
               }}
             >
               <span className={`block max-w-[220px] truncate text-[11px] font-bold ${selected ? 'text-white' : 'text-white/50'}`}>{item.competency}</span>
@@ -878,11 +878,11 @@ function DescriptorAnalysis({
 
       <Panel className="overflow-hidden">
         <header className="relative overflow-hidden border-b border-white/[0.08] px-5 py-5 md:px-6">
-          <div className="pointer-events-none absolute -right-12 -top-20 h-48 w-48 rounded-full bg-[var(--brand-400,#22d3ee)]/[0.1] blur-3xl" />
+          <div className="pointer-events-none absolute -right-12 -top-20 h-48 w-48 rounded-full bg-[var(--brand-400,#34C5CC)]/[0.1] blur-3xl" />
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.roles.descriptors.competency')}</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--brand-300,#76D8DD)]">{t('dashboard.roles.descriptors.competency')}</p>
                 {competency.priority && <span className="rounded-full bg-rose-400/10 px-2 py-1 text-[8px] font-bold uppercase tracking-[0.12em] text-rose-300">{t('dashboard.roles.descriptors.priority')}</span>}
               </div>
               <h4 className="mt-1 max-w-3xl text-[24px] leading-tight text-white" style={serifStyle}>{competency.competency}</h4>
@@ -989,7 +989,7 @@ function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
       <CompanyScopeNotice scope={reports.scope} t={t} />
       <div className="mb-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
         {insight.roles.map((item, index) => (
-          <button key={`${item.role}-${index}`} type="button" onClick={() => setSelectedRole(index)} className="shrink-0 rounded-full border px-4 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]" style={{ color: selectedRole === index ? '#fff' : 'rgba(255,255,255,.45)', borderColor: selectedRole === index ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 55%, transparent)' : 'rgba(255,255,255,.09)', background: selectedRole === index ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 14%, transparent)' : 'transparent' }}>
+          <button key={`${item.role}-${index}`} type="button" onClick={() => setSelectedRole(index)} className="shrink-0 rounded-full border px-4 py-2 text-[11px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#34C5CC)]" style={{ color: selectedRole === index ? '#fff' : 'rgba(255,255,255,.45)', borderColor: selectedRole === index ? 'color-mix(in oklab, var(--brand-400, #34C5CC) 55%, transparent)' : 'rgba(255,255,255,.09)', background: selectedRole === index ? 'color-mix(in oklab, var(--brand-400, #34C5CC) 14%, transparent)' : 'transparent' }}>
             {item.role}
           </button>
         ))}
@@ -1024,7 +1024,7 @@ function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
 
             <Panel className="p-5 md:p-6">
             <div className="flex items-start justify-between gap-3">
-              <div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">{t('dashboard.roles.reading')}</p><h3 className="mt-1 text-[25px] leading-none text-white" style={serifStyle}>{role.role}</h3></div>
+              <div><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#76D8DD)]">{t('dashboard.roles.reading')}</p><h3 className="mt-1 text-[25px] leading-none text-white" style={serifStyle}>{role.role}</h3></div>
               <UsersRound size={20} className="text-white/25" />
             </div>
             <p className="mt-4 text-sm leading-relaxed text-white/60">{role.reading || '—'}</p>
@@ -1035,7 +1035,7 @@ function RolesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
             {focus && (focus.rationale || focus.impact) && (
               <div className="mt-5 border-t border-white/[0.07] pt-4">
                 {focus.rationale && <p className="text-xs leading-relaxed text-white/48">{focus.rationale}</p>}
-                {focus.impact && <p className="mt-2 flex gap-2 text-xs leading-relaxed text-[var(--brand-200,#a5f3fc)]/70"><ArrowRight size={13} className="mt-0.5 shrink-0" /> {focus.impact}</p>}
+                {focus.impact && <p className="mt-2 flex gap-2 text-xs leading-relaxed text-[var(--brand-200,#B9EDEF)]/70"><ArrowRight size={13} className="mt-0.5 shrink-0" /> {focus.impact}</p>}
               </div>
             )}
             </Panel>
@@ -1060,7 +1060,7 @@ function PrioritiesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
   if (!insight) return <ExecutiveReading reports={reports} t={t} />;
   const plan = [
     { key: 'short', items: insight.actionPlan.shortTerm, color: '#FB7185' },
-    { key: 'medium', items: insight.actionPlan.mediumTerm, color: '#22D3EE' },
+    { key: 'medium', items: insight.actionPlan.mediumTerm, color: '#34C5CC' },
     { key: 'long', items: insight.actionPlan.longTerm, color: '#34D399' },
   ] as const;
 
@@ -1080,8 +1080,8 @@ function PrioritiesTab({ reports, t }: { reports: RhReportsCenter; t: any }) {
                 {item.rationale && <p className="text-sm leading-relaxed text-white/60">{item.rationale}</p>}
                 {item.impact && <p className="mt-3 border-l-2 border-amber-300/50 pl-3 text-xs leading-relaxed text-amber-100/60">{item.impact}</p>}
                 {item.training && (
-                  <div className="mt-5 rounded-2xl border border-[var(--brand-400,#22d3ee)]/15 bg-[var(--brand-400,#22d3ee)]/[0.05] p-4">
-                    <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--brand-300,#67e8f9)]"><Lightbulb size={13} /> {t('dashboard.priorities.training')}</p>
+                  <div className="mt-5 rounded-2xl border border-[var(--brand-400,#34C5CC)]/15 bg-[var(--brand-400,#34C5CC)]/[0.05] p-4">
+                    <p className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--brand-300,#76D8DD)]"><Lightbulb size={13} /> {t('dashboard.priorities.training')}</p>
                     <p className="mt-2 text-sm font-semibold text-white/80">{item.training.title}</p>
                     <p className="mt-1 text-[10px] text-white/38">{[item.training.audience, item.training.format].filter(Boolean).join(' · ')}</p>
                   </div>
@@ -1129,11 +1129,11 @@ function DocumentCard({ document, t, locale, onOpen }: { document: RhReportDocum
   const Icon = DOCUMENT_ICONS[document.kind] || FileText;
   const date = formatDate(document.generatedAt, locale);
   return (
-    <button type="button" onClick={onOpen} className="group relative flex min-h-[168px] flex-col overflow-hidden rounded-[22px] border border-white/[0.08] p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-[var(--brand-400,#22d3ee)]/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]" style={{ background: 'linear-gradient(145deg, rgba(15,42,74,.94), rgba(7,22,39,.96))' }}>
-      <div className="pointer-events-none absolute -right-10 -top-14 h-32 w-32 rounded-full bg-[var(--brand-400,#22d3ee)]/[0.08] blur-2xl transition group-hover:bg-[var(--brand-400,#22d3ee)]/[0.13]" />
-      <div className="relative flex items-start justify-between gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl border border-[var(--brand-400,#22d3ee)]/20 bg-[var(--brand-400,#22d3ee)]/10 text-[var(--brand-300,#67e8f9)]"><Icon size={19} /></span>{date && <span className="flex items-center gap-1.5 text-[10px] text-white/40"><CalendarDays size={12} /> {date}</span>}</div>
+    <button type="button" onClick={onOpen} className="group relative flex min-h-[168px] flex-col overflow-hidden rounded-[22px] border border-white/[0.08] p-5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-[var(--brand-400,#34C5CC)]/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#34C5CC)]" style={{ background: 'linear-gradient(145deg, rgba(15,42,74,.94), rgba(7,22,39,.96))' }}>
+      <div className="pointer-events-none absolute -right-10 -top-14 h-32 w-32 rounded-full bg-[var(--brand-400,#34C5CC)]/[0.08] blur-2xl transition group-hover:bg-[var(--brand-400,#34C5CC)]/[0.13]" />
+      <div className="relative flex items-start justify-between gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl border border-[var(--brand-400,#34C5CC)]/20 bg-[var(--brand-400,#34C5CC)]/10 text-[var(--brand-300,#76D8DD)]"><Icon size={19} /></span>{date && <span className="flex items-center gap-1.5 text-[10px] text-white/40"><CalendarDays size={12} /> {date}</span>}</div>
       <div className="relative mt-4 flex-1"><h3 className="text-[17px] leading-tight text-white" style={serifStyle}>{t(`kinds.${document.kind}`)}</h3>{document.recipient && <p className="mt-1 truncate text-xs font-semibold text-white/65">{document.recipient}</p>}{document.role && <p className="mt-0.5 truncate text-[11px] text-white/35">{document.role}</p>}</div>
-      <span className="relative mt-4 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--brand-300,#67e8f9)]"><Eye size={13} /> {t('open')}</span>
+      <span className="relative mt-4 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--brand-300,#76D8DD)]"><Eye size={13} /> {t('open')}</span>
     </button>
   );
 }
@@ -1155,8 +1155,8 @@ function DocumentsTab({ reports, t, locale, onOpen }: { reports: RhReportsCenter
           const Icon = SECTION_ICONS[key];
           const selected = active === key;
           return (
-            <button key={key} type="button" onClick={() => { setActive(key); setQuery(''); }} className="rounded-[18px] border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)] md:px-4 md:py-4" style={{ background: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 13%, rgba(8,26,46,.95))' : 'rgba(8,26,46,.8)', borderColor: selected ? 'color-mix(in oklab, var(--brand-400, #22d3ee) 38%, transparent)' : 'rgba(255,255,255,.07)' }}>
-              <div className="flex items-center justify-between gap-2"><Icon size={16} className={selected ? 'text-[var(--brand-300,#67e8f9)]' : 'text-white/35'} /><span className="text-xl text-white tabular-nums md:text-2xl" style={serifStyle}>{sections[key].length}</span></div>
+            <button key={key} type="button" onClick={() => { setActive(key); setQuery(''); }} className="rounded-[18px] border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#34C5CC)] md:px-4 md:py-4" style={{ background: selected ? 'color-mix(in oklab, var(--brand-400, #34C5CC) 13%, rgba(8,26,46,.95))' : 'rgba(8,26,46,.8)', borderColor: selected ? 'color-mix(in oklab, var(--brand-400, #34C5CC) 38%, transparent)' : 'rgba(255,255,255,.07)' }}>
+              <div className="flex items-center justify-between gap-2"><Icon size={16} className={selected ? 'text-[var(--brand-300,#76D8DD)]' : 'text-white/35'} /><span className="text-xl text-white tabular-nums md:text-2xl" style={serifStyle}>{sections[key].length}</span></div>
               <p className="mt-2 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-white/50 md:text-xs">{t(`sections.${key}`)}</p>
             </button>
           );
@@ -1164,7 +1164,7 @@ function DocumentsTab({ reports, t, locale, onOpen }: { reports: RhReportsCenter
       </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">{t(`sections.${active}`)}</p><p className="mt-1 text-sm text-white/45">{t(`descriptions.${active}`)}</p></div>
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#76D8DD)]">{t(`sections.${active}`)}</p><p className="mt-1 text-sm text-white/45">{t(`descriptions.${active}`)}</p></div>
         {(active === 'managers' || active === 'people') && sections[active].length > 0 && (
           <label className="flex h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 text-white/55 sm:w-64"><Search size={15} className="shrink-0" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('search')} className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30" /></label>
         )}
@@ -1183,11 +1183,11 @@ function ReportReader({ document: report, t, onBack }: { document: RhReportDocum
   const title = t(`kinds.${report.kind}`);
   return (
     <section aria-label={title}>
-      <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em] text-white/45 transition hover:text-[var(--brand-300,#67e8f9)]"><ArrowLeft size={14} /> {t('viewer.back')}</button>
+      <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em] text-white/45 transition hover:text-[var(--brand-300,#76D8DD)]"><ArrowLeft size={14} /> {t('viewer.back')}</button>
       <div className="overflow-hidden rounded-[26px] border border-white/[0.09] bg-[#071829] shadow-[0_24px_80px_rgba(0,0,0,.28)]">
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-4 sm:px-6">
-          <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">{t('viewer.eyebrow')}</p><h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={serifStyle}>{title}{report.recipient ? ` · ${report.recipient}` : ''}</h2></div>
-          <BotaoBaixarPdf url={report.downloadUrl || report.url} reserva={`vertho-${report.kind}.pdf`} t={t} ariaLabel={t('viewer.download')} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"><span className="hidden sm:inline">{t('viewer.download')}</span></BotaoBaixarPdf>
+          <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#76D8DD)]">{t('viewer.eyebrow')}</p><h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={serifStyle}>{title}{report.recipient ? ` · ${report.recipient}` : ''}</h2></div>
+          <BotaoBaixarPdf url={report.downloadUrl || report.url} reserva={`vertho-${report.kind}.pdf`} t={t} ariaLabel={t('viewer.download')} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#34C5CC)]/25 bg-[var(--brand-400,#34C5CC)]/10 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#76D8DD)] transition hover:bg-[var(--brand-400,#34C5CC)]/15"><span className="hidden sm:inline">{t('viewer.download')}</span></BotaoBaixarPdf>
         </header>
         <div className="p-2 sm:p-4"><InAppPdfDocument src={report.url} title={`${title}${report.recipient ? `: ${report.recipient}` : ''}`} loadingLabel={t('viewer.loading')} errorLabel={t('viewer.error')} retryLabel={t('viewer.retry')} /></div>
       </div>
@@ -1229,7 +1229,7 @@ export default function RelatoriosRhView({ reports }: { reports: RhReportsCenter
 
   return (
     <PageContainer className="pb-28">
-      <PageHero eyebrow={t('dashboard.eyebrow')} title={t('dashboard.title')} titleAccent={reports.companyName || t('fallbackCompany')} subtitle={t('dashboard.subtitle')} actions={generatedAt ? <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.12em] text-white/40"><CalendarDays size={12} className="text-[var(--brand-300,#67e8f9)]" /> {t('dashboard.updated', { date: generatedAt })}</span> : undefined} />
+      <PageHero eyebrow={t('dashboard.eyebrow')} title={t('dashboard.title')} titleAccent={reports.companyName || t('fallbackCompany')} subtitle={t('dashboard.subtitle')} actions={generatedAt ? <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.12em] text-white/40"><CalendarDays size={12} className="text-[var(--brand-300,#76D8DD)]" /> {t('dashboard.updated', { date: generatedAt })}</span> : undefined} />
       {selectedDocument ? (
         <ReportReader document={selectedDocument} t={t} onBack={closeDocument} />
       ) : (

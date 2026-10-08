@@ -24,7 +24,7 @@ import PortfolioSummaryCards from '@/components/sales/portfolio-summary-cards';
 import { daysToRenewal, type PortfolioEntry } from '@/components/sales/portfolio-table';
 
 const serif: CSSProperties = {
-  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontFamily: 'var(--vh-font-display)',
   fontStyle: 'italic',
   fontWeight: 400,
 };

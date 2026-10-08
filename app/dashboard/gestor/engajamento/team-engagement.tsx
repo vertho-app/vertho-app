@@ -441,7 +441,7 @@ export default function EngajamentoDoTimePage({ dadosIniciais }: { dadosIniciais
           <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300/75">{scopeLabel}</p>
           <h1
             className="mt-1 text-[30px] leading-none text-white sm:text-[36px]"
-            style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+            style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}
           >
             {t('title')}
           </h1>
@@ -601,7 +601,7 @@ export default function EngajamentoDoTimePage({ dadosIniciais }: { dadosIniciais
                 <h2
                   id="time-title"
                   className="mt-1 text-[23px] leading-tight text-white"
-                  style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+                  style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}
                 >
                   {t('list.title')}
                 </h2>

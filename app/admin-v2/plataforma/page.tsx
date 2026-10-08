@@ -73,9 +73,9 @@ export default async function PlataformaPage({ searchParams }: { searchParams: P
     <div className="space-y-8">
       <section className="grid gap-6 border-b border-white/[0.08] pb-7 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-end">
         <div>
-          <p className="font-[family-name:var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Backstage do produto</p>
+          <p className="font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Backstage do produto</p>
           <h1 className="mt-2 max-w-[790px] text-[clamp(30px,4vw,50px)] font-semibold leading-[0.98] tracking-[-0.045em]">
-            Governança, dados e <span className="font-[family-name:var(--font-serif)] font-normal italic text-[var(--cyan-soft)]">saúde</span>
+            Governança, dados e <span className="font-display font-normal italic text-[var(--cyan-soft)]">saúde</span>
           </h1>
           <p className="mt-4 max-w-[70ch] text-[13.5px] leading-relaxed text-[var(--ink-dim)]">
             Ferramentas transversais ficam fora do fluxo de uma empresa ou turma. Aqui a navegação parte do tipo de cuidado que a plataforma exige.
@@ -91,7 +91,7 @@ export default async function PlataformaPage({ searchParams }: { searchParams: P
       </section>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/[0.06] pb-3">
-        <span className="flex items-center gap-2 font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]"><Wrench size={12} /> Ir para</span>
+        <span className="flex items-center gap-2 font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]"><Wrench size={12} /> Ir para</span>
         {GRUPOS.map((grupo) => (
           <Link key={grupo.chave} href={`/admin-v2/plataforma?secao=${grupo.chave}#${grupo.chave}`} className={`text-[10.5px] transition-colors hover:text-[var(--cyan)] ${secao === grupo.chave ? 'font-semibold text-[var(--cyan)]' : 'text-[var(--ink-dim)]'}`}>
             {grupo.titulo}

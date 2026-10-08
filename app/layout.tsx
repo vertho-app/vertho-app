@@ -25,9 +25,37 @@ import "./globals.css";
  * `next/font` já servia do nosso domínio; o que mudou é de onde o BUILD tira o
  * arquivo).
  *
- * Subset `latin`, arquivos variáveis quando a família tem eixo de peso — 13
- * arquivos, ~340 KB. Todas as famílias são SIL OFL; ver `app/fonts/README.md`.
+ * Subset `latin`, arquivos variáveis quando a família tem eixo de peso.
+ * Licenças por família em `app/fonts/README.md` (OFL, Apache 2.0 e a do Codec).
+ *
+ * 🎨 Brand book (out/2026): títulos em Codec Bold, textos em Roboto. As demais
+ * famílias seguem carregadas só para as superfícies que não migraram
+ * (/radar, /radarbett, /imprensa, /proposta, /conarh, /copiloto).
  */
+
+// Texto e apoio — Roboto (variável, Apache 2.0). É o corpo do `<body>`.
+const roboto = localFont({
+  src: [{ path: "./fonts/roboto.woff2", weight: "100 900", style: "normal" }],
+  variable: "--font-roboto",
+  display: "swap",
+});
+
+// Títulos — Codec Cold EXTRA BOLD (Zetafonts). O brand book diz "Codec Bold", mas a amostra do slide é
+// bem mais pesada que o corte Bold (medido 08/10/2026); o dono escolheu o Extra Bold olhando a comparação.
+// ⚠️ O OTF gratuito que veio na skill `vertho-design` NÃO cobre uso em site/software; o dono atestou ter a
+// licença em 08/10/2026 e o arquivo daqui deve ser o do kit licenciado. Só existe esta face (800): o navegador
+// a usa para QUALQUER peso pedido. O mesmo arquivo atende `italic` de propósito: sem a face itálica o navegador
+// sintetiza um oblíquo por cima do Codec, e os títulos que eram itálicos (Instrument Serif) ficariam tortos
+// em vez de só retos.
+const codec = localFont({
+  src: [
+    { path: "./fonts/codec-cold-extrabold.woff2", weight: "800", style: "normal" },
+    { path: "./fonts/codec-cold-extrabold.woff2", weight: "800", style: "italic" },
+  ],
+  variable: "--font-codec",
+  display: "swap",
+});
+
 const inter = localFont({
   src: [{ path: "./fonts/inter.woff2", weight: "100 900", style: "normal" }],
   variable: "--font-inter",
@@ -93,8 +121,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={`${inter.variable} ${manrope.variable} ${instrumentSerif.variable} ${jakarta.variable} ${fraunces.variable}`}>
-      <body className="font-[var(--font-inter)]">
+    <html lang={locale} className={`${roboto.variable} ${codec.variable} ${inter.variable} ${manrope.variable} ${instrumentSerif.variable} ${jakarta.variable} ${fraunces.variable}`}>
+      <body>
         <NextIntlClientProvider messages={messages}>
           {children}
         </NextIntlClientProvider>

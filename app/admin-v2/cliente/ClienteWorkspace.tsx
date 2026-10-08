@@ -103,7 +103,7 @@ export default function ClienteWorkspace({ ws }: { ws: Workspace }) {
                 className="grid grid-cols-[44px_1fr_auto] items-center gap-4 rounded-2xl border border-white/[0.08] bg-[var(--navy-card)] px-4 py-3.5 shadow-[0_8px_20px_rgba(0,0,0,0.18)]"
               >
                 <div className="text-center font-mono text-[11px] text-[var(--ink-faint)]">
-                  <b className="block font-[family-name:var(--font-serif)] text-[19px] font-normal text-[var(--ink-dim)]">
+                  <b className="block font-display text-[19px] font-normal text-[var(--ink-dim)]">
                     {f.sigla}
                   </b>
                   {f.rotulo}

@@ -8,9 +8,10 @@
 import React from 'react';
 import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Polygon, Line, renderToBuffer } from '@react-pdf/renderer';
 import '@/components/pdf/styles';
-import PdfReportCover from '@/components/pdf/PdfReportCover'; // registra Fraunces globalmente
+import PdfReportCover from '@/components/pdf/PdfReportCover'; // registra as fontes (via ./styles)
 import { getLogoCoverBase64, getLogoDarkHBase64, getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { PerfilOrg, DiscMedia, Fator } from './perfil-organizacional/aggregate';
+import { FONTE_TITULO } from '@/components/pdf/fontes';
 
 const C = {
   navy: '#142F57', cyan: '#34C5CC', gold: '#C8941F', white: '#FFFFFF',
@@ -37,7 +38,7 @@ const s = StyleSheet.create({
   p: { fontSize: 9.5, color: '#3A4658', lineHeight: 1.5, marginBottom: 8 },
   secBar: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 8 },
   secBarV: { width: 5, height: 16, backgroundColor: C.cyan, marginRight: 7, borderRadius: 2 },
-  secBarT: { fontFamily: 'Fraunces', fontWeight: 600, fontSize: 13, color: C.navy },
+  secBarT: { fontFamily: FONTE_TITULO, fontWeight: 600, fontSize: 13, color: C.navy },
   twoCol: { flexDirection: 'row', gap: 16 },
   col: { flex: 1 },
   // DISC capsule chart

@@ -41,16 +41,16 @@ export function PageHero({ eyebrow, title, subtitle, showBack = true, actions, t
             // ✅ eyebrow usa --phase-accent; fallback ciano
             <p
               className="text-[10px] md:text-xs font-bold tracking-[0.25em] uppercase mb-2"
-              style={{ color: 'var(--phase-accent, #22d3ee)' }}
+              style={{ color: 'var(--phase-accent, #34C5CC)' }}
             >
               {eyebrow}
             </p>
           )}
-          {/* ✅ h1 em Instrument Serif itálico */}
+          {/* ✅ h1 em Codec Bold (font-display); o itálico é reto de propósito, ver app/layout.tsx */}
           <h1
             className="leading-tight"
             style={{
-              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+              fontFamily: 'var(--vh-font-display)',
               fontStyle: 'italic',
               fontWeight: 400,
               fontSize: 'clamp(28px, 4.5vw, 44px)',
@@ -61,7 +61,7 @@ export function PageHero({ eyebrow, title, subtitle, showBack = true, actions, t
           >
             {title}
             {titleAccent && (
-              <em style={{ color: 'var(--phase-accent, #22d3ee)', fontStyle: 'italic' }}> {titleAccent}</em>
+              <em style={{ color: 'var(--phase-accent, #34C5CC)', fontStyle: 'italic' }}> {titleAccent}</em>
             )}
           </h1>
           {subtitle && (
@@ -116,7 +116,7 @@ export function SectionHeader({
           <h2
             className="text-lg md:text-xl font-extrabold text-white"
             style={{
-              fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+              fontFamily: 'var(--vh-font-display)',
               fontStyle: 'italic',
               fontWeight: 400,
             }}

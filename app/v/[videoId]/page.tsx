@@ -119,7 +119,7 @@ export default async function VideoPage({ params }: { params: Promise<{ videoId:
               <p className="text-sm text-white/70">Vídeo não encontrado.</p>
             </div>
           ) : user || publico ? (
-            <div className="rounded-2xl overflow-hidden border border-white/10" style={{ background: '#0A1D35', boxShadow: '0 0 60px rgba(0,180,216,0.12)' }}>
+            <div className="rounded-2xl overflow-hidden border border-white/10" style={{ background: '#0A1D35', boxShadow: '0 0 60px rgba(52,197,204,0.12)' }}>
               <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
                 <iframe
                   src={src}

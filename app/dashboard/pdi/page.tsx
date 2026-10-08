@@ -20,10 +20,10 @@ const PDI_VIDEO_ID = TUTORIAIS_PLATAFORMA.pdi.guid;
 // A tela pintava N1 de amarelo "atenção", N2 de laranja e dava a cada nível um rótulo
 // avaliativo ("Excelente", "Bom", "Em desenvolvimento", "Atenção"). Agora é uma cor só
 // para os quatro níveis, e o texto é "Nível N".
-const NIVEL_COR = '#06B6D4';
-const NIVEL_BG = 'rgba(6,182,212,0.15)';
+const NIVEL_COR = '#34C5CC';
+const NIVEL_BG = 'rgba(52,197,204,0.15)';
 
-function SectionTitle({ children, icon: Icon, color = '#06B6D4' }: { children?: any; icon?: any; color?: string }) {
+function SectionTitle({ children, icon: Icon, color = '#34C5CC' }: { children?: any; icon?: any; color?: string }) {
   return (
     <div className="flex items-center gap-2 mb-3">
       {Icon && <Icon size={14} style={{ color }} />}
@@ -41,7 +41,7 @@ function CompetencyBlock({ comp, idx, t }: { comp?: any; idx?: any; t: any }) {
   return (
     <div className="rounded-xl border overflow-hidden" style={{
       background: '#0F2A4A',
-      borderColor: isFlag ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.06)',
+      borderColor: isFlag ? 'rgba(52,197,204,0.3)' : 'rgba(255,255,255,0.06)',
     }}>
       {/* Header clicável */}
       <button onClick={() => setOpen(!open)}
@@ -103,8 +103,8 @@ function CompetencyBlock({ comp, idx, t }: { comp?: any; idx?: any; t: any }) {
 
           {/* Feedback / Análise */}
           {comp.feedback && (
-            <div className="rounded-xl p-3 border-l-4" style={{ background: 'rgba(6,182,212,0.05)', borderLeftColor: '#06B6D4' }}>
-              <SectionTitle color="#06B6D4">{t('sections.analysis')}</SectionTitle>
+            <div className="rounded-xl p-3 border-l-4" style={{ background: 'rgba(52,197,204,0.05)', borderLeftColor: '#34C5CC' }}>
+              <SectionTitle color="#34C5CC">{t('sections.analysis')}</SectionTitle>
               <p className="text-xs text-gray-200 leading-relaxed italic">{comp.feedback}</p>
             </div>
           )}
@@ -291,7 +291,7 @@ export default function PDIPage() {
         actions={(
           <button onClick={handleDownloadPdf} disabled={downloading}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-60"
-            style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)', boxShadow: '0 0 20px rgba(0,180,216,0.25)' }}>
+            style={{ background: 'linear-gradient(135deg, #34C5CC, #0D9488)', boxShadow: '0 0 20px rgba(52,197,204,0.25)' }}>
             {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             {downloading ? t('download.preparing') : t('download.button')}
           </button>
@@ -308,7 +308,7 @@ export default function PDIPage() {
 
       {/* Acolhimento */}
       {c.acolhimento && (
-        <div className="rounded-xl p-4 border border-brand-400/20" style={{ background: 'rgba(6,182,212,0.05)' }}>
+        <div className="rounded-xl p-4 border border-brand-400/20" style={{ background: 'rgba(52,197,204,0.05)' }}>
           <p className="text-sm text-gray-200 italic leading-relaxed">{c.acolhimento}</p>
         </div>
       )}
@@ -333,8 +333,8 @@ export default function PDIPage() {
 
       {/* Perfil Comportamental */}
       {perfil && (
-        <div className="rounded-xl p-4 border-l-4" style={{ background: 'rgba(6,182,212,0.05)', borderLeftColor: '#06B6D4' }}>
-          <SectionTitle color="#06B6D4">{t('sections.behavioralProfile')}</SectionTitle>
+        <div className="rounded-xl p-4 border-l-4" style={{ background: 'rgba(52,197,204,0.05)', borderLeftColor: '#34C5CC' }}>
+          <SectionTitle color="#34C5CC">{t('sections.behavioralProfile')}</SectionTitle>
           {perfil.descricao && <p className="text-sm text-gray-200 leading-relaxed mb-3">{perfil.descricao}</p>}
         </div>
       )}
@@ -391,8 +391,8 @@ export default function PDIPage() {
 
       {/* Mensagem Final */}
       {c.mensagem_final && (
-        <div className="rounded-xl p-5 border border-brand-400/20 mt-6" style={{ background: 'rgba(6,182,212,0.05)' }}>
-          <SectionTitle color="#06B6D4">{t('sections.finalMessage')}</SectionTitle>
+        <div className="rounded-xl p-5 border border-brand-400/20 mt-6" style={{ background: 'rgba(52,197,204,0.05)' }}>
+          <SectionTitle color="#34C5CC">{t('sections.finalMessage')}</SectionTitle>
           <p className="text-sm text-gray-200 leading-relaxed italic">{c.mensagem_final}</p>
         </div>
       )}

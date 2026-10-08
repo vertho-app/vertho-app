@@ -47,7 +47,7 @@ export default function PessoasDaEtapa({ pessoas, etapa }: { pessoas: PessoaTurm
       <header className="flex flex-wrap items-center gap-2 border-b border-white/[0.07] bg-white/[0.018] p-3">
         <div className="mr-auto">
           <h2 className="text-[13px] font-semibold">Pessoas nesta etapa</h2>
-          <p className="mt-0.5 font-[family-name:var(--font-manrope)] text-[9px] uppercase tracking-[0.1em] text-[var(--ink-faint)]">
+          <p className="mt-0.5 font-sans text-[9px] uppercase tracking-[0.1em] text-[var(--ink-faint)]">
             {nestaEtapa} de {pessoas.length} no recorte atual
           </p>
         </div>
@@ -73,7 +73,7 @@ export default function PessoasDaEtapa({ pessoas, etapa }: { pessoas: PessoaTurm
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] border-collapse">
           <thead>
-            <tr className="font-[family-name:var(--font-manrope)] text-[8.5px] font-bold uppercase tracking-[0.1em] text-[var(--ink-faint)]">
+            <tr className="font-sans text-[8.5px] font-bold uppercase tracking-[0.1em] text-[var(--ink-faint)]">
               <th className="border-b border-white/[0.06] px-4 py-2.5 text-left">Pessoa</th>
               <th className="border-b border-white/[0.06] px-4 py-2.5 text-left">Cargo</th>
               <th className="border-b border-white/[0.06] px-4 py-2.5 text-left">Estado</th>
@@ -89,7 +89,7 @@ export default function PessoasDaEtapa({ pessoas, etapa }: { pessoas: PessoaTurm
                 </td>
                 <td className="px-4 py-2.5 text-[var(--ink-dim)]">{pessoa.cargo || '—'}</td>
                 <td className="px-4 py-2.5">
-                  <span className={`inline-flex rounded-full border px-2 py-1 font-[family-name:var(--font-manrope)] text-[8.5px] font-bold uppercase tracking-[0.08em] ${tomDoEstado(pessoa)}`}>
+                  <span className={`inline-flex rounded-full border px-2 py-1 font-sans text-[8.5px] font-bold uppercase tracking-[0.08em] ${tomDoEstado(pessoa)}`}>
                     {pessoa.estado}
                   </span>
                 </td>
@@ -106,7 +106,7 @@ export default function PessoasDaEtapa({ pessoas, etapa }: { pessoas: PessoaTurm
         </div>
       )}
       {filtradas.length > 120 && (
-        <div className="border-t border-white/[0.06] px-4 py-2 text-center font-[family-name:var(--font-manrope)] text-[9px] text-[var(--ink-faint)]">
+        <div className="border-t border-white/[0.06] px-4 py-2 text-center font-sans text-[9px] text-[var(--ink-faint)]">
           Mostrando 120 de {filtradas.length} pessoas. Refine a busca para localizar as demais.
         </div>
       )}

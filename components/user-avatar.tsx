@@ -6,7 +6,7 @@ import { getPreset } from '@/lib/avatar-presets';
 /**
  * UserAvatar
  *
- * Monograma em Instrument Serif itálico.
+ * Monograma em Codec Bold (font-display).
  * Borda herda --phase-accent do ancestral com data-phase="N".
  * Aceita foto_url — se carregar, exibe a foto; se falhar, mostra monograma.
  *
@@ -93,7 +93,7 @@ export function UserAvatar({
         <span
           className="absolute inset-0 flex items-center justify-center select-none"
           style={{
-            fontFamily: "'Instrument Serif', serif",
+            fontFamily: 'var(--vh-font-display)',
             fontStyle: 'italic',
             fontSize,
             lineHeight: 1,

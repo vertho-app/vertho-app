@@ -26,9 +26,9 @@ export default async function ClientesPage() {
     <div className="space-y-7">
       <section className="grid gap-6 border-b border-white/[0.08] pb-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div>
-          <p className="font-[family-name:var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Carteira operacional</p>
+          <p className="font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Carteira operacional</p>
           <h1 className="mt-2 max-w-[820px] text-[clamp(30px,4vw,50px)] font-semibold leading-[1] tracking-[-0.045em]">
-            Uma fundação, <span className="font-[family-name:var(--font-serif)] font-normal italic text-[var(--cyan-soft)]">vários relógios</span>
+            Uma fundação, <span className="font-display font-normal italic text-[var(--cyan-soft)]">vários relógios</span>
           </h1>
           <p className="mt-4 max-w-[72ch] text-[13.5px] leading-relaxed text-[var(--ink-dim)]">
             A empresa concentra base e régua. Cada turma aparece abaixo com sua própria distribuição e a ação que destrava o próximo avanço.
@@ -49,8 +49,8 @@ export default async function ClientesPage() {
 function Resumo({ valor, rotulo, destaque }: { valor: number; rotulo: string; destaque?: boolean }) {
   return (
     <div className="min-w-[78px]">
-      <div className={`font-[family-name:var(--font-serif)] text-[30px] leading-none ${destaque ? 'text-[var(--warning)]' : ''}`}>{valor}</div>
-      <div className="mt-1 font-[family-name:var(--font-manrope)] text-[9px] uppercase tracking-[0.1em] text-[var(--ink-faint)]">{rotulo}</div>
+      <div className={`font-display text-[30px] leading-none ${destaque ? 'text-[var(--warning)]' : ''}`}>{valor}</div>
+      <div className="mt-1 font-sans text-[9px] uppercase tracking-[0.1em] text-[var(--ink-faint)]">{rotulo}</div>
     </div>
   );
 }

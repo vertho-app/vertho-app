@@ -677,7 +677,7 @@ export default function EnviosPage() {
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('attachments.additional')}</span>
                   </div>
                   {anexoExtra ? (
-                    <div className="flex items-center gap-2 p-2 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.06)' }}>
+                    <div className="flex items-center gap-2 p-2 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(52,197,204,0.06)' }}>
                       <FileText size={14} className="text-cyan-400 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-white truncate">{anexoExtra.name}</p>
@@ -768,7 +768,7 @@ export default function EnviosPage() {
                                 onClick={() => { setTemplateSel(tp.template); setResult(null); }}
                                 className={`min-h-[88px] rounded-lg border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:cursor-not-allowed disabled:opacity-45 ${
                                   selecionado
-                                    ? 'border-cyan-400/55 bg-cyan-400/[0.09] shadow-[inset_3px_0_0_#22d3ee]'
+                                    ? 'border-cyan-400/55 bg-cyan-400/[0.09] shadow-[inset_3px_0_0_#34C5CC]'
                                     : 'border-white/[0.07] bg-[#091D35] hover:border-white/[0.16] hover:bg-white/[0.025]'
                                 }`}>
                                 <span className="flex items-start justify-between gap-2">

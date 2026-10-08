@@ -43,45 +43,61 @@ escura** e sempre foi. Aplicar os aliases claros numa tela é o erro mais fácil
 
 ## Cor não é fixa: white-label por tenant
 
-`app/globals.css` declara a rampa **`--brand-100..700`** em `@theme inline` (fallbacks = cyan do
-Tailwind, então a Vertho fica pixel-idêntica). `app/dashboard/dashboard-shell.tsx` **sobrescreve
+`app/globals.css` declara a rampa **`--brand-100..700`** em `@theme inline` (fallbacks = a rampa do Ciano Vertho, a mesma do `cyan-*`,
+então tenant sem branding fica no ciano da marca). `app/dashboard/dashboard-shell.tsx` **sobrescreve
 `--brand-*` em runtime** a partir do `accent` do tenant (`brandRampVars`, `color-mix`), e a aba
 Branding consegue extrair a paleta do site do cliente. Em tela de produto use `bg-brand-*` /
 `text-brand-*` / `from-brand-*` — **hardcodar `#34C5CC` quebra o white-label**. Cyan é o *default* da
-Vertho, não uma constante.
+Vertho (`#34C5CC` no degrau 400), não uma constante.
 
 Há ainda os **tokens de fase**: `[data-phase="1".."5"]` → `--phase-accent` / `--phase-deep` /
 `--phase-glow` (jornada; `MetricCard` usa `--phase-accent` como acento padrão).
 
 ## Cor
 
-- **Navy `#0F2B54` = cor PRIMÁRIA de texto/ação.** É o que o app e os PDFs já lideram.
-- **Indigo `#3c385f` = tinta do LOGO/wordmark apenas** — NÃO é cor de texto de UI.
-- **Acentos cyan → purple:** cyan `#34C5CC` (primário, cor do logo no escuro) + purple `#9E4EDD` (secundário). Gradiente assinatura cyan→purple (`--vh-gradient`, 120°) só em momentos de destaque (progresso, hero, "subiu de nível") — com parcimônia.
-- **Neutros levemente indigo-tinted** (não cinza puro). Navy profundo é tom de apoio.
-- **Status sóbrios** (arquétipo Sábio): success `#1F9D6B`, warning `#D9932B`, danger `#D6455C`. Sem neon.
-- Rampas completas e aliases semânticos: `tokens/colors.css`.
+**Brand book (out/2026), as 4 cores principais:** Azul `#0F2B54` (base) · Ciano `#34C5CC` (energia) · Branco `#F7F7F7`
+(respiro) · Roxo `#3B0A6D` (acento, "com moderação"). Elemento gráfico: 3 a 7 linhas finas em curva, roxo só como
+apoio. **`vertho.ai` sempre em caixa baixa**, inclusive dentro de rótulo em caixa alta.
 
-## Tipografia (o que o app REALMENTE carrega)
+- **Navy `#0F2B54` = cor PRIMÁRIA de texto/ação.**
+- **Ciano `#34C5CC` = o ciano do produto.** Desde 08/10/2026 é o degrau **400** das rampas `cyan-*` e `brand-*` (antes era o
+  `cyan` do Tailwind, `#22d3ee`, e o usuário nunca via o da marca: 866 usos de `cyan-400`). Rampa em `docs/DESIGN-SYSTEM.md`.
+- **Roxo `#3B0A6D` = `--purple-deep`**, o roxo OFICIAL. Na UI escura tem contraste ~1,2:1 sobre o navy: só como fundo sob
+  texto branco. O `--purple #9E4EDD` é o **tom luminoso derivado** para texto/linha/gradiente no escuro; não está na paleta
+  principal. Gradiente cyan→purple só em destaque (progresso, hero), com parcimônia.
+- **Branco `#F7F7F7`** = fundo claro dos PDFs/certificado (`bgLight` em `components/pdf/tokens.ts`).
+- **Logo: dois jogos de arquivo com TINTAS DIFERENTES** (medido em 08/10/2026, kit "logo Vertho tamanho A4 PDF Vetor").
+  Os **PDFs vetoriais** são o oficial do brand book: navy `#0F2B54` + ciano `#34C5CC` ("fundo claro" = logo navy SOBRE ciano;
+  "fundo escuro" = V ciano + wordmark branco SOBRE navy; a versão "sobre branco" do slide é V ciano + wordmark navy, sem arquivo próprio).
+  Os **PNGs** (`public/logo-vertho*.png`, `Logo Vertho *`, byte a byte os do kit) têm outra tinta: escuro `#040027` e ciano `#30B9B5`.
+  O `#3c385f` que o bundle v1 do DS dizia ter "amostrado do logo" não bate com nenhum dos dois. O wordmark navy do slide é real:
+  é o do vetor, não uma renderização. Hoje **tudo no app usa os PNGs**: o certificado tem o V escuro sem selo no topo, e a capa dos relatórios cai no logo claro
+  quando a marca está liberada. O vetor ainda não foi adotado em lugar nenhum (regenerar os PNGs a partir dele é decisão aberta). Não é cor de texto de UI.
+- **Neutros levemente indigo-tinted** (não cinza puro). **Status sóbrios** (arquétipo Sábio): success `#1F9D6B`, warning
+  `#D9932B`, danger `#D6455C`. Sem neon. Rampas e aliases: `tokens/colors.css`.
 
-`app/layout.tsx` carrega **5 famílias** por `next/font` — o bundle só descreve três delas:
+## Tipografia (brand book out/2026: títulos Codec Bold, textos Roboto)
 
-| Família | Var | Onde é usada |
-|---|---|---|
-| **Inter** | `--font-inter` | corpo e interface — default do `<body>` e dos PDFs (lá registrada como `'NotoSans'`) |
-| **Instrument Serif** | `--font-serif` | **a serif de display do PRODUTO** — `PageHero`/`SectionHeader` do `components/page-shell.tsx` e ~36 telas |
-| **Fraunces** | `--font-fraunces` | a serif de display da **MARCA** — capas de PDF, certificado, `/radarbett`, `/imprensa` |
-| **Plus Jakarta Sans** | `--font-jakarta` | chrome/rótulos: eyebrows e labels dos PDFs e do `/radarbett` |
-| **Manrope** | `--font-manrope` | eyebrows em caixa alta do radar (`.eyebrow-manrope`, `-sm`) |
+| Papel | Token | Tailwind | Fonte |
+|---|---|---|---|
+| Texto e apoio | `--vh-font-body` | `font-sans` | **Roboto** (variável, Apache 2.0). É o `<body>`. |
+| Títulos | `--vh-font-display` | `font-display` | **Codec Cold Extra Bold** (Zetafonts, licença COMERCIAL; ver `app/fonts/README.md`). O brand book escreve "Codec Bold", mas o slide é mais pesado que o Bold da família: o dono escolheu o Extra Bold em 08/10/2026 |
 
-**Fraunces é a serif da marca; Instrument Serif é a serif da tela.** Não trocar uma pela outra sem
-decisão explícita — hoje nenhuma tela de dashboard/admin usa Fraunces. Fora dessas 5, o
-`lib/certificado-pdf.tsx` registra **Dancing Script** localmente, só para a linha da assinatura.
-
-- Pesos, escala e tracking: `tokens/typography.css` (a escala do bundle é referência de marca; nas telas o Tailwind manda).
-- ⚠️ **`--font-mono` (JetBrains Mono) é aspiracional** — não é carregada em lugar nenhum do produto.
-- ⚠️ **Codec Cold não existe em código**: 0 ocorrências em `app/`, `components/`, `lib/`, `public/`. O wordmark entra como **PNG** (`lib/pdf-assets.ts` → `public/logo-vertho*.png`); os `.otf` daqui servem a artefatos de marca fora do app. Codec não tem SemiBold (600 → Bold).
-- ⚠️ **Codec Cold é fonte de DISPLAY, não de texto corrido** (medido 05/08/2026, deck 7 × 2): os glifos de vírgula, ponto e interrogação têm sidebearing largo, então `anterior, as duas` renderiza como `anterior , as duas` e `turma?` vira `turma ?`. Em parágrafo isso pipoca em cada linha. Receita: Codec só em títulos, números, eyebrows e rótulos — **escritos sem pontuação interna** (reescreva a frase de modo que o título dispense a vírgula) —, corpo numa sans neutra; para a pontuação inevitável de um título, `<span>` com `margin-left: -0.05em` (−0.16em já cola o glifo na letra).
+- **Codec só tem o peso 800 (Extra Bold)**; a face `italic` aponta para o mesmo arquivo (itálico sai reto, sem oblíquo sintético).
+- **Codec é largo** (a Instrument Serif era estreita): título longo e card estreito pedem conferência na imagem.
+  O número do `ContentThumb` cobria o título até ser reduzido (medido 08/10/2026).
+- **PDFs:** `components/pdf/fontes.ts` (`FONTE_TEXTO` Roboto, `FONTE_TITULO` Codec Extra Bold com queda para Roboto). O OTF fica em
+  `lib/pdf-fontes/` (react-pdf não lê woff2) e é lido por `fs`: tracing no `next.config.mjs` e `additionalFiles` no Trigger.
+  ⚠️ Subset latin da Roboto sem `→ ← ↑ ↓ ≈ ✓ ● ■ ★ ≥ ≤`: o `pdf-glifos-guard` vigia.
+- **Não migraram** (de propósito, ainda carregam Inter / Instrument Serif / Fraunces / Jakarta / Manrope): `/radar`,
+  `/radarbett`, `/imprensa`, `/conarh`, `/copiloto`, `lib/demo/offline`. `/proposta` e os vídeos têm tipografia própria
+  (Space Grotesk + IBM Plex; `video-spike/remotion/theme.tsx`).
+- `.eyebrow-manrope` é **Roboto** hoje (o nome é histórico). Dancing Script segue só na assinatura do certificado.
+- ⚠️ `--font-mono` (JetBrains Mono) é aspiracional: não é carregada em lugar nenhum.
+- ⚠️ **Os `.otf` desta skill são a versão GRATUITA do Codec** (EULA pessoal/não comercial, sem webfont nem software).
+  Servem a artefatos fora do app. O que roda no app é o `app/fonts/codec-cold-extrabold.woff2`.
+- ⚠️ **Codec em parágrafo**: vírgula, ponto e interrogação têm sidebearing largo em tamanho grande (medido 05/08/2026, deck).
+  Em título curto, no PDF e no app, a pontuação saiu aceitável (conferido em 08/10/2026); em corpo de texto use Roboto.
 
 ## Forma, sombra, movimento
 
@@ -102,7 +118,7 @@ decisão explícita — hoje nenhuma tela de dashboard/admin usa Fraunces. Fora 
 ## Logos e ícones
 
 - `assets/logo-h-{claro,escuro}.png` (horizontal), `assets/logo-ac-{claro,escuro}.png` (empilhado/stacked), `assets/icone-{claro,escuro}.png` (símbolo V+i). Nos PDFs, o logo entra via `lib/pdf-assets.ts` (`public/logo-vertho*.png`).
-- ⚠️ **O sufixo nomeia a TINTA do arquivo, não o fundo de destino** (medido 05/08/2026, abrindo os PNGs): `logo-h-claro.png` é o wordmark **branco + cyan** → vai em fundo **escuro**; `logo-h-escuro.png` é o wordmark **índigo `#3c385f`** → vai em fundo **claro**. Ler "claro = para fundo claro" põe logo branco sobre papel branco e ele **some sem erro nenhum** — nada no build acusa. Ao alternar por tema, cheque qual arquivo está em qual ramo.
+- ⚠️ **O sufixo nomeia a TINTA do arquivo, não o fundo de destino** (medido 05/08/2026, abrindo os PNGs): `logo-h-claro.png` é o wordmark **branco + cyan** → vai em fundo **escuro**; `logo-h-escuro.png` é o wordmark **escuro `#040027`** → vai em fundo **claro**. Ler "claro = para fundo claro" põe logo branco sobre papel branco e ele **some sem erro nenhum** — nada no build acusa. Ao alternar por tema, cheque qual arquivo está em qual ramo.
 
 ## Componentes reais (o bundle não tem nenhum deles)
 

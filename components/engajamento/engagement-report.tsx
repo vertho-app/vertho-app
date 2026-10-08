@@ -102,10 +102,10 @@ export function EngagementThread({ data }: { data: ReportView }) {
     <section aria-labelledby="engagement-thread-title" className="border-y border-white/[0.08] py-7 md:py-8">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-[var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/70">
+          <p className="font-[var(--vh-font-body)] text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/70">
             {t('report.thread.eyebrow')}
           </p>
-          <h3 id="engagement-thread-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">
+          <h3 id="engagement-thread-title" className="mt-1 font-[var(--vh-font-body)] text-lg font-semibold text-white">
             {t('report.thread.title')}
           </h3>
         </div>
@@ -118,13 +118,13 @@ export function EngagementThread({ data }: { data: ReportView }) {
             <div key={step.chave} className={`min-w-0 px-3 first:pl-0 last:pr-0 ${index ? 'border-l border-white/[0.07]' : ''}`}>
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="font-[var(--font-manrope)] text-[30px] font-semibold leading-none text-white tabular-nums">
+                  <div className="font-[var(--vh-font-body)] text-[30px] font-semibold leading-none text-white tabular-nums">
                     {num(step.count)}
                   </div>
                   <div className="mt-1 text-xs text-white/50">{t(`report.thread.steps.${step.chave}`)}</div>
                 </div>
                 <div className="text-right">
-                  <div className="font-[var(--font-manrope)] text-base font-semibold tabular-nums" style={{ color: step.color }}>
+                  <div className="font-[var(--vh-font-body)] text-base font-semibold tabular-nums" style={{ color: step.color }}>
                     {pctTexto(step.pct)}
                   </div>
                   {step.delta != null && data.canCompare && <MetricDelta value={step.delta} />}
@@ -151,11 +151,11 @@ export function EngagementThread({ data }: { data: ReportView }) {
           <div key={step.chave}>
             <div className="flex items-end justify-between gap-3">
               <div>
-                <span className="font-[var(--font-manrope)] text-xl font-semibold text-white tabular-nums">{num(step.count)}</span>
+                <span className="font-[var(--vh-font-body)] text-xl font-semibold text-white tabular-nums">{num(step.count)}</span>
                 <span className="ml-2 text-xs text-white/50">{t(`report.thread.steps.${step.chave}`)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-[var(--font-manrope)] text-sm font-semibold tabular-nums" style={{ color: step.color }}>{pctTexto(step.pct)}</span>
+                <span className="font-[var(--vh-font-body)] text-sm font-semibold tabular-nums" style={{ color: step.color }}>{pctTexto(step.pct)}</span>
                 {step.delta != null && data.canCompare && <MetricDelta value={step.delta} />}
               </div>
             </div>
@@ -237,7 +237,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
                   <span className="h-2 w-2 rounded-full" style={{ background: series.color }} />
                   {t(`trend.series.${series.chave}`)}
                 </span>
-                <span className="font-[var(--font-manrope)] font-semibold text-white tabular-nums">
+                <span className="font-[var(--vh-font-body)] font-semibold text-white tabular-nums">
                   {pctTexto(current)} <span className={current >= previous ? 'text-emerald-300' : 'text-rose-300'}>({points.length > 1 ? signedDelta(t, current - previous) : t('report.trend.noPrevious')})</span>
                 </span>
               </div>
@@ -256,10 +256,10 @@ export function FocusList({ data, empresaId, surface }: { data: ReportView; empr
   const t = useTranslations('EngagementWorkspace');
   return (
     <section id="trajetorias-prioritarias" aria-labelledby="focus-title" className="h-full border-l border-white/[0.08] pl-0 lg:pl-7">
-      <p className="font-[var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.2em] text-amber-200/70">
+      <p className="font-[var(--vh-font-body)] text-[10px] font-bold uppercase tracking-[0.2em] text-amber-200/70">
         {t('report.focus.eyebrow')}
       </p>
-      <h3 id="focus-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">{data.focusTitle}</h3>
+      <h3 id="focus-title" className="mt-1 font-[var(--vh-font-body)] text-lg font-semibold text-white">{data.focusTitle}</h3>
       <p className="mt-1 max-w-md text-xs leading-relaxed text-white/40">{data.focusSubtitle}</p>
 
       {data.focusItems.length === 0 ? (
@@ -270,11 +270,11 @@ export function FocusList({ data, empresaId, surface }: { data: ReportView; empr
             const style = SIGNAL_STYLES[item.signal];
             return (
               <div key={`${item.name}-${index}`} className="grid grid-cols-[28px_minmax(0,1fr)] gap-3 py-4 first:pt-0">
-                <div className="pt-0.5 font-[var(--font-manrope)] text-xs text-white/25 tabular-nums">0{index + 1}</div>
+                <div className="pt-0.5 font-[var(--vh-font-body)] text-xs text-white/25 tabular-nums">0{index + 1}</div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <div className="font-[var(--font-manrope)] text-sm font-semibold text-white">{item.name}</div>
+                      <div className="font-[var(--vh-font-body)] text-sm font-semibold text-white">{item.name}</div>
                       <div className="mt-0.5 text-[11px] text-white/40">{item.context}</div>
                     </div>
                     <span className={`inline-flex items-center gap-1.5 rounded-[10px] border px-2 py-1 text-[10px] font-semibold ${style.bg} ${style.border} ${style.text}`}>
@@ -299,7 +299,7 @@ export function CargoBreakdown({ data, semana }: { data: ReportView; semana: num
   const { num, pct: pctTexto } = useFormatadores();
   return <section aria-labelledby="cargo-title" className="engagement-report-cargos py-7">
     <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">{t('report.cargo.eyebrow')}</p>
-    <h3 id="cargo-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">{t('report.cargo.title')}</h3>
+    <h3 id="cargo-title" className="mt-1 font-[var(--vh-font-body)] text-lg font-semibold text-white">{t('report.cargo.title')}</h3>
     <p className="mt-2 text-xs leading-relaxed text-white/60">
       {t('report.cargo.description', { week: semana })}
     </p>
@@ -399,7 +399,7 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
             <Link href={links.dashboard} className="inline-flex items-center gap-1.5 text-xs text-white/45 transition-colors hover:text-cyan-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-300">
               <ArrowLeft size={13} aria-hidden="true" /> {t('report.back')}
             </Link>
-            <h1 className="mt-3 font-[var(--font-manrope)] text-2xl font-semibold text-white">{t('report.title')}</h1>
+            <h1 className="mt-3 font-[var(--vh-font-body)] text-2xl font-semibold text-white">{t('report.title')}</h1>
             <p className="mt-1 text-xs text-white/40">{semanaAtual ? t('report.subtitleWeek', { company: companyName, week: semanaAtual }) : t('report.subtitle', { company: companyName })}</p>
           </div>
 
@@ -473,7 +473,7 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
                   <TrendingUp size={18} aria-hidden="true" />
                 </div>
                 <div>
-                  <div className="font-[var(--font-manrope)] text-xs font-bold uppercase tracking-[0.16em] text-white">{surface === 'rh' ? companyName : 'Vertho'}</div>
+                  <div className="font-[var(--vh-font-body)] text-xs font-bold uppercase tracking-[0.16em] text-white">{surface === 'rh' ? companyName : 'Vertho'}</div>
                   <div className="text-[11px] text-white/40">{t('report.paperTitle')}</div>
                 </div>
               </div>
@@ -489,7 +489,7 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
               <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
                 <div>
                   <p className={`text-xs font-semibold ${ritmoAtencao ? 'text-amber-200' : 'text-cyan-200'}`}>{data.hasWeeklyData ? t('report.closing.priority', { week: data.week }) : t('report.closing.unavailable')}</p>
-                  <h2 className="mt-2 max-w-3xl font-[var(--font-manrope)] text-2xl font-semibold leading-tight tracking-tight text-white md:text-3xl">{data.thesis}</h2>
+                  <h2 className="mt-2 max-w-3xl font-[var(--vh-font-body)] text-2xl font-semibold leading-tight tracking-tight text-white md:text-3xl">{data.thesis}</h2>
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-white/70">{data.explanation}</p>
                   <p className="mt-3 text-xs text-white/60">{data.canCompare ? t('report.closing.baseCompare', { eligible: data.eligible, previous: data.previousEligible }) : t('report.closing.baseNoCompare', { eligible: data.eligible })}</p>
                   {data.previousEligible !== null && data.previousEligible !== data.eligible && <p className="mt-1 text-xs text-amber-200">{t('report.closing.populationChanged')}</p>}
@@ -513,8 +513,8 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
                 <section aria-labelledby="trend-title">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <p className="font-[var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/70">{t('report.trend.eyebrow')}</p>
-                      <h3 id="trend-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">{t('report.trend.title')}</h3>
+                      <p className="font-[var(--vh-font-body)] text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/70">{t('report.trend.eyebrow')}</p>
+                      <h3 id="trend-title" className="mt-1 font-[var(--vh-font-body)] text-lg font-semibold text-white">{t('report.trend.title')}</h3>
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-white/45">
                       {SERIES.map((series) => (
@@ -535,15 +535,15 @@ export default function EngagementReport({ empresaId, empresaNome, surface, load
               <section className="grid divide-y divide-white/[0.07] border-y border-white/[0.08] sm:grid-cols-3 sm:divide-x sm:divide-y-0" aria-label={t('report.secondary.aria')}>
                 <div className="flex items-center gap-3 py-4 sm:pr-5">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-emerald-300/[0.09] text-emerald-200"><RotateCcw size={16} aria-hidden="true" /></div>
-                  <div><div className="font-[var(--font-manrope)] text-lg font-semibold text-white tabular-nums">{num(data.recovered)}</div><div className="text-[11px] text-white/40">{t('report.secondary.recovered')}</div></div>
+                  <div><div className="font-[var(--vh-font-body)] text-lg font-semibold text-white tabular-nums">{num(data.recovered)}</div><div className="text-[11px] text-white/40">{t('report.secondary.recovered')}</div></div>
                 </div>
                 <div className="flex items-center gap-3 py-4 sm:px-5">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-violet-300/[0.09] text-violet-200"><MessageSquareText size={16} aria-hidden="true" /></div>
-                  <div><div className="font-[var(--font-manrope)] text-lg font-semibold text-white tabular-nums">{data.tutor}</div><div className="text-[11px] text-white/40">{t('report.secondary.tutor')}</div></div>
+                  <div><div className="font-[var(--vh-font-body)] text-lg font-semibold text-white tabular-nums">{data.tutor}</div><div className="text-[11px] text-white/40">{t('report.secondary.tutor')}</div></div>
                 </div>
                 <div className="flex items-center gap-3 py-4 sm:pl-5">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-cyan-300/[0.09] text-cyan-200"><Activity size={16} aria-hidden="true" /></div>
-                  <div><div className="font-[var(--font-manrope)] text-lg font-semibold text-white">{data.preferredFormat}</div><div className="text-[11px] text-white/40">{t('report.secondary.format')}</div></div>
+                  <div><div className="font-[var(--vh-font-body)] text-lg font-semibold text-white">{data.preferredFormat}</div><div className="text-[11px] text-white/40">{t('report.secondary.format')}</div></div>
                 </div>
               </section>
 

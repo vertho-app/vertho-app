@@ -13,7 +13,7 @@ import { ConfirmDialogProvider } from '@/components/admin/confirm-dialog';
 import { Toaster } from 'sonner';
 
 const serif: CSSProperties = {
-  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontFamily: 'var(--vh-font-display)',
   fontStyle: 'italic',
   fontWeight: 400,
 };

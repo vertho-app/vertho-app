@@ -111,7 +111,7 @@ export default function ComissoesPage() {
       {/* Cards de total */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
         <SalesMetricCard label="Previsto" value={fmtBRL(totals.previsto)} accent="#F59E0B" />
-        <SalesMetricCard label="A receber" value={fmtBRL(totals.aReceber)} accent="#06B6D4" />
+        <SalesMetricCard label="A receber" value={fmtBRL(totals.aReceber)} accent="#34C5CC" />
         <SalesMetricCard label="Pago" value={fmtBRL(totals.pago)} accent="#10B981" />
         <SalesMetricCard
           label="A emitir NF"
@@ -125,7 +125,7 @@ export default function ComissoesPage() {
       {/* Aviso */}
       <div
         className="mb-4 rounded-xl px-4 py-3 text-xs leading-relaxed"
-        style={{ background: 'rgba(6,182,212,.06)', border: '1px solid rgba(6,182,212,.25)', color: 'rgba(255,255,255,.7)' }}
+        style={{ background: 'rgba(52,197,204,.06)', border: '1px solid rgba(52,197,204,.25)', color: 'rgba(255,255,255,.7)' }}
       >
         Comissões viram &ldquo;a receber&rdquo; quando a Vertho reconhece o faturamento. Emita a nota
         fiscal das comissões a receber para agilizar o pagamento.

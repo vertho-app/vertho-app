@@ -14,7 +14,7 @@ export default function NotFound() {
         <img src="/logo-vertho.png" alt="Vertho" className="h-7 mx-auto mb-8 opacity-80" />
         <p className="text-7xl md:text-8xl font-black mb-4"
           style={{
-            background: 'linear-gradient(135deg, #00B4D8, #0D9488)',
+            background: 'linear-gradient(135deg, #34C5CC, #0D9488)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}>
@@ -31,7 +31,7 @@ export default function NotFound() {
           </button>
           <button onClick={() => router.push('/dashboard')}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-extrabold text-white"
-            style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)', boxShadow: '0 0 24px rgba(0,180,216,0.25)' }}>
+            style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)', boxShadow: '0 0 24px rgba(52,197,204,0.25)' }}>
             <Home size={16} /> {t('goDashboard')}
           </button>
         </div>

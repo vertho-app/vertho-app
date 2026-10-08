@@ -28,7 +28,7 @@ const PHASE_TOKENS: Record<number, { accent: string; deep: string; glow: string 
 const FASE_GLYPH = ['', 'a', 'b', 'c', 'd', 'e'];
 
 const serifStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontFamily: 'var(--vh-font-display)',
   fontStyle: 'italic',
   fontWeight: 400,
 };
@@ -152,7 +152,7 @@ export default function JornadaPage() {
           style={{ color: 'var(--phase-accent)' }}>
           {t('header.eyebrow')}
         </p>
-        {/* ✅ h1 em Instrument Serif */}
+        {/* ✅ h1 em Codec Bold (font-display) */}
         <h1 style={{
           ...serifStyle,
           fontSize: 'clamp(30px, 5.5vw, 48px)',
@@ -212,7 +212,7 @@ export default function JornadaPage() {
             <span
               className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold"
               style={{
-                fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                fontFamily: 'var(--vh-font-display)',
                 fontStyle: 'italic',
                 background: 'color-mix(in oklab, var(--phase-accent) 16%, transparent)',
                 border: '1px solid color-mix(in oklab, var(--phase-accent) 45%, transparent)',
@@ -304,7 +304,7 @@ export default function JornadaPage() {
                         border: `2px solid ${isDone || isCurrent ? tk.accent : 'rgba(255,255,255,0.12)'}`,
                         color: isDone || isCurrent ? '#062032' : 'rgba(255,255,255,0.3)',
                         boxShadow: isCurrent ? `0 0 0 6px ${tk.glow}, 0 0 28px ${tk.glow}` : 'none',
-                        fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+                        fontFamily: 'var(--vh-font-display)',
                         fontStyle: 'italic',
                         fontSize: isCurrent ? 22 : 18,
                         transition: 'all .2s ease',
@@ -316,7 +316,7 @@ export default function JornadaPage() {
                       {/* ✅ nome da fase em serif quando atual */}
                       <h4 style={{
                         fontFamily: isCurrent
-                          ? 'var(--font-serif, "Instrument Serif", serif)'
+                          ? 'var(--vh-font-display)'
                           : 'inherit',
                         fontStyle: isCurrent ? 'italic' : 'normal',
                         fontWeight: isCurrent ? 400 : 600,

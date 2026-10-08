@@ -306,7 +306,7 @@ function DetalheModal({ data, loading, onClose, sb, escopo }) {
         <div className="sticky top-0 z-10 flex items-center justify-between gap-4 p-4 md:px-6 border-b border-white/[0.08] bg-[#071829] rounded-t-[24px]">
           <div className="min-w-0">
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300">{t('detail.eyebrow')}</p>
-            <h2 className="mt-0.5 truncate text-xl text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
+            <h2 className="mt-0.5 truncate text-xl text-white" style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}>
               {data?.colab?.nome || t('detail.aria', { scope })}
             </h2>
           </div>

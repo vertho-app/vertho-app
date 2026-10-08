@@ -64,7 +64,7 @@ function parseFaixa(faixa) {
  * Barra visual 0-100 mostrando a faixa ideal destacada + marker no score atual.
  * Serve para gaps (mostra o quanto a pessoa está fora) e para forças.
  */
-function GapBar({ valorReal, faixa, markerColor = '#22D3EE' }) {
+function GapBar({ valorReal, faixa, markerColor = '#34C5CC' }) {
   const range = parseFaixa(faixa);
   const val = Number.isFinite(valorReal) ? Math.max(0, Math.min(100, valorReal)) : null;
   if (!range || val == null) return null;
@@ -85,7 +85,7 @@ function GapBar({ valorReal, faixa, markerColor = '#22D3EE' }) {
       {/* Marker do valor atual */}
       <div
         className="absolute -top-0.5 w-1 h-4 rounded-sm shadow-sm"
-        style={{ left: `calc(${val}% - 2px)`, background: markerColor, boxShadow: '0 0 4px rgba(34,211,238,0.8)' }}
+        style={{ left: `calc(${val}% - 2px)`, background: markerColor, boxShadow: '0 0 4px rgba(52,197,204,0.8)' }}
       />
     </div>
   );
@@ -543,7 +543,7 @@ function FitV2Tab({ empresaId }: { empresaId: string }) {
             {/* 4 Blocos */}
             <div className="grid grid-cols-4 gap-2 mb-4">
               {[
-                { key: 'mapeamento', label: t('table.mapping'), color: '#06B6D4' },
+                { key: 'mapeamento', label: t('table.mapping'), color: '#34C5CC' },
                 { key: 'competencias', label: t('table.competencies'), color: '#F59E0B' },
                 { key: 'lideranca', label: t('table.leadership'), color: '#22C55E' },
                 { key: 'disc', label: t('table.disc'), color: '#8B5CF6' },
@@ -620,7 +620,7 @@ function FitV2Tab({ empresaId }: { empresaId: string }) {
             )}
 
             {/* Leitura executiva — gerada automaticamente ao abrir */}
-            <div className="rounded-lg p-4 border border-cyan-400/20 mb-5" style={{ background: 'rgba(6,182,212,0.04)' }}>
+            <div className="rounded-lg p-4 border border-cyan-400/20 mb-5" style={{ background: 'rgba(52,197,204,0.04)' }}>
               <p className="text-[10px] font-extrabold uppercase tracking-widest text-cyan-400 flex items-center gap-1.5 mb-2">
                 <Sparkles size={12} /> {t('sections.executiveReading')}
               </p>

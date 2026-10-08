@@ -40,9 +40,9 @@ export default async function EmpresaPage({ params }: { params: Promise<{ empres
         </Link>
         <div className="mt-4 flex flex-wrap items-end gap-5">
           <div className="min-w-0 flex-1">
-            <p className="font-[family-name:var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Workspace da empresa</p>
+            <p className="font-sans text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Workspace da empresa</p>
             <h1 className="mt-2 text-[clamp(32px,4.5vw,56px)] font-semibold leading-[0.96] tracking-[-0.05em]">
-              <span className="font-[family-name:var(--font-serif)] font-normal italic text-[var(--cyan-soft)]">{ws.empresa.nome}</span>
+              <span className="font-display font-normal italic text-[var(--cyan-soft)]">{ws.empresa.nome}</span>
             </h1>
             <p className="mt-3 text-[13px] text-[var(--ink-dim)]">
               Fundação compartilhada · {ws.portfolio.totalPessoas} pessoa(s) · {turmasAtivas.length} turma(s) ativa(s)
@@ -58,7 +58,7 @@ export default async function EmpresaPage({ params }: { params: Promise<{ empres
       <section aria-labelledby="fundacao-titulo">
         <div className="mb-3 flex items-end justify-between gap-4">
           <div>
-            <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Compartilhada por todas as turmas</p>
+            <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--ink-faint)]">Compartilhada por todas as turmas</p>
             <h2 id="fundacao-titulo" className="mt-1 text-lg font-semibold tracking-[-0.02em]">Fundação da empresa</h2>
           </div>
           <span className="hidden text-[11px] text-[var(--ink-faint)] sm:block">configura uma vez · reutiliza em cada safra</span>
@@ -90,12 +90,12 @@ export default async function EmpresaPage({ params }: { params: Promise<{ empres
             return (
               <Link key={passo.titulo} href={passo.href} className="group rounded-[10px] px-3 py-2.5 transition-colors hover:bg-white/[0.035] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cyan)]">
                 <div className="flex items-center gap-2">
-                  <span className={`grid h-5 w-5 place-items-center rounded-full border font-[family-name:var(--font-manrope)] text-[8px] font-bold ${completo ? 'border-[#2ecc7150] text-[var(--success)]' : 'border-white/[0.12] text-[var(--ink-faint)]'}`}>
+                  <span className={`grid h-5 w-5 place-items-center rounded-full border font-sans text-[8px] font-bold ${completo ? 'border-[#2ecc7150] text-[var(--success)]' : 'border-white/[0.12] text-[var(--ink-faint)]'}`}>
                     {completo ? '✓' : index + 1}
                   </span>
                   <span className="truncate text-[10.5px] font-medium group-hover:text-[var(--cyan)]">{passo.titulo}</span>
                 </div>
-                <p className="ml-7 mt-1 font-[family-name:var(--font-manrope)] text-[9px] text-[var(--ink-faint)]">{passo.feitos} de {passo.total}</p>
+                <p className="ml-7 mt-1 font-sans text-[9px] text-[var(--ink-faint)]">{passo.feitos} de {passo.total}</p>
               </Link>
             );
           })}
@@ -105,7 +105,7 @@ export default async function EmpresaPage({ params }: { params: Promise<{ empres
       <section id="turmas" aria-labelledby="turmas-titulo" className="pt-3">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--cyan)]">Relógios independentes</p>
+            <p className="font-sans text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--cyan)]">Relógios independentes</p>
             <h2 id="turmas-titulo" className="mt-1 text-lg font-semibold tracking-[-0.02em]">Turmas da empresa</h2>
           </div>
           <span className="text-[11px] text-[var(--ink-faint)]">cada linha tem seu próprio próximo passo</span>
@@ -133,7 +133,7 @@ export default async function EmpresaPage({ params }: { params: Promise<{ empres
                   <b className="block text-[13px] group-hover:text-[var(--cyan)]">{turma.nome}</b>
                   <span className="mt-0.5 block text-[10.5px] text-[var(--ink-faint)]">{turma.membros} pessoa(s){turma.encerrados > 0 ? ` · ${turma.encerrados} encerrada(s) aqui` : ''} · {turma.programaModo || 'programa herdado'}</span>
                 </span>
-                <span className="grid grid-cols-3 gap-2 font-[family-name:var(--font-manrope)] text-[9px] text-[var(--ink-faint)]">
+                <span className="grid grid-cols-3 gap-2 font-sans text-[9px] text-[var(--ink-faint)]">
                   <Contagem valor={turma.comResposta} total={turma.participantes} rotulo="responderam" />
                   <Contagem valor={turma.comIa4} total={turma.participantes} rotulo="avaliados" />
                   <Contagem valor={turma.comTrilha} total={turma.participantes} rotulo="jornadas" />
@@ -179,7 +179,7 @@ function FundacaoCard({ numero, titulo, detalhe, estado, proxima, href }: {
   return (
     <Link href={href} className="group rounded-[16px] border border-white/[0.08] bg-[var(--navy-card)] p-4 transition-colors hover:border-[#34c5cc35] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cyan)]">
       <div className="flex items-start gap-3">
-        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border font-[family-name:var(--font-manrope)] text-[10px] font-bold ${feito ? 'border-[#2ecc7155] bg-[#2ecc7110] text-[var(--success)]' : 'border-[#f4b74055] bg-[#f4b7400d] text-[var(--warning)]'}`}>
+        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border font-sans text-[10px] font-bold ${feito ? 'border-[#2ecc7155] bg-[#2ecc7110] text-[var(--success)]' : 'border-[#f4b74055] bg-[#f4b7400d] text-[var(--warning)]'}`}>
           {feito ? '✓' : numero}
         </span>
         <span className="min-w-0 flex-1">

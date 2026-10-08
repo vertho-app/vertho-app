@@ -194,7 +194,7 @@ export default function RankingAdequacaoView({ listar, carregar, exportar, scope
               </span>
               <div className="min-w-0">
                 <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300">{t('pdf.reader')}</p>
-                <h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
+                <h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}>
                   {t('pdf.readerTitle', { role: sel })}
                 </h2>
               </div>

@@ -289,18 +289,22 @@ describe('árvore: os cinco PDFs renderizam nos quatro idiomas', () => {
 
 // ───────────── render de verdade + fonte de verdade ─────────────
 const TTFS = [
-  'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf',
-  'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-600-normal.ttf',
-  'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.ttf',
+  'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-400-normal.ttf',
+  'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-600-normal.ttf',
+  'https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-700-normal.ttf',
 ];
 
 describe('render de verdade: o papel sai, o texto extraído traz os acentos e a fonte tem todo glifo', () => {
   it('os URLs de fonte do teste são os que o PDF registra (o teste mede a fonte REAL, não uma cópia)', () => {
-    const styles = readFileSync('components/pdf/styles.ts', 'utf8');
-    for (const url of TTFS) expect(styles).toContain(url);
+    // O registro mora em `components/pdf/fontes.ts` (styles.ts só o importa).
+    const fontes = readFileSync('components/pdf/fontes.ts', 'utf8');
+    // A URL é montada por template (`${CDN}/roboto@latest/...`): confere a base e o caminho de cada peso.
+    const CDN = 'https://cdn.jsdelivr.net/fontsource/fonts';
+    expect(fontes).toContain(`const CDN = '${CDN}';`);
+    for (const url of TTFS) expect(fontes).toContain(url.replace(`${CDN}/`, ''));
   });
 
-  it('🔴 controle: a Inter latin NÃO tem a seta (U+2192), mas tem ¿ ¡ ñ ã ç (o teste sabe falhar)', async () => {
+  it('🔴 controle: a Roboto latin NÃO tem a seta (U+2192), mas tem ¿ ¡ ñ ã ç (o teste sabe falhar)', async () => {
     const fontkit = await import('fontkit');
     const buf = Buffer.from(await (await fetch(TTFS[0])).arrayBuffer());
     const fonte: any = (fontkit as any).create(buf);

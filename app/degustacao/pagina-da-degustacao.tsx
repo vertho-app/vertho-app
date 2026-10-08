@@ -48,7 +48,7 @@ const FUNDO =
   + 'radial-gradient(700px 480px at -10% 45%, rgba(52,197,204,.06), transparent 60%),'
   + 'linear-gradient(180deg,#06172C 0%,#0A1F3A 100%)';
 
-const SERIF = 'var(--font-serif, "Instrument Serif"), Georgia, serif';
+const SERIF = 'var(--vh-font-display)';
 
 const AVISOS: Record<string, string> = {
   aguarde: 'Foram muitas tentativas seguidas. Espere um minuto e tente de novo.',

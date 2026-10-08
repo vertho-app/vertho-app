@@ -334,7 +334,7 @@ function DetalheDaPessoa({ trilha, onClose }) {
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-300">{t('detail.eyebrow')}</p>
             <h2
               className="mt-0.5 truncate text-xl text-white"
-              style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+              style={{ fontFamily: 'var(--vh-font-display)', fontStyle: 'italic' }}
             >
               {trilha.colab?.nome_completo || '—'}
             </h2>

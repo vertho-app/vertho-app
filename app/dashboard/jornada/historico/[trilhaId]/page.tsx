@@ -9,7 +9,7 @@ import { PageContainer } from '@/components/page-shell';
 import { loadJornadaHistorica } from '../historico-actions';
 
 const serifStyle: React.CSSProperties = {
-  fontFamily: 'var(--font-serif, "Instrument Serif", serif)',
+  fontFamily: 'var(--vh-font-display)',
   fontStyle: 'italic',
   fontWeight: 400,
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from '@react-pdf/renderer';
+import { View, Text, StyleSheet, Svg, Path } from '@react-pdf/renderer';
 import { colors, fonts } from './styles';
 import ChecklistBox from './ChecklistBox';
 import { descritorParaHumano } from '@/lib/descritor-humano';
@@ -116,13 +116,23 @@ const s = StyleSheet.create({
   },
 });
 
-// Util: renderiza um item com prefix colorido (substitui o ::before do CSS)
+// Util: renderiza um item com prefix colorido (substitui o ::before do CSS).
+// `prefix="seta-cima"` desenha a seta em Svg: o "↑" em texto sai EM BRANCO na Roboto
+// (o subset latin do fontsource não tem U+2191; a Inter tinha). Ver pdf-glifos-guard.
 function PrefixedItem({ prefix, color, text, textColor }: {
   prefix: string; color: string; text: string; textColor?: string;
 }) {
   return (
     <View style={{ flexDirection: 'row', marginBottom: 2 }}>
-      <Text style={{ fontSize: 9, fontWeight: 700, color, width: 12, marginTop: 0 }}>{prefix}</Text>
+      {prefix === 'seta-cima' ? (
+        <View style={{ width: 12, marginTop: 1.5 }}>
+          <Svg width={8} height={9} viewBox="0 0 8 9">
+            <Path d="M4 8 L4 1.4 M1.1 4.1 L4 1.2 L6.9 4.1" stroke={color} strokeWidth={1.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </View>
+      ) : (
+        <Text style={{ fontSize: 9, fontWeight: 700, color, width: 12, marginTop: 0 }}>{prefix}</Text>
+      )}
       <Text style={{ fontSize: 8.5, color: textColor || colors.textPrimary, flex: 1, lineHeight: 1.6 }}>
         {text}
       </Text>
@@ -189,7 +199,7 @@ export default function CompetencyBlock({ comp, index, total, ciclo, locale }: {
           <Text style={{ ...s.blockLabel, color: colors.orange }}>{t('competency.improve')}</Text>
           {comp.melhorar?.length > 0
             ? comp.melhorar.map((e: any, j: number) => (
-                <PrefixedItem key={j} prefix="↑" color={colors.orange} text={e} textColor={colors.orangeText} />
+                <PrefixedItem key={j} prefix="seta-cima" color={colors.orange} text={e} textColor={colors.orangeText} />
               ))
             : <Text style={{ ...s.blockItem, color: colors.orangeText }}>{t('competency.noRecord')}</Text>
           }

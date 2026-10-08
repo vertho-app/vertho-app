@@ -105,7 +105,7 @@ export default function CarteiraPage() {
 
         {/* Totais do canal */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          <TotalCard label="Clientes ativos" value={String(totals?.clientesAtivos ?? 0)} accent="#22D3EE" />
+          <TotalCard label="Clientes ativos" value={String(totals?.clientesAtivos ?? 0)} accent="#34C5CC" />
           <TotalCard label="Renovações próximas" value={String(totals?.renovacoesProximas ?? 0)} accent="#F59E0B" />
           <TotalCard
             label="Risco alto"
