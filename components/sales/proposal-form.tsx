@@ -86,7 +86,7 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
 
   // A parcela sugerida vem da régua única de projeto quando escopo ou prazo
   // mudam. Pula o primeiro render para não sobrescrever o valor
-  // salvo de uma proposta em edição. 'Custom' (sem fórmula) fica manual.
+  // salvo de uma proposta em edição. 'custom' (Jornada Personalizada, sem fórmula) fica manual.
   const skipAuto = useRef(true);
   useEffect(() => {
     if (skipAuto.current) { skipAuto.current = false; return; }
@@ -144,6 +144,12 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
           <Field label="Pacote" error={fieldErrors.product_package}>
             <select value={values.product_package} onChange={(e) => set('product_package', e.target.value)} className={SELECT_CLS}>
               <option value="">Selecione</option>
+              {/* Pacote que saiu da oferta (ex.: piloto), numa proposta antiga: mostra o gravado em vez de um campo vazio. */}
+              {values.product_package && !(PRODUCT_PACKAGES as readonly string[]).includes(values.product_package) && (
+                <option value={values.product_package}>
+                  {PRODUCT_PACKAGE_LABELS[values.product_package] ?? values.product_package} (fora de oferta)
+                </option>
+              )}
               {PRODUCT_PACKAGES.map((p) => <option key={p} value={p}>{PRODUCT_PACKAGE_LABELS[p]}</option>)}
             </select>
           </Field>
@@ -175,7 +181,7 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Valor mensal (R$)" error={fieldErrors.monthly_value}
-              hint="Régua de projeto: 1 unidade, 1 ciclo e cargos como matrizes novas; a vigência só divide. Ajustável; Custom é manual.">
+              hint="Régua de projeto: 1 unidade, 1 ciclo e cargos como matrizes novas; a vigência só divide. Ajustável; na Jornada Personalizada o valor é manual.">
               <input type="text" inputMode="numeric" value={brlDisplay(values.monthly_value)}
                 onChange={(e) => set('monthly_value', parseBRL(e.target.value))}
                 placeholder="R$ 0,00" className={INPUT_CLS} />

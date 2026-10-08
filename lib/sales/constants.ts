@@ -103,11 +103,14 @@ export const PROPOSAL_STATUS_COLORS: Record<ProposalStatus, string> = {
   superseded: '#8B5CF6',
 };
 
-// Pacotes oferecidos no dropdown. 'completo'/'pulso' saíram da oferta mas
-// seguem no LABELS para renderizar dados legados/históricos sem quebrar.
-export const PRODUCT_PACKAGES = ['onboarding', 'mentor_ia', 'piloto', 'custom'] as const;
+// Pacotes oferecidos no dropdown. 'piloto' (decisão do dono, 08/10/2026),
+// 'completo' e 'pulso' saíram da oferta mas seguem no LABELS para renderizar
+// dados legados/históricos sem quebrar. As CHAVES gravadas não mudam: só o
+// rótulo, que o RC e o cliente leem ("Jornada de Onboarding" e "Jornada
+// Personalizada" são os nomes dos formatos em todo material da Vertho).
+export const PRODUCT_PACKAGES = ['onboarding', 'mentor_ia', 'custom'] as const;
 export const PRODUCT_PACKAGE_LABELS: Record<string, string> = {
-  onboarding: 'Onboarding', mentor_ia: 'Mentor IA', piloto: 'Piloto', custom: 'Custom',
+  onboarding: 'Jornada de Onboarding', mentor_ia: 'Mentor IA', piloto: 'Piloto', custom: 'Jornada Personalizada',
   completo: 'Completo', pulso: 'Pulso',
 };
 

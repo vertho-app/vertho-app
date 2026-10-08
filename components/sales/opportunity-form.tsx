@@ -313,6 +313,12 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
             <Field label="Produto de interesse" required error={fieldErrors.product_interest}>
               <select value={values.product_interest} onChange={(e) => set('product_interest', e.target.value)} className={SELECT_CLS}>
                 <option value="">Selecione</option>
+                {/* Produto que saiu da oferta (ex.: piloto), numa oportunidade antiga: mostra o gravado em vez de um campo vazio. */}
+                {values.product_interest && !(PRODUCT_PACKAGES as readonly string[]).includes(values.product_interest) && (
+                  <option value={values.product_interest}>
+                    {PRODUCT_PACKAGE_LABELS[values.product_interest] ?? values.product_interest} (fora de oferta)
+                  </option>
+                )}
                 {PRODUCT_PACKAGES.map((p) => <option key={p} value={p}>{PRODUCT_PACKAGE_LABELS[p]}</option>)}
               </select>
             </Field>

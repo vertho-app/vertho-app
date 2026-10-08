@@ -363,6 +363,12 @@ academias, `customer_type = empresa`):
   (`comercio` no `customer_type`/`segment`); pacotes do dropdown passam a ser
   `onboarding` / `mentor_ia` / `piloto` / `custom` (`completo`/`pulso` mantidos como
   legado no CHECK).
+  **Desde 08/10/2026 (decisão do dono):** o dropdown oferece `onboarding` ("Jornada de
+  Onboarding"), `mentor_ia` ("Mentor IA") e `custom` ("Jornada Personalizada"); `piloto`
+  saiu do dropdown e segue só como rótulo legado (`PRODUCT_PACKAGE_LABELS`). As chaves
+  gravadas não mudaram, só o rótulo que o RC e o cliente leem. Do mesmo dia: estágios
+  finais "Fechado" e "Perdido" (`STAGE_LABELS`) e vigência de 6 a 24 meses
+  (`CONTRACT_DURATIONS`).
 
 ## Versionamento de proposta (06/07)
 
