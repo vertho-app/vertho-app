@@ -1651,8 +1651,8 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/conteudos.ts::sugerirTagsIA`
-- **Modelo**: Via `getModelForTask(empresaId, 'conteudo_tags')`
-- **Max tokens**: 1000
+- **Modelo**: Via `getModelForTask(empresaId, 'conteudo_tags')` (empresa nula usa o padrão da tarefa). Padrão **Claude Sonnet 5.5** desde 08/10/2026 (antes Gemini 3.8 Flash). Enquanto `AWS_BEARER_TOKEN_BEDROCK` existir no servidor, o piloto Kimi K3/Bedrock tem prioridade (ver `docs/BEDROCK-PILOTO.md`).
+- **Max tokens**: 3000 em modelo Claude, com `reasoningEffort: 'low'` (o raciocínio da geração 5 divide o teto); 1000 nos demais; 6000 no piloto Bedrock (`configDaChamadaDeTags`, `lib/conteudo-tags.ts`)
 - **Trigger**: Admin em `/admin/conteudos` → "Sugerir tags" em conteúdo não classificado.
 - **System prompt** (resumo editorial do prompt real em `actions/conteudos.ts`):
   "Você é um especialista em classificação de conteúdos de desenvolvimento profissional da Vertho." Princípios-chave:

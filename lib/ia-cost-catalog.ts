@@ -620,7 +620,10 @@ export const CALLS = [
     inTokens: 1500,
     outTokens: 400,
     exec: 50,
-    defaultModel: 'gemini-3.8-flash',
+    // 08/10/2026: Sonnet 5.5 (espelha DEFAULT_TASK_MODELS.conteudo_tags). `Medido` no ledger (rodada de 174 chamadas por modelo, conteúdos de
+    // ~11 mil caracteres): o Sonnet 5.5 `low` consumiu ~7.560 tokens de entrada e ~490 de saída, US$ 0,020 por chamada, contra ~4.480 de entrada,
+    // ~180 de saída e US$ 0,004 do Gemini. Os 1.500/400 acima NÃO foram recalibrados (subestimam, o conteúdo real é longo).
+    defaultModel: 'claude-sonnet-5-5',
     critical: false,
   },
   {

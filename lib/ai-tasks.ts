@@ -330,7 +330,14 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   pulse_classify:      'gemini-3.8-flash',
   // `conteudo_tags`: classificacao de conteudo, saida curta, sem auditor a
   // jusante e sem nota derivada. Bloco F2.
-  conteudo_tags:       'gemini-3.8-flash',
+  // 08/10/2026: Sonnet 5.5 no lugar do Gemini 3.8 Flash, por decisao do dono. `Medido:` em 78 conteudos `ia_gerado` (rotulo = a
+  // competencia da GERACAO), mesmo prompt e vocabulario da action, 2 repeticoes: com o rotulo no vocabulario o acerto empata
+  // (Gemini 124/124, Sonnet `low` 122/124); o que separa e a CONFIANCA. Onde o vocabulario NAO tem o rotulo (16 conteudos sem
+  // empresa) o Gemini respondeu `alta` em 26 de 32 e o Sonnet em 4 de 32; dentro do vocabulario o Gemini diz `alta` em 124 de 124,
+  // ou seja, a confianca dele nao informa nada ao admin que revisa. O esforco e o teto vivem em `configDaChamadaDeTags`
+  // (lib/conteudo-tags.ts). ATENCAO: enquanto `AWS_BEARER_TOKEN_BEDROCK` existir na Vercel, o piloto Kimi/Bedrock
+  // (`modeloDoPilotoBedrock`, ate 50 tentativas) tem PRIORIDADE sobre este default no botao "Sugerir tags".
+  conteudo_tags:       'claude-sonnet-5-5',
   // Fluxo direto em lib/escola-brief.ts também resolve por esta tabela; assim
   // runtime, configuração da empresa e tela de custo apontam para o mesmo id.
   // 08/10/2026: Haiku 5.5 no lugar do Gemini 3.8 Flash. Resumo de PPP em JSON, saída curta, sem auditor e sem

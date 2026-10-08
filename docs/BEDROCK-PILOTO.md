@@ -6,6 +6,9 @@ revê a classificação no modal e aplica as tags numa operação separada. Gera
 sugestão não altera o conteúdo nem publica material.
 
 - Tarefa: `conteudo_tags`, já liberada para Moonshot na régua de privacidade.
+  Desde 08/10/2026 o PADRÃO da tarefa é Claude Sonnet 5.5 (`DEFAULT_TASK_MODELS`); o piloto continua tendo
+  prioridade no botão enquanto a credencial existir no servidor. Ao encerrar o piloto (remover a credencial
+  seria desligar também o Kimi do treinamento comercial, que usa a mesma chave), o botão passa a usar o padrão.
 - Modelo: `global.moonshotai.kimi-k3`, via Chat Completions em `us-east-1`.
 - Credencial: chave Bedrock da conta com créditos Activate; para o piloto,
   configurar somente em production, como segredo criptografado. Não usa a

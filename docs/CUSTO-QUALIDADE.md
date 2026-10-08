@@ -2883,3 +2883,35 @@ Gemini), por assinatura, sem custo por chamada: tirar o GPT dele não troca um m
 
 **Não medido.** Liderança: um roteiro de líder (bom), 4 encontros por braço; não se mediu um líder fraco. Memória: duas conversas sintéticas, sem o
 `crmContext` e o histórico reais de um cliente. Esforço `high` (o padrão do Sonnet) não foi medido em nenhum fluxo.
+
+## 08/10/2026 (noite, parte 3): `conteudo_tags` passa do Gemini 3.8 Flash para o Sonnet 5.5
+
+Rodada de candidatos a Claude pedida pelo dono (conteudo_tags, pulse_classify, leitor do Modo Cena). **Só o primeiro tinha o que medir:**
+`pulse_classify` roda no bloco Pulso, OFF-LINE (`pulse_classifications` e `pulse_responses` com texto têm 0 linhas), e o leitor do Modo Cena
+(Grok 4.6) precisa ser de OUTRA família que o personagem Claude (decisão do dono, 24/08, comentário em `lib/season-engine/cena/core.ts`) e
+nem tem consumidor fora de `scripts/_cena-*`. `conteudo_tags` tinha 3 chamadas no ledger, todas do piloto Bedrock/Kimi.
+
+**Medição:** 78 conteúdos `ia_gerado` (rótulo = a competência da GERAÇÃO, independente do classificador), 18 competências, o MESMO system, user e
+vocabulário de `sugerirTagsIA`, "Competência atual" escondida, 2 repetições por braço, wrapper real, ledger `canario`.
+
+| Braço | Acerto com o rótulo NO vocabulário | Estabilidade (2 repetições) | `alta` quando o rótulo NÃO está no vocabulário | p50 |
+|---|---|---|---|---|
+| Gemini 3.8 Flash | 124/124 | 98,7% | **26 de 32** | 3,2 s |
+| Sonnet 5.5 `low` | 122/124 | 98,7% | **4 de 32** (22 média, 6 baixa) | 4,4 s |
+| Haiku 5.5 `medium` | 121/123 | 94,8% | 1 de 32 | 5,5 s |
+| Haiku 5.5 `none` | 118/123 (+3 inválidas) | 93,3% | 3 de 30 | 2,6 s |
+
+O acerto empata (1 a 2 itens). O que separa é a **confiança**: o Gemini diz `alta` em 124 de 124 dentro do vocabulário e em 81% dos casos em que a
+resposta certa nem está no catálogo (o prompt manda "não force encaixe"), então a confiança dele não diz ao admin onde olhar duas vezes. No Sonnet `low`
+a `alta` acerta 95%. Achado de dados: 16 dos 78 conteúdos têm `empresa_id` nulo e o vocabulário da action (`competencias_base` + as da empresa) não tem o
+rótulo deles; antes a action nem consultava o padrão da tarefa para eles (caíam no default do wrapper, Sonnet 4.6), agora consulta.
+
+**Mudança:** `DEFAULT_TASK_MODELS.conteudo_tags` = `claude-sonnet-5-5`; `configDaChamadaDeTags` (`lib/conteudo-tags.ts`) dá teto 3.000 e esforço `low`
+só ao Claude (a action usava 1.000, que o raciocínio da geração 5 comeria); empresa nula resolve o padrão da tarefa.
+
+🔴 **Em produção o botão continua no Kimi K3/Bedrock.** `AWS_BEARER_TOKEN_BEDROCK` existe na Vercel (production, comentário "Piloto editorial Kimi K3:
+conteudo_tags, máximo 50 tentativas/US$ 10") e `modeloDoPilotoBedrock()` tem prioridade sobre o padrão. A troca só vale quando o piloto terminar. A mesma
+chave sustenta o Kimi do treinamento comercial Vertho, então remover a variável desligaria os dois: encerrar o piloto exige mudar a precedência no código.
+
+**Não medido.** Nenhum rótulo humano (o rótulo é o alvo da geração); os 4 braços erraram quase tudo nas 3 competências cujo rótulo não está no vocabulário.
+Instrumentos e dados em `Downloads\Comparativo-modelos-2026-10-08\parte-3-conteudo-tags\`.

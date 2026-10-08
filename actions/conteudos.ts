@@ -19,7 +19,7 @@ import { anexarFichaCargo, carregarFichaCargo } from '@/lib/cargo-contexto';
 import { ehClienteDoServidor } from '@/lib/auth/cliente-do-servidor';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
 import { BEDROCK_PILOTO_MAX_TOKENS, modeloDoPilotoBedrock } from '@/lib/bedrock-piloto';
-import { validarSugestaoTags } from '@/lib/conteudo-tags';
+import { configDaChamadaDeTags, validarSugestaoTags } from '@/lib/conteudo-tags';
 
 /** Mínimo de caracteres para conteúdo que vira PDF (texto/case): leitura de
  *  ~5-8 min. Aplicado tanto na geração do conteúdo quanto na hora do PDF.
@@ -1471,9 +1471,17 @@ REGRAS:
     // Modelo configurado da tarefa conteudo_tags (usa empresa_id do conteúdo)
     const { getModelForTask } = await import('@/lib/ai-tasks');
     const pilotoBedrock = modeloDoPilotoBedrock();
-    const model = pilotoBedrock || (c.empresa_id ? await getModelForTask(c.empresa_id, 'conteudo_tags') : undefined);
-    const resposta = await callAI(system, user, { ...(aiConfig || {}), model: model || aiConfig?.model }, pilotoBedrock ? BEDROCK_PILOTO_MAX_TOKENS : 1000, {
+    // Conteúdo da plataforma (sem empresa) também resolve pelo padrão da tarefa: antes ele caía no default do wrapper
+    // (Sonnet 4.6), um modelo que ninguém escolheu para esta tarefa. Um `aiConfig.model` explícito ainda vence aí.
+    const model = pilotoBedrock
+      || (c.empresa_id
+        ? await getModelForTask(c.empresa_id, 'conteudo_tags')
+        : (aiConfig?.model || await getModelForTask(null, 'conteudo_tags')));
+    // O piloto Bedrock mantém o teto dele e nenhum esforço; os demais seguem `configDaChamadaDeTags`.
+    const chamada = pilotoBedrock ? { maxTokens: BEDROCK_PILOTO_MAX_TOKENS } : configDaChamadaDeTags(model);
+    const resposta = await callAI(system, user, { ...(aiConfig || {}), model: model || aiConfig?.model }, chamada.maxTokens, {
       taskKey: 'conteudo_tags', empresaId: c.empresa_id ?? null,
+      ...('reasoningEffort' in chamada && chamada.reasoningEffort ? { reasoningEffort: chamada.reasoningEffort } : {}),
     });
     const jsonMatch = resposta.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { error: 'IA não retornou JSON válido' };
