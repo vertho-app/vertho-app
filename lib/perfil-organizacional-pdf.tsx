@@ -91,11 +91,16 @@ const s = StyleSheet.create({
   talBar: { height: 14, borderRadius: 7 },
   talPct: { width: 40, fontSize: 9, fontWeight: 700, color: C.navy, textAlign: 'right' },
   // destaques
-  destRow: { flexDirection: 'row', marginBottom: 5, gap: 8 },
-  destCell: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: C.navy, borderRadius: 6, paddingVertical: 6, paddingHorizontal: 8 },
-  destDot: { width: 11, height: 11, borderRadius: 6, borderWidth: 2, borderColor: C.gold, marginRight: 7 },
-  destTxt: { color: '#D8E0EC', fontSize: 8.5, fontWeight: 700, flex: 1 },
-  destPct: { color: '#D8E0EC', fontSize: 8.5, fontWeight: 700, marginLeft: 6 },
+  // régua única de 100%: polo esquerdo (parcela clara) → polo direito (parcela escura)
+  destRow: { marginBottom: 7 },
+  destPolos: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2.5 },
+  destPolo: { fontSize: 8, fontWeight: 700 },
+  // Sem `overflow: hidden`: o recorte com canto arredondado rasteriza torto em alguns leitores.
+  // Cada segmento arredonda o PRÓPRIO canto de fora; o de 100% arredonda os dois.
+  destBar: { height: 8, flexDirection: 'row' },
+  destBarEsq: { height: 8, backgroundColor: '#A9B8D0' },
+  destBarDir: { height: 8, backgroundColor: C.navy },
+  destMeio: { position: 'absolute', left: '50%', top: 0, width: 0.8, height: 8, backgroundColor: C.white },
   // grid individual
   // Compacto o bastante para uma empresa de até 30 pessoas caber numa única
   // página A4 (10 linhas × 3), sem criar uma página de continuação quase vazia.
@@ -467,13 +472,27 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
       <Page size="A4" style={s.page}>
         <PageHeader title="Destaques Comportamentais" />
         <View style={s.body}>
-          <Text style={s.p}>Para cada par de tendências opostas, o percentual mostra quantas pessoas do grupo ({p.avaliados} {p.avaliados === 1 ? 'pessoa' : 'pessoas'}) pendem para cada lado. O marcador dourado indica o lado com mais pessoas; em caso de empate, vale o perfil médio do grupo.</Text>
-          {p.destaques.map((d, i) => (
-            <View key={i} style={s.destRow}>
-              <View style={[s.destCell, { opacity: d.ladoEsquerdo ? 1 : 0.6 }]}><View style={[s.destDot, { backgroundColor: d.ladoEsquerdo ? C.gold : 'transparent' }]} /><Text style={s.destTxt}>{d.esquerda}</Text>{d.pctEsquerda != null ? <Text style={s.destPct}>{d.pctEsquerda}%</Text> : null}</View>
-              <View style={[s.destCell, { opacity: d.ladoEsquerdo ? 0.6 : 1 }]}><View style={[s.destDot, { backgroundColor: d.ladoEsquerdo ? 'transparent' : C.gold }]} /><Text style={s.destTxt}>{d.direita}</Text>{d.pctDireita != null ? <Text style={s.destPct}>{d.pctDireita}%</Text> : null}</View>
-            </View>
-          ))}
+          <Text style={s.p}>Cada par de tendências opostas é uma régua de 100% com os dois comportamentos nas pontas. A parte clara da barra é a parcela das pessoas do grupo ({p.avaliados} {p.avaliados === 1 ? 'pessoa' : 'pessoas'}) que pende para o lado esquerdo, e a escura, a que pende para o direito. O nome em destaque é o lado com mais pessoas.</Text>
+          {p.destaques.map((d, i) => {
+            const pe = d.pctEsquerda ?? (d.ladoEsquerdo ? 100 : 0);
+            const pd = d.pctDireita ?? 100 - pe;
+            // empate exato: nenhum lado ganha ênfase (a barra já mostra o meio a meio)
+            const vence = pe === pd ? null : d.ladoEsquerdo ? 'esq' : 'dir';
+            const cor = (lado: 'esq' | 'dir') => (vence === null || vence === lado ? C.navy : '#8794A8');
+            return (
+              <View key={i} style={s.destRow} wrap={false}>
+                <View style={s.destPolos}>
+                  <Text style={[s.destPolo, { color: cor('esq') }]}>{d.esquerda} · {pe}%</Text>
+                  <Text style={[s.destPolo, { color: cor('dir') }]}>{pd}% · {d.direita}</Text>
+                </View>
+                <View style={s.destBar}>
+                  <View style={[s.destBarEsq, { width: `${pe}%`, borderTopLeftRadius: 4, borderBottomLeftRadius: 4, ...(pd === 0 ? { borderTopRightRadius: 4, borderBottomRightRadius: 4 } : {}) }]} />
+                  <View style={[s.destBarDir, { width: `${pd}%`, borderTopRightRadius: 4, borderBottomRightRadius: 4, ...(pe === 0 ? { borderTopLeftRadius: 4, borderBottomLeftRadius: 4 } : {}) }]} />
+                  <View style={s.destMeio} />
+                </View>
+              </View>
+            );
+          })}
         </View>
         <Footer />
       </Page>
