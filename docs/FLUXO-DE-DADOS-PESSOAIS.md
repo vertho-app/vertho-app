@@ -137,15 +137,15 @@ empresa (§2.3), e aí o provedor é o do modelo escolhido.
 | Simulador de conversas (ferramenta do admin) | nome, cargo | modelo escolhido | **não** (ferramenta interna, gera respostas sintéticas) | `actions/simulador-conversas.ts` |
 | Adequação ao cargo: análise por pessoa | nome de várias pessoas por chamada, aderência, perfil DISC e gaps; a resposta volta indexada pelo nome | modelo configurado | **não** | `lib/adequacao-cargo/narrative.ts` |
 | Leitura executiva do Fit | nome, resultado do fit (gaps, forças e alertas) | modelo configurado | **não** | `actions/fit-v2.ts`, `lib/prompts/fit-executive-prompt.js` |
-| Copiloto de reunião (ao vivo, planejamento e memória da conversa) | falas da reunião, nome e cargo dos participantes do cliente, notas do CRM; **terceiros, não colaboradores** | **OpenAI** e **Google** (Gemini) | **não** | `app/api/copiloto/`, `lib/copiloto/conversation-analysis.ts` |
+| Copiloto de reunião (ao vivo, planejamento e memória da conversa) | falas da reunião, nome e cargo dos participantes do cliente, notas do CRM; **terceiros, não colaboradores** | **Anthropic** (leitura ao vivo em Haiku, planejamento e memória em Sonnet; desde 08/10/2026), **Google** (Gemini, reserva da leitura ao vivo) e **OpenAI** (só a pesquisa pública do Copiloto, `copiloto_pesquisa_*`, com busca na web) | **não** | `app/api/copiloto/`, `lib/copiloto/conversation-analysis.ts` |
 | Assistente comercial (objeções e contexto da oportunidade) | nome e função do contato, texto digitado pelo representante | modelo configurado (padrão Anthropic) | **não** | `actions/sales/ai-assistant.ts` |
 
 ### 2.3 Provedores de IA
 
 | Provedor | Papel | Onde |
 |---|---|---|
-| **Anthropic** (Claude) | padrão da maior parte do pipeline; Batch API nos lotes | `actions/ai-client.ts`, `lib/ai-batch.ts` |
-| **OpenAI** | fallback de provedor, auditores cross-família, Batch API do check, transcrição (Whisper) | idem, `app/api/recepcao/voz` |
+| **Anthropic** (Claude) | padrão da maior parte do pipeline; Batch API nos lotes; desde 08/10/2026 também os simuladores PACE (vendas e liderança), o Copiloto (ao vivo, planejamento, memória) e o brief da escola, que antes rodavam em OpenAI ou Google | `actions/ai-client.ts`, `lib/ai-batch.ts` |
+| **OpenAI** | fallback de provedor, auditores cross-família, Batch API do check, pesquisa web do Copiloto, transcrição (Whisper) | idem, `app/api/recepcao/voz` |
 | **Google** (Gemini) | Beto no WhatsApp (texto e áudio), síntese de voz (vídeo, devolutiva, podcast) | `lib/whatsapp/suporte-auto.ts`, `lib/gemini-tts.ts`, `worker-hetzner/` |
 | **Amazon Web Services (AWS Bedrock)** | Kimi K3: criador de cenários e cliente nas dificuldades baixa, média e alta no treinamento comercial Vertho; nome do vendedor e contatos mascarados, nomes de terceiros em texto livre podem permanecer | `lib/bedrock-vendas-vertho.ts`, `lib/simulador-vendas/ai.ts`, `actions/ai-client.ts` |
 | **Voyage** | vetores do acervo de conteúdo e da pergunta do Tira-Dúvidas | `lib/embeddings.ts`, `lib/rag.ts` |

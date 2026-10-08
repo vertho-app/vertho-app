@@ -83,6 +83,15 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - Trocar de modelo: ~26 arquivos + `docs/CUSTO-QUALIDADE.md` + `lib/ia-cost-catalog.ts` (preço e
   `defaultModel`) + grep de chamada crua (`api.anthropic.com`, `new Anthropic(`,
   `generativelanguage`) + conferir os parâmetros de raciocínio, não só o id. **Env da Vercel vence o código.**
+- 🔴 **Propor ou aplicar troca de modelo de uma TAREFA: leia o comentário de alocação ANTES e procure o que sobrescreve DEPOIS.**
+  Antes: o papel é de outra família de propósito (auditores, `sim_aluno`, leitor/guarda do Modo Cena)? roda de verdade
+  (`max(created_at)` no ledger, `git grep` de consumidores fora de `scripts/` e `tests/`, `BLOCOS_OFFLINE`)? Depois: nomes de env na
+  Vercel, `sys_config` das empresas, pilotos. `Medido: 08/10/2026`: o leitor do Modo Cena foi listado como candidato contra decisão
+  do dono de 24/08, e `conteudo_tags` foi trocado em `ae7aa7bc` mas o piloto Kimi (`AWS_BEARER_TOKEN_BEDROCK`, prioridade no código)
+  anulou a troca em produção até `526b3820`. Detalhe: memória `feedback_ler_alocacao_de_modelo_antes_de_propor_troca`.
+- 🔴 **Prompt que devolve data resolvida ("sexta", "dia 15") leva `<hoje>` em BRT, e o validador recebe o MESMO hoje.** Sem isso o ano
+  é palpite do modelo e o normalizador descarta data passada calado (`Medido: 08/10/2026`: Sonnet 5.5 devolveu `2025-10-15` em 8 de 8).
+  Referência: `hojeParaPrompt` em `lib/copiloto/conversation-analysis.ts`.
 - Geração de fundo em lote usa `lib/ai-batch.ts` (−50%). Não rodar na mesma janela dois lotes que
   compartilham **fornecedor** (o TTS do Vertex serve narração E podcast — auto-saturação, 12/08).
 - 🔴 **Ledger mostrando um modelo que o código não declara: veja a DATA antes de culpar a env.**
