@@ -15,40 +15,7 @@ import { aplicarTetoLote, atrasosDoLote, duracaoEstimada } from '@/lib/whatsapp/
 import { ehTemplateDeAcesso } from '@/lib/whatsapp/templates';
 import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
-
-/**
- * Colaboradores que CONCLUÍRAM o mapeamento de competências: responderam TODAS
- * as competências que têm cenário no seu cargo (mesma regra do assessment —
- * `pendentes.length === 0`). Esperado por cargo = competências distintas em
- * banco_cenarios; respondidas = competências distintas em `respostas`.
- */
-async function colaboradoresMapeamentoCompleto(sb: any, empresaId: string): Promise<Set<string>> {
-  const [{ data: respostas }, { data: cenarios }] = await Promise.all([
-    sb.from('respostas').select('colaborador_id, competencia_id, cargo').eq('empresa_id', empresaId),
-    sb.from('banco_cenarios').select('cargo, competencia_id').eq('empresa_id', empresaId),
-  ]);
-  const esperadoPorCargo = new Map<string, Set<string>>();
-  for (const c of (cenarios || [])) {
-    if (!c.competencia_id) continue;
-    let s = esperadoPorCargo.get(c.cargo); if (!s) esperadoPorCargo.set(c.cargo, s = new Set());
-    s.add(c.competencia_id);
-  }
-  const respByColab = new Map<string, { cargo: string; comps: Set<string> }>();
-  for (const r of (respostas || [])) {
-    if (!r.competencia_id) continue;
-    let o = respByColab.get(r.colaborador_id); if (!o) respByColab.set(r.colaborador_id, o = { cargo: r.cargo, comps: new Set() });
-    o.comps.add(r.competencia_id);
-  }
-  const completos = new Set<string>();
-  for (const [colabId, o] of respByColab) {
-    const esperado = esperadoPorCargo.get(o.cargo);
-    if (!esperado || esperado.size === 0) continue;
-    let todas = true;
-    for (const cid of esperado) if (!o.comps.has(cid)) { todas = false; break; }
-    if (todas) completos.add(colabId);
-  }
-  return completos;
-}
+import { lerMapeamentoProgresso, passaNoFiltroMapeamento } from '@/lib/mapeamento-progresso';
 
 const EMAIL_MIN_INTERVAL_MS = 250; // 4 req/s, abaixo das cotas atuais de ambos os provedores
 
@@ -185,13 +152,11 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         : colabs.filter(c => votouSet.has(c.id));
     }
 
-    // Filtrar por mapeamento de competências (diagnóstico Fase 2): 'completo'
-    // (sessão de avaliação concluída) vs 'pendente' (sem sessão concluída).
-    if (filtros.mapeamento === 'completo' || filtros.mapeamento === 'pendente') {
-      const mapeouSet = await colaboradoresMapeamentoCompleto(sb, empresaId);
-      colabs = filtros.mapeamento === 'completo'
-        ? colabs.filter(c => mapeouSet.has(c.id))
-        : colabs.filter(c => !mapeouSet.has(c.id));
+    // Filtrar por mapeamento de competências (diagnóstico Fase 2): 'completo' (respondeu todas as competências do cargo),
+    // 'andamento' (respondeu parte) e 'pendente' (ainda não concluiu: andamento + quem nem começou).
+    if (filtros.mapeamento === 'completo' || filtros.mapeamento === 'pendente' || filtros.mapeamento === 'andamento') {
+      const progresso = await lerMapeamentoProgresso(sb, empresaId);
+      colabs = colabs.filter(c => passaNoFiltroMapeamento(filtros.mapeamento, progresso.estadoDe(c.id)));
     }
 
     colabs = colabs.filter(c => c.email);
@@ -332,11 +297,9 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
         ? colabs.filter(c => !votouSet.has(c.id))
         : colabs.filter(c => votouSet.has(c.id));
     }
-    if (filtros.mapeamento === 'completo' || filtros.mapeamento === 'pendente') {
-      const mapeouSet = await colaboradoresMapeamentoCompleto(sb, empresaId);
-      colabs = filtros.mapeamento === 'completo'
-        ? colabs.filter(c => mapeouSet.has(c.id))
-        : colabs.filter(c => !mapeouSet.has(c.id));
+    if (filtros.mapeamento === 'completo' || filtros.mapeamento === 'pendente' || filtros.mapeamento === 'andamento') {
+      const progresso = await lerMapeamentoProgresso(sb, empresaId);
+      colabs = colabs.filter(c => passaNoFiltroMapeamento(filtros.mapeamento, progresso.estadoDe(c.id)));
     }
     if (!colabs.length) return { success: false, error: 'Nenhum colaborador com telefone e email' };
 
@@ -546,9 +509,14 @@ export async function loadColaboradoresEnvio(empresaId) {
     .eq('empresa_id', empresaId);
   const votouSet = new Set((votos || []).map((v: any) => v.colaborador_id));
 
-  // "Completou o mapeamento" = respondeu TODAS as competências com cenário do
-  // seu cargo (regra do assessment: pendentes==0).
-  const mapeouSet = await colaboradoresMapeamentoCompleto(sb, empresaId);
+  // Andamento do mapeamento (completo, em andamento, não iniciado): `lib/mapeamento-progresso.ts`. Falha de leitura NÃO derruba a
+  // lista nem vira "ninguém concluiu": a linha sai com `estadoMapeamento: null` (não medido) e a tela avisa.
+  let progresso: Awaited<ReturnType<typeof lerMapeamentoProgresso>> | null = null;
+  try {
+    progresso = await lerMapeamentoProgresso(sb, empresaId);
+  } catch (e: any) {
+    console.error(`[envios] andamento do mapeamento não lido (${empresaId}): ${e?.message || e}`);
+  }
 
   // Participação ATIVA (mig 210): sem ela a contagem da tela conta a empresa
   // inteira e promete um alvo que o servidor vai recortar por turma — o número
@@ -564,7 +532,8 @@ export async function loadColaboradoresEnvio(empresaId) {
     ...c,
     votou: votouSet.has(c.id),
     temDisc: !!c.perfil_dominante,
-    temMapeamento: mapeouSet.has(c.id),
+    estadoMapeamento: progresso ? progresso.estadoDe(c.id) : null,
+    temMapeamento: progresso ? progresso.estadoDe(c.id) === 'completo' : false,
     turmaId: turmaDe.get(c.id) || null,
   }));
 }
@@ -832,8 +801,14 @@ async function colaboradoresFiltrados(sb: any, empresaId: string, filtros: any) 
   // como status de trilha — e tem razão em não distinguir: dois domínios usando
   // as mesmas palavras é justamente como um typo passa despercebido.
   if (typeof filtros.mapeamentoCompleto === 'boolean') {
-    const completos = await colaboradoresMapeamentoCompleto(sb, empresaId);
-    lista = lista.filter((c) => (filtros.mapeamentoCompleto ? completos.has(c.id) : !completos.has(c.id)));
+    const progresso = await lerMapeamentoProgresso(sb, empresaId);
+    lista = lista.filter((c) => (filtros.mapeamentoCompleto ? progresso.estadoDe(c.id) === 'completo' : progresso.estadoDe(c.id) !== 'completo'));
+  }
+  // "Em andamento" (respondeu parte das competências do cargo e não todas) é um estado À PARTE do concluído/pendente: pendente inclui
+  // quem nem começou. Booleano `true` estrito, como o resto deste filtro (vem do cliente).
+  if (filtros.mapeamentoEmAndamento === true) {
+    const progresso = await lerMapeamentoProgresso(sb, empresaId);
+    lista = lista.filter((c) => progresso.estadoDe(c.id) === 'andamento');
   }
 
   return { escopo, lista };

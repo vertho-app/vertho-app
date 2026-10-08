@@ -5569,6 +5569,8 @@
       "mapping": "Mapeamento",
       "mappingDone": "Concluído",
       "mappingPending": "Pendente",
+      "mappingInProgress": "Em andamento",
+      "mappingUnavailable": "Não foi possível ler o andamento do mapeamento; os filtros de mapeamento podem estar incompletos.",
       "emailRecipients": "{count} destinatário(s) com email",
       "whatsappRecipients": "{count} destinatário(s) com WhatsApp"
     },

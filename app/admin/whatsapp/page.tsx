@@ -10,6 +10,7 @@ import {
   Workflow, MousePointerClick,
 } from 'lucide-react';
 import { loadEmpresas, loadColaboradoresEnvio, loadTurmasEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp, listarTemplatesDeEnvio, previewTemplateWhatsApp, dispararTemplateWhatsApp } from './actions';
+import { filtroDoLoteDeTemplate } from '@/lib/mapeamento-progresso';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
@@ -72,8 +73,9 @@ export default function EnviosPage() {
   // 'todos' = sem filtro · 'sim' = só quem já tem · 'nao' = só quem ainda não tem
   const [filtroDisc, setFiltroDisc] = useState<'todos' | 'sim' | 'nao'>('todos');
   // Filtro por conclusão do MAPEAMENTO (diagnóstico) de competências — Fase 2.
-  // 'todos' = sem filtro · 'completo' = quem concluiu · 'pendente' = quem ainda não
-  const [filtroMapeamento, setFiltroMapeamento] = useState<'todos' | 'completo' | 'pendente'>('todos');
+  // 'todos' = sem filtro · 'completo' = quem concluiu · 'pendente' = quem ainda não concluiu (inclui quem nem começou)
+  // · 'andamento' = quem respondeu parte das competências do cargo e não todas
+  const [filtroMapeamento, setFiltroMapeamento] = useState<'todos' | 'completo' | 'pendente' | 'andamento'>('todos');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -112,7 +114,7 @@ export default function EnviosPage() {
       cargo: filtroCargo || undefined,
       voto: filtroVoto !== 'todos' ? filtroVoto : undefined,
       disc: filtroDisc !== 'todos' ? filtroDisc : undefined,
-      mapeamentoCompleto: filtroMapeamento === 'todos' ? undefined : filtroMapeamento === 'completo',
+      ...filtroDoLoteDeTemplate(filtroMapeamento),
       ...filtrosDeEscopo(),
     };
   }
@@ -266,6 +268,10 @@ export default function EnviosPage() {
   // ninguém saber — o mesmo defeito do `adiadosPorTeto`.
   const semTurma = colabs.filter((c: any) => !c.turmaId).length;
 
+  // O servidor não conseguiu ler o andamento do mapeamento (estado nulo em todas as linhas): os filtros de mapeamento da LISTA não são
+  // confiáveis, e a tela diz isso em vez de mostrar contagem errada como se fosse certa. O disparo, esse, recusa por conta própria.
+  const mapeamentoIndisponivel = colabs.length > 0 && colabs.every((c: any) => c.estadoMapeamento === null);
+
   // Destinatários filtrados
   const destinatarios = colabs.filter(c => {
     if (escopoTurmaId && c.turmaId !== escopoTurmaId) return false;
@@ -276,6 +282,7 @@ export default function EnviosPage() {
     if (filtroDisc === 'nao' && c.temDisc) return false;
     if (filtroMapeamento === 'completo' && !c.temMapeamento) return false;
     if (filtroMapeamento === 'pendente' && c.temMapeamento) return false;
+    if (filtroMapeamento === 'andamento' && c.estadoMapeamento !== 'andamento') return false;
     if (tab === 'whatsapp') return !!c.telefone;
     return !!c.email;
   });
@@ -539,7 +546,9 @@ export default function EnviosPage() {
                     <option value="todos">{t('filters.all')}</option>
                     <option value="completo">{t('filters.mappingDone')}</option>
                     <option value="pendente">{t('filters.mappingPending')}</option>
+                    <option value="andamento">{t('filters.mappingInProgress')}</option>
                   </select>
+                  {mapeamentoIndisponivel && <p className="mt-1 text-[10px] text-amber-400">{t('filters.mappingUnavailable')}</p>}
                 </div>
               </div>
               {!escopoPendente && (
@@ -636,7 +645,9 @@ export default function EnviosPage() {
                       <option value="todos">{t('filters.all')}</option>
                       <option value="completo">{t('filters.mappingDone')}</option>
                       <option value="pendente">{t('filters.mappingPending')}</option>
+                      <option value="andamento">{t('filters.mappingInProgress')}</option>
                     </select>
+                    {mapeamentoIndisponivel && <p className="mt-1 text-[10px] text-amber-400">{t('filters.mappingUnavailable')}</p>}
                   </div>
                 </div>
                 {/* Sem escopo escolhido a contagem seria a empresa inteira — um

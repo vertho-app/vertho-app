@@ -5454,6 +5454,8 @@
       "mapping": "Mapping",
       "mappingDone": "Completed",
       "mappingPending": "Pending",
+      "mappingInProgress": "In progress",
+      "mappingUnavailable": "Could not read mapping progress; the mapping filters may be incomplete.",
       "emailRecipients": "{count} recipient(s) with email",
       "whatsappRecipients": "{count} recipient(s) with WhatsApp"
     },
