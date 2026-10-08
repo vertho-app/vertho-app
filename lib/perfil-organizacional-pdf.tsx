@@ -94,7 +94,8 @@ const s = StyleSheet.create({
   destRow: { flexDirection: 'row', marginBottom: 5, gap: 8 },
   destCell: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: C.navy, borderRadius: 6, paddingVertical: 6, paddingHorizontal: 8 },
   destDot: { width: 11, height: 11, borderRadius: 6, borderWidth: 2, borderColor: C.gold, marginRight: 7 },
-  destTxt: { color: '#D8E0EC', fontSize: 8.5, fontWeight: 700 },
+  destTxt: { color: '#D8E0EC', fontSize: 8.5, fontWeight: 700, flex: 1 },
+  destPct: { color: '#D8E0EC', fontSize: 8.5, fontWeight: 700, marginLeft: 6 },
   // grid individual
   // Compacto o bastante para uma empresa de até 30 pessoas caber numa única
   // página A4 (10 linhas × 3), sem criar uma página de continuação quase vazia.
@@ -466,11 +467,11 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
       <Page size="A4" style={s.page}>
         <PageHeader title="Destaques Comportamentais" />
         <View style={s.body}>
-          <Text style={s.p}>Para cada par de tendências opostas, o lado destacado (marcador dourado) indica a inclinação predominante do grupo.</Text>
+          <Text style={s.p}>Para cada par de tendências opostas, o percentual mostra quantas pessoas do grupo ({p.avaliados} {p.avaliados === 1 ? 'pessoa' : 'pessoas'}) pendem para cada lado. O marcador dourado indica o lado com mais pessoas; em caso de empate, vale o perfil médio do grupo.</Text>
           {p.destaques.map((d, i) => (
             <View key={i} style={s.destRow}>
-              <View style={[s.destCell, { opacity: d.ladoEsquerdo ? 1 : 0.4 }]}><View style={[s.destDot, { backgroundColor: d.ladoEsquerdo ? C.gold : 'transparent' }]} /><Text style={s.destTxt}>{d.esquerda}</Text></View>
-              <View style={[s.destCell, { opacity: d.ladoEsquerdo ? 0.4 : 1 }]}><View style={[s.destDot, { backgroundColor: d.ladoEsquerdo ? 'transparent' : C.gold }]} /><Text style={s.destTxt}>{d.direita}</Text></View>
+              <View style={[s.destCell, { opacity: d.ladoEsquerdo ? 1 : 0.6 }]}><View style={[s.destDot, { backgroundColor: d.ladoEsquerdo ? C.gold : 'transparent' }]} /><Text style={s.destTxt}>{d.esquerda}</Text>{d.pctEsquerda != null ? <Text style={s.destPct}>{d.pctEsquerda}%</Text> : null}</View>
+              <View style={[s.destCell, { opacity: d.ladoEsquerdo ? 0.6 : 1 }]}><View style={[s.destDot, { backgroundColor: d.ladoEsquerdo ? 'transparent' : C.gold }]} /><Text style={s.destTxt}>{d.direita}</Text>{d.pctDireita != null ? <Text style={s.destPct}>{d.pctDireita}%</Text> : null}</View>
             </View>
           ))}
         </View>

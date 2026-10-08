@@ -89,7 +89,8 @@ export interface PessoaDisc {
   /** @deprecated Mantido apenas para compatibilidade com fixtures históricas. */
   adaptado?: DiscMedia;
 }
-export interface DestaqueBipolar { esquerda: string; direita: string; ladoEsquerdo: boolean }
+/** `pctEsquerda`/`pctDireita` só existem nos destaques do GRUPO (`destaquesDoGrupo`): % de pessoas em cada lado. */
+export interface DestaqueBipolar { esquerda: string; direita: string; ladoEsquerdo: boolean; pctEsquerda?: number; pctDireita?: number }
 export interface LiderancaStat { nome: string; vinculo: string; pct: number; dist: { nome: string; pct: number }[] }
 
 export interface PerfilOrg {
@@ -162,6 +163,32 @@ export function destaquesBipolares(m: DiscMedia): DestaqueBipolar[] {
     ['PRÁTICO', 'TEÓRICO', m.d >= m.c],
   ];
   return pares.map(([e, d, l]) => ({ esquerda: e, direita: d, ladoEsquerdo: l }));
+}
+
+/**
+ * Destaques do GRUPO: cada pessoa cai num lado de cada par (`destaquesBipolares` sobre o
+ * DISC dela), e o grupo ganha o % de pessoas em cada lado. O marcador vai para o lado com
+ * MAIS pessoas; no empate exato vale o lado da média do grupo.
+ *
+ * Por que não só a média (08/10/2026, Amazon Bowling): a comparação binária sobre a média
+ * punha os 24 pares à direita, e pessoa a pessoa 6 de 14 pendiam à esquerda em D ≥ S e 7 de
+ * 14 estavam meio a meio em "relacionamentos × tarefas". Sem o %, a página passava uma
+ * homogeneidade que o grupo não tem. Com o %, o destaque tem de seguir a maioria: marcador
+ * na média e % maior do outro lado seria a página contradizendo a si mesma.
+ */
+export function destaquesDoGrupo(media: DiscMedia, R: any[]): DestaqueBipolar[] {
+  const porMedia = destaquesBipolares(media);
+  if (!R.length) return porMedia;
+  const esq = porMedia.map(() => 0);
+  for (const x of R) {
+    destaquesBipolares({ d: n(x.d_natural), i: n(x.i_natural), s: n(x.s_natural), c: n(x.c_natural) })
+      .forEach((par, k) => { if (par.ladoEsquerdo) esq[k]++; });
+  }
+  return porMedia.map((par, k) => {
+    const pctEsquerda = Math.round((esq[k] / R.length) * 100);
+    const ladoEsquerdo = esq[k] * 2 === R.length ? par.ladoEsquerdo : esq[k] * 2 > R.length;
+    return { ...par, ladoEsquerdo, pctEsquerda, pctDireita: 100 - pctEsquerda };
+  });
 }
 
 const EMPTY_PERFIL: PerfilOrg = {
@@ -239,7 +266,7 @@ export function computePerfilOrg(R: any[]): PerfilOrg {
     avaliados: R.length, natural, perfilDominante, arquetipo: derivarArquetipo(perfilDominante),
     fatoresOrdem, valores, lideranca, competencias, compMais, compMenos,
     fatoresAltoBaixo, talentos,
-    destaques: destaquesBipolares(natural), pessoas, semDados: false,
+    destaques: destaquesDoGrupo(natural, R), pessoas, semDados: false,
   };
 }
 
