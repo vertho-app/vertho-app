@@ -4,8 +4,8 @@ import type { DnaNarrative } from '@/lib/dna-organizacional/narrative';
 import {
   COMP_LABEL,
   computePerfilOrg,
+  recortePorCargo,
   type PerfilOrg,
-  type PerfilPorCargo,
 } from '@/lib/perfil-organizacional/aggregate';
 
 type DemoOrganizationPerson = {
@@ -119,19 +119,7 @@ export function criarPerfilOrganizacionalAcmeDemo(
     .map(enriquecerPessoaComportamental)
     .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, 'pt-BR'));
   const profile = computePerfilOrg(mapped);
-  const byRole = new Map<string, typeof mapped>();
-  for (const person of mapped) {
-    const role = String(person.cargo || '').trim() || '(sem cargo)';
-    const group = byRole.get(role) || [];
-    group.push(person);
-    byRole.set(role, group);
-  }
-  const porCargo: PerfilPorCargo[] = [...byRole.entries()]
-    .filter(([, group]) => group.length >= 3)
-    .sort((a, b) => b[1].length - a[1].length)
-    .map(([cargo, group]) => ({ cargo, n: group.length, perfil: computePerfilOrg(group) }));
-
-  return { ...profile, porCargo };
+  return { ...profile, porCargo: recortePorCargo(mapped) };
 }
 
 function bucketDaFaixa(value: number): { bucket: NBucket; nota: number; nivel: string } {

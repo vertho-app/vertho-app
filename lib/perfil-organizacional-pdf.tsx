@@ -250,11 +250,13 @@ function CargoBlock({ cargo, n, perfil }: { cargo: string; n: number; perfil: Pe
     </View>
   );
 }
-function PageHeader({ title }: { title: string }) {
+function PageHeader({ title, fixed }: { title: string; fixed?: boolean }) {
   // Logo ESCURA HORIZONTAL: o header das páginas de conteúdo é branco (a clara
   // some) e a caixa é fina (a AC ~quadrada estica). Ver getLogoDarkHBase64.
+  // `fixed`: repete o header nas páginas de continuação (sem ele, a 2ª página de uma
+  // seção que quebra começa colada na borda de cima).
   const logo = getLogoDarkHBase64();
-  return <View style={s.header}><Text style={s.hTitle}>{title}</Text>{logo ? <Image src={logo} style={s.hLogo} /> : null}</View>;
+  return <View style={s.header} fixed={fixed}><Text style={s.hTitle}>{title}</Text>{logo ? <Image src={logo} style={s.hLogo} /> : null}</View>;
 }
 function Footer() {
   return <View style={s.footer} fixed><Text>Vertho · Perfil Organizacional</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>;
@@ -503,9 +505,9 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
       {/* Perfil por Cargo — recorte da rede por função */}
       {p.porCargo && p.porCargo.length > 0 && (
         <Page size="A4" style={s.page} wrap>
-          <PageHeader title="Perfil por Cargo" />
+          <PageHeader title="Perfil por Cargo" fixed />
           <View style={s.body}>
-            <Text style={s.p}>O mesmo Mapeamento Comportamental, agora recortado por cargo. Compara como cada função da rede se diferencia em perfil, estilo de liderança, talentos e competências. Cargos com menos de 3 pessoas não aparecem, para preservar o anonimato e a validade estatística.</Text>
+            <Text style={s.p}>O mesmo Mapeamento Comportamental, agora recortado por cargo. Compara como cada função da rede se diferencia em perfil, estilo de liderança, talentos e competências. Em cargos com 1 ou 2 pessoas, o recorte descreve essas pessoas, não uma tendência do grupo.</Text>
             {p.porCargo.map((pc) => (
               <CargoBlock key={pc.cargo} cargo={pc.cargo} n={pc.n} perfil={pc.perfil} />
             ))}

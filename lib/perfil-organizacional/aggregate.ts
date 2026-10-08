@@ -244,12 +244,30 @@ export function computePerfilOrg(R: any[]): PerfilOrg {
 }
 
 /**
- * Perfil DISC da EMPRESA (rede toda) + recorte POR CARGO. O agregado geral é o
- * mesmo de antes; `porCargo` acrescenta uma seção por cargo (só cargos com ≥ MIN
- * colaboradores, pra não expor grupos minúsculos nem gerar ruído estatístico).
+ * Recorte POR CARGO: uma seção por cargo, do maior para o menor (empate: ordem
+ * alfabética, para o PDF não mudar de ordem entre duas gerações).
+ *
+ * SEM piso de N (08/10/2026, Amazon Bowling: 11 cargos, 10 com uma pessoa, e o
+ * PDF só trazia 1). O piso de 3 prometia anonimato que este relatório não
+ * entrega: a página "Gráficos Individuais" já lista nome e DISC de cada pessoa.
+ * O `n` de cada seção vai no cabeçalho do bloco, e o texto do PDF avisa que um
+ * cargo de 1 ou 2 pessoas descreve essas pessoas, não uma tendência do grupo.
+ * O DNA organizacional (`MIN_POR_CARGO_DNA`) mantém o piso: ele NÃO lista o nível
+ * de cada pessoa. Quem mostra a pessoa não pode prometer o recorte anônimo.
  */
-const MIN_POR_CARGO = 3;
+export function recortePorCargo(rows: any[]): PerfilPorCargo[] {
+  const grupos = new Map<string, any[]>();
+  for (const x of rows) {
+    const cg = (x.cargo || '').trim() || '(sem cargo)';
+    if (!grupos.has(cg)) grupos.set(cg, []);
+    grupos.get(cg)!.push(x);
+  }
+  return [...grupos.entries()]
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], 'pt-BR'))
+    .map(([cargo, arr]) => ({ cargo, n: arr.length, perfil: computePerfilOrg(arr) }));
+}
 
+/** Perfil DISC da EMPRESA (rede toda) + recorte POR CARGO (`recortePorCargo`). */
 export async function aggregatePerfilOrg(sb: SupabaseClient, empresaId: string): Promise<PerfilOrg> {
   const cols = [
     'nome_completo', 'cargo', 'perfil_dominante',
@@ -266,19 +284,5 @@ export async function aggregatePerfilOrg(sb: SupabaseClient, empresaId: string):
   if (!rows || !rows.length) return EMPTY_PERFIL;
   const R = rows as any[];
 
-  const geral = computePerfilOrg(R);
-
-  // Recorte por cargo.
-  const grupos = new Map<string, any[]>();
-  for (const x of R) {
-    const cg = (x.cargo || '').trim() || '(sem cargo)';
-    if (!grupos.has(cg)) grupos.set(cg, []);
-    grupos.get(cg)!.push(x);
-  }
-  const porCargo: PerfilPorCargo[] = [...grupos.entries()]
-    .filter(([, arr]) => arr.length >= MIN_POR_CARGO)
-    .sort((a, b) => b[1].length - a[1].length)
-    .map(([cargo, arr]) => ({ cargo, n: arr.length, perfil: computePerfilOrg(arr) }));
-
-  return { ...geral, porCargo };
+  return { ...computePerfilOrg(R), porCargo: recortePorCargo(R) };
 }

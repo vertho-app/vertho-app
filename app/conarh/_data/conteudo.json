@@ -775,7 +775,7 @@
       {
         "src": "/conarh/media/perfil-organizacional.pdf",
         "titulo": "Perfil Organizacional",
-        "nota": "O Mapeamento Comportamental da organização — perfil, estilo de liderança e talentos, recortado por cargo. Cargos com menos de 3 pessoas ficam de fora, por anonimato.",
+        "nota": "O Mapeamento Comportamental da organização — perfil, estilo de liderança e talentos, recortado por cargo. Em cargos com 1 ou 2 pessoas, o recorte descreve essas pessoas, não uma tendência do grupo.",
         "capa": "/conarh/media/capa-perfil-organizacional.png",
         "paginas": 9
       },
