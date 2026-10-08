@@ -15,6 +15,26 @@ Memória: `~/.claude/projects/C--GAS-Vertho-App/memory/`.
 
 Proceda **sem perguntar** — deploy e memória são autorizados de forma durável.
 
+## 0. Conferir que a receita que estou lendo é a PUBLICADA (primeiro passo, sempre)
+
+Esta skill é lida do **disco** (`.claude/skills` é junção para `nextjs-app/.claude/skills`), e o checkout principal costuma estar atrás de `origin/master`: a receita que aparece aqui pode ser velha, e seguir receita velha já custou caro (30/09: 3 remoções do Project não gravaram e o contador escondeu a falha). Antes de qualquer passo, rode:
+
+```bash
+R="C:/GAS/Vertho App/nextjs-app"
+git -C "$R" fetch -q origin master 2>/dev/null || echo "FETCH FALHOU: NÃO conferi (diga isso, não leia como igual)"
+for f in $(git -C "$R" ls-tree --name-only origin/master .claude/skills/fechar/ | sed 's#.*/##'); do
+  d=$(tr -d '\r' < "$R/.claude/skills/fechar/$f" | sha1sum | cut -c1-10)
+  m=$(MSYS_NO_PATHCONV=1 git -C "$R" show "origin/master:.claude/skills/fechar/$f" | tr -d '\r' | sha1sum | cut -c1-10)
+  echo "$f disco=$d master=$m $([ "$d" = "$m" ] && echo IGUAL || echo DIFERE)"
+done
+```
+
+- **Tudo `IGUAL`**: siga o que está no disco.
+- **Algum `DIFERE`**: a versão válida é a do `origin/master`. Leia **essa** (`MSYS_NO_PATHCONV=1 git -C "$R" show "origin/master:.claude/skills/fechar/<arquivo>"`) e siga ela, não a do disco. 🔴 **Não sobrescreva o arquivo do disco sem olhar**: `git -C "$R" status --porcelain -- .claude/skills/fechar/<arquivo>` mostrando ` M` quer dizer edição local não commitada de outra pessoa ou sessão; nesse caso só leia o master e avise no fecho. Disco limpo e atrasado pode ser alinhado copiando a versão do master.
+- Os `Permission denied` em `.git/worktrees/` que o `fetch` imprime são ruído da poda do Windows, não falha. A falha real é o `fetch` sair com erro (a mensagem acima).
+
+`Medido: 08/10/2026`: o `sincronizar-project.md` do disco estava **4 commits atrás** (59 linhas só no master, com a sincronização pela API com hash e a saída do DELETE) **e** com 17 linhas locais não commitadas. A regra valia só na memória; aqui ela deixa de depender de alguém lembrar.
+
 ## 1. Destilar: o que aqui é aprendizado?
 
 Antes de escrever qualquer coisa, separe:
