@@ -1611,3 +1611,14 @@ Padrão que casa: `reconciliarPersonalizados` · `tasks.trigger` dentro de `scri
 - [ ] **Um efeito paralelo pode MASCARAR a diferença.** Nesta rodada o áudio da saudação existiu porque 3 células retomadas no mesmo minuto dispararam a task do Trigger (que roda o deploy novo). Sem elas, a box teria registrado `saudacao-vertex-ausente` para a pessoa.
 
 **Consequência medida (08/10/2026, Boehringer):** rodei a reconciliação do checkout principal para refazer o nominal do Rodrigo; ela enfileirou a célula normalmente mas sem gerar o áudio da saudação. Detectei pela ausência da linha de log, não por erro. Memória `reference_checkout_principal_atras_do_master`.
+
+## § Vou mexer num HOOK (`C:/GAS/Vertho App/.claude/hooks/**`) ou na proteção da máquina (fila, piso de RAM)
+
+Padrão que casa: `fila.mts` · `fila-pesado.js` · `push-suite.js` · `commit-pathspec.js` · bloco `hooks` ou `env` de `.claude/settings.json` e `nextjs-app/.claude/settings.local.json`. Os hooks moram FORA do git e os testes deles não rodam no CI: rode à mão.
+
+- [ ] **Teste o comando REAL que o hook vai ler, não só o que ele deve pegar.** O hook lê o comando como TEXTO: separador dentro de aspas (`-match 'next build|tsc --noEmit'`), `echo "…commit…"`, `git stash push`. Rode `fila-pesado.test.js`, `push-suite.test.js` e a mutação em `fila-testes/` (`mutacoes-hook.mjs`, `mutacoes-push-suite.mjs`, `rodar-mutacoes.mjs`).
+- [ ] **Proteção da máquina pode ATRASAR, nunca RECUSAR.** Teste o ramo "limite estourado" e leia a mensagem de negativa: se o comando pode sair sem rodar, é regressão. Piso de RAM é por TIPO de job. Gate de QUALIDADE (suíte vermelha na catraca de push) é outra classe e continua negando.
+- [ ] **Mexeu num `settings`, mexa no outro**, e lembre que sessão aberta em worktree não herda nenhum dos dois.
+- [ ] **Teste de hook que mede TEMPO mede o PC.** Prove espera por ORDEM de timestamps; `spawnSync` no runner congela o loop de eventos; e mutação "pega" por colisão de porta não conta.
+
+**Consequência medida (06-07/10/2026):** o `fila-pesado.js` negou o comando de diagnóstico de quem o escreveu (os 47 casos originais eram todos "limpos"), e uma sessão ficou sem gerar um PNG por causa da fila (regra do dono: "o certo seria apenas colocar em fila"). Memórias `project_maquina_lenta_fila_0610`, `feedback_protecao_atrasa_nao_impede`, `project_hooks_catraca`; `CLAUDE.md` §Comandos.
