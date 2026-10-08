@@ -1622,3 +1622,13 @@ Padrão que casa: `fila.mts` · `fila-pesado.js` · `push-suite.js` · `commit-p
 - [ ] **Teste de hook que mede TEMPO mede o PC.** Prove espera por ORDEM de timestamps; `spawnSync` no runner congela o loop de eventos; e mutação "pega" por colisão de porta não conta.
 
 **Consequência medida (06-07/10/2026):** o `fila-pesado.js` negou o comando de diagnóstico de quem o escreveu (os 47 casos originais eram todos "limpos"), e uma sessão ficou sem gerar um PNG por causa da fila (regra do dono: "o certo seria apenas colocar em fila"). Memórias `project_maquina_lenta_fila_0610`, `feedback_protecao_atrasa_nao_impede`, `project_hooks_catraca`; `CLAUDE.md` §Comandos.
+## § O `package.json`/`package-lock.json` mudou no master (ou vou deployar o Trigger, ou confiar na suíte da catraca)
+
+Padrão que casa: `@trigger.dev/*` · `next` · `pdfjs-dist` · qualquer dependência com bump de segurança · `npm ci`.
+
+- [ ] **O `node_modules` que as catracas e os worktrees usam (junction da raiz) bate com o lock do master?** `node -p "require('./node_modules/@trigger.dev/sdk/package.json').version"` contra o `package-lock.json`. A suíte da catraca mede o COMMIT, mas com as DEPENDÊNCIAS do disco: ela pode passar verde num `node_modules` velho que o CI (que roda `npm ci`) não tem.
+- [ ] **Deploy do Trigger: o CLI tem que ser igual ao SDK** (`npx trigger.dev@<versão do SDK> deploy`, e o `node_modules` ligado na pasta de deploy tem que ter essa mesma versão). Com o `node_modules` velho a CLI recusa ("packages newer than your CLI").
+- [ ] **`npm ci` no disco principal é decisão em duas pontas:** o disco costuma estar centenas de commits atrás do master, com o `next dev` do dono rodando e arquivos dele modificados. Código velho contra dependência nova quebra (pdfjs 5→6: `PDFDocumentProxy.destroy`). Instale FORA (`C:ertho-nm-master`), meça com a suíte e o `tsc` num worktree do master, e só troque (rename) depois do pull e com o dev server parado.
+- [ ] **Espaço:** o `node_modules` tem ~1,5 a 1,8 GB e o disco já andou em 3 GB livres: confira antes de instalar uma segunda cópia.
+
+**Consequência medida (06-08/10/2026):** o commit `529384a9` levou o SDK do Trigger a 4.7.3 e o `node_modules` compartilhado ficou em 4.4.6: o 1º `trigger.dev deploy` do dia foi recusado, e por dois dias a suíte do catraca mediu o master com pdfjs 5, next 16.2 e sentry 10.53 em vez das versões do lock. Medido depois com o `npm ci` do lock: tsc limpo e 11.544 testes verdes; o código antigo do disco, contra o mesmo `node_modules`, dá 2 erros de TypeScript (pdfjs). Memória `reference_trigger_deploy`.
