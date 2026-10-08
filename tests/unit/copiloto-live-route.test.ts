@@ -115,9 +115,29 @@ describe('rota de apoio ao vivo', () => {
     expect(vi.mocked(callAI).mock.calls[1][2]).toEqual({ model: 'gemini-3.8-flash' });
   });
 
-  it('percorre a escada inteira (Haiku, Gemini 3.8, Luna) e cada degrau recebe o esforço que o provedor aceita', async () => {
+  it('a escada tem DOIS degraus (Haiku, Gemini 3.8), sem GPT, e cada um recebe o esforço que o provedor aceita', async () => {
+    // Só duas respostas na fila: um terceiro degrau consumiria a resposta de OUTRO teste (a fila de `Once` não é limpa
+    // por `clearAllMocks`) e a lista de modelos abaixo mostraria a chamada a mais.
     vi.mocked(callAI)
       .mockResolvedValueOnce('sem JSON')
+      .mockResolvedValueOnce('sem JSON');
+
+    const response = await POST(request());
+    const data = await response.json();
+    const chamadas = vi.mocked(callAI).mock.calls;
+
+    expect(response.status).toBe(200);
+    expect(data.meta.mode).toBe('local_fallback');
+    expect(chamadas.map((c) => (c[2] as any).model)).toEqual(['claude-haiku-5-5', 'gemini-3.8-flash']);
+    expect(chamadas.some((c) => String((c[2] as any).model).startsWith('gpt'))).toBe(false);
+    // O Haiku aceita `none`; o Gemini 3.8 não (o menor nível dele é `low`).
+    expect(chamadas.map((c) => (c[4] as any).reasoningEffort)).toEqual(['none', 'low']);
+    expect(chamadas.map((c) => c[3])).toEqual([700, 700]);
+  });
+
+  it('COPILOTO_LIVE_MODEL em GPT (porta de volta) ainda tem o Gemini 3.8 de reserva', async () => {
+    process.env.COPILOTO_LIVE_MODEL = 'gpt-5.6-luna';
+    vi.mocked(callAI)
       .mockResolvedValueOnce('sem JSON')
       .mockResolvedValueOnce(JSON.stringify({
         fase: 'analisar', sinal: 'neutro', objecao: null, descobertas_cobertas: [],
@@ -125,15 +145,9 @@ describe('rota de apoio ao vivo', () => {
       }));
 
     const response = await POST(request());
-    const data = await response.json();
-    const chamadas = vi.mocked(callAI).mock.calls;
 
     expect(response.status).toBe(200);
-    expect(data.meta.mode).toBe('provider_fallback');
-    expect(chamadas.map((c) => (c[2] as any).model)).toEqual(['claude-haiku-5-5', 'gemini-3.8-flash', 'gpt-5.6-luna']);
-    // Haiku e Luna aceitam `none`; o Gemini 3.8 não (o menor nível dele é `low`).
-    expect(chamadas.map((c) => (c[4] as any).reasoningEffort)).toEqual(['none', 'low', 'none']);
-    expect(chamadas.map((c) => c[3])).toEqual([700, 700, 700]);
+    expect(vi.mocked(callAI).mock.calls.map((c) => (c[2] as any).model)).toEqual(['gpt-5.6-luna', 'gemini-3.8-flash']);
   });
 
   it('COPILOTO_LIVE_MODEL no Gemini 3.8 devolve a escada e o teto antigos (porta de volta sem deploy de código)', async () => {

@@ -75,15 +75,15 @@ async function generateLiveReading(system: string, prompt: string): Promise<{
   recoveredProvider: boolean;
 } | null> {
   // Haiku 5.5 sem raciocínio mantém o apoio de reunião rápido (08/10/2026; antes Gemini 3.8 Flash). Se ele falha, o
-  // Gemini 3.8 assume (o wrapper tenta o 3.7 dentro dele) e o Luna fecha a escada, de outra família.
+  // Gemini 3.8 assume (o wrapper tenta o 3.7 dentro dele), de outra família. O GPT 5.6 Luna saiu da escada em 08/10/2026
+  // (decisão do dono): se os dois provedores falham, a rota devolve o banco PACE local, como já fazia no fim da escada.
   const preferredModel = process.env.COPILOTO_LIVE_MODEL || DEFAULT_COPILOTO_LIVE_MODEL;
   // O 3.7 explícito cobre também resposta 200 com JSON inválido, que só o
   // caller consegue detectar; falha HTTP/vazia já cai nele dentro do wrapper.
   const models = [...new Set([
     preferredModel,
-    ...(preferredModel.startsWith('claude') ? ['gemini-3.8-flash'] : []),
+    ...(!preferredModel.startsWith('gemini') ? ['gemini-3.8-flash'] : []),
     ...(preferredModel.startsWith('gemini-3.8') ? ['gemini-3.7-flash'] : []),
-    'gpt-5.6-luna',
   ])];
 
   for (let index = 0; index < models.length; index += 1) {

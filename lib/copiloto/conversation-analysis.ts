@@ -2,6 +2,8 @@ import 'server-only';
 
 import { callAI } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
+import { DEFAULT_COPILOTO_MEMORY_MODEL } from '@/lib/ai-tasks';
+import { dataBRT } from '@/lib/dre/semana';
 import { normalizeConversationAnalysis } from './accounts';
 import { normalizarFechamento, type ConversationClosing } from './fechamento';
 import { PIPELINE_STAGES } from '@/lib/sales/constants';
@@ -23,18 +25,35 @@ vai para o vendedor decidir, então ela precisa ser conservadora e sustentada:
   perdido, expirado) nem etapa administrativa: uma frase animada não é contrato assinado;
 - proxima_acao é o combinado REAL, com verbo e dono. Sem combinado, devolva vazio — inventar
   próxima ação enche o CRM de tarefa que ninguém assumiu;
-- proxima_acao_data só quando alguém disse o prazo; formato AAAA-MM-DD, nunca "sexta";
+- proxima_acao_data só quando alguém disse o prazo; formato AAAA-MM-DD, nunca "sexta". A data de hoje vem em <hoje>
+  (Brasília): resolva "sexta", "dia 15" e datas sem ano a partir dela, sempre na PRÓXIMA ocorrência, e nunca devolva
+  data anterior a hoje;
 - o follow-up usa a FALA DO CLIENTE (anchorAnswers) e o combinado, no vocabulário dele. WhatsApp
   curto, e-mail com assunto específico. Não prometa nada que a conversa não sustente.
 Responda somente com JSON válido, sem markdown.`;
+
+const DIAS_DA_SEMANA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+
+/**
+ * "AAAA-MM-DD (quinta-feira)" em Brasília. O prompt não dizia que dia era hoje, e o ano de "quinta, 15 de outubro" virava
+ * palpite do modelo: medido em 08/10/2026, o Sonnet 5.5 devolveu 2025-10-15 em 8 de 8 (a data passada é descartada pelo
+ * normalizador e o CRM fica sem prazo), e o GPT 5.6 Terra acertou o ano em 3 de 4 por sorte do conhecimento dele.
+ */
+export function hojeParaPrompt(agora: Date): string {
+  const iso = dataBRT(agora);
+  return `${iso} (${DIAS_DA_SEMANA[new Date(`${iso}T12:00:00Z`).getUTCDay()]})`;
+}
 
 function prompt(input: {
   accountName: string;
   crmContext: string;
   previousContext: string;
   transcript: string;
+  hoje: Date;
 }): string {
-  return `<conta>${input.accountName}</conta>
+  return `<hoje>${hojeParaPrompt(input.hoje)}</hoje>
+
+<conta>${input.accountName}</conta>
 
 <contexto_crm>
 ${input.crmContext || 'Sem dados adicionais no CRM.'}
@@ -89,11 +108,14 @@ export async function analyzeCopilotConversation(input: {
   transcript: string;
   /** Para o fechamento não propor um estágio que a oportunidade já tem. */
   currentStage?: string | null;
+  /** O instante de hoje (injetável para teste); o padrão é agora. */
+  hoje?: Date;
 }): Promise<{ summary: string; analysis: CopilotConversationAnalysis; closing: ConversationClosing }> {
+  const hoje = input.hoje ?? new Date();
   const raw = await callAI(
     SYSTEM,
-    prompt(input),
-    { model: process.env.COPILOTO_MEMORY_MODEL || 'gpt-5.6-terra' },
+    prompt({ ...input, hoje }),
+    { model: process.env.COPILOTO_MEMORY_MODEL || DEFAULT_COPILOTO_MEMORY_MODEL },
     9000,
     { taskKey: 'copiloto_memoria_conversa', timeoutMs: 180000, reasoningEffort: 'low' },
   );
@@ -106,6 +128,6 @@ export async function analyzeCopilotConversation(input: {
     analysis: normalizeConversationAnalysis(parsed),
     // Na mesma chamada: o fechamento sai do mesmo material que a memória, e uma
     // segunda ida ao modelo pagaria de novo pela transcrição inteira.
-    closing: normalizarFechamento(parsed, input.currentStage ?? null),
+    closing: normalizarFechamento(parsed, input.currentStage ?? null, hoje),
   };
 }

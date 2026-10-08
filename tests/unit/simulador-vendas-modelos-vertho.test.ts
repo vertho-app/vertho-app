@@ -134,11 +134,47 @@ describe('gerente do PACE em Claude fora do treino Vertho', () => {
     expect(texto('gerente').split('## Conferência final de evidências PACE').length - 1, 'a conferência não pode entrar duas vezes').toBe(1);
   });
 
-  it('o helper só dá esforço ao gerente em Claude', () => {
+  it('o helper só dá esforço a modelo Claude, e a conferência é só do gerente', () => {
     expect(esforcoPadraoPace('gerente', 'claude-sonnet-5-5')).toBe('medium');
     expect(esforcoPadraoPace('gerente', 'gpt-5.4-2026-03-05')).toBeUndefined();
-    expect(esforcoPadraoPace('cliente', 'claude-sonnet-5-5')).toBeUndefined();
     expect(gerenteComConferencia('gerente', 'claude-opus-5-5')).toBe(true);
+    expect(gerenteComConferencia('cliente', 'claude-sonnet-5-5')).toBe(false);
     expect(gerenteComConferencia('gerente', 'gemini-3.8-flash')).toBe(false);
+  });
+});
+
+// Criador, cliente, moderador e intenção fora do Vertho em Claude (08/10/2026, decisão do dono). `Medido` pelo `executarCore` +
+// `gerador` reais: criador Sonnet `medium` 28 s contra 33 s do GPT; cliente Sonnet `low` p50 2,5 s contra 2,8 s (13 de 13 turnos
+// válidos); moderador Haiku `medium` 23 de 26 na severidade (`none` subestima); intenção Haiku `none` 35 de 35.
+describe('esforço dos simuladores PACE em Claude fora do treino Vertho', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.model.mockImplementation((async (_e: unknown, tarefa: string) =>
+      tarefa === 'sim_vendas_moderador' || tarefa === 'sim_vendas_intencao' ? 'claude-haiku-5-5' : 'claude-sonnet-5-5') as any);
+  });
+
+  it('cada agente roda no esforço medido e o snapshot grava o modelo e o esforço', async () => {
+    const s = await snapshotPrompts('outra-empresa', false, 2);
+    expect(s.criador).toMatchObject({ modelo: 'claude-sonnet-5-5', esforco: 'medium' });
+    expect(s.cliente).toMatchObject({ modelo: 'claude-sonnet-5-5', esforco: 'low' });
+    expect(s.moderador).toMatchObject({ modelo: 'claude-haiku-5-5', esforco: 'medium' });
+    expect(s.intencao).toMatchObject({ modelo: 'claude-haiku-5-5', esforco: 'none' });
+    expect(s.gerente).toMatchObject({ modelo: 'claude-sonnet-5-5', esforco: 'medium' });
+  });
+
+  it('a conferência de evidências continua só no gerente (não vaza para os outros agentes)', async () => {
+    const s = await snapshotPrompts('outra-empresa', false, 2);
+    for (const e of ['criador', 'cliente', 'moderador', 'intencao'] as const) expect(s[e].versao).not.toMatch(/conferencia/);
+  });
+
+  it('o helper por etapa: Sonnet recusa `none` (400), então a intenção fora do Haiku roda em low; GPT e Gemini seguem sem esforço', () => {
+    expect(esforcoPadraoPace('criador', 'claude-sonnet-5-5')).toBe('medium');
+    expect(esforcoPadraoPace('cliente', 'claude-sonnet-5-5')).toBe('low');
+    expect(esforcoPadraoPace('moderador', 'claude-haiku-5-5')).toBe('medium');
+    expect(esforcoPadraoPace('intencao', 'claude-haiku-5-5')).toBe('none');
+    expect(esforcoPadraoPace('intencao', 'claude-sonnet-5-5')).toBe('low');
+    for (const etapa of ['criador', 'cliente', 'moderador', 'intencao', 'gerente'])
+      for (const modelo of ['gpt-5.4-2026-03-05', 'gpt-5.4-mini', 'gemini-3.8-flash'])
+        expect(esforcoPadraoPace(etapa, modelo), `${etapa} em ${modelo}`).toBeUndefined();
   });
 });

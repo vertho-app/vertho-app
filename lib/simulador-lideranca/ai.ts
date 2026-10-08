@@ -28,6 +28,17 @@ export const hash = (v: unknown) =>
   createHash('sha256').update(JSON.stringify(v)).digest('hex');
 
 /**
+ * Esforço por etapa quando o modelo é Claude (08/10/2026; o GPT segue sem esforço, como sempre rodou). Medido pelo
+ * `executarCore` real, 4 a 7 encontros por braço: `low` na abertura, no personagem e na consequência (personagem 3,3 s, igual
+ * ao GPT; com `medium` nelas uma consequência de 8 foi reprovada na validação e regerada, com `low` nenhuma), e `medium` no
+ * avaliador (19 s contra 32 s do GPT). O padrão do Sonnet 5.5 é `high`, mais lento e não testado.
+ */
+export function esforcoLideranca(etapa: Etapa, modelo: string): 'low' | 'medium' | undefined {
+  if (!modelo.startsWith('claude')) return undefined;
+  return etapa === 'avaliador' ? 'medium' : 'low';
+}
+
+/**
  * O modelo de cada etapa é resolvido NA CHAMADA (27/09/2026), pela mesma
  * régua do resto do produto (`getModelForTask`: sys_config da empresa, depois
  * `DEFAULT_TASK_MODELS`). Até então a jornada congelava o modelo em
@@ -133,6 +144,7 @@ export function gerador(
     }
     const jsonSchema = z.toJSONSchema(schema, { target: 'draft-7' });
     delete jsonSchema.$schema;
+    const esforco = esforcoLideranca(etapa, modelo);
     for (let tentativa = 0; tentativa < 2; tentativa++) {
       const restante = deadline - Date.now() - 5000;
       if (restante < 15000)
@@ -158,13 +170,25 @@ export function gerador(
               etapa === 'avaliador' ? 115000 : 65000,
             ),
             maxRetries: 0,
-            responses: {
-              format: {
-                name: `lideranca_${etapa}`,
-                strict: true,
-                schema: jsonSchema,
-              },
-            },
+            ...(esforco ? { reasoningEffort: esforco } : {}),
+            // O formato estruturado segue o provedor: `responses` só existe na OpenAI e força esse caminho mesmo com modelo
+            // Claude. Claude e Gemini usam `structuredOutput`, o mesmo que o simulador de vendas.
+            ...(/^gpt-/.test(modelo)
+              ? {
+                  responses: {
+                    format: {
+                      name: `lideranca_${etapa}`,
+                      strict: true,
+                      schema: jsonSchema,
+                    },
+                  },
+                }
+              : {
+                  structuredOutput: {
+                    name: `lideranca_${etapa}`,
+                    schema: jsonSchema,
+                  },
+                }),
           },
         );
         const valor = parse(JSON.parse(raw));

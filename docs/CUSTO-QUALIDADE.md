@@ -2843,3 +2843,43 @@ Troca por decisão do dono: Sonnet 5.5 em `medium` com teto de 16000 (`lib/copil
 **Não medido.** Não há gabarito humano em nenhum dos três (`sim_vendas_revisoes` está vazia): os rótulos do experimento 1 são meus e o dos
 experimentos 2 e 3 depende da leitura do dono. Uma única sessão real longa no gerente; 4 empresas no planejamento; o Sonnet foi medido só em
 `medium` (o padrão dele é `high`); o efeito da severidade na nota final de uma sessão não foi medido.
+
+## 08/10/2026 (noite): simuladores PACE, memória e leitura do Copiloto saem do GPT
+
+Pedido do dono ("simuladores pace pode migrar; memória e leitura do copiloto; painel interno tb"), mesmo critério: qualidade, ou no mínimo
+manter. Mesma régua: wrapper e `executarCore` reais, ledger `canario`, instrumento medido contra ele mesmo antes de ler a diferença.
+
+| Fluxo | Antes | Agora | Medido |
+|---|---|---|---|
+| Liderança: abertura, personagem, consequência | GPT 5.4 | Sonnet 5.5 `low` | 100% válido; personagem 3,3 s contra 3,4 s; `medium` nessas etapas reprovou 1 consequência de 8 na validação ("Acordo sem fala que o sustente"), `low` nenhuma |
+| Liderança: avaliador | GPT 5.4 | Sonnet 5.5 `medium` | 19 s contra 32 s; encontro inteiro 48 s contra 62 s |
+| Vendas: criador | GPT 5.4 | Sonnet 5.5 `medium` | 28 s contra 33 s, todos válidos |
+| Vendas: cliente | GPT 5.4 | Sonnet 5.5 `low` | p50 2,5 s contra 2,8 s, 13 de 13 turnos válidos |
+| Vendas: moderador e intenção | GPT 5.4 mini | Haiku 5.5 `medium` e `none` | severidade 23/26 contra 21/26; intenção 35/35 (medido na parte da tarde, acima) |
+| Memória da conversa | GPT 5.6 Terra `low` | Sonnet 5.5 `low` | 8/8 válido, 9 a 13 s contra 13 a 19 s |
+| Leitura ao vivo: último degrau | GPT 5.6 Luna | removido | a escada fica Haiku, Gemini 3.8 (com o 3.7 dentro do wrapper), banco PACE local |
+
+🔴 **O avaliador da liderança NÃO é intercambiável com o GPT.** 4 encontros por braço, mesmo roteiro, 18 descritores: nível médio 2,68 no GPT
+contra 2,3 no Sonnet (que nunca deu N4; o GPT deu em 5 de 53); acordo exato por descritor GPT x Sonnet 51 a 59%, contra 73 a 79% de cada braço
+consigo mesmo; o Sonnet dá 1 degrau abaixo em 5 de 18. Lendo as evidências, o Sonnet separa melhor o que o líder fez do que o personagem disse
+("a localização do ponto crítico veio sobretudo da Ana") e cita trecho mais curto; o GPT aceita "nas três entregas que atrasaram no mês" como
+comparação com histórico, o Sonnet não. Sem gabarito humano (`sim_lideranca_revisoes` está vazia), então quem acerta só leitura de gente diz.
+As 187 jornadas existentes são todas de demonstração (ACME, 3 turnos, texto idêntico), logo não há histórico real para comparar nem usuário
+real afetado. A liderança resolve o modelo a CADA chamada: um encontro aberto passa a usar o Sonnet na próxima fala.
+
+🔴 **Defeito achado na memória do Copiloto, que independe do modelo:** o prompt NÃO dizia que dia era hoje. Para "quinta, dia 15 de outubro" o
+Sonnet devolveu `2025-10-15` em 8 de 8 chamadas (o normalizador descarta data passada e o CRM ficava sem prazo); o Terra acertou o ano em 3 de 4,
+por conhecimento próprio. O prompt agora leva `<hoje>AAAA-MM-DD (dia da semana)</hoje>` em Brasília (`dataBRT`) e a regra de resolver pela
+próxima ocorrência; o normalizador passou a receber o MESMO `hoje`. O resto da memória empatou nas armadilhas conferidas por código (frase do
+cliente literal 100%, verba não dita vazia, nenhum estágio nem próxima ação inventados); o Sonnet é mais estrito na cobertura PACE (na conversa
+sem decisor claro marca só `situacao_atual`, o Terra marca também `tentativas`, `decisor` e `prazo`).
+
+**Fica em GPT:** auditores (`gpt-5.6-terra`, precisam de outra família que o gerador), pesquisas do Copiloto (`copiloto_pesquisa_*`) e o painel
+interno (`/admin/vertho/board`), que é um painel de várias famílias de propósito (Claude, `gpt-5.6-sol` pelo plano ChatGPT via Codex CLI, Kimi K3,
+Gemini), por assinatura, sem custo por chamada: tirar o GPT dele não troca um modelo, tira um dos pareceres independentes.
+
+**Rollback sem deploy de código:** simuladores por tarefa na tela de IA da empresa (`sim_lideranca_*`, `sim_vendas_*`; o GPT 5.4 segue em
+`MODELOS_PACE`); memória por `COPILOTO_MEMORY_MODEL=gpt-5.6-terra`; leitura ao vivo por `COPILOTO_LIVE_MODEL`.
+
+**Não medido.** Liderança: um roteiro de líder (bom), 4 encontros por braço; não se mediu um líder fraco. Memória: duas conversas sintéticas, sem o
+`crmContext` e o histórico reais de um cliente. Esforço `high` (o padrão do Sonnet) não foi medido em nenhum fluxo.

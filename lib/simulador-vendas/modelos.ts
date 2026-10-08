@@ -19,12 +19,21 @@ export function modeloPaceCompativel(modelo: string): boolean {
 }
 
 /**
- * Esforço do avaliador (gerente) FORA do treino Vertho. Só o gerente em Claude recebe esforço: `medium`, que foi o medido
- * (08/10/2026: o padrão do Sonnet 5.5 é `high`, mais lento e não testado). Os demais agentes e o GPT seguem sem esforço, como
- * sempre rodaram (o snapshot não ganha a chave `esforco`).
+ * Esforço de cada agente FORA do treino Vertho. Só o modelo Claude recebe esforço (o GPT segue sem, como sempre rodou, e o
+ * snapshot não ganha a chave `esforco`). Medido em 08/10/2026, pelo `executarCore` + `gerador` reais (o padrão do Sonnet 5.5 é
+ * `high`, mais lento e não testado):
+ * - gerente e criador: `medium` (criador 28 s contra 33 s do GPT, todos válidos);
+ * - cliente: `low` (p50 de 2,5 s contra 2,8 s do GPT, 13 de 13 turnos válidos);
+ * - moderador: `medium` (23 de 26 na severidade; `none` subestima);
+ * - intenção: `none`, SÓ no Haiku 5.x (decisão binária, 35 de 35). O Sonnet 5.5 devolve 400 para `thinking: disabled`, então
+ *   fora do Haiku a intenção roda em `low`.
  */
-export function esforcoPadraoPace(etapa: string, modelo: string): 'medium' | undefined {
-  return etapa === 'gerente' && modelo.startsWith('claude') ? 'medium' : undefined;
+export function esforcoPadraoPace(etapa: string, modelo: string): 'none' | 'low' | 'medium' | undefined {
+  if (!modelo.startsWith('claude')) return undefined;
+  if (etapa === 'gerente' || etapa === 'criador' || etapa === 'moderador') return 'medium';
+  if (etapa === 'cliente') return 'low';
+  if (etapa === 'intencao') return /^claude-haiku-5/.test(modelo) ? 'none' : 'low';
+  return undefined;
 }
 
 /** O gerente em Claude leva a conferência de evidências no prompt (ver `conferencia-evidencias.ts`). */

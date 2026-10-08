@@ -245,6 +245,16 @@ export const DEFAULT_COPILOTO_LIVE_MODEL = 'claude-haiku-5-5';
 export const DEFAULT_COPILOTO_PLANNING_MODEL = 'claude-sonnet-5-5';
 
 /**
+ * Memória da conversa comercial (`lib/copiloto/conversation-analysis.ts`), a mesma decisão para o código e a tela de custo.
+ *
+ * 08/10/2026: Sonnet 5.5 no lugar do GPT 5.6 Terra, por decisão do dono. `Medido:` em 2 conversas sintéticas com armadilhas
+ * conferidas por código (4 repetições por braço): 8 de 8 JSON válidos nos dois, frase do cliente literal em 100%, verba não dita
+ * vazia, nenhum estágio nem próxima ação inventados; Sonnet `low` 9 a 13 s contra 13 a 19 s do Terra. O Sonnet é mais estrito na
+ * cobertura PACE (marca só o que o cliente disse). Rollback sem deploy de código: `COPILOTO_MEMORY_MODEL=gpt-5.6-terra`.
+ */
+export const DEFAULT_COPILOTO_MEMORY_MODEL = 'claude-sonnet-5-5';
+
+/**
  * Defaults por task quando não há config explícita no sys_config da empresa
  * (ou quando a task é platform-level, sem empresa associada).
  *
@@ -253,15 +263,23 @@ export const DEFAULT_COPILOTO_PLANNING_MODEL = 'claude-sonnet-5-5';
  * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
  */
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
-  sim_lideranca_abertura: 'gpt-5.4-2026-03-05',
-  sim_lideranca_personagem: 'gpt-5.4-2026-03-05',
-  sim_lideranca_consequencia: 'gpt-5.4-2026-03-05',
-  sim_lideranca_avaliador: 'gpt-5.4-2026-03-05',
+  // 08/10/2026: simuladores PACE em Claude, por decisão do dono (critério: qualidade, não custo). `Medido:` pelo `executarCore`
+  // real, 4 a 7 encontros de liderança por braço: Sonnet 5.5 válido em 100%, personagem 3,3 s contra 3,4 s, avaliador 19 s contra
+  // 32 s, encontro inteiro 48 s contra 62 s. O esforço por etapa mora em `esforcoLideranca` (low; avaliador medium). O avaliador
+  // NÃO é intercambiável com o GPT: nível médio 2,3 contra 2,68, nunca N4, acordo exato GPT x Sonnet 51 a 59% contra 73 a 79% de
+  // cada um consigo mesmo. Sem gabarito humano. A liderança resolve o modelo a CADA chamada: um encontro aberto muda na próxima fala.
+  sim_lideranca_abertura: 'claude-sonnet-5-5',
+  sim_lideranca_personagem: 'claude-sonnet-5-5',
+  sim_lideranca_consequencia: 'claude-sonnet-5-5',
+  sim_lideranca_avaliador: 'claude-sonnet-5-5',
   ipi: 'claude-sonnet-4-6',
-  sim_vendas_criador: 'gpt-5.4-2026-03-05',
-  sim_vendas_cliente: 'gpt-5.4-2026-03-05',
-  sim_vendas_moderador: 'gpt-5.4-mini',
-  sim_vendas_intencao: 'gpt-5.4-mini',
+  // Vendas PACE fora do Vertho (o Vertho tem `modeloVertho`). Criador `medium` (28 s contra 33 s do GPT) e cliente `low` (2,5 s
+  // contra 2,8 s), todos válidos; moderador em Haiku `medium` (23 de 26 na severidade, contra 21 do mini) e intenção em `none`.
+  // O esforço mora em `esforcoPadraoPace`. Sessões abertas mantêm o snapshot (modelo e prompt congelados).
+  sim_vendas_criador: 'claude-sonnet-5-5',
+  sim_vendas_cliente: 'claude-sonnet-5-5',
+  sim_vendas_moderador: 'claude-haiku-5-5',
+  sim_vendas_intencao: 'claude-haiku-5-5',
   // 08/10/2026: Sonnet 5.5 no lugar do GPT 5.4 (decisão do dono). `Medido:` nas mesmas conversas, o acordo por descritor é de
   // 90,5% GPT x GPT, 86,3% Sonnet x Sonnet e só 60,9% GPT x Sonnet: NÃO são intercambiáveis, e o Sonnet dá um degrau acima nas
   // conversas fracas (Média 1,59 contra 1,36 numa sessão real). Fora do Vertho ele roda em `medium` e com a conferência de
@@ -277,7 +295,7 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // As chamadas de pesquisa resolvem o primário pela env
   // COPILOTO_RESEARCH_MODEL e caem nos defaults daqui. Manter todas explícitas
   // evita que o runtime e a tela de custo atribuam modelos diferentes.
-  copiloto_memoria_conversa:          'gpt-5.6-terra',
+  copiloto_memoria_conversa:          DEFAULT_COPILOTO_MEMORY_MODEL,
   copiloto_pesquisa_social_oficial:    DEFAULT_COPILOTO_RESEARCH_MODEL,
   copiloto_pesquisa_noticias_externas: DEFAULT_COPILOTO_RESEARCH_MODEL,
   copiloto_pesquisa_pessoas:           DEFAULT_COPILOTO_RESEARCH_MODEL,

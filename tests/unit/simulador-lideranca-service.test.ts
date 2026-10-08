@@ -92,6 +92,41 @@ describe('modelo resolvido na chamada, não congelado na jornada (27/09/2026)', 
     expect(vi.mocked(callAI).mock.calls[0][2]).toEqual({ model: 'gpt-5.4-2026-03-05' });
   });
 
+  describe('formato estruturado e esforço seguem o provedor (08/10/2026)', () => {
+    const chamar = async (modelo: string, etapa: 'personagem' | 'avaliador') => {
+      vi.mocked(callAI).mockClear();
+      m.modelo = modelo;
+      const s = { ...estado(), ativo: episodio(0) };
+      sb = bancoDaJornada(s);
+      const gerar = gerador(contexto(), 'j1', s, randomUUID(), Date.now() + 270_000);
+      // O mock devolve `{ fala }`, que o avaliador rejeita no schema: a chamada já foi gravada, é o que se confere.
+      await (gerar(etapa, etapa === 'avaliador' ? { matriz: [{ cod_desc: 'LD01_D1' }] } : { mensagens: [] }) as Promise<unknown>).catch(() => {});
+      m.modelo = 'gpt-5.4-2026-03-05';
+      return vi.mocked(callAI).mock.calls[0][4] as Record<string, any>;
+    };
+
+    it('🔴 Claude vai por structuredOutput, SEM `responses` (que forçaria o caminho da OpenAI), com esforço low no personagem', async () => {
+      const opts = await chamar('claude-sonnet-5-5', 'personagem');
+      expect(opts.responses).toBeUndefined();
+      expect(opts.structuredOutput).toMatchObject({ name: 'lideranca_personagem' });
+      expect(opts.structuredOutput.schema).toBeTruthy();
+      expect(opts.reasoningEffort).toBe('low');
+    });
+
+    it('o avaliador em Claude roda em medium', async () => {
+      const opts = await chamar('claude-sonnet-5-5', 'avaliador');
+      expect(opts.reasoningEffort).toBe('medium');
+      expect(opts.structuredOutput).toMatchObject({ name: 'lideranca_avaliador' });
+    });
+
+    it('GPT segue como sempre: `responses` estrito e nenhum esforço', async () => {
+      const opts = await chamar('gpt-5.4-2026-03-05', 'personagem');
+      expect(opts.responses).toMatchObject({ format: { name: 'lideranca_personagem', strict: true } });
+      expect(opts.structuredOutput).toBeUndefined();
+      expect('reasoningEffort' in opts).toBe(false);
+    });
+  });
+
   it('modelo configurado fora dos compatíveis com o formato estruturado recusa antes de chamar', async () => {
     vi.mocked(callAI).mockClear();
     m.modelo = 'claude-sonnet-4-6';
