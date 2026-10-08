@@ -1,4 +1,5 @@
 import { exigirAcessoRadarNaPagina } from '@/lib/radar/acesso-pagina';
+import { serializarJsonLd } from '@/lib/json-ld-seguro';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -256,7 +257,7 @@ export default async function MunicipioPage({ params }: { params: Promise<{ ibge
 
       <RadarFooter />
       <FaleConosco scopeType="municipio" scopeId={ibge} scopeName={m.nome} scopeUf={m.uf} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializarJsonLd(jsonLd) }} />
     </main>
   );
 }

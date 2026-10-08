@@ -45,7 +45,8 @@ const sb = criarSupabaseMock({
   },
 });
 const st = criarStorageFalso();
-const cliente = { from: (t: string) => sb.client.from(t), storage: st.storage };
+sb.client.storage = st.storage;
+const cliente = sb.client;
 
 const { ttsMock, downloadMock } = vi.hoisted(() => ({
   ttsMock: vi.fn(async (_n: string, _nome: string) => ({ buffer: Buffer.from('mp3-novo'), contentType: 'audio/mpeg' })),

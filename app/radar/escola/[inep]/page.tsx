@@ -1,4 +1,5 @@
 import { exigirAcessoRadarNaPagina } from '@/lib/radar/acesso-pagina';
+import { serializarJsonLd } from '@/lib/json-ld-seguro';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -260,7 +261,7 @@ export default async function EscolaPage({ params }: { params: Promise<{ inep: s
 
       <RadarFooter />
       <FaleConosco scopeType="escola" scopeId={escola.codigo_inep} scopeName={escola.nome} scopeUf={escola.uf} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializarJsonLd(jsonLd) }} />
     </main>
   );
 }

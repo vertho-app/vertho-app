@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { logAdminAction } from '@/lib/audit';
 import { servirComoDownload } from '@/lib/conteudo/download';
@@ -103,14 +104,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (pedido && pedido !== auth.colaborador?.id) {
     const denied = await assertColabAccess(auth, pedido);
     if (denied) return denied;
-    const { data: outro, error: erroOutro } = await sb
+    // Conteúdo global não tem empresa; a pessoa continua no tenant autorizado.
+    // Só platform admin pode consultar sem esse escopo, após assertColabAccess.
+    const empresaDoAlvo = content.empresa_id || (!auth.isPlatformAdmin ? auth.empresaId : null);
+    const leitorColab = empresaDoAlvo ? tenantDb(empresaDoAlvo) : sb;
+    const { data: outro, error: erroOutro } = await leitorColab
       .from('colaboradores')
       .select('id, nome_completo, empresa_id')
       .eq('id', pedido)
-      .eq('empresa_id', content.empresa_id)
       .maybeSingle();
     if (erroOutro) return NextResponse.json({ error: 'não foi possível conferir o colaborador agora' }, { status: 503 });
-    if (!outro) return NextResponse.json({ error: 'colaborador não encontrado neste conteúdo' }, { status: 404 });
+    if (!outro || (content.empresa_id && outro.empresa_id !== content.empresa_id)) {
+      return NextResponse.json({ error: 'colaborador não encontrado neste conteúdo' }, { status: 404 });
+    }
     alvo = outro;
   }
 
