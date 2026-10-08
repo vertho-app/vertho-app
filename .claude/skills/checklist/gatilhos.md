@@ -1602,3 +1602,12 @@ Padrão que casa: `app/layout.tsx` (`localFont`) · `app/globals.css` (`--vh-fon
 - [ ] **Cor e logo se medem no ARQUIVO, não no slide.** O PDF vetorial do logo usa `#0F2B54`/`#34C5CC` e os PNGs do repo usam `#040027`/`#30B9B5`: o navy do slide era real, e eu cheguei a dizer que era renderização.
 
 **Consequência medida (08/10/2026, brand book):** o ciano que a UI mostrava era o do Tailwind (866 usos de `cyan-400` contra 252 de `brand-400`); a Roboto não tem `↑ ≈ ■` e três PDFs os usavam; o Codec cobriu o título dos cards; e 9 de 14 empresas tinham o ciano antigo GRAVADO em `ui_config` (dado, não código). Detalhe: `docs/DESIGN-SYSTEM.md` §Tipografia.
+## § Vou rodar um script de PRODUÇÃO (reconciliação, disparo, reprocessamento) do checkout compartilhado
+
+Padrão que casa: `reconciliarPersonalizados` · `tasks.trigger` dentro de `scripts/_*.ts` · qualquer script que importa `@/lib/...` e escreve no banco ou paga fornecedor.
+
+- [ ] **`git rev-parse HEAD` × `origin/master`.** O disco principal fica atrás do remoto (08/10: `db143bc9` contra `7e5e11b6`, sem o código da saudação em Vertex). Um script que importa `@/lib/...` executa o código do DISCO. Se divergir, rode de um worktree em `origin/master` (`node_modules` por junction, `--env-file` apontando o `.env.local` principal).
+- [ ] **Procure no log a linha que só a versão NOVA imprime** (ex.: `[reconciliar] saudações da célula …`). Ausência de uma linha esperada é o único sinal: nada falha, o passo novo simplesmente não roda.
+- [ ] **Um efeito paralelo pode MASCARAR a diferença.** Nesta rodada o áudio da saudação existiu porque 3 células retomadas no mesmo minuto dispararam a task do Trigger (que roda o deploy novo). Sem elas, a box teria registrado `saudacao-vertex-ausente` para a pessoa.
+
+**Consequência medida (08/10/2026, Boehringer):** rodei a reconciliação do checkout principal para refazer o nominal do Rodrigo; ela enfileirou a célula normalmente mas sem gerar o áudio da saudação. Detectei pela ausência da linha de log, não por erro. Memória `reference_checkout_principal_atras_do_master`.
