@@ -10,7 +10,7 @@ import { validateProposalDraft } from '@/lib/sales/validation';
 import { simularMensalidade } from '@/lib/sales/pricing';
 import { fmtBRLExact } from '@/lib/sales/formatters';
 import {
-  CONTRACT_DURATIONS,
+  CONTRACT_DURATIONS, CONTRACT_DURATION_MAX, CONTRACT_DURATION_MIN,
   CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS,
   PRODUCT_PACKAGES, PRODUCT_PACKAGE_LABELS,
 } from '@/lib/sales/constants';
@@ -157,23 +157,20 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
         <section className="rounded-xl bg-white/[0.03] border border-white/10 p-4 space-y-4">
           <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400">Condições comerciais</h2>
 
-          <Field label="Vigência do contrato" error={fieldErrors.contract_duration_months}>
-            <div className="flex gap-2">
-              {CONTRACT_DURATIONS.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => set('contract_duration_months', m)}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${
-                    values.contract_duration_months === m
-                      ? 'bg-cyan-400/15 border-cyan-400/60 text-cyan-300'
-                      : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
-                  }`}
-                >
-                  {m} meses
-                </button>
-              ))}
-            </div>
+          <Field label="Vigência do contrato" error={fieldErrors.contract_duration_months}
+            hint={`De ${CONTRACT_DURATION_MIN} a ${CONTRACT_DURATION_MAX} meses.`}>
+            <select
+              value={values.contract_duration_months ?? ''}
+              onChange={(e) => set('contract_duration_months', e.target.value === '' ? null : Number(e.target.value))}
+              className={SELECT_CLS}
+            >
+              <option value="">Selecione</option>
+              {/* Proposta antiga com vigência fora da faixa (ex.: 36): mostra o valor gravado para o RC trocar, em vez de um campo vazio. */}
+              {values.contract_duration_months != null && !CONTRACT_DURATIONS.includes(Number(values.contract_duration_months)) && (
+                <option value={values.contract_duration_months}>{values.contract_duration_months} meses (fora da faixa)</option>
+              )}
+              {CONTRACT_DURATIONS.map((m) => <option key={m} value={m}>{m} meses</option>)}
+            </select>
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">

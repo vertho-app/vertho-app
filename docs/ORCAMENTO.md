@@ -44,7 +44,7 @@ Representante, e as diferenças são decisões, não omissões:
 | Dono | `representante_id` obrigatório | **Nulo** — proposta da Vertho, sem RC |
 | Oportunidade | Exigida e aberta | Nenhuma (o deal desk orça antes do CRM) |
 | Nome do cliente | Vem de `sales_accounts` | `cliente_nome`, texto livre do orçamento |
-| Vigência | 12, 24 ou 36 (`CONTRACT_DURATIONS`) | **As parcelas do projeto** (`ciclos × 2 + 1`) |
+| Vigência | 6 a 24 meses (`CONTRACT_DURATIONS`, desde 08/10/2026) | **As parcelas do projeto** (`ciclos × 2 + 1`) |
 | Comissão | 9% aquisição + 12% recorrente no aceite | **Nenhuma** — sem RC não há quem receba |
 | Quatro olhos | RC submete, admin aprova | Quem cria aprova; `created_by_email` + `approved_by` registram |
 | Autor | O RC | O platform admin |
@@ -68,7 +68,7 @@ discount_requested       = desconto aplicado na tela
 → total_contract_value   = valor final do orçamento
 ```
 
-O CHECK da coluna passou a `> 0 AND <= 360`; o dropdown do RC continua 12/24/36.
+O CHECK da coluna passou a `> 0 AND <= 360`; o seletor do RC vai de 6 a 24 meses (era 12/24/36 até 08/10/2026).
 `tests/unit/orcamento-conversao.test.ts` fixa os dois lados: o total tem de bater
 com o valor do projeto, e a vigência tem de ser as parcelas.
 

@@ -1,6 +1,9 @@
 // Validação de domínio do portal — usada no CLIENT (feedback imediato) e
 // SEMPRE re-executada no SERVER (fonte de verdade).
-import { CONTRACT_DURATIONS, CUSTOMER_TYPES, PIPELINE_STAGES, PRODUCT_PACKAGE_LABELS } from './constants';
+import {
+  CONTRACT_DURATIONS, CONTRACT_DURATION_MAX, CONTRACT_DURATION_MIN,
+  CUSTOMER_TYPES, PIPELINE_STAGES, PRODUCT_PACKAGE_LABELS,
+} from './constants';
 
 // Valida contra TODOS os pacotes conhecidos (inclui legado completo/pulso que
 // saíram do dropdown, mas seguem válidos em propostas antigas).
@@ -36,7 +39,7 @@ export function validateProposalDraft(input: Record<string, any>): ValidationRes
   if (!req(input.opportunity_id)) errors.opportunity_id = 'Vincule a proposta a uma oportunidade';
   if (!nonNegative(numOrNull(input.monthly_value))) errors.monthly_value = 'Valor mensal não pode ser negativo';
   if (input.contract_duration_months != null && !CONTRACT_DURATIONS.includes(Number(input.contract_duration_months) as any)) {
-    errors.contract_duration_months = 'Vigência deve ser 12, 24 ou 36 meses';
+    errors.contract_duration_months = `Vigência deve ser de ${CONTRACT_DURATION_MIN} a ${CONTRACT_DURATION_MAX} meses`;
   }
   if (input.discount_requested != null && (Number(input.discount_requested) < 0 || Number(input.discount_requested) > 100)) {
     errors.discount_requested = 'Desconto deve estar entre 0 e 100%';

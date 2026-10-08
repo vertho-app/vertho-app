@@ -23,8 +23,8 @@ export const STAGE_LABELS: Record<PipelineStage, string> = {
   negociacao: 'Negociação',
   aguardando_aceite_vertho: 'Aguardando aceite Vertho',
   contrato_enviado: 'Contrato enviado',
-  fechado_ganho: 'Fechado ganho',
-  fechado_perdido: 'Fechado perdido',
+  fechado_ganho: 'Fechado',
+  fechado_perdido: 'Perdido',
   sem_avanco_expirado: 'Sem avanço / expirado',
 };
 
@@ -139,7 +139,16 @@ export const ACTIVITY_KIND_COLORS: Record<string, string> = {
 
 export const RENEWAL_SOON_DAYS = 90; // "renovação próxima" quando faltam ≤ 90 dias
 
-export const CONTRACT_DURATIONS = [12, 24, 36] as const;
+// Vigência que o RC pode propor: qualquer número inteiro de meses de 6 a 24
+// (decisão do dono, 08/10/2026; antes eram só 12, 24 ou 36). Vale para o
+// formulário e a validação do portal do RC; o deal desk grava parcelas por
+// outro caminho (`proposals-admin.ts`) e não passa por aqui.
+export const CONTRACT_DURATION_MIN = 6;
+export const CONTRACT_DURATION_MAX = 24;
+export const CONTRACT_DURATIONS: readonly number[] = Array.from(
+  { length: CONTRACT_DURATION_MAX - CONTRACT_DURATION_MIN + 1 },
+  (_, i) => CONTRACT_DURATION_MIN + i,
+);
 
 // ── Comissão (política vigente do canal) ────────────────────────────────────
 export const COMMISSION_RATES = {

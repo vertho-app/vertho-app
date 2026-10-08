@@ -99,7 +99,7 @@ export type SalesProposal = {
   number_of_roles_mapped: number | null;
   product_package: string | null;
   /**
-   * 12/24/36 no formulário do RC (`CONTRACT_DURATIONS`); qualquer valor 1..360
+   * 6 a 24 meses no formulário do RC (`CONTRACT_DURATIONS`); qualquer valor 1..360
    * quando vem do deal desk, onde a vigência É o número de parcelas do projeto
    * (ciclos × 2 + 1). CHECK afrouxado na mig 254 — não restrinja de volta sem antes
    * olhar `actions/sales/proposals-admin.ts`.
