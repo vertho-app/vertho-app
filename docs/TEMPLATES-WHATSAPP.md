@@ -105,7 +105,7 @@ semana/slot, portanto uma semana não bloqueia a seguinte.
 | `avaliacao_competencias` | APPROVED/UTILITY | Tem perfil comportamental, cargo/cenários/top5 configurados e zero respostas **às competências do Top 5 de hoje** |
 | `avaliacao_parcial` | APPROVED/UTILITY | Respondeu pelo menos uma competência do Top 5 de hoje, mas ainda não todas |
 | `inicio_temporada` | **APPROVED/MARKETING** (submetido UTILITY em 08/10/2026, reclassificado ~8 min depois; custa ~6×) | A mesma regra do `avaliacao_competencias`: perfil comportamental, Top 5 com cenário e zero respostas ao Top 5 de hoje |
-| `inicio_temporada_v2` ⏳ | **conferir na Meta** (submetido 08/10/2026 08:36 BRT, id 1120910870528165, PENDING/UTILITY provisório) | A mesma regra, e exige o nome da instituição (o corpo a cita) |
+| `inicio_temporada_v2` | **APPROVED/UTILITY** (submetido 08/10/2026 08:36 BRT, id 1120910870528165; lido 08:57 e 08:59 BRT, sem `previous_category` nem `correct_category`; **ainda não enviado**) | A mesma regra, e exige o nome da instituição (o corpo a cita) |
 
 > **A avaliação é medida pela régua da tela do assessment (07/10/2026).** "Iniciada", "respondidas" e "total" contam só as
 > competências do `top5_workshop` do cargo que têm cenário servível (não é `cenario_b` e atende `cenario_nota_minima`,
@@ -171,7 +171,7 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `avaliacao_pendente` | nome | **instituição** | link de `/dashboard/perfil-comportamental/mapeamento` | — | — |
 | `avaliacao_competencias` | nome | **competência** (`top5_workshop`) | link de `/dashboard/assessment` | — | — |
 | `inicio_temporada` | nome | **competência(s)** do Top 5 de hoje, juntas com "e" | link de `/dashboard/assessment` | — | — |
-| `inicio_temporada_v2` ⏳ | nome | **competência(s)** do Top 5 de hoje, juntas com "e" | **instituição** | link de `/dashboard/assessment` | — |
+| `inicio_temporada_v2` | nome | **competência(s)** do Top 5 de hoje, juntas com "e" | **instituição** | link de `/dashboard/assessment` | — |
 | `boas_vindas_v2` | nome | **instituição** | link de `/entrar` | — | — |
 | `votacao_pendente_v3` ⏳ | nome | **instituição** | link de `/dashboard/votacao` | (3 variáveis: **sem prazo**) |  |
 | `votacao_competencias` ⛔ | — | — | — | — | **sem contrato** (MARKETING): nenhum caminho envia; nunca saiu |
@@ -795,7 +795,7 @@ frase de benefício, é a próxima a tentar, com nome novo. Submetido com o OK d
 (`scripts/_sync-templates-whatsapp.ts --so=inicio_temporada --executar`): nasceu `PENDING/UTILITY`, lido de volta
 na Meta no mesmo dia. **O estado de hoje se confere lá:** `GET /{WABA_ID}/message_templates?name=inicio_temporada&fields=id,name,status,category,previous_category,correct_category`.
 
-### `inicio_temporada_v2`: a versão enxuta (SUBMETIDO à Meta em 08/10/2026 08:36 BRT, id 1120910870528165)
+### `inicio_temporada_v2`: a versão enxuta (APPROVED/UTILITY em 08/10/2026, id 1120910870528165)
 
 A 2ª e última tentativa de ficar em UTILITY. Sai o que o `inicio_temporada` tinha de acolhimento ("Boas-vindas", "Boa
 temporada!") e a frase de benefício ("É a partir dele que montamos a sua trilha"); entra a **instituição** como âncora, o
@@ -811,6 +811,11 @@ de quem recebe; exige o nome da instituição (sem ele o corpo diria "no program
 
 Exemplo: Maria, Comunicação, Secretaria Municipal de Ibipeba/BA, `https://ibipeba.vertho.ai/dashboard/assessment`. Diz
 "já está disponível" e não "já começou" porque a turma abre em diagnóstico e a trilha só começa na data dela.
+
+✅ **Resultado (lido na Meta em 08/10/2026):** submetido 08:36 BRT, `APPROVED/UTILITY` às 08:57 e de novo às 08:59,
+`rejected_reason: NONE`, sem `previous_category` e sem `correct_category` (nenhuma reclassificação agendada). Nesta
+rodada o `inicio_temporada` levou ~8 min para virar MARKETING depois de aprovado; o v2 já passou desse prazo em UTILITY,
+mas a categoria pode mudar depois, então confira `previous_category` logo antes de enviar.
 
 ⚠️ **Sem garantia.** O `mapeamento_pendente` também era um aviso de estado, sem benefício vendido, e voltou MARKETING:
 o classificador da Meta não é previsível pelo conteúdo. **Só vale depois de APPROVED e com a categoria lida na Meta**,
