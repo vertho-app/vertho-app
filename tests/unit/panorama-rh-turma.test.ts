@@ -23,8 +23,16 @@ let TRILHAS: any[] = [];
 const sb = criarSupabaseMock({
   resolver: (tabela) => (tabela === 'empresas' ? { nome: 'Prefeitura de Exemplo', sys_config: {}, is_demo: false } : null),
   contagem: (tabela) => (tabela === 'colaboradores' ? 3 : null),
-  lista: (tabela) => {
-    if (tabela === 'trilhas') return TRILHAS;
+  lista: (tabela, _cols, cadeia) => {
+    // A lista respeita o filtro de STATUS da cadeia: é ele que separa em curso, concluída e encerrada.
+    if (tabela === 'trilhas') {
+      let r = TRILHAS;
+      for (const c of cadeia) {
+        if (c.metodo === 'eq' && c.args[0] === 'status') r = r.filter((t) => t.status === c.args[1]);
+        if (c.metodo === 'in' && c.args[0] === 'status') r = r.filter((t) => (c.args[1] as string[]).includes(t.status));
+      }
+      return r;
+    }
     if (tabela === 'colaboradores') return [
       { id: 'p1', cargo: 'Vendas', email: 'ana@gmail.com' },
       { id: 'p2', cargo: 'Vendas', email: 'bia@gmail.com' },
@@ -65,6 +73,17 @@ describe('panorama do RH com turma', () => {
     // O defeito: a Temporada 2 herdava as 2 trilhas ativas da jornada 1.
     const recente = await carregarPanoramaRH('emp-1', { escopoTurma: nova() });
     expect([recente.emJornada, recente.jornadasEncerradas, recente.jornadasIniciadas]).toEqual([0, 0, 0]);
+  });
+
+  it('trilha ENCERRADA pela operação conta como jornada iniciada, não como em curso nem como concluída', async () => {
+    // A Temporada 1 de Ibipeba foi encerrada em 09/10/2026: as ativas viraram `encerrada`.
+    // Sem tratá-la, a turma antiga perdia as 26 jornadas que começaram (38 → 12).
+    TRILHAS = TRILHAS.map((t) => (t.status === 'ativa' ? { ...t, status: 'encerrada' } : t));
+    const velha = await carregarPanoramaRH('emp-1', { escopoTurma: antiga() });
+    expect([velha.emJornada, velha.jornadasEncerradas, velha.jornadasIniciadas]).toEqual([0, 1, 3]);
+    // E na visão da empresa inteira (sem turma), a mesma conta.
+    const empresa = await carregarPanoramaRH('emp-1');
+    expect([empresa.emJornada, empresa.jornadasEncerradas, empresa.jornadasIniciadas]).toEqual([0, 1, 3]);
   });
 
   it('com a jornada 2 em curso, cada turma conta a trilha da sua participação (a pessoa não conta duas vezes)', async () => {
