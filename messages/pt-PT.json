@@ -5219,7 +5219,7 @@
       "projectTotal": "Total do projeto",
       "aiCost": "Custo IA total",
       "marginValue": "Margem (R$)",
-      "marginPct": "Margem %"
+      "markupPct": "Markup %"
     },
     "breakdown": {
       "tableValue": "Composição do valor de tabela",

@@ -5094,7 +5094,7 @@
       "projectTotal": "Project total",
       "aiCost": "Total AI cost",
       "marginValue": "Margin (R$)",
-      "marginPct": "Margin %"
+      "markupPct": "Markup %"
     },
     "breakdown": {
       "tableValue": "Table value composition",

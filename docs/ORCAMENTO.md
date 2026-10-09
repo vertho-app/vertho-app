@@ -186,7 +186,7 @@ RC continua sendo operada só pelo Portal do Representante.
 | Workshop por unidade | R$ 15.000,00 |
 | Simuladores | No card próprio, um preço por simulador (seção Simuladores abaixo) |
 | Desconto inicial | 0% |
-| Margem-alvo | 50% |
+| Markup-alvo (lucro ÷ custo all-in) | 50% |
 
 ### Custo interno de entrega
 
@@ -242,13 +242,24 @@ impostos = valor final × 20%
 custo all-in = custo operacional + contingência + comissão + impostos
 
 margem absoluta = valor final − custo all-in
-margem % = margem absoluta ÷ valor final
+markup % = margem absoluta ÷ custo all-in        (é o que o alvo mede)
+margem % = margem absoluta ÷ valor final         (fica gravada na folha e no DRE)
 parcela = valor final ÷ (ciclos × 2 + 1)
 ```
 
 O desconto máximo é calculado antes da negociação: é o maior desconto que ainda
-preserva a margem-alvo depois de custos, impostos e comissão. A exposição de
-caixa considera a implantação concentrada no início e o recebimento parcelado.
+preserva o markup-alvo sobre o custo all-in. Como impostos e comissão crescem com
+o preço, o valor mínimo é (1 + markup) × custo de entrega ÷ (1 − (1 + markup) ×
+(impostos + comissão)). A exposição de caixa considera a implantação concentrada
+no início e o recebimento parcelado.
+
+**Até 09/10/2026 o alvo era margem sobre o preço**, e o dono pediu markup: 50% de
+margem sobre o preço é 100% sobre tudo o que sai. O campo continua gravado como
+`pricing.margemAlvoPct` nos cenários salvos, então um cenário antigo reaberto
+recalcula com o mesmo número lido como markup (mais folga de desconto). A folha
+congelada não muda: `margemPct` segue sendo margem sobre o preço, e a lista de
+cenários exibe o markup derivado de `margemAbs` e `valorFinal`, com a cor do
+veredito do dia em que foi salva.
 
 ## Matriz: preço não é custo
 
@@ -422,10 +433,12 @@ mais estreita (print do Rodrigo, 02/10). O campo de pessoas tem teto no próprio
 input: antes o texto podia mostrar 250 com a conta usando 100.
 
 O card mostra, por simulador, o custo por treino, o custo por pessoa/ciclo, o
-**preço mínimo** para a margem-alvo (`precoMinimoSimuladorBrl`: custo ×
-(1 + contingência) ÷ (1 − impostos − comissão − margem), antes de desconto) e a
-margem no preço informado (`margemSimuladorPct`, a inversa). Com impostos de 20%,
-RC de 20% e margem de 50% sobram 10% da receita: o mínimo é 11× o custo. A folha
+**preço mínimo** para o markup-alvo (`precoMinimoSimuladorBrl`: (1 + markup) ×
+custo × (1 + contingência) ÷ (1 − (1 + markup) × (impostos + comissão)), antes de
+desconto) e o markup no preço informado (`markupSimuladorPct`, a inversa). Com
+impostos de 20%, RC de 20% e markup de 50%, o mínimo é 4,1× o custo de IA; na
+Indicação (10%), 3×. Na régua antiga (margem sobre o preço, até 09/10/2026) eram
+11× e 5,5×: R$ 3,38 de custo pedia R$ 18,59, e hoje pede R$ 10,14. A folha
 de decisão ganhou a linha "Simuladores" na composição do valor, que antes somava
 no total sem aparecer.
 

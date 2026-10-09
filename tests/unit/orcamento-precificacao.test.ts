@@ -167,16 +167,37 @@ describe('precificação do projeto', () => {
     expect(umaNovaDuasAdaptadas.oneTime - umaNovaDuasReusadas.oneTime).toBe(2 * PRECO.matrizAdaptada);
   });
 
-  it('o desconto máximo é o que ainda entrega a margem-alvo', () => {
+  it('o desconto máximo é o que ainda entrega o markup-alvo', () => {
     const r = calcularProjeto(BASE, PRECO, CUSTO);
-    // Aplicar exatamente o piso deve deixar a margem na alvo (com folga de arredondamento).
+    // Aplicar exatamente o piso deve deixar o markup no alvo (com folga de arredondamento).
     const noPiso = calcularProjeto(BASE, { ...PRECO, descontoPct: r.descontoMaxPct }, CUSTO);
-    expect(noPiso.margemPct).toBeCloseTo(PRECO.margemAlvoPct, 6);
+    expect(noPiso.markupPct).toBeCloseTo(PRECO.margemAlvoPct, 6);
     expect(noPiso.acimaDoPiso).toBe(false);
 
     const umPontoAcima = calcularProjeto(BASE, { ...PRECO, descontoPct: r.descontoMaxPct + 1 }, CUSTO);
     expect(umPontoAcima.acimaDoPiso).toBe(true);
-    expect(umPontoAcima.margemPct).toBeLessThan(PRECO.margemAlvoPct);
+    expect(umPontoAcima.markupPct!).toBeLessThan(PRECO.margemAlvoPct);
+  });
+
+  it('o alvo é markup sobre o custo TOTAL, não margem sobre o preço (09/10/2026)', () => {
+    // Custo de entrega 10 mil, 30% de impostos + comissão, alvo de 50%. No piso,
+    // o lucro é metade de tudo o que sai (entrega + impostos + comissão), o que dá
+    // um terço do preço. Na régua antiga a margem sobre o preço é que valia 50%,
+    // ou seja, 100% sobre o custo: o dono leu isso como "100% de margem".
+    const custo: CustoProjeto = { ...CUSTO, totalBrl: 10_000, percentualSobreReceita: 0.3 };
+    const r = calcularProjeto(BASE, PRECO, custo);
+    const noPiso = calcularProjeto(BASE, { ...PRECO, descontoPct: r.descontoMaxPct }, custo);
+
+    expect(noPiso.valorFinal).toBeCloseTo(15_000 / 0.55, 4);
+    expect(noPiso.markupPct).toBeCloseTo(50, 6);
+    expect(noPiso.margemPct).toBeCloseTo(100 / 3, 6);
+    expect(noPiso.margemAbs).toBeCloseTo((custo.totalBrl + noPiso.custoSobreReceita) * 0.5, 6);
+  });
+
+  it('sem custo não há markup, e nada fica abaixo do alvo', () => {
+    const r = calcularProjeto(BASE, PRECO, { totalBrl: 0, oneTimeBrl: 0, mesesPrograma: 1 });
+    expect(r.markupPct).toBeNull();
+    expect(r.acimaDoPiso).toBe(false);
   });
 
   it('comissão e impostos entram na margem e no desconto máximo', () => {
@@ -190,7 +211,7 @@ describe('precificação do projeto', () => {
     expect(r.margemAbs).toBeCloseTo(r.valorFinal - CUSTO.totalBrl - r.custoSobreReceita, 6);
 
     const noPiso = calcularProjeto(BASE, { ...PRECO, descontoPct: r.descontoMaxPct }, comEncargos);
-    expect(noPiso.margemPct).toBeCloseTo(PRECO.margemAlvoPct, 6);
+    expect(noPiso.markupPct).toBeCloseTo(PRECO.margemAlvoPct, 6);
     expect(noPiso.acimaDoPiso).toBe(false);
   });
 

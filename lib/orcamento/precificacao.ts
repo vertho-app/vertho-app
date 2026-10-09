@@ -31,7 +31,11 @@ export interface TabelaPreco {
   /** R$ por workshop presencial contratado. */
   workshop: number;
   descontoPct: number;
-  /** Piso de margem que decide o desconto máximo. */
+  /**
+   * Markup-alvo: lucro ÷ custo total, que decide o desconto máximo. O nome
+   * ficou de quando era margem sobre o preço (até 09/10/2026), porque é a
+   * chave gravada nos cenários salvos.
+   */
   margemAlvoPct: number;
 }
 
@@ -239,9 +243,12 @@ export function valorSimuladorBrl(s: { acessos: number; precoPessoaCiclo: number
 
 /**
  * Menor preço por pessoa/ciclo em que o simulador paga o próprio custo e ainda
- * deixa a margem-alvo, na mesma conta de `calcularProjeto` (contingência sobre o
- * custo; impostos e comissão sobre a receita), antes de desconto. `Infinity`
- * quando impostos, comissão e margem já somam 100% ou mais: nenhum preço fecha.
+ * deixa o markup-alvo, na mesma conta de `calcularProjeto`, antes de desconto.
+ * Markup é lucro ÷ custo TOTAL: IA com contingência mais impostos e comissão,
+ * que incidem sobre a receita (decisão do Rodrigo, 09/10/2026). Antes era margem
+ * sobre o preço, e 50% dela equivalia a 100% sobre tudo o que sai.
+ * `Infinity` quando impostos e comissão, inflados pelo markup, já levam o preço
+ * inteiro: nenhum preço fecha.
  */
 export function precoMinimoSimuladorBrl(p: {
   custoPessoaCicloBrl: number;
@@ -250,16 +257,17 @@ export function precoMinimoSimuladorBrl(p: {
   comissaoPct: number;
   margemAlvoPct: number;
 }): number {
-  const sobra = 1 - (naoNegativo(p.impostosPct) + naoNegativo(p.comissaoPct) + naoNegativo(p.margemAlvoPct)) / 100;
+  const fator = 1 + naoNegativo(p.margemAlvoPct) / 100;
+  const sobra = 1 - fator * (naoNegativo(p.impostosPct) + naoNegativo(p.comissaoPct)) / 100;
   if (sobra <= 0) return Number.POSITIVE_INFINITY;
-  return naoNegativo(p.custoPessoaCicloBrl) * (1 + naoNegativo(p.contingenciaPct) / 100) / sobra;
+  return fator * naoNegativo(p.custoPessoaCicloBrl) * (1 + naoNegativo(p.contingenciaPct) / 100) / sobra;
 }
 
 /**
- * Margem do simulador sozinho, em %, na conta de `precoMinimoSimuladorBrl` (é a
- * inversa dela). `null` sem preço: margem de receita zero não é um número.
+ * Markup do simulador sozinho, em %, na conta de `precoMinimoSimuladorBrl` (é a
+ * inversa dela). `null` sem preço: sem receita não há o que medir.
  */
-export function margemSimuladorPct(p: {
+export function markupSimuladorPct(p: {
   precoPessoaCiclo: number;
   custoPessoaCicloBrl: number;
   contingenciaPct: number;
@@ -269,8 +277,13 @@ export function margemSimuladorPct(p: {
   const preco = naoNegativo(p.precoPessoaCiclo);
   if (preco <= 0) return null;
   const sobreReceita = (naoNegativo(p.impostosPct) + naoNegativo(p.comissaoPct)) / 100;
-  const custo = naoNegativo(p.custoPessoaCicloBrl) * (1 + naoNegativo(p.contingenciaPct) / 100);
-  return ((preco * (1 - sobreReceita) - custo) / preco) * 100;
+  const custoTotal = naoNegativo(p.custoPessoaCicloBrl) * (1 + naoNegativo(p.contingenciaPct) / 100) + preco * sobreReceita;
+  return markupSobreCusto(preco - custoTotal, custoTotal);
+}
+
+/** Lucro ÷ custo total, em %. `null` sem custo: markup sobre zero não é um número. */
+export function markupSobreCusto(lucro: number, custoTotal: number): number | null {
+  return custoTotal > 0 ? (lucro / custoTotal) * 100 : null;
 }
 
 export const MESES_POR_CICLO = 2;
@@ -410,9 +423,12 @@ export interface ResultadoProjeto {
   desconto: number;
   parcela: number;
   margemAbs: number;
+  /** Margem sobre o PREÇO (lucro ÷ valor final). É a que fica gravada na folha e no previsto do DRE. */
   margemPct: number;
+  /** Lucro ÷ custo total (entrega + impostos + comissão). É ela que o alvo mede. `null` sem custo. */
+  markupPct: number | null;
   custoSobreReceita: number;
-  /** Maior desconto que ainda respeita a margem-alvo. */
+  /** Maior desconto que ainda respeita o markup-alvo. */
   descontoMaxPct: number;
   acimaDoPiso: boolean;
   /** Caixa acumulado (recebido − entregue) ao fim de cada parcela. */
@@ -450,12 +466,15 @@ export function calcularProjeto(
   const custoSobreReceita = valorFinal * percentualSobreReceita;
   const margemAbs = valorFinal - custo.totalBrl - custoSobreReceita;
   const margemPct = valorFinal > 0 ? (margemAbs / valorFinal) * 100 : 0;
+  const markupPct = markupSobreCusto(margemAbs, custo.totalBrl + custoSobreReceita);
 
-  // Desconto máximo que preserva a margem-alvo. É o número que se precisa ANTES
-  // de sentar na negociação — não o aviso depois de ceder.
-  const alvo = Math.min(99, Math.max(0, preco.margemAlvoPct)) / 100;
-  const capacidadeDeCusto = 1 - alvo - percentualSobreReceita;
-  const valorMinimo = capacidadeDeCusto > 0 ? custo.totalBrl / capacidadeDeCusto : Number.POSITIVE_INFINITY;
+  // Desconto máximo que preserva o markup-alvo. É o número que se precisa ANTES
+  // de sentar na negociação — não o aviso depois de ceder. O alvo é sobre o
+  // custo total, e impostos e comissão crescem com o preço: valor mínimo V em
+  // que V − custo − V·s = alvo × (custo + V·s).
+  const alvo = Math.max(0, preco.margemAlvoPct || 0) / 100;
+  const capacidadeDeCusto = 1 - (1 + alvo) * percentualSobreReceita;
+  const valorMinimo = capacidadeDeCusto > 0 ? (1 + alvo) * custo.totalBrl / capacidadeDeCusto : Number.POSITIVE_INFINITY;
   const descontoMaxPct = valorTabela > 0
     ? Math.max(0, (1 - valorMinimo / valorTabela) * 100)
     : 0;
@@ -482,9 +501,11 @@ export function calcularProjeto(
     parcela,
     margemAbs,
     margemPct,
+    markupPct,
     custoSobreReceita,
     descontoMaxPct,
-    acimaDoPiso: margemPct + 1e-9 < alvo * 100,
+    // Sem custo não há markup a ficar abaixo do alvo.
+    acimaDoPiso: markupPct !== null && markupPct + 1e-9 < alvo * 100,
     exposicao,
     piorSaldo,
   };

@@ -44,7 +44,8 @@ import {
   ROTULO_SIMULADOR,
   calcularProjeto,
   configSimuladoresPadrao,
-  margemSimuladorPct,
+  markupSimuladorPct,
+  markupSobreCusto,
   precoMinimoSimuladorBrl,
   semSimuladores,
   simuladoresDoOrcamento,
@@ -131,6 +132,11 @@ function moneyUSD(v: number, locale: string, casas = 3) {
     minimumFractionDigits: casas,
     maximumFractionDigits: casas,
   }).format(v);
+}
+
+/** Markup sem custo não é um número: traço, nunca "Infinity%". */
+function pctOuTraco(v: number | null) {
+  return v == null ? '—' : `${v.toFixed(1)}%`;
 }
 
 /** Cabeçalho da coluna: o card já se chama "Simuladores". */
@@ -476,7 +482,7 @@ export default function OrcamentoPage() {
     const tabelaWorkshop = metodo === 'workshop' ? nWorkshops * pricing.adicionalWorkshop : 0;
     const tabelaPessoasCiclo = nColabs * pricing.precoPessoaCiclo;
 
-    // Cada simulador sozinho: preço mínimo para a margem-alvo e margem no preço
+    // Cada simulador sozinho: preço mínimo para o markup-alvo e markup no preço
     // informado, com o canal e os impostos deste cenário.
     const simuladoresItens = sims.itens.map((i) => {
       const regua = {
@@ -488,7 +494,7 @@ export default function OrcamentoPage() {
       return {
         ...i,
         precoMinimoBrl: precoMinimoSimuladorBrl({ ...regua, margemAlvoPct: pricing.margemAlvoPct }),
-        margemPct: margemSimuladorPct({ ...regua, precoPessoaCiclo: configSimuladores[i.simulador].precoPessoaCiclo }),
+        markupPct: markupSimuladorPct({ ...regua, precoPessoaCiclo: configSimuladores[i.simulador].precoPessoaCiclo }),
       };
     });
 
@@ -505,6 +511,7 @@ export default function OrcamentoPage() {
       mensalidadeFlat: projeto.parcela,
       margemAbs: projeto.margemAbs,
       margemPct: projeto.margemPct,
+      markupPct: projeto.markupPct,
       descontoMaxPct: projeto.descontoMaxPct,
       acimaDoPiso: projeto.acimaDoPiso,
       exposicao: projeto.exposicao,
@@ -1048,9 +1055,12 @@ export default function OrcamentoPage() {
                             <p className="text-xs font-bold tabular-nums text-emerald-200">{money(r.parcela)}</p>
                           </div>
                           <div>
-                            <p className="text-[9px] uppercase tracking-wider text-gray-500">Margem</p>
+                            <p className="text-[9px] uppercase tracking-wider text-gray-500">Markup</p>
+                            {/* Derivado do lucro e do valor gravados, e não do `margemPct` (margem
+                                sobre o preço): assim a folha de antes de 09/10/2026 mostra a mesma
+                                medida. A cor segue o veredito congelado com a régua do dia. */}
                             <p className={`text-xs font-bold tabular-nums ${r.margemPct < 0 || r.acimaDoPiso ? 'text-amber-300' : 'text-emerald-300'}`}>
-                              {r.margemPct.toFixed(1)}%
+                              {pctOuTraco(markupSobreCusto(r.margemAbs, r.valorFinal - r.margemAbs))}
                             </p>
                           </div>
                         </div>
@@ -1278,12 +1288,12 @@ export default function OrcamentoPage() {
                 celula={(i) => moneyUSD(i.custoTreinoUsd, locale)} />
               <LinhaSimulador rotulo="Custo / pessoa / ciclo" itens={calc.simuladoresItens}
                 celula={(i) => money(i.custoPessoaCicloBrl)} />
-              <LinhaSimulador rotulo="Preço mínimo" detalhe={`para margem de ${pricing.margemAlvoPct.toLocaleString(locale)}%`} itens={calc.simuladoresItens}
+              <LinhaSimulador rotulo="Preço mínimo" detalhe={`para markup de ${pricing.margemAlvoPct.toLocaleString(locale)}%`} itens={calc.simuladoresItens}
                 celula={(i) => (Number.isFinite(i.precoMinimoBrl) ? money(i.precoMinimoBrl) : 'não fecha')}
                 tom={() => 'font-semibold text-amber-300'} />
-              <LinhaSimulador rotulo="Margem no preço" itens={calc.simuladoresItens}
-                celula={(i) => (i.margemPct == null ? '—' : `${i.margemPct.toLocaleString(locale, { maximumFractionDigits: 1 })}%`)}
-                tom={(i) => (i.margemPct == null ? 'text-gray-600' : i.margemPct + 1e-9 < pricing.margemAlvoPct ? 'font-semibold text-amber-300' : 'font-semibold text-emerald-300')} />
+              <LinhaSimulador rotulo="Markup no preço" detalhe="lucro ÷ custo total" itens={calc.simuladoresItens}
+                celula={(i) => (i.markupPct == null ? '—' : `${i.markupPct.toLocaleString(locale, { maximumFractionDigits: 1 })}%`)}
+                tom={(i) => (i.markupPct == null ? 'text-gray-600' : i.markupPct + 1e-9 < pricing.margemAlvoPct ? 'font-semibold text-amber-300' : 'font-semibold text-emerald-300')} />
               <LinhaSimulador rotulo="Valor no contrato" detalhe={`${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'}`} itens={calc.simuladoresItens}
                 celula={(i) => (i.acessos > 0 ? money(i.valorBrl) : '—')}
                 tom={(i) => (i.acessos > 0 ? 'text-white' : 'text-gray-600')} />
@@ -1299,7 +1309,7 @@ export default function OrcamentoPage() {
           altera. Treinos: 2 por semana nas semanas 2, 4 e 6; a liderança é uma jornada de 5 encontros, de 3 a 16 turnos cada.
         </p>
         <p className="mt-1 text-[10px] text-gray-500">
-          Preço mínimo e margem usam o canal {calc.comissaoLabel} ({calc.comissaoPct.toFixed(0)}%), impostos de {pricing.impostosPct.toLocaleString(locale)}% e
+          Markup é lucro ÷ custo total (IA com contingência, impostos e comissão). Preço mínimo e markup usam o canal {calc.comissaoLabel} ({calc.comissaoPct.toFixed(0)}%), impostos de {pricing.impostosPct.toLocaleString(locale)}% e
           contingência de {pricing.contingenciaPct.toLocaleString(locale)}% deste cenário, antes de desconto.
         </p>
         {calc.simuladoresItens.some((i) => i.acessos > 0 && configSimuladores[i.simulador].precoPessoaCiclo === 0) && (
@@ -1322,7 +1332,7 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} label="Preço / matriz adaptada" sub={`${money(pricing.precoMatrizAdaptada)} cobrado por matriz`} value={pricing.precoMatrizAdaptada} onChange={(v) => setPricingField('precoMatrizAdaptada', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.workshopUnitPrice')} sub={t('pricing.ifWorkshop', { value: money(pricing.adicionalWorkshop) })} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.discount')} sub={`piso: ${calc.descontoMaxPct.toFixed(1)}%`} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
-          <FieldNumber locale={locale} label="Margem-alvo (%)" sub="define o desconto máximo" value={pricing.margemAlvoPct} onChange={(v) => setPricingField('margemAlvoPct', v)} min={0} allowDecimals />
+          <FieldNumber locale={locale} label="Markup-alvo (%)" sub="lucro ÷ custo total; define o desconto máximo" value={pricing.margemAlvoPct} onChange={(v) => setPricingField('margemAlvoPct', v)} min={0} allowDecimals />
           <FieldNumber locale={locale} label="Impostos (%)" sub={pricing.impostosPct === 0 ? 'confirmar antes da proposta' : 'sobre a receita final'} value={pricing.impostosPct} onChange={(v) => setPricingField('impostosPct', v)} min={0} allowDecimals />
           <FieldNumber locale={locale} label="Contingência (%)" sub="sobre o custo operacional" value={pricing.contingenciaPct} onChange={(v) => setPricingField('contingenciaPct', v)} min={0} allowDecimals />
         </div>
@@ -1543,7 +1553,7 @@ export default function OrcamentoPage() {
                   <p className="mt-0.5 text-sm font-extrabold text-white tabular-nums">{money(calc.custoPorPessoaBrl)}</p>
                   <p className="text-[9px] text-gray-500"><span className="tabular-nums">{money(calc.custoPorPessoaMesBrl)}</span> / mês</p>
                   <div className="mt-3">
-                    <KpiBox label={t('kpis.marginPct')} value={`${calc.margemPct.toFixed(1)}%`} sub={`alvo ${pricing.margemAlvoPct}%`} tone={calc.margemPct < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
+                    <KpiBox label={t('kpis.markupPct')} value={pctOuTraco(calc.markupPct)} sub={`alvo ${pricing.margemAlvoPct}% · ${calc.margemPct.toFixed(1)}% do preço`} tone={calc.acimaDoPiso ? 'amber' : 'emerald'} />
                   </div>
                 </div>
               </div>
@@ -1562,13 +1572,13 @@ export default function OrcamentoPage() {
         {/* Sub-stats */}
         <div className="mt-4 grid grid-cols-2 gap-3">
           <KpiBox label="Custo all-in" value={money(calc.custoTotalBrl)} sub={`operação ${money(calc.custoOperacionalBrl)}`} tone="gray" />
-          <KpiBox label={t('kpis.marginValue')} value={money(calc.margemAbs)} tone={calc.margemPct < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
+          <KpiBox label={t('kpis.marginValue')} value={money(calc.margemAbs)} tone={calc.acimaDoPiso ? 'amber' : 'emerald'} />
           <div className="col-span-2">
             <KpiBox label="Exposição máxima" value={money(calc.piorSaldo?.saldo ?? 0)} sub={`mês ${calc.piorSaldo?.mes ?? 1}`} tone={(calc.piorSaldo?.saldo ?? 0) < 0 ? 'amber' : 'emerald'} />
           </div>
         </div>
 
-        {/* Trava de desconto: o piso vem da margem-alvo, e barra antes de virar proposta */}
+        {/* Trava de desconto: o piso vem do markup-alvo, e barra antes de virar proposta */}
         <div className={`mt-4 rounded-xl border p-3 ${calc.acimaDoPiso ? 'border-red-400/40 bg-red-500/10' : 'border-white/10 bg-white/[0.03]'}`}>
           <div className="flex items-baseline justify-between gap-3 flex-wrap">
             <p className={`text-xs font-bold ${calc.acimaDoPiso ? 'text-red-300' : 'text-gray-300'}`}>
@@ -1577,7 +1587,7 @@ export default function OrcamentoPage() {
                 : `Desconto disponível até ${calc.descontoMaxPct.toFixed(1)}%`}
             </p>
             <p className="text-[11px] text-gray-500">
-              mantendo {pricing.margemAlvoPct}% de margem sobre o custo cheio
+              mantendo {pricing.margemAlvoPct}% de markup sobre o custo cheio
             </p>
           </div>
           <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">

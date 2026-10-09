@@ -72,7 +72,7 @@ simuladores preenchidos (21/09/2026)”.
 responde por custo real, projeções e catálogo de IA; `/admin/vertho/orcamento` virou
 o deal desk de escopo, preço, custo all-in, margem, desconto seguro e caixa. A régua
 única usa R$ 300 por pessoa/ciclo, matrizes nova/adaptada a R$ 1.000/R$ 500,
-margem-alvo de 50%, impostos de 20%, contingência de 10% e comissão de cenário por
+markup-alvo de 50% sobre o custo all-in, impostos de 20%, contingência de 10% e comissão de cenário por
 canal. A folha de decisão separa investimento do cliente de custo interno por pessoa
 e por ciclo, explicitando o rateio do setup. Doc canônico: `docs/ORCAMENTO.md`.
 

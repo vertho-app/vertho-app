@@ -19,7 +19,7 @@ import {
   configSimuladoresPadrao,
   custoSimuladoresBrl,
   custoTreinoUsd,
-  margemSimuladorPct,
+  markupSimuladorPct,
   precoMinimoSimuladorBrl,
   semSimuladores,
   simuladoresDoOrcamento,
@@ -173,13 +173,13 @@ describe('o card e o projeto fazem a MESMA conta', () => {
     expect(r.valorBrl).toBe(40 * 50 * 3 + 25 * 75 * 3);
   });
 
-  it('no preço mínimo, a margem do simulador sozinho é exatamente a margem-alvo', () => {
+  it('no preço mínimo, o markup do simulador sozinho é exatamente o markup-alvo', () => {
     const regua = { custoPessoaCicloBrl: 6.79, contingenciaPct: 10, impostosPct: 20, comissaoPct: 20 };
     const minimo = precoMinimoSimuladorBrl({ ...regua, margemAlvoPct: 30 });
-    expect(minimo).toBeCloseTo(6.79 * 1.1 / 0.3, 10);
-    expect(margemSimuladorPct({ ...regua, precoPessoaCiclo: minimo })).toBeCloseTo(30, 10);
+    expect(minimo).toBeCloseTo(1.3 * 6.79 * 1.1 / (1 - 1.3 * 0.4), 10);
+    expect(markupSimuladorPct({ ...regua, precoPessoaCiclo: minimo })).toBeCloseTo(30, 10);
 
-    // E a mesma margem sai de `calcularProjeto` num projeto que só tem o simulador.
+    // E o mesmo markup sai de `calcularProjeto` num projeto que só tem o simulador.
     const acessos = 100;
     const ciclos = 2;
     const projeto = calcularProjeto(
@@ -187,14 +187,29 @@ describe('o card e o projeto fazem a MESMA conta', () => {
       { ...PRECO, setupGeral: 0, pessoaCiclo: 0, unidade: 0, margemAlvoPct: 30 },
       { totalBrl: acessos * ciclos * regua.custoPessoaCicloBrl * 1.1, oneTimeBrl: 0, mesesPrograma: 4, percentualSobreReceita: 0.4 },
     );
-    expect(projeto.margemPct).toBeCloseTo(30, 8);
+    expect(projeto.markupPct).toBeCloseTo(30, 8);
   });
 
-  it('sem sobra para a margem não há preço mínimo, e sem preço não há margem', () => {
+  it('o mínimo é markup sobre o custo total: R$ 3,38 com 30% de encargos e 50% de alvo dá R$ 10,14', () => {
+    // O caso que o dono estranhou em 09/10/2026: na régua antiga (margem sobre o
+    // preço) o mesmo custo pedia R$ 18,59, 5,5× o custo.
+    const regua = { custoPessoaCicloBrl: 3.38, contingenciaPct: 10, impostosPct: 20, comissaoPct: 10 };
+    const minimo = precoMinimoSimuladorBrl({ ...regua, margemAlvoPct: 50 });
+    expect(minimo).toBeCloseTo(10.14, 2);
+
+    // No mínimo, o lucro é metade de tudo o que sai: IA com contingência + impostos + comissão.
+    const custoTotal = 3.38 * 1.1 + minimo * 0.3;
+    expect(minimo - custoTotal).toBeCloseTo(custoTotal * 0.5, 10);
+    // R$ 15 por pessoa dá 82,5% sobre o custo total (era "45,2%" de margem no preço).
+    expect(markupSimuladorPct({ ...regua, precoPessoaCiclo: 15 })).toBeCloseTo((10.5 - 3.718) / (3.718 + 4.5) * 100, 10);
+  });
+
+  it('sem sobra para o markup não há preço mínimo, e sem preço não há markup', () => {
+    // 2,5 × (20% + 20%) = 100% do preço em impostos e comissão.
     expect(precoMinimoSimuladorBrl({
-      custoPessoaCicloBrl: 5, contingenciaPct: 10, impostosPct: 20, comissaoPct: 20, margemAlvoPct: 60,
+      custoPessoaCicloBrl: 5, contingenciaPct: 10, impostosPct: 20, comissaoPct: 20, margemAlvoPct: 150,
     })).toBe(Number.POSITIVE_INFINITY);
-    expect(margemSimuladorPct({
+    expect(markupSimuladorPct({
       precoPessoaCiclo: 0, custoPessoaCicloBrl: 5, contingenciaPct: 10, impostosPct: 20, comissaoPct: 20,
     })).toBeNull();
   });
