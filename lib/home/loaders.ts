@@ -904,8 +904,10 @@ export async function carregarPanoramaRH(
     // (confirmada · parcial · estagnação · regressão) nasce no fechamento, então
     // antes da primeira conclusão aquela tela é seis KPIs zerados — e um atalho
     // para ela é um convite para o vazio.
+    // A ENCERRADA pela operação (TRILHA.ENCERRADA, 09/10/2026) entra só para contar
+    // como jornada INICIADA: não é "em jornada" nem "concluiu".
     escopoTurma ? semConsulta : lerPaginas((inicio, fim) => recortar(tdb.from('trilhas')
-      .select('colaborador_id').eq('status', TRILHA.CONCLUIDA).order('id').range(inicio, fim), 'colaborador_id')),
+      .select('colaborador_id, status').in('status', [TRILHA.CONCLUIDA, TRILHA.ENCERRADA]).order('id').range(inicio, fim), 'colaborador_id')),
     // O Top 5 exige todas as páginas: as demos com simuladores passam de
     // mil descritores. Truncar a consulta transforma completos em pendentes.
     lerPaginas((inicio, fim) => recortar(tdb.from('descriptor_assessments').select('colaborador_id, competencia').order('id').range(inicio, fim), 'colaborador_id')),
@@ -913,13 +915,18 @@ export async function carregarPanoramaRH(
     escopoTurma
       ? lerPaginas((inicio, fim) => recortar(tdb.from('trilhas')
         .select('id, colaborador_id, data_inicio, temporada_plano, programa_modo, programa_config, status, turma_membro_id, criado_em')
-        .in('status', [TRILHA.ATIVA, TRILHA.CONCLUIDA]).order('id').range(inicio, fim), 'colaborador_id'))
+        .in('status', [TRILHA.ATIVA, TRILHA.CONCLUIDA, TRILHA.ENCERRADA]).order('id').range(inicio, fim), 'colaborador_id'))
       : semConsulta,
   ]);
 
   // Com turma: cada pessoa na trilha da participação dela; ativa vira "em jornada", concluída vira "encerrada".
   let trilhasRes: { data: any[]; error: any } = trilhasPessoaRes as any;
-  let encerradasRes: { data: any[]; error: any } = encerradasPessoaRes as any;
+  let encerradasRes: { data: any[]; error: any } = {
+    data: ((encerradasPessoaRes as any).data || []).filter((t: any) => t.status !== TRILHA.ENCERRADA),
+    error: (encerradasPessoaRes as any).error,
+  };
+  // Encerradas pela operação antes do fim: só entram em "jornadas iniciadas".
+  let encerradasPelaOperacao: any[] = ((encerradasPessoaRes as any).data || []).filter((t: any) => t.status === TRILHA.ENCERRADA);
   if (escopoTurma) {
     const porPessoa = new Map<string, any[]>();
     for (const t of (trilhasTurmaRes.data || []) as any[]) {
@@ -929,14 +936,17 @@ export async function carregarPanoramaRH(
     }
     const ativas: any[] = [];
     const concluidas: any[] = [];
+    const fechadas: any[] = [];
     for (const [colab, p] of escopoTurma.participacaoPorColab) {
       const alvo = trilhaDaParticipacao(p.id, p.janela, porPessoa.get(colab) || []);
       if (!alvo) continue;
       if (alvo.status === TRILHA.ATIVA) ativas.push(alvo);
       else if (alvo.status === TRILHA.CONCLUIDA) concluidas.push(alvo);
+      else if (alvo.status === TRILHA.ENCERRADA) fechadas.push(alvo);
     }
     trilhasRes = { data: ativas, error: trilhasTurmaRes.error };
     encerradasRes = { data: concluidas, error: null };   // uma leitura só: o erro dela vive em `trilhasRes`
+    encerradasPelaOperacao = fechadas;
   }
 
   const erro = empresaRes.error || elencoErro || internosErro || pessoasRes.error || participantesRes.error || comPerfilRes.error || trilhasRes.error
@@ -996,7 +1006,7 @@ export async function carregarPanoramaRH(
     emDia,
     atrasadas,
     jornadasEncerradas: new Set((encerradasRes.data || []).map(t => t.colaborador_id)).size,
-    jornadasIniciadas: new Set([...trilhas, ...(encerradasRes.data || [])].map(t => t.colaborador_id)).size,
+    jornadasIniciadas: new Set([...trilhas, ...(encerradasRes.data || []), ...encerradasPelaOperacao].map(t => t.colaborador_id)).size,
     indisponivel: !!erro,
   };
 }
