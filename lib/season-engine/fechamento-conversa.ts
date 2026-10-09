@@ -25,6 +25,15 @@
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 /**
+ * O que pode vir DEPOIS do `?` sem mudar o fato de a fala terminar perguntando:
+ * negrito/itálico do markdown, aspas, parêntese, exclamação e emoji. Medido
+ * 12/09/2026: a conversa final da Ibipeba terminou em
+ * "**Como você agiria nessa situação?**" e contou como fechamento, porque o
+ * último caractere era `*`.
+ */
+const CAUDA_SEM_TEXTO = /[\s*_~"'“”‘’»)\]!\p{Extended_Pictographic}\p{Emoji_Modifier}\u{FE0F}\u{200D}]+$/u;
+
+/**
  * A última fala da IA é um fechamento?
  *
  * Régua deliberadamente conservadora: os três roteiros da semana de conteúdo e
@@ -49,7 +58,7 @@ export function pareceFechamento(
 ): boolean {
   const s = String(texto || '').trim();
   if (!s) return false;
-  if (s.endsWith('?')) return false;
+  if (s.replace(CAUDA_SEM_TEXTO, '').endsWith('?')) return false;
   if (opts.marcadores === false) return true;
   return s.includes('✅') && s.includes('🎯');
 }

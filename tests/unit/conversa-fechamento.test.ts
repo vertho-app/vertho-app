@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pareceFechamento, reforcoDeFechamento } from '@/lib/season-engine/fechamento-conversa';
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
+import { promptEvolutionQualitative } from '@/lib/season-engine/prompts/evolution-qualitative';
 
 /**
  * A conversa da semana era encerrada por CONTAGEM, e o contador não olha o que
@@ -61,6 +62,23 @@ describe('pareceFechamento', () => {
     expect(pareceFechamento('')).toBe(false);
     expect(pareceFechamento(null)).toBe(false);
     expect(pareceFechamento(undefined)).toBe(false);
+  });
+
+  it('🔴 pergunta seguida de negrito, aspas, parêntese ou emoji continua sendo pergunta (o caso de 12/09)', () => {
+    // Real, conversa final da Ibipeba: o microcaso terminou em negrito e contou como fechamento.
+    const microcaso = 'Não há como delegar completamente.\n\n**Como você agiria nessa situação?**';
+    for (const opts of [{}, { marcadores: false }]) {
+      expect(pareceFechamento(microcaso, opts)).toBe(false);
+      expect(pareceFechamento('Você topa tentar de novo na próxima semana? 😊', opts)).toBe(false);
+      expect(pareceFechamento('E aí, "o que você faria diferente?"', opts)).toBe(false);
+      expect(pareceFechamento('Faz sentido pra você (ou ficou algo de fora?)', opts)).toBe(false);
+      expect(pareceFechamento('Como assim?! ', opts)).toBe(false);
+    }
+  });
+
+  it('fechamento que termina em emoji, negrito ou exclamação segue valendo', () => {
+    expect(pareceFechamento(`${FECHOU} 👏🏽`)).toBe(true);
+    expect(pareceFechamento('Você percorreu um caminho real nessas semanas. **Siga firme!**', { marcadores: false })).toBe(true);
   });
 });
 
@@ -122,6 +140,67 @@ describe('roteiro socrático — o último turno sabe que é o último', () => {
     const { systemSuffix } = promptSocratic({ ...base, turnIA: 3 });
     expect(systemSuffix).toContain('Busca de apoio');
     expect(systemSuffix).not.toContain('COO03_D6');
+  });
+});
+
+/**
+ * A conversa final (qualitativa) tem o total de turnos do PLANO: 12 no formato
+ * de 14 semanas, 6 no encerramento da Ibipeba. O roteiro era numerado só para
+ * 12, então com 6 a última fala era o "MICROCASO … Termine perguntando", e a
+ * segunda tentativa da rede pedia o mesmo. Medido 09/10/2026: das 10 conversas
+ * concluídas na Ibipeba desde 08/09, nenhuma terminou em síntese.
+ */
+describe('conversa qualitativa: o último turno é a síntese, em qualquer tamanho', () => {
+  const base = {
+    nomeColab: 'COLAB_1', cargo: 'Coordenadora', perfilDominante: 'S', competencia: 'Gestão Escolar',
+    descritores: [{ descritor: 'Escuta ativa' }, { descritor: 'Devolutiva' }], insightsAnteriores: [],
+  };
+  const turno = (turnIA: number, totalTurns: number) => promptEvolutionQualitative({ ...base, turnIA, totalTurns });
+
+  it.each([2, 6, 7, 8, 12])('🔴 com %i turnos, o último pede a síntese e nenhuma pergunta', (total) => {
+    const { systemSuffix } = turno(total, total);
+    expect(systemSuffix).toMatch(/SÍNTESE FINAL/);
+    expect(systemSuffix).toMatch(/NÃO poderá responder/);
+    expect(systemSuffix).not.toMatch(/Termine perguntando|MICROCASO|EVIDÊNCIA REAL/);
+  });
+
+  it.each([6, 8, 12])('🔴 com %i turnos, a segunda tentativa da rede pede a mesma síntese', (total) => {
+    // `fechamentoSuffix` sai de qualquer turno igual: é o que a rota repassa ao `reforcoDeFechamento`.
+    const ultimo = turno(total, total).systemSuffix;
+    expect(turno(1, total).fechamentoSuffix).toBe(ultimo);
+    expect(turno(total, total).fechamentoSuffix).toBe(ultimo);
+  });
+
+  it('com 6 turnos: abertura, retrospectiva, 3 evidências e síntese, sem microcaso (decisão de 09/10)', () => {
+    const roteiro = [1, 2, 3, 4, 5, 6].map((t) => turno(t, 6).systemSuffix);
+    expect(roteiro[0]).toMatch(/ABERTURA/);
+    expect(roteiro[1]).toMatch(/RETROSPECTIVA/);
+    expect(roteiro[2]).toMatch(/exemplo 1 de 3/);
+    expect(roteiro[3]).toMatch(/exemplo 2 de 3/);
+    expect(roteiro[4]).toMatch(/exemplo 3 de 3/);
+    expect(roteiro[5]).toMatch(/SÍNTESE FINAL/);
+    expect(roteiro.join('\n')).not.toMatch(/MICROCASO/);
+  });
+
+  it('com 12 turnos o roteiro de sempre continua: microcaso no 6, síntese só no 12', () => {
+    expect(turno(6, 12).systemSuffix).toMatch(/MICROCASO/);
+    expect(turno(11, 12).systemSuffix).toMatch(/MAIOR AVANÇO/);
+    expect(turno(12, 12).systemSuffix).toMatch(/SÍNTESE FINAL/);
+  });
+
+  it('sem total informado vale 12, o comportamento de sempre', () => {
+    const semTotal = promptEvolutionQualitative({ ...base, turnIA: 6 });
+    expect(semTotal.systemSuffix).toMatch(/MICROCASO/);
+    expect(semTotal.fechamentoSuffix).toBe(turno(12, 12).systemSuffix);
+  });
+
+  it('a rota passa o MESMO total que decide `finished`', () => {
+    // Os testes da rota trocam `qualitativaDoPlano` por `() => null` e só exercitam 12:
+    // por isso o caso de 6 turnos nunca rodou em teste. O contrato fica travado aqui.
+    const rota = readFileSync(join(process.cwd(), 'app/api/temporada/evaluation/route.ts'), 'utf-8');
+    expect(rota).toContain('turnIA: proximoTurnIA, totalTurns: TOTAL');
+    expect(rota).toContain('const finished = proximoTurnIA >= TOTAL;');
+    expect(rota).toContain('systemSuffix: fechamentoSuffix ? reforcoDeFechamento(fechamentoSuffix) : systemSuffix');
   });
 });
 

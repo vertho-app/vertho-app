@@ -9,6 +9,18 @@
  * Estrutura: abertura, retrospectiva, 3 evidências, microcaso (apresenta +
  * 2 follow-ups), integração dos descritores (2 ângulos), maior avanço,
  * síntese final sem plano 30d.
+ *
+ * 🔴 O ÚLTIMO TURNO É SEMPRE A SÍNTESE, qualquer que seja o total (09/10/2026).
+ * O total vem da rota (`turnos_ia` do slot do plano; 6 no encerramento da
+ * Ibipeba), mas o roteiro era numerado só para 12: com 6 turnos, a última fala
+ * recebia o "TURN 6, MICROCASO … Termine perguntando", e a segunda tentativa
+ * da rede de segurança também, porque `fechamentoSuffix` era o turno 6 do mesmo
+ * roteiro. Medido: das 10 conversas concluídas na Ibipeba desde 08/09, nenhuma
+ * terminou em síntese (6 no texto genérico de `fechamentoSeguro`, 3 terminando
+ * em pergunta, 1 corrigida à mão). Num total menor que 12 o roteiro corre na
+ * ordem de sempre e é cortado no fim: com 6, abertura, retrospectiva, 3
+ * evidências e síntese, sem microcaso (decisão do dono, 09/10/2026; o
+ * `microcaso_resposta_qualidade` da extração não tem leitor).
  */
 
 interface EstiloDisc {
@@ -53,16 +65,41 @@ interface DescritorInfo {
 /** O que a conversa diz quando o plano não informa as semanas de desenvolvimento. */
 const SEMANAS_DE_DESENVOLVIMENTO_PADRAO = 12;
 
+/** Turnos quando a rota não informa o total: o `TURNOS_IA_AVALIACAO_QUALITATIVA` de `week-gating`. */
+const TURNOS_PADRAO = 12;
+
 interface InstrucaoPorTurnParams {
   turnIA: number;
+  /** Total de turnos da conversa. O turno `totalTurns` é a síntese, e a pessoa não responde depois dele. */
+  totalTurns: number;
   nomeColab: string;
   competencia: string;
   descritores: DescritorInfo[];
   semanas: number;
 }
 
-function instrucaoPorTurn({ turnIA, nomeColab, competencia, descritores, semanas }: InstrucaoPorTurnParams): string {
+function instrucaoPorTurn({ turnIA, totalTurns, nomeColab, competencia, descritores, semanas }: InstrucaoPorTurnParams): string {
   const descList = descritores.map(d => `"${d.descritor}"`).join(', ');
+
+  const sintese = `TURN ${turnIA}: SÍNTESE FINAL (FECHAMENTO OBRIGATÓRIO).
+Esta é a ÚLTIMA mensagem da conversa: ${nomeColab} NÃO poderá responder depois dela.
+NÃO faça mais perguntas. Estruture em 2 blocos curtos:
+
+1. **Síntese da evolução** (1 parágrafo, baseado APENAS no que apareceu nos turnos anteriores):
+   - ${nomeColab} partiu de X → hoje está em Y
+   - Cite 2-3 evidências LITERAIS que ele trouxe
+   - Nomeie 1 ponto de atenção (gap remanescente) sem julgar
+
+2. **Frase de fechamento** curta, no tom DISC do perfil. Reconheça o caminho percorrido.
+
+NÃO inclua plano de ação, plano 30 dias, próximos passos ou recomendações.
+NÃO peça confirmação nem abra espaço pra réplica.
+Ancore TUDO no que ${nomeColab} disse. NUNCA invente evolução sem evidência.
+Máximo 180 palavras totais.`;
+
+  // Antes de qualquer turno do roteiro: numa conversa mais curta que 12, o
+  // último turno cairia no meio dele (ver o cabeçalho do arquivo).
+  if (turnIA >= totalTurns) return sintese;
 
   if (turnIA === 1) {
     return `TURN 1 — ABERTURA.
@@ -149,20 +186,7 @@ SE superestimar: confronte pedindo evidência concreta.
 1 pergunta aberta. Máximo 70 palavras.`;
   }
 
-  return `TURN 12 — SÍNTESE FINAL (FECHAMENTO OBRIGATÓRIO).
-NÃO faça mais perguntas. Estruture em 2 blocos curtos:
-
-1. **Síntese da evolução** (1 parágrafo, baseado APENAS no que apareceu nos turns 1-11):
-   - ${nomeColab} partiu de X → hoje está em Y
-   - Cite 2-3 evidências LITERAIS que ele trouxe
-   - Nomeie 1 ponto de atenção (gap remanescente) sem julgar
-
-2. **Frase de fechamento** curta, no tom DISC do perfil. Reconheça o caminho percorrido.
-
-NÃO inclua plano de ação, plano 30 dias, próximos passos ou recomendações.
-NÃO peça confirmação nem abra espaço pra réplica.
-Ancore TUDO no que ${nomeColab} disse — NUNCA invente evolução sem evidência.
-Máximo 180 palavras totais.`;
+  return sintese;
 }
 
 interface PromptEvolutionQualitativeParams {
@@ -193,7 +217,8 @@ export function promptEvolutionQualitative({
   const semanas = semanasDeDesenvolvimento && semanasDeDesenvolvimento > 0
     ? semanasDeDesenvolvimento
     : SEMANAS_DE_DESENVOLVIMENTO_PADRAO;
-  const instrucao = instrucaoPorTurn({ turnIA, nomeColab, competencia, descritores, semanas });
+  const total = totalTurns && totalTurns > 0 ? totalTurns : TURNOS_PADRAO;
+  const instrucao = instrucaoPorTurn({ turnIA, totalTurns: total, nomeColab, competencia, descritores, semanas });
 
   const system = `Você é o mentor de encerramento da trilha da competência "${competencia}".
 
@@ -222,7 +247,7 @@ PRINCÍPIOS INEGOCIÁVEIS:
 
 PERGUNTAS:
 - Abertas e neutras
-- 1 por turno (exceto turno 12)
+- 1 por turno (exceto o último, que é a síntese e não tem pergunta)
 - Proibido: binárias, dicotomias falsas, julgadoras, com resposta embutida
 - Use: "Como você...?", "O que te levou a...?", "De que forma...?", "Em que momento...?"
 
@@ -266,7 +291,9 @@ ESTILO:
   //
   // `fechamentoSuffix`: a instrução do ÚLTIMO turno, que a rota precisa saber
   // pedir de novo quando bate no teto sem fechar (`fechamento-conversa.ts`).
-  const fechamentoSuffix = instrucaoPorTurn({ turnIA: totalTurns ?? 12, nomeColab, competencia, descritores, semanas });
+  // É sempre a síntese: era `instrucaoPorTurn(totalTurns)` do roteiro de 12, e
+  // com 6 turnos a segunda tentativa pedia o microcaso, que termina perguntando.
+  const fechamentoSuffix = instrucaoPorTurn({ turnIA: total, totalTurns: total, nomeColab, competencia, descritores, semanas });
   return { system, systemSuffix: instrucao, instrucao, fechamentoSuffix };
 }
 

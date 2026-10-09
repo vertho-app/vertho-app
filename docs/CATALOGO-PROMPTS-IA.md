@@ -1077,7 +1077,7 @@
 - **Arquivo**: `lib/season-engine/prompts/evolution-qualitative.ts::promptEvolutionQualitative` + `promptEvolutionQualitativeExtract`
 - **Callers**: `app/api/temporada/evaluation/route.ts` quando `semana = programaConfig.semanaAcumulada` (13 Regular/DUO, 11 Onboarding e 6 Jornada; Piloto não tem esta conversa) e `lib/season-engine/simulador-core.ts::simularQualitativa`.
 - **Max tokens**: 4000 (conversa), 8000 (extração)
-- **Max turnos IA**: 12
+- **Max turnos IA**: 12 por padrão. O total vem do slot do plano (`turnos_ia`, lido por `qualitativaDoPlano`; 6 no encerramento da Ibipeba) e **o último turno é sempre a SÍNTESE**, em qualquer total. Abaixo de 12 o roteiro segue a ordem de sempre e é cortado no fim: com 6, T1 a T5 e a síntese no T6, sem microcaso (decisão do dono, 09/10/2026). Antes disso o roteiro era numerado só para 12, e com 6 turnos a última fala (e a segunda tentativa da rede de segurança) recebia o microcaso, que termina perguntando: das 10 conversas concluídas na Ibipeba desde 08/09, nenhuma terminou em síntese. Teste: `tests/unit/conversa-fechamento.test.ts`.
 - **System prompt** (resumo editorial do prompt real em `evolution-qualitative.ts`):
   Voce e o mentor de encerramento da trilha da competencia. Conduz a conversa final da temporada apos 12 semanas. Nao e auditor frio, nem coach generico, nem avaliador formal; ajuda a reconhecer com honestidade o que mudou e o que precisa amadurecer. Principios-chave:
   1. Nunca afirme fatos nao ditos literalmente; nunca afirme evolucao sem evidencia concreta
@@ -1090,7 +1090,7 @@
   PROGRESSAO 12 TURNOS:
   T1 ABERTURA (mensagem quase fixa) | T2 RETROSPECTIVA | T3-5 EVIDENCIA REAL (3 exemplos, confronte super/subestimacao) | T6 MICROCASO (4-6 linhas, forca escolha real, sem gabarito) | T7-8 FOLLOW-UPS do microcaso | T9-10 INTEGRACAO DOS DESCRITORES | T11 MAIOR AVANCO | T12 SINTESE FINAL (sintese evolucao com evidencias literais + ponto atencao + frase fechamento DISC, max 180 palavras, sem plano de acao/proximos passos)
 - **Consumido por**: `temporada_semana_progresso.reflexao.transcript_completo` na `semanaAcumulada` do programa.
-- **Divergência ainda presente no prompt**: `promptEvolutionQualitative` continua dizendo “após 12 semanas” e a extração se apresenta como “semana 13”. Diferentemente do scorer 6.12/6.13, esse par ainda não recebe a duração configurada; em Onboarding/Jornada, o fluxo roda na semana correta, mas a redação interna permanece a do programa regular.
+- **Divergência ainda presente no prompt**: a extração se apresenta como “semana 13” em qualquer programa. A conversa já não: desde a R-29 (02/10/2026) ela cita as semanas de desenvolvimento do plano (`semanasDeDesenvolvimentoDoPlano`).
 
 #### 6.9.1 Extracao qualitativa (apos sem 13)
 
