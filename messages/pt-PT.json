@@ -850,6 +850,7 @@
     "dashboard": {
       "scope": {
         "eyebrow": "Recorte",
+        "ended": "{name} (encerrada)",
         "all": "Todas as turmas",
         "people": "{count, plural, one {# pessoa} other {# pessoas}}",
         "reading": "A ler {name}",

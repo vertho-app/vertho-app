@@ -850,6 +850,7 @@
     "dashboard": {
       "scope": {
         "eyebrow": "Alcance",
+        "ended": "{name} (cerrada)",
         "all": "Todas las cohortes",
         "people": "{count, plural, one {# persona} other {# personas}}",
         "reading": "Leyendo {name}",

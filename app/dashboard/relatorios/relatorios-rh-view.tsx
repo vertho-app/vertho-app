@@ -18,6 +18,7 @@ import { rotuloNivel } from '@/lib/nivel-regua';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
 import { baixarPdf } from '@/lib/relatorios/baixar-pdf';
+import { TURMA } from '@/lib/status';
 import { COMPETENCIA_SEM_NOME, PARTICIPANTE_SEM_NOME } from '@/lib/relatorios/evolucao-rotulos';
 
 type DashboardTab = 'overview' | 'evolution' | 'roles' | 'priorities' | 'documents';
@@ -157,7 +158,7 @@ function DashboardNavigation({ active, onChange, t }: { active: DashboardTab; on
 /**
  * Filtro de turma (mig 210).
  *
- * Só aparece com 2+ turmas ativas: com uma turma o recorte é a empresa, e um
+ * Só aparece com 2+ turmas (ativas ou concluídas, desde 09/10/2026): com uma turma o recorte é a empresa, e um
  * seletor de opção única seria ruído. O estado mora na URL: a página é montada
  * no servidor, então trocar de turma tem que refazer as consultas, e o RH
  * consegue mandar a leitura de uma turma por link.
@@ -181,7 +182,12 @@ function ScopeFilter({ scope, t }: { scope: RhReportsScope; t: any }) {
   }
 
   const opcoes = [{ id: null as string | null, nome: t('dashboard.scope.all'), membros: scope.pessoasEmpresa }]
-    .concat(scope.turmas.map((turma) => ({ id: turma.id, nome: turma.nome, membros: turma.membros })));
+    // A turma concluída é lida como as outras, com o rótulo da home e do engajamento do RH.
+    .concat(scope.turmas.map((turma) => ({
+      id: turma.id,
+      nome: turma.status === TURMA.CONCLUIDA ? t('dashboard.scope.ended', { name: turma.nome }) : turma.nome,
+      membros: turma.membros,
+    })));
 
   return (
     <section aria-label={t('dashboard.scope.eyebrow')} className={`mb-4 rounded-2xl border border-white/[0.08] bg-[#071829]/75 px-4 py-3 transition-opacity ${pending ? 'opacity-50' : ''}`}>

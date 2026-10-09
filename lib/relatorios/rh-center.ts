@@ -9,7 +9,6 @@ import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
 import { type TurmaDoTenant } from '@/lib/turmas';
 import { resolverRecorteDeTurma } from '@/lib/relatorios/recorte-turma';
-import { resolverEscopoDeLeitura } from '@/lib/turmas/escopo-leitura';
 import { tipoRelatorioForaDoAr } from '@/lib/relatorios/tipos-pulso';
 import {
   normalizeRhDescriptorAnalysis,
@@ -160,13 +159,13 @@ export async function carregarCentralRelatoriosRH(
 
   // ── Recorte por turma ─────────────────────────────────────────────────────
   // `turmaId` vem da URL, ou seja, do CLIENTE. Só vale se for uma das turmas
-  // ativas DESTE tenant: id de outra empresa, turma arquivada ou link velho
-  // caem para "empresa inteira". E, como o seletor é desenhado a partir da
+  // não arquivadas DESTE tenant (ativas e concluídas): id de outra empresa,
+  // turma arquivada ou link velho caem para "empresa inteira". E, como o seletor é desenhado a partir da
   // mesma lista, a tela mostra "Todas as turmas" selecionado. O que se lê no
   // filtro é sempre o que foi aplicado nos números.
   // A régua vive em `resolverRecorteDeTurma` porque o PDF executivo de evolução
   // aceita o mesmo parâmetro pela URL e precisa aplicar a MESMA validação.
-  const { turmas, turma: turmaEscolhida, colaboradorIds } = await resolverRecorteDeTurma(tdb.raw, empresaId, opts.turmaId);
+  const { turmas, turma: turmaEscolhida, colaboradorIds, escopoLeitura } = await resolverRecorteDeTurma(tdb.raw, empresaId, opts.turmaId);
   // Mesma régua do painel (`neq('role','rh')`), para o chip "todas as turmas"
   // dizer o mesmo número que o card "Pessoas" quando nada está filtrado.
   const pessoasEmpresaResult = await tdb.from('colaboradores')
@@ -175,7 +174,8 @@ export async function carregarCentralRelatoriosRH(
   const idsNoEscopo = colaboradorIds ? new Set(colaboradorIds) : null;
   // Com turma escolhida, a jornada de cada pessoa no panorama é a trilha DA PARTICIPAÇÃO nela
   // (07/10/2026): sem isto, a turma nova herdava a trilha ativa da antiga.
-  const escopoTurma = turmaEscolhida ? await resolverEscopoDeLeitura(tdb.raw, empresaId, turmaEscolhida.id) : null;
+  // O recorte já resolveu o escopo de leitura da turma (o mesmo das pessoas acima).
+  const escopoTurma = turmaEscolhida ? escopoLeitura : null;
 
   const [gerenciais, panorama, evolucao, reportsResult, insightResult, descriptorResult] = await Promise.all([
     carregarRelatoriosGerenciais(empresaId),

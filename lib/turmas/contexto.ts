@@ -15,7 +15,7 @@
  */
 
 import { resolverConfigEfetiva, type ConfigEfetiva, type FontesConfig } from './config-efetiva';
-import { TURMA_MEMBRO, TURMA_ENCERRADAS, type TurmaStatus } from '@/lib/status';
+import { TURMA, TURMA_MEMBRO, TURMA_ENCERRADAS, type TurmaStatus } from '@/lib/status';
 import { lerTudoPaginado } from '@/lib/paginacao';
 
 export interface ContextoTurma {
@@ -201,7 +201,8 @@ export interface TurmaDoTenant {
   status: TurmaStatus;
   /**
    * Participantes ATIVOS, sem a conta de RH: o denominador que acompanha todo
-   * número da turma.
+   * número da turma. Com `incluirConcluidas`, quem PASSOU pela turma (participação
+   * ativa ou concluída), contado uma vez.
    *
    * 🔑 A régua é a MESMA do painel (`neq('role','rh')`). Contar a participação
    * crua faria o chip dizer "127 pessoas" ao lado de um painel que conta 126:
@@ -215,15 +216,25 @@ export interface TurmaDoTenant {
 /**
  * Turmas ativas de uma empresa, com a contagem de participantes.
  *
+ * `incluirConcluidas` (09/10/2026, pedido do dono): os filtros de LEITURA do RH
+ * passam a listar também a turma CONCLUÍDA (a Temporada 1 de Ibipeba), contando
+ * quem passou por ela. A arquivada continua fora. Os usos operacionais (programa
+ * de liderança, lotes) seguem sem a opção: turma concluída não recebe ação.
+ *
  * Deliberadamente mais pobre que `levantarPortfolioTurmas`: aquele agrega
  * respostas, IA4, trilhas e a distribuição de semanas para o operador da
  * Vertho. Um seletor de turma precisa do nome e de quantas pessoas ele recorta.
  * Pagar as quatro varreduras do portfólio para desenhar dois chips seria cobrar
  * da tela do RH o custo de um painel que ela não mostra.
  */
-export async function listarTurmasDoTenant(sb: any, empresaId: string): Promise<TurmaDoTenant[]> {
+export async function listarTurmasDoTenant(
+  sb: any,
+  empresaId: string,
+  opcoes: { incluirConcluidas?: boolean } = {},
+): Promise<TurmaDoTenant[]> {
   if (!empresaId) return [];
-  const encerradas = `(${TURMA_ENCERRADAS.map((s) => `"${s}"`).join(',')})`;
+  const foraDaLista = opcoes.incluirConcluidas ? [TURMA.ARQUIVADA] : TURMA_ENCERRADAS;
+  const encerradas = `(${foraDaLista.map((s) => `"${s}"`).join(',')})`;
   const { data: turmas, error } = await sb.from('turmas')
     .select('id, nome, status')
     .eq('empresa_id', empresaId)
@@ -239,21 +250,24 @@ export async function listarTurmasDoTenant(sb: any, empresaId: string): Promise<
     sb.from('turma_membros')
       .select('turma_id, colaborador_id')
       .eq('empresa_id', empresaId)
-      .eq('status', TURMA_MEMBRO.ATIVO),
+      .in('status', opcoes.incluirConcluidas ? [TURMA_MEMBRO.ATIVO, TURMA_MEMBRO.CONCLUIDO] : [TURMA_MEMBRO.ATIVO]),
     sb.from('colaboradores').select('id').eq('empresa_id', empresaId).eq('role', 'rh'),
   ]);
 
   const foraDaContagem = new Set((administrativos || []).map((c: any) => c.id));
-  const porTurma = new Map<string, number>();
+  // Uma pessoa conta uma vez por turma (quem saiu e voltou tem duas participações).
+  const porTurma = new Map<string, Set<string>>();
   for (const m of membros || []) {
     if (foraDaContagem.has(m.colaborador_id)) continue;
-    porTurma.set(m.turma_id, (porTurma.get(m.turma_id) || 0) + 1);
+    const pessoas = porTurma.get(m.turma_id) || new Set<string>();
+    pessoas.add(m.colaborador_id);
+    porTurma.set(m.turma_id, pessoas);
   }
 
   return turmas.map((t: any) => ({
     id: t.id,
     nome: t.nome,
     status: t.status,
-    membros: porTurma.get(t.id) || 0,
+    membros: porTurma.get(t.id)?.size || 0,
   }));
 }

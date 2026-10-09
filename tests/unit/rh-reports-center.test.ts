@@ -32,7 +32,9 @@ const sb = criarSupabaseMock({
   lista: (table, cols) => {
     if (table === 'relatorios') return REPORTS;
     if (table === 'turmas') return [TURMA];
-    if (table === 'turma_membros') return [{ turma_id: TURMA.id, colaborador_id: 'pessoa-1' }];
+    // Forma real da participação: o recorte lê pelo escopo de LEITURA (09/10/2026), que só
+    // conta participação ativa ou concluída.
+    if (table === 'turma_membros') return [{ id: 'tm-1', turma_id: TURMA.id, colaborador_id: 'pessoa-1', status: 'ativo', created_at: '2026-08-13T00:00:00Z', marco_jornada: null }];
     // `select('id')` em colaboradores é a busca das contas de RH (fora da
     // contagem da turma). Nenhuma aqui.
     if (table === 'colaboradores' && cols === 'id') return [];
