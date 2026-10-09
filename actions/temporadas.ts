@@ -12,6 +12,8 @@ import { formatosTop2DaPessoa } from '@/lib/season-engine/kit/formatos-por-prefe
 import { getProgramaConfigByModo, getProgramaConfigDaTrilha, normalizarModoPrograma } from '@/lib/season-engine/programa-config';
 import { conteudosServiveisPorCargo } from '@/lib/season-engine/build-season';
 import { carregarConfigsEfetivasEmLote } from '@/lib/turmas';
+import { carregarJornadaAtual } from '@/lib/turmas/jornada-atual';
+import { CODIGO_TRILHA_ENCERRADA, MENSAGEM_TRILHA_ENCERRADA, trilhaRecebeTrabalho } from '@/lib/season-engine/trilha-encerrada';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
 import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
@@ -402,6 +404,9 @@ const _pausarRetomarTemporada = protectedAction('content.manage', TrilhaIdInput,
   const trilha = await findTrilhaComTenant(sb, trilhaId);
   if (!trilha) throw new Error('Trilha não encontrada');
   await assertTenantAccessAction(ctx, trilha.empresa_id); // defense-in-depth (no-op p/ platform admin)
+  // Encerrada é fim de jornada decidido pela operação: "pausar" a reabriria como
+  // pausada e "retomar" como ativa, de volta para a cadência.
+  if (!trilhaRecebeTrabalho(trilha.status)) throw new Error('Jornada encerrada: ela fica no histórico, só para leitura.');
   const novo = trilha.status === TRILHA.PAUSADA ? TRILHA.ATIVA : TRILHA.PAUSADA;
   const upd = await updateTrilhaInTenant(sb, trilha.empresa_id, trilhaId, { status: novo });
   if (!upd) throw new Error('Trilha não encontrada nesta empresa');
@@ -830,7 +835,9 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
   try {
     const ctx = await requireUserAction();
     const sb = createSupabaseAdmin();
-    const { data: t } = await sb.from('trilhas').select('empresa_id, colaborador_id, temporada_plano').eq('id', trilhaId).maybeSingle();
+    const { data: t, error: errTrilha } = await sb.from('trilhas').select('empresa_id, colaborador_id, status, temporada_plano').eq('id', trilhaId).maybeSingle();
+    // Falha de leitura não é "trilha não encontrada": a pessoa tenta de novo.
+    if (errTrilha) return { error: `Não consegui ler a jornada: ${errTrilha.message}` };
     if (!t) return { error: 'Trilha não encontrada' };
 
     // SÓ O DONO marca o próprio progresso: `trilhaId` vem do CLIENTE, e sem
@@ -840,6 +847,8 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
     if (!ctx.colaborador?.id || t.colaborador_id !== ctx.colaborador.id) {
       return { error: 'não autorizado' };
     }
+    // Jornada encerrada pela operação: lê-se, não se grava mais nela.
+    if (!trilhaRecebeTrabalho(t.status)) return { error: MENSAGEM_TRILHA_ENCERRADA, codigo: CODIGO_TRILHA_ENCERRADA };
     // Semana de mapeamento (Onboarding): nasce concluída e não tem conteúdo a
     // abrir. Não há o que marcar, e a linha dela não pode ser tocada por aqui.
     if ((t.temporada_plano || []).find((s: any) => s.semana === semana)?.tipo === 'mapeamento') return { ok: true };
@@ -948,13 +957,32 @@ export async function loadTemporada(colaboradorId: string, opts: { semanaTranscr
     // o wrapper garante que o filtro vai.
     const tdb = tenantDb(colaborador.empresa_id);
 
-    let trilhaQuery = tdb.from('trilhas')
-      .select('*').eq('colaborador_id', colaboradorId);
-    trilhaQuery = opts.trilhaId
-      ? trilhaQuery.eq('id', opts.trilhaId)
-      : trilhaQuery.order('criado_em', { ascending: false }).limit(1);
-    const { data: trilha } = await trilhaQuery.maybeSingle();
-    if (!trilha) return { error: 'Sem temporada' };
+    // Com `trilhaId` (histórico, consulta), a trilha pedida. Sem ele, a da JORNADA
+    // ATUAL (participação ativa), não a mais recente da pessoa: quem entrou numa
+    // turma nova voltava para as semanas da jornada anterior (09/10/2026).
+    let trilha: any = null;
+    if (opts.trilhaId) {
+      const { data, error: errTrilha } = await tdb.from('trilhas')
+        .select('*').eq('colaborador_id', colaboradorId).eq('id', opts.trilhaId).maybeSingle();
+      if (errTrilha) return { error: `Falha ao ler a jornada: ${errTrilha.message}` };
+      trilha = data;
+      if (!trilha) return { error: 'Sem temporada' };
+    } else {
+      const jornada = await carregarJornadaAtual(sbRaw, colaborador.empresa_id, colaboradorId);
+      if (jornada.trilha) {
+        const { data, error: errTrilha } = await tdb.from('trilhas')
+          .select('*').eq('colaborador_id', colaboradorId).eq('id', jornada.trilha.id).maybeSingle();
+        if (errTrilha) return { error: `Falha ao ler a jornada: ${errTrilha.message}` };
+        trilha = data;
+      }
+      // A jornada atual ainda não tem trilha. Quem já passou por outra recebe um
+      // código próprio, para a tela dizer que a jornada mudou (e não "sem temporada").
+      if (!trilha) {
+        return jornada.temJornadaAnterior
+          ? { error: 'A sua nova jornada ainda não começou.', code: 'JORNADA_NOVA_SEM_TRILHA' }
+          : { error: 'Sem temporada' };
+      }
+    }
 
     // Progresso LEVE: sem os 3 JSONB de transcript (reflexao/feedback/tira_duvidas),
     // que pesam e só são usados na tela de UMA semana. Antes `select('*')` puxava os

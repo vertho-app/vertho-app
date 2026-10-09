@@ -13,7 +13,9 @@ describe('histórico das jornadas do participante', () => {
     expect(action).toContain('ctx.email');
     expect(action).toContain('tenantDb(colab.empresa_id)');
     expect(action).toContain(".eq('colaborador_id', colab.id)");
-    expect(action).toContain(".eq('status', TRILHA.CONCLUIDA)");
+    // Concluídas e encerradas pela operação (09/10/2026), nunca a jornada em curso.
+    expect(action).toContain(".in('status', STATUS_DO_HISTORICO)");
+    expect(action).toContain('STATUS_DO_HISTORICO: string[] = [TRILHA.CONCLUIDA, TRILHA.ENCERRADA]');
   });
 
   it('não aceita um id histórico sem provar que ele pertence à própria pessoa', () => {
@@ -22,7 +24,7 @@ describe('histórico das jornadas do participante', () => {
 
     expect(detalhe).toContain(".eq('id', trilhaId)");
     expect(detalhe).toContain(".eq('colaborador_id', colab.id)");
-    expect(detalhe).toContain('trilha.status !== TRILHA.CONCLUIDA');
+    expect(detalhe).toContain('!STATUS_DO_HISTORICO.includes(trilha.status)');
   });
 
   it('abre relatório e conteúdo com a trilha escolhida, sempre em leitura', () => {

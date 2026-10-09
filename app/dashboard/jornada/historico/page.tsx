@@ -85,7 +85,7 @@ export default function HistoricoJornadasPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-300">{indice === 0 ? t('latest') : t('completed')}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-300">{jornada.encerrada ? t('closed') : indice === 0 ? t('latest') : t('completed')}</p>
                       <h2 className="mt-1 text-lg font-bold leading-tight text-white">
                         {jornada.competencias.join(' + ') || t('developmentJourney')}
                       </h2>

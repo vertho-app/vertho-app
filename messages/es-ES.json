@@ -1730,6 +1730,7 @@
     "title": "El camino que ya recorriste, {name}",
     "subtitle": "Vuelve a abrir recorridos concluidos para revisar tus informes, contenidos y desafíos tal como quedaron registrados.",
     "season": "Recorrido",
+    "closed": "Recorrido cerrado",
     "latest": "Conclusión más reciente",
     "completed": "Recorrido concluido",
     "developmentJourney": "Recorrido de desarrollo",
@@ -1742,11 +1743,13 @@
       "description": "Cuando concluyas un recorrido, su informe y sus contenidos aparecerán aquí."
     },
     "notFound": "No se encontró el recorrido concluido.",
+    "seasonClosed": "Recorrido {number} cerrado",
     "seasonCompleted": "Recorrido {number} concluido",
     "period": "{start} a {end}",
     "weeks": "{count} semanas",
     "actions": {
       "report": "Revisar informe",
+      "reportClosed": "El recorrido se cerró antes de la evaluación final, por eso no tiene informe.",
       "reportDescription": "Resultados, avances, evidencias y próximos pasos.",
       "preserved": "Registro preservado",
       "preservedDescription": "Este recorrido sigue disponible en modo de solo lectura."
@@ -2663,6 +2666,13 @@
     "empty": {
       "title": "Tu recorrido aún no se ha preparado",
       "subtitle": "Vertho prepara y libera tu recorrido. Cuando esté listo, aparecerá aquí."
+    },
+    "newJourney": {
+      "title": "Tu nuevo recorrido aún no ha comenzado",
+      "body": "El primer paso es el mapeo de competencias. El recorrido anterior se cerró y sigue en tu historial para consulta.",
+      "managerBody": "El nuevo recorrido de esta persona aún no ha comenzado. El anterior se cerró y sigue en su historial.",
+      "ctaAssessment": "Ir al mapeo",
+      "ctaHistory": "Ver recorridos anteriores"
     },
     "hero": {
       "eyebrow": "Recorrido {number}",
@@ -4891,6 +4901,10 @@
     "intro": {
       "context": "Contexto",
       "start": "Iniciar mapeo"
+    },
+    "draft": {
+      "restored": "Guardamos lo que ya habías escrito. Continúa donde lo dejaste.",
+      "continue": "Continuar donde lo dejé"
     },
     "questions": {
       "counter": "Pregunta {current} de {total}",

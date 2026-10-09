@@ -1,13 +1,13 @@
 'use client';
 import { toast } from 'sonner';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, CheckCircle, ArrowRight, Target, Calendar, FileText, Trophy } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { getDiagnosticoDoDia, salvarRespostaDiagnostico } from './assessment-actions';
+import { getDiagnosticoDoDia, salvarRespostaDiagnostico, salvarRascunhoDiagnostico } from './assessment-actions';
 import MicInput from '@/components/mic-input';
 import { respostaDiagnosticoTemTexto } from '@/lib/assessment/resposta-texto';
 
@@ -135,8 +135,62 @@ function AssessmentInner() {
   // de um texto que tem ~1.200 — escondia três quartos da análise, e era
   // justamente a parte que explica o nível.
   const [feedbackAberto, setFeedbackAberto] = useState/* <Set<string>> */(() => new Set());
+  // Rascunho no SERVIDOR (mig 283). As respostas viviam só neste estado até o
+  // envio final: em 08/10/2026 uma pessoa respondeu três perguntas, a sessão caiu
+  // e ao voltar não havia nada. Agora elas vão para o servidor a cada pergunta e
+  // enquanto a pessoa digita, e voltam quando ela reabre o mesmo cenário.
+  const [rascunhoRecuperado, setRascunhoRecuperado] = useState(false);
+  const ultimoRascunhoRef = useRef('');
+  const enviandoRef = useRef(false);
 
   function flash(msg) { toast.error(msg); }
+
+  /** Aplica o rascunho que o servidor devolveu (ou nada, se não houver). */
+  function aplicarRascunho(r: any) {
+    const rasc = r?.rascunho;
+    if (!rasc) { setRascunhoRecuperado(false); ultimoRascunhoRef.current = ''; return false; }
+    const recuperadas = { r1: rasc.r1 || '', r2: rasc.r2 || '', r3: rasc.r3 || '', r4: rasc.r4 || '' };
+    setRespostas(recuperadas);
+    setPergIdx(Math.min(3, Math.max(0, Number(rasc.pergunta) || 0)));
+    setRascunhoRecuperado(true);
+    ultimoRascunhoRef.current = JSON.stringify({ ...recuperadas, pergunta: Number(rasc.pergunta) || 0 });
+    return true;
+  }
+
+  /**
+   * Manda o rascunho ao servidor se ele mudou desde o último envio. Falha não
+   * interrompe a pessoa: o envio final continua sendo o que vale.
+   */
+  const gravarRascunho = useCallback((resp: { r1: string; r2: string; r3: string; r4: string }, idx: number) => {
+    const cen = data?.cenarioDoDia;
+    if (!cen?.cenarioId || !cen?.compId) return;
+    // Durante o envio definitivo o servidor apaga o rascunho: gravar agora o recriaria.
+    if (enviandoRef.current) return;
+    if (![resp.r1, resp.r2, resp.r3, resp.r4].some((txt) => (txt || '').trim())) return;
+    const chave = JSON.stringify({ ...resp, pergunta: idx });
+    if (chave === ultimoRascunhoRef.current) return;
+    ultimoRascunhoRef.current = chave;
+    salvarRascunhoDiagnostico(cen.cenarioId, cen.compId, { ...resp, pergunta: idx }, trilho)
+      .then((res: any) => { if (res?.error) { ultimoRascunhoRef.current = ''; console.warn('[assessment] rascunho:', res.error); } })
+      .catch((e) => { ultimoRascunhoRef.current = ''; console.warn('[assessment] rascunho:', e?.message || e); });
+  }, [data, trilho]);
+
+  // Enquanto a pessoa responde: grava 1,5 s depois da última tecla, e na hora
+  // em que a página vai para o segundo plano (troca de app, tela bloqueada), que
+  // é quando o navegador do WhatsApp costuma descartar a aba.
+  useEffect(() => {
+    if (phase !== PHASE.PERGUNTAS && phase !== PHASE.REPR) return;
+    const timer = setTimeout(() => gravarRascunho(respostas, pergIdx), 1500);
+    const aoEsconder = () => { if (document.visibilityState === 'hidden') gravarRascunho(respostas, pergIdx); };
+    const aoSair = () => gravarRascunho(respostas, pergIdx);
+    document.addEventListener('visibilitychange', aoEsconder);
+    window.addEventListener('pagehide', aoSair);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', aoEsconder);
+      window.removeEventListener('pagehide', aoSair);
+    };
+  }, [phase, respostas, pergIdx, gravarRascunho]);
 
   // Primeira competência respondida + preferências de aprendizagem ainda não dadas
   // (tenant sem DISC nativo): a etapa vem antes de seguir. O servidor decide
@@ -155,6 +209,7 @@ function AssessmentInner() {
     setTrilho(trilhoQuery);
     setPhase(PHASE.LOADING); setError(''); setErrorCode(''); setData(null);
     setRespostas({ r1: '', r2: '', r3: '', r4: '' }); setRepr(null); setPergIdx(0); setSaveResult(null);
+    setRascunhoRecuperado(false); ultimoRascunhoRef.current = ''; enviandoRef.current = false;
     (async () => {
       try {
         const r: any = await getDiagnosticoDoDia(trilhoQuery);
@@ -165,6 +220,8 @@ function AssessmentInner() {
         if (irParaPreferencias(r)) return;
         if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
         else if (r.respondeuHoje) setPhase(PHASE.HOJE);
+        // Quem já tinha começado este cenário volta para ele, com o que escreveu.
+        else if (aplicarRascunho(r)) setPhase(PHASE.INTRO);
         else setPhase(PHASE.EXPLICACAO);
       } catch (e) {
         if (!ativo) return;
@@ -187,8 +244,11 @@ function AssessmentInner() {
   function avancarPergunta() {
     if (currentR.trim().length < 20) { flash(t('questions.minToast')); return; }
     if (!respostaDiagnosticoTemTexto(currentR)) { flash(t('questions.textRequired')); return; }
+    // Cada pergunta concluída vai para o servidor na hora, sem esperar o debounce.
+    const proximo = pergIdx === 3 ? 3 : pergIdx + 1;
+    gravarRascunho(respostas, proximo);
     if (pergIdx === 3) { setPhase(PHASE.REPR); return; }
-    setPergIdx(i => i + 1);
+    setPergIdx(proximo);
   }
 
   function voltarPergunta() {
@@ -199,6 +259,7 @@ function AssessmentInner() {
   async function enviarResposta() {
     if (!repr) { flash(t('representativity.chooseToast')); return; }
     setSaving(true);
+    enviandoRef.current = true;
     const cen = data.cenarioDoDia;
     const r: any = await salvarRespostaDiagnostico(cen.cenarioId, cen.compId, cen.compNome, {
       ...respostas,
@@ -206,6 +267,8 @@ function AssessmentInner() {
     }, trilho);
     setSaving(false);
     if (r.error) {
+      // Envio recusado: o rascunho volta a valer (a pessoa segue respondendo).
+      enviandoRef.current = false;
       // Porta fechada no meio do caminho (ex.: cenários bloqueados enquanto a
       // pessoa respondia): a mesma tela de bloqueio da carga, com saída.
       if (BLOQUEIOS_CONHECIDOS.has(r.code)) { setError(r.error); setErrorCode(r.code); setPhase(PHASE.ERROR); return; }
@@ -343,11 +406,17 @@ function AssessmentInner() {
       {/* ─── INTRO DO CENÁRIO ─── */}
       {phase === PHASE.INTRO && data?.cenarioDoDia && (
         <div className="rounded-2xl p-5 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+          {rascunhoRecuperado && (
+            <p className="mb-4 rounded-xl border border-brand-400/25 bg-brand-400/[0.06] px-3 py-2.5 text-xs leading-relaxed text-brand-100/90" data-assessment-rascunho="recuperado">
+              {t('draft.restored')}
+            </p>
+          )}
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-brand-400 mb-2">{t('intro.context')}</p>
           <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap mb-5">{data.cenarioDoDia.contexto}</p>
-          <button onClick={() => { setPergIdx(0); setPhase(PHASE.PERGUNTAS); }}
+          {/* Com rascunho, volta na pergunta em que a pessoa parou. */}
+          <button onClick={() => { if (!rascunhoRecuperado) setPergIdx(0); setPhase(PHASE.PERGUNTAS); }}
             className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-br from-[#0F2B54] to-[#1a3a70] hover:brightness-110 transition">
-            {t('intro.start')}
+            {rascunhoRecuperado ? t('draft.continue') : t('intro.start')}
           </button>
         </div>
       )}
@@ -467,12 +536,13 @@ function AssessmentInner() {
                 setRepr(null);
                 setPergIdx(0);
                 setSaveResult(null);
+                enviandoRef.current = false;
                 const r: any = await getDiagnosticoDoDia(trilho);
                 if (r.error) { setError(r.error); setErrorCode(r.code || ''); setPhase(PHASE.ERROR); return; }
                 setData(r);
                 if (irParaPreferencias(r)) return;
                 if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
-                else setPhase(PHASE.INTRO);
+                else { aplicarRascunho(r); setPhase(PHASE.INTRO); }
               }}
                 className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
                 {t('confirm.nextCompetency')}

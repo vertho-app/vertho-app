@@ -12,10 +12,13 @@ import {
   carregarCapacitacoes,
   carregarPanoramaRH,
   carregarRelatoriosGerenciais,
+  carregarProgressoMapeamento,
   JORNADA_COLAB_COLS,
+  HOME_TRILHA_COLS,
   type HomeSharedData,
 } from '@/lib/home/loaders';
 import { carregarContextoTurma } from '@/lib/turmas';
+import { carregarJornadaAtual } from '@/lib/turmas/jornada-atual';
 import { getDashboardView } from '@/lib/authz';
 import { findReadyPersonalizedVideo, personalizedGreetingCopy } from '@/lib/video/personalized-ready';
 
@@ -53,41 +56,40 @@ export async function loadHomeData() {
 
   const sb = createSupabaseAdmin();
 
-  // Pré-busca compartilhada — superset das colunas que dashboard, KPIs e
-  // jornada consultavam separadamente na trilha latest.
-  const [trilhaRes, empCfgRes, respRes] = await Promise.all([
-    sb.from('trilhas')
-      // `data_inicio` é o que `carregarHomeKpis` usa para saber em que semana a
-      // pessoa está (via week-gating). Sem ela no shared, os cards de pílula,
-      // evidência e próximo marco não têm janela e não aparecem.
-      .select('id, cursos, competencia_foco, numero_temporada, status, temporada_plano, criado_em, data_inicio, programa_modo, programa_config')
-      .eq('colaborador_id', colab.id)
-      .eq('empresa_id', colab.empresa_id)
-      .order('criado_em', { ascending: false })
-      .limit(1).maybeSingle(),
+  // Pré-busca compartilhada. A trilha é a da JORNADA ATUAL (participação ativa),
+  // não a mais recente da pessoa: com a mais recente, quem entrou numa turma nova
+  // via a jornada anterior em 100% e voltava para as semanas dela (09/10/2026).
+  // `data_inicio` (em `HOME_TRILHA_COLS`) é o que `carregarHomeKpis` usa para
+  // saber em que semana a pessoa está (via week-gating).
+  const [jornadaR, empCfgRes] = await Promise.all([
+    carregarJornadaAtual(sb, colab.empresa_id, colab.id, HOME_TRILHA_COLS)
+      .catch((e: any) => { console.error('[home] jornada atual indisponível:', e?.message || e); return undefined; }),
     sb.from('empresas')
       .select('sys_config, is_demo')
       .eq('id', colab.empresa_id)
       .maybeSingle(),
-    sb.from('respostas')
-      .select('id', { count: 'exact', head: true })
-      .eq('colaborador_id', colab.id)
-      .eq('empresa_id', colab.empresa_id),
   ]);
+  // Leitura que falhou fica `undefined`, e os loaders perguntam de novo (e
+  // registram se falhar outra vez) em vez de tratar o convidado como cliente.
+  const empresaIsDemo = empCfgRes.data ? (empCfgRes.data as any).is_demo === true : undefined;
   // `sysConfig` do shared é a config EFETIVA (empresa → turma → participação),
   // não a da empresa crua: todos os loaders que decidem etapa (votação, perfil,
   // assessment) herdam o override da turma por este ponto único. Sem turma, o
   // resolvedor devolve a config da empresa inalterada — compatibilidade total.
-  const ctxTurma = await carregarContextoTurma(
-    sb, colab.empresa_id, colab.id, (empCfgRes.data?.sys_config as any) || {},
-  );
+  const [ctxTurma, mapeamentoR] = await Promise.all([
+    carregarContextoTurma(sb, colab.empresa_id, colab.id, (empCfgRes.data?.sys_config as any) || {}),
+    // A régua do cabeçalho do assessment, uma vez por pageview para os três loaders.
+    carregarProgressoMapeamento(sb, colabJornada, empresaIsDemo)
+      .then((m) => m, (e: any) => { console.error('[home] progresso do mapeamento indisponível:', e?.message || e); return undefined; }),
+  ]);
   const shared: HomeSharedData = {
-    trilha: trilhaRes.data ?? null,
+    // Falha na jornada atual fica `undefined`: cada loader tenta de novo e, se
+    // falhar outra vez, a SEÇÃO cai, em vez de a home mandar para a jornada errada.
+    trilha: jornadaR ? jornadaR.trilha : undefined,
+    janela: jornadaR ? jornadaR.janela : undefined,
     sysConfig: ctxTurma.config,
-    respostasCount: respRes.count ?? 0,
-    // Leitura que falhou fica `undefined`, e os loaders perguntam de novo (e
-    // registram se falhar outra vez) em vez de tratar o convidado como cliente.
-    empresaIsDemo: empCfgRes.data ? (empCfgRes.data as any).is_demo === true : undefined,
+    mapeamento: mapeamentoR,
+    empresaIsDemo,
   };
 
   // O RH é ADMIN da empresa, não participante: a home dele é o panorama do

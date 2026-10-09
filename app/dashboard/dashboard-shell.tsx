@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { loginComDestino } from '@/lib/auth/login-com-destino';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
@@ -148,6 +149,9 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const isImmersiveContent = pathname.startsWith('/dashboard/conteudo/');
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
+  // "Sair" apertado pela pessoa: o login não leva destino (quem entra depois pode
+  // ser outra pessoa no mesmo aparelho).
+  const saindoDePropositoRef = useRef(false);
   const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean; treinoVendas?: boolean; prontidaoLideranca?: boolean; soAcompanhaSimuladores?: boolean; simuladorLideranca?: boolean; mapeamentoLideranca?: boolean; liderancaEquipe?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
   const ehAdminDaEmpresa = colaborador?.role === 'rh';
@@ -188,10 +192,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
         // não sabe que chegou no lugar errado. O `?redirect=` já é honrado pelo
         // `login-form`, e é ele que o aviso de navegador embutido carrega para o
         // Safari.
-        const destino = `${window.location.pathname}${window.location.search}`;
-        router.replace(destino && destino !== '/dashboard'
-          ? `/login?redirect=${encodeURIComponent(destino)}`
-          : '/login');
+        router.replace(loginComDestino(window.location.pathname, window.location.search));
         return;
       }
       setUser(session.user);
@@ -207,8 +208,12 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === 'SIGNED_OUT' || !session) router.replace('/login');
-        else setUser(session.user);
+        // A sessão que cai NO MEIO do uso (token que não renovou, aba que voltou
+        // do segundo plano) também leva o destino: quem estava no mapeamento volta
+        // para ele, e não para a home. O "Sair" de propósito vai para o login puro.
+        if (event === 'SIGNED_OUT' || !session) {
+          router.replace(saindoDePropositoRef.current ? '/login' : loginComDestino(window.location.pathname, window.location.search));
+        } else setUser(session.user);
       }
     );
     return () => subscription.unsubscribe();
@@ -234,6 +239,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   // aparelho. O resíduo aceito é a janela entre o logout de A e o login de B —
   // que exige o aparelho trocar de mãos exatamente nesse intervalo.
   async function handleLogout() {
+    saindoDePropositoRef.current = true;
     await supabase.auth.signOut();
     router.replace('/login');
   }

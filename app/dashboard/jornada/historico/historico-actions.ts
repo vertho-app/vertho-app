@@ -41,6 +41,9 @@ function tituloDaSemana(slot: any): string {
   return descritorParaHumano(slot?.descritor) || slot?.competencia || 'Conteúdo da semana';
 }
 
+/** O que entra no histórico: jornada concluída e jornada encerrada pela operação. */
+const STATUS_DO_HISTORICO: string[] = [TRILHA.CONCLUIDA, TRILHA.ENCERRADA];
+
 async function colaboradorAutenticado() {
   const ctx = await requireUserAction();
   const colab = await findColabByEmail(
@@ -52,7 +55,10 @@ async function colaboradorAutenticado() {
 }
 
 /**
- * Lista somente as jornadas efetivamente concluídas da pessoa autenticada.
+ * Jornadas que JÁ ACABARAM, da pessoa autenticada: as concluídas e as encerradas
+ * pela operação antes do fim (`TRILHA.ENCERRADA`, 09/10/2026: a Temporada 1 de
+ * Ibipeba fechou quando a 2 abriu). As duas ficam aqui só para leitura; a
+ * encerrada não tem relatório de evolução.
  *
  * Não existe prazo de retenção nesta leitura: enquanto o vínculo autenticado
  * com o tenant existir, todas as trilhas concluídas continuam consultáveis.
@@ -63,7 +69,7 @@ export async function loadHistoricoJornadas() {
     const { data: trilhas, error } = await tdb.from('trilhas')
       .select('id, numero_temporada, competencia_foco, competencias_foco, temporada_plano, criado_em, data_inicio, evolution_generated_at, evolution_report, programa_modo, status')
       .eq('colaborador_id', colab.id)
-      .eq('status', TRILHA.CONCLUIDA)
+      .in('status', STATUS_DO_HISTORICO)
       .order('numero_temporada', { ascending: false })
       .order('criado_em', { ascending: false });
 
@@ -99,6 +105,7 @@ export async function loadHistoricoJornadas() {
           dataConclusao: dataDeConclusao(trilha, progresso),
           relatorioDisponivel: !!trilha.evolution_report,
           programaModo: trilha.programa_modo || null,
+          encerrada: trilha.status === TRILHA.ENCERRADA,
         };
       }),
     };
@@ -119,7 +126,7 @@ export async function loadJornadaHistorica(trilhaId: string) {
       .eq('colaborador_id', colab.id)
       .maybeSingle();
     if (error) return { error: `Não foi possível abrir a jornada: ${error.message}` };
-    if (!trilha || trilha.status !== TRILHA.CONCLUIDA) return { error: 'Jornada concluída não encontrada' };
+    if (!trilha || !STATUS_DO_HISTORICO.includes(trilha.status)) return { error: 'Jornada concluída não encontrada' };
 
     const { data: progressos, error: erroProgressos } = await tdb.from('temporada_semana_progresso')
       .select('semana, status, concluido_em')
@@ -149,6 +156,7 @@ export async function loadJornadaHistorica(trilhaId: string) {
         dataInicio: trilha.data_inicio || trilha.criado_em,
         dataConclusao: dataDeConclusao(trilha, progressos || []),
         relatorioDisponivel: !!trilha.evolution_report,
+        encerrada: trilha.status === TRILHA.ENCERRADA,
         semanas,
       },
     };

@@ -12,7 +12,14 @@ const sb = criarSupabaseMock({
     return null;
   },
   contagem: (tabela) => tabela === 'respostas' ? 5 : null,
-  lista: () => [],
+  // A home conta o mapeamento pelas respostas de competências do Top 5 (09/10/2026).
+  // `competencias` tem mais linhas que o Top 5 (outras competências do catálogo):
+  // o total continua sendo o do Top 5.
+  lista: (tabela) => {
+    if (tabela === 'respostas') return TOP5.map((nome) => ({ competencia_id: null, competencia_nome: nome }));
+    if (tabela === 'competencias') return ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7'].map((nome) => ({ id: `id-${nome}`, nome }));
+    return [];
+  },
 });
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
@@ -35,12 +42,11 @@ describe('consistência do funil na home do colaborador', () => {
     expect(data.colaborador.respondidas).toBe(5);
     expect(data.colaborador.progresso).toBe(100);
     expect(data.cargoSemCompetencias).toBe(false);
-    expect(sb.usou('competencias', 'select')).toBe(false);
   });
 
   it('mostra um PDI existente como concluído mesmo antes de existir trilha', async () => {
     temPdi = true;
-    const jornada: any = await carregarJornada(colaborador, { trilha: null, sysConfig: {}, respostasCount: 5 });
+    const jornada: any = await carregarJornada(colaborador, { trilha: null, sysConfig: {}, mapeamento: { respondidas: 5, total: 5 } });
     const fasePdi = jornada.fases.find((fase: any) => fase.fase === 3);
     const faseTrilha = jornada.fases.find((fase: any) => fase.fase === 4);
     expect(fasePdi).toMatchObject({ status: 'completed', bloqueado: false });

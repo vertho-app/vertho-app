@@ -52,7 +52,7 @@ export default function JornadaHistoricaPage({ params }: { params: Promise<{ tri
       <BackButton href="/dashboard/jornada/historico" />
 
       <header className="mt-5 overflow-hidden rounded-[30px] border border-violet-300/20 bg-[radial-gradient(circle_at_top_right,rgba(184,136,232,0.20),transparent_38%),linear-gradient(135deg,#101f3c,#1a1235)] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.2)] sm:p-8">
-        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-violet-300">{t('seasonCompleted', { number: jornada.numero })}</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-violet-300">{jornada.encerrada ? t('seasonClosed', { number: jornada.numero }) : t('seasonCompleted', { number: jornada.numero })}</p>
         <h1 style={{ ...serifStyle, fontSize: 'clamp(30px, 6vw, 48px)', lineHeight: 1.04, color: '#fff', marginTop: 8 }}>
           {jornada.competencias.join(' + ') || t('developmentJourney')}
         </h1>
@@ -71,7 +71,7 @@ export default function JornadaHistoricaPage({ params }: { params: Promise<{ tri
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-300/10 text-amber-300"><FileChartColumn size={21} /></span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold text-white">{t('actions.report')}</span>
-            <span className="mt-1 block text-xs leading-relaxed text-white/45">{t('actions.reportDescription')}</span>
+            <span className="mt-1 block text-xs leading-relaxed text-white/45">{jornada.encerrada && !jornada.relatorioDisponivel ? t('actions.reportClosed') : t('actions.reportDescription')}</span>
           </span>
           <ArrowRight size={17} className="text-white/25 transition group-hover:translate-x-1 group-hover:text-amber-300" />
         </button>

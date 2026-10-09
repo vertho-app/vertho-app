@@ -35,6 +35,7 @@ import type { acumuladaPilotoTask } from '@/trigger/acumulada-piloto';
 import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
 import { comContexto } from '@/lib/execucao-contexto';
 import { registrarExtracaoFalhou, reextrairEmSegundoPlano, type ContextoExtracao } from '@/lib/season-engine/extracao-pendente';
+import { trilhaRecebeTrabalho, recusaTrilhaEncerrada } from '@/lib/season-engine/trilha-encerrada';
 
 // Conclusão de semana pode disparar a acumulada (após IA) e o chat usa callAI —
 // dá margem além dos 60s default. Fluid até 300s.
@@ -219,9 +220,11 @@ export async function POST(request) {
 
     const sb = createSupabaseAdmin();
 
-    const { data: trilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, data_inicio, programa_modo, programa_config')
+    const { data: trilha, error: errTrilha } = await sb.from('trilhas')
+      .select('id, colaborador_id, empresa_id, status, competencia_foco, competencias_foco, descritores_selecionados, temporada_plano, data_inicio, programa_modo, programa_config')
       .eq('id', trilhaId).maybeSingle();
+    // Falha de LEITURA não é "não encontrada": 404 manda o cliente desistir de um dado que existe.
+    if (errTrilha) return NextResponse.json({ error: 'Não foi possível ler a jornada. Tente novamente.' }, { status: 500 });
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
 
     // Se body trouxe colaboradorId, tem que bater com o dono da trilha.
@@ -234,6 +237,11 @@ export async function POST(request) {
     // grava a primeira fala da IA): só a própria pessoa (R-72).
     const dono = assertDonoDaTrilha(auth, trilha.colaborador_id);
     if (dono) return dono;
+    // Jornada encerrada pela operação: lê-se, não se grava mais nela.
+    if (!trilhaRecebeTrabalho(trilha.status)) {
+      const recusa = recusaTrilhaEncerrada();
+      return NextResponse.json(recusa.body, { status: recusa.status });
+    }
 
     // Gates (temporal com espelho + progressão) — fonte única em trilha-runtime
     const gate = await checarGatesSemana(sb, trilha, semana);

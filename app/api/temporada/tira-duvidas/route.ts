@@ -19,6 +19,7 @@ import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { comContexto } from '@/lib/execucao-contexto';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
+import { trilhaRecebeTrabalho, recusaTrilhaEncerrada } from '@/lib/season-engine/trilha-encerrada';
 
 // callAIChat por pergunta pode levar dezenas de segundos (com retry, mais).
 export const maxDuration = 300;
@@ -74,7 +75,7 @@ export async function POST(request) {
     const sb = createSupabaseAdmin();
 
     const { data: trilha, error: errTrilha } = await sb.from('trilhas')
-      .select('id, colaborador_id, empresa_id, competencia_foco, descritores_selecionados, temporada_plano, data_inicio, programa_modo, programa_config')
+      .select('id, colaborador_id, empresa_id, status, competencia_foco, descritores_selecionados, temporada_plano, data_inicio, programa_modo, programa_config')
       .eq('id', trilhaId).maybeSingle();
     if (errTrilha) return leituraIndisponivel('trilha', errTrilha);
     if (!trilha) return NextResponse.json({ error: 'trilha não encontrada' }, { status: 404 });
@@ -88,6 +89,11 @@ export async function POST(request) {
     // dela: só a própria pessoa pergunta (R-72).
     const dono = assertDonoDaTrilha(auth, trilha.colaborador_id);
     if (dono) return dono;
+    // Jornada encerrada pela operação: lê-se, não se grava mais nela.
+    if (!trilhaRecebeTrabalho(trilha.status)) {
+      const recusa = recusaTrilhaEncerrada();
+      return NextResponse.json(recusa.body, { status: recusa.status });
+    }
 
     // Gates (temporal com espelho + progressão) — fonte única em trilha-runtime
     const gate = await checarGatesSemana(sb, trilha, semana);

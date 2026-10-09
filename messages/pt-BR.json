@@ -1730,6 +1730,7 @@
     "title": "O caminho que você já percorreu, {name}",
     "subtitle": "Reabra jornadas concluídas para rever seus relatórios, conteúdos e desafios, exatamente como ficaram registrados.",
     "season": "Jornada",
+    "closed": "Jornada encerrada",
     "latest": "Conclusão mais recente",
     "completed": "Jornada concluída",
     "developmentJourney": "Jornada de desenvolvimento",
@@ -1742,11 +1743,13 @@
       "description": "Quando uma jornada for concluída, o relatório e os conteúdos dela aparecerão aqui."
     },
     "notFound": "Jornada concluída não encontrada.",
+    "seasonClosed": "Jornada {number} encerrada",
     "seasonCompleted": "Jornada {number} concluída",
     "period": "{start} a {end}",
     "weeks": "{count} semanas",
     "actions": {
       "report": "Rever relatório",
+      "reportClosed": "A jornada foi encerrada antes da avaliação final, por isso não tem relatório.",
       "reportDescription": "Resultados, avanços, evidências e próximos passos.",
       "preserved": "Registro preservado",
       "preservedDescription": "Esta jornada continua disponível em modo somente leitura."
@@ -2663,6 +2666,13 @@
     "empty": {
       "title": "Sua jornada ainda não foi montada",
       "subtitle": "A Vertho monta e libera a sua jornada. Quando estiver pronta, ela aparece aqui."
+    },
+    "newJourney": {
+      "title": "Sua nova jornada ainda não começou",
+      "body": "O primeiro passo dela é o mapeamento de competências. A jornada anterior foi encerrada e continua no seu histórico, para consulta.",
+      "managerBody": "A nova jornada desta pessoa ainda não começou. A anterior foi encerrada e continua no histórico dela.",
+      "ctaAssessment": "Ir para o mapeamento",
+      "ctaHistory": "Ver jornadas anteriores"
     },
     "hero": {
       "eyebrow": "Jornada {number}",
@@ -5778,6 +5788,10 @@
     "intro": {
       "context": "Contexto",
       "start": "Iniciar mapeamento"
+    },
+    "draft": {
+      "restored": "Guardamos o que você já tinha escrito. Continue de onde parou.",
+      "continue": "Continuar de onde parei"
     },
     "questions": {
       "counter": "Pergunta {current} de {total}",

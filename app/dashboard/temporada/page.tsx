@@ -52,6 +52,7 @@ export default function TemporadaPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
   const sb = getSupabase();
 
   useEffect(() => {
@@ -63,15 +64,50 @@ export default function TemporadaPage() {
       // colaborador, sem impersonar a conta nem trocar a sessão.
       // A própria pessoa recebe também a temporada ANTERIOR concluída: depois do
       // encadeamento a atual é a seguinte, e o relatório da que fechou sumia.
-      const r = colaboradorAlvo
+      const r: any = colaboradorAlvo
         ? await loadTemporada(colaboradorAlvo)
         : await loadTemporadaPorEmail(user.email, { incluirAnterior: true });
-      if (r.error) setError(r.error); else setData(r);
+      if (r.error) { setError(r.error); setErrorCode(r.code || ''); } else setData(r);
       setLoading(false);
     })();
   }, [colaboradorAlvo, router, sb]);
 
   if (loading) return <Center><Loader2 className="animate-spin" style={{ color: 'var(--phase-accent, #b888e8)' }} /></Center>;
+  // A pessoa entrou numa jornada NOVA (turma nova) que ainda não tem trilha. A
+  // anterior ficou no histórico, só para leitura: sem este estado a tela dizia
+  // "sua jornada ainda não foi montada" e não apontava o mapeamento, que é o
+  // primeiro passo da jornada nova.
+  if (errorCode === 'JORNADA_NOVA_SEM_TRILHA') return (
+    <div data-phase={String(PHASE_NUM)} style={PHASE_VARS}>
+      <PageContainer>
+        <GlassCard className="mt-6" style={{ borderColor: 'color-mix(in oklab, var(--phase-accent) 28%, transparent)' }}>
+          <div className="text-center py-4" data-temporada-estado="jornada-nova">
+            <p className="text-base font-bold text-white mb-2">{t('newJourney.title')}</p>
+            <p className="text-sm text-gray-300 leading-relaxed mb-5">{visaoGestor ? t('newJourney.managerBody') : t('newJourney.body')}</p>
+            {!visaoGestor && (
+              <div className="flex flex-col gap-2 max-w-xs mx-auto">
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard/assessment')}
+                  className="w-full py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98]"
+                  style={{ background: 'var(--phase-accent)', color: '#062032' }}
+                >
+                  {t('newJourney.ctaAssessment')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard/jornada/historico')}
+                  className="w-full py-3 rounded-xl text-sm font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition"
+                >
+                  {t('newJourney.ctaHistory')}
+                </button>
+              </div>
+            )}
+          </div>
+        </GlassCard>
+      </PageContainer>
+    </div>
+  );
   if (error || !data?.trilha) return (
     <Center>
       <div className="text-center">

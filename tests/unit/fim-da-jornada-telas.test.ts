@@ -97,7 +97,7 @@ describe('fase 5 "Reavaliação" da jornada (R-95)', () => {
   });
 
   const fase5 = async (trilha: any) => {
-    const j: any = await carregarJornada(COLAB, { sysConfig: {}, respostasCount: 1, empresaIsDemo: false, trilha });
+    const j: any = await carregarJornada(COLAB, { sysConfig: {}, mapeamento: { respondidas: 1, total: 1 }, empresaIsDemo: false, trilha });
     return j.fases.find((f: any) => f.fase === 5);
   };
   const trilha = (status: string) => ({ id: 't1', status, temporada_plano: PLANO_JORNADA, competencia_foco: 'Planejamento', criado_em: '2026-08-01' });
@@ -232,7 +232,8 @@ describe('loadTemporada traz a temporada ANTERIOR concluída (R-16)', () => {
       if (tabela !== 'trilhas') return null;
       return cadeia.some((e) => e.metodo === 'lt') ? ANTERIOR : atual;
     },
-    lista: () => [],
+    // A trilha da jornada atual sai da lista das trilhas da pessoa (sem turma: a mais recente).
+    lista: (tabela) => (tabela === 'trilhas' ? [{ ...atual, criado_em: '2026-10-01T00:00:00Z', turma_membro_id: null }] : []),
   });
 
   beforeEach(() => { h.ctx = { email: 'maria@escola.br', role: 'colaborador', empresaId: 'e1' }; });

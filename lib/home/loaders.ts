@@ -7,7 +7,6 @@ import { hrefRelatorio, listarArtefatosRelatorio } from '@/lib/relatorios/relato
 import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 import { FASE_FORA_DA_DEGUSTACAO, PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
-import { totalDoMapeamento } from '@/lib/demo/convidado-demo';
 import { colaboradorEmDegustacao } from '@/lib/demo/degustacao-mapeamento';
 import { ehSemanaDeImplementacao, reavaliacaoConcluida } from '@/lib/season-engine/trilha-runtime';
 import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
@@ -19,7 +18,9 @@ import { blocoEstaOffline } from '@/lib/blocos-offline';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
 import { INTERNAL_EMAIL_DOMAINS, isInternalEmail } from '@/lib/internal-emails';
 import { escaparLike } from '@/lib/sql-like';
-import { trilhaDaParticipacao } from '@/lib/turmas/janela';
+import { JANELA_ABERTA, trilhaDaParticipacao, type Janela } from '@/lib/turmas/janela';
+import { artefatoDaJornadaAtual, carregarJornadaAtual } from '@/lib/turmas/jornada-atual';
+import { competenciasParaContagem, progressoDoMapeamento } from '@/lib/assessment/competencias-do-mapeamento';
 import type { EscopoDeLeitura } from '@/lib/turmas/escopo-leitura';
 
 /**
@@ -38,16 +39,71 @@ import type { EscopoDeLeitura } from '@/lib/turmas/escopo-leitura';
  * consulta); `null` = já consultado e não existe.
  */
 export interface HomeSharedData {
+  /** A trilha da JORNADA ATUAL (`carregarJornadaAtual`), não a mais recente da pessoa. */
   trilha?: any;
+  /** Janela da participação ativa: decide se PDI e afins são desta jornada. */
+  janela?: Janela;
   sysConfig?: any;
-  respostasCount?: number;
+  /** Progresso do mapeamento pela régua do assessment (`carregarProgressoMapeamento`). */
+  mapeamento?: ProgressoDoMapeamento;
   /** `empresas.is_demo`, lido junto com a config: decide se o mapeamento é o da degustação. */
   empresaIsDemo?: boolean;
+}
+
+export interface ProgressoDoMapeamento {
+  respondidas: number;
+  total: number;
 }
 
 /** Colunas que a jornada precisa no colaborador (superset do default do authz). */
 export const JORNADA_COLAB_COLS =
   'id, nome_completo, email, cargo, area_depto, empresa_id, perfil_dominante, perfil_externo_dados, perfil_externo_pdf_path, created_at';
+
+/** Colunas da trilha que a home lê (dashboard, jornada e KPIs). */
+export const HOME_TRILHA_COLS =
+  'cursos, competencia_foco, numero_temporada, status, temporada_plano, data_inicio, programa_modo, programa_config';
+
+/**
+ * A trilha e a janela da JORNADA ATUAL. A home lia "a trilha mais recente da
+ * pessoa": quem entrou numa turma nova (Temporada 2 de Ibipeba, 09/10/2026) via a
+ * jornada anterior em 100% e voltava para as semanas dela. Ver `lib/turmas/jornada-atual.ts`.
+ */
+async function jornadaDaHome(sb: any, colab: any, shared?: HomeSharedData): Promise<{ trilha: any; janela: Janela }> {
+  // A home consolidada manda as duas juntas. Quem pré-buscou só a trilha (sem
+  // janela) fica sem corte: o PDI vale como sempre valeu.
+  if (shared?.trilha !== undefined) {
+    return { trilha: shared.trilha, janela: shared.janela ?? JANELA_ABERTA };
+  }
+  const jornada = await carregarJornadaAtual(sb, colab.empresa_id, colab.id, HOME_TRILHA_COLS);
+  return { trilha: jornada.trilha, janela: jornada.janela };
+}
+
+/**
+ * Quantas competências do mapeamento a pessoa já respondeu, pela régua do
+ * cabeçalho do assessment (`lib/assessment/competencias-do-mapeamento.ts`): o Top
+ * 5 do cargo com o teto da degustação, e só resposta DE UMA DELAS conta.
+ *
+ * A home contava TODAS as respostas da pessoa contra o Top 5 do cargo. Com o Top 5
+ * trocado para a temporada nova (Ibipeba, só Comunicação), as duas respostas da
+ * jornada 1 davam "2 de 1": fase concluída, barra em 100% e botão "Ver resultado",
+ * com o mapeamento novo intocado. Falha de leitura LANÇA.
+ */
+export async function carregarProgressoMapeamento(
+  sb: any,
+  colab: any,
+  empresaIsDemo?: boolean,
+): Promise<ProgressoDoMapeamento> {
+  const degustacao = await colaboradorEmDegustacao(sb, colab, empresaIsDemo);
+  const [competencias, respostasRes] = await Promise.all([
+    competenciasParaContagem(sb, colab, degustacao),
+    sb.from('respostas')
+      .select('competencia_id, competencia_nome')
+      .eq('colaborador_id', colab.id)
+      .eq('empresa_id', colab.empresa_id),
+  ]);
+  if (respostasRes.error) throw new Error(`respostas: ${respostasRes.error.message}`);
+  return progressoDoMapeamento(competencias, respostasRes.data || []);
+}
 
 /**
  * Quem responde "quantas semanas" é `duracaoDaTrilha(trilha)` (o plano da
@@ -75,59 +131,45 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
   const colab: any = ctx.colaborador;
   const view = getDashboardView(ctx);
 
-  const progressoQueries = [
-    colab.cargo
-      ? sb.from('cargos_empresa')
-          .select('top5_workshop')
-          .eq('empresa_id', colab.empresa_id)
-          .eq('nome', colab.cargo)
-          .maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
-    sb.from('respostas')
-      .select('id', { count: 'exact', head: true })
-      .eq('colaborador_id', colab.id)
-      .eq('empresa_id', colab.empresa_id),
+  // A régua da Fase 2 é a do ASSESSMENT: o Top 5 do CARGO (com o teto da
+  // degustação para o convidado), e só conta resposta de competência desse Top 5.
+  // Contar todas as competências da empresa fazia a Bruna aparecer incompleta
+  // mesmo com 5/5 respondidas; contar todas as RESPOSTAS da pessoa dava a
+  // temporada nova por concluída com as respostas da anterior (09/10/2026).
+  const [mapeamentoR, avaliadasR] = await Promise.allSettled([
+    shared?.mapeamento !== undefined
+      ? Promise.resolve(shared.mapeamento)
+      : carregarProgressoMapeamento(sb, colab, shared?.empresaIsDemo),
     sb.from('respostas')
       .select('id', { count: 'exact', head: true })
       .eq('colaborador_id', colab.id)
       .eq('empresa_id', colab.empresa_id)
       .not('nivel_ia4', 'is', null),
-  ] as const;
-
-  const [
-    [
-      { data: cargoEmp, error: errComp },
-      { count: respondidas, error: errResp },
-      { count: avaliadas, error: errAval },
-    ],
-    degustacao,
-  ] = await Promise.all([
-    Promise.all(progressoQueries),
-    colaboradorEmDegustacao(sb, colab, shared?.empresaIsDemo),
   ]);
+  const mapeamento = mapeamentoR.status === 'fulfilled' ? mapeamentoR.value : null;
+  const avaliadas = avaliadasR.status === 'fulfilled' && !(avaliadasR.value as any).error
+    ? (avaliadasR.value as any).count
+    : null;
 
-  // A régua da Fase 2 é o Top 5 do CARGO. Contar todas as competências da
-  // empresa fazia a Bruna aparecer incompleta mesmo com 5/5 respondidas. O
-  // convidado da degustação responde só uma, e o total é o dele.
-  const totalComp = totalDoMapeamento(cargoEmp?.top5_workshop, degustacao);
-
-  // `count` vem `null` quando a query falha, e `null || 0` = 0. Sem esta
-  // checagem a home mostrava "0 de 0" e "0% de progresso" para quem respondeu
-  // tudo — falha de banco escrita na tela como se fosse o estado da pessoa, a
+  // Falha de leitura não vira "0 de 0" nem "0% de progresso" para quem respondeu
+  // tudo: falha de banco escrita na tela como se fosse o estado da pessoa, a
   // mesma classe do certificado que acusava "participação < 75%" (F15).
-  const erroContagem = errComp || errResp || errAval;
-  if (erroContagem) {
-    console.error('[home] contagens de progresso falharam:', erroContagem.message);
+  if (!mapeamento || avaliadas === null) {
+    console.error('[home] contagens de progresso falharam:',
+      mapeamentoR.status === 'rejected' ? mapeamentoR.reason?.message : (avaliadasR as any).value?.error?.message || (avaliadasR as any).reason?.message);
     colab.progressoIndisponivel = true;
   }
 
-  colab.totalComp = totalComp || 0;
-  colab.respondidas = respondidas || 0;
+  const totalComp = mapeamento?.total || 0;
+  const respondidas = mapeamento?.respondidas || 0;
+  colab.totalComp = totalComp;
+  colab.respondidas = respondidas;
   colab.avaliadas = avaliadas || 0;
   colab.progresso = totalComp ? Math.round((respondidas / totalComp) * 100) : 0;
 
-  // A mesma leitura acima também decide se existe avaliação para iniciar.
-  const cargoSemCompetencias = totalComp === 0;
+  // A mesma leitura acima também decide se existe avaliação para iniciar. Leitura
+  // que falhou não afirma "cargo sem competências" (mandaria o gestor embora da home).
+  const cargoSemCompetencias = !!mapeamento && totalComp === 0;
 
   // Dados de equipe (gestor/rh)
   let teamData = null;
@@ -152,27 +194,24 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
     teamData = { totalColabs: totalColabs || 0, totalRespostas: totalRespostas || 0 };
   }
 
-  // Competência foco da trilha ativa (Motor de Temporadas) + sys_config da
-  // empresa — pré-buscados pela home consolidada quando `shared` vem preenchido.
+  // Competência foco da trilha da JORNADA ATUAL (Motor de Temporadas) + sys_config
+  // da empresa — pré-buscados pela home consolidada quando `shared` vem preenchido.
+  // `data_inicio` (em `HOME_TRILHA_COLS`): a home diz quando a jornada começa se a
+  // semana 1 ainda não abriu.
   let trilhaAtiva: any;
   let cfg: any;
   if (shared?.trilha !== undefined && shared?.sysConfig !== undefined) {
     trilhaAtiva = shared.trilha;
     cfg = shared.sysConfig || {};
   } else {
-    const [trilhaAtivaRes, empCfgRes] = await Promise.all([
-      sb.from('trilhas')
-        // `data_inicio`: a home diz quando a jornada começa se a semana 1 ainda não abriu.
-        .select('competencia_foco, numero_temporada, status, temporada_plano, data_inicio')
-        .eq('colaborador_id', colab.id)
-        .order('criado_em', { ascending: false })
-        .limit(1).maybeSingle(),
+    const [jornada, empCfgRes] = await Promise.all([
+      jornadaDaHome(sb, colab, shared),
       sb.from('empresas')
         .select('sys_config')
         .eq('id', colab.empresa_id)
         .maybeSingle(),
     ]);
-    trilhaAtiva = trilhaAtivaRes.data;
+    trilhaAtiva = jornada.trilha;
     cfg = ((empCfgRes.data?.sys_config) as any) || {};
   }
 
@@ -247,22 +286,17 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     usaPerfilExterno,
   });
 
-  // Fase 2: Mapeamento de competências (respostas por cenário do fluxo do dashboard)
-  // Total = quantas competências o cargo tem no top5_workshop, com o teto da
-  // degustação para o convidado (o mesmo corte do assessment).
-  const degustacaoP = colaboradorEmDegustacao(sb, colab, empresaIsDemo);
-  const { data: cargoEmp } = await sb.from('cargos_empresa')
-    .select('top5_workshop').eq('empresa_id', colab.empresa_id).eq('nome', colab.cargo).maybeSingle();
-  const degustacao = await degustacaoP;
-  const totalComp = totalDoMapeamento(cargoEmp?.top5_workshop, degustacao);
-
-  // Respondidas = contagem de respostas do colab (qualquer canal, sem filtro de IA4)
-  const respondidasCount = shared?.respostasCount !== undefined
-    ? shared.respostasCount
-    : ((await sb.from('respostas')
-        .select('id', { count: 'exact', head: true })
-        .eq('colaborador_id', colab.id)
-        .eq('empresa_id', colab.empresa_id)).count || 0);
+  // Fase 2: Mapeamento de competências, pela régua do ASSESSMENT: o Top 5 do
+  // cargo com o teto da degustação, e só resposta de competência desse Top 5
+  // conta (`carregarProgressoMapeamento`). Falha de leitura lança.
+  const [degustacao, mapeamento] = await Promise.all([
+    colaboradorEmDegustacao(sb, colab, empresaIsDemo),
+    shared?.mapeamento !== undefined
+      ? Promise.resolve(shared.mapeamento)
+      : carregarProgressoMapeamento(sb, colab, empresaIsDemo),
+  ]);
+  const totalComp = mapeamento.total;
+  const respondidasCount = mapeamento.respondidas;
 
   const avaliacaoCompleta = totalComp > 0 && respondidasCount >= totalComp;
   const avaliacaoIniciada = respondidasCount > 0;
@@ -297,21 +331,17 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     return retornoBase;
   }
 
-  // Trilha (necessária pra liberar Fase 3) — Motor de Temporadas
-  const trilha = shared?.trilha !== undefined
-    ? shared.trilha
-    : (await sb.from('trilhas')
-        .select('id, status, temporada_plano, competencia_foco, criado_em, programa_modo, programa_config')
-        .eq('colaborador_id', colab.id)
-        .order('criado_em', { ascending: false })
-        .limit(1)
-        .maybeSingle()).data;
+  // Trilha da JORNADA ATUAL (necessária pra liberar Fase 3) — Motor de Temporadas.
+  // Depois do ramo da degustação: o convidado não tem trilha e não paga a leitura.
+  const jornadaAtual = await jornadaDaHome(sb, colab, shared);
+  const trilha = jornadaAtual.trilha;
 
   const temPlano = trilha?.temporada_plano && Array.isArray(trilha.temporada_plano) && trilha.temporada_plano.length > 0;
 
   // Fase 3 — PDI. Ele nasce da avaliação completa e antecede a jornada; exigir
-  // trilha aqui invertia o funil e escondia um PDI que já existia.
-  const { data: pdi } = await sb.from('relatorios')
+  // trilha aqui invertia o funil e escondia um PDI que já existia. O PDI de uma
+  // jornada ANTERIOR não conta para a atual (nasceu antes do marco da participação).
+  const { data: pdiMaisRecente, error: erroPdi } = await sb.from('relatorios')
     .select('id, gerado_em')
     .eq('colaborador_id', colab.id)
     .eq('empresa_id', colab.empresa_id)
@@ -319,6 +349,9 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     .order('gerado_em', { ascending: false })
     .limit(1)
     .maybeSingle();
+  // Falha de leitura não vira "sem PDI" (a jornada diria "Aguardando geração").
+  if (erroPdi) throw new Error(`PDI: ${erroPdi.message}`);
+  const pdi = pdiMaisRecente && artefatoDaJornadaAtual(pdiMaisRecente.gerado_em, jornadaAtual.janela) ? pdiMaisRecente : null;
 
   let pdiStatus, pdiDesc;
   if (pdi) {
@@ -400,16 +433,8 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
     const sb = createSupabaseAdmin();
     const agora = new Date();
 
-    // ── Trilha + progresso (base de quase tudo) ──────────────────────────
-    const trilha = shared?.trilha !== undefined
-      ? shared.trilha
-      : (await sb.from('trilhas')
-          .select('id, cursos, competencia_foco, temporada_plano, data_inicio, programa_modo, programa_config')
-          .eq('colaborador_id', colab.id)
-          .eq('empresa_id', colab.empresa_id)
-          .order('criado_em', { ascending: false })
-          .limit(1)
-          .maybeSingle()).data;
+    // ── Trilha da JORNADA ATUAL + progresso (base de quase tudo) ─────────
+    const { trilha } = await jornadaDaHome(sb, colab, shared);
 
     const totalSemanas = duracaoDaTrilha(trilha);
 

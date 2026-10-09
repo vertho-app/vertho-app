@@ -27,6 +27,7 @@ import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoC
 import { PROGRESSO } from '@/lib/status';
 import { comContexto } from '@/lib/execucao-contexto';
 import { registrarExtracaoFalhou, reextrairEmSegundoPlano, type ContextoExtracao } from '@/lib/season-engine/extracao-pendente';
+import { trilhaRecebeTrabalho, recusaTrilhaEncerrada } from '@/lib/season-engine/trilha-encerrada';
 
 // O turno final da arguição (turno + extração) e a pontuação em `after()`
 // (scorer + check 2ª IA + Evolution Report) dividem esta função. Fluid até 300s.
@@ -142,6 +143,11 @@ export async function POST(request) {
     if (!ACOES_DE_LEITURA.has(action)) {
       const dono = assertDonoDaTrilha(auth, trilha.colaborador_id);
       if (dono) return dono;
+      // Jornada encerrada pela operação: lê-se, não se grava mais nela.
+      if (!trilhaRecebeTrabalho(trilha.status)) {
+        const recusa = recusaTrilhaEncerrada();
+        return NextResponse.json(recusa.body, { status: recusa.status });
+      }
     }
 
     // O idioma da PESSOA dona da trilha (`colaboradores.locale`, senão `empresas.default_locale`, senão

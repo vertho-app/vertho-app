@@ -160,6 +160,103 @@ function proximaComCenario<T extends { cenarioId?: string | null }>(pendentes: T
   return pendentes.find((c) => !!c.cenarioId) || null;
 }
 
+// ── Rascunho das respostas (mig 283) ─────────────────────────────────────────
+//
+// A tela guardava P1-P4 só na memória do navegador até o envio final: em
+// 08/10/2026 uma pessoa de Ibipeba respondeu três perguntas, a sessão caiu, e
+// nada tinha chegado ao banco. O rascunho é gravado a cada pergunta e enquanto
+// ela digita, volta quando ela reabre o MESMO cenário e some no envio.
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+interface RascunhoDiagnostico {
+  r1: string;
+  r2: string;
+  r3: string;
+  r4: string;
+  pergunta: number;
+}
+
+/** O rascunho deste cenário, ou `null`. Leitura que falha vira `null` com aviso no log (não trava o mapeamento). */
+async function lerRascunho(
+  colab: { id: string; empresa_id: string },
+  trilho: Trilho,
+  compId: string | null,
+  cenarioId: string,
+): Promise<RascunhoDiagnostico | null> {
+  if (!compId) return null;
+  const { data, error } = await tenantDb(colab.empresa_id).from('assessment_rascunhos')
+    .select('cenario_id, r1, r2, r3, r4, pergunta_atual')
+    .eq('colaborador_id', colab.id)
+    .eq('trilho', trilho)
+    .eq('competencia_id', compId)
+    .maybeSingle();
+  if (error) {
+    console.warn('[assessment] rascunho (leitura):', error.message);
+    return null;
+  }
+  // Escrito para OUTRO cenário (regerado): o texto responderia a outra situação.
+  if (!data || data.cenario_id !== cenarioId) return null;
+  const r = { r1: data.r1 || '', r2: data.r2 || '', r3: data.r3 || '', r4: data.r4 || '' };
+  if (![r.r1, r.r2, r.r3, r.r4].some((t) => t.trim())) return null;
+  return { ...r, pergunta: Math.min(3, Math.max(0, Number(data.pergunta_atual) || 0)) };
+}
+
+/**
+ * Grava o que a pessoa já escreveu (chamada a cada pergunta e com debounce
+ * enquanto ela digita). É endpoint HTTP: a identidade vem da SESSÃO, o tenant do
+ * `findColabByEmail`, e o cenário tem de existir NO TENANT e ser desta
+ * competência. As portas de etapa (Top 5, cenário elegível, ordem Perfil →
+ * Diagnóstico) ficam no envio definitivo, que é o que conta: um rascunho só volta
+ * para a própria pessoa, no cenário em que foi escrito.
+ */
+export async function salvarRascunhoDiagnostico(
+  cenarioId: string,
+  compId: string,
+  rascunho: RascunhoDiagnostico,
+  trilho: Trilho = 'cargo',
+) {
+  try {
+    const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+    const email = await getAuthenticatedEmailFromAction();
+    if (!email) return { error: 'Não autenticado' };
+    if (!UUID_RE.test(String(cenarioId || '')) || !UUID_RE.test(String(compId || ''))) {
+      return { error: 'Cenário inválido' };
+    }
+    const textos = [rascunho?.r1, rascunho?.r2, rascunho?.r3, rascunho?.r4].map((t) => (typeof t === 'string' ? t : ''));
+    if (textos.some((t) => t.length > MAX_CARACTERES_RESPOSTA)) {
+      return { error: `Cada resposta pode ter até ${MAX_CARACTERES_RESPOSTA} caracteres`, code: 'RESPOSTA_LONGA' };
+    }
+    const pergunta = Math.min(3, Math.max(0, Math.trunc(Number(rascunho?.pergunta) || 0)));
+
+    const colab = await findColabByEmail(email, 'id, empresa_id');
+    if (!colab) return { error: 'Colaborador não encontrado' };
+    const tdb = tenantDb(colab.empresa_id);
+
+    const { data: cen, error: cenErr } = await tdb.from('banco_cenarios')
+      .select('id, competencia_id')
+      .eq('id', cenarioId)
+      .maybeSingle();
+    if (cenErr) return { error: cenErr.message };
+    if (!cen || cen.competencia_id !== compId) return { error: 'Cenário inválido' };
+
+    const { error: upErr } = await tdb.from('assessment_rascunhos').upsert({
+      colaborador_id: colab.id,
+      trilho: trilhoDe(trilho),
+      competencia_id: compId,
+      cenario_id: cenarioId,
+      r1: textos[0], r2: textos[1], r3: textos[2], r4: textos[3],
+      pergunta_atual: pergunta,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'empresa_id,colaborador_id,trilho,competencia_id' });
+    if (upErr) return { error: upErr.message };
+    return { success: true };
+  } catch (err) {
+    console.error('[salvarRascunhoDiagnostico]', err);
+    return { error: err?.message || 'Erro ao salvar rascunho' };
+  }
+}
+
 /** Registra (sem lançar) cada competência pendente sem cenário que a tela pulou. */
 async function registrarCompetenciasSemCenario(
   colab: { id: string; empresa_id: string },
@@ -486,6 +583,10 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
     .sort((a: any, b: any) => (a.numero || 0) - (b.numero || 0))
     .map((p: any) => p.texto || p.pergunta || '');
 
+  // O que a pessoa já tinha escrito neste cenário e não chegou a enviar (mig 283).
+  // Falha de leitura não bloqueia o mapeamento: a tela abre sem o rascunho.
+  const rascunho = await lerRascunho(colab as any, trilho, proxima.id, cen.id);
+
   return {
     colaborador: colaboradorPayload,
     progresso,
@@ -493,6 +594,7 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
     concluiuTudo: false,
     respondeuHoje: false,
     ...extrasTrilho,
+    rascunho,
     proximaCompetencia: proxima.nome,
     cenarioDoDia: {
       cenarioId: cen.id,
@@ -639,6 +741,17 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
     rodada: 1,
   }, { onConflict: 'empresa_id,colaborador_id,competencia_id' });
   if (upErr) return { error: upErr.message };
+
+  // A resposta definitiva está gravada: o rascunho dela sai. Falha aqui não
+  // desfaz o envio (o rascunho só voltaria para uma competência já respondida,
+  // que a tela não serve mais).
+  const tdbRascunho = tenantDb(colab.empresa_id);
+  const { error: rascErr } = await tdbRascunho.from('assessment_rascunhos')
+    .delete()
+    .eq('colaborador_id', colab.id)
+    .eq('trilho', trilho)
+    .eq('competencia_id', compId);
+  if (rascErr) console.warn('[salvarRespostaDiagnostico] rascunho (remoção):', rascErr.message);
 
   // Recalcula a próxima pela lista já resolvida acima (a mesma da tela).
   const { data: respostas, error: respostasRecalcError } = await sb.from('respostas')

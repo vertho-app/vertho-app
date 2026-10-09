@@ -27,7 +27,11 @@ const sb = criarSupabaseMock({
     return null;
   },
   contagem: (tabela) => (tabela === 'respostas' ? respondidas : null),
-  lista: () => [],
+  // A home conta o mapeamento pelas RESPOSTAS de competências do Top 5 (09/10/2026),
+  // não pela contagem crua de respostas da pessoa.
+  lista: (tabela) => (tabela === 'respostas'
+    ? TOP5.slice(0, respondidas).map((nome) => ({ competencia_id: null, competencia_nome: nome }))
+    : []),
 });
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));

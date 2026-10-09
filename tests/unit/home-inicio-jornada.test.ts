@@ -72,9 +72,12 @@ describe('a home usa a régua (guard de fonte)', () => {
     expect(f).toMatch(/inicioFuturo\s*\?\s*t\('mainCta\.startsOn'/);
   });
   it('a leitura da trilha da home traz data_inicio nos dois caminhos', () => {
-    expect(readFileSync('lib/home/loaders.ts', 'utf8')).toMatch(/select\('competencia_foco, numero_temporada, status, temporada_plano, data_inicio'\)/);
-    // Com o carimbo e o snapshot do programa depois (a duração da trilha, R-29).
-    expect(readFileSync('app/dashboard/home-actions.ts', 'utf8')).toMatch(/criado_em, data_inicio(, programa_modo, programa_config)?'\)/);
+    // Desde 09/10/2026 os dois caminhos leem a trilha da JORNADA ATUAL com as mesmas
+    // colunas (`HOME_TRILHA_COLS`), com o carimbo e o snapshot do programa (R-29).
+    const loaders = readFileSync('lib/home/loaders.ts', 'utf8');
+    expect(loaders).toMatch(/HOME_TRILHA_COLS =\s*'[^']*data_inicio[^']*programa_modo, programa_config'/);
+    expect(loaders).toMatch(/carregarJornadaAtual\(sb, colab\.empresa_id, colab\.id, HOME_TRILHA_COLS\)/);
+    expect(readFileSync('app/dashboard/home-actions.ts', 'utf8')).toMatch(/carregarJornadaAtual\(sb, colab\.empresa_id, colab\.id, HOME_TRILHA_COLS\)/);
   });
 });
 

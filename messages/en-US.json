@@ -1730,6 +1730,7 @@
     "title": "The path you have already traveled, {name}",
     "subtitle": "Reopen completed journeys to review your reports, content, and challenges exactly as they were recorded.",
     "season": "Journey",
+    "closed": "Journey closed",
     "latest": "Most recent completion",
     "completed": "Journey completed",
     "developmentJourney": "Development journey",
@@ -1742,11 +1743,13 @@
       "description": "Once a journey is completed, its report and content will appear here."
     },
     "notFound": "Completed journey not found.",
+    "seasonClosed": "Journey {number} closed",
     "seasonCompleted": "Journey {number} completed",
     "period": "{start} to {end}",
     "weeks": "{count} weeks",
     "actions": {
       "report": "Review report",
+      "reportClosed": "This journey was closed before the final assessment, so it has no report.",
       "reportDescription": "Results, progress, evidence, and next steps.",
       "preserved": "Record preserved",
       "preservedDescription": "This journey remains available in read-only mode."
@@ -2663,6 +2666,13 @@
     "empty": {
       "title": "Your journey has not been set up yet",
       "subtitle": "Vertho sets up and releases your journey. When it is ready, it will show up here."
+    },
+    "newJourney": {
+      "title": "Your new journey hasn't started yet",
+      "body": "Its first step is the competency mapping. Your previous journey was closed and remains in your history for reference.",
+      "managerBody": "This person's new journey hasn't started yet. The previous one was closed and remains in their history.",
+      "ctaAssessment": "Go to the mapping",
+      "ctaHistory": "See previous journeys"
     },
     "hero": {
       "eyebrow": "Journey {number}",
@@ -5778,6 +5788,10 @@
     "intro": {
       "context": "Context",
       "start": "Start mapping"
+    },
+    "draft": {
+      "restored": "We saved what you had already written. Pick up where you left off.",
+      "continue": "Continue where I left off"
     },
     "questions": {
       "counter": "Question {current} from {total}",

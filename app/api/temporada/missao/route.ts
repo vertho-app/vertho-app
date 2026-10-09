@@ -6,6 +6,7 @@ import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { checarGatesSemana } from '@/lib/season-engine/trilha-runtime';
 import { gravarProgressoSemana, statusAoTocarSemana } from '@/lib/season-engine/progresso-semana';
+import { trilhaRecebeTrabalho, recusaTrilhaEncerrada } from '@/lib/season-engine/trilha-encerrada';
 
 /**
  * POST /api/temporada/missao
@@ -45,7 +46,7 @@ export async function POST(request) {
     const sb = createSupabaseAdmin();
 
     const { data: trilha, error: errTrilha } = await sb.from('trilhas')
-      .select('id, empresa_id, colaborador_id, temporada_plano, data_inicio')
+      .select('id, empresa_id, colaborador_id, status, temporada_plano, data_inicio')
       .eq('id', trilhaId).maybeSingle();
     // Falha de LEITURA não é "não encontrada": 404 manda o cliente desistir de
     // um dado que existe. B4 da auditoria 22/08.
@@ -65,6 +66,11 @@ export async function POST(request) {
     // E o compromisso é da pessoa: gestão e RH acompanham, não escolhem por ela (R-72).
     const dono = assertDonoDaTrilha(auth, trilha.colaborador_id);
     if (dono) return dono;
+    // Jornada encerrada pela operação: lê-se, não se grava mais nela.
+    if (!trilhaRecebeTrabalho(trilha.status)) {
+      const recusa = recusaTrilhaEncerrada();
+      return NextResponse.json(recusa.body, { status: recusa.status });
+    }
 
     const semanaPlan = (trilha.temporada_plano || []).find(s => s.semana === Number(semana));
     if (!semanaPlan) return NextResponse.json({ error: 'semana fora do plano' }, { status: 400 });

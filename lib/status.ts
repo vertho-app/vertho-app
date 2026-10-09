@@ -25,12 +25,22 @@ export const PROGRESSO = {
 } as const;
 export type ProgressoStatus = (typeof PROGRESSO)[keyof typeof PROGRESSO];
 
-/** trilhas.status */
+/**
+ * trilhas.status
+ *
+ * `ENCERRADA` (09/10/2026): a jornada foi FECHADA pela operação antes de a pessoa
+ * terminar (a Temporada 1 de Ibipeba, quando a Temporada 2 abriu). Não é
+ * `CONCLUIDA` (que dá certificado e conta como finalizada) nem `PAUSADA` (que diz
+ * "pausada pelo gestor" e pode voltar). Fica no histórico só para leitura, e as
+ * rotas que gravam trabalho na semana recusam (`trilhaRecebeTrabalho`). A coluna
+ * não tem CHECK: o valor novo não precisou de migration.
+ */
 export const TRILHA = {
   ATIVA: 'ativa',
   PAUSADA: 'pausada',
   CONCLUIDA: 'concluida',
   ARQUIVADA: 'arquivada',
+  ENCERRADA: 'encerrada',
 } as const;
 export type TrilhaStatus = (typeof TRILHA)[keyof typeof TRILHA];
 
