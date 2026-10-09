@@ -621,6 +621,11 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   composição, e composição não tem asserção. Extraia o screenshot da tela no estado real e um frame
   de cada beat do vídeo ANTES de entregar. Corolário: log que imprime `bbox=—` e segue com `✓` é o
   pior formato possível — alvo não encontrado tem que LANÇAR.
+- NÃO declarar corrigido um comportamento de IA (fechar a conversa, formato, recusa) porque o teste
+  do PROMPT passou: ele prova o texto, não que o modelo obedece. `Medido: 09/10/2026`: o roteiro
+  da conversa final consertado, com suíte e mutação verdes, ainda deixava 8 de 10 no texto genérico;
+  só o replay só de leitura com as conversas REAIS mostrou, e o que fechou 10 de 10 foi pedir o
+  fechamento como tarefa isolada sobre a transcrição. Meça no nível da ROTA. `docs/FMEA-PIPELINE.md` §F-I25.
 - NÃO deixar **cota no schema** de um prompt competir com regra em prosa — a cota vence: toda cota
   (`2-3 itens`, `exatamente N`) é ordem de inventar quando o insumo não sustenta N. Escreva `0 a N,
   e VAZIO se não sustentar`, e **nomeie o padrão proibido**, não só o desejado. `Medido: 27/08` — a

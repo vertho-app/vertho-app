@@ -1084,6 +1084,36 @@ cenários; `--forcar-rede` exercita a segunda chamada, que também fechou).
 ⚠️ **O que isto NÃO prova:** o simulador responde melhor que gente real, e o denominador foi 6. A
 medição que vale é a de produção, refeita depois do deploy — a mesma query do quadro acima.
 
+**09/10/2026 · a ressalva acima se confirmou, em dois lugares.**
+
+1. **A conversa final de 6 turnos NUNCA fechou.** O roteiro de `prompts/evolution-qualitative.ts`
+   era indexado pelo turno absoluto de um roteiro de 12; com `turnos_ia: 6` (encerramento da
+   Ibipeba, desde 02/09) o último turno era o MICROCASO ("termine perguntando") e o
+   `fechamentoSuffix` também. `Medido:` das 10 conversas concluídas na semana 8 desde 08/09, **0**
+   terminaram em síntese (6 no texto genérico de `fechamentoSeguro`, 3 em pergunta, 1 corrigida à
+   mão). Duas delas passaram na régua terminando em pergunta: `"…?**"` furava o `endsWith('?')`, e
+   "Me conta como…" não tem `?`. Os testes da rota mockam `qualitativaDoPlano: () => null` e só
+   exercitavam 12 turnos. Corrigido em `d7cc4cfb`: o último turno é a síntese em qualquer total, e
+   `pareceFechamento` tira negrito, aspas, parêntese, exclamação e emoji do fim antes do `?`.
+2. **Consertar o roteiro não bastou, e só o replay mostrou.** Replay só de leitura do último turno
+   com as conversas REAIS (mascaradas, sem gravar nada, ledger sem empresa), Sonnet 4.6:
+
+   | Conversa | Diálogo repetido com `reforcoDeFechamento` (rede de 27/08) | 2ª tentativa como **tarefa isolada** |
+   |---|---|---|
+   | final (Ibipeba sem 8), 10 casos | **2 de 10** | **10 de 10** (`9e0d0071`) |
+   | semanal socrática, os 11 que caíram no genérico | 4 de 11 (1ª ou 2ª) | **11 de 11** (não aplicada, aguarda o dono) |
+
+   Dentro do diálogo, respostas vagas + "nunca afirme evolução sem evidência" + "se vier vaga, peça
+   exemplo" vencem a ordem de fechar ("uma última pergunta antes do encerramento"). Pedida sobre a
+   transcrição num único `callAI` (`pedidoDeFechamentoIsolado`), a mesma síntese fecha e diz a
+   falta de evidência em vez de perguntar. A síntese ganhou essa saída explícita, e o system da
+   conversa final passou a declarar o total de turnos, como o socrático.
+
+🔑 **Classe:** teste de prompt prova o TEXTO, não que o modelo obedece. Suíte verde + mutação
+estavam certas nas duas correções e a primeira sozinha deixava 8 de 10 no genérico. Antes de chamar
+de corrigido um comportamento de IA, refaça o turno com as entradas reais e meça no nível da ROTA
+(1ª ou 2ª tentativa), não do prompt.
+
 ### F-I26 · O segundo descritor da semana chegava ao fechamento sem evidência nenhuma ✅ (corrigido 27/08)
 
 **Gatilho:** `evidencias-fechamento.ts` e `avaliacao-acumulada-core.ts` creditavam a evidência da
