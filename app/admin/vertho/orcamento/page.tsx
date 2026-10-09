@@ -1571,8 +1571,29 @@ export default function OrcamentoPage() {
 
         {/* Sub-stats */}
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <KpiBox label="Custo all-in" value={money(calc.custoTotalBrl)} sub={`operação ${money(calc.custoOperacionalBrl)}`} tone="gray" />
-          <KpiBox label={t('kpis.marginValue')} value={money(calc.margemAbs)} tone={calc.acimaDoPiso ? 'amber' : 'emerald'} />
+          {/* As linhas somam o total: operação (com o subtotal) + contingência + comissão + impostos. */}
+          <div className="col-span-2 rounded-xl bg-white/[0.03] px-3 py-3">
+            <p className="text-[10px] uppercase tracking-widest text-gray-500">Custo all-in</p>
+            <p className="text-xl font-extrabold text-gray-300">{money(calc.custoTotalBrl)}</p>
+            <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
+              <LinhaCustoAllIn rotulo="IA" valor={calc.custoIABrl} total={calc.custoTotalBrl} money={money} locale={locale} />
+              <LinhaCustoAllIn rotulo={`Horas internas · ${calc.horasTotais}h`} valor={calc.custoHorasBrl} total={calc.custoTotalBrl} money={money} locale={locale} />
+              <LinhaCustoAllIn rotulo="Mensagens" valor={calc.custoMsgBrl} total={calc.custoTotalBrl} money={money} locale={locale} />
+              <LinhaCustoAllIn rotulo={`Infra · ${calc.mesesPrograma} ${calc.mesesPrograma === 1 ? 'mês' : 'meses'}`} valor={calc.custoInfraBrl} total={calc.custoTotalBrl} money={money} locale={locale} />
+              {calc.custoSimuladorBrl > 0 && (
+                <LinhaCustoAllIn rotulo="Simuladores" valor={calc.custoSimuladorBrl} total={calc.custoTotalBrl} money={money} locale={locale} />
+              )}
+              <div className="border-t border-white/10 pt-0.5 text-gray-300">
+                <LinhaCustoAllIn rotulo="Operação" valor={calc.custoOperacionalBrl} total={calc.custoTotalBrl} money={money} locale={locale} />
+              </div>
+              <LinhaCustoAllIn rotulo={`Contingência · ${pricing.contingenciaPct.toLocaleString(locale)}%`} valor={calc.custoContingenciaBrl} total={calc.custoTotalBrl} money={money} locale={locale} />
+              <LinhaCustoAllIn rotulo={`Comissão · ${calc.comissaoLabel} ${calc.comissaoPct.toFixed(0)}%`} valor={calc.custoComissoesBrl} total={calc.custoTotalBrl} money={money} locale={locale} />
+              <LinhaCustoAllIn rotulo={`Impostos · ${pricing.impostosPct.toLocaleString(locale)}%`} valor={calc.custoImpostosBrl} total={calc.custoTotalBrl} money={money} locale={locale} />
+            </div>
+          </div>
+          <div className="col-span-2">
+            <KpiBox label={t('kpis.marginValue')} value={money(calc.margemAbs)} tone={calc.acimaDoPiso ? 'amber' : 'emerald'} />
+          </div>
           <div className="col-span-2">
             <KpiBox label="Exposição máxima" value={money(calc.piorSaldo?.saldo ?? 0)} sub={`mês ${calc.piorSaldo?.mes ?? 1}`} tone={(calc.piorSaldo?.saldo ?? 0) < 0 ? 'amber' : 'emerald'} />
           </div>
@@ -2169,6 +2190,28 @@ function CostShare({ value, total, locale }: { value: number; total: number; loc
     style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1,
   }).format(total > 0 ? value / total : 0);
   return <p className="mt-1 text-[10px] text-gray-400 tabular-nums">{percentual} do custo total</p>;
+}
+
+/** Uma conta do custo all-in na folha de decisão: rótulo, fatia do total e valor. */
+function LinhaCustoAllIn({ rotulo, valor, total, money, locale }: {
+  rotulo: string;
+  valor: number;
+  total: number;
+  money: (v: number) => string;
+  locale: string;
+}) {
+  const fatia = new Intl.NumberFormat(locale, {
+    style: 'percent', minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(total > 0 ? valor / total : 0);
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="min-w-0 truncate">{rotulo}</span>
+      <span className="shrink-0 tabular-nums">
+        <span className="mr-2 text-[10px] text-gray-500">{fatia}</span>
+        {money(valor)}
+      </span>
+    </div>
+  );
 }
 
 /**
