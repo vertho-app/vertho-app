@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard, Route, ShieldCheck, Save, FolderOpen, Trash2, Copy, Send } from 'lucide-react';
+import { ArrowRight, BookOpen, Calculator, School, Users, Briefcase, Vote, Building2, FileText, Headphones, Clapperboard, Route, ShieldCheck, Save, FolderOpen, Trash2, Copy, Send } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { CALLS, PRESETS, calcCost, custoColabNaJornada, infraFixaTotal } from '@/lib/ia-cost-catalog';
 import type { Simulador } from '@/lib/simuladores/acesso-cargo';
@@ -40,7 +40,7 @@ import {
 } from '@/lib/sales/constants';
 import {
   ORCAMENTO_DEFAULTS,
-  CONTEUDO_POR_FORMATO_DEFAULT,
+  CONTEUDO_PADRAO,
   ROTULO_SIMULADOR,
   calcularProjeto,
   configSimuladoresPadrao,
@@ -272,23 +272,6 @@ function custoIAConteudo(
 }
 
 /**
- * Custo de IA da extração de vídeo → Módulo-Base. One-time por vídeo (matéria-
- * prima reusada entre colabs/tenants). Áudio→texto (Gemini) + detecção +
- * estruturação (Sonnet). Auditoria opcional (só ao submeter à revisão). Modelos
- * são fixos pelo serviço → usa defaultModel (não aplica preset).
- */
-function custoIAExtracao(nVideos: number, incluirAuditoria: boolean) {
-  let total = 0;
-  for (const call of CALLS) {
-    if (call.scaleType !== 'extracao') continue;
-    if (call.id === 'extracao-auditor' && !incluirAuditoria) continue;
-    const c = calcCost(call, (call as any).defaultModel, Math.max(0, nVideos || 0));
-    if (c) total += c.usd;
-  }
-  return total;
-}
-
-/**
  * Custo unitário de VÍDEO a partir do Módulo-Base (Opus batch + HeyGen +
  * Remotion Hetzner + narração TTS). Avatar opcional (sem ele, sai só cenas
  * animadas e o custo cai ~$0,47).
@@ -339,19 +322,11 @@ export default function OrcamentoPage() {
   const trilhasPorCiclo = jornada === 'custom' ? resumoProgramaPersonalizado(jornadaCustom).trilhas : 1;
   const semanasPorCiclo = cfgJornada.semanas * trilhasPorCiclo;
   const presetLabel = preset === 'atual' ? 'Configuração atual da plataforma' : PRESETS[preset].label;
-  // 48 peças por pessoa/ciclo: 12 de cada um dos quatro formatos.
-  const [conteudoColab, setConteudoColab] = useState({
-    video: CONTEUDO_POR_FORMATO_DEFAULT,
-    podcast: CONTEUDO_POR_FORMATO_DEFAULT,
-    texto: CONTEUDO_POR_FORMATO_DEFAULT,
-    case: CONTEUDO_POR_FORMATO_DEFAULT,
-  });
+  // Padrão: 12 vídeos e 12 podcasts por pessoa/ciclo (`CONTEUDO_PADRAO`).
+  const [conteudoColab, setConteudoColab] = useState({ ...CONTEUDO_PADRAO });
   function setConteudo<K extends keyof typeof conteudoColab>(k: K, v: number) {
     setConteudoColab((q) => ({ ...q, [k]: v }));
   }
-  // Extração de vídeo → módulo-base (one-time, matéria-prima reusada).
-  const [nVideosExtraidos, setNVideosExtraidos] = useState(0);
-  const [auditarExtracao, setAuditarExtracao] = useState(true);
   // O vídeo é um dos quatro formatos do conteúdo. Avatar segue opcional.
   const [comAvatar, setComAvatar] = useState(true);
   // Pessoas com acesso a cada simulador (zero = fora do escopo).
@@ -362,6 +337,15 @@ export default function OrcamentoPage() {
     setConfigSimuladores((atual) => ({ ...atual, [s]: { ...atual[s], [k]: v } }));
   }
   const reusoConteudo = reusoConteudoPorCelula(nColabs, nPerfis);
+  // Resumo da linha recolhida: só os formatos com quantidade, do estado (um
+  // cenário salvo com textos e casos mostra os quatro).
+  const rotuloFormato: Record<keyof typeof conteudoColab, string> = {
+    video: t('content.video'), podcast: t('content.podcast'), texto: t('content.text'), case: t('content.case'),
+  };
+  const resumoConteudo = (Object.keys(rotuloFormato) as (keyof typeof conteudoColab)[])
+    .filter((k) => conteudoColab[k] > 0)
+    .map((k) => `${conteudoColab[k].toLocaleString(locale)} ${rotuloFormato[k].toLowerCase()}`)
+    .join(' + ') || 'sem conteúdo';
 
   // Inputs de pricing
   const [pricing, setPricing] = useState({ ...PRECOS_DEFAULT });
@@ -382,10 +366,6 @@ export default function OrcamentoPage() {
     const custoConteudoTotal = conteudo.total;
     const custoConteudoPorColab = conteudo.perColab;
 
-    // Extração de vídeo → módulo-base (one-time, não escala por ciclo).
-    const custoExtracaoTotal = custoIAExtracao(nVideosExtraidos, auditarExtracao);
-    const custoExtracaoPorVideo = custoIAExtracao(1, auditarExtracao);
-
     // Setup + tagging: uma vez (implantação). Mentor IA + Conteúdo: por ciclo.
     // A base inteira entra no pior caso de custo: adesão orçada = 100%.
     const ciclos = Math.max(1, Math.floor(ciclosPorAno || 1));
@@ -393,7 +373,7 @@ export default function OrcamentoPage() {
     const custoSetupTotal = nClusters * custoSetupPorCluster + custoTaggingTotal;
     const custoColabsTotalAno = pessoasAtivas * custoPorColab * ciclos;
     const custoConteudoTotalAno = custoConteudoTotal * ciclos;
-    const custoIAUsd = custoSetupTotal + custoColabsTotalAno + custoConteudoTotalAno + custoExtracaoTotal;
+    const custoIAUsd = custoSetupTotal + custoColabsTotalAno + custoConteudoTotalAno;
     const custoIABrl = custoIAUsd * pricing.cotacao;
 
     // ── Custo cheio: IA + horas + mensagens + infra ──
@@ -433,8 +413,7 @@ export default function OrcamentoPage() {
     // um erro de MODELO, e modelo só não regride com guard.
     const custoOneTime = (
       custoHorasBrl +
-      custoSetupTotal * pricing.cotacao +
-      custoExtracaoTotal * pricing.cotacao
+      custoSetupTotal * pricing.cotacao
     ) * (1 + contingenciaRate);
     const parcelas = parcelasPorCiclos(ciclos);
 
@@ -544,8 +523,6 @@ export default function OrcamentoPage() {
       custoConteudoPorColab,
       totalPecasPorColab: conteudo.totalPecasPorColab,
       custoVideoGeradoPorVideo: conteudo.uVideo,
-      custoExtracaoTotal,
-      custoExtracaoPorVideo,
       custoSetupTotal,
       custoColabsTotalAno,
       ciclos,
@@ -556,7 +533,7 @@ export default function OrcamentoPage() {
       tabelaPerfis,
       tabelaWorkshop,
     };
-  }, [nClusters, nWorkshops, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, tipoComissao, preset, cfgJornada, trilhasPorCiclo, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo, simuladores, configSimuladores]);
+  }, [nClusters, nWorkshops, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, tipoComissao, preset, cfgJornada, trilhasPorCiclo, pricing, conteudoColab, comAvatar, reusoConteudo, simuladores, configSimuladores]);
 
   // ── Orçamento salvo (mig 253) ──────────────────────────────────────────────
   // `id` nulo = cenário novo; preenchido = este cenário já existe no banco e
@@ -621,8 +598,6 @@ export default function OrcamentoPage() {
       jornada,
       jornadaCustom,
       conteudoColab,
-      nVideosExtraidos,
-      auditarExtracao,
       comAvatar,
       simuladores,
       configSimuladores,
@@ -646,8 +621,6 @@ export default function OrcamentoPage() {
     setJornada(e.jornada);
     setJornadaCustom(e.jornadaCustom);
     setConteudoColab(e.conteudoColab);
-    setNVideosExtraidos(e.nVideosExtraidos);
-    setAuditarExtracao(e.auditarExtracao);
     setComAvatar(e.comAvatar);
     setSimuladores(e.simuladores);
     setConfigSimuladores(e.configSimuladores);
@@ -1345,7 +1318,7 @@ export default function OrcamentoPage() {
           As horas são custo interno: entram no custo all-in e reduzem a margem, mas não são somadas
           novamente ao preço das matrizes. O valor cobrado ao cliente fica na régua acima.
         </p>
-        <details className="mb-3 border-y border-white/[0.07] py-2">
+        <details className="border-y border-white/[0.07] py-2">
           <summary className="cursor-pointer text-[11px] font-semibold text-gray-300">
             Cenário de modelos IA <span className="ml-2 font-normal text-amber-300">{presetLabel}</span>
           </summary>
@@ -1359,6 +1332,46 @@ export default function OrcamentoPage() {
                 {k === 'atual' ? 'Atual' : PRESETS[k].label}
               </button>
             ))}
+          </div>
+        </details>
+        {/* Geração de conteúdo (por colaborador + reúso): consolidada aqui, recolhida
+            como o cenário de modelos, desde 09/10/2026. Antes era um card próprio. */}
+        <details className="mb-3 border-b border-white/[0.07] py-2">
+          <summary className="cursor-pointer text-[11px] font-semibold text-gray-300">
+            {t('content.title')}
+            <span className="ml-2 font-normal text-amber-300">
+              {resumoConteudo} · USD {calc.custoConteudoPorColab.toFixed(2)} / colab / ciclo
+            </span>
+          </summary>
+          <p className="mt-2 text-[10px] leading-relaxed text-gray-500">{t('content.hint')}</p>
+          <div className="mt-2 grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
+            <FieldNumber locale={locale} icon={<Clapperboard size={14} />} label={t('content.video')} value={conteudoColab.video} onChange={(v) => setConteudo('video', v)} min={0} />
+            <FieldNumber locale={locale} icon={<Headphones size={14} />} label={t('content.podcast')} value={conteudoColab.podcast} onChange={(v) => setConteudo('podcast', v)} min={0} />
+            <FieldNumber locale={locale} icon={<FileText size={14} />} label={t('content.text')} value={conteudoColab.texto} onChange={(v) => setConteudo('texto', v)} min={0} />
+            <FieldNumber locale={locale} icon={<BookOpen size={14} />} label={t('content.case')} value={conteudoColab.case} onChange={(v) => setConteudo('case', v)} min={0} />
+            <CalculatedField
+              icon={<Users size={14} />}
+              label={t('content.reuse')}
+              value={reusoConteudo.toLocaleString(locale, { maximumFractionDigits: 1 })}
+              sub={t('content.reuseHint')}
+            />
+            <div className="flex flex-col rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <p className="mb-1 min-h-[28px] text-[10px] uppercase tracking-widest text-gray-500">Avatar do vídeo</p>
+              <button
+                type="button"
+                onClick={() => setComAvatar((v) => !v)}
+                className={`rounded border px-2 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 ${comAvatar ? 'border-amber-300/50 bg-amber-400/15 text-amber-200' : 'border-white/10 text-gray-400'}`}
+              >
+                {comAvatar ? 'Com avatar' : 'Sem avatar'}
+              </button>
+              <p className="mt-1 text-[9px] text-gray-600">USD {calc.custoVideoGeradoPorVideo.toFixed(2)} / vídeo</p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-4 text-[11px]">
+            <span className="font-semibold text-gray-200">{calc.totalPecasPorColab.toLocaleString(locale)} peças / colab / ciclo</span>
+            <span className="font-semibold text-amber-200">{t('content.perColab')}: USD {calc.custoConteudoPorColab.toFixed(2)}</span>
+            <span className="font-semibold text-gray-300">{t('content.total')}: USD {calc.custoConteudoTotal.toFixed(2)}</span>
+            <span className="font-semibold text-gray-300">{t('content.contractTotal')}: USD {calc.custoConteudoTotalAno.toFixed(2)}</span>
           </div>
         </details>
         <div className="mb-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.035] p-3">
@@ -1452,68 +1465,6 @@ export default function OrcamentoPage() {
           ⚠ A conta usa {moneyBRLUnit(pricing.custoMsgUnitario, locale)} por mensagem UTILITY. Se a Meta reclassificar
           como MARKETING, o cenário de segurança continua sendo 6×: {money(calc.custoMsgBrl * 6)}.
         </p>
-      </div>
-
-      {/* Geração de conteúdo (por colaborador + reúso) */}
-      <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-4 mb-6">
-        <p className="text-xs uppercase tracking-widest text-purple-300 mb-1 flex items-center gap-1.5">
-          <Film size={14} /> {t('content.title')}
-        </p>
-        <p className="text-[10px] text-gray-500 mb-3">{t('content.hint')}</p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
-          <FieldNumber locale={locale} icon={<Clapperboard size={14} />} label={t('content.video')} value={conteudoColab.video} onChange={(v) => setConteudo('video', v)} min={0} />
-          <FieldNumber locale={locale} icon={<Headphones size={14} />} label={t('content.podcast')} value={conteudoColab.podcast} onChange={(v) => setConteudo('podcast', v)} min={0} />
-          <FieldNumber locale={locale} icon={<FileText size={14} />} label={t('content.text')} value={conteudoColab.texto} onChange={(v) => setConteudo('texto', v)} min={0} />
-          <FieldNumber locale={locale} icon={<BookOpen size={14} />} label={t('content.case')} value={conteudoColab.case} onChange={(v) => setConteudo('case', v)} min={0} />
-          <CalculatedField
-            icon={<Users size={14} />}
-            label={t('content.reuse')}
-            value={reusoConteudo.toLocaleString(locale, { maximumFractionDigits: 1 })}
-            sub={t('content.reuseHint')}
-          />
-          <div className="flex flex-col rounded-xl border border-white/10 bg-white/[0.02] p-3">
-            <p className="mb-1 min-h-[28px] text-[10px] uppercase tracking-widest text-gray-500">Avatar do vídeo</p>
-            <button
-              type="button"
-              onClick={() => setComAvatar((v) => !v)}
-              className={`rounded border px-2 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 ${comAvatar ? 'border-purple-400/50 bg-purple-500/20 text-purple-200' : 'border-white/10 text-gray-400'}`}
-            >
-              {comAvatar ? 'Com avatar' : 'Sem avatar'}
-            </button>
-            <p className="mt-1 text-[9px] text-gray-600">USD {calc.custoVideoGeradoPorVideo.toFixed(2)} / vídeo</p>
-          </div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-4 text-[11px]">
-          <span className="font-semibold text-purple-100">{calc.totalPecasPorColab.toLocaleString(locale)} peças / colab / ciclo</span>
-          <span className="text-purple-300 font-semibold">{t('content.perColab')}: USD {calc.custoConteudoPorColab.toFixed(2)}</span>
-          <span className="text-purple-200 font-semibold">{t('content.total')}: USD {calc.custoConteudoTotal.toFixed(2)}</span>
-          <span className="font-semibold text-purple-200">{t('content.contractTotal')}: USD {calc.custoConteudoTotalAno.toFixed(2)}</span>
-        </div>
-      </div>
-
-      {/* Extração de vídeo → Módulo-Base (one-time, matéria-prima reusada) */}
-      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 mb-6">
-        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1 flex items-center gap-1.5">
-          <Film size={14} /> Extração de vídeo → Módulo-Base
-        </p>
-        <p className="text-[10px] text-gray-500 mb-3">
-          Vídeos da empresa/web viram matéria-prima canônica (módulos-base), reusada entre colaboradores e ciclos. Custo one-time por vídeo: áudio→texto (Gemini) + detecção + estruturação dos 4 blocos (Sonnet). ~70% do custo é fixo por vídeo, independe da duração.
-        </p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-          <FieldNumber locale={locale} icon={<Film size={14} />} label="Vídeos a extrair" value={nVideosExtraidos} onChange={setNVideosExtraidos} min={0} />
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col">
-            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Auditoria Dual-IA</label>
-            <button onClick={() => setAuditarExtracao((v) => !v)}
-              className={`mt-1 px-2 py-1.5 rounded text-xs font-bold border ${auditarExtracao ? 'bg-amber-500/20 border-amber-400/50 text-amber-300' : 'border-white/10 text-gray-400'}`}>
-              {auditarExtracao ? 'Incluída (GPT-5.4)' : 'Sem auditoria'}
-            </button>
-            <p className="text-[9px] text-gray-600 mt-0.5">só ao submeter à revisão</p>
-          </div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-4 text-[11px]">
-          <span className="text-amber-300 font-semibold">Por vídeo (~10 min): USD {calc.custoExtracaoPorVideo.toFixed(2)}</span>
-          <span className="text-amber-200 font-semibold">Total ({nVideosExtraidos.toLocaleString(locale)} vídeos): USD {calc.custoExtracaoTotal.toFixed(2)}</span>
-        </div>
       </div>
 
         </main>
@@ -2132,9 +2083,6 @@ export default function OrcamentoPage() {
             <Row label={`${t('ai.mentorLine', { count: nColabs, value: calc.custoPorColab.toFixed(2) })}${calc.ciclos > 1 ? ` × ${calc.ciclos}` : ''}`} value={`USD ${calc.custoColabsTotalAno.toFixed(2)}`} />
             {calc.custoConteudoTotalAno > 0 && (
               <Row label={`${t('content.title')} · ${calc.totalPecasPorColab}/colab/ciclo${calc.ciclos > 1 ? ` × ${calc.ciclos}` : ''}`} value={`USD ${calc.custoConteudoTotalAno.toFixed(2)}`} />
-            )}
-            {calc.custoExtracaoTotal > 0 && (
-              <Row label={`Extração de vídeo: ${nVideosExtraidos.toLocaleString(locale)} vídeo(s) ${t('ai.oneTimeTag')}`} value={`USD ${calc.custoExtracaoTotal.toFixed(2)}`} />
             )}
             <div className="pt-1.5 border-t border-white/5">
               <Row label={t('ai.totalUsd')} value={`USD ${calc.custoIAUsd.toFixed(2)}`} bold />

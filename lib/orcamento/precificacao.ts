@@ -290,7 +290,12 @@ export const MESES_POR_CICLO = 2;
 /** Parcela além das do programa (regra do Rodrigo, 02/10/2026): ciclos × 2 + 1. */
 export const PARCELAS_ALEM_DO_PROGRAMA = 1;
 export const PERFIS_DISC_POR_CARGO = 4;
-export const CONTEUDO_POR_FORMATO_DEFAULT = 12;
+/**
+ * Peças por pessoa/ciclo com que o orçamento abre: 12 vídeos e 12 podcasts
+ * (decisão do Rodrigo, 09/10/2026). Textos e estudos de caso entram só se o
+ * escopo pedir. Até então eram 12 de cada um dos quatro formatos (48 peças).
+ */
+export const CONTEUDO_PADRAO: Readonly<ConteudoPorFormato> = { video: 12, podcast: 12, texto: 0, case: 0 };
 
 /** Canais mutuamente exclusivos usados para calcular o custo comercial. */
 export const OPCOES_COMISSAO_ORCAMENTO = [

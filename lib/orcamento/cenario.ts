@@ -20,7 +20,7 @@
  * cálculo (e, na Fase 2, de chegar a uma proposta).
  */
 import {
-  CONTEUDO_POR_FORMATO_DEFAULT,
+  CONTEUDO_PADRAO,
   OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
   ROTULO_SIMULADOR,
@@ -62,8 +62,9 @@ export type EntradasOrcamento = {
   jornada: string;
   jornadaCustom: ProgramaCustomInputs;
   conteudoColab: ConteudoPorFormato;
-  nVideosExtraidos: number;
-  auditarExtracao: boolean;
+  // `nVideosExtraidos` e `auditarExtracao` (extração de vídeo → Módulo-Base)
+  // saíram do orçamento em 09/10/2026, a pedido do Rodrigo: nenhum dos 6
+  // cenários salvos usava. O que vier gravado é ignorado ao ler.
   comAvatar: boolean;
   /** Pessoas com acesso a cada simulador; zero = fora do escopo. */
   simuladores: PessoasPorSimulador;
@@ -140,7 +141,6 @@ function objeto(v: unknown): Record<string, unknown> {
 
 /** O cenário com que a tela abre — os defaults vigentes da régua. */
 export function entradasPadrao(listas: ListasValidas): EntradasOrcamento {
-  const porFormato = CONTEUDO_POR_FORMATO_DEFAULT;
   return {
     versaoCotacao: VERSAO_COTACAO_ORCAMENTO,
     nClusters: 1,
@@ -154,9 +154,7 @@ export function entradasPadrao(listas: ListasValidas): EntradasOrcamento {
     preset: listas.presets[0] ?? 'atual',
     jornada: listas.jornadas[0] ?? 'jornada',
     jornadaCustom: { semanas: 1, numCompetencias: 1, fechamento: false },
-    conteudoColab: { video: porFormato, podcast: porFormato, texto: porFormato, case: porFormato },
-    nVideosExtraidos: 0,
-    auditarExtracao: true,
+    conteudoColab: { ...CONTEUDO_PADRAO },
     comAvatar: true,
     simuladores: semSimuladores(),
     configSimuladores: configSimuladoresPadrao(),
@@ -269,8 +267,6 @@ export function normalizarEntradas(bruto: unknown, listas: ListasValidas): Entra
     jornada,
     jornadaCustom: parseProgramaCustom(b.jornadaCustom) ?? padrao.jornadaCustom,
     conteudoColab,
-    nVideosExtraidos: inteiro(b.nVideosExtraidos, padrao.nVideosExtraidos, 0),
-    auditarExtracao: booleano(b.auditarExtracao, padrao.auditarExtracao),
     comAvatar: booleano(b.comAvatar, padrao.comAvatar),
     simuladores,
     configSimuladores: normalizarConfigSimuladores(b.configSimuladores, pricingBruto),
@@ -365,13 +361,22 @@ export function escopoPropostaDoCenario(
   // conteúdos por pessoa/ciclo, e "N cargos mapeados" ao lado de "N matrizes"
   // (é o mesmo número dito duas vezes: uma matriz por cargo).
   const matrizes = p(r.cargos, 'matriz de competência', 'matrizes de competência');
+  // Só os formatos que o cenário orça: proposta não promete o que tem custo zero
+  // na conta (desde 09/10/2026 o padrão é só vídeo e podcast). Sem quantidade,
+  // pela regra acima; sem formato nenhum, a linha some.
+  const formatos = FORMATOS_NA_PROPOSTA
+    .filter(([k]) => (e.conteudoColab?.[k] ?? 0) > 0)
+    .map(([, nome]) => nome);
+  const conteudo = formatos.length
+    ? `${juntarComE(formatos).replace(/^./, (c) => c.toUpperCase())} personalizados para cada pessoa`
+    : null;
   const linhas = [
     `Programa ${jornada.rotulo} de ${p(jornada.semanas, 'semana', 'semanas')} · ${p(r.ciclos, 'jornada', 'jornadas')}`,
     `${p(r.pessoas, 'pessoa', 'pessoas')} · ${p(r.unidades, 'unidade', 'unidades')}`,
     workshop
       ? matrizes
       : `${matrizes}, ${r.cargos === 1 ? 'definida' : 'definidas'} por votação dos colaboradores`,
-    'Vídeos, podcasts, textos e casos personalizados para cada pessoa',
+    ...(conteudo ? [conteudo] : []),
     'Mentor IA e jornadas personalizadas por cargo e perfil comportamental',
     'Relatório de evolução por competência ao fim de cada jornada',
   ];
@@ -400,14 +405,18 @@ export function escopoPropostaDoCenario(
     .filter((x) => x.pessoas > 0)
     .map((x) => `${ROTULO_SIMULADOR[x.s]} para ${p(x.pessoas, 'pessoa', 'pessoas')}`);
   linhas.splice(iMentor, 0, ...sims);
-
-  if (e.nVideosExtraidos > 0) {
-    const iConteudo = linhas.findIndex((l) => l.startsWith('Vídeos, podcasts'));
-    linhas.splice(
-      iConteudo,
-      0,
-      `Extração de ${p(e.nVideosExtraidos, 'vídeo institucional', 'vídeos institucionais')} como matéria-prima do conteúdo`,
-    );
-  }
   return linhas.join('\n');
+}
+
+/** Formatos de conteúdo como o cliente os lê no escopo, na ordem do documento. */
+const FORMATOS_NA_PROPOSTA = [
+  ['video', 'vídeos'],
+  ['podcast', 'podcasts'],
+  ['texto', 'textos'],
+  ['case', 'casos'],
+] as const satisfies readonly (readonly [keyof ConteudoPorFormato, string])[];
+
+/** "a", "a e b", "a, b e c". */
+function juntarComE(itens: readonly string[]): string {
+  return itens.length <= 1 ? (itens[0] ?? '') : `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}`;
 }

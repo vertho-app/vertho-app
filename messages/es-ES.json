@@ -5154,7 +5154,7 @@
     "subtitle": "Convierte el alcance en precio, margen, descuento seguro y riesgo de caja — todo en BRL.",
     "content": {
       "title": "Generación de contenido (por colaborador y ciclo)",
-      "hint": "El estándar es de 48 piezas por colaborador/ciclo: 12 vídeos, 12 podcasts, 12 textos y 12 estudios de caso. El vídeo usa el pipeline Módulo Base + avatar + Remotion; el reúso se calcula por celda de puesto y perfil conductual.",
+      "hint": "El estándar es de 24 piezas por colaborador/ciclo: 12 vídeos y 12 podcasts. Los textos y estudios de caso solo entran si el alcance lo pide. El vídeo usa el pipeline Módulo Base + avatar + Remotion; el reúso se calcula por celda de puesto y perfil conductual.",
       "video": "Vídeos",
       "podcast": "Podcasts",
       "text": "Textos",

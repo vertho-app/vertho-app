@@ -56,7 +56,7 @@ const ORCAMENTO = {
     nClusters: 1, nPerfis: 3, nColabs: 100, matrizNovas: 1, ciclosPorAno: 1,
     metodo: 'votacao', tipoComissao: 'rc', preset: 'atual', jornada: 'jornada',
     conteudoColab: { video: 12, podcast: 12, texto: 12, case: 12 },
-    nVideosExtraidos: 0, auditarExtracao: true, comAvatar: true,
+    comAvatar: true,
     pricing: { cotacao: 5.12, descontoPct: 0, precoPessoaCiclo: 300 },
   },
   resultado: {
@@ -744,31 +744,38 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
     }
   });
 
-  it('extração de vídeo entra no escopo só quando existe', () => {
-    expect(escopoPropostaDoCenario(entradas, resumo, jornada)).not.toMatch(/Extração/);
-    const comExtracao = escopoPropostaDoCenario(
-      { ...entradas, nVideosExtraidos: 3 }, resumo, jornada,
-    );
-    expect(comExtracao).toMatch(/Extração de 3 vídeos institucionais/);
+  it('o conteúdo lista só os formatos que o cenário orça (padrão de 09/10/2026: vídeo e podcast)', () => {
+    const linha = (conteudoColab: Record<string, number>) => escopoPropostaDoCenario(
+      { ...entradas, conteudoColab }, resumo, jornada,
+    ).split('\n');
+    expect(linha({ video: 12, podcast: 12, texto: 0, case: 0 })[3])
+      .toBe('Vídeos e podcasts personalizados para cada pessoa');
+    expect(linha({ video: 0, podcast: 12, texto: 0, case: 0 })[3])
+      .toBe('Podcasts personalizados para cada pessoa');
+    expect(linha({ video: 12, podcast: 0, texto: 4, case: 2 })[3])
+      .toBe('Vídeos, textos e casos personalizados para cada pessoa');
+    // Sem formato nenhum, a linha some: a proposta não promete o que não foi orçado.
+    const semConteudo = linha({ video: 0, podcast: 0, texto: 0, case: 0 });
+    expect(semConteudo).toHaveLength(5);
+    expect(semConteudo.join('\n')).not.toMatch(/personalizados para cada pessoa$/m);
+  });
+
+  it('extração de vídeo saiu do orçamento: campo antigo não vira linha no escopo', () => {
+    const texto = escopoPropostaDoCenario({ ...entradas, nVideosExtraidos: 3 }, resumo, jornada);
+    expect(texto).not.toMatch(/Extração|institucion/);
   });
 
   it('singular não sai errado — este texto vai no documento do cliente', () => {
-    // `institucional + "s"` daria "institucionalis"; `1 vídeos` daria na mesma
-    // classe de erro. Os dois são texto publicado, não detalhe cosmético.
+    // `1 vídeos`, `1 pessoas` e afins são texto publicado, não detalhe cosmético.
     const singular = escopoPropostaDoCenario(
-      {
-        ...entradas,
-        nVideosExtraidos: 1,
-        conteudoColab: { video: 1, podcast: 1, texto: 1, case: 1 },
-      },
+      { ...entradas, conteudoColab: { video: 1, podcast: 1, texto: 1, case: 1 } },
       { ...resumo, pessoas: 1, unidades: 1, cargos: 1, ciclos: 1 },
       { rotulo: 'Piloto', semanas: 1 },
     );
     expect(singular).toMatch(/1 semana · 1 jornada/);
     expect(singular).toMatch(/^1 pessoa · 1 unidade$/m);
     expect(singular).toMatch(/^1 matriz de competência, definida por votação dos colaboradores$/m);
-    expect(singular).toMatch(/Extração de 1 vídeo institucional/);
-    expect(singular).not.toMatch(/institucionalis|1 vídeos|1 pessoas|1 semanas/);
+    expect(singular).not.toMatch(/1 vídeos|1 pessoas|1 semanas/);
   });
 });
 

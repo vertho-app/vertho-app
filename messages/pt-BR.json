@@ -5025,7 +5025,7 @@
     "subtitle": "Transforme o escopo em preço, margem, desconto seguro e risco de caixa — tudo em BRL.",
     "content": {
       "title": "Geração de conteúdo (por colaborador e ciclo)",
-      "hint": "Padrão de 48 peças por colaborador/ciclo: 12 vídeos, 12 podcasts, 12 textos e 12 estudos de caso. O vídeo usa o pipeline Módulo-Base + avatar + Remotion; o reúso é calculado por célula de cargo e perfil comportamental.",
+      "hint": "Padrão de 24 peças por colaborador/ciclo: 12 vídeos e 12 podcasts. Textos e estudos de caso entram só se o escopo pedir. O vídeo usa o pipeline Módulo-Base + avatar + Remotion; o reúso é calculado por célula de cargo e perfil comportamental.",
       "video": "Vídeos",
       "podcast": "Podcasts",
       "text": "Textos",

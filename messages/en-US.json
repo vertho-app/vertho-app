@@ -5025,7 +5025,7 @@
     "subtitle": "Turn scope into price, margin, safe discount and cash exposure — all in BRL.",
     "content": {
       "title": "Content generation (per team member and cycle)",
-      "hint": "The default is 48 pieces per member/cycle: 12 videos, 12 podcasts, 12 texts and 12 case studies. Video uses the Base Module + avatar + Remotion pipeline; reuse is calculated per role and behavioral profile cell.",
+      "hint": "The default is 24 pieces per member/cycle: 12 videos and 12 podcasts. Texts and case studies are added only when the scope calls for them. Video uses the Base Module + avatar + Remotion pipeline; reuse is calculated per role and behavioral profile cell.",
       "video": "Videos",
       "podcast": "Podcasts",
       "text": "Texts",

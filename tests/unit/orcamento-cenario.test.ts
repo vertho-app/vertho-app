@@ -17,7 +17,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  CONTEUDO_POR_FORMATO_DEFAULT,
   OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
   SIMULADORES_DEFAULT,
@@ -54,14 +53,8 @@ describe('entradasPadrao — os defaults com que a tela abre', () => {
       preset: 'atual',
       jornada: 'jornada',
       jornadaCustom: { semanas: 1, numCompetencias: 1, fechamento: false },
-      conteudoColab: {
-        video: CONTEUDO_POR_FORMATO_DEFAULT,
-        podcast: CONTEUDO_POR_FORMATO_DEFAULT,
-        texto: CONTEUDO_POR_FORMATO_DEFAULT,
-        case: CONTEUDO_POR_FORMATO_DEFAULT,
-      },
-      nVideosExtraidos: 0,
-      auditarExtracao: true,
+      // Só vídeo e podcast por padrão (decisão do Rodrigo, 09/10/2026).
+      conteudoColab: { video: 12, podcast: 12, texto: 0, case: 0 },
       comAvatar: true,
       // A tela abre sem simulador no escopo.
       simuladores: { vendas: 0, atendimento: 0, lideranca: 0 },
@@ -155,15 +148,25 @@ describe('normalizarEntradas — cenário antigo ou incompleto', () => {
   });
 
   it('campo ausente cai no default da régua (não vira undefined nem NaN)', () => {
-    const antigo: any = { ...BASE };
-    delete antigo.nVideosExtraidos;
+    const antigo: any = { ...BASE, conteudoColab: { video: 5 } };
     delete antigo.comAvatar;
     delete antigo.pricing.precoMatrizAdaptada;
 
     const lido = normalizarEntradas(antigo, LISTAS)!;
-    expect(lido.nVideosExtraidos).toBe(BASE.nVideosExtraidos);
+    expect(lido.conteudoColab).toEqual({ video: 5, podcast: 12, texto: 0, case: 0 });
     expect(lido.comAvatar).toBe(BASE.comAvatar);
     expect(lido.pricing.precoMatrizAdaptada).toBe(ORCAMENTO_DEFAULTS.precoMatrizAdaptada);
+  });
+
+  it('cenário salvo com textos e casos reabre com eles: o padrão novo não reescreve o gravado', () => {
+    const lido = normalizarEntradas({ ...BASE, conteudoColab: { video: 12, podcast: 12, texto: 12, case: 12 } }, LISTAS)!;
+    expect(lido.conteudoColab).toEqual({ video: 12, podcast: 12, texto: 12, case: 12 });
+  });
+
+  it('extração de vídeo gravada antes de 09/10/2026 é ignorada ao ler', () => {
+    const lido: any = normalizarEntradas({ ...BASE, nVideosExtraidos: 5, auditarExtracao: true }, LISTAS)!;
+    expect(lido).not.toHaveProperty('nVideosExtraidos');
+    expect(lido).not.toHaveProperty('auditarExtracao');
   });
 
   it('pricing ausente por inteiro volta com a régua completa', () => {

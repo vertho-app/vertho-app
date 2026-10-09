@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  CONTEUDO_POR_FORMATO_DEFAULT,
+  CONTEUDO_PADRAO,
   OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
   calcularProjeto,
@@ -62,7 +62,8 @@ describe('premissas comerciais do orçamento', () => {
       msgsPorPessoaCiclo: 25,
       custoMsgUnitario: 0.035,
     });
-    expect(CONTEUDO_POR_FORMATO_DEFAULT).toBe(12);
+    // 12 vídeos e 12 podcasts por pessoa/ciclo; texto e caso só se o escopo pedir (09/10/2026).
+    expect(CONTEUDO_PADRAO).toEqual({ video: 12, podcast: 12, texto: 0, case: 0 });
   });
 
   it('oferece as quatro políticas de comissão aprovadas', () => {

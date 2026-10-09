@@ -169,7 +169,8 @@ RC continua sendo operada só pelo Portal do Representante.
 | Duração do programa | Ciclos × 2 meses (`mesesDoPrograma`), uma a menos que as parcelas |
 | Simuladores | Pessoas com acesso a cada um (vendas, atendimento, liderança); zero = fora do escopo; nunca acima das pessoas do programa |
 | Matrizes adaptadas | `máx(0, cargos − matrizes novas)` |
-| Conteúdo | 48 peças por pessoa/ciclo: 12 vídeos, 12 podcasts, 12 textos e 12 cases |
+| Conteúdo | 24 peças por pessoa/ciclo: 12 vídeos e 12 podcasts (`CONTEUDO_PADRAO`, 09/10/2026; eram 48, com 12 textos e 12 cases). Textos e casos seguem editáveis. Na tela, fica recolhido no card "Custo de entrega", como o cenário de modelos IA |
+| Extração de vídeo → Módulo-Base | Fora do orçamento desde 09/10/2026 (nenhum dos 6 cenários salvos usava); o campo gravado é ignorado ao ler |
 | Reúso de conteúdo | `máx(1, pessoas ÷ cargos ÷ 4 perfis DISC)` |
 | Vídeo | Faz parte do bloco de geração de conteúdo; avatar é opcional |
 
@@ -343,8 +344,10 @@ Rodrigo, travadas em `tests/unit/orcamento-conversao.test.ts`:
   e adaptadas, e sem repetir "50 cargos mapeados" na linha de pessoas (é o mesmo
   número: uma matriz por cargo). Por votação, a linha diz "definidas por votação
   dos colaboradores";
-- conteúdo sem quantidade: "Vídeos, podcasts, textos e casos personalizados para
-  cada pessoa". O documento também deixou de dizer "N conteúdos por pessoa a cada
+- conteúdo sem quantidade e só com os formatos que o cenário orça (09/10/2026):
+  "Vídeos e podcasts personalizados para cada pessoa" no padrão, os quatro formatos
+  se o cenário tiver textos e casos, e nenhuma linha se não tiver conteúdo. Antes a
+  frase era fixa e prometia textos e casos que a conta não pagava. O documento também deixou de dizer "N conteúdos por pessoa a cada
   ciclo";
 - workshop em linha própria ("Workshop presencial para definir, com a equipe, as
   competências de cada cargo"), e não no fim de "cargos mapeados". Sem "da
