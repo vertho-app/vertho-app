@@ -32,8 +32,10 @@ Nunca confie no tamanho da rodada para estimar o tamanho da defasagem.
 ## 🔑 04/10/2026: o caminho inteiro pela API, com hash (sem modal para ler nem menu para remover)
 
 `Medido: 04/10/2026`, 16 subidas e 16 remoções, fecho 20 de 20 idênticas ao `origin/master`:
-1. **Repo:** `scratchpad/fontes_project.py` (da sessão; refazer se o scratchpad sumiu) lê as 20 por
-   `git show origin/master:`, normaliza CRLF, grava a cópia para subir e imprime `kb` e `sha1` de cada.
+1. **Repo:** `python .claude/skills/fechar/fontes_project.py <pasta-de-saida>` (versionado AO LADO desta
+   receita desde 08/10/2026; antes vivia no scratchpad e tive de reescrevê-lo) lê as 20 por
+   `git show origin/master:`, normaliza CRLF, grava a cópia para subir em `<pasta-de-saida>` e um `_mapa.json`
+   (`ref`, `kb`, `sha1`, `n` de cada). Rode `git fetch origin master` ANTES: ele lê o `origin/master` local.
 2. **Project:** `GET /api/organizations/<org>/projects/<proj>/docs` (o `org` é o de `/api/organizations`
    cujo GET responde 200), `crypto.subtle.digest('SHA-1')` de cada `content`, e a comparação com o mapa
    do repo FEITA NA PÁGINA, devolvendo só os nomes que diferem (a lista inteira volta truncada).
@@ -87,6 +89,12 @@ Nunca confie no tamanho da rodada para estimar o tamanho da defasagem.
    `git hash-object` do baixado tem que ser igual ao `.sha` que a mesma API informa (20 de 20 em
    05/10). Serve quando o `git fetch` do checkout principal falha (aconteceu 1 vez, com "did not send all
    necessary objects"; repetido minutos depois, passou) ou quando o master local está atrás.
+11. 🔴 **`Medido: 08/10/2026`: a extensão do Chrome pode estar DESCONECTADA** (`tabs_context_mcp` devolve
+   "Browser extension is not connected", e repetir não muda). Não é falha desta receita nem do Project: **pare
+   depois de 2 tentativas**, deixe o lado do repo PRONTO (o passo 1, que não depende do navegador: `_mapa.json`
+   com o `ref` e os hashes) e diga ao dono, no fecho, que a sincronização NÃO foi feita e por quê. Não conte o
+   Project como "em dia" nem como "defasado": não foi medido. Retomada: com a extensão conectada, siga do passo 2
+   (o mapa e as cópias do passo 1 valem se o `origin/master` não andou; confira o `ref` do `_mapa.json`).
 
 `Medido: 22/09/2026` — o lado inverso também vale: **o doc do repo pode estar atrás do código**, e o
 Project herda. O `FEATURES-E-BENEFICIOS.md` batia com o repo e mesmo assim vendia Pulso e Radar
@@ -133,9 +141,7 @@ normalizadas:
 
 ```python
 bruto = subprocess.run(['git','-C',REPO,'show',f'HEAD:{f}'], capture_output=True).stdout
-texto = bruto.decode('utf-8').replace('
-', '
-')
+texto = bruto.decode('utf-8').replace('\r\n', '\n')
 print(len(texto)/1000)          # = o número do card
 io.open(destino,'w',encoding='utf-8',newline='').write(texto)   # newline='' = não reconverte
 ```
