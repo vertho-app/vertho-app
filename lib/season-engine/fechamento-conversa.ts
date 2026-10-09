@@ -88,6 +88,41 @@ ${fechamentoSuffix}`;
 }
 
 /**
+ * Segunda tentativa como TAREFA ISOLADA: a transcrição vai num único pedido ("a
+ * conversa acabou, escreva a última mensagem"), em vez de continuar o diálogo.
+ *
+ * 🔴 Por que não basta repetir a conversa com `reforcoDeFechamento` (medido
+ * 09/10/2026, replay só de leitura das 10 conversas finais da Ibipeba com o
+ * Sonnet 4.6): continuando o diálogo, o modelo pediu mais um exemplo mesmo com
+ * "ENCERRAMENTO FORÇADO" (2 de 10 fecharam; 5 de 10 com a saída para evidência
+ * fraca na síntese) e chegou a escrever "uma última pergunta antes do
+ * encerramento". Respostas vagas + "nunca afirme evolução sem evidência" vencem
+ * a ordem de fechar enquanto ele está DENTRO da conversa. A mesma síntese pedida
+ * sobre a transcrição fechou 10 de 10, dizendo a falta de evidência em vez de
+ * perguntar. Hoje só a conversa final usa (decisão do dono, 09/10); a socrática
+ * segue com `reforcoDeFechamento` até ter o mesmo replay.
+ *
+ * `mensagens` já vêm MASCARADAS pela rota, como no diálogo.
+ */
+export function pedidoDeFechamentoIsolado(
+  mensagens: Array<{ role: string; content: string }>,
+  fechamentoSuffix: string,
+): string {
+  const transcricao = mensagens
+    .map((m) => `${m.role === 'assistant' ? 'MENTOR' : 'PESSOA'}: ${m.content}`)
+    .join('\n\n');
+  return `TRANSCRIÇÃO DA CONVERSA FINAL DA TRILHA:
+
+${transcricao}
+
+FIM DA TRANSCRIÇÃO.
+
+A conversa ACABOU: a pessoa não poderá responder. Escreva AGORA somente a última mensagem do MENTOR para ela, seguindo:
+
+${fechamentoSuffix}`;
+}
+
+/**
  * Registra que uma conversa foi encerrada sem fechamento mesmo após a segunda
  * tentativa. Best-effort (nunca lança) — o mesmo contrato de `registrarDegradacao`.
  */

@@ -17,7 +17,7 @@ import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine
 import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha, qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating';
 import { semanasDeDesenvolvimentoDoPlano } from '@/lib/season-engine/duracao-trilha';
-import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, fechamentoSeguro } from '@/lib/season-engine/fechamento-conversa';
+import { pareceFechamento, pedidoDeFechamentoIsolado, registrarConversaSemFechamento, fechamentoSeguro } from '@/lib/season-engine/fechamento-conversa';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
 import type { AppLocale } from '@/i18n/routing';
 import { escolherCenarioB, escolherCenariosBPorCompetencia, fechamentoPorCompetencia, perguntasDoCenarioB } from '@/lib/season-engine/cenario-b';
@@ -281,9 +281,10 @@ export async function POST(request) {
       const finished = proximoTurnIA >= TOTAL;
 
       /**
-       * REDE DE SEGURANÇA DO FECHAMENTO — a gêmea de `reflection/route.ts`.
+       * REDE DE SEGURANÇA DO FECHAMENTO — a gêmea de `reflection/route.ts`, com
+       * uma diferença de propósito: aqui a 2ª tentativa é tarefa isolada (abaixo).
        * `finished` é contagem, e contagem não olha o que a IA escreveu: se o
-       * turno 12 saiu como pergunta, a tela dá a conversa por concluída em cima
+       * último turno saiu como pergunta, a tela dá a conversa por concluída em cima
        * de uma pergunta sem resposta possível.
        *
        * `marcadores: false` porque o fechamento desta conversa é em PROSA
@@ -292,11 +293,13 @@ export async function POST(request) {
        */
       if (finished && !pareceFechamento(respostaIA, { marcadores: false })) {
         try {
-          const forcado = (await callAIChat(system, messages, {}, 4000, {
+          // A 2ª tentativa NÃO continua o diálogo: pede a síntese sobre a transcrição,
+          // como tarefa isolada. Continuando a conversa, 2 de 10 fechavam; assim, 10 de 10
+          // (replay de 09/10/2026, ver `pedidoDeFechamentoIsolado`).
+          const forcado = (await callAI(system, pedidoDeFechamentoIsolado(messages, fechamentoSuffix), {}, 4000, {
             taskKey: 'sem13_qualitativa',
             empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
             locale: idioma,
-            systemSuffix: fechamentoSuffix ? reforcoDeFechamento(fechamentoSuffix) : systemSuffix,
           })).trim();
           if (forcado && pareceFechamento(forcado, { marcadores: false })) respostaIA = forcado;
         } catch (err: any) {

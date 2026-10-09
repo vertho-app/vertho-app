@@ -95,7 +95,12 @@ NÃO faça mais perguntas. Estruture em 2 blocos curtos:
 NÃO inclua plano de ação, plano 30 dias, próximos passos ou recomendações.
 NÃO peça confirmação nem abra espaço pra réplica.
 Ancore TUDO no que ${nomeColab} disse. NUNCA invente evolução sem evidência.
-Máximo 180 palavras totais.`;
+Máximo 180 palavras totais.
+
+SE AS RESPOSTAS FORAM VAGAS OU NÃO TROUXERAM EXEMPLO CONCRETO: NÃO peça mais nada.
+Não existe próximo turno. Escreva a síntese com o que foi dito e diga, sem julgar, que a
+conversa não trouxe um episódio concreto que sustente a leitura; isso vira o ponto de atenção.
+Uma síntese honesta sobre pouca evidência é a resposta certa aqui. Uma pergunta, não.`;
 
   // Antes de qualquer turno do roteiro: numa conversa mais curta que 12, o
   // último turno cairia no meio dele (ver o cabeçalho do arquivo).
@@ -251,7 +256,7 @@ PERGUNTAS:
 - Proibido: binárias, dicotomias falsas, julgadoras, com resposta embutida
 - Use: "Como você...?", "O que te levou a...?", "De que forma...?", "Em que momento...?"
 
-SE A RESPOSTA VIER VAGA:
+SE A RESPOSTA VIER VAGA (em qualquer turno ANTES do último):
 - Peça exemplo concreto
 - Peça situação real com ação/contexto/consequência
 - Peça contraste entre "como era antes" e "como é agora"
@@ -283,7 +288,11 @@ ESTILO:
 - Curioso, respeitoso, analítico
 - Sem jargão de coaching
 - Sem tom professoral
-- Sem parecer prova oral hostil`;
+- Sem parecer prova oral hostil
+
+A CONVERSA TEM ${total} TURNOS SEUS, E O ${total}º É O ÚLTIMO: depois dele ${nomeColab} não pode mais
+responder. A instrução de cada turno diz o que fazer nele; siga-a mesmo que a conversa
+pareça pedir outra coisa. Assunto guardado para o fim vira pergunta sem resposta.`;
 
   // instrucao (volátil por turno) sai do system → systemSuffix, p/ o prefixo
   // estável ser cacheado e lido a 0,1× nos turnos 2..N. Output-neutral. Mantém

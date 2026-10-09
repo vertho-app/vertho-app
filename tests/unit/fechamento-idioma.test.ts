@@ -149,12 +149,22 @@ describe('a conversa da acumulada (sem13_qualitativa) sai no idioma da pessoa', 
   });
 
   it('o fechamento forçado (a 2ª chamada, quando a 1ª terminou em pergunta) fala no MESMO idioma', async () => {
+    // Desde 09/10/2026 a 2ª tentativa é tarefa isolada (`callAI` sobre a transcrição), não
+    // o diálogo repetido: ver `pedidoDeFechamentoIsolado`.
     h.locale = { colab: 'en-US', empresa: null };
     QUAL();
-    h.callAIChat.mockResolvedValueOnce('E o que você percebe que ainda falta?').mockResolvedValueOnce('Obrigado pela conversa. Leve isso para a sua próxima semana.');
+    h.callAIChat.mockResolvedValueOnce('E o que você percebe que ainda falta?');
+    h.callAI.mockImplementation(async (_s: any, _u: any, _c: any, _m: any, o: any) =>
+      o?.taskKey === 'sem13_qualitativa' ? 'Obrigado pela conversa. Leve isso para a sua próxima semana.' : '{}');
     await enviar();
-    expect(h.callAIChat).toHaveBeenCalledTimes(2);
-    for (const chamada of h.callAIChat.mock.calls) expect(chamada[4]).toMatchObject({ taskKey: 'sem13_qualitativa', locale: 'en-US' });
+    expect(h.callAIChat).toHaveBeenCalledTimes(1);
+    expect(h.callAIChat.mock.calls[0][4]).toMatchObject({ taskKey: 'sem13_qualitativa', locale: 'en-US' });
+    const forcados = h.callAI.mock.calls.filter((c: any[]) => c[4]?.taskKey === 'sem13_qualitativa');
+    expect(forcados).toHaveLength(1);
+    expect(forcados[0][4]).toMatchObject({ locale: 'en-US', empresaId: 'emp-1', colaboradorId: 'col-1' });
+    // A transcrição leva a conversa real e NÃO a pergunta descartada da 1ª tentativa.
+    expect(String(forcados[0][1])).toContain('PESSOA: Foi bom.');
+    expect(String(forcados[0][1])).not.toContain('E o que você percebe que ainda falta?');
   });
 
   it('a extração do fim da conversa (temporada_extracao, JSON interno) NÃO recebe idioma', async () => {

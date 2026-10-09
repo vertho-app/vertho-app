@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pareceFechamento, reforcoDeFechamento } from '@/lib/season-engine/fechamento-conversa';
+import { pareceFechamento, reforcoDeFechamento, pedidoDeFechamentoIsolado } from '@/lib/season-engine/fechamento-conversa';
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptEvolutionQualitative } from '@/lib/season-engine/prompts/evolution-qualitative';
 
@@ -194,13 +194,57 @@ describe('conversa qualitativa: o último turno é a síntese, em qualquer taman
     expect(semTotal.fechamentoSuffix).toBe(turno(12, 12).systemSuffix);
   });
 
+  it('🔴 a síntese tem saída para evidência fraca: registrar a falta, nunca pedir mais', () => {
+    // Replay de 09/10: com respostas vagas, "cite evidências" + "nunca invente" sem esta
+    // saída fazia o modelo pedir mais um exemplo no último turno.
+    const { systemSuffix } = turno(6, 6);
+    expect(systemSuffix).toMatch(/SE AS RESPOSTAS FORAM VAGAS/);
+    expect(systemSuffix).toMatch(/NÃO peça mais nada/);
+  });
+
+  it('o system diz quantos turnos há e que o último não tem resposta (como a socrática)', () => {
+    expect(turno(2, 6).system).toContain('A CONVERSA TEM 6 TURNOS SEUS, E O 6º É O ÚLTIMO');
+    expect(turno(2, 12).system).toContain('A CONVERSA TEM 12 TURNOS SEUS, E O 12º É O ÚLTIMO');
+    // "peça exemplo" vale ANTES do último turno; no último, a saída é a da síntese.
+    expect(turno(2, 6).system).toContain('SE A RESPOSTA VIER VAGA (em qualquer turno ANTES do último):');
+  });
+
   it('a rota passa o MESMO total que decide `finished`', () => {
     // Os testes da rota trocam `qualitativaDoPlano` por `() => null` e só exercitam 12:
     // por isso o caso de 6 turnos nunca rodou em teste. O contrato fica travado aqui.
     const rota = readFileSync(join(process.cwd(), 'app/api/temporada/evaluation/route.ts'), 'utf-8');
     expect(rota).toContain('turnIA: proximoTurnIA, totalTurns: TOTAL');
     expect(rota).toContain('const finished = proximoTurnIA >= TOTAL;');
-    expect(rota).toContain('systemSuffix: fechamentoSuffix ? reforcoDeFechamento(fechamentoSuffix) : systemSuffix');
+  });
+
+  it('🔴 a 2ª tentativa da rota é a tarefa ISOLADA sobre a transcrição, não o diálogo repetido', () => {
+    // Replay de 09/10 nas 10 conversas da Ibipeba: repetir o diálogo com reforço fechou 2;
+    // a tarefa isolada, 10.
+    const rota = readFileSync(join(process.cwd(), 'app/api/temporada/evaluation/route.ts'), 'utf-8');
+    expect(rota).toContain('await callAI(system, pedidoDeFechamentoIsolado(messages, fechamentoSuffix), {}, 4000, {');
+    expect(rota).not.toContain('reforcoDeFechamento(');
+  });
+});
+
+describe('pedidoDeFechamentoIsolado', () => {
+  const msgs = [
+    { role: 'assistant', content: 'Chegamos à conversa final. O que mudou?' },
+    { role: 'user', content: 'Passei a planejar antes.' },
+  ];
+
+  it('leva a transcrição inteira, com quem falou, e o formato do fechamento', () => {
+    const pedido = pedidoDeFechamentoIsolado(msgs, 'FORMATO DA SÍNTESE AQUI');
+    expect(pedido).toContain('MENTOR: Chegamos à conversa final. O que mudou?');
+    expect(pedido).toContain('PESSOA: Passei a planejar antes.');
+    expect(pedido).toContain('FORMATO DA SÍNTESE AQUI');
+    expect(pedido.indexOf('PESSOA: Passei')).toBeLessThan(pedido.indexOf('FORMATO DA SÍNTESE AQUI'));
+  });
+
+  it('diz que a conversa acabou e que a pessoa não responde', () => {
+    const pedido = pedidoDeFechamentoIsolado(msgs, 'x');
+    expect(pedido).toMatch(/A conversa ACABOU/);
+    expect(pedido).toMatch(/não poderá responder/);
+    expect(pedido).toMatch(/somente a última mensagem do MENTOR/);
   });
 });
 
