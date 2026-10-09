@@ -520,6 +520,12 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   `primeiraSemanaAcessivel`, com a trilha mais recente; se a leitura falhar, mostre indisponível.
   Não acople "Métricas da semana" (sinais) com "Etapa individual" (pessoas). Detalhe:
   `docs/PIPELINE-TRILHA.md` (duas semanas) + `docs/ARQUITETURA.md` §13.
+- NÃO escolher a trilha do PARTICIPANTE pela "mais recente da pessoa", nem contar o mapeamento por
+  todas as respostas dela: com turma nova (reentrada), a tela mostra a jornada anterior (Ibipeba,
+  09/10/2026: home em 100% e botão nas semanas 8 e 9). Use `carregarJornadaAtual`
+  (`lib/turmas/jornada-atual.ts`); tela que mostra uma TURMA usa o escopo de LEITURA, nunca o de lote.
+  E valor NOVO de status some calado em `else if` sem ramo padrão e em `.in('status', [...])`: varra
+  os leitores antes de gravar o valor. Detalhe: `docs/TURMAS.md` §Jornada atual do participante.
 - NÃO debitar tentativa de retentativa quando quem falhou foi o **CANAL** (fornecedor caído,
   template não aprovado): quando o canal volta, o teto já expulsou quem nunca recebeu nada
   (18-19/08). Em disparo MANUAL quem decide insistir é o **servidor**, não o corpo do pedido.

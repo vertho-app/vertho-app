@@ -232,6 +232,9 @@ Nenhuma tela que mostra uma turma pode contar por PESSOA. O que existe, e a rég
 - **Panorama do RH** (`carregarPanoramaRH`, aceita `escopoTurma`): usado pelo **Andamento "por turma"**
   (turma sem ativos vira grupo "(encerrada)" com os números do período), pela **home do RH** (seletor com
   2+ turmas) e pela **Central de relatórios** (turma escolhida). Perfil e mapeamento seguem da PESSOA.
+  A Central (e o PDF de evolução, mesmo recorte: `lib/relatorios/recorte-turma.ts`) lista também a turma
+  CONCLUÍDA e tira as pessoas do escopo de LEITURA desde 09/10/2026; antes usava o de lote e a turma
+  cujas pessoas seguiram adiante vinha com 0. Trilha `encerrada` conta só em `jornadasIniciadas`.
 - **Fase 2 (IA4)** e **/admin/temporadas**: o seletor recorta, no cliente, as listas que a tela já tem
   (`lib/turmas/escopo-tela.ts`): resposta pela janela, trilha pelo carimbo (`turma_membro_id`). Enquanto
   o escopo não chega, a lista fica VAZIA (nunca a empresa toda). A fila de "Re-avaliar" herda o recorte.
@@ -245,9 +248,45 @@ PDI são **um por pessoa** (`UNIQUE (empresa_id, colaborador_id)` e
 **sobrescreve** o da anterior. Tornar essas filas "por janela" sem antes arquivar o da
 jornada anterior destruiria o histórico que esta regra existe para guardar, e a trilha
 nova seria montada em cima do blueprint antigo. Ficou para uma etapa própria.
-Também não há **encerramento das atividades** da turma anterior (envio, trilha): `pausada`
-mostra ao participante "pausada pelo gestor" e só `concluida` aparece como temporada
-anterior; encerrar exige um estado próprio com mensagem e leitura.
+O **encerramento das atividades** da turma anterior ganhou estado próprio em 09/10/2026
+(`TRILHA.ENCERRADA`, seção seguinte).
+
+### Jornada atual do participante e encerramento da temporada (09/10/2026)
+
+Queixa real (Ibipeba): o convite da Temporada 2 saiu com o link do mapeamento, mas quem entrava
+pela home via a jornada 1 em **100%** e o botão levava às semanas 8 e 9. `Medido:` dos 35
+participantes sem resposta da competência nova, **28** tinham trilha antiga e só chegavam ao
+mapeamento pelo link do WhatsApp. Duas contas por PESSOA causavam isso: "a trilha mais recente da
+pessoa" e "todas as respostas da pessoa contra o Top 5 novo" (2 respostas antigas = "2 de 1").
+
+- **Lado do participante, uma régua:** `carregarJornadaAtual` (`lib/turmas/jornada-atual.ts`) dá a
+  trilha da participação ATIVA pela janela. Sem participação ativa, ou sem marco, é a trilha mais
+  recente (Macaé não muda). Usam: a home (pré-busca em `app/dashboard/home-actions.ts` E os loaders
+  de `lib/home/loaders.ts`, os dois caminhos) e `loadTemporada` sem `trilhaId`. Jornada nova ainda
+  sem trilha devolve `JORNADA_NOVA_SEM_TRILHA`, e a tela da temporada aponta o mapeamento e o
+  histórico.
+- **Fase Mapeamento da home** pela régua do cabeçalho do assessment (Top 5 do cargo, teto da
+  degustação, só resposta de competência do Top 5): `lib/assessment/competencias-do-mapeamento.ts`.
+  Ela não lê nota mínima nem cenários de propósito: a home não serve cenário, e uma falha dessas
+  leituras derrubava a seção. **PDI** conta na jornada só se `gerado_em` cai na janela (exibição;
+  `/dashboard/pdi` ainda mostra o PDI anterior até a etapa de arquivamento).
+- **`TRILHA.ENCERRADA`**: jornada FECHADA pela operação antes do fim. Não é `concluida` (não dá
+  certificado nem conta como finalizada) nem `pausada` (não diz "pausada pelo gestor" e não volta
+  para a cadência). As rotas da semana (missão, reflexão, tira-dúvidas e as ações de escrita da
+  avaliação), marcar conteúdo e pausar/retomar recusam com 409 `TRILHA_ENCERRADA`
+  (`lib/season-engine/trilha-encerrada.ts`); o histórico lista concluídas e encerradas, só leitura.
+  Ibipeba: 26 trilhas encerradas em 09/10/2026 (auditoria `trilha.encerrar_temporada`, com os ids;
+  rollback = voltar para `ativa`), e a Turma 1 concluída (`turma.concluir`).
+- 🔴 **Status novo some calado nos painéis.** O grep por teste negativo (`!==`, `.neq`) não basta:
+  cadeia `if ATIVA … else if CONCLUIDA` sem ramo padrão e `.in('status', [...])` deixam o valor novo
+  de fora sem erro. O painel do RH da Turma 1 iria de 38 para 12 jornadas iniciadas; pego na revisão,
+  não na suíte. Ao criar um valor de status, varra as três formas e meça o painel real antes e depois.
+- **Rascunho do mapeamento** (mig 283, `assessment_rascunhos`): P1-P4 vão ao servidor a cada pergunta,
+  com debounce e ao ir para segundo plano; voltam só para o MESMO cenário e saem no envio. Antes viviam
+  só em `useState`, e uma queda de sessão apagava três respostas.
+- **Ainda aberto:** a etapa de arquivar blueprint/PDI da jornada anterior e as filas do Fluxo por
+  janela (pré-requisito para gerar a jornada nova de quem já teve uma); o gestor vê `encerrada` como
+  "arquivada".
 
 ## 2. Módulos opcionais: o Pulso é uma etapa da turma
 
