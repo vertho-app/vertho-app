@@ -4681,7 +4681,8 @@
       "save": "Save",
       "importing": "Importing...",
       "importCollaboratorsCsv": "Import Team Members CSV",
-      "importRolesCsv": "Import Positions CSV"
+      "importRolesCsv": "Import Positions CSV",
+      "loginAs": "Sign in as this person"
     },
     "empty": {
       "collaborators": "No registered collaborators",
@@ -4779,11 +4780,15 @@
       "linkedManagers": "{count, plural, one {# vinculado} other {# vinculados}}",
       "managersNoMatch": "{count} no match ({names})",
       "managersAmbiguous": "{count} with multiple matches — fill in manually",
-      "separator": " · "
+      "separator": " · ",
+      "loginAsOpened": "Tab opened as {name}.",
+      "loginAsPopupBlocked": "The browser blocked the new tab. Allow pop-ups for this site and try again."
     },
     "confirm": {
       "deleteCollaborator": "Delete \"{name}\" and linked records, including PACE training sessions? This action cannot be undone.",
-      "deleteRole": "Delete job title \"{name}\"?"
+      "deleteRole": "Delete job title \"{name}\"?",
+      "loginAsTitle": "Sign in as \"{name}\"?",
+      "loginAsMessage": "Opens a tab already signed in as this person. Everything you do there counts as if it were them, and the sign-in is recorded in the audit log. In this browser, the company's address keeps their session. To finish, close the tab: do not use Sign out, which disconnects the person from all their devices."
     },
     "fallback": {
       "collaborator": "team member"

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save, Link2, Download } from 'lucide-react';
+import { Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw, Plus, Save, Link2, Download, LogIn } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
@@ -17,6 +17,7 @@ import {
 } from './actions';
 import SeletorTurma, { SEM_TURMA } from '@/components/admin/seletor-turma';
 import { listarTurmasDaEmpresa } from '@/actions/escopo-turma';
+import { podeEntrarComoPessoa, entrarComoPessoa } from '@/actions/acesso-assistido';
 import type { TurmaFiltro } from '@/lib/turmas/escopo-leitura';
 const CARGO_FIELDS = [
   { key: 'descricao', rows: 3 },
@@ -72,7 +73,16 @@ export default function GerenciarPage() {
   const [saving, setSaving] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  // Acesso assistido: o botão só aparece para quem tem `users.impersonate` (hoje, o master).
+  const [podeEntrarComo, setPodeEntrarComo] = useState(false);
+  const [entrandoComoId, setEntrandoComoId] = useState<string | null>(null);
   const tenantAtual = useRef<string | null>(tenantId);
+
+  useEffect(() => {
+    let vivo = true;
+    podeEntrarComoPessoa().then((ok) => { if (vivo) setPodeEntrarComo(ok); }).catch(() => { if (vivo) setPodeEntrarComo(false); });
+    return () => { vivo = false; };
+  }, []);
 
   useEffect(() => { tenantAtual.current = tenantId; }, [tenantId]);
 
@@ -271,6 +281,36 @@ export default function GerenciarPage() {
       notify(tPace('exclusionUnavailable'), 'error');
     } finally {
       setExcluindoId(null);
+    }
+  }
+
+  async function handleEntrarComo(c: any) {
+    const empresaId = tenantId;
+    if (!empresaId || entrandoComoId) return;
+    const nome = c.nome_completo || t('fallback.collaborator');
+    const ok = await confirmDialog({
+      title: t('confirm.loginAsTitle', { name: nome }),
+      message: t('confirm.loginAsMessage'),
+      confirmLabel: t('actions.loginAs'),
+    });
+    if (!ok) return;
+    // A aba nasce AGORA, ainda no clique: aberta depois da resposta do servidor, o navegador a
+    // trataria como pop-up e bloquearia.
+    // Bloqueada, para ANTES do servidor: senão a auditoria registraria uma entrada que não houve.
+    const aba = window.open('', '_blank');
+    if (!aba) { notify(t('messages.loginAsPopupBlocked'), 'error'); return; }
+    setEntrandoComoId(c.id);
+    try {
+      const r = await entrarComoPessoa(empresaId, c.id);
+      if (!r.success) { aba.close(); notify(t('messages.error', { error: r.error }), 'error'); return; }
+      aba.opener = null;
+      aba.location.replace(r.url);
+      notify(t('messages.loginAsOpened', { name: r.nome }));
+    } catch (e: any) {
+      aba.close();
+      notify(t('messages.error', { error: e?.message || String(e) }), 'error');
+    } finally {
+      setEntrandoComoId(null);
     }
   }
 
@@ -572,6 +612,17 @@ export default function GerenciarPage() {
                               <td className="px-4 py-2 text-xs text-gray-500">{c.gestor_nome || '—'}</td>
                               <td className="px-4 py-2 text-center">
                                 <div className="flex items-center justify-center gap-1">
+                                  {podeEntrarComo && (
+                                    <button
+                                      onClick={() => handleEntrarComo(c)}
+                                      disabled={entrandoComoId !== null}
+                                      title={t('actions.loginAs')}
+                                      aria-label={t('confirm.loginAsTitle', { name: c.nome_completo || t('fallback.collaborator') })}
+                                      className="text-gray-600 hover:text-cyan-400 disabled:opacity-40"
+                                    >
+                                      {entrandoComoId === c.id ? <Loader2 size={13} className="animate-spin" /> : <LogIn size={13} />}
+                                    </button>
+                                  )}
                                   <button onClick={() => startEdit(c)} className="text-gray-600 hover:text-cyan-400"><Pencil size={13} /></button>
                                   <button
                                     onClick={() => handleDelete(c.id, c.nome_completo)}

@@ -4681,7 +4681,8 @@
       "save": "Salvar",
       "importing": "Importando...",
       "importCollaboratorsCsv": "Importar Colaboradores CSV",
-      "importRolesCsv": "Importar Cargos CSV"
+      "importRolesCsv": "Importar Cargos CSV",
+      "loginAs": "Entrar como esta pessoa"
     },
     "empty": {
       "collaborators": "Nenhum colaborador cadastrado",
@@ -4779,11 +4780,15 @@
       "linkedManagers": "{count, plural, one {# vinculado} other {# vinculados}}",
       "managersNoMatch": "{count} sem match ({names})",
       "managersAmbiguous": "{count} com múltiplos matches — preencher manualmente",
-      "separator": " · "
+      "separator": " · ",
+      "loginAsOpened": "Aba aberta como {name}.",
+      "loginAsPopupBlocked": "O navegador bloqueou a nova aba. Libere pop-ups para este site e tente de novo."
     },
     "confirm": {
       "deleteCollaborator": "Excluir \"{name}\" e seus registros vinculados, incluindo treinos PACE? Esta ação não pode ser desfeita.",
-      "deleteRole": "Excluir cargo \"{name}\"?"
+      "deleteRole": "Excluir cargo \"{name}\"?",
+      "loginAsTitle": "Entrar como \"{name}\"?",
+      "loginAsMessage": "Abre uma aba já logada como esta pessoa. Tudo o que você fizer nela conta como se fosse ela, e a entrada fica registrada na auditoria. Neste navegador, o endereço da empresa passa a ficar com a sessão dela. Para terminar, feche a aba: não use Sair, que desconecta a pessoa de todos os aparelhos."
     },
     "fallback": {
       "collaborator": "colaborador"

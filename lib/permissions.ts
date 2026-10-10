@@ -13,6 +13,7 @@ export type PermissionKey =
   | 'companies.manage'
   | 'users.view'
   | 'users.manage'
+  | 'users.impersonate'
   | 'settings.company.manage'
   | 'settings.locale.manage'
   | 'assessments.dispatch'
@@ -67,6 +68,10 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { key: 'companies.manage', domain: 'Empresas', label: 'Gerenciar empresas', description: 'Criar, editar, configurar ou excluir tenants.', risk: 'critical' },
   { key: 'users.view', domain: 'Usuários', label: 'Ver usuários', description: 'Listar colaboradores da empresa.', risk: 'medium' },
   { key: 'users.manage', domain: 'Usuários', label: 'Gerenciar usuários', description: 'Criar, editar, importar, exportar ou excluir colaboradores.', risk: 'high' },
+  // Acesso assistido (10/10/2026): substitui a senha previsível que o dono usava para entrar como um
+  // usuário do cliente. Só o master por construção; o Sócio só por override (a S6 recusa dar a chave
+  // a papel ou usuário de empresa cliente).
+  { key: 'users.impersonate', domain: 'Usuários', label: 'Entrar como uma pessoa', description: 'Abrir uma sessão como um usuário do cliente, sem senha, com cada entrada registrada na auditoria.', risk: 'critical' },
   { key: 'settings.company.manage', domain: 'Configurações', label: 'Configurar empresa', description: 'Editar preferências, branding e ajustes do tenant.', risk: 'high' },
   { key: 'settings.locale.manage', domain: 'Configurações', label: 'Configurar idioma', description: 'Alterar idioma padrão da empresa ou preferência do usuário.', risk: 'medium' },
   { key: 'assessments.dispatch', domain: 'Avaliações', label: 'Disparar avaliações', description: 'Enviar convites, ciclos, pulse e comunicações em lote.', risk: 'high' },

@@ -4681,7 +4681,8 @@
       "save": "Guardar",
       "importing": "Importando...",
       "importCollaboratorsCsv": "Importar Colaboradores CSV",
-      "importRolesCsv": "Importar Puestos CSV"
+      "importRolesCsv": "Importar Puestos CSV",
+      "loginAs": "Entrar como esta persona"
     },
     "empty": {
       "collaborators": "No hay colaboradores registrados",
@@ -4779,11 +4780,15 @@
       "linkedManagers": "{count, plural, one {# vinculado} other {# vinculados}}",
       "managersNoMatch": "{count} sin coincidencia ({names})",
       "managersAmbiguous": "{count} con múltiples coincidencias — completar manualmente",
-      "separator": " · "
+      "separator": " · ",
+      "loginAsOpened": "Pestaña abierta como {name}.",
+      "loginAsPopupBlocked": "El navegador bloqueó la nueva pestaña. Permite las ventanas emergentes para este sitio e inténtalo de nuevo."
     },
     "confirm": {
       "deleteCollaborator": "¿Eliminar \"{name}\" y sus registros vinculados, incluidas las sesiones PACE? Esta acción no se puede deshacer.",
-      "deleteRole": "¿Eliminar el puesto \"{name}\"?"
+      "deleteRole": "¿Eliminar el puesto \"{name}\"?",
+      "loginAsTitle": "¿Entrar como \"{name}\"?",
+      "loginAsMessage": "Abre una pestaña ya con la sesión de esta persona. Todo lo que hagas en ella cuenta como si fuera ella, y la entrada queda registrada en la auditoría. En este navegador, la dirección de la empresa se queda con su sesión. Para terminar, cierra la pestaña: no uses Salir, que desconecta a la persona de todos sus dispositivos."
     },
     "fallback": {
       "collaborator": "colaborador"
