@@ -23,6 +23,7 @@ import { blocoEstaOffline } from '@/lib/blocos-offline';
 export async function exigirAcessoRadarNaPagina(): Promise<void> {
   const acesso = await checarAcessoPlataforma();
   if (acesso.reason === 'unauthenticated') redirect('/login?redirect=/radar');
+  if (acesso.reason === 'segundo_fator') redirect('/segundo-fator?next=/radar');
   if (!acesso.authorized) notFound();
 }
 

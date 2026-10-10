@@ -1786,6 +1786,24 @@
     },
     "logout": "Sair da conta"
   },
+  "SegundoFator": {
+    "title": "Segundo fator",
+    "enrollSteps": "Para entrar no painel da equipa, registe uma aplicação de autenticação (Google Authenticator, LastPass ou outra): leia o código QR com ela e escreva o código de 6 dígitos que aparecer.",
+    "backupSteps": "Leia este código QR com a aplicação de reserva, noutro dispositivo, e escreva o código de 6 dígitos que ela mostrar.",
+    "challengeSteps": "Para entrar no painel da equipa, escreva o código de 6 dígitos da sua aplicação de autenticação.",
+    "qrAlt": "Código QR para a aplicação de autenticação",
+    "manualKey": "Não consegue ler o código QR? Escreva esta chave na aplicação:",
+    "codeLabel": "Código de 6 dígitos",
+    "chooseApp": "Aplicação",
+    "confirm": "Confirmar",
+    "confirming": "A confirmar...",
+    "errorInvalid": "Código inválido. Verifique a aplicação e tente novamente.",
+    "error": "Não foi possível continuar: {error}",
+    "done": "{count, plural, one {Pronto. Tem 1 aplicação registada.} other {Pronto. Tem # aplicações registadas.}}",
+    "backupAdvice": "Recomendado: registe uma segunda aplicação noutro dispositivo. Se perder o telemóvel, entra com a outra.",
+    "goPanel": "Ir para o painel",
+    "addBackup": "Registar aplicação de reserva"
+  },
   "AdminAccess": {
     "title": "Acesso restrito",
     "description": "Não tem permissão para aceder a esta área.",

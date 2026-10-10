@@ -35,6 +35,9 @@ export default async function RadarLayout({ children }: { children: React.ReactN
   if (acesso.reason === 'unauthenticated') {
     redirect('/login?redirect=/radar');
   }
+  if (acesso.reason === 'segundo_fator') {
+    redirect('/segundo-fator?next=/radar');
+  }
 
   if (!acesso.authorized) {
     return (

@@ -1786,6 +1786,24 @@
     },
     "logout": "Salir de la cuenta"
   },
+  "SegundoFator": {
+    "title": "Segundo factor",
+    "enrollSteps": "Para entrar en el panel del equipo, registra una aplicación de autenticación (Google Authenticator, LastPass u otra): escanea el código QR con ella y escribe el código de 6 dígitos que aparezca.",
+    "backupSteps": "Escanea este código QR con la aplicación de respaldo, en otro dispositivo, y escribe el código de 6 dígitos que muestre.",
+    "challengeSteps": "Para entrar en el panel del equipo, escribe el código de 6 dígitos de tu aplicación de autenticación.",
+    "qrAlt": "Código QR para la aplicación de autenticación",
+    "manualKey": "¿No puedes escanear el código QR? Escribe esta clave en la aplicación:",
+    "codeLabel": "Código de 6 dígitos",
+    "chooseApp": "Aplicación",
+    "confirm": "Confirmar",
+    "confirming": "Confirmando...",
+    "errorInvalid": "Código no válido. Revisa la aplicación e inténtalo de nuevo.",
+    "error": "No fue posible continuar: {error}",
+    "done": "{count, plural, one {Listo. Tienes 1 aplicación registrada.} other {Listo. Tienes # aplicaciones registradas.}}",
+    "backupAdvice": "Recomendado: registra una segunda aplicación en otro dispositivo. Si pierdes el móvil, entras con la otra.",
+    "goPanel": "Ir al panel",
+    "addBackup": "Registrar aplicación de respaldo"
+  },
   "AdminAccess": {
     "title": "Acceso restringido",
     "description": "No tienes permiso para acceder a esta área.",

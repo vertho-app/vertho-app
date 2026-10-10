@@ -31,6 +31,8 @@ export interface UserContext {
   /** Tier do platform admin: 'master' (acesso total) ou 'socio' (admin restrito,
    * leitura ampla sem ações destrutivas/geradoras). null quando não é admin. */
   platformAdminRole?: 'master' | 'socio' | null;
+  /** É admin da plataforma, mas a sessão não provou o segundo fator: sem poder de plataforma. */
+  segundoFatorPendente?: boolean;
 }
 
 export interface Trilha {

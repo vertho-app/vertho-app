@@ -26,6 +26,7 @@ export default async function Home() {
     // o atalho do PWA instalado em `app.vertho.ai` — que aponta para cá quando
     // não há tenant — deixava a equipe num vaivém de login sem destino próprio.
     const acesso = await checarAcessoPlataforma();
+    if (acesso.reason === 'segundo_fator') redirect('/segundo-fator?next=/admin-v2');
     redirect(acesso.authorized ? '/admin-v2' : '/login');
   }
 

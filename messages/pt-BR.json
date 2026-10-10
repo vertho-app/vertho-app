@@ -1786,6 +1786,24 @@
     },
     "logout": "Sair da conta"
   },
+  "SegundoFator": {
+    "title": "Segundo fator",
+    "enrollSteps": "Para entrar no painel da equipe, cadastre um aplicativo autenticador (Google Authenticator, LastPass ou outro): leia o QR code com ele e digite o código de 6 dígitos que aparecer.",
+    "backupSteps": "Leia este QR code com o aplicativo de reserva, em outro aparelho, e digite o código de 6 dígitos que ele mostrar.",
+    "challengeSteps": "Para entrar no painel da equipe, digite o código de 6 dígitos do seu aplicativo autenticador.",
+    "qrAlt": "QR code para o aplicativo autenticador",
+    "manualKey": "Não consegue ler o QR code? Digite esta chave no aplicativo:",
+    "codeLabel": "Código de 6 dígitos",
+    "chooseApp": "Aplicativo",
+    "confirm": "Confirmar",
+    "confirming": "Confirmando...",
+    "errorInvalid": "Código inválido. Confira o aplicativo e tente de novo.",
+    "error": "Não foi possível continuar: {error}",
+    "done": "{count, plural, one {Pronto. Você tem 1 aplicativo cadastrado.} other {Pronto. Você tem # aplicativos cadastrados.}}",
+    "backupAdvice": "Recomendado: cadastre um segundo aplicativo em outro aparelho. Se perder o celular, você entra com o outro.",
+    "goPanel": "Ir para o painel",
+    "addBackup": "Cadastrar aplicativo de reserva"
+  },
   "AdminAccess": {
     "title": "Acesso restrito",
     "description": "Você não tem permissão para acessar esta área.",

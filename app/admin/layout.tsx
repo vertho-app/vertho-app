@@ -15,6 +15,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (access.reason === 'unauthenticated') {
     redirect('/login?redirect=/admin/dashboard');
   }
+  if (access.reason === 'segundo_fator') {
+    redirect('/segundo-fator?next=/admin/dashboard');
+  }
 
   if (!access.authorized) {
     return (

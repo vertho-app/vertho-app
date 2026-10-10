@@ -70,7 +70,8 @@ export async function diagnoseUserPermissions(email: string) {
   const clean = normalizeEmail(email || '');
   if (!clean) return { success: false, error: 'Informe um e-mail.' };
 
-  const userCtx = await getUserContext(clean);
+  // A pergunta é sobre OUTRA pessoa: o papel dela no banco, não o poder desta sessão.
+  const userCtx = await getUserContext(clean, { fatoDoBanco: true });
   if (!userCtx) return { success: false, error: 'Usuário não encontrado no contexto Vertho.' };
 
   const effective = await getEffectivePermissionKeys({ ...userCtx, email: clean });

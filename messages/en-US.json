@@ -1786,6 +1786,24 @@
     },
     "logout": "Sign out"
   },
+  "SegundoFator": {
+    "title": "Second factor",
+    "enrollSteps": "To enter the team panel, register an authenticator app (Google Authenticator, LastPass or another): scan the QR code with it and type the 6-digit code it shows.",
+    "backupSteps": "Scan this QR code with the backup app, on another device, and type the 6-digit code it shows.",
+    "challengeSteps": "To enter the team panel, type the 6-digit code from your authenticator app.",
+    "qrAlt": "QR code for the authenticator app",
+    "manualKey": "Can't scan the QR code? Type this key in the app:",
+    "codeLabel": "6-digit code",
+    "chooseApp": "App",
+    "confirm": "Confirm",
+    "confirming": "Confirming...",
+    "errorInvalid": "Invalid code. Check the app and try again.",
+    "error": "Could not continue: {error}",
+    "done": "{count, plural, one {Done. You have 1 app registered.} other {Done. You have # apps registered.}}",
+    "backupAdvice": "Recommended: register a second app on another device. If you lose your phone, you sign in with the other one.",
+    "goPanel": "Go to the panel",
+    "addBackup": "Register a backup app"
+  },
   "AdminAccess": {
     "title": "Restricted access",
     "description": "You do not have permission to access this area.",

@@ -17,7 +17,7 @@ import { checarAcessoPlataforma } from '@/lib/authz-plataforma';
  */
 export async function checkAdminAccess(): Promise<{
   authorized: boolean;
-  reason?: 'unauthenticated' | 'unauthorized';
+  reason?: 'unauthenticated' | 'unauthorized' | 'segundo_fator';
 }> {
   const { authorized, reason } = await checarAcessoPlataforma();
   return authorized ? { authorized } : { authorized, reason };

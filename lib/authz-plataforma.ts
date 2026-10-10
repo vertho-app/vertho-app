@@ -12,10 +12,12 @@
  */
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { isPlatformAdmin } from '@/lib/authz';
+import { poderDePlataformaLiberado } from '@/lib/auth/segundo-fator';
 
 export type AcessoPlataforma = {
   authorized: boolean;
-  reason?: 'unauthenticated' | 'unauthorized';
+  /** `segundo_fator`: é da equipe, mas a sessão não provou o código do aplicativo (vai para `/segundo-fator`). */
+  reason?: 'unauthenticated' | 'unauthorized' | 'segundo_fator';
   email?: string;
 };
 
@@ -29,14 +31,17 @@ export async function checarAcessoPlataforma(): Promise<AcessoPlataforma> {
     const email = await getAuthenticatedEmailFromAction();
     if (!email) return { authorized: false, reason: 'unauthenticated' };
 
-    if (await isPlatformAdmin(email)) return { authorized: true, email };
-
     // Fallback: env server-side (temporário). ⚠️ `ADMIN_EMAILS` É AUTORIZAÇÃO,
     // não caderno de contatos — pôr um e-mail aqui para "receber alerta" dá
     // acesso de plataforma. Alerta vai em `HEALTH_ALERT_EMAILS`.
     const fallback = (process.env.ADMIN_EMAILS || '')
       .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-    if (fallback.includes(email)) return { authorized: true, email };
+    const daEquipe = (await isPlatformAdmin(email, { fatoDoBanco: true })) || fallback.includes(email);
+    if (daEquipe) {
+      // A mesma régua do segundo fator vale para quem entra pela env: senão ela viraria o atalho.
+      if (!(await poderDePlataformaLiberado(email))) return { authorized: false, reason: 'segundo_fator', email };
+      return { authorized: true, email };
+    }
   } catch (err: any) {
     console.error('[authz-plataforma]', err?.message);
   }

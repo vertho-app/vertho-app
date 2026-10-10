@@ -1,6 +1,7 @@
 import { headers, cookies } from 'next/headers';
 import { createSupabaseAdmin } from './supabase';
 import { resolveTenant } from './tenant-resolver';
+import { poderDePlataformaLiberado } from './auth/segundo-fator';
 import type { Colaborador, UserContext, Role } from '@/types';
 
 // ── Helper central: busca colaborador por email, respeitando o tenant ──────
@@ -73,7 +74,14 @@ export async function findColabByEmail(
  *   - admin_plataforma: acesso ao painel /admin
  */
 
-export async function getUserContext(email: string | null | undefined): Promise<UserContext | null> {
+/**
+ * `fatoDoBanco`: a pergunta é sobre OUTRA pessoa (diagnóstico de permissões), não sobre o poder da
+ * sessão. Sem ela, o admin que exige segundo fator só é admin com a sessão desta requisição em
+ * `aal2` (`lib/auth/segundo-fator.ts`); esquecer a opção nega, nunca libera.
+ */
+type OpcoesDeContexto = { fatoDoBanco?: boolean };
+
+export async function getUserContext(email: string | null | undefined, opts: OpcoesDeContexto = {}): Promise<UserContext | null> {
   if (!email) return null;
 
   const sb = createSupabaseAdmin();
@@ -86,24 +94,33 @@ export async function getUserContext(email: string | null | undefined): Promise<
     .eq('email', normalizedEmail)
     .maybeSingle();
 
+  // Sem o segundo fator, o admin perde o PODER de plataforma, não a conta: segue com o papel
+  // que tem como colaborador.
+  const poderLiberado = !!admin && (opts.fatoDoBanco || await poderDePlataformaLiberado(normalizedEmail));
+
   return {
     colaborador: colab,
     role: (colab?.role as Role) || 'colaborador',
     empresaId: colab?.empresa_id || null,
-    isPlatformAdmin: !!admin,
+    isPlatformAdmin: poderLiberado,
     // 'socio' só quando a coluna disser; qualquer outro valor (ou null) = master.
-    platformAdminRole: admin ? ((admin as any).role === 'socio' ? 'socio' : 'master') : null,
+    platformAdminRole: poderLiberado ? ((admin as any).role === 'socio' ? 'socio' : 'master') : null,
+    segundoFatorPendente: !!admin && !poderLiberado,
   };
 }
 
-export async function isPlatformAdmin(email: string | null | undefined): Promise<boolean> {
+export async function isPlatformAdmin(email: string | null | undefined, opts: OpcoesDeContexto = {}): Promise<boolean> {
   if (!email) return false;
   const sb = createSupabaseAdmin();
-  const { data } = await sb.from('platform_admins')
+  const normalizedEmail = email.trim().toLowerCase();
+  const { data, error } = await sb.from('platform_admins')
     .select('id')
-    .eq('email', email.trim().toLowerCase())
-    .single();
-  return !!data;
+    .eq('email', normalizedEmail)
+    .maybeSingle();
+  // Falha de leitura não vira "é admin": nega e deixa rastro.
+  if (error) { console.error('[authz] isPlatformAdmin: leitura de platform_admins falhou:', error.message); return false; }
+  if (!data) return false;
+  return opts.fatoDoBanco || poderDePlataformaLiberado(normalizedEmail);
 }
 
 // ── Role checks (a partir do contexto) ──────────────────────────────────────

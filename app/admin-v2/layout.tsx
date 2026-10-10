@@ -23,6 +23,9 @@ export default async function AdminV2Layout({ children }: { children: React.Reac
   if (reason === 'unauthenticated') {
     redirect('/login?redirect=/admin-v2');
   }
+  if (reason === 'segundo_fator') {
+    redirect('/segundo-fator?next=/admin-v2');
+  }
 
   if (!authorized) {
     return (
