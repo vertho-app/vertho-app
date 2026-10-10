@@ -253,12 +253,18 @@ describe.skipIf(!DB)('RLS posture guard (migs 155-158)', () => {
    * em que o colaborador vê só a si, não. Em tabela de PESSOA a leitura direta é da
    * própria linha (a mig 279). A função `can_read_sessao_avaliacao` entra na conta
    * porque a policy de `mensagens_chat` só chama ela.
+   *
+   * Vale para TODA tabela de public, não para uma lista. A primeira versão olhava só as
+   * quatro tabelas da mig 279, e `escolas_select_same_tenant` (mig 129, de 02/06) seguiu
+   * dando a lista de escolas da empresa a qualquer colaborador até a análise de 10/10
+   * (fechada na mig 284). `current_empresa_id()` resolve a empresa pelo e-mail do JWT,
+   * então a policy que a usa é leitura por tenant VIVA, ao contrário das de
+   * `get_empresa_id()` (claim que ninguém grava; latentes, fora desta régua).
    */
-  it('INV7: leitura direta de authenticated em tabela de pessoa não é por tenant inteiro', async () => {
+  it('INV7: leitura direta de anon e authenticated não é por tenant inteiro em tabela nenhuma', async () => {
     const v = await violations(`
       SELECT tablename, policyname FROM pg_policies
       WHERE schemaname = 'public'
-        AND tablename IN ('colaboradores', 'sessoes_avaliacao', 'mensagens_chat', 'empresas')
         AND cmd IN ('SELECT', 'ALL')
         AND (roles && ARRAY['authenticated', 'anon', 'public']::name[])
         AND qual ~* 'current_empresa_id'

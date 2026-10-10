@@ -22,6 +22,23 @@ const PERMISSION_KEYS = new Set(PERMISSIONS.map((p) => p.key));
 const ROLE_KEYS = new Set(SYSTEM_ROLES.map((r) => r.key));
 const CRITICAL_SELF_PERMISSIONS: PermissionKey[] = ['admin.access', 'permissions.view', 'permissions.manage'];
 
+/**
+ * Chave de risco `critical` não vai para escopo de EMPRESA CLIENTE (S6, análise de site
+ * de 10/10/2026). Vários gates só perguntam `can()`, sem exigir platform admin:
+ * esta própria action (`permissions.manage`), a de admins master
+ * (`platform_admins.manage`) e o Board (`board.use`). Um `allow` de uma delas em
+ * `role:rh` daria a todo RH de todo cliente a matriz global, ou a entrada em
+ * `platform_admins`. Entre platform admins NÃO há teto (R-70 descartado pelo dono em
+ * 03/10/2026: pode haver mais de um Master e os sócios podem se promover).
+ *
+ * O conjunto vem do `risk` da matriz, não de uma lista à mão, e os papéis liberados são
+ * os de plataforma: um papel de empresa criado no futuro nasce fechado. A régua vale na
+ * GRAVAÇÃO; um override de usuário já gravado continua valendo se a pessoa sair de
+ * `platform_admins`.
+ */
+const CRITICAL_KEYS = new Set(PERMISSIONS.filter((p) => p.risk === 'critical').map((p) => p.key));
+const PLATFORM_ROLES = new Set<SystemRole>(['platform_admin', 'socio']);
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -102,6 +119,25 @@ export async function savePermissionOverride(input: {
 
   const key = scopeKey(scopeType, rawScopeValue);
   const currentUserKey = ctx.email ? `user:${normalizeEmail(ctx.email)}` : '';
+  const sb = createSupabaseAdmin();
+
+  if (input.effect === 'allow' && CRITICAL_KEYS.has(permissionKey)) {
+    let escopoDePlataforma = false;
+    if (scopeType === 'role') {
+      escopoDePlataforma = PLATFORM_ROLES.has(rawScopeValue as SystemRole);
+    } else {
+      const { data: admin, error: adminError } = await sb
+        .from('platform_admins')
+        .select('id')
+        .eq('email', normalizeEmail(rawScopeValue))
+        .maybeSingle();
+      if (adminError) return { success: false, error: 'Não foi possível conferir se o e-mail é de um admin da plataforma.' };
+      escopoDePlataforma = !!admin;
+    }
+    if (!escopoDePlataforma) {
+      return { success: false, error: 'Permissão crítica só pode ser concedida a Admin Master ou Sócio.' };
+    }
+  }
 
   if (input.effect === 'deny') {
     if (key === currentUserKey && CRITICAL_SELF_PERMISSIONS.includes(permissionKey)) {
@@ -112,7 +148,6 @@ export async function savePermissionOverride(input: {
     }
   }
 
-  const sb = createSupabaseAdmin();
   const { data, error } = await sb
     .from('permission_overrides')
     .upsert({

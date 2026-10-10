@@ -21,10 +21,19 @@ const estado = vi.hoisted(() => ({
   overrides: [] as any[],
   existente: null as any,
   auditoria: [] as any[],
+  // E-mails em `platform_admins` (a regra de chave crítica consulta a tabela).
+  admins: [] as string[],
 }));
 
 const sb = criarSupabaseMock({
-  resolver: (tabela) => (tabela === 'permission_overrides' ? estado.existente : null),
+  resolver: (tabela, _cols, cadeia) => {
+    if (tabela === 'permission_overrides') return estado.existente;
+    if (tabela === 'platform_admins') {
+      const email = cadeia.find((c) => c.metodo === 'eq' && c.args[0] === 'email')?.args[1];
+      return estado.admins.includes(email) ? { id: `pa-${email}` } : null;
+    }
+    return null;
+  },
   lista: (tabela, _cols, cadeia) => {
     if (tabela === 'permission_overrides') {
       const chaves: string[] = cadeia.find((c) => c.metodo === 'in')?.args[1] || [];
@@ -48,6 +57,7 @@ vi.mock('next/cache', () => ({ revalidatePath: (...a: any[]) => revalidatePath(.
 
 import { savePermissionOverride, removePermissionOverride } from '@/app/admin/permissoes/actions';
 import { loadAuditLog } from '@/app/admin/auditoria/actions';
+import { PERMISSIONS } from '@/lib/permissions';
 
 const MASTER = { role: 'colaborador', isPlatformAdmin: true, platformAdminRole: 'master', empresaId: null, colaborador: null };
 const SOCIO = { role: 'colaborador', isPlatformAdmin: true, platformAdminRole: 'socio', empresaId: null, colaborador: null };
@@ -72,6 +82,7 @@ beforeEach(() => {
   estado.overrides = [];
   estado.existente = null;
   estado.auditoria = [];
+  estado.admins = ['master@vertho.ai', 'socia@vertho.ai'];
 });
 
 describe('savePermissionOverride', () => {
@@ -140,6 +151,69 @@ describe('savePermissionOverride', () => {
     expect(r).toEqual({ success: false, error: 'duplicate key' });
     expect(auditorias()).toEqual([]);
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * S6 (análise de site de 10/10/2026): chave `critical` não vai para escopo de empresa
+ * cliente. Gates como esta própria action, a de admins master e o Board só perguntam
+ * `can()`: um `allow permissions.manage` em `role:rh` daria a matriz global a todo RH.
+ * Entre platform admins não há teto (R-70, teste acima, que segue sem alteração).
+ */
+describe('savePermissionOverride: chave crítica só para escopo de plataforma', () => {
+  const CRITICAS = PERMISSIONS.filter((p) => p.risk === 'critical').map((p) => p.key);
+  const NAO_CRITICA = PERMISSIONS.find((p) => p.risk === 'high')!.key;
+  const PAPEIS_DE_EMPRESA = ['rh', 'gestor', 'colaborador'] as const;
+
+  it('a matriz tem as chaves que motivam a regra marcadas como críticas', () => {
+    expect(CRITICAS).toEqual(expect.arrayContaining(['permissions.manage', 'platform_admins.manage', 'board.use']));
+  });
+
+  it.each(PAPEIS_DE_EMPRESA)('allow de cada chave crítica no papel %s: recusado sem gravar', async (papel) => {
+    for (const permissionKey of CRITICAS) {
+      const r = await savePermissionOverride({ ...PEDIDO, scopeType: 'role', scopeValue: papel, permissionKey, effect: 'allow' });
+      expect(r, `${papel}:${permissionKey}`).toEqual({ success: false, error: 'Permissão crítica só pode ser concedida a Admin Master ou Sócio.' });
+    }
+    expect(gravacoes()).toEqual([]);
+  });
+
+  it('allow de chave crítica para e-mail fora de platform_admins: recusado, e a consulta usa o e-mail normalizado', async () => {
+    const r = await savePermissionOverride({ ...PEDIDO, scopeValue: ' RH@Cliente.com ', permissionKey: 'permissions.manage', effect: 'allow' });
+    expect(r.success).toBe(false);
+    expect(sb.usou('platform_admins', 'eq', 'email')).toBe(true);
+    expect(sb.chamadas.find((c) => c.tabela === 'platform_admins' && c.metodo === 'eq')?.args).toEqual(['email', 'rh@cliente.com']);
+    expect(gravacoes()).toEqual([]);
+  });
+
+  it('allow de chave crítica para e-mail de platform admin: grava (R-70)', async () => {
+    const r = await savePermissionOverride({ ...PEDIDO, scopeValue: 'Socia@vertho.ai', permissionKey: 'board.use', effect: 'allow' });
+    expect(r).toEqual({ success: true });
+    expect(gravacoes()[0].payload).toMatchObject({ scope_key: 'user:socia@vertho.ai', permission_key: 'board.use', effect: 'allow' });
+  });
+
+  it.each(['platform_admin', 'socio'])('allow de chave crítica no papel %s: grava', async (papel) => {
+    const r = await savePermissionOverride({ ...PEDIDO, scopeType: 'role', scopeValue: papel, permissionKey: 'companies.manage', effect: 'allow' });
+    expect(r).toEqual({ success: true });
+    expect(gravacoes()).toHaveLength(1);
+  });
+
+  it('deny de chave crítica no papel rh continua permitido', async () => {
+    const r = await savePermissionOverride({ ...PEDIDO, scopeType: 'role', scopeValue: 'rh', permissionKey: 'permissions.manage', effect: 'deny' });
+    expect(r).toEqual({ success: true });
+    expect(gravacoes()[0].payload).toMatchObject({ scope_key: 'role:rh', effect: 'deny' });
+  });
+
+  it('allow de chave NÃO crítica no papel rh continua permitido, sem consultar platform_admins', async () => {
+    const r = await savePermissionOverride({ ...PEDIDO, scopeType: 'role', scopeValue: 'rh', permissionKey: NAO_CRITICA, effect: 'allow' });
+    expect(r).toEqual({ success: true });
+    expect(sb.chamadas.some((c) => c.tabela === 'platform_admins')).toBe(false);
+  });
+
+  it('falha ao ler platform_admins: recusa com o motivo, sem gravar', async () => {
+    sb.falharEm({ tabela: 'platform_admins', op: 'select', mensagem: 'timeout' });
+    const r = await savePermissionOverride({ ...PEDIDO, scopeValue: 'socia@vertho.ai', permissionKey: 'board.use', effect: 'allow' });
+    expect(r).toEqual({ success: false, error: 'Não foi possível conferir se o e-mail é de um admin da plataforma.' });
+    expect(gravacoes()).toEqual([]);
   });
 });
 
