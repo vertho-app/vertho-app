@@ -224,11 +224,16 @@ export function canBase(ctx: Pick<UserContext, 'role' | 'isPlatformAdmin'> | nul
   return hasBasePermission(getSystemRole(ctx), permission);
 }
 
+/** Único ponto de service-role deste módulo (a contagem do `service-role-guard` fica em 1). */
+function clienteServiceRole() {
+  return createSupabaseAdmin();
+}
+
 export async function loadPermissionOverrides(scopeKeys: string[]): Promise<PermissionOverride[]> {
   const keys = scopeKeys.filter(Boolean);
   if (keys.length === 0) return [];
 
-  const sb = createSupabaseAdmin();
+  const sb = clienteServiceRole();
   const { data, error } = await sb
     .from('permission_overrides')
     .select('id, scope_type, scope_key, permission_key, effect, reason, created_by_email, created_at')
@@ -243,15 +248,51 @@ export async function loadPermissionOverrides(scopeKeys: string[]): Promise<Perm
   return (data || []) as PermissionOverride[];
 }
 
+/** Está na `platform_admins`? Leitura que falha conta como SIM: a dúvida suspende o `allow`, nunca o libera. */
+async function estaNaTabelaDeAdmins(email: string): Promise<boolean> {
+  const { data, error } = await clienteServiceRole()
+    .from('platform_admins')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle();
+  if (error) {
+    console.error('[permissions] leitura de platform_admins falhou; allow por usuário suspenso:', error.message);
+    return true;
+  }
+  return !!data;
+}
+
+/**
+ * Permissões efetivas = base do papel + `allow` − `deny` (por papel e por usuário).
+ *
+ * 🔑 Um `allow` POR USUÁRIO dado a alguém da equipe da plataforma (`platform_admins`) só vale num
+ * contexto COM o poder de plataforma (R-145, passo 3, 11/10/2026). Sem o código do aplicativo o
+ * admin cai para o papel que tem no tenant (`getUserContext`), e os `allow` do papel `socio` já não
+ * se aplicam a ele; o `user:<email>` se aplicaria, e devolveria pelo override o poder que o segundo
+ * fator tirou. A régua NÃO lê o `segundoFatorPendente` do contexto: decide pelo banco, para valer
+ * também com um contexto montado à mão sem o campo. `deny` vale sempre (só restringe). Quem não
+ * está na tabela não muda: o `ADMIN_EMAILS` não faz ninguém admin no `getUserContext` (só abre o
+ * painel, que já exige o código em `checarAcessoPlataforma`). A consulta só roda quando existe
+ * `allow` por usuário (em 11/10/2026, zero no banco).
+ */
 export async function getEffectivePermissionKeys(
   ctx: (Pick<UserContext, 'role' | 'isPlatformAdmin'> & { email?: string | null }) | null | undefined,
 ): Promise<Set<PermissionKey>> {
   const role = getSystemRole(ctx);
   const allowed = new Set<PermissionKey>(BASE_ROLE_PERMISSIONS[role] || []);
-  const overrides = await loadPermissionOverrides([`role:${role}`, ctx?.email ? `user:${ctx.email.toLowerCase()}` : '']);
+  const email = String(ctx?.email || '').trim().toLowerCase();
+  const chaveDoUsuario = email ? `user:${email}` : '';
+  const overrides = await loadPermissionOverrides([`role:${role}`, chaveDoUsuario]);
+
+  const allowDoUsuarioSuspenso = !ctx?.isPlatformAdmin
+    && overrides.some((o) => o.effect === 'allow' && o.scope_key === chaveDoUsuario)
+    && (await estaNaTabelaDeAdmins(email));
 
   for (const override of overrides) {
-    if (override.effect === 'allow') allowed.add(override.permission_key);
+    if (override.effect === 'allow') {
+      if (allowDoUsuarioSuspenso && override.scope_key === chaveDoUsuario) continue;
+      allowed.add(override.permission_key);
+    }
     if (override.effect === 'deny') allowed.delete(override.permission_key);
   }
 
