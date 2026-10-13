@@ -80,6 +80,12 @@ describe('import: cargo novo entra inteiro; cargo existente só ganha casos e fr
     }]);
   });
 
+  it('planilha devolvida SEM acento e com espaço duplo casa com o cargo existente (a régua da ficha), em vez de virar cargo novo', () => {
+    const plano = planoDoImportDeCargos(existentes, [{ nome: 'SUP. DE MANUTENCAO  - INFRA E MECANICA', casos_reais: [{ texto: 'Caso' }] }]);
+    expect(plano.novos).toEqual([]);
+    expect(plano.atualizar).toEqual([{ id: 'c-1', nome: 'SUP. DE MANUTENÇÃO - INFRA E MECÂNICA', campos: { casos_reais: [{ texto: 'Caso' }] } }]);
+  });
+
   it('cargo existente sem caso nem fronteira na planilha: nada a fazer', () => {
     const plano = planoDoImportDeCargos(existentes, [{ nome: 'SUP. DE MANUTENÇÃO - INFRA E MECÂNICA', descricao: 'x' }]);
     expect(plano).toEqual({ novos: [], atualizar: [], ignorados: 1 });

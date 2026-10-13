@@ -3,6 +3,7 @@
  * planilha (na tela) e a coluna de liderança (no servidor).
  */
 import { chaveSemAcento, traduzirTitulos } from '@/lib/planilha-titulos';
+import { chaveCargo, idDoCargo, mapaDeCargos } from '@/lib/simuladores/acesso-cargo';
 
 /**
  * Título → coluna de `cargos_empresa`. Os títulos do modelo (25/09/2026) e os
@@ -116,26 +117,31 @@ export interface PlanoDoImportDeCargos {
 
 /**
  * O que o import de cargos faz com cada linha. Cargo novo entra inteiro. Cargo que já existe
- * (mesmo nome, sem caixa e sem espaço nas pontas) só ganha os casos reais e as fronteiras que a
- * planilha trouxer: é assim que o gestor devolve a planilha preenchida (plano, 3.2). O resto da
- * ficha de um cargo existente não é tocado pela planilha, como sempre foi. Nome repetido dentro
- * da planilha vale a primeira linha.
+ * só ganha os casos reais e as fronteiras que a planilha trouxer: é assim que o gestor devolve a
+ * planilha preenchida (plano, 3.2). O resto da ficha de um cargo existente não é tocado pela
+ * planilha, como sempre foi. Nome repetido dentro da planilha vale a primeira linha.
+ *
+ * "Já existe" é pela régua ÚNICA de casamento de cargo (`mapaDeCargos` / `idDoCargo`: o nome
+ * exato vence, o normalizado cobre caixa, acento e espaços), a mesma com que a ficha é lida.
+ * Planilha devolvida sem acento ("MANUTENCAO") casava só por caixa e virava um cargo NOVO com os
+ * casos, que a ficha nunca leria (ela fica com o cargo original, de menor id).
  */
 export function planoDoImportDeCargos(
   existentes: Array<{ id: string; nome: string | null }>,
   linhas: Array<Record<string, any>>,
 ): PlanoDoImportDeCargos {
-  const chave = (s: unknown) => String(s ?? '').trim().toLowerCase();
-  const idPorNome = new Map((existentes || []).map((c) => [chave(c.nome), c]));
+  const indice = mapaDeCargos((existentes || []).map((c) => ({ id: c.id, nome: c.nome })));
+  const porId = new Map((existentes || []).map((c) => [String(c.id), c]));
   const vistos = new Set<string>();
   const plano: PlanoDoImportDeCargos = { novos: [], atualizar: [], ignorados: 0 };
   for (const c of linhas || []) {
     const nome = String(c?.nome ?? '').trim();
-    if (!nome || vistos.has(chave(nome))) continue;
-    vistos.add(chave(nome));
+    if (!nome || vistos.has(chaveCargo(nome))) continue;
+    vistos.add(chaveCargo(nome));
     const fronteiras = String(c.fronteiras ?? '').trim();
     const casos = casosReaisParaGravar(c.casos_reais);
-    const existente = idPorNome.get(chave(nome));
+    const idExistente = idDoCargo(indice, nome);
+    const existente = idExistente ? porId.get(idExistente) : undefined;
     if (existente) {
       const campos: { fronteiras?: string; casos_reais?: { texto: string }[] } = {};
       if (fronteiras) campos.fronteiras = fronteiras;
