@@ -23,6 +23,9 @@ import {
   blocoPerfilIdealIA3,
   blocoPppIA3,
 } from '@/lib/ia3-cenarios';
+import {
+  type VersaoCenarios, blocoFichaCenarioV2, CONFERENCIA_FATOS_E_PAPEL_V2, LIMITES_V2,
+} from '@/lib/ia3-cenarios-v2';
 
 /** O contexto de uma célula (competência × cargo), no formato de `montarContextoIA3`. */
 export interface ContextoCenarioB {
@@ -34,6 +37,13 @@ export interface ContextoCenarioB {
   valores: string[];
   contextoPPP: string;
   gabCIS: any;
+  /**
+   * Regras do Cenário B (`lib/ia3-cenarios-v2.ts`). Ausente = v1, byte a byte o de sempre.
+   * Na GERAÇÃO vale a da empresa; no CHECK, a da linha auditada (`versaoDoCenario`).
+   */
+  versao?: VersaoCenarios;
+  /** Linhas da ficha INTEIRA do cargo (v2). */
+  fichaLinhas?: string[];
 }
 
 export const SYSTEM_CENARIO_B = `Você é um especialista em avaliação de competências comportamentais e design de instrumentos diagnósticos da Vertho.
@@ -95,6 +105,112 @@ da mesma competência, útil para triangulação no fechamento da jornada.
   "p2": "pergunta de ação",
   "p3": "pergunta de raciocínio",
   "p4": "pergunta de autossensibilidade",
+  "objetivo_diagnostico": {
+    "p1": "o que P1 quer revelar",
+    "p2": "o que P2 quer revelar",
+    "p3": "o que P3 quer revelar",
+    "p4": "o que P4 quer revelar"
+  },
+  "referencia_avaliacao": {
+    "nivel_1": "como responderia N1",
+    "nivel_2": "como responderia N2",
+    "nivel_3": "como responderia N3",
+    "nivel_4": "como responderia N4"
+  },
+  "dilema_etico_embutido": {
+    "valor_testado": "valor em tensão",
+    "caminho_facil": "solução mais fácil",
+    "caminho_etico": "solução alinhada ao valor"
+  },
+  "confianca_cenario": 0.85,
+  "riscos_do_cenario": ["risco 1", "risco 2"]
+}`;
+
+/**
+ * Gerador do Cenário B, regras v2 (`lib/ia3-cenarios-v2.ts`): fato técnico só com fonte
+ * na ficha, papel do cargo, cliente interno, uma situação e um pedido por pergunta. Em
+ * Ibipeba, o `p2` do B juntava 5 ou 6 exigências numa pergunta só (17/09/2026).
+ */
+export const SYSTEM_CENARIO_B_V2 = `Você é um especialista em avaliação de competências comportamentais e design de instrumentos diagnósticos da Vertho.
+
+═══ TAREFA ═══
+Criar um CENÁRIO B complementar ao Cenário A já existente.
+O Cenário B NÃO é "outro cenário". É um SEGUNDO INSTRUMENTO DE MEDIÇÃO
+da mesma competência, útil para triangulação no fechamento da jornada.
+E a pessoa que responde precisa RECONHECER a situação como parte do trabalho dela.
+
+═══ REGRAS INEGOCIÁVEIS ═══
+
+1. MESMA COMPETÊNCIA, OUTRA SITUAÇÃO-GATILHO
+   A diferença deve ser ESTRUTURAL, não cosmética (trocar nomes não conta).
+
+2. COMPLEMENTARIDADE
+   Observar uma FACETA COMPLEMENTAR da competência.
+   Se o Cenário A testava faceta X, privilegiar faceta Y.
+   Não repetir o mesmo núcleo de dilema com roupas novas.
+
+3. UTILIDADE PARA TRIANGULAÇÃO
+   Reduzir risco de resposta ensaiada. Gerar leitura comparável mas não redundante.
+
+4. REALISMO ANCORADO NA FICHA
+   - UMA situação do dia a dia deste cargo, pela FICHA DO CARGO. Parta do CASO REAL DE
+     PARTIDA, quando houver: troque nomes de pessoas e não acrescente fatos.
+   - Fato TÉCNICO (equipamento, peça, sistema, procedimento, regra de fornecedor, número de
+     unidades ou de equipamentos, especificação) só entra se estiver na ficha, nas fronteiras,
+     no caso real ou no contexto da empresa. Sem fonte, use um termo genérico ("a peça",
+     "o equipamento", "o sistema").
+   - Detalhe da situação (horário, prazo, número de pessoas) pode ser criado, desde que
+     plausível e secundário.
+   - Máx 2 stakeholders nomeados. Nomes brasileiros. Sem teatralidade.
+
+5. PAPEL DO CARGO
+   - Não invente atribuições nem autoridade além das que a ficha descreve.
+   - Quem não está em Stakeholders não fala diretamente com o avaliado.
+   - O que o cargo pede a terceiros aparece como acionar ou coordenar, nunca como executar.
+   - Se a competência fala de cliente e o cargo não atende cliente externo, trabalhe o
+     cliente interno (quem recebe o trabalho do avaliado) ou o impacto que chega por quem
+     atende o cliente.
+
+6. DILEMA / TRADE-OFF
+   Se pode responder bem sem escolher nada, o cenário FALHOU. O trade-off nasce da
+   própria situação, sem cadeia de coincidências (várias falhas e eventos ao mesmo tempo).
+
+7. PODER DISCRIMINANTE
+   N1 visivelmente diferente de N3. Resposta genérica deve FALHAR.
+
+8. ESTRUTURA DAS 4 PERGUNTAS
+   P1 = situação / leitura do caso
+   P2 = ação / decisão prática
+   P3 = raciocínio / critério de escolha
+   P4 = autossensibilidade / consciência de limite ou risco
+   Cada pergunta faz UM pedido só (uma pergunta, não uma lista de exigências) e tem no
+   máximo ${LIMITES_V2.maxPergunta} caracteres.
+
+9. DILEMA ÉTICO EMBUTIDO
+   Tensão ética sutil e natural, não didática, ligada a um dos VALORES ORGANIZACIONAIS.
+
+10. LUGAR
+   Fale com a pessoa em segunda pessoa, no local de trabalho dela ("na sua unidade",
+   "na escola"). Não nomeie a empresa, as unidades, a escola, a rede ou a cidade, e não
+   invente nome de instituição. Personagens (pessoas) seguem com nomes próprios fictícios
+   brasileiros.
+
+═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
+
+{
+  "titulo": "título curto",
+  "descricao": "texto do cenário (uma situação só, máx ${LIMITES_V2.maxContexto} caracteres)",
+  "faceta_avaliada": "faceta principal observada",
+  "facetas_secundarias": ["faceta 2", "faceta 3"],
+  "diferenca_estrutural_vs_cenario_a": "o que muda de verdade vs Cenário A (1 frase)",
+  "por_que_essa_variacao_importa": "por que útil para triangulação (1 frase)",
+  "tradeoff_testado": "qual escolha difícil está no centro",
+  "armadilha_de_resposta_generica": "por que resposta vaga não resolve",
+  "stakeholders_centrais": ["Nome1", "Nome2"],
+  "p1": "pergunta de situação (um pedido)",
+  "p2": "pergunta de ação (um pedido)",
+  "p3": "pergunta de raciocínio (um pedido)",
+  "p4": "pergunta de autossensibilidade (um pedido)",
   "objetivo_diagnostico": {
     "p1": "o que P1 quer revelar",
     "p2": "o que P2 quer revelar",
@@ -196,11 +312,23 @@ Um bom Cenário B não é apenas "plausível". Ele precisa ser metodologicamente
 REGRA: Se cenário for bem escrito mas metodologicamente fraco como
 COMPLEMENTO do A, PENALIZE. Prefira rigor a elegância.`;
 
-/** Os blocos de contexto do A, na mesma ordem do prompt do A. */
+/** Auditor do Cenário B, régua v2: a de sempre mais a conferência de fatos e de papel. */
+export const SYSTEM_CHECK_CENARIO_B_V2 = SYSTEM_CHECK_CENARIO_B + CONFERENCIA_FATOS_E_PAPEL_V2;
+
+/** O system do auditor na régua da versão. No check, a versão é a DA LINHA auditada. */
+export function systemCheckCenarioB(versao: VersaoCenarios | undefined): string {
+  return versao === 'v2' ? SYSTEM_CHECK_CENARIO_B_V2 : SYSTEM_CHECK_CENARIO_B;
+}
+
+/** Os blocos de contexto do A, na mesma ordem do prompt do A (v2: a ficha inteira no lugar do contexto organizacional). */
 export function blocosDeContextoB(ctx: ContextoCenarioB): string[] {
   const blocos: string[] = [blocoEmpresaIA3(ctx.empresa), blocoCargoIA3(ctx.cargoNome)];
-  const organizacional = blocoContextoOrganizacionalIA3(ctx.cargoDetalhe || {});
-  if (organizacional) blocos.push(organizacional);
+  if (ctx.versao === 'v2') {
+    blocos.push(blocoFichaCenarioV2(ctx.fichaLinhas || []));
+  } else {
+    const organizacional = blocoContextoOrganizacionalIA3(ctx.cargoDetalhe || {});
+    if (organizacional) blocos.push(organizacional);
+  }
   blocos.push(blocoCompetenciaIA3(ctx.comp));
   const regua = blocoDescritoresIA3(ctx.descritores || []);
   if (regua) blocos.push(regua);
@@ -230,15 +358,24 @@ export function blocoCenarioA(cenA: any, rotulo: string): string {
 export function buildCenarioBPrompts(ctx: ContextoCenarioB, cenA: any, feedbackExtra = ''): { system: string; user: string } {
   const blocos = blocosDeContextoB(ctx);
   blocos.push(blocoCenarioA(cenA, 'CENÁRIO A ORIGINAL (NÃO repetir: crie algo ESTRUTURALMENTE DIFERENTE)'));
-  blocos.push(`═══ INSTRUÇÃO ═══
+  if (ctx.versao === 'v2') {
+    blocos.push(`═══ INSTRUÇÃO ═══
+Crie um Cenário B da mesma competência, mas com situação-gatilho ESTRUTURALMENTE diferente.
+Não repita o mesmo núcleo do Cenário A com roupas novas.
+O Cenário B deve ser útil para triangulação no fechamento da jornada.
+Confira: todo fato técnico tem fonte na ficha? O cargo só faz o que a ficha diz? Cada pergunta faz um pedido só?
+LUGAR: fale com a pessoa em segunda pessoa, no local de trabalho dela. Não nomeie a empresa, as unidades ou a cidade, e não invente nome de instituição.`);
+  } else {
+    blocos.push(`═══ INSTRUÇÃO ═══
 Crie um Cenário B da mesma competência, mas com situação-gatilho ESTRUTURALMENTE diferente.
 Não repita o mesmo núcleo do Cenário A com roupas novas.
 O Cenário B deve ser útil para triangulação no fechamento da jornada.
 ANONIMIZE: o nome da empresa, escola, rede ou cidade acima é só para CONTEXTO. No texto do cenário use nomes FICTÍCIOS de instituições, nunca os reais.`);
+  }
   if (feedbackExtra) {
     blocos.push(`═══ FEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS) ═══\n${feedbackExtra}`);
   }
-  return { system: SYSTEM_CENARIO_B, user: blocos.join('\n\n') };
+  return { system: ctx.versao === 'v2' ? SYSTEM_CENARIO_B_V2 : SYSTEM_CENARIO_B, user: blocos.join('\n\n') };
 }
 
 /** Prompt de usuário do auditor: a mesma lente do gerador + o A + o B + as perguntas. */

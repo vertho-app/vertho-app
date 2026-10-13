@@ -15,6 +15,7 @@ import { gerarCenarioIA3Core, checkCenarioIA3Core, regenerarCenarioIA3ComTrava, 
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 import { casarSelecaoIA1 } from '@/lib/matriz-por-cargo';
 import { lerTudoPaginado } from '@/lib/paginacao';
+import { agregarRepresentatividade } from '@/lib/assessment/representatividade';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
@@ -393,7 +394,7 @@ export async function loadCenarios(empresaId: string) {
   const tdb = tenantDb(empresaId);
   // Listar colunas explicitamente para garantir que check fields vêm
   const { data, error } = await tdb.from('banco_cenarios')
-    .select('id, empresa_id, competencia_id, cargo, ppp_escola_id, titulo, descricao, alternativas, created_at, nota_check, status_check, dimensoes_check, justificativa_check, sugestao_check, alertas_check, checked_at')
+    .select('id, empresa_id, competencia_id, cargo, ppp_escola_id, tipo_cenario, titulo, descricao, alternativas, created_at, nota_check, status_check, dimensoes_check, justificativa_check, sugestao_check, alertas_check, checked_at')
     .order('cargo');
 
   if (error || !data?.length) return [];
@@ -433,7 +434,47 @@ export async function loadCenarios(empresaId: string) {
     competencia_cod: compMap[c.competencia_id]?.cod_comp || null,
     ppp_escola_id: c.ppp_escola_id || null,
     ppp_nome: c.ppp_escola_id ? (pppMap[c.ppp_escola_id] || 'PPP') : 'Rede',
+    // A tela marca a versão substituída e tira o B das filas de regeneração do A (`lib/cenario-versoes.ts`).
+    tipo_cenario: c.tipo_cenario || null,
+    created_at: c.created_at || null,
   }));
+}
+
+/**
+ * O sinal que as pessoas dão a cada cenário (plano de cenários de 11/10/2026, Fase 1):
+ * a nota de representatividade (1 a 10) por cenário, por cargo e da empresa, e quantas
+ * respostas e conversas cada cenário já tem ("já respondido", a mesma conta que trava a
+ * regeneração no lugar). A nota era gravada e nenhuma tela a mostrava.
+ *
+ * Falha de leitura volta como `error` (a tela mostra "não foi possível medir"), nunca
+ * como "sem respostas".
+ */
+export async function loadRepresentatividadeCenarios(empresaId: string): Promise<{
+  success: boolean; error?: string;
+  porCenario?: Record<string, { media: number | null; respostas: number; pessoas: number; ate5: number }>;
+  porCargo?: Record<string, { media: number | null; respostas: number; pessoas: number; ate5: number }>;
+  empresa?: { media: number | null; respostas: number; pessoas: number; ate5: number };
+  usoPorCenario?: Record<string, number>;
+}> {
+  await requireAdminAction();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
+  const { data: respostas, error: errResp } = await lerTudoPaginado(
+    (de, ate) => tdb.from('respostas')
+      .select('id, cenario_id, colaborador_id, cargo, email_colaborador, representatividade')
+      .order('id').range(de, ate),
+  );
+  if (errResp) return { success: false, error: `Não foi possível ler as respostas: ${errResp}` };
+  const { data: sessoes, error: errSess } = await lerTudoPaginado(
+    (de, ate) => tdb.from('sessoes_avaliacao').select('id, cenario_id').not('cenario_id', 'is', null).order('id').range(de, ate),
+  );
+  if (errSess) return { success: false, error: `Não foi possível ler as sessões de avaliação: ${errSess}` };
+
+  const usoPorCenario: Record<string, number> = {};
+  for (const r of [...(respostas || []), ...(sessoes || [])] as any[]) {
+    if (r.cenario_id) usoPorCenario[r.cenario_id] = (usoPorCenario[r.cenario_id] || 0) + 1;
+  }
+  return { success: true, ...agregarRepresentatividade(respostas || []), usoPorCenario };
 }
 
 // Limpar cenários que não estão no Top 5

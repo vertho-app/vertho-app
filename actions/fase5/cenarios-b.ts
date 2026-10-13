@@ -12,7 +12,9 @@ import { TEMP, type Fase5Config } from './_shared';
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 import { celulasSemCenarioB, ehIntegrador, aReferenciaDaCelula } from '@/lib/season-engine/cenario-b';
 import { ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
-import { buildCenarioBPrompts, buildCheckCenarioBUser, SYSTEM_CHECK_CENARIO_B, type ContextoCenarioB } from '@/lib/cenarios-b-prompt';
+import { buildCenarioBPrompts, buildCheckCenarioBUser, systemCheckCenarioB, type ContextoCenarioB } from '@/lib/cenarios-b-prompt';
+import { type VersaoCenarios, versaoDoCenario, CARIMBO_PROMPT, CARIMBO_REGUA, listasDaReguaV2 } from '@/lib/ia3-cenarios-v2';
+import { usoDoCenarioB } from '@/lib/cenario-uso';
 import { reservarFaseDoLote } from '@/lib/ia-jobs';
 import { FASE_CENARIOS_B, AVISO_JA_GERANDO_CENARIOS_B } from '@/lib/cenarios-b-lote';
 
@@ -28,15 +30,19 @@ import { FASE_CENARIOS_B, AVISO_JA_GERANDO_CENARIOS_B } from '@/lib/cenarios-b-l
  * 18/09/2026 o auditor passou a ver o contexto do cargo e a regra de anonimização,
  * e a trava de regeneração não pode comparar régua velha com régua nova.
  */
-import { VERSAO_AUDITOR_B, validarCenarioB, montarDadosCenarioB, normalizarCheckCenB } from '@/lib/cenarios-b';
+import { versaoAuditorB, validarCenarioB, montarDadosCenarioB, normalizarCheckCenB } from '@/lib/cenarios-b';
 
-/** Contexto da célula (competência × cargo): o mesmo do A, com o PPP de REDE (o B não tem dimensão de escola). */
-async function contextoDaCelula(sbRaw: any, empresaId: string, cargo: string, competenciaId: string):
+/**
+ * Contexto da célula (competência × cargo): o mesmo do A, com o PPP de REDE (o B não tem
+ * dimensão de escola). `versao` força as regras (check de uma linha v2 precisa da ficha
+ * mesmo se a empresa voltou para a v1); sem ela, vale a da empresa.
+ */
+async function contextoDaCelula(sbRaw: any, empresaId: string, cargo: string, competenciaId: string, versao?: VersaoCenarios):
   Promise<{ ok: true; ctx: ContextoCenarioB; comp: any } | { ok: false; error: string }> {
-  const mc = await montarContextoIA3(sbRaw, empresaId, cargo, competenciaId, null);
+  const mc = await montarContextoIA3(sbRaw, empresaId, cargo, competenciaId, null, { versao });
   if ('error' in mc) return { ok: false, error: mc.error };
-  const { empresa, comp, descritores, contextoPPP, valores, cargoDetalhe, gabCIS } = mc.ctx;
-  return { ok: true, comp, ctx: { empresa, cargoNome: cargo, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS } };
+  const { empresa, comp, descritores, contextoPPP, valores, cargoDetalhe, gabCIS, versao: v, fichaLinhas } = mc.ctx;
+  return { ok: true, comp, ctx: { empresa, cargoNome: cargo, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS, versao: v, fichaLinhas } };
 }
 
 /** O cenário A de referência da célula (o de rede, senão o mais recente), com `alternativas`. */
@@ -51,19 +57,21 @@ async function cenarioADaCelula(tdb: any, competenciaId: string, cargo: string) 
 }
 
 // Helper: audita 1 cenário B com a mesma lente do gerador. `cenarioA` é opcional:
-// se passado, o auditor compara B com A.
-async function avaliarCenB(cen: any, ctx: ContextoCenarioB, modelo: string | null, cenarioA: any, empresaId: string | null) {
-  const user = buildCheckCenarioBUser(ctx, cen, cenarioA);
-  const resposta = await callAI(SYSTEM_CHECK_CENARIO_B, user, { model: modelo || DEFAULT_TASK_MODELS['cenarios_b_check'] }, 4096, {
+// se passado, o auditor compara B com A. A régua é a DA LINHA (`versaoDoCenario`);
+// `versao` serve à candidata em memória, que ainda não tem carimbo.
+async function avaliarCenB(cen: any, ctx: ContextoCenarioB, modelo: string | null, cenarioA: any, empresaId: string | null, versao?: VersaoCenarios) {
+  const v: VersaoCenarios = versao ?? versaoDoCenario(cen);
+  const user = buildCheckCenarioBUser({ ...ctx, versao: v }, cen, cenarioA);
+  const resposta = await callAI(systemCheckCenarioB(v), user, { model: modelo || DEFAULT_TASK_MODELS['cenarios_b_check'] }, 4096, {
     temperature: TEMP, taskKey: 'cenarios_b_check', empresaId,
   });
   const normalizado = normalizarCheckCenB(await extractJSON(resposta));
   if (!normalizado) return { success: false as const, error: 'Check não retornou nota válida' };
-  return { success: true as const, ...normalizado };
+  return { success: true as const, versao: v, ...normalizado };
 }
 
-/** Persiste o resultado do check numa row existente (shape do Cenário B). */
-async function persistirCheckCenB(sb: any, cenId: string, resultado: any, statusCheck: string) {
+/** Persiste o resultado do check numa row existente (shape do Cenário B). `versao` = a régua usada. */
+async function persistirCheckCenB(sb: any, cenId: string, resultado: any, statusCheck: string, versao: VersaoCenarios = 'v1') {
   const { data: cenLinha } = await sb.from('banco_cenarios').select('empresa_id').eq('id', cenId).maybeSingle();
   const { error: errCheck } = await escopoTenantDaLinha(
     sb.from('banco_cenarios').update({
@@ -79,7 +87,11 @@ async function persistirCheckCenB(sb: any, cenId: string, resultado: any, status
         problema_principal_vs_cenario_a: resultado.problema_principal_vs_cenario_a || null,
         riscos_de_triangulacao: resultado.riscos_de_triangulacao || [],
         perguntas_com_risco: resultado.perguntas_com_risco || [],
-        versao_auditor: VERSAO_AUDITOR_B,
+        ...(versao === 'v2' ? listasDaReguaV2(resultado) : {}),
+        versao_auditor: versaoAuditorB(versao),
+        // O check reescreve `alertas_check`: o carimbo de quem gerou tem de sobreviver a ele.
+        versao_prompt: CARIMBO_PROMPT[versao],
+        versao_regua: CARIMBO_REGUA[versao],
       },
       checked_at: new Date().toISOString(),
     }).eq('id', cenId),
@@ -96,7 +108,7 @@ async function persistirCheckCenB(sb: any, cenId: string, resultado: any, status
 async function runCheckOnCenB(sb: any, cen: any, ctx: ContextoCenarioB, modelo: string | null, cenarioA: any, empresaId: string | null) {
   const av = await avaliarCenB(cen, ctx, modelo, cenarioA, empresaId);
   if (!av.success) return av as any;
-  await persistirCheckCenB(sb, cen.id, av.resultado, av.statusCheck);
+  await persistirCheckCenB(sb, cen.id, av.resultado, av.statusCheck, av.versao);
   return { success: true, nota: av.resultado.nota, status: av.statusCheck };
 }
 
@@ -209,7 +221,7 @@ async function gerarCenariosBLoteReservado(sbRaw: any, tdb: ReturnType<typeof te
       if (!cenarioData?.titulo) return 'falha';
 
       // Persistência enriquecida
-      const { data: inserted, error: insErr } = await tdb.from('banco_cenarios').insert(montarDadosCenarioB(cenA, cenarioData)).select('id, titulo, descricao, cargo, alternativas').single();
+      const { data: inserted, error: insErr } = await tdb.from('banco_cenarios').insert(montarDadosCenarioB(cenA, cenarioData, celula.ctx.versao)).select('id, titulo, descricao, cargo, alternativas, alertas_check').single();
       // 23505: outro lote gravou o B desta célula enquanto este gerava (índice
       // único da célula, migration 261). A célula está coberta; não é falha.
       if (insErr?.code === '23505') return 'skip_ja_tem';
@@ -249,16 +261,18 @@ export async function checkCenarioBUm(cenarioId: string, modelo: string | null =
   const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   try {
     // banco_cenarios é misto → raw por id
-    const { data: cen } = await sbRaw.from('banco_cenarios')
-      .select('id, empresa_id, titulo, descricao, cargo, competencia_id, alternativas')
-      .eq('id', cenarioId).single();
+    const { data: cen, error: cenErr } = await sbRaw.from('banco_cenarios')
+      .select('id, empresa_id, titulo, descricao, cargo, competencia_id, alternativas, alertas_check')
+      .eq('id', cenarioId).maybeSingle();
+    if (cenErr) return { success: false, error: `Falha ao ler o cenário: ${cenErr.message}` };
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
 
     if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional não tem check)' };
     const tdb = tenantDb(cen.empresa_id);
 
-    // A mesma lente do gerador (contexto do A) e o mesmo A de referência do lote.
-    const celula = await contextoDaCelula(sbRaw, cen.empresa_id, cen.cargo, cen.competencia_id);
+    // A mesma lente do gerador (contexto do A) e o mesmo A de referência do lote, na
+    // versão DA LINHA (a régua com que ela nasceu).
+    const celula = await contextoDaCelula(sbRaw, cen.empresa_id, cen.cargo, cen.competencia_id, versaoDoCenario(cen));
     if ('error' in celula) return { success: false, error: celula.error };
     const cenA = await cenarioADaCelula(tdb, cen.competencia_id, cen.cargo);
 
@@ -296,7 +310,17 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
     if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (não pode regenerar catálogo nacional)' };
     const tdb = tenantDb(cen.empresa_id);
 
-    // O mesmo contexto do A e o mesmo A de referência do lote e do check.
+    // B já servido não é reescrito (plano de 11/10/2026, Fase 0): o fechamento e a
+    // reavaliação guardam o id, e o scorer leria a régua NOVA contra respostas dadas à
+    // antiga. Uma versão nova também não cabe: o índice único por célula (mig 261) não
+    // deixa existir um segundo B. Falha ao contar não vira "ninguém respondeu".
+    const uso = await usoDoCenarioB(tdb, cen.id);
+    if ('erro' in uso) return { success: false, error: `Não foi possível conferir se o cenário B já foi servido (${uso.erro}). Nada foi alterado.` };
+    if (uso.total > 0) {
+      return { success: false, servido: true, error: `Cenário B já servido em ${uso.total} fechamento(s) ou reavaliação(ões): regenerar mudaria a régua de quem já respondeu. Mantido como está.` };
+    }
+
+    // O mesmo contexto do A e o mesmo A de referência do lote e do check, nas regras da empresa.
     const celula = await contextoDaCelula(sbRaw, cen.empresa_id, cen.cargo, cen.competencia_id);
     if ('error' in celula) return { success: false, error: celula.error };
     const cenA = await cenarioADaCelula(tdb, cen.competencia_id, cen.cargo);
@@ -351,15 +375,17 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
       alternativas: alternativasB,
     };
     const modeloCheck = (aiConfig as any)?.checkModel || await getModelForTask(cen.empresa_id, 'cenarios_b_check');
-    const av: any = await avaliarCenB(candidato, celula.ctx, modeloCheck, cenA, cen.empresa_id);
+    // A candidata nasce nas regras da empresa e é auditada na régua DELAS.
+    const versaoCand: VersaoCenarios = celula.ctx.versao ?? 'v1';
+    const av: any = await avaliarCenB(candidato, celula.ctx, modeloCheck, cenA, cen.empresa_id, versaoCand);
     if (!av.success) return { success: false, error: `Auditoria da candidata falhou (${av.error}). Nada foi alterado.` };
 
-    // A nota atual só é comparável se veio desta versão do auditor. Nota de outra
-    // versão (antes de 18/09/2026 o auditor não via o contexto do cargo) é refeita
-    // agora, na régua nova, antes de a trava decidir.
+    // A nota atual só é comparável se veio da MESMA versão do auditor da candidata. Nota de
+    // outra versão (antes de 18/09/2026 o auditor não via o contexto do cargo; desde 13/10 há
+    // a régua v2) é refeita agora, em memória, na régua da candidata, antes de a trava decidir.
     let notaAnterior: number | null = typeof (cen as any).nota_check === 'number' ? (cen as any).nota_check : null;
-    if (notaAnterior != null && alertas.versao_auditor !== VERSAO_AUDITOR_B) {
-      const atual: any = await avaliarCenB(cen, celula.ctx, modeloCheck, cenA, cen.empresa_id);
+    if (notaAnterior != null && alertas.versao_auditor !== versaoAuditorB(versaoCand)) {
+      const atual: any = await avaliarCenB(cen, celula.ctx, modeloCheck, cenA, cen.empresa_id, versaoCand);
       if (!atual.success) return { success: false, error: `Recheck da versão atual falhou (${atual.error}). Nada foi alterado.` };
       notaAnterior = atual.resultado.nota;
     }
@@ -384,7 +410,7 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
       cenLinhaRg,
     );
     if (updErr) return { success: false, error: `${updErr.message} — versão anterior preservada` };
-    await persistirCheckCenB(sbRaw, cenarioId, av.resultado, av.statusCheck);
+    await persistirCheckCenB(sbRaw, cenarioId, av.resultado, av.statusCheck, versaoCand);
 
     return {
       success: true, aplicado: true, nota: av.resultado.nota, notaAnterior, status: av.statusCheck,
@@ -443,9 +469,11 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
-    const { data: cenarios } = await tdb.from('banco_cenarios')
-      .select('id, empresa_id, titulo, descricao, cargo, competencia_id, alternativas, nota_check')
+    const { data: cenarios, error: errCenarios } = await tdb.from('banco_cenarios')
+      .select('id, empresa_id, titulo, descricao, cargo, competencia_id, alternativas, nota_check, alertas_check')
       .eq('tipo_cenario', 'cenario_b');
+    // Falha de leitura não vira "nenhum cenário B" (a mensagem mandaria gerar de novo).
+    if (errCenarios) return { success: false, error: `Falha ao ler os cenários B: ${errCenarios.message}` };
 
     if (!cenarios?.length) return { success: false, error: 'Nenhum cenário B encontrado. Gere cenários B primeiro.' };
 
@@ -518,7 +546,8 @@ export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConf
       try {
         // O regen já audita a candidata e aplica só se não piorar (trava).
         const r1: any = await regenerarCenarioB(c.id, { model: aiConfig?.model, checkModel } as any);
-        if (!r1.success) { return 'erro'; }
+        // B já servido no fechamento fica como está (a trava não é erro do lote).
+        if (!r1.success) { return r1.servido ? 'servido' : 'erro'; }
         if (r1.aplicado === false) return 'regen_mantido';
         return r1.status === 'aprovado' ? 'regen_aprovado' : 'regen_revisar';
       } catch { return 'erro'; }
@@ -527,9 +556,10 @@ export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConf
     const aprovados = marcadoresRg.filter(m => m === 'regen_aprovado').length;
     const revisar = marcadoresRg.filter(m => m === 'regen_revisar').length;
     const mantidos = marcadoresRg.filter(m => m === 'regen_mantido').length;
+    const servidos = marcadoresRg.filter(m => m === 'servido').length;
     const erros = marcadoresRg.filter(m => m === 'erro').length;
 
-    return { success: true, message: `${regenerados} regenerados | ${aprovados} aprovados, ${revisar} ainda para revisar${mantidos ? `, ${mantidos} mantidos (trava)` : ''}${erros ? `, ${erros} erros` : ''}${integradores ? `, ${integradores} integradores preservados` : ''}` };
+    return { success: true, message: `${regenerados} regenerados | ${aprovados} aprovados, ${revisar} ainda para revisar${mantidos ? `, ${mantidos} mantidos (trava)` : ''}${servidos ? `, ${servidos} já servidos no fechamento (preservados)` : ''}${erros ? `, ${erros} erros` : ''}${integradores ? `, ${integradores} integradores preservados` : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }

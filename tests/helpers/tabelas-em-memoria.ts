@@ -149,6 +149,8 @@ export function bancoEmMemoria(tabelas: Tabelas, padroes: Record<string, () => R
       return linha ? projetar(linha, cols) : null;
     },
     lista: (tabela, cols, cadeia) => ordenarLimitar(filtrar(t(tabela), cadeia), cadeia).map((l) => projetar(l, cols)),
+    // `{ count: 'exact' }`: conta como o banco, pelo filtro desta query (antes voltava null).
+    contagem: (tabela, cadeia) => filtrar(t(tabela), cadeia).length,
     escrita: (tabela, op, payload, cadeia) => {
       if (op === 'insert') {
         for (const p of Array.isArray(payload) ? payload : [payload])

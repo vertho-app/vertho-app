@@ -161,6 +161,35 @@ export async function carregarFichaCargo(
   return bloco;
 }
 
+/**
+ * Para os CENÁRIOS v2 (IA3 e Cenário B, `lib/ia3-cenarios-v2.ts`): as linhas da ficha
+ * INTEIRA, sem corte por campo. A descrição é onde moram as fronteiras do cargo ("não
+ * realizar intervenções elétricas sem qualificação"), e o auditor dos cenários confere
+ * fato e papel contra ela: cortar em `LIMITE_CAMPO_FICHA` perderia justamente isso.
+ *
+ * Mesma política de `carregarFichaCargo`: erro de leitura LANÇA; ficha ausente ou só
+ * com o nome devolve as linhas que houver e registra `FICHA_CARGO_AUSENTE`.
+ */
+export async function carregarFichaParaCenario(
+  sb: SupabaseClient,
+  empresaId: string,
+  cargoNome: string,
+): Promise<{ linhas: string[]; info: CargoInfo | null }> {
+  const ficha = await buscarFicha(sb, empresaId, cargoNome);
+  if (!temConteudo(ficha)) {
+    const { DEGRADACAO, registrarDegradacao } = await import('@/lib/degradacao');
+    await registrarDegradacao({
+      fluxo: 'build',
+      tipo: DEGRADACAO.FICHA_CARGO_AUSENTE,
+      chave: `${empresaId}:${cargoNome}`,
+      empresaId,
+      severidade: 'info',
+      detalhe: { cargo: cargoNome, motivo: ficha ? 'ficha só com o nome' : 'cargo sem ficha em cargos_empresa', onde: 'cenarios' },
+    });
+  }
+  return { linhas: ficha ? linhasDaFicha(ficha) : [], info: ficha };
+}
+
 /** Anexa o bloco ao `user` de um prompt já montado. Sem bloco, o prompt não muda. */
 export function anexarFichaCargo<T extends { user: string }>(prompt: T, bloco?: string | null): T {
   return bloco ? { ...prompt, user: `${prompt.user}\n\n${bloco}` } : prompt;

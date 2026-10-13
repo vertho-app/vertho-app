@@ -343,8 +343,13 @@ describe('versoesComAnteriorIA3 — snapshot antes de sobrescrever (01/10/2026: 
 
   it('os DOIS caminhos que sobrescrevem guardam a versão (escada e regeneração manual da tela)', () => {
     const f = lerFonte('lib/ia3-cenarios.ts');
+    // Desde 13/10/2026 (plano de cenários, Fase 0) os dois aplicam a candidata pela MESMA função,
+    // `aplicarCandidataIA3`: guarda a versão ao reescrever no lugar e cria linha nova quando o
+    // cenário já foi respondido (o comportamento está em `versao-respondida.test.ts`).
     const usos = f.match(/versoes_anteriores: versoesComAnteriorIA3\(cen\)/g) || [];
-    expect(usos.length).toBe(2);
+    expect(usos.length).toBe(1);
+    const aplicacoes = f.match(/await aplicarCandidataIA3\(sbRaw, cen, \{ candidato, alternativas, auditoria \}/g) || [];
+    expect(aplicacoes.length).toBe(2);
     // O caminho "só registra tentativas" (nenhuma candidata promovida) mantém o conteúdo e preserva o histórico existente.
     expect(f).toMatch(/\.\.\.\(\(cen\.alertas_check && typeof cen\.alertas_check === 'object'\) \? cen\.alertas_check : \{\}\), regeneracao_auto: meta/);
   });

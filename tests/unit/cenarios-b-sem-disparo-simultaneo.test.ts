@@ -61,6 +61,7 @@ vi.mock('@/lib/cenarios-b-prompt', () => ({
   buildCenarioBPrompts: () => ({ system: 's', user: 'u' }),
   buildCheckCenarioBUser: () => 'u',
   SYSTEM_CHECK_CENARIO_B: 's',
+  systemCheckCenarioB: () => 's',
 }));
 vi.mock('@trigger.dev/sdk', () => ({ tasks: { trigger: (...a: any[]) => h.trigger(...a) }, runs: { retrieve: vi.fn() } }));
 vi.mock('@/lib/trigger-region', () => ({ regionOpts: () => ({}) }));

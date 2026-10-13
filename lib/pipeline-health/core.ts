@@ -19,14 +19,14 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
 import { PRAZO_VIDEO_EM_PROCESSAMENTO_MS, STATUS_VIDEO_EM_PROCESSAMENTO } from '@/lib/video/prazo-processamento';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarCenarioBHorizonte, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados, checarTaxaRetakeTts, checarCanarioTts, checarCalibracaoVoz } from './regras';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarCenarioBHorizonte, checarRepresentatividade, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados, checarTaxaRetakeTts, checarCanarioTts, checarCalibracaoVoz } from './regras';
 import { ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
 import { escaparHtml } from '@/lib/i18n-email-templates';
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
 import { inspecionarCloudApi } from '@/lib/whatsapp/cloud-api';
 import { inspecionarTemplatesLigados } from '@/lib/whatsapp/templates-ligados';
 import { inspecionarModelosConfigurados } from './coleta-modelos';
-import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarCenarioBHorizonte, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, coletarQaTts, coletarCalibracaoVozes, diaDaSemanaBRT, pilulaDoDia } from './coleta';
+import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarCenarioBHorizonte, coletarRepresentatividade, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, coletarQaTts, coletarCalibracaoVozes, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /**
  * Empresas elegíveis a envio: exclui demo (não envia comunicação real).
@@ -479,6 +479,9 @@ export async function rodarHorizonte(
       if (par) achados.push(par);
       // R21: fechamento chegando sem Cenário B da competência.
       achados.push(...checarCenarioBHorizonte(await coletarCenarioBHorizonte(sb, emp.id, semanasAdiante * 7)));
+      // R22: as pessoas dizem que os cenários não se parecem com o dia a dia delas.
+      const r22 = checarRepresentatividade(await coletarRepresentatividade(sb, emp.id));
+      if (r22) achados.push(r22);
       if (!achados.length) continue;
       out.push({
         modo: 'horizonte', empresaId: emp.id, empresaSlug: emp.slug,

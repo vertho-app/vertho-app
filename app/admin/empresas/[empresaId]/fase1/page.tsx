@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Loader2, Trophy, Trash2, Plus, X, Search, ChevronDown,
   Briefcase, FileText, Target, Brain, RefreshCw, CheckCircle, AlertTriangle, Filter
@@ -11,8 +11,10 @@ import {
 import BackButton from '@/components/back-button';
 import {
   loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, loadCenarios,
-  regenerarCenario, checkCenarioUm, limparCenariosAntigos, excluirCenario
+  regenerarCenario, checkCenarioUm, limparCenariosAntigos, excluirCenario, loadRepresentatividadeCenarios
 } from '@/actions/fase1';
+import { emAlertaDeRepresentatividade, LIMIAR_REPRESENTATIVIDADE } from '@/lib/assessment/representatividade';
+import { ehCenarioB, idsSubstituidos } from '@/lib/cenario-versoes';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { avisosSpecClinica } from '@/lib/scoring/spec-warnings';
 import { loadCargos, salvarTop5 } from '@/app/admin/cargos/actions';
@@ -28,6 +30,8 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
   const searchParams = useSearchParams();
   const confirmDialog = useConfirm();
   const tr = useTranslations('AdminPhase1');
+  const locale = useLocale();
+  const umaCasa = (n: number) => new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n);
   const initialTab = searchParams.get('tab');
 
   const [tab, setTab] = useState(
@@ -52,6 +56,8 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
 
   // Cenários
   const [cenarios, setCenarios] = useState([]);
+  // O sinal das pessoas (nota de representatividade) e quantas respostas cada cenário tem.
+  const [sinal, setSinal] = useState<any>(null);
   const [cenOpen, setCenOpen] = useState(null);
   const [cenAction, setCenAction] = useState(null);
   const [cenProgress, setCenProgress] = useState<{ current: number; total: number; label: string; cargo: string } | null>(null);
@@ -108,6 +114,9 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
     // Cenários
     const cens = await loadCenarios(empresaId);
     setCenarios(cens);
+    // Falha de leitura vira aviso na tela ("não foi possível medir"), nunca "sem notas".
+    const rep = await loadRepresentatividadeCenarios(empresaId).catch((e: any) => ({ success: false, error: e?.message || String(e) }));
+    setSinal(rep);
 
     setLoading(false);
   }, [empresaId]);
@@ -156,6 +165,11 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
   // (ver lib/fase1-cenarios-filtro.ts).
   const filtrosCen = { cargo: filtroCargoCen, competencia: filtroCompCen };
   const cenariosVisiveis = filtrarCenarios(cenarios, filtrosCen);
+  // Regenerar pelo gerador do A só vale para a versão MAIS NOVA de cada célula, e nunca para
+  // um B (que tem tela própria): a mesma régua do servidor (`lib/cenario-versoes.ts`). A versão
+  // respondida e substituída fica na lista, marcada, e fora das filas de regeneração.
+  const substituidos = idsSubstituidos(cenarios);
+  const regeneravel = (c: any) => !ehCenarioB(c) && !substituidos.has(c.id);
   const cenariosPorCargo = agruparPorCargo(cenariosVisiveis);
   const opcoesCargoCen = opcoesDeCargo(cenarios);
   const opcoesCompCen = opcoesDeCompetencia(cenarios, filtroCargoCen);
@@ -634,6 +648,31 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
           {cenarios.length === 0 ? (
             <Empty icon={FileText} text={tr('empty.scenarios')} />
           ) : (<>
+          {/* O sinal de quem respondeu (plano de cenários de 11/10/2026, Fase 1): a nota de
+              representatividade era gravada desde sempre e nenhuma tela a mostrava. */}
+          {sinal && (
+            !sinal.success ? (
+              <div className="mb-4 rounded-lg border border-amber-400/20 bg-amber-400/5 px-4 py-2 text-[11px] text-amber-300">
+                {tr('signals.unavailable', { error: sinal.error || '' })}
+              </div>
+            ) : sinal.empresa?.media == null ? (
+              <p className="mb-4 text-[11px] text-gray-500">{tr('signals.none')}</p>
+            ) : (() => {
+              const alerta = emAlertaDeRepresentatividade(sinal.empresa);
+              return (
+                <div className={`mb-4 rounded-lg border px-4 py-3 ${alerta ? 'border-amber-400/30 bg-amber-400/5' : 'border-white/[0.08] bg-white/[0.02]'}`}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-white">{tr('signals.title')}</span>
+                    <span className={`text-xs ${alerta ? 'text-amber-300' : 'text-gray-300'}`}>
+                      {tr('signals.summary', { media: umaCasa(sinal.empresa.media), respostas: sinal.empresa.respostas, pessoas: sinal.empresa.pessoas })}
+                    </span>
+                  </div>
+                  {alerta && <p className="text-[11px] text-amber-300/90 mt-1">{tr('signals.alert', { limiar: LIMIAR_REPRESENTATIVIDADE })}</p>}
+                  <p className="text-[10px] text-gray-500 mt-1">{tr('signals.hint')} {tr('signals.orderNote')}</p>
+                </div>
+              );
+            })()
+          )}
           {/* Filtros: cargo e competência. Desligados durante um lote para a
               barra de progresso (que vive dentro do grupo do cargo) não sumir. */}
           <div className="flex items-center gap-3 mb-5 flex-wrap">
@@ -679,20 +718,30 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
             const ressalvas = cens.filter(c => c.status_check === 'aprovado_com_ressalvas').length;
             const revisar = cens.filter(c => c.status_check === 'revisar').length;
             const pendentes = cens.filter(c => !c.status_check).length;
+            const filaRevisar = cens.filter(c => regeneravel(c) && (c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas'));
             return (
               <div key={cargo} className="mb-6">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h2 className="text-sm font-bold text-white">{cargo}</h2>
                   <span className="text-[10px] text-gray-500">{tr('stats.scenarios', { count: cens.length })}</span>
+                  {(() => {
+                    const r = sinal?.success ? sinal.porCargo?.[cargo] : null;
+                    return r?.media != null ? (
+                      <span title={tr('signals.badgeTitle', { media: umaCasa(r.media), respostas: r.respostas, pessoas: r.pessoas })}
+                        className={`text-[9px] px-1.5 py-0.5 rounded ${r.media < LIMIAR_REPRESENTATIVIDADE ? 'bg-amber-400/15 text-amber-300' : 'bg-white/[0.06] text-gray-300'}`}>
+                        {tr('signals.badge', { media: umaCasa(r.media) })}
+                      </span>
+                    ) : null;
+                  })()}
                   {aprovados > 0 && <span className="text-[9px] bg-green-400/15 text-green-400 px-1.5 py-0.5 rounded">{tr('stats.approved', { count: aprovados })}</span>}
                   {ressalvas > 0 && <span className="text-[9px] bg-cyan-400/15 text-cyan-400 px-1.5 py-0.5 rounded">{tr('stats.withNotes', { count: ressalvas })}</span>}
                   {revisar > 0 && <span className="text-[9px] bg-amber-400/15 text-amber-400 px-1.5 py-0.5 rounded">{tr('stats.review', { count: revisar })}</span>}
                   {pendentes > 0 && <span className="text-[9px] bg-gray-400/15 text-gray-400 px-1.5 py-0.5 rounded">{tr('stats.pending', { count: pendentes })}</span>}
-                  {(revisar > 0 || ressalvas > 0) && (
+                  {filaRevisar.length > 0 && (
                     <button
                       disabled={!!cenAction}
                       onClick={async () => {
-                        const paraRevisar = cens.filter(c => c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas');
+                        const paraRevisar = filaRevisar;
                         let ok = 0, semCheck = 0;
                         for (let idx = 0; idx < paraRevisar.length; idx++) {
                           const c = paraRevisar[idx];
@@ -714,11 +763,11 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                         refresh();
                       }}
                       className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 border border-amber-400/40 hover:bg-amber-400/10 transition-all disabled:opacity-50 ml-auto">
-                      <RefreshCw size={10} /> {tr('actions.reviewAll', { count: revisar + ressalvas })}
+                      <RefreshCw size={10} /> {tr('actions.reviewAll', { count: filaRevisar.length })}
                     </button>
                   )}
                   {(() => {
-                    const sel = cens.filter((c: any) => selectedCen.has(c.id));
+                    const sel = cens.filter((c: any) => selectedCen.has(c.id) && regeneravel(c));
                     return sel.length > 0 ? (
                       <button disabled={!!cenAction} onClick={() => regenerarLote(cargo, sel)}
                         className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold text-violet-300 border border-violet-400/40 hover:bg-violet-400/10 transition-all disabled:opacity-50">
@@ -776,8 +825,10 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                       }`} style={{ background: '#0F2A4A' }}>
                         {/* Header */}
                         <div className="flex items-center">
-                          <input type="checkbox" checked={selectedCen.has(c.id)} onChange={() => toggleSelCen(c.id)}
-                            className="ml-3 shrink-0 w-3.5 h-3.5 accent-violet-400 cursor-pointer" title="Selecionar para regerar em lote" />
+                          <input type="checkbox" checked={selectedCen.has(c.id) && regeneravel(c)} onChange={() => toggleSelCen(c.id)}
+                            disabled={!regeneravel(c)}
+                            className="ml-3 shrink-0 w-3.5 h-3.5 accent-violet-400 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                            title={substituidos.has(c.id) ? tr('signals.supersededTitle') : 'Selecionar para regerar em lote'} />
                           <button onClick={() => setCenOpen(isOpen ? null : c.id)}
                             className="flex-1 min-w-0 flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
                           <div className="flex-1 min-w-0 flex items-center gap-2">
@@ -791,6 +842,30 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                 c.ppp_escola_id ? 'bg-violet-400/15 text-violet-300' : 'bg-white/[0.06] text-gray-400'
                               }`} title={c.ppp_escola_id ? `PPP: ${c.ppp_nome}` : 'Cenário de rede (sem PPP específico)'}>
                                 {c.ppp_escola_id ? `🏫 ${c.ppp_nome}` : 'Rede'}
+                              </span>
+                            )}
+                            {(() => {
+                              const r = sinal?.success ? sinal.porCenario?.[c.id] : null;
+                              return r?.media != null ? (
+                                <span title={tr('signals.badgeTitle', { media: umaCasa(r.media), respostas: r.respostas, pessoas: r.pessoas })}
+                                  className={`text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0 ${r.media < LIMIAR_REPRESENTATIVIDADE ? 'bg-amber-400/15 text-amber-300' : 'bg-white/[0.06] text-gray-300'}`}>
+                                  {tr('signals.badge', { media: umaCasa(r.media) })}
+                                </span>
+                              ) : null;
+                            })()}
+                            {sinal?.success && (sinal.usoPorCenario?.[c.id] || 0) > 0 && (
+                              <span title={tr('signals.answeredTitle')} className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-gray-400 shrink-0">
+                                {tr('signals.answered', { count: sinal.usoPorCenario[c.id] })}
+                              </span>
+                            )}
+                            {c.alertas_check?.versao_de?.cenario_id && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-400/15 text-violet-300 shrink-0">
+                                {tr('signals.newVersionOf', { count: c.alertas_check.versao_de.respondido_por ?? 0 })}
+                              </span>
+                            )}
+                            {substituidos.has(c.id) && (
+                              <span title={tr('signals.supersededTitle')} className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-gray-400 shrink-0">
+                                {tr('signals.superseded')}
                               </span>
                             )}
                           </div>
@@ -922,6 +997,28 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
                                           ))}
                                         </div>
                                       )}
+                                      {/* Régua v2: o que o auditor achou contra a ficha. A revisão interna lê só estas linhas. */}
+                                      {([
+                                        ['fatos_sem_fonte', tr('signals.factsNoSource'), 'text-red-300/80'],
+                                        ['fora_do_cargo', tr('signals.outOfRole'), 'text-red-300/80'],
+                                        ['detalhes_sem_fonte', tr('signals.detailsNoSource'), 'text-amber-300/70'],
+                                        ['repeticoes', tr('signals.repetitions'), 'text-amber-300/70'],
+                                      ] as const).map(([campo, rotulo, cor]) =>
+                                        Array.isArray(al[campo]) && al[campo].length > 0 ? (
+                                          <div key={campo} className="mt-2">
+                                            <p className={`text-[10px] font-semibold ${cor}`}>{rotulo}</p>
+                                            <ul className="list-disc ml-4">
+                                              {al[campo].map((x: string, j: number) => <li key={j} className={`text-[10px] ${cor}`}>{x}</li>)}
+                                            </ul>
+                                          </div>
+                                        ) : null,
+                                      )}
+                                      {al.regeneracao_auto?.esgotado === true && (
+                                        <p className="text-[10px] text-amber-300 mt-2">⚠ {tr('signals.exhausted')}</p>
+                                      )}
+                                      {Array.isArray(al.versoes_anteriores) && al.versoes_anteriores.length > 0 && (
+                                        <p className="text-[10px] text-gray-500 mt-1">{tr('signals.previousVersions', { count: al.versoes_anteriores.length })}</p>
+                                      )}
                                     </>
                                   );
                                 })()}
@@ -930,7 +1027,7 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
 
                             {/* Ações */}
                             <div className="flex items-center gap-2">
-                              {(c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas') && (
+                              {regeneravel(c) && (c.status_check === 'revisar' || c.status_check === 'aprovado_com_ressalvas') && (
                                 <button disabled={isActing} onClick={async () => {
                                   setCenAction({ id: c.id, type: 'regen' });
                                   // Regenera com TRAVA: a candidata é auditada e só

@@ -2,7 +2,7 @@ import { task, wait } from '@trigger.dev/sdk';
 import { criarPatchJob, registrarFalhaDaTentativa } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import {
-  montarContextoIA3, buildIA3SystemPrompt, buildIA3UserPrompt,
+  montarContextoIA3, montarPromptsGeracaoIA3, limitesDaVersaoIA3,
   validarRespostaIA3, montarAlternativasIA3, persistirCenarioIA3,
   montarCheckIA3Prompt, normalizarResultadoCheckIA3, persistirCheckIA3,
   gerarCenarioIA3Core, checkCenarioIA3Core,
@@ -141,8 +141,8 @@ export const gerarIA3BatchTask = task({
         const customId = `i${i}`;
         const mc = await montarContextoIA3(sb, empresaId, item.cargo, item.competencia_id, item.ppp_escola_id ?? null);
         if (!('ctx' in mc)) { preparados.push({ customId, item, erro: mc.error }); continue; }
-        const system = buildIA3SystemPrompt();
-        const user = buildIA3UserPrompt(mc.ctx.empresa, item.cargo, mc.ctx.cargoDetalhe, mc.ctx.comp, mc.ctx.descritores, mc.ctx.valores, mc.ctx.contextoPPP, mc.ctx.gabCIS);
+        // Os MESMOS prompts do caminho síncrono, na versão da empresa (v1 byte a byte, ou v2).
+        const { system, user } = montarPromptsGeracaoIA3(mc.ctx, item.cargo);
         preparados.push({ customId, item, ctx: mc.ctx, system, user });
       }
 
@@ -210,12 +210,13 @@ export const gerarIA3BatchTask = task({
         if (texto && texto.trim()) {
           // Resposta do batch: valida; erros críticos → retry SÍNCRONO (core).
           const resultado = await extractJSON(texto);
-          const norm = resultado ? validarRespostaIA3(resultado, p.ctx.descritores.length) : null;
+          const norm = resultado ? validarRespostaIA3(resultado, p.ctx.descritores.length, limitesDaVersaoIA3(p.ctx.versao)) : null;
           if (norm && norm.errors.length === 0) {
             const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas, p.ctx.descritores);
             const persist = await persistirCenarioIA3(p.ctx.tdb, {
               compId: p.ctx.comp.id, cargoNome: p.item.cargo, pppEscolaId: p.item.ppp_escola_id ?? null,
               titulo: norm.cen.titulo || norm.titulo, contexto: norm.cen.contexto || norm.contexto, alternativas,
+              versao: p.ctx.versao,
             });
             if ('cenarioId' in persist) {
               cenarioId = persist.cenarioId;

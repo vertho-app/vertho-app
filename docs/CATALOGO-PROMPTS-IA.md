@@ -176,9 +176,9 @@
 ### 1.3 IA3 — Gerar cenários contextuais
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `lib/ia3-cenarios.ts::rodarIA3UmaCore` (prompts em `buildIA3SystemPrompt` + `buildIA3UserPrompt`; wrappers/gates em `actions/fase1.ts` e execução em lote em `trigger/gerar-ia3-batch.ts`)
-- **Modelo default**: Claude Sonnet 4.6
-- **Max tokens**: 6144
+- **Arquivo**: `lib/ia3-cenarios.ts::gerarCenarioIA3Core` (prompts em `buildIA3SystemPrompt` + `buildIA3UserPrompt`, escolhidos por `montarPromptsGeracaoIA3`; regras v2 em `lib/ia3-cenarios-v2.ts`; wrappers/gates em `actions/fase1.ts` e execução em lote em `trigger/gerar-ia3-batch.ts`)
+- **Modelo default**: `claude-sonnet-5-5`, pinned pela task `ia3_cenarios` e resolvido em `resolverAiConfigGeracaoIA3` (o `callAI` sozinho cairia no `DEFAULT_MODEL`). Escolha explícita do chamador vence.
+- **Max tokens**: 16000 (`IA3_MAX_TOKENS_GERACAO`, o mesmo no síncrono e no lote), com relógio de 240 s no síncrono (`IA3_TIMEOUT_GERACAO_MS`). Até 30/09/2026 eram 6144 e 58 de 66 respostas da Amazon pararam no teto.
 - **Trigger**: Admin executa fila de cenários em `/admin/empresas/{id}` → `listarFilaIA3` → `rodarIA3Uma` por item. 1 competência × cargo por chamada (processamento unitário p/ caber em timeout Vercel Hobby).
 - **Grounding RAG**: Não. Usa PPP.
 - **Loop**: Sim — fila de competências Top 5 do cargo.
@@ -214,7 +214,19 @@
   - Perfil CIS ideal do cargo (tela3 estilos + tela4 faixas DISC)
   - Contexto PPP (até 3000 chars)
 - **Output esperado**: JSON com `cenario{titulo, contexto, faceta_testada_principal, tradeoff_testado, fator_complicador, stakeholders_centrais[], dilema_etico, armadilha_de_resposta_generica, confianca_cenario, riscos_do_cenario[]}`, quatro `perguntas[{numero, texto, objetivo_diagnostico, descritores_primarios[], o_que_diferencia_niveis, resposta_generica_falha_porque}]` e `mapa_cobertura_descritores`.
-- **Inconsistência observada no contrato atual**: o exemplo do campo `contexto` ainda diz “250-400 palavras”, mas a regra de sobriedade, o prompt de regeneração e o auditor usam **≤900 caracteres**. `validarRespostaIA3` verifica quantidade de perguntas, cobertura e confiança, mas não impõe esse comprimento; portanto o limite depende hoje do gerador/auditor.
+- **Inconsistência da v1 (mantida de propósito)**: o exemplo do campo `contexto` ainda diz “250-400 palavras”, mas a regra de sobriedade, o prompt de regeneração e o auditor usam **≤900 caracteres**. Na v1, `validarRespostaIA3` confere quantidade de perguntas, cobertura e confiança, mas não o comprimento. O golden (`tests/unit/ia3/golden-prompts-ia3.json`) segura a v1 byte a byte; a correção está na v2.
+- **Regras v2 (13/10/2026, opt-in por empresa: `empresas.sys_config.cenarios_v2 = true`)**. Nasceram da reunião de 09/10 com a Amazon Bowling ("situações fictícias"): sem situação real no insumo, o gerador inventava fato técnico e papel. Ver `docs/FMEA-PIPELINE.md` §F-I41.
+  - **System** `buildIA3SystemPromptV2`. Pilares:
+    - uma situação e um problema central, com o complicador nascido da própria situação;
+    - fato técnico só com fonte (ficha, fronteiras, caso real ou contexto da empresa), senão termo genérico; detalhe de situação pode ser criado;
+    - papel do cargo: sem atribuição fora da ficha, quem não está em Stakeholders não fala direto com o avaliado, e o que o cargo pede a terceiros aparece como acionar ou coordenar;
+    - cliente interno quando o cargo não atende cliente externo;
+    - LUGAR: segunda pessoa, sem nomear nem inventar instituição;
+    - um pedido por pergunta, 1 ou 2 descritores por pergunta;
+    - saem o "250-400 palavras" e o "1 dado concreto".
+  - **User** `buildIA3UserPromptV2`: os mesmos blocos da v1, trocando o contexto organizacional pela FICHA INTEIRA do cargo (`carregarFichaParaCenario`, com `contexto_cultural`, área e liderança) e a instrução de leitura pela v2.
+  - **Tetos em código**: contexto acima de 900 caracteres ou pergunta acima de 200 viram erro em `validarRespostaIA3` (`limitesDaVersaoIA3`). No síncrono caem no retry; no lote, no fallback síncrono; na regeneração, a candidata é descartada.
+  - **Carimbo** `alertas_check.versao_prompt` (`ia3-p1` ou `ia3-p2`) em toda geração; linha sem carimbo é v1.
 - **Consumido por**: `banco_cenarios` (alternativas[]). Usado por IA4 (Fase 3) para avaliar respostas.
 
 #### 1.3.1 Reuso: exemplo de cenário da PROPOSTA (05/10/2026)
@@ -229,21 +241,33 @@
 ### 1.4 IA3 — Regenerar cenário (com feedback)
 > `WRAPPER` · Prompt documentado como: `reuso` (de 1.3 com appendix de feedback)
 
-- **Arquivo**: `lib/ia3-cenarios.ts::regenerarCenarioIA3ComTrava` (wrapper em `actions/fase1.ts`)
-- **Idêntico a IA3** (mesmo system prompt `buildIA3SystemPrompt`), mas com appendix no user prompt:
+- **Arquivo**: `lib/ia3-cenarios.ts::regenerarCenarioIA3ComTrava` (uma rodada) e `regenerarAteLimiarIA3` (a escada inteira, no lote), as duas sobre `gerarEAuditarCandidataIA3`; wrappers em `actions/fase1.ts`.
+- **Idêntico a IA3** (os mesmos prompts da versão da empresa, por `montarPromptsGeracaoIA3`), mas com appendix no user prompt:
   ```text
   FEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS): {cen.justificativa_check}\n{cen.sugestao_check}
   ```
-- **Trigger**: Admin clica em "Regerar" em cenário com status_check='revisar'.
-- **Max tokens**: 6144.
-- **Consumido por**: gera a candidata em memória, audita com 1.5 e só atualiza `banco_cenarios` quando `nota_candidata >= nota_atual`; a versão campeã não é destruída.
+  mais as "REGRAS DA REGENERAÇÃO" (corrigir não é adicionar; os tetos de sobriedade valem).
+- **Trigger**: "Regenerar", "Revisar todos" e "Regerar selecionados" na aba Cenários da Fase 1; o modo "Agora" do "Gerar cenários" (`regenerarCenarioNaEscada`, uma rodada por request); e a onda 3 do lote (`regenerarAteLimiarIA3`), para quem saiu abaixo de 80.
+- **Escada até 80** (`ESCADA_IA3`): Sonnet 5.5 com o feedback do campeão, depois GPT 6.1 Sol do zero auditado pelo Sonnet 5.5, depois Opus 5.5 com feedback. Quem esgota fica com `regeneracao_auto.esgotado` para revisão humana.
+- **Max tokens**: 16000.
+- **Consumido por**: gera a candidata em memória e audita com 1.5. Com o auditor da task, só aplica quando `nota_candidata >= nota_atual` (trava). Com auditor próprio ou régua de outra versão, só aplica se chegar a 80 nessa régua.
+- **Aplicação (Fase 0 do plano de 11/10/2026)**, em `aplicarCandidataIA3`:
+  - sem resposta nem conversa ligadas ao cenário: UPDATE no lugar, com o texto anterior em `alertas_check.versoes_anteriores`;
+  - com resposta ou conversa (`lib/cenario-uso.ts`): a candidata vira LINHA NOVA, já auditada e carimbada, com `alertas_check.versao_de`. A respondida fica intacta, e a IA4 avalia o texto que a pessoa leu;
+  - antes da IA, `motivoParaNaoRegenerarIA3` recusa duas coisas: linha que não é a mais nova da célula (`lib/cenario-versoes.ts`, a mesma régua da tela) e Cenário B, que se regenera pela Fase 5;
+  - falha ao contar o uso ou ao ler as versões: nada é escrito.
 
 ### 1.5 Check Cenário (Auditor 2ª IA)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `lib/ia3-cenarios.ts::montarCheckIA3Prompt` + `checkCenarioIA3Core` (wrapper em `actions/fase1.ts`)
 - **Modelo default**: `gpt-5.6-terra`, pinned pela task `ia3_check`; override explícito por task/modelo é aceito.
-- **Max tokens**: 4096
+- **Max tokens**: 7000
+- **Régua da LINHA (13/10/2026)**: o check usa a versão gravada em `alertas_check.versao_prompt`, nunca a da empresa. Um cenário v1 já entregue não é rechecado pela régua v2, que ele não conheceu: um recheck poderia tirá-lo do ar pelo corte de nota mínima. `persistirCheckIA3` grava `versao_regua` (`ia3-r1` ou `ia3-r2`) e preserva o carimbo, `versao_de` e `versoes_anteriores`.
+- **Régua v2**: o system ganha `CONFERENCIA_FATOS_E_PAPEL_V2`, e o user ganha a FICHA INTEIRA do cargo e o título e o começo de até 8 OUTROS cenários do mesmo cargo (`blocoIrmaosV2`, de outras competências, sem B).
+  - O auditor lista `fatos_sem_fonte`, `detalhes_sem_fonte`, `fora_do_cargo` e `repeticoes`, gravados em `alertas_check` e mostrados na Fase 1.
+  - Erro grave (teto 60) só para fato técnico central sem fonte ou papel fora do cargo. Detalhe de situação nunca é erro grave: no protótipo de 11/10, a régua que reprovava qualquer detalhe derrubou 5 de 6 leituras boas para 60.
+  - O auditor do A até 13/10/2026 via só o nome do cargo e 500 caracteres do PPP.
 - **Trigger**: Admin clica em "Check" em cenário individual OU lote. Usa IA diferente da que gerou (cross-validation).
 - **System prompt** (inline):
   ```text
@@ -673,6 +697,8 @@
   - Feedback extra (em regenerarCenarioB: `justificativa_check` + `sugestao_check`)
 - **Output esperado**: JSON com cenário/perguntas + `faceta_avaliada`, `facetas_secundarias`, `diferenca_estrutural_vs_cenario_a`, `por_que_essa_variacao_importa`, `tradeoff_testado`, `armadilha_de_resposta_generica`, `objetivo_diagnostico`, régua N1-N4, dilema ético, confiança e riscos.
 - **Consumido por**: `banco_cenarios` com `tipo_cenario = 'cenario_b'`.
+- **Regras v2 (13/10/2026, opt-in por empresa como no A, §1.3)**: `SYSTEM_CENARIO_B_V2`, com as mesmas regras de fato com fonte, papel do cargo, cliente interno, um pedido por pergunta e LUGAR; a ficha inteira do cargo entra no lugar do contexto organizacional. O B grava `alertas_check.versao_prompt`, e o auditor (5.2) usa a régua da linha (`systemCheckCenarioB(versao)`, que na v2 acrescenta `CONFERENCIA_FATOS_E_PAPEL_V2`).
+- **B já servido não se regenera (Fase 0, 13/10/2026)**: `regenerarCenarioB` conta o uso (`usoDoCenarioB`: fechamento da Jornada, do Onboarding e reavaliação) e recusa com o motivo. Uma versão nova não cabe, porque o índice único por célula (mig 261) não deixa existir um segundo B. Falha ao contar também recusa.
 - **No Onboarding (04/10/2026)**: o fechamento serve ESTE B, um por competência (5 cenários, 4 perguntas cada, na ordem das competências da trilha), como o Cenário A do Mapeamento. Não há prompt nem gerador próprio: o lote desta seção já gera o B de cada célula, e `escolherCenariosBPorCompetencia` aplica a mesma régua de elegibilidade do fechamento de uma competência a cada uma das 5 (a prontidão e o health perguntam pela mesma função). O desenho de um caso único que integrasse as 5 competências (Onda D) foi retirado a pedido do dono.
 - **Sem disparos simultâneos (04/10/2026)**: o lote imediato (`gerarCenariosBLote`) e o lote em segundo plano (`enqueueCenariosBBatch` + task `gerar-cenarios-b-batch`) dividem uma RESERVA da fase `cenarios-b` por empresa (`lib/ia-jobs.ts::reservarFaseDoLote`: insere o `ia_jobs` e arbitra pelo mais antigo depois de ler). O segundo disparo recebe "já está gerando" e não paga IA; a task ainda recusa uma 2ª run do mesmo job, e o dispatch leva `idempotencyKey`. Lease: 15 min para a imediata, 2 h para o lote.
 

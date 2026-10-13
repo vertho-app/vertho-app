@@ -19,11 +19,39 @@ import { normalizePhone } from '@/lib/phone';
 import { levantarPlanoKitsCoorte, SEM_TURMA } from '@/lib/season-engine/kit/plano-coorte';
 import { TURMA_ENCERRADAS, TURMA_MEMBRO, TRILHA } from '@/lib/status';
 import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
-import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro, CelulaVideoSemDeck, PushDiario, LacunaCenarioB } from './regras';
+import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro, CelulaVideoSemDeck, PushDiario, LacunaCenarioB, SinalRepresentatividade } from './regras';
+import { agregarRepresentatividade } from '@/lib/assessment/representatividade';
 import { escolherCenarioB, fechamentoPorCompetencia } from '@/lib/season-engine/cenario-b';
 import { semanaCenarioBDoPlano, semanaCalendarioDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { semanaLiberadaEm } from '@/lib/season-engine/week-gating';
 import { normalizarComp } from '@/lib/workshop-competencias';
+
+/** R22: a janela das notas de representatividade lidas. Média de sempre vira alarme crônico. */
+export const JANELA_REPRESENTATIVIDADE_DIAS = 30;
+
+/**
+ * R22: as notas de representatividade (1 a 10) que as pessoas deram aos cenários da
+ * empresa na janela, já agregadas e sem as contas internas. Paginado: o PostgREST corta
+ * em 1.000 linhas calado. Erro de leitura LANÇA (o run registra `check-falhou`).
+ */
+export async function coletarRepresentatividade(sb: any, empresaId: string, dias: number = JANELA_REPRESENTATIVIDADE_DIAS): Promise<SinalRepresentatividade> {
+  const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
+  const linhas: any[] = [];
+  for (let de = 0; ; de += 1000) {
+    const { data, error } = await sb.from('respostas')
+      .select('id, cenario_id, colaborador_id, cargo, email_colaborador, representatividade')
+      .eq('empresa_id', empresaId)
+      .gte('created_at', desde)
+      .not('representatividade', 'is', null)
+      .order('id')
+      .range(de, de + 999);
+    if (error) throw new Error(`respostas (representatividade): ${error.message}`);
+    linhas.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  const { empresa, porCargo } = agregarRepresentatividade(linhas);
+  return { empresa, porCargo, dias };
+}
 
 /** Dia da semana no fuso do envio (1=segunda … 7=domingo), como o cron calcula. */
 export function diaDaSemanaBRT(d: Date): number {

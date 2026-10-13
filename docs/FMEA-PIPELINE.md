@@ -679,6 +679,71 @@ consumo gravado ao entrar na conversa, que é o que deixa o flag da tela velho).
   repete uma escrita idempotente). A qualitativa da `evaluation` não tem retorno antecipado depois de
   concluída: não medido se algum caminho regrava `em_andamento` ali.
 
+### F-I41 · Cenário que a pessoa não reconhece como dela 🟡 (proteções e sinal no ar em 13/10/2026; regras v2 desligadas até a verificação)
+- **Gatilho:** o gerador do Cenário A (`lib/ia3-cenarios.ts`) recebia 5 campos do cargo, sem
+  `contexto_cultural`, e um prompt que pedia trade-off, fator complicador, dilema ético, dois
+  personagens e "1 dado concreto". Sem situação real no insumo, ele inventava fato técnico e papel. O
+  auditor do A via só o nome do cargo e 500 caracteres do PPP, então não tinha como reprovar.
+- **Efeito medido (09/10/2026):** reunião com a Amazon Bowling, "são situações fictícias que não se
+  encaixam no dia a dia".
+  - A nota de representatividade (1 a 10, `respostas.representatividade`, obrigatória desde a mig 044)
+    era gravada e **nada a lia**: média 4,7 na Amazon (74% em 5 ou menos, 39 respostas) e 4,8 em
+    Macaé, contra 6,9 em Ibipeba, o cliente que disse "parece a nossa realidade".
+  - Exemplos: um sensor "genérico aceito pelo fabricante" (só existe um tipo), clientes falando direto
+    com o supervisor de manutenção, uma rede de boliche inventada.
+  - O tamanho do texto não separa os clientes: Ibipeba tem os contextos mais longos e a melhor nota.
+    O que separa é o insumo (11 PPPs reais contra o site institucional e tensões de cargo de 73
+    caracteres em média).
+- **Vizinhos achados na correção (13/10):**
+  - "Regenerar", "Revisar todos" e "Regerar selecionados" faziam UPDATE no lugar mesmo com resposta:
+    a resposta e a nota da IA4 passavam a apontar para um texto que a pessoa não leu. Os 66 A da
+    Amazon têm respostas.
+  - Gerar o A de uma célula **apagava o Cenário B** da mesma célula: `persistirCenarioIA3` tratava
+    como "anterior sem resposta" toda linha da célula, e o B nunca aparece em `respostas`. Os 6 B
+    reais (Ibipeba e Macaé) são de rede e a célula de cada um tem A; só `reavaliacao_sessoes` prende o
+    B. Nenhum foi apagado, porque ninguém regerou essas células.
+  - A aba Cenários da Fase 1 lista o B junto com os A, e "Regenerar" nele rodava o gerador do A.
+- **Correção (no código):**
+  - **Fase 0, proteções:**
+    - regenerar um A respondido (resposta ou conversa) cria **linha nova** já auditada
+      (`aplicarCandidataIA3`; régua de uso em `lib/cenario-uso.ts`);
+    - só a versão mais nova da célula se regenera (`lib/cenario-versoes.ts`, a mesma régua no
+      servidor e na tela). Sem isso, cada clique na respondida criaria mais uma linha, comparada com
+      a nota da versão antiga;
+    - o B já servido não se regenera, e o gerador do A recusa o B e não o apaga mais;
+    - toda geração e todo check gravam `alertas_check.versao_prompt` e `versao_regua`, e o check
+      usa a régua **da linha**, nunca a da empresa.
+  - **Fase 1, o sinal:** a nota de representatividade passou a ser lida
+    (`lib/assessment/representatividade.ts`). Aparece como selo por cenário e por cargo na aba
+    Cenários da Fase 1, e entra no health como regra R22 (`cenarios-baixa-representatividade`):
+    3 ou mais pessoas e média abaixo de 6 em 30 dias.
+  - **Fase 2, regras v2** (`lib/ia3-cenarios-v2.ts`):
+    - geração: ficha inteira do cargo, fato técnico só com fonte, papel do cargo, uma situação, um
+      pedido por pergunta, lugar sem nome de instituição, e tetos de 900 e 200 caracteres
+      conferidos em código;
+    - auditores do A e do B: conferem fatos e papel contra a mesma ficha e veem os outros cenários
+      do cargo;
+    - **opt-in** por empresa (`sys_config.cenarios_v2 = true`): para as demais, a v1 segue byte a byte.
+- **Guardas:**
+  - Fase 0: `tests/unit/ia3/versao-respondida.test.ts`, `tests/unit/cenario-uso.test.ts`,
+    `tests/unit/cenario-versoes.test.ts`, `tests/unit/ia3/check-regua-da-linha.test.ts` e
+    `tests/unit/ia3/snapshot-geracao-do-zero.test.ts`;
+  - Fase 1: `tests/unit/assessment/representatividade.test.ts`;
+  - regras v2: `tests/unit/ia3/cenarios-v2-regras.test.ts` e o golden
+    `tests/unit/ia3/prompt-golden-v2.test.ts`;
+  - 20 mutações mortas, entre elas: respondido reescrito no lugar, conversa fora da conta, versão
+    substituída regenerando, B apagado ou regenerado pelo gerador do A, check na régua da empresa,
+    carimbo perdido no recheck, pessoas contadas como respostas e prompt v2 mudando em silêncio.
+- ⚠️ **Em aberto:**
+  - a v2 só liga depois da verificação do plano: conjunto rotulado da reunião, geração sem gravar, a
+    IA4 separando N1 de N3 e a leitura cega do dono. No protótipo de 11/10, duas leituras do mesmo
+    texto deram 89 e 60, e a variância do auditor ainda não foi medida em escala;
+  - o lote (Trigger) só recebe as regras novas e a proteção de `sessoes_avaliacao` com o
+    `trigger.dev deploy`;
+  - casos reais do gestor e fronteiras do cargo (Fase 3) dependem de migration;
+  - a nota de representatividade tem efeito de ORDEM (o primeiro cenário recebe nota mais alta) e só
+    o formulário a pergunta: o chat do assessment não.
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md

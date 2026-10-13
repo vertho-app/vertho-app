@@ -16,6 +16,13 @@ import { extractJSON } from '@/actions/utils';
 import { buscarContextoPPP, buscarValores } from '@/lib/ia2-gabarito';
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
+import { usoDoCenarioA } from '@/lib/cenario-uso';
+import { ehCenarioB, versaoMaisNovaQue } from '@/lib/cenario-versoes';
+import {
+  type VersaoCenarios, versaoCenariosDoTenant, versaoDoCenario, CARIMBO_PROMPT, CARIMBO_REGUA, LIMITES_V2,
+  buildIA3SystemPromptV2, buildIA3UserPromptV2, blocoFichaCenarioV2, CONFERENCIA_FATOS_E_PAPEL_V2,
+  blocoIrmaosV2, listasDaReguaV2, MAX_IRMAOS_NO_CHECK,
+} from '@/lib/ia3-cenarios-v2';
 
 // ── Prompts (movidos VERBATIM de fase1.ts) ──────────────────────────────────
 
@@ -333,18 +340,26 @@ export interface ContextoIA3 {
   valores: string[];
   cargoDetalhe: any;
   gabCIS: any;
+  /** Regras de geração da empresa (`sys_config.cenarios_v2`). Ausente = v1. */
+  versao?: VersaoCenarios;
+  /** Linhas da ficha INTEIRA do cargo (só carregadas na v2; ver `carregarFichaParaCenario`). */
+  fichaLinhas?: string[];
 }
 
 export async function montarContextoIA3(
   sbRaw: any, empresaId: string, cargoNome: string, competenciaId: string, pppEscolaId: string | null,
+  /** `versao` força as regras (script de comparação, check de linha v2 numa empresa v1). Sem ela, vale a da empresa. */
+  opts: { versao?: VersaoCenarios } = {},
 ): Promise<{ ok: true; ctx: ContextoIA3 } | { ok: false; error: string }> {
   const tdb = tenantDb(empresaId);
-  // Empresa (id é tenant — raw); ppp_texto pode não existir no schema.
-  let empresa;
-  const { data: emp1 } = await sbRaw.from('empresas')
-    .select('nome, segmento, ppp_texto').eq('id', empresaId).single();
-  empresa = emp1 || (await sbRaw.from('empresas').select('nome, segmento').eq('id', empresaId).single()).data;
+  // Empresa (id é tenant — raw). Até 13/10/2026 o select pedia `ppp_texto`, que não existe:
+  // a 1ª query falhava sempre (42703) e uma 2ª buscava nome e segmento. Agora uma só, com o
+  // `sys_config` (é ele que diz se a empresa gera na v2).
+  const { data: empresa, error: errEmpresa } = await sbRaw.from('empresas')
+    .select('nome, segmento, sys_config').eq('id', empresaId).maybeSingle();
+  if (errEmpresa) return { ok: false, error: `Empresa: ${errEmpresa.message}` };
   if (!empresa) return { ok: false, error: 'Empresa não encontrada' };
+  const versao: VersaoCenarios = opts.versao ?? versaoCenariosDoTenant(empresa.sys_config);
 
   const { data: comp } = await tdb.from('competencias')
     .select('id, nome, cod_comp, pilar, descricao, cargo')
@@ -369,7 +384,51 @@ export async function montarContextoIA3(
   const cargoDetalhe = cargoEmp || {};
   const gabCIS = cargoDetalhe.gabarito ? (typeof cargoDetalhe.gabarito === 'string' ? JSON.parse(cargoDetalhe.gabarito) : cargoDetalhe.gabarito) : null;
 
-  return { ok: true, ctx: { tdb, empresa, comp, descritores: descritores || [], contextoPPP, valores, cargoDetalhe, gabCIS } };
+  // v2: a ficha INTEIRA, pela régua única de casamento de cargo (`lib/cargo-contexto.ts`).
+  // Erro de leitura é erro de construção: volta como erro, não como "cargo sem ficha".
+  let fichaLinhas: string[] = [];
+  if (versao === 'v2') {
+    try {
+      const { carregarFichaParaCenario } = await import('@/lib/cargo-contexto');
+      fichaLinhas = (await carregarFichaParaCenario(tdb.raw, empresaId, cargoNome)).linhas;
+    } catch (e: any) {
+      return { ok: false, error: `Ficha do cargo: ${e?.message || e}` };
+    }
+  }
+
+  return { ok: true, ctx: { tdb, empresa, comp, descritores: descritores || [], contextoPPP, valores, cargoDetalhe, gabCIS, versao, fichaLinhas } };
+}
+
+/**
+ * Prompts de GERAÇÃO do Cenário A na versão do contexto. Na v1 (ou contexto sem
+ * versão), exatamente os de sempre: o golden de `tests/unit/ia3/` prova byte a byte.
+ */
+export function montarPromptsGeracaoIA3(ctx: ContextoIA3, cargoNome: string): { system: string; user: string } {
+  if (ctx.versao !== 'v2') {
+    return {
+      system: buildIA3SystemPrompt(),
+      user: buildIA3UserPrompt(ctx.empresa, cargoNome, ctx.cargoDetalhe, ctx.comp, ctx.descritores, ctx.valores, ctx.contextoPPP, ctx.gabCIS),
+    };
+  }
+  return {
+    system: buildIA3SystemPromptV2(),
+    user: buildIA3UserPromptV2({
+      empresa: blocoEmpresaIA3(ctx.empresa),
+      cargo: blocoCargoIA3(cargoNome),
+      ficha: blocoFichaCenarioV2(ctx.fichaLinhas || []),
+      competencia: blocoCompetenciaIA3(ctx.comp),
+      descritores: blocoDescritoresIA3(ctx.descritores || []),
+      valores: blocoValoresIA3(ctx.valores || []),
+      perfil: blocoPerfilIdealIA3(ctx.gabCIS),
+      ppp: blocoPppIA3(ctx.contextoPPP || ''),
+      numDescritores: (ctx.descritores || []).length,
+    }),
+  };
+}
+
+/** Tetos que a validação confere em código: só na v2 (a v1 segue como sempre foi). */
+export function limitesDaVersaoIA3(versao: VersaoCenarios | undefined): { maxContexto: number; maxPergunta: number } | undefined {
+  return versao === 'v2' ? LIMITES_V2 : undefined;
 }
 
 // ── Validação/normalização da resposta (pura) ───────────────────────────────
@@ -429,7 +488,11 @@ export function fallbackDoLoteExcessivo(total: number, caidos: number, limiar = 
   return caidos / total > limiar;
 }
 
-export function validarRespostaIA3(resultado: any, numDescritores: number): RespostaIA3Normalizada | null {
+export function validarRespostaIA3(
+  resultado: any, numDescritores: number,
+  /** Tetos de tamanho (v2: `limitesDaVersaoIA3`). Estourar vira erro e cai no retry que já existe. */
+  limites?: { maxContexto: number; maxPergunta: number },
+): RespostaIA3Normalizada | null {
   if (!resultado) return null;
   const cen = resultado.cenario || resultado.scenario || resultado;
   const titulo = cen.titulo || cen.title || resultado.titulo || 'Cenário';
@@ -457,6 +520,19 @@ export function validarRespostaIA3(resultado: any, numDescritores: number): Resp
   }
   if (typeof cen.confianca_cenario === 'number' && (cen.confianca_cenario < 0 || cen.confianca_cenario > 1)) {
     errors.push(`confianca_cenario fora de 0-1: ${cen.confianca_cenario}`);
+  }
+  if (limites) {
+    if (String(contexto).length > limites.maxContexto) {
+      errors.push(`Contexto com ${String(contexto).length} caracteres (máximo ${limites.maxContexto}): enxugue para UMA situação`);
+    }
+    if (Array.isArray(perguntas)) {
+      perguntas.forEach((p: any, i: number) => {
+        const texto = String(p?.texto ?? (typeof p === 'string' ? p : ''));
+        if (texto.length > limites.maxPergunta) {
+          errors.push(`P${p?.numero || i + 1} com ${texto.length} caracteres (máximo ${limites.maxPergunta}): um pedido só`);
+        }
+      });
+    }
   }
   return { cen, titulo, contexto, perguntas, errors };
 }
@@ -487,6 +563,8 @@ export function montarAlternativasIA3(resultado: any, cen: any, perguntas: any[]
 export async function persistirCenarioIA3(tdb: any, args: {
   compId: string; cargoNome: string; pppEscolaId: string | null;
   titulo: string; contexto: string; alternativas: Record<string, any>;
+  /** Regras que geraram o cenário: vira o carimbo `alertas_check.versao_prompt`. Default v1. */
+  versao?: VersaoCenarios;
 }): Promise<{ ok: true; cenarioId: string | null; aviso?: string } | { ok: false; error: string }> {
   /**
    * O `delete` só alcança cenário SEM resposta ligada.
@@ -507,7 +585,7 @@ export async function persistirCenarioIA3(tdb: any, args: {
    * que um caminho futuro que esqueça esta checagem falhe alto em vez de apagar.
    */
   const baseSel = tdb.from('banco_cenarios')
-    .select('id, titulo, descricao, alternativas, nota_check, status_check, alertas_check, checked_at, created_at')
+    .select('id, tipo_cenario, titulo, descricao, alternativas, nota_check, status_check, alertas_check, checked_at, created_at')
     .eq('competencia_id', args.compId)
     .eq('cargo', args.cargoNome);
   const { data: existentes, error: errSel } = await (args.pppEscolaId
@@ -515,7 +593,11 @@ export async function persistirCenarioIA3(tdb: any, args: {
     : baseSel.is('ppp_escola_id', null));
   if (errSel) return { ok: false, error: `Erro ao ler cenários existentes: ${errSel.message}` };
 
-  const linhas: any[] = existentes || [];
+  // O Cenário B mora na MESMA célula (competência × cargo, de rede) e nunca aparece em
+  // `respostas` nem em `sessoes_avaliacao`: sem este filtro ele entrava como "anterior sem
+  // resposta" e era APAGADO ao gerar o A. `Medido: 13/10/2026`: os 6 B reais (Ibipeba e
+  // Macaé) são de rede e a célula de cada um tem A; só `reavaliacao_sessoes` prende o B.
+  const linhas: any[] = (existentes || []).filter((c: any) => !ehCenarioB(c));
   const ids = linhas.map((c: any) => c.id);
   let apagaveis: string[] = [];
   if (ids.length) {
@@ -523,7 +605,13 @@ export async function persistirCenarioIA3(tdb: any, args: {
       .select('cenario_id').in('cenario_id', ids);
     if (errResp) return { ok: false, error: `Erro ao checar respostas: ${errResp.message}` };
 
-    const protegidos = new Set((comResposta || []).map((r: any) => r.cenario_id));
+    // A conversa do assessment também prende o cenário: a FK de `sessoes_avaliacao` é
+    // SET NULL, e apagar o cenário apagaria o vínculo da sessão sem erro nenhum.
+    const { data: comSessao, error: errSessao } = await tdb.from('sessoes_avaliacao')
+      .select('cenario_id').in('cenario_id', ids);
+    if (errSessao) return { ok: false, error: `Erro ao checar sessões de avaliação: ${errSessao.message}` };
+
+    const protegidos = new Set([...(comResposta || []), ...(comSessao || [])].map((r: any) => r.cenario_id));
     apagaveis = ids.filter((id: string) => !protegidos.has(id));
   }
 
@@ -548,7 +636,10 @@ export async function persistirCenarioIA3(tdb: any, args: {
     titulo: args.titulo,
     descricao: args.contexto,
     alternativas: args.alternativas,
-    ...(versoes.length ? { alertas_check: { versoes_anteriores: versoes } } : {}),
+    alertas_check: {
+      versao_prompt: CARIMBO_PROMPT[args.versao ?? 'v1'],
+      ...(versoes.length ? { versoes_anteriores: versoes } : {}),
+    },
   }).select('id').maybeSingle();
 
   if (insertErr) return { ok: false, error: `Erro ao salvar: ${insertErr.message}` };
@@ -576,16 +667,16 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
 
   const mc = await montarContextoIA3(sbRaw, empresaId, cargoNome, competenciaId, pppEscolaId);
   if (!('ctx' in mc)) return { success: false, error: mc.error };
-  const { tdb, empresa, comp, descritores, contextoPPP, valores, cargoDetalhe, gabCIS } = mc.ctx;
+  const { tdb, comp, descritores } = mc.ctx;
+  const limites = limitesDaVersaoIA3(mc.ctx.versao);
 
-  const system = buildIA3SystemPrompt();
-  const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
+  const { system, user } = montarPromptsGeracaoIA3(mc.ctx, cargoNome);
 
   let resposta = await callAI(system, user, aiConfig, IA3_MAX_TOKENS_GERACAO, { taskKey: 'ia3_cenarios', timeoutMs: IA3_TIMEOUT_GERACAO_MS, empresaId });
   let resultado = await extractJSON(resposta);
   if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
 
-  let norm = validarRespostaIA3(resultado, descritores.length);
+  let norm = validarRespostaIA3(resultado, descritores.length, limites);
   if (!norm) return { success: false, error: 'IA não retornou cenário válido' };
 
   // Retry se erros críticos (mesma mecânica do síncrono original)
@@ -596,7 +687,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
     const retryResult = await extractJSON(resposta);
     if (retryResult) {
       resultado = retryResult;
-      const norm2 = validarRespostaIA3(retryResult, descritores.length);
+      const norm2 = validarRespostaIA3(retryResult, descritores.length, limites);
       if (norm2) {
         // Preserva o comportamento original: o retry substitui o resultado e
         // enriquece o cen com o que veio (Object.assign no cen antigo).
@@ -610,6 +701,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
   const p = await persistirCenarioIA3(tdb, {
     compId: comp.id, cargoNome, pppEscolaId,
     titulo: norm.cen.titulo || norm.titulo, contexto: norm.cen.contexto || norm.contexto, alternativas,
+    versao: mc.ctx.versao,
   });
   if (!('cenarioId' in p)) return { success: false, error: p.error };
   return { success: true, message: `Cenário gerado: ${comp.nome}`, cenarioId: p.cenarioId };
@@ -617,8 +709,16 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
 
 // ── Check dual (2ª IA) ──────────────────────────────────────────────────────
 
-/** Monta o prompt do check a partir da ROW do cenário (mesma lógica do síncrono). */
-export async function montarCheckIA3Prompt(sbRaw: any, cen: any): Promise<{ system: string; user: string }> {
+/**
+ * Monta o prompt do check a partir da ROW do cenário (mesma lógica do síncrono).
+ *
+ * A régua é a DA LINHA (`versaoDoCenario`), nunca a da empresa: um cenário v1 já
+ * entregue não é rechecado pela régua v2, que ele não conheceu. `opts.versao` serve à
+ * candidata em memória, que ainda não tem carimbo. Na v2 o auditor recebe também a
+ * ficha inteira do cargo e os outros cenários do mesmo cargo (repetição).
+ */
+export async function montarCheckIA3Prompt(sbRaw: any, cen: any, opts: { versao?: VersaoCenarios } = {}): Promise<{ system: string; user: string; versao: VersaoCenarios }> {
+  const versao: VersaoCenarios = opts.versao ?? versaoDoCenario(cen);
   const tdb = cen.empresa_id ? tenantDb(cen.empresa_id) : null;
   const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
 
@@ -670,7 +770,9 @@ export async function montarCheckIA3Prompt(sbRaw: any, cen: any): Promise<{ syst
   const mapaCobertura = alt.mapa_cobertura_descritores ? JSON.stringify(alt.mapa_cobertura_descritores) : '';
   const riscos = alt.riscos_do_cenario || '';
 
-  const system = buildCheckIA3SystemPrompt();
+  const system = versao === 'v2'
+    ? buildCheckIA3SystemPrompt() + CONFERENCIA_FATOS_E_PAPEL_V2
+    : buildCheckIA3SystemPrompt();
 
   let user = `═══ CARGO ═══\n${cen.cargo}`;
   user += `\n\n═══ COMPETÊNCIA ═══\n${compNome}`;
@@ -683,9 +785,30 @@ export async function montarCheckIA3Prompt(sbRaw: any, cen: any): Promise<{ syst
   user += `\n\n═══ PERGUNTAS ═══\n${perguntasTexto}`;
   if (mapaCobertura) user += `\n\n═══ MAPA DE COBERTURA ═══\n${mapaCobertura}`;
   if (pppResumo) user += `\n\n═══ CONTEXTO PPP ═══\n${pppResumo}`;
+
+  if (versao === 'v2' && tdb && cen.empresa_id) {
+    // A MESMA ficha que o gerador v2 recebeu: sem ela o auditor julga realismo às cegas
+    // (até 13/10/2026 ele via só o nome do cargo e 500 caracteres do PPP).
+    const { carregarFichaParaCenario } = await import('@/lib/cargo-contexto');
+    const ficha = await carregarFichaParaCenario(tdb.raw, cen.empresa_id, cen.cargo);
+    user += `\n\n${blocoFichaCenarioV2(ficha.linhas)}`;
+
+    // Os outros cenários do cargo: 5 de 6 cenários de um cargo da Amazon tinham a mesma
+    // "festa de 40 pessoas", e cada um, sozinho, parecia plausível.
+    const { data: irmaos, error: errIrmaos } = await tdb.from('banco_cenarios')
+      .select('id, titulo, descricao, competencia_id')
+      .eq('cargo', cen.cargo)
+      .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
+      .order('created_at', { ascending: false })
+      .limit(MAX_IRMAOS_NO_CHECK + 4);
+    if (errIrmaos) throw new Error(`Check IA3: outros cenários do cargo: ${errIrmaos.message}`);
+    const blocoIrmaos = blocoIrmaosV2((irmaos || []).filter((c: any) => c.id !== cen.id && c.competencia_id !== cen.competencia_id));
+    if (blocoIrmaos) user += `\n\n${blocoIrmaos}`;
+  }
+
   user += `\n\n═══ INSTRUÇÃO ═══\nSe o cenário for bem escrito mas metodologicamente fraco, PENALIZE. Prefira rigor metodológico a elegância textual.`;
 
-  return { system, user };
+  return { system, user, versao };
 }
 
 /** Clamp erro_grave×nota + status derivado EM CÓDIGO (pura). */
@@ -711,6 +834,10 @@ export async function persistirCheckIA3(sbRaw: any, cen: any, resultado: any, st
   // falha aqui, com a causa, em vez de depois, sem ela.
   if (errLinhaChk) return { ok: false, error: `Check: leitura da linha falhou: ${errLinhaChk.message} (cen.id: ${cen.id})` };
   const versoesGuardadas = Array.isArray(cenLinhaChk?.alertas_check?.versoes_anteriores) ? cenLinhaChk.alertas_check.versoes_anteriores : null;
+  // Carimbo (plano de 11/10/2026, 0.2): o check reescreve `alertas_check`, então o que diz
+  // QUEM gerou a linha (e de qual versão respondida ela descende) tem de sobreviver a ele.
+  const acAtual: any = (cenLinhaChk?.alertas_check && typeof cenLinhaChk.alertas_check === 'object') ? cenLinhaChk.alertas_check : {};
+  const versaoLinha = versaoDoCenario({ alertas_check: acAtual });
   const { data: updated, error: updErr } = await escopoTenantDaLinha(
     sbRaw.from('banco_cenarios').update({
     nota_check: resultado.nota,
@@ -724,6 +851,10 @@ export async function persistirCheckIA3(sbRaw: any, cen: any, resultado: any, st
       ponto_mais_fraco: resultado.ponto_mais_fraco || null,
       descritores_sem_cobertura: resultado.descritores_sem_cobertura || [],
       perguntas_com_risco: resultado.perguntas_com_risco || [],
+      ...(versaoLinha === 'v2' ? listasDaReguaV2(resultado) : {}),
+      versao_prompt: CARIMBO_PROMPT[versaoLinha],
+      versao_regua: CARIMBO_REGUA[versaoLinha],
+      ...(acAtual.versao_de ? { versao_de: acAtual.versao_de } : {}),
       ...(versoesGuardadas ? { versoes_anteriores: versoesGuardadas } : {}),
     },
     checked_at: new Date().toISOString(),
@@ -839,17 +970,21 @@ export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
    * na régua DESSE auditor, que não é a do Terra — ver `escalaPropria`.
    */
   auditor?: string;
+  /** Força as regras da candidata (script de comparação). Sem isto, vale a da empresa. */
+  versao?: VersaoCenarios;
 }): Promise<CandidataIA3> {
   const { cen } = args;
   const aiConfig = await resolverAiConfigGeracaoIA3(cen.empresa_id, args.aiConfig ?? {});
   const feedbackExtra = montarFeedbackRegeneracaoIA3(args.feedbackDe ?? cen);
 
-  const mc = await montarContextoIA3(sbRaw, cen.empresa_id, cen.cargo, cen.competencia_id, cen.ppp_escola_id ?? null);
+  const mc = await montarContextoIA3(sbRaw, cen.empresa_id, cen.cargo, cen.competencia_id, cen.ppp_escola_id ?? null, { versao: args.versao });
   if (!('ctx' in mc)) return { ok: false, error: mc.error };
-  const { empresa, comp, descritores, contextoPPP, valores, cargoDetalhe, gabCIS } = mc.ctx;
+  const { descritores } = mc.ctx;
+  const versaoCand: VersaoCenarios = mc.ctx.versao ?? 'v1';
 
-  const system = buildIA3SystemPrompt();
-  let user = buildIA3UserPrompt(empresa, cen.cargo, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
+  const prompts = montarPromptsGeracaoIA3(mc.ctx, cen.cargo);
+  const system = prompts.system;
+  let user = prompts.user;
   if (feedbackExtra) user += `\n\nFEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n${feedbackExtra}`;
   // Anti-inflação (medido 23/07: a 2ª rodada estourou contenção ao "corrigir
   // adicionando"): os limites de sobriedade valem MESMO cobrindo críticas.
@@ -860,8 +995,13 @@ export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
 
   const resposta = await callAI(system, user, aiConfig, IA3_MAX_TOKENS_GERACAO, { taskKey: 'ia3_cenarios', timeoutMs: IA3_TIMEOUT_GERACAO_MS, empresaId: cen.empresa_id });
   const resultado = await extractJSON(resposta);
-  const norm = resultado ? validarRespostaIA3(resultado, descritores.length) : null;
+  const norm = resultado ? validarRespostaIA3(resultado, descritores.length, limitesDaVersaoIA3(versaoCand)) : null;
   if (!norm) return { ok: false, error: 'IA não retornou cenário válido — NADA foi alterado (a versão atual continua valendo)' };
+  // v2: os tetos e a cobertura são conferidos em código também na regeneração, como no lote
+  // (que manda para o síncrono quem erra). A rodada é gasta e a escada segue; a v1 segue como sempre.
+  if (versaoCand === 'v2' && norm.errors.length) {
+    return { ok: false, error: `Candidata fora das regras v2 (${norm.errors.join('; ')}): NADA foi alterado (a versão atual continua valendo)` };
+  }
 
   const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas, descritores);
   const candidato = {
@@ -873,8 +1013,9 @@ export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
     alternativas,
   };
 
-  // Audita a CANDIDATA em memória (2ª IA, modelo da task ia3_check)
-  const { system: sysChk, user: userChk } = await montarCheckIA3Prompt(sbRaw, candidato);
+  // Audita a CANDIDATA em memória (2ª IA, modelo da task ia3_check), na régua da versão
+  // que a GEROU: a candidata ainda não tem carimbo para `versaoDoCenario` ler.
+  const { system: sysChk, user: userChk } = await montarCheckIA3Prompt(sbRaw, candidato, { versao: versaoCand });
   const { getModelForTask } = await import('@/lib/ai-tasks');
   const checkModelo = args.auditor || await getModelForTask(cen.empresa_id, 'ia3_check');
   const respChk = await callAI(sysChk, userChk, { model: checkModelo }, 7000, { taskKey: 'ia3_check', empresaId: cen.empresa_id });
@@ -883,7 +1024,10 @@ export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
 
   const r = normed.resultado;
   return {
-    ok: true, candidato, alternativas, normed, escalaPropria: !!args.auditor,
+    ok: true, candidato, alternativas, normed,
+    // Régua de outra versão também é "outra régua": candidata v2 contra campeão v1 só vale
+    // se atingir o limiar na régua dela, como a do auditor próprio do degrau GPT.
+    escalaPropria: !!args.auditor || versaoCand !== versaoDoCenario(cen),
     auditoria: {
       nota_check: r.nota,
       status_check: normed.statusCheck,
@@ -896,12 +1040,112 @@ export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
         ponto_mais_fraco: r.ponto_mais_fraco || null,
         descritores_sem_cobertura: r.descritores_sem_cobertura || [],
         perguntas_com_risco: r.perguntas_com_risco || [],
+        ...(versaoCand === 'v2' ? listasDaReguaV2(r) : {}),
         // Rastro de QUEM mediu: duas réguas diferentes não se comparam sem saber de quem é cada nota.
         auditor: checkModelo,
         gerador: (aiConfig as any)?.model ?? null,
+        versao_prompt: CARIMBO_PROMPT[versaoCand],
+        versao_regua: CARIMBO_REGUA[versaoCand],
       },
     },
   };
+}
+
+/**
+ * A versão MAIS NOVA da célula do A, quando não é `cen` (régua em `lib/cenario-versoes.ts`).
+ * Erro de leitura volta como erro: sem saber se existe versão mais nova, nada se regenera.
+ */
+export async function versaoMaisNovaDaCelulaIA3(tdb: any, cen: any): Promise<{
+  error: string | null; maisNova: { id: string; nota_check?: number | null } | null;
+}> {
+  // Sem célula ou sem data não há ordem a conferir (linha de catálogo antiga).
+  if (!cen?.competencia_id || !cen?.cargo || !Number.isFinite(Date.parse(String(cen?.created_at ?? '')))) {
+    return { error: null, maisNova: null };
+  }
+  const base = tdb.from('banco_cenarios')
+    .select('id, competencia_id, cargo, ppp_escola_id, tipo_cenario, created_at, nota_check')
+    .eq('competencia_id', cen.competencia_id)
+    .eq('cargo', cen.cargo);
+  const { data, error } = await (cen.ppp_escola_id ? base.eq('ppp_escola_id', cen.ppp_escola_id) : base.is('ppp_escola_id', null));
+  if (error) return { error: `não foi possível conferir as versões da célula (${error.message}); nada foi alterado`, maisNova: null };
+  return { error: null, maisNova: versaoMaisNovaQue(cen, data || []) };
+}
+
+/**
+ * Por que uma linha não pode ser regenerada pelo gerador do A, ou `null`. Roda antes de
+ * qualquer chamada de IA. `falhaDeLeitura` separa "não deu para conferir" (erro) de uma
+ * recusa por regra (o lote conta como pulado, não como erro).
+ */
+async function motivoParaNaoRegenerarIA3(cen: any): Promise<{ motivo: string; falhaDeLeitura: boolean } | null> {
+  // O B tem tela própria (Fase 5), que confere se ele já foi servido no fechamento. Aqui ele
+  // seria reescrito pelo gerador do A, e a tela da Fase 1 lista o B junto com os A.
+  if (ehCenarioB(cen)) {
+    return { motivo: 'Cenário B: regenere pela tela do Cenário B, que confere se ele já foi servido no fechamento.', falhaDeLeitura: false };
+  }
+  const cabeca = await versaoMaisNovaDaCelulaIA3(tenantDb(cen.empresa_id), cen);
+  if (cabeca.error) return { motivo: cabeca.error, falhaDeLeitura: true };
+  if (cabeca.maisNova) {
+    const nota = typeof cabeca.maisNova.nota_check === 'number' ? ` (${cabeca.maisNova.nota_check}pts)` : '';
+    return { motivo: `Este cenário já tem versão mais nova na mesma célula${nota}: regenere a mais nova. Esta fica como está.`, falhaDeLeitura: false };
+  }
+  return null;
+}
+
+/**
+ * Aplica a candidata PROMOVIDA (plano de 11/10/2026, Fase 0): no lugar, se ninguém
+ * respondeu ao cenário; como LINHA NOVA, se alguém respondeu.
+ *
+ * Reescrever no lugar um cenário respondido deixava a resposta e a nota da IA4
+ * apontando para um texto que a pessoa nunca leu. A linha nova já entra auditada (nota,
+ * status e carimbo): sem nota, o corte de nota mínima (`cenario-elegivel.ts`, Amazon em
+ * 80) não a serviria. Quem ainda vai responder recebe a nova, porque o leitor ordena por
+ * `created_at desc`; quem respondeu segue com a sua, intacta.
+ *
+ * Falha ao contar as respostas NÃO vira "ninguém respondeu": nada é alterado.
+ */
+export async function aplicarCandidataIA3(
+  sbRaw: any, cen: any,
+  cand: { candidato: { titulo: string; descricao: string }; alternativas: Record<string, any>; auditoria: Record<string, any> },
+  extrasAlertas: Record<string, any> = {},
+): Promise<{ ok: true; modo: 'no_lugar' | 'versao_nova'; cenarioId: string | null; respondidoPor: number } | { ok: false; error: string }> {
+  const tdb = tenantDb(cen.empresa_id);
+  const uso = await usoDoCenarioA(tdb, cen.id);
+  if ('erro' in uso) return { ok: false, error: `não foi possível conferir se o cenário já tem respostas (${uso.erro}); nada foi alterado` };
+
+  const { candidato, alternativas, auditoria } = cand;
+  const agora = new Date().toISOString();
+
+  if (uso.total === 0) {
+    const { error } = await sbRaw.from('banco_cenarios').update({
+      titulo: candidato.titulo,
+      descricao: candidato.descricao,
+      alternativas,
+      ...auditoria,
+      // Guarda o conteúdo que está sendo substituído (ver `versoesComAnteriorIA3`).
+      alertas_check: { ...(auditoria.alertas_check || {}), ...extrasAlertas, versoes_anteriores: versoesComAnteriorIA3(cen) },
+      checked_at: agora,
+    }).eq('id', cen.id).eq('empresa_id', cen.empresa_id);
+    if (error) return { ok: false, error: `UPDATE falhou (${error.message}); versão anterior preservada` };
+    return { ok: true, modo: 'no_lugar', cenarioId: cen.id, respondidoPor: 0 };
+  }
+
+  const { data: nova, error } = await tdb.from('banco_cenarios').insert({
+    competencia_id: cen.competencia_id,
+    cargo: cen.cargo,
+    ppp_escola_id: cen.ppp_escola_id ?? null,
+    titulo: candidato.titulo,
+    descricao: candidato.descricao,
+    alternativas,
+    ...auditoria,
+    alertas_check: {
+      ...(auditoria.alertas_check || {}), ...extrasAlertas,
+      // De qual versão respondida esta descende (a anterior segue no banco, intacta).
+      versao_de: { cenario_id: cen.id, respondido_por: uso.total },
+    },
+    checked_at: agora,
+  }).select('id').maybeSingle();
+  if (error) return { ok: false, error: `versão nova não gravada (${error.message}); a versão respondida segue valendo` };
+  return { ok: true, modo: 'versao_nova', cenarioId: nova?.id ?? null, respondidoPor: uso.total };
 }
 
 export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
@@ -924,6 +1168,9 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
   const { data: cen } = await sbRaw.from('banco_cenarios').select('*').eq('id', cenarioId).single();
   if (!cen) return { success: false, error: 'Cenário não encontrado' };
   if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional)' };
+  // Só a versão mais nova da célula se regenera, e nunca um B (`motivoParaNaoRegenerarIA3`).
+  const recusa = await motivoParaNaoRegenerarIA3(cen);
+  if (recusa) return { success: false, error: recusa.motivo };
 
   // A mesma montagem do degrau que o lote usa (`regenerarAteLimiarIA3`): modelo do degrau,
   // auditor próprio quando o gerador é da família do auditor da task, e "do zero" sem feedback.
@@ -951,21 +1198,17 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
     };
   }
 
-  // Aplica: conteúdo + auditoria da candidata numa escrita só (tenant-scoped)
-  const { error: updErr } = await sbRaw.from('banco_cenarios').update({
-    titulo: candidato.titulo,
-    descricao: candidato.descricao,
-    alternativas,
-    ...auditoria,
-    // Guarda o conteúdo que está sendo substituído (ver `versoesComAnteriorIA3`).
-    alertas_check: { ...auditoria.alertas_check, versoes_anteriores: versoesComAnteriorIA3(cen) },
-    checked_at: new Date().toISOString(),
-  }).eq('id', cen.id).eq('empresa_id', cen.empresa_id);
-  if (updErr) return { success: false, error: `Regeneração: UPDATE falhou (${updErr.message}) — versão anterior preservada` };
+  // Aplica: conteúdo + auditoria da candidata numa escrita só (tenant-scoped). Cenário já
+  // respondido não é reescrito: a candidata vira linha nova (`aplicarCandidataIA3`).
+  const aplicado = await aplicarCandidataIA3(sbRaw, cen, { candidato, alternativas, auditoria });
+  if (!aplicado.ok) return { success: false, error: `Regeneração: ${(aplicado as { ok: false; error: string }).error}` };
+  const preservado = aplicado.modo === 'versao_nova'
+    ? ` O cenário anterior tinha ${aplicado.respondidoPor} resposta(s) e foi preservado; a versão nova vale para quem ainda vai responder.`
+    : '';
 
   return {
     success: true, aplicado: true, nota: notaCandidata, notaAnterior, status: normed.statusCheck,
-    message: `Regenerado: ${notaCandidata}pts (${normed.statusCheck})${notaAnterior != null ? ` — antes ${notaAnterior}pts` : ''}.`,
+    message: `Regenerado: ${notaCandidata}pts (${normed.statusCheck})${notaAnterior != null ? ` — antes ${notaAnterior}pts` : ''}.${preservado}`,
   };
 }
 
@@ -1151,6 +1394,11 @@ export async function regenerarAteLimiarIA3(sbRaw: any, args: {
   if (cen.nota_check >= limiar) return { success: true, pulado: 'já no limiar', notaInicial: cen.nota_check, notaFinal: cen.nota_check, atingiuLimiar: true };
   const jaTentado = (cen.alertas_check as any)?.regeneracao_auto?.esgotado === true;
   if (jaTentado && !args.forcar) return { success: true, pulado: 'tentativas automáticas já esgotadas', notaInicial: cen.nota_check, notaFinal: cen.nota_check, atingiuLimiar: false };
+  // Só a versão mais nova da célula se regenera, e nunca um B (`motivoParaNaoRegenerarIA3`).
+  // O lote só passa linha recém-gerada; isto cobre a corrida com alguém respondendo no meio.
+  const recusa = await motivoParaNaoRegenerarIA3(cen);
+  if (recusa?.falhaDeLeitura) return { success: false, error: recusa.motivo };
+  if (recusa) return { success: true, pulado: recusa.motivo, notaInicial: cen.nota_check, notaFinal: cen.nota_check, atingiuLimiar: false };
 
   const aiConfig = await resolverAiConfigGeracaoIA3(cen.empresa_id, args.aiConfig ?? {});
   // `maxRodadas` explícito = só o 1º degrau (teste/script); o default é a escada inteira.
@@ -1179,14 +1427,9 @@ export async function regenerarAteLimiarIA3(sbRaw: any, args: {
 
   if (r.campeao) {
     const { candidato, alternativas, auditoria } = r.campeao;
-    const { error } = await sbRaw.from('banco_cenarios').update({
-      titulo: candidato.titulo, descricao: candidato.descricao, alternativas,
-      ...auditoria,
-      // Guarda o conteúdo que está sendo substituído (ver `versoesComAnteriorIA3`).
-      alertas_check: { ...auditoria.alertas_check, regeneracao_auto: meta, versoes_anteriores: versoesComAnteriorIA3(cen) },
-      checked_at: new Date().toISOString(),
-    }).eq('id', cen.id).eq('empresa_id', cen.empresa_id);
-    if (error) return { success: false, error: `Regeneração automática: UPDATE falhou (${error.message}) — versão anterior preservada` };
+    // Cenário já respondido não é reescrito: o campeão vira linha nova (`aplicarCandidataIA3`).
+    const aplicado = await aplicarCandidataIA3(sbRaw, cen, { candidato, alternativas, auditoria }, { regeneracao_auto: meta });
+    if (!aplicado.ok) return { success: false, error: `Regeneração automática: ${(aplicado as { ok: false; error: string }).error}` };
   } else {
     // Nenhuma candidata promovida: o conteúdo fica; só registra que as tentativas foram gastas.
     const { error } = await sbRaw.from('banco_cenarios').update({

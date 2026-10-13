@@ -105,8 +105,8 @@ vi.mock('@/actions/ai-client', () => ({ callAI: async () => '{}' }));
 // ── IA3 ────────────────────────────────────────────────────────────────────
 vi.mock('@/lib/ia3-cenarios', () => ({
   montarContextoIA3: async () => ({ ctx: { comp: { id: 'comp-1' }, descritores: [1], tdb: {}, empresa: {}, cargoDetalhe: {}, valores: null, contextoPPP: '', gabCIS: null } }),
-  buildIA3SystemPrompt: () => 'S',
-  buildIA3UserPrompt: () => 'U',
+  montarPromptsGeracaoIA3: () => ({ system: 'S', user: 'U' }),
+  limitesDaVersaoIA3: () => undefined,
   validarRespostaIA3: () => ({ errors: [], cen: { titulo: 'T', contexto: 'C' }, perguntas: [], titulo: 'T', contexto: 'C' }),
   montarAlternativasIA3: () => ({}),
   persistirCenarioIA3: async () => {

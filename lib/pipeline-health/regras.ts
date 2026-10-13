@@ -23,6 +23,7 @@
  *                                   R19  checarCanarioTts
  *                                   R20  checarCalibracaoVoz
  *                                   R21  checarCenarioBHorizonte
+ *                                   R22  checarRepresentatividade
  *
  * ⚠️ **O número NÃO segue a ordem do arquivo, e isso é deliberado.** Os IDs são
  * citados em docs, testes e outros módulos (`lib/degradacao.ts`, `admin-supabase.ts`,
@@ -38,6 +39,10 @@
  * `tests/unit/pipeline-health-ids-unicos.test.ts` impede a regressão.
  */
 import { achado, type Achado } from './types';
+import {
+  type ResumoRepresentatividade, emAlertaDeRepresentatividade,
+  LIMIAR_REPRESENTATIVIDADE, MIN_PESSOAS_REPRESENTATIVIDADE,
+} from '@/lib/assessment/representatividade';
 
 /** Uma entrega prevista = (pessoa × pílula) de uma semana, JÁ PÓS-OVERLAY. */
 export interface EntregaPrevista {
@@ -387,6 +392,48 @@ export function checarCenarioBHorizonte(
       { amostra: futuras.map(rotulo), acao },
     ),
   ].filter(Boolean) as Achado[];
+}
+
+/**
+ * R22 · As pessoas dizem que os cenários não se parecem com o dia a dia delas.
+ *
+ * Real (plano de cenários de 11/10/2026): depois de cada cenário a pessoa dá uma nota de 1
+ * a 10 para "a representatividade desta situação no seu cotidiano", e NADA a lia. Na
+ * Amazon Bowling a média era 4,7 (74% das notas em 5 ou menos) desde 06/10; a queixa
+ * ("situações fictícias") só chegou numa reunião, em 09/10. Ibipeba, que disse "parece a
+ * nossa realidade", tinha 6,9.
+ *
+ * Janela de dias de propósito: média de sempre vira alarme crônico (Macaé ficou em 4,8 em
+ * julho e agosto, e repetir isso todo dia ensina a ignorar a regra). PESSOAS, não respostas:
+ * uma pessoa responde 6 cenários, então 6 respostas podem ser uma opinião só.
+ */
+export interface SinalRepresentatividade {
+  empresa: ResumoRepresentatividade;
+  porCargo: Record<string, ResumoRepresentatividade>;
+  /** A janela, em dias, das respostas lidas. */
+  dias: number;
+}
+
+export function checarRepresentatividade(
+  s: SinalRepresentatividade,
+  limiar: number = LIMIAR_REPRESENTATIVIDADE,
+  minPessoas: number = MIN_PESSOAS_REPRESENTATIVIDADE,
+): Achado | null {
+  if (!emAlertaDeRepresentatividade(s.empresa, limiar, minPessoas)) return null;
+  const umaCasa = (n: number | null) => (n == null ? '?' : String(n).replace('.', ','));
+  const cargos = Object.entries(s.porCargo || {})
+    .filter(([, r]) => r.media != null && r.media < limiar)
+    .sort((a, b) => (a[1].media as number) - (b[1].media as number));
+  return achado(
+    'cenarios-baixa-representatividade', 'aviso',
+    'As pessoas dizem que os cenários não se parecem com o dia a dia delas',
+    s.empresa.pessoas,
+    `Média ${umaCasa(s.empresa.media)} de 10 em ${s.empresa.respostas} respostas de ${s.empresa.pessoas} pessoas nos últimos ${s.dias} dias (linha de alerta: ${limiar}). Cenário que a pessoa não reconhece vira resposta "hipotética" e diagnóstico mais fraco.`,
+    {
+      amostra: cargos.map(([cargo, r]) => `${cargo} · média ${umaCasa(r.media)} · ${r.respostas} resp. · ${r.pessoas}p`),
+      acao: 'Abrir a aba Cenários da Fase 1 da empresa, ver a nota por cenário e rever a ficha do cargo antes da próxima geração de cenários.',
+    },
+  );
 }
 
 /**

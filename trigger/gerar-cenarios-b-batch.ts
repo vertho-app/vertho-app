@@ -2,7 +2,8 @@ import { task, wait } from '@trigger.dev/sdk';
 import { tenantDb } from '@/lib/tenant-db';
 import { criarPatchJob, registrarFalhaDaTentativa } from '@/lib/ia-jobs';
 import { normalizarCheckCenB, validarCenarioB } from '@/lib/cenarios-b';
-import { buildCenarioBPrompts, buildCheckCenarioBUser, SYSTEM_CHECK_CENARIO_B } from '@/lib/cenarios-b-prompt';
+import { buildCenarioBPrompts, buildCheckCenarioBUser, systemCheckCenarioB } from '@/lib/cenarios-b-prompt';
+import { versaoDoCenario } from '@/lib/ia3-cenarios-v2';
 import { prepararCenariosB, salvarCenarioB, salvarCheckCenarioB, type ItemCenarioB } from '@/lib/cenarios-b-lote';
 import { extractJSON } from '@/actions/utils';
 import {
@@ -111,7 +112,7 @@ export const gerarCenariosBBatchTask = task({
             resultados.push({ cargo, ok: false, error: erros.join('; ') });
           } else {
             // Erro de persistência interrompe a tentativa; a retomada usa o mesmo lote.
-            p.cenB = await salvarCenarioB(payload.empresaId, p.cenA, resposta);
+            p.cenB = await salvarCenarioB(payload.empresaId, p.cenA, resposta, p.ctx.versao);
             resultados.push({ cargo, ok: true, message: 'Cenário B gerado em lote' });
           }
         } else {
@@ -122,9 +123,11 @@ export const gerarCenariosBBatchTask = task({
       }
 
       // ids baseados no A: permanecem iguais mesmo se só parte do lote foi salva.
+      // A régua do check é a DA LINHA (carimbo gravado na geração), não a da empresa.
       const reqsCheck = preparados.filter(p => p.cenB && p.cenB.nota_check == null).map(p => ({
         customId: `c_${p.item.cenarioAId}`,
-        system: SYSTEM_CHECK_CENARIO_B, user: buildCheckCenarioBUser(p.ctx, p.cenB, p.cenA),
+        system: systemCheckCenarioB(versaoDoCenario(p.cenB)),
+        user: buildCheckCenarioBUser({ ...p.ctx, versao: versaoDoCenario(p.cenB) }, p.cenB, p.cenA),
         model: checkModel, maxTokens: 4096,
       }));
       const checks = await executarOnda(reqsCheck, 'Chk');
@@ -135,7 +138,7 @@ export const gerarCenariosBBatchTask = task({
           if (!normalizarCheckCenB(resposta)) {
             resultados.push({ cargo: p.item.cargo, ok: false, error: 'Validação não retornou nota válida; cenário preservado para nova checagem' });
           } else {
-            const check = await salvarCheckCenarioB(payload.empresaId, p.cenB.id, resposta);
+            const check = await salvarCheckCenarioB(payload.empresaId, p.cenB.id, resposta, versaoDoCenario(p.cenB));
             resultados.push({ cargo: p.item.cargo, ok: true, message: `Check: ${check.resultado.nota}pts — ${check.statusCheck}` });
           }
         }

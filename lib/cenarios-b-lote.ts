@@ -1,6 +1,7 @@
 import { tenantDb } from '@/lib/tenant-db';
 import { montarContextoIA3 } from '@/lib/ia3-cenarios';
-import { montarDadosCenarioB, normalizarCheckCenB, VERSAO_AUDITOR_B } from '@/lib/cenarios-b';
+import { montarDadosCenarioB, normalizarCheckCenB, versaoAuditorB } from '@/lib/cenarios-b';
+import { type VersaoCenarios, CARIMBO_PROMPT, CARIMBO_REGUA, listasDaReguaV2 } from '@/lib/ia3-cenarios-v2';
 import { celulasSemCenarioB, aReferenciaDaCelula } from '@/lib/season-engine/cenario-b';
 import { ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
 import type { ContextoCenarioB } from '@/lib/cenarios-b-prompt';
@@ -62,8 +63,8 @@ export async function prepararCenariosB(empresaId: string, items: ItemCenarioB[]
     if (erroA || !cenA) throw new Error(`Cenário A: ${erroA?.message || 'não encontrado nesta empresa'}`);
     const contexto = await montarContextoIA3(tdb.raw, empresaId, item.cargo, item.competenciaId, null);
     if ('error' in contexto) throw new Error(contexto.error);
-    const { empresa, comp, descritores, valores, contextoPPP, cargoDetalhe, gabCIS } = contexto.ctx;
-    const ctx: ContextoCenarioB = { empresa, comp, descritores, valores, contextoPPP, cargoDetalhe, gabCIS, cargoNome: item.cargo };
+    const { empresa, comp, descritores, valores, contextoPPP, cargoDetalhe, gabCIS, versao, fichaLinhas } = contexto.ctx;
+    const ctx: ContextoCenarioB = { empresa, comp, descritores, valores, contextoPPP, cargoDetalhe, gabCIS, cargoNome: item.cargo, versao, fichaLinhas };
     const { data: cenB, error: erroB } = await tdb.from('banco_cenarios').select('*')
       .eq('competencia_id', item.competenciaId).eq('cargo', item.cargo).eq('tipo_cenario', 'cenario_b')
       .order('id').limit(1).maybeSingle();
@@ -73,15 +74,16 @@ export async function prepararCenariosB(empresaId: string, items: ItemCenarioB[]
   return preparados;
 }
 
-export async function salvarCenarioB(empresaId: string, cenA: any, resultado: any) {
+export async function salvarCenarioB(empresaId: string, cenA: any, resultado: any, versao: VersaoCenarios = 'v1') {
   const tdb = tenantDb(empresaId);
   const { data, error } = await tdb.from('banco_cenarios')
-    .insert(montarDadosCenarioB(cenA, resultado)).select('*').single();
+    .insert(montarDadosCenarioB(cenA, resultado, versao)).select('*').single();
   if (error || !data) throw new Error(`Não foi possível salvar cenário B: ${error?.message || 'sem retorno'}`);
   return data;
 }
 
-export async function salvarCheckCenarioB(empresaId: string, cenarioId: string, resposta: any) {
+/** `versao` = a régua usada no check, que é a da LINHA (`versaoDoCenario`). */
+export async function salvarCheckCenarioB(empresaId: string, cenarioId: string, resposta: any, versao: VersaoCenarios = 'v1') {
   const check = normalizarCheckCenB(resposta);
   if (!check) throw new Error('Check não retornou nota válida');
   const { resultado, statusCheck } = check;
@@ -97,7 +99,11 @@ export async function salvarCheckCenarioB(empresaId: string, cenarioId: string, 
       problema_principal_vs_cenario_a: resultado.problema_principal_vs_cenario_a || null,
       riscos_de_triangulacao: resultado.riscos_de_triangulacao || [],
       perguntas_com_risco: resultado.perguntas_com_risco || [],
-      versao_auditor: VERSAO_AUDITOR_B,
+      ...(versao === 'v2' ? listasDaReguaV2(resultado) : {}),
+      versao_auditor: versaoAuditorB(versao),
+      // O check reescreve `alertas_check`: o carimbo de quem gerou tem de sobreviver a ele.
+      versao_prompt: CARIMBO_PROMPT[versao],
+      versao_regua: CARIMBO_REGUA[versao],
     },
     checked_at: new Date().toISOString(),
   }).eq('id', cenarioId).eq('tipo_cenario', 'cenario_b').select('id').single();

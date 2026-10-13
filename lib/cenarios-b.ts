@@ -1,5 +1,15 @@
 // Validação e persistência compartilhadas pelos modos imediato e lote.
+import { type VersaoCenarios, CARIMBO_PROMPT } from '@/lib/ia3-cenarios-v2';
+
+/** Versão do auditor da régua v1 (a de sempre, desde 18/09/2026). */
 export const VERSAO_AUDITOR_B = 2;
+/** Versão do auditor da régua v2 (`lib/ia3-cenarios-v2.ts`): ficha, fatos e papel. */
+export const VERSAO_AUDITOR_B_V2 = 3;
+
+/** A versão do auditor gravada com a nota, pela régua usada. Notas de versões diferentes não se comparam. */
+export function versaoAuditorB(versao: VersaoCenarios | undefined): number {
+  return versao === 'v2' ? VERSAO_AUDITOR_B_V2 : VERSAO_AUDITOR_B;
+}
 
 export function validarCenarioB(cenarioData: any, cenA: any): string[] {
   if (!cenarioData?.titulo || !cenarioData?.descricao) return ['Cenário sem título ou descrição'];
@@ -20,8 +30,10 @@ export function validarCenarioB(cenarioData: any, cenA: any): string[] {
   return errors;
 }
 
-export function montarDadosCenarioB(cenA: any, cenarioData: any) {
+export function montarDadosCenarioB(cenA: any, cenarioData: any, versao: VersaoCenarios = 'v1') {
   return {
+    // Carimbo das regras que geraram o B: o check usa a régua DESTA versão.
+    alertas_check: { versao_prompt: CARIMBO_PROMPT[versao] },
     competencia_id: cenA.competencia_id,
     cargo: cenA.cargo,
     titulo: cenarioData.titulo,

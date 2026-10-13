@@ -108,8 +108,11 @@ export interface OpcoesMock {
   resolver?: (tabela: string, cols: string, cadeia: Chamada[]) => any;
   /** `data` quando a cadeia é aguardada direto (lista). Default: `[]`. Mesma `cadeia` do `resolver`. */
   lista?: (tabela: string, cols: string, cadeia: Chamada[]) => any[];
-  /** `count` devolvido quando o select pede `{ count: 'exact' }`. */
-  contagem?: (tabela: string) => number | null;
+  /**
+   * `count` devolvido quando o select pede `{ count: 'exact' }`. `cadeia` = os elos
+   * desta query, para a contagem depender do filtro (quem não precisa ignora).
+   */
+  contagem?: (tabela: string, cadeia: Chamada[]) => number | null;
   /**
    * `data` de uma ESCRITA com `.select()` — as linhas afetadas.
    *
@@ -180,7 +183,7 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
         // `cadeia` = os filtros DESTA escrita (quais linhas um update/delete atinge).
         return { data: escrita(tabela, op, payload, cadeia), error: null, count: null };
       }
-      return { data: lista(tabela, cols, cadeia), error: null, count: querCount ? contagem(tabela) : null };
+      return { data: lista(tabela, cols, cadeia), error: null, count: querCount ? contagem(tabela, cadeia) : null };
     };
 
     const filtro = (nome: string) => (...args: any[]) => { registrar(nome, args); return b; };
