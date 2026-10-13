@@ -56,6 +56,10 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - 🔴 Passar por **`tenantDb(empresaId)`**. Guards: `tenant-mutation-guard`, `tenant-read-guard`
   (allowlists que só encolhem; a **constante no topo de cada teste é a fonte da verdade** sobre
   cobertura — não o resumo em doc nenhum).
+- 📋 **Mexeu na lista de tabelas de um dos dois guards** (`TABELAS` em `tenant-read-guard`, `TABELAS_TENANT` em
+  `tenant-mutation-guard`)? O `docs/FEATURES-E-BENEFICIOS.md` §4 (Multi-tenant nativo) diz "N na leitura e M na escrita" e é
+  fonte do Project de vendas. `Medido: 13/10/2026`: o doc dizia 12 e 13, o código tinha 13 e 14 (`assessment_rascunhos` entrou
+  nas duas): mudou em 8 dias, sem ninguém tocar no doc. Conte pelas constantes, não de memória.
 - 🔴 **Baixar o número de uma allowlist exige a correção NO MESMO commit.** Declarar "-1, trecho
   corrigido" e deixar o conserto no working tree deixa o local VERDE (lê o disco) e o CI VERMELHO
   (lê o commit): 14 pushes assim em 30/08, no E11. Memória `feedback_guard_varre_tracked`.
@@ -668,6 +672,10 @@ permissão exigida por qualquer action já existente.
   lista do guard no mesmo commit.
 - ✅ **Denominador de quem sente:** conte quem tem o papel e **não** é platform admin — o ramo de
   plataforma curto-circuita todo gate, então testar com a equipe Vertho não reproduz nada.
+- 📋 **Permissão nova ou removida em `PermissionKey`/`PERMISSIONS`?** O `docs/FEATURES-E-BENEFICIOS.md` §3.3 (Matriz de papéis)
+  diz "5 papéis × N permissões" e alimenta o Project de vendas. `Medido: 13/10/2026`: o doc dizia 33, o código tinha 35
+  (`board.use` em 06/10 e `users.impersonate`, do acesso assistido, em 10/10; as de DRE já estavam nas 33). Conte as chaves do
+  tipo, não de memória. Se foi mudança de PAPEL SÓCIO, a linha "Admin Sócio" do mesmo doc cita as extras vindas de `permission_overrides`.
 
 Detalhe: memória `project_rh_admin_da_empresa`.
 
