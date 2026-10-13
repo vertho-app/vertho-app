@@ -16,6 +16,7 @@ import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 import { casarSelecaoIA1 } from '@/lib/matriz-por-cargo';
 import { lerTudoPaginado } from '@/lib/paginacao';
 import { agregarRepresentatividade } from '@/lib/assessment/representatividade';
+import { insumoDosCenarios, versaoCenariosDoTenant, type InsumoDosCenarios, type VersaoCenarios } from '@/lib/ia3-cenarios-v2';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
@@ -475,6 +476,25 @@ export async function loadRepresentatividadeCenarios(empresaId: string): Promise
     if (r.cenario_id) usoPorCenario[r.cenario_id] = (usoPorCenario[r.cenario_id] || 0) + 1;
   }
   return { success: true, ...agregarRepresentatividade(respostas || []), usoPorCenario };
+}
+
+/**
+ * O insumo das regras v2 antes de "Gerar cenários" (plano de cenários de 11/10/2026, 3.4):
+ * quantos cargos com Top 5 têm caso real e fronteiras (mig 286), e em que regras a empresa
+ * gera. É AVISO: a tela pede uma confirmação a mais quando falta, nunca recusa. Na v1 esses
+ * campos não entram no gerador, e a tela não avisa.
+ */
+export async function loadInsumoCenarios(empresaId: string): Promise<
+  { success: true; versao: VersaoCenarios } & InsumoDosCenarios | { success: false; error: string }
+> {
+  await requireAdminAction();
+  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const tdb = tenantDb(empresaId);
+  const { data: empresa, error: errEmpresa } = await tdb.raw.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+  if (errEmpresa) return { success: false, error: `Não foi possível ler a empresa: ${errEmpresa.message}` };
+  const { data: cargos, error: errCargos } = await tdb.from('cargos_empresa').select('nome, casos_reais, fronteiras, top5_workshop');
+  if (errCargos) return { success: false, error: `Não foi possível ler os cargos: ${errCargos.message}` };
+  return { success: true, versao: versaoCenariosDoTenant(empresa?.sys_config), ...insumoDosCenarios(cargos || []) };
 }
 
 // Limpar cenários que não estão no Top 5

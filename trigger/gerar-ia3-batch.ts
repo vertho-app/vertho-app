@@ -1,6 +1,7 @@
 import { task, wait } from '@trigger.dev/sdk';
 import { criarPatchJob, registrarFalhaDaTentativa } from '@/lib/ia-jobs';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { alternativasComCasoReal } from '@/lib/ia3-cenarios-v2';
 import {
   montarContextoIA3, montarPromptsGeracaoIA3, limitesDaVersaoIA3,
   validarRespostaIA3, montarAlternativasIA3, persistirCenarioIA3,
@@ -212,7 +213,7 @@ export const gerarIA3BatchTask = task({
           const resultado = await extractJSON(texto);
           const norm = resultado ? validarRespostaIA3(resultado, p.ctx.descritores.length, limitesDaVersaoIA3(p.ctx.versao)) : null;
           if (norm && norm.errors.length === 0) {
-            const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas, p.ctx.descritores);
+            const alternativas = alternativasComCasoReal(montarAlternativasIA3(resultado, norm.cen, norm.perguntas, p.ctx.descritores), p.ctx.casoReal);
             const persist = await persistirCenarioIA3(p.ctx.tdb, {
               compId: p.ctx.comp.id, cargoNome: p.item.cargo, pppEscolaId: p.item.ppp_escola_id ?? null,
               titulo: norm.cen.titulo || norm.titulo, contexto: norm.cen.contexto || norm.contexto, alternativas,

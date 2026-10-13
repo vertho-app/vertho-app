@@ -4675,6 +4675,10 @@
       "ia3NothingPending": "No pending scenarios: the {count} Top 5 scenarios already exist.",
       "ia3RegenerateAllConfirm": "The {count} Top 5 scenarios already exist. Regenerating ALL calls the AI again for each one (cost) and replaces those that have no answers yet. Confirm?",
       "ia3NoCompetency": "{count} Top 5 name(s) with no matching competency in the role, which do NOT generate a scenario: {list}",
+      "ia3InsumoUnavailable": "Could not check the real cases and boundaries of the roles: {error}",
+      "ia3InsumoV2": "v2 rules: real cases in {comCasos} of {total} roles and boundaries in {comFronteiras} of {total}.",
+      "ia3InsumoSemCasos": "Roles without a real case (the scenario starts only from the role profile): {list}",
+      "ia3InsumoV2Confirm": "This company generates with the v2 rules. There are real cases in {comCasos} of {total} roles and boundaries in {comFronteiras} of {total}. Without a real case, the scenario starts only from the role profile; without boundaries, the generator does not know what the role does not do. Generate anyway?",
       "ia3LadderStep": "{name}: {score} pts, round {step} of {total} of the ladder ({rung})",
       "focusLoaded": "Focus competencies loaded ({count} roles)",
       "focusLoadError": "Error loading",
@@ -4777,6 +4781,15 @@
         "label": "Main Expected Deliveries",
         "placeholder": "Results expected from the position..."
       },
+      "fronteiras": {
+        "label": "Role boundaries",
+        "placeholder": "What the role does not do, who does it instead and what is outsourced. E.g.: air conditioning: calls the outsourced technician and coordinates their schedule."
+      },
+      "casos_reais": {
+        "label": "Real cases",
+        "hint": "One real situation per competency of the role: what happened, who was involved (by role, never by name) and what was done. Scenarios under the v2 rules start from these cases.",
+        "placeholder": "Real case {n}"
+      },
       "stakeholders": {
         "label": "Stakeholders",
         "placeholder": "Who you interact with: peers, superiors, customers..."
@@ -4798,7 +4811,7 @@
       "collaboratorsTitle": "CSV format",
       "collaboratorsDescription": "The file must have a header on the first line. Separator: comma or semicolon (automatically detected).",
       "rolesTitle": "Import Job Titles via CSV",
-      "rolesDescription": "Creates batch positions in table `cargos_empresa`. Duplicates by name are ignored.",
+      "rolesDescription": "Creates batch positions in table `cargos_empresa`. A position that already exists (same name) only receives the boundaries and real cases from the spreadsheet; the rest of its profile does not change.",
       "column": "Column",
       "required": "Mandatory",
       "example": "Example",

@@ -35,9 +35,15 @@ export interface CargoInfo {
   tensoes_comuns?: string | null;
   contexto_cultural?: string | null;
   eh_lideranca?: boolean | null;
+  /** O que o cargo não faz, quem faz no lugar, o que é terceirizado (mig 286). Entra na ficha. */
+  fronteiras?: string | null;
+  /** Casos reais do gestor, `[{ texto }]` (mig 286). Só os cenários v2 leem (`lib/ia3-cenarios-v2.ts`). */
+  casos_reais?: unknown;
+  /** Top 5 do cargo (nomes de competência, em ordem): decide qual caso real vai para cada competência. */
+  top5_workshop?: unknown;
 }
 
-const CARGO_COLS = 'id, nome, area_depto, descricao, principais_entregas, stakeholders, decisoes_recorrentes, tensoes_comuns, contexto_cultural, eh_lideranca';
+const CARGO_COLS = 'id, nome, area_depto, descricao, principais_entregas, stakeholders, decisoes_recorrentes, tensoes_comuns, contexto_cultural, eh_lideranca, fronteiras, casos_reais, top5_workshop';
 
 /** `'todos'` é o curinga do kit e do conteúdo: não há ficha a buscar. */
 const semCargo = (cargoNome?: string | null) => !cargoNome || !cargoNome.trim() || cargoNome.trim().toLowerCase() === 'todos';
@@ -92,6 +98,9 @@ function linhasDaFicha(cargo: CargoInfo, limite?: number): string[] {
     cargo.nome ? `Cargo: ${cargo.nome}${cargo.area_depto ? ` (${cargo.area_depto})` : ''}${cargo.eh_lideranca ? ' — posição de liderança' : ''}` : '',
     cargo.descricao ? `Descrição: ${corta(cargo.descricao)}` : '',
     cargo.principais_entregas ? `Principais entregas: ${corta(cargo.principais_entregas)}` : '',
+    // Mig 286 (plano de cenários de 11/10/2026): o que o cargo NÃO faz. Sem isto, a climatização
+    // da Amazon, terceirizada, virava tarefa do supervisor nos cenários.
+    cargo.fronteiras ? `Fronteiras do cargo (o que não faz, quem faz no lugar, o que é terceirizado): ${corta(cargo.fronteiras)}` : '',
     cargo.stakeholders ? `Stakeholders: ${corta(cargo.stakeholders)}` : '',
     cargo.decisoes_recorrentes ? `Decisões recorrentes: ${corta(cargo.decisoes_recorrentes)}` : '',
     cargo.tensoes_comuns ? `Tensões comuns: ${corta(cargo.tensoes_comuns)}` : '',

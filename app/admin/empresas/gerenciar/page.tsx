@@ -8,7 +8,7 @@ import { Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw,
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
-import { colunasDoCargo } from '@/lib/cargos-import';
+import { colunasDoCargo, casosReaisDaLinha, slotsDosCasos, comCasoTrocado } from '@/lib/cargos-import';
 import {
   loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador, preverExclusaoColaborador,
   criarColaborador, exportarColaboradoresXLSX,
@@ -22,6 +22,7 @@ import type { TurmaFiltro } from '@/lib/turmas/escopo-leitura';
 const CARGO_FIELDS = [
   { key: 'descricao', rows: 3 },
   { key: 'principais_entregas', rows: 2 },
+  { key: 'fronteiras', rows: 2 },
   { key: 'stakeholders', rows: 2 },
   { key: 'decisoes_recorrentes', rows: 2 },
   { key: 'tensoes_comuns', rows: 2 },
@@ -198,6 +199,9 @@ export default function GerenciarPage() {
       tensoes_comuns: obj.tensoes_comuns,
       contexto_cultural: obj.contexto_cultural,
       eh_lideranca: obj.eh_lideranca,
+      // Mig 286: o gestor devolve a planilha com as fronteiras e os casos reais ("Caso real 1" a 8).
+      fronteiras: obj.fronteiras,
+      casos_reais: casosReaisDaLinha(obj),
     })).filter(c => c.nome?.trim());
 
     if (parsed.length === 0) {
@@ -655,7 +659,7 @@ export default function GerenciarPage() {
                   {syncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                   {t('actions.syncRoles')}
                 </button>
-                <button onClick={() => setEditCargo({ nome: '', area_depto: '', descricao: '', principais_entregas: '', stakeholders: '', decisoes_recorrentes: '', tensoes_comuns: '', contexto_cultural: '' })}
+                <button onClick={() => setEditCargo({ nome: '', area_depto: '', descricao: '', principais_entregas: '', fronteiras: '', stakeholders: '', decisoes_recorrentes: '', tensoes_comuns: '', contexto_cultural: '', casos_reais: [] })}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-green-400/30 hover:text-green-400 transition-all">
                   <Plus size={12} /> {t('actions.newRole')}
                 </button>
@@ -744,6 +748,20 @@ export default function GerenciarPage() {
                             className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none" />
                         </div>
                       ))}
+
+                      {/* Casos reais do gestor (mig 286): um por competência do cargo. O vazio some ao salvar. */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('cargoFields.casos_reais.label')}</label>
+                        <p className="text-[10px] text-gray-500 mb-2">{t('cargoFields.casos_reais.hint')}</p>
+                        <div className="space-y-2">
+                          {slotsDosCasos(editCargo.casos_reais).map((texto, i) => (
+                            <textarea key={i} value={texto}
+                              onChange={e => setEditCargo(p => ({ ...p, casos_reais: comCasoTrocado(p.casos_reais, i, e.target.value) }))}
+                              rows={2} placeholder={t('cargoFields.casos_reais.placeholder', { n: i + 1 })}
+                              className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none" />
+                          ))}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex justify-end gap-2 mt-5">
@@ -824,6 +842,8 @@ export default function GerenciarPage() {
                       <tr><td className="pr-4 py-0.5">tensões comuns</td><td className="pr-4">{t('import.no')}</td><td>Meta versus desenvolvimento...</td></tr>
                       <tr><td className="pr-4 py-0.5">contexto cultural</td><td className="pr-4">{t('import.no')}</td><td>Ritmo acelerado...</td></tr>
                       <tr><td className="pr-4 py-0.5">cargo de liderança?</td><td className="pr-4">{t('import.no')}</td><td>{t('import.leadershipExample')}</td></tr>
+                      <tr><td className="pr-4 py-0.5">fronteiras</td><td className="pr-4">{t('import.no')}</td><td>Climatização: aciona o técnico terceirizado...</td></tr>
+                      <tr><td className="pr-4 py-0.5">caso real 1 … caso real 8</td><td className="pr-4">{t('import.no')}</td><td>Duas pistas paradas numa sexta com festa...</td></tr>
                     </tbody>
                   </table>
                 </div>

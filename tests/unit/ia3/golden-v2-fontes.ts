@@ -25,13 +25,19 @@ export function promptsGoldenV2(): Record<string, string> {
     b_system_v2: SYSTEM_CENARIO_B_V2,
     b_check_system_v2: SYSTEM_CHECK_CENARIO_B_V2,
   };
+  const ctxDe = (x: any) => ({
+    tdb: {}, empresa: x.empresa, comp: x.comp, descritores: x.descritores, valores: x.valores,
+    contextoPPP: x.contextoPPP, cargoDetalhe: x.cargoDetalhe, gabCIS: x.gabCIS, versao: 'v2',
+  });
   for (const [nome, f] of Object.entries(FIXTURES_GOLDEN_IA3)) {
     const x: any = f;
-    out[`user_v2_${nome}`] = montarPromptsGeracaoIA3({
-      tdb: {}, empresa: x.empresa, comp: x.comp, descritores: x.descritores, valores: x.valores,
-      contextoPPP: x.contextoPPP, cargoDetalhe: x.cargoDetalhe, gabCIS: x.gabCIS,
-      versao: 'v2', fichaLinhas: FICHA_POR_FIXTURE[nome],
-    } as any, x.cargoNome).user;
+    out[`user_v2_${nome}`] = montarPromptsGeracaoIA3({ ...ctxDe(x), fichaLinhas: FICHA_POR_FIXTURE[nome] } as any, x.cargoNome).user;
   }
+  // Com o caso real do gestor (mig 286): o bloco do caso também é régua.
+  const c: any = FIXTURES_GOLDEN_IA3.completo;
+  out.user_v2_completo_com_caso = montarPromptsGeracaoIA3({
+    ...ctxDe(c), fichaLinhas: FICHA_GOLDEN,
+    casoReal: 'Dois professores discordaram sobre a recuperação de uma turma; a coordenação ouviu os dois e decidiu com o conselho.',
+  } as any, c.cargoNome).user;
   return out;
 }

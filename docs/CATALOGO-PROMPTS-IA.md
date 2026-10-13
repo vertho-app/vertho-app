@@ -227,6 +227,11 @@
   - **User** `buildIA3UserPromptV2`: os mesmos blocos da v1, trocando o contexto organizacional pela FICHA INTEIRA do cargo (`carregarFichaParaCenario`, com `contexto_cultural`, área e liderança) e a instrução de leitura pela v2.
   - **Tetos em código**: contexto acima de 900 caracteres ou pergunta acima de 200 viram erro em `validarRespostaIA3` (`limitesDaVersaoIA3`). No síncrono caem no retry; no lote, no fallback síncrono; na regeneração, a candidata é descartada.
   - **Carimbo** `alertas_check.versao_prompt` (`ia3-p1` ou `ia3-p2`) em toda geração; linha sem carimbo é v1.
+  - **Casos reais e fronteiras do gestor (mig 286, 13/10/2026)**: `cargos_empresa.casos_reais` (`[{ texto }]`, pela planilha de cargos, colunas "Caso real 1" a 8, ou pelo formulário) e `cargos_empresa.fronteiras` (o que o cargo não faz).
+    - As fronteiras entram na ficha (`linhasDaFicha`), então chegam a todo gerador que usa a ficha, inclusive os semanais.
+    - O caso real é um por competência: a posição k no Top 5 do cargo recebe o caso k (`casoRealDaCompetencia`); com menos casos, o caso se repete. Entra no user da v2 como "CASO REAL DE PARTIDA", e só na v2.
+    - O caso usado fica gravado em `alternativas.caso_real`, e o auditor v2 o recebe: fato que vem dele tem fonte.
+    - Antes de gerar numa empresa v2, a tela avisa quantos cargos têm caso e fronteiras (`loadInsumoCenarios`), com uma confirmação a mais quando falta, sem recusar.
 - **Consumido por**: `banco_cenarios` (alternativas[]). Usado por IA4 (Fase 3) para avaliar respostas.
 
 #### 1.3.1 Reuso: exemplo de cenário da PROPOSTA (05/10/2026)

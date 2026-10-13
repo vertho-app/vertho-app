@@ -724,6 +724,13 @@ consumo gravado ao entrar na conversa, que é o que deixa o flag da tela velho).
     - auditores do A e do B: conferem fatos e papel contra a mesma ficha e veem os outros cenários
       do cargo;
     - **opt-in** por empresa (`sys_config.cenarios_v2 = true`): para as demais, a v1 segue byte a byte.
+  - **Fase 3, o insumo (mig 286, 13/10):**
+    - `cargos_empresa.casos_reais` e `fronteiras`, preenchidos pela planilha de cargos ("Fronteiras", "Caso real 1" a 8) ou pelo formulário;
+    - o import passa a ATUALIZAR casos e fronteiras de cargo que já existe; antes, ele só inseria cargo novo;
+    - as fronteiras entram na ficha de todo gerador;
+    - na v2, a competência k do Top 5 parte do caso k, e o caso fica gravado com o cenário para o auditor;
+    - o "Gerar cenários" de empresa v2 avisa quantos cargos têm caso e fronteiras;
+    - a ficha da Amazon foi corrigida: no Infra e Mecânica, a climatização "aciona o técnico terceirizado e coordena a agenda dele (não executa)".
 - **Guardas:**
   - Fase 0: `tests/unit/ia3/versao-respondida.test.ts`, `tests/unit/cenario-uso.test.ts`,
     `tests/unit/cenario-versoes.test.ts`, `tests/unit/ia3/check-regua-da-linha.test.ts` e
@@ -731,16 +738,21 @@ consumo gravado ao entrar na conversa, que é o que deixa o flag da tela velho).
   - Fase 1: `tests/unit/assessment/representatividade.test.ts`;
   - regras v2: `tests/unit/ia3/cenarios-v2-regras.test.ts` e o golden
     `tests/unit/ia3/prompt-golden-v2.test.ts`;
-  - 20 mutações mortas, entre elas: respondido reescrito no lugar, conversa fora da conta, versão
-    substituída regenerando, B apagado ou regenerado pelo gerador do A, check na régua da empresa,
-    carimbo perdido no recheck, pessoas contadas como respostas e prompt v2 mudando em silêncio.
+  - Fase 3: `tests/unit/cargos-import-casos.test.ts` e `tests/unit/ia3/casos-reais-v2.test.ts`;
+  - 31 mutações mortas (20 das Fases 0 a 2 e 11 da Fase 3), entre elas:
+    - Fases 0 a 2: respondido reescrito no lugar, conversa fora da conta, versão substituída
+      regenerando, B apagado ou regenerado pelo gerador do A, check na régua da empresa, carimbo
+      perdido no recheck, pessoas contadas como respostas e prompt v2 mudando em silêncio;
+    - Fase 3: salvar zerando o que não veio, todo cenário partindo do mesmo caso, caso entrando
+      na v1 e auditor ignorando o caso gravado.
 - ⚠️ **Em aberto:**
   - a v2 só liga depois da verificação do plano: conjunto rotulado da reunião, geração sem gravar, a
     IA4 separando N1 de N3 e a leitura cega do dono. No protótipo de 11/10, duas leituras do mesmo
     texto deram 89 e 60, e a variância do auditor ainda não foi medida em escala;
-  - o lote (Trigger) só recebe as regras novas e a proteção de `sessoes_avaliacao` com o
-    `trigger.dev deploy`;
-  - casos reais do gestor e fronteiras do cargo (Fase 3) dependem de migration;
+  - o lote (Trigger) recebeu as Fases 0 a 2 no deploy `20261013.1`. Os casos reais e as
+    fronteiras (Fase 3) só chegam ao lote no próximo `trigger.dev deploy`;
+  - a Amazon e os demais clientes ainda não devolveram a planilha com casos e fronteiras, e o
+    caso real ainda não alimenta o Cenário B;
   - a nota de representatividade tem efeito de ORDEM (o primeiro cenário recebe nota mais alta) e só
     o formulário a pergunta: o chat do assessment não.
 

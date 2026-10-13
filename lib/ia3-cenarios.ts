@@ -22,6 +22,7 @@ import {
   type VersaoCenarios, versaoCenariosDoTenant, versaoDoCenario, CARIMBO_PROMPT, CARIMBO_REGUA, LIMITES_V2,
   buildIA3SystemPromptV2, buildIA3UserPromptV2, blocoFichaCenarioV2, CONFERENCIA_FATOS_E_PAPEL_V2,
   blocoIrmaosV2, listasDaReguaV2, MAX_IRMAOS_NO_CHECK,
+  textosDosCasosReais, casoRealDaCompetencia, alternativasComCasoReal,
 } from '@/lib/ia3-cenarios-v2';
 
 // ── Prompts (movidos VERBATIM de fase1.ts) ──────────────────────────────────
@@ -344,6 +345,8 @@ export interface ContextoIA3 {
   versao?: VersaoCenarios;
   /** Linhas da ficha INTEIRA do cargo (só carregadas na v2; ver `carregarFichaParaCenario`). */
   fichaLinhas?: string[];
+  /** Caso real de partida desta competência (v2, mig 286; `casoRealDaCompetencia`). `null` = genérico. */
+  casoReal?: string | null;
 }
 
 export async function montarContextoIA3(
@@ -387,16 +390,20 @@ export async function montarContextoIA3(
   // v2: a ficha INTEIRA, pela régua única de casamento de cargo (`lib/cargo-contexto.ts`).
   // Erro de leitura é erro de construção: volta como erro, não como "cargo sem ficha".
   let fichaLinhas: string[] = [];
+  let casoReal: string | null = null;
   if (versao === 'v2') {
     try {
       const { carregarFichaParaCenario } = await import('@/lib/cargo-contexto');
-      fichaLinhas = (await carregarFichaParaCenario(tdb.raw, empresaId, cargoNome)).linhas;
+      const ficha = await carregarFichaParaCenario(tdb.raw, empresaId, cargoNome);
+      fichaLinhas = ficha.linhas;
+      // O caso real do gestor para ESTA competência (posição no Top 5 do cargo; mig 286).
+      casoReal = casoRealDaCompetencia(textosDosCasosReais(ficha.info?.casos_reais), ficha.info?.top5_workshop, comp);
     } catch (e: any) {
       return { ok: false, error: `Ficha do cargo: ${e?.message || e}` };
     }
   }
 
-  return { ok: true, ctx: { tdb, empresa, comp, descritores: descritores || [], contextoPPP, valores, cargoDetalhe, gabCIS, versao, fichaLinhas } };
+  return { ok: true, ctx: { tdb, empresa, comp, descritores: descritores || [], contextoPPP, valores, cargoDetalhe, gabCIS, versao, fichaLinhas, casoReal } };
 }
 
 /**
@@ -415,7 +422,7 @@ export function montarPromptsGeracaoIA3(ctx: ContextoIA3, cargoNome: string): { 
     user: buildIA3UserPromptV2({
       empresa: blocoEmpresaIA3(ctx.empresa),
       cargo: blocoCargoIA3(cargoNome),
-      ficha: blocoFichaCenarioV2(ctx.fichaLinhas || []),
+      ficha: blocoFichaCenarioV2(ctx.fichaLinhas || [], { casoReal: ctx.casoReal }),
       competencia: blocoCompetenciaIA3(ctx.comp),
       descritores: blocoDescritoresIA3(ctx.descritores || []),
       valores: blocoValoresIA3(ctx.valores || []),
@@ -697,7 +704,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
     }
   }
 
-  const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas, descritores);
+  const alternativas = alternativasComCasoReal(montarAlternativasIA3(resultado, norm.cen, norm.perguntas, descritores), mc.ctx.casoReal);
   const p = await persistirCenarioIA3(tdb, {
     compId: comp.id, cargoNome, pppEscolaId,
     titulo: norm.cen.titulo || norm.titulo, contexto: norm.cen.contexto || norm.contexto, alternativas,
@@ -791,7 +798,8 @@ export async function montarCheckIA3Prompt(sbRaw: any, cen: any, opts: { versao?
     // (até 13/10/2026 ele via só o nome do cargo e 500 caracteres do PPP).
     const { carregarFichaParaCenario } = await import('@/lib/cargo-contexto');
     const ficha = await carregarFichaParaCenario(tdb.raw, cen.empresa_id, cen.cargo);
-    user += `\n\n${blocoFichaCenarioV2(ficha.linhas)}`;
+    // E o caso real de que a geração partiu, gravado com o cenário: fato que vem dele tem fonte.
+    user += `\n\n${blocoFichaCenarioV2(ficha.linhas, { casoReal: typeof alt.caso_real === 'string' ? alt.caso_real : null })}`;
 
     // Os outros cenários do cargo: 5 de 6 cenários de um cargo da Amazon tinham a mesma
     // "festa de 40 pessoas", e cada um, sozinho, parecia plausível.
@@ -1003,7 +1011,7 @@ export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
     return { ok: false, error: `Candidata fora das regras v2 (${norm.errors.join('; ')}): NADA foi alterado (a versão atual continua valendo)` };
   }
 
-  const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas, descritores);
+  const alternativas = alternativasComCasoReal(montarAlternativasIA3(resultado, norm.cen, norm.perguntas, descritores), mc.ctx.casoReal);
   const candidato = {
     empresa_id: cen.empresa_id,
     competencia_id: cen.competencia_id,

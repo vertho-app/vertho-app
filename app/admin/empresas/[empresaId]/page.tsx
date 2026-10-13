@@ -17,7 +17,7 @@ import BackButton from '@/components/back-button';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 
-import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm, regenerarCenarioNaEscada } from '@/actions/fase1';
+import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm, regenerarCenarioNaEscada, loadInsumoCenarios } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
 import { enqueueIA2Batch, enqueueIA3Batch, enqueueIA4Batch, enqueueCenariosBBatch, enqueueBlueprintBatch, enqueueRelatoriosBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
@@ -587,6 +587,21 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         loadData(); setPendingAction(null); return;
       }
       if (actionKey === 'ia3') {
+        // Plano de cenários (11/10/2026), 3.4: o insumo das regras v2, casos reais e fronteiras do
+        // gestor (mig 286). AVISO com uma confirmação a mais, nunca recusa; na v1 esses campos não
+        // entram no gerador. Falha de leitura vira linha no log, não bloqueio.
+        const insumo: any = await loadInsumoCenarios(empresaId).catch((e: any) => ({ success: false, error: e?.message || String(e) }));
+        if (!insumo?.success) {
+          addLog(`⚠ ${t('feedback.ia3InsumoUnavailable', { error: insumo?.error || '' })}`, 'warning');
+        } else if (insumo.versao === 'v2' && insumo.total > 0) {
+          const nums = { comCasos: insumo.comCasos, comFronteiras: insumo.comFronteiras, total: insumo.total };
+          const falta = insumo.comCasos < insumo.total || insumo.comFronteiras < insumo.total;
+          addLog(`${falta ? '⚠' : 'ℹ️'} ${t('feedback.ia3InsumoV2', nums)}`, falta ? 'warning' : 'info');
+          if (insumo.semCasos?.length) addLog(`⚠ ${t('feedback.ia3InsumoSemCasos', { list: insumo.semCasos.join(', ') })}`, 'warning');
+          if (falta && !(await confirmDialog({ title: label, message: t('feedback.ia3InsumoV2Confirm', nums) }))) {
+            setPendingAction(null); return;
+          }
+        }
         // ── Em lote: Batch API (geração Claude −50% + check OpenAI −50%) ──
         // Nome do Top 5 sem competência no cargo não gera cenário: diz, em vez de pular calado (R-82).
         const avisarSemCompetencia = (lista: string[] | undefined) => {

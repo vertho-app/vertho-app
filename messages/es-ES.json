@@ -4675,6 +4675,10 @@
       "ia3NothingPending": "Ningún escenario pendiente: los {count} escenarios del Top 5 ya existen.",
       "ia3RegenerateAllConfirm": "Los {count} escenarios del Top 5 ya existen. Regenerar TODOS vuelve a llamar a la IA para cada uno (costo) y reemplaza los que aún no tienen respuesta. ¿Confirmas?",
       "ia3NoCompetency": "{count} nombre(s) del Top 5 sin competencia correspondiente en el cargo, que NO generan escenario: {list}",
+      "ia3InsumoUnavailable": "No fue posible verificar los casos reales y las fronteras de los cargos: {error}",
+      "ia3InsumoV2": "Reglas v2: casos reales en {comCasos} de {total} cargos y fronteras en {comFronteiras} de {total}.",
+      "ia3InsumoSemCasos": "Cargos sin caso real (el escenario parte solo de la ficha): {list}",
+      "ia3InsumoV2Confirm": "Esta empresa genera con las reglas v2. Hay casos reales en {comCasos} de {total} cargos y fronteras en {comFronteiras} de {total}. Sin caso real, el escenario parte solo de la ficha del cargo; sin fronteras, el generador no sabe lo que el cargo no hace. ¿Generar de todos modos?",
       "ia3LadderStep": "{name}: {score} pts, ronda {step} de {total} de la escalera ({rung})",
       "focusLoaded": "Competencias foco cargadas ({count} cargos)",
       "focusLoadError": "Error al cargar",
@@ -4777,6 +4781,15 @@
         "label": "Principales Entregas Esperadas",
         "placeholder": "Resultados esperados del puesto..."
       },
+      "fronteiras": {
+        "label": "Fronteras del cargo",
+        "placeholder": "Lo que el cargo no hace, quién lo hace en su lugar y qué está tercerizado. Ej.: climatización: llama al técnico tercerizado y coordina su agenda."
+      },
+      "casos_reais": {
+        "label": "Casos reales",
+        "hint": "Una situación real por competencia del cargo: qué pasó, quién estaba involucrado (por el rol, nunca por el nombre) y qué se hizo. Los escenarios de las reglas v2 parten de estos casos.",
+        "placeholder": "Caso real {n}"
+      },
       "stakeholders": {
         "label": "Stakeholders",
         "placeholder": "Con quién interactúa: pares, superiores, clientes..."
@@ -4798,7 +4811,7 @@
       "collaboratorsTitle": "Formato del CSV",
       "collaboratorsDescription": "El archivo debe tener encabezado en la primera línea. Separador: coma o punto y coma (detectado automáticamente).",
       "rolesTitle": "Importar Puestos por CSV",
-      "rolesDescription": "Crea puestos en lote en la tabla `cargos_empresa`. Los duplicados por nombre se ignoran.",
+      "rolesDescription": "Crea puestos en lote en la tabla `cargos_empresa`. Un puesto que ya existe (mismo nombre) solo recibe las fronteras y los casos reales de la hoja; el resto de su ficha no cambia.",
       "column": "Columna",
       "required": "Obligatoria",
       "example": "Ejemplo",

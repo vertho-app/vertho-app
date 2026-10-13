@@ -4675,6 +4675,10 @@
       "ia3NothingPending": "Nenhum cenário pendente: os {count} cenários do Top 5 já existem.",
       "ia3RegenerateAllConfirm": "Os {count} cenários do Top 5 já existem. Regenerar TODOS chama a IA novamente para cada um (custo) e substitui os que ainda não têm resposta. Confirma?",
       "ia3NoCompetency": "{count} nome(s) do Top 5 sem competência correspondente na função, que NÃO geram cenário: {list}",
+      "ia3InsumoUnavailable": "Não foi possível conferir os casos reais e as fronteiras dos cargos: {error}",
+      "ia3InsumoV2": "Regras v2: casos reais em {comCasos} de {total} cargos e fronteiras em {comFronteiras} de {total}.",
+      "ia3InsumoSemCasos": "Cargos sem caso real (o cenário parte só da ficha): {list}",
+      "ia3InsumoV2Confirm": "Esta empresa gera com as regras v2. Há casos reais em {comCasos} de {total} cargos e fronteiras em {comFronteiras} de {total}. Sem caso real, o cenário parte só da ficha do cargo; sem fronteiras, o gerador não sabe o que o cargo não faz. Gerar mesmo assim?",
       "ia3LadderStep": "{name}: {score} pts, ronda {step} de {total} da escada ({rung})",
       "focusLoaded": "Competências foco carregadas ({count} cargos)",
       "focusLoadError": "Erro ao carregar",
@@ -4777,6 +4781,15 @@
         "label": "Principais Entregas Esperadas",
         "placeholder": "Resultados esperados do cargo..."
       },
+      "fronteiras": {
+        "label": "Fronteiras do cargo",
+        "placeholder": "O que o cargo não faz, quem faz no lugar e o que é subcontratado. Ex.: climatização: aciona o técnico subcontratado e coordena a agenda dele."
+      },
+      "casos_reais": {
+        "label": "Casos reais",
+        "hint": "Uma situação real por competência do cargo: o que aconteceu, quem estava envolvido (pelo papel, nunca pelo nome) e o que foi feito. Os cenários das regras v2 partem destes casos.",
+        "placeholder": "Caso real {n}"
+      },
       "stakeholders": {
         "label": "Stakeholders",
         "placeholder": "Com quem interage: pares, superiores, clientes..."
@@ -4798,7 +4811,7 @@
       "collaboratorsTitle": "Formato do CSV",
       "collaboratorsDescription": "O ficheiro deve ter cabeçalho na primeira linha. Separador: vírgula ou ponto e vírgula (detetado automaticamente).",
       "rolesTitle": "Importar Cargos via CSV",
-      "rolesDescription": "Cria cargos em lote na tabela `cargos_empresa`. Duplicados por nome são ignorados.",
+      "rolesDescription": "Cria cargos em lote na tabela `cargos_empresa`. Cargo que já existe (mesmo nome) só recebe as fronteiras e os casos reais da folha de cálculo; o resto da ficha dele não muda.",
       "column": "Coluna",
       "required": "Obrigatória",
       "example": "Exemplo",

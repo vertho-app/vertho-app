@@ -7,7 +7,7 @@ import { protectedAction, protectedLoader } from '@/lib/auth/protected-action';
 import { updateColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant, listEmailsInTenant, listTelefonesLoginWhatsappInTenant, createColaboradoresLoteInTenant } from '@/lib/repositories/colaboradores-repo';
 import { preverExclusaoPace, excluirCadastroComBackupPace } from '@/lib/simulador-vendas/exclusao';
 import { upsertCargoInTenant, deleteCargoInTenant } from '@/lib/repositories/cargos-empresa-repo';
-import { liderancaDaPlanilha } from '@/lib/cargos-import';
+import { camposNovosDoCargo, planoDoImportDeCargos } from '@/lib/cargos-import';
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsApp, normalizePhone } from '@/lib/phone';
@@ -495,6 +495,9 @@ const SalvarCargoSchema = z.object({
     decisoes_recorrentes: z.string().nullish(),
     tensoes_comuns: z.string().nullish(),
     eh_lideranca: z.boolean().optional(),
+    // Mig 286 (plano de cenários de 11/10/2026): opcionais. Ausentes, ficam como estão no banco.
+    fronteiras: z.string().nullish(),
+    casos_reais: z.array(z.union([z.string(), z.object({ texto: z.string().nullish() }).passthrough()])).nullish(),
   }),
 });
 type SalvarCargoInput = z.infer<typeof SalvarCargoSchema>;
@@ -513,6 +516,8 @@ const _salvarCargo = protectedAction('companies.manage', SalvarCargoSchema, asyn
     decisoes_recorrentes: cargo.decisoes_recorrentes?.trim() || null,
     tensoes_comuns: cargo.tensoes_comuns?.trim() || null,
     eh_lideranca: cargo.eh_lideranca !== false,
+    // Fronteiras e casos reais (mig 286): só o que veio no pedido; quem salva sem eles não os zera.
+    ...camposNovosDoCargo(cargo),
     updated_at: new Date().toISOString(),
   };
   const saved = await upsertCargoInTenant(sb, empresaId, registro);
@@ -592,31 +597,34 @@ const _importarCargosLote = protectedLoader<[any, any[]], { success: boolean; me
   if (!empresaId || !cargos?.length) return { success: false, error: 'Dados incompletos' };
 
   const sb = await requireAdminSupabase();
-  const { data: existentes } = await sb.from('cargos_empresa')
-    .select('nome').eq('empresa_id', empresaId);
-  const existSet = new Set((existentes || []).map((c: any) => c.nome.toLowerCase().trim()));
+  const { data: existentes, error: errExistentes } = await sb.from('cargos_empresa')
+    .select('id, nome').eq('empresa_id', empresaId);
+  // Falha de leitura não vira "nenhum cargo existe" (o import inseriria duplicatas).
+  if (errExistentes) return { success: false, error: `Não foi possível ler os cargos: ${errExistentes.message}` };
 
-  const novos = cargos
-    .filter(c => c.nome?.trim() && !existSet.has(c.nome.trim().toLowerCase()))
-    .map(c => ({
-      empresa_id: empresaId,
-      nome: c.nome.trim(),
-      area_depto: c.area_depto?.trim() || null,
-      descricao: c.descricao?.trim() || null,
-      principais_entregas: c.principais_entregas?.trim() || null,
-      stakeholders: c.stakeholders?.trim() || null,
-      decisoes_recorrentes: c.decisoes_recorrentes?.trim() || null,
-      tensoes_comuns: c.tensoes_comuns?.trim() || null,
-      contexto_cultural: c.contexto_cultural?.trim() || null,
-      // Só é líder o marcado como sim ("sim", "Sim", "SIM"...); em branco é não-líder (lib/cargos-import).
-      eh_lideranca: liderancaDaPlanilha(c.eh_lideranca),
-    }));
+  // Cargo novo entra inteiro; cargo existente ganha só os casos reais e as fronteiras da planilha (lib/cargos-import).
+  const plano = planoDoImportDeCargos(existentes || [], cargos);
 
-  if (novos.length === 0) return { success: true, message: 'Todos os cargos já estavam cadastrados (duplicatas ignoradas)' };
+  if (plano.novos.length) {
+    const { error } = await sb.from('cargos_empresa').insert(plano.novos.map((c) => ({ ...c, empresa_id: empresaId })));
+    if (error) return { success: false, error: error.message };
+  }
+  let atualizados = 0;
+  for (const u of plano.atualizar) {
+    const { error } = await sb.from('cargos_empresa')
+      .update({ ...u.campos, updated_at: new Date().toISOString() })
+      .eq('id', u.id).eq('empresa_id', empresaId);
+    if (error) {
+      return { success: false, error: `${plano.novos.length} cargos importados e ${atualizados} atualizados; falhou ao atualizar "${u.nome}": ${error.message}` };
+    }
+    atualizados++;
+  }
 
-  const { error } = await sb.from('cargos_empresa').insert(novos);
-  if (error) return { success: false, error: error.message };
-  return { success: true, message: `${novos.length} cargos importados (${cargos.length - novos.length} duplicatas ignoradas)` };
+  if (!plano.novos.length && !atualizados) return { success: true, message: 'Todos os cargos já estavam cadastrados e a planilha não trouxe casos reais nem fronteiras' };
+  return {
+    success: true,
+    message: `${plano.novos.length} cargos importados · ${atualizados} com casos reais ou fronteiras atualizados · ${plano.ignorados} sem mudança`,
+  };
 }, 'companies.manage');
 
 export async function importarCargosLote(empresaId: any, cargos: any[]) {

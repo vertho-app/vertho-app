@@ -18,6 +18,10 @@ Um cenário é uma situação do dia a dia do cargo que força uma decisão. A r
 
 - **Uma situação, um problema central.** O complicador só entra se nascer da própria situação; nada de cadeia de coincidências.
 - **Fato técnico só com fonte.** Equipamento, peça, sistema, procedimento, regra de fornecedor e números da operação vêm da ficha do cargo, das fronteiras, do caso real ou do contexto da empresa. Sem fonte, termo genérico ("a peça", "o sistema"). Detalhe de situação (horário, prazo, número de pessoas) pode ser criado, se for plausível.
+- **Casos reais e fronteiras do gestor** (mig 286; planilha de cargos com "Fronteiras" e "Caso real 1" a 8, ou o formulário de cargo).
+  - As fronteiras (o que o cargo não faz) entram na ficha.
+  - A competência na posição k do Top 5 do cargo parte do caso k, e o caso fica gravado no cenário (`alternativas.caso_real`) para o auditor.
+  - Sem caso, o cenário sai do genérico da ficha.
 - **Papel do cargo.** Nada de atribuição ou autoridade fora da ficha. Quem não está em Stakeholders não fala direto com o avaliado. O que o cargo pede a terceiros aparece como acionar ou coordenar.
 - **Cliente em cargo sem cliente externo:** trabalhe o cliente interno ou o impacto que chega por quem atende o cliente.
 - **Lugar.** Segunda pessoa, no local de trabalho da pessoa, sem nomear nem inventar instituição. Personagens com nomes próprios fictícios, no máximo 2 nomeados.
