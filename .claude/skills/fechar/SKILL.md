@@ -90,7 +90,7 @@ Regras de escrita: o `CLAUDE.md` é resumo operacional — entrada nova ali é *
 
 ### 3.1 As FONTES DO PROJECT (claude.ai) — **sincronizar, não avisar**
 
-**São 20** (desde 22/09/2026) e elas ficam congeladas na versão subida. Toda rodada termina com o
+**São 21** (20 desde 22/09/2026, mais o `VERTHO-DESIGN.md` desde 13/10/2026) e elas ficam congeladas na versão subida. Toda rodada termina com o
 Project batendo com o repo; a receita completa (comandos, refs, armadilhas) está em
 **`sincronizar-project.md`**, ao lado.
 
@@ -108,13 +108,18 @@ docs/simuladores-validacao.md · docs/recepcao-medica.md · docs/ORCAMENTO.md
 docs/FLUXO-DE-DADOS-PESSOAIS.md
 ```
 
+A 21ª, **`VERTHO-DESIGN.md`**, é **DERIVADA**: não é um arquivo do repo, é a skill `vertho-design` (`SKILL.md`, `readme.md` e os CSS
+de `tokens/`) juntada em um texto só, sem reescrever, pelo próprio `fontes_project.py`. O Project não lê as fontes `.otf`, e a
+pasta inteira viraria dezenas de fontes; os logos e os cartões HTML ficam fora (o cabeçalho do arquivo diz quantos). Ela só muda
+quando a skill muda (o cabeçalho cita o último commit DA SKILL, não o do master), então entra na mesma comparação por SHA-1 das demais.
+
 Decisões do dono em 22/09/2026: os simuladores entram (`recepcao-medica.md` é o doc do Simulador de
 atendimento); `BETO-CANAIS.md` NÃO entra; `LEVANTAMENTO-2026-07.md` e `plano-refatoracao-final.md`
 saíram (retratos de julho). O Project é usado para pitch, proposta e material comercial: quando um
 doc de produto muda, o `FEATURES-E-BENEFICIOS.md` é o primeiro a conferir.
 
 🔴 **NÃO use `git diff` da rodada como filtro.** Ele só enxerga o que EU mudei, e a defasagem se
-acumula de outras sessões e do trabalho do dono. Compare **as 20 contra o Project**, sempre — o card
+acumula de outras sessões e do trabalho do dono. Compare **as 21 contra o Project**, sempre — o card
 mostra **kB de CARACTERES** (`git show HEAD:<arq> | wc -m`, ÷ 1000; `wc -c` erra para mais em 3-4%
 por causa dos acentos), e a unidade já mudou uma vez: confirme num card antes de comparar.
 
@@ -166,7 +171,7 @@ Termine dizendo, em uma linha cada:
 
 1. o que foi gravado na memória;
 2. quais `.md` mudaram;
-3. **o resultado da sincronização do Project** — quantas das 20 estavam defasadas, quais subi e a contagem antiga → nova de cada uma. Fechar contando: tem que sobrar **exatamente 20**, um por nome. Se parei antes de remover as velhas (trava que não bateu), dizer isso explicitamente e por quê;
+3. **o resultado da sincronização do Project** — quantas das 21 estavam defasadas, quais subi e a contagem antiga → nova de cada uma. Fechar contando: tem que sobrar **exatamente 21**, um por nome. Se parei antes de remover as velhas (trava que não bateu), dizer isso explicitamente e por quê;
 4. **a faxina de worktrees**: os que removi com `--nome` (e a saída 0/3 de cada) e os que ficaram com trabalho, com o motivo;
 5. o que **ficou aberto**: o que você não conseguiu verificar.
 

@@ -301,7 +301,9 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   interface em 16/08/2026 — esta linha dizia 5 e deixou passar 7 defasadas, entre elas o `CLAUDE.md`,
   com 191 linhas contra 423 do repo). A lista vive na skill `fechar` §3.1; tocou uma delas ⇒ avisar
   para re-subir. Fonte defasada é pior que ausente: responde com autoridade sobre um sistema que já
-  mudou, e fora do Claude Code não há repositório para conferir.
+  mudou, e fora do Claude Code não há repositório para conferir. Em 13/10/2026 são **21**: as 20 do repo
+  mais o `VERTHO-DESIGN.md`, DERIVADO da skill `vertho-design` (o `fontes_project.py` o gera). Mexeu em
+  `.claude/skills/vertho-design/**` ⇒ ele muda, mesmo sem tocar em `docs/`: regerar e re-subir.
 - Não escrever doc que **enumera cobertura** ("cobre 5 tabelas") — aponte para a constante do teste.
 - 🔴 O repo é **público**: dump de tenant, nota de sessão e lacuna de segurança **aberta** ficam fora.
 

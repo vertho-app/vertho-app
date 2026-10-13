@@ -1,4 +1,4 @@
-# Sincronizar as 20 fontes do Project (claude.ai)
+# Sincronizar as 21 fontes do Project (claude.ai)
 
 > Eram 16 até 22/09/2026. Naquele dia entraram os docs dos simuladores (`SIMULADOR-VENDAS.md`,
 > `SIMULADOR-LIDERANCA.md`, `simuladores-validacao.md`, `recepcao-medica.md`), `ORCAMENTO.md` e
@@ -10,7 +10,7 @@ pede confirmação, salvo remover arquivo SEM par novo (passo 6).
 
 ## 🔑 Onde o Project mora: conta `rodrigo@vertho.ai` (desde 13/10/2026)
 
-O Project **vertho.ai** das 20 fontes vive na conta **`rodrigo@vertho.ai`** (a mesma do Claude Code), na organização
+O Project **vertho.ai** das 21 fontes vive na conta **`rodrigo@vertho.ai`** (a mesma do Claude Code), na organização
 **Vertho Gestão** (Team), **privado**: `https://claude.ai/project/01a135a2-309a-75d9-9e57-680601a18271`.
 Foi RECRIADO em 13/10/2026, porque não existe migração de Project entre contas. O antigo
 (`019c7614-e003-719c-89ba-681693339e87`, conta `rdnaves@gmail.com`) ficou órfão e defasado: **nunca sincronizar nele**; só o
@@ -25,8 +25,12 @@ dono pode apagá-lo ou renomeá-lo. Onde esta receita cita o `019c7614…`, vale
   É esse input: clicar nele pode abrir o seletor nativo, que não aparece no screenshot. Os passos de modal mais abaixo valem para a UI
   antiga; no Project novo, leia, suba e remova pela API (seção de 04/10).
 - **Visibilidade:** deixe **Privado**. `SECURITY-STATUS`, `ORCAMENTO` e `CLAUDE.md` não devem ficar visíveis a toda a organização.
-- **Instruções do Project:** são o campo "Instruções" do próprio Project (textarea React: setter nativo + evento `input`). O texto
-  original veio do Project antigo, e só o dono o tem.
+- **Instruções do Project:** são o campo "Instruções" do próprio Project (textarea React: setter nativo + evento `input`). O dono as
+  preencheu em 13/10/2026 e elas citam NOMES de fontes (FEATURES, ORCAMENTO, os técnicos, as de identidade visual): quando uma fonte
+  entra ou sai, atualize as Instruções junto. Mexer nelas é configuração persistente: peça o ok do dono.
+- **21ª fonte, derivada:** `VERTHO-DESIGN.md` é a skill `vertho-design` juntada em texto (ver o `SKILL.md` do `fechar`, §3.1). O
+  Project aceita `.md .css .html .png` e NÃO aceita `.otf`, por isso fontes e logos ficam fora. O `fontes_project.py` a gera junto com
+  as 20, e o hash só muda quando a skill muda.
 - **Remover a cópia velha:** `DELETE` com a trava de hash, só depois do "sim" do dono que NOMEIA a remoção (itens 7 a 8b abaixo).
 
 Fonte de Project não se atualiza sozinha: fica congelada na versão subida, e **fonte defasada é pior
@@ -48,14 +52,14 @@ contra 511. (Números em LINHAS porque era a unidade que a UI mostrava então �
 `Medido: 31/08/2026` — **15 das 16 defasadas** numa rodada em que eu tinha tocado em 2 arquivos.
 Nunca confie no tamanho da rodada para estimar o tamanho da defasagem.
 
-**A comparação é sempre das 20 contra o Project, toda vez.**
+**A comparação é sempre das 21 contra o Project, toda vez.**
 
 ## 🔑 04/10/2026: o caminho inteiro pela API, com hash (sem modal para ler nem menu para remover)
 
 `Medido: 04/10/2026`, 16 subidas e 16 remoções, fecho 20 de 20 idênticas ao `origin/master`:
 1. **Repo:** `python .claude/skills/fechar/fontes_project.py <pasta-de-saida>` (versionado AO LADO desta
-   receita desde 08/10/2026; antes vivia no scratchpad e tive de reescrevê-lo) lê as 20 por
-   `git show origin/master:`, normaliza CRLF, grava a cópia para subir em `<pasta-de-saida>` e um `_mapa.json`
+   receita desde 08/10/2026; antes vivia no scratchpad e tive de reescrevê-lo) lê as 20 espelhadas por
+   `git show origin/master:` e GERA a 21ª (`VERTHO-DESIGN.md`, derivada da skill `vertho-design`), normaliza CRLF, grava a cópia para subir em `<pasta-de-saida>` e um `_mapa.json`
    (`ref`, `kb`, `sha1`, `n` de cada). Rode `git fetch origin master` ANTES: ele lê o `origin/master` local.
 2. **Project:** `GET /api/organizations/<org>/projects/<proj>/docs` (o `org` é o de `/api/organizations`
    cujo GET responde 200), `crypto.subtle.digest('SHA-1')` de cada `content`, e a comparação com o mapa
