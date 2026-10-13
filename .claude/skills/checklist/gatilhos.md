@@ -1601,7 +1601,7 @@ Padrão que casa: pedido de levantamento ou de auditoria de cobertura ("onde o n
 
 ## § Vou trocar a FONTE ou a COR de MARCA (app, PDF, certificado, capa de relatório)
 
-Padrão que casa: `app/layout.tsx` (`localFont`) · `app/globals.css` (`--vh-font-*`, `--color-cyan-*`, `--color-brand-*`) · `components/pdf/fontes.ts` e `tokens.ts` · `lib/certificado-pdf.tsx` · `lib/ui-resolver.ts` (accent padrão) · qualquer hex de ciano ou roxo de marca · "brand book".
+Padrão que casa: `app/layout.tsx` (`localFont`) · `app/globals.css` (`--vh-font-*`, `--color-cyan-*`, `--color-brand-*`) · `components/pdf/fontes.ts` e `tokens.ts` · `lib/certificado-pdf.tsx` · `lib/ui-resolver.ts` (accent padrão) · qualquer hex de ciano ou roxo de marca · "brand book" · `.claude/skills/vertho-design/**`.
 
 - [ ] **A rampa de ciano mora em DOIS lugares** (fallback de `brand-*` e o `cyan-*` do Tailwind no `@theme`). Mexeu em um, mexa no outro: `tests/unit/branding/rampa-ciano.test.ts` falha se divergirem. O `cyan-400` do Tailwind NÃO é o ciano da marca, e só sobrescrever `--color-cyan-*` o troca. `rgba(52, 197, 204,…)` COM ESPAÇO dentro de classe arbitrária do Tailwind quebra a classe sem erro.
 - [ ] **Fonte nova em PDF: meça o subset antes** (fontTools sobre o TTF do CDN; a lista de ausentes mora em `tests/unit/pdf-glifos-guard.test.ts`). Glifo ausente sai em BRANCO, sem erro, e o `pdf-idiomas-render` mede a fonte REAL que o PDF baixa.
@@ -1609,8 +1609,9 @@ Padrão que casa: `app/layout.tsx` (`localFont`) · `app/globals.css` (`--vh-fon
 - [ ] **Olhou a IMAGEM, com título longo, número grande e celular?** Uma fonte mais larga cobre o que estava ao lado (o número do `ContentThumb` escondeu o título), e nenhum teste enxerga isso. Harness lado a lado ANTES × DEPOIS com os componentes reais.
 - [ ] **A fonte é paga?** Leia a EULA no próprio arquivo (tabela `name`, id 13) e o nome do peso: o "Bold" do Codec é médio, e o slide mostrava o Extra Bold. Arquivo gratuito não prova licença.
 - [ ] **Cor e logo se medem no ARQUIVO, não no slide.** O PDF vetorial do logo usa `#0F2B54`/`#34C5CC` e os PNGs do repo usam `#040027`/`#30B9B5`: o navy do slide era real, e eu cheguei a dizer que era renderização.
+- [ ] **A skill `vertho-design` tem DUAS metades: a prosa (`SKILL.md`, `readme.md`) e o CSS que roda (`tokens/`, `guidelines/`).** Trocou fonte, cor ou nome de marca na prosa? `grep -rn` da fonte/cor ANTIGA em `tokens/` e `guidelines/` (os cards escrevem o nome da fonte no texto e no `@dsCard name`) e confira `--font-display`/`--font-body`/`--surface-page` em `tokens/`. Quem monta slide ou protótipo linka o `styles.css`, não lê a prosa.
 
-**Consequência medida (08/10/2026, brand book):** o ciano que a UI mostrava era o do Tailwind (866 usos de `cyan-400` contra 252 de `brand-400`); a Roboto não tem `↑ ≈ ■` e três PDFs os usavam; o Codec cobriu o título dos cards; e 9 de 14 empresas tinham o ciano antigo GRAVADO em `ui_config` (dado, não código). Detalhe: `docs/DESIGN-SYSTEM.md` §Tipografia.
+**Consequência medida (08/10/2026, brand book):** o ciano que a UI mostrava era o do Tailwind (866 usos de `cyan-400` contra 252 de `brand-400`); a Roboto não tem `↑ ≈ ■` e três PDFs os usavam; o Codec cobriu o título dos cards; e 9 de 14 empresas tinham o ciano antigo GRAVADO em `ui_config` (dado, não código). Detalhe: `docs/DESIGN-SYSTEM.md` §Tipografia. **E (13/10/2026, slide "Diretrizes de identidade visual"):** de 08 a 13/10 o `SKILL.md` já dizia Codec + Roboto enquanto `tokens/typography.css` e `fonts.css` seguiam em Fraunces, Inter e Plus Jakarta e `--surface-page` era `#f7f7fb` (o Branco da marca é `#F7F7F7`): o `styles.css` produzia peça fora da marca e nada acusava.
 ## § Vou rodar um script de PRODUÇÃO (reconciliação, disparo, reprocessamento) do checkout compartilhado
 
 Padrão que casa: `reconciliarPersonalizados` · `tasks.trigger` dentro de `scripts/_*.ts` · qualquer script que importa `@/lib/...` e escreve no banco ou paga fornecedor.
