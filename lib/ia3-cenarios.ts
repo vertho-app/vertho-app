@@ -22,7 +22,7 @@ import {
   type VersaoCenarios, versaoCenariosDoTenant, versaoDoCenario, CARIMBO_PROMPT, CARIMBO_REGUA, LIMITES_V2,
   buildIA3SystemPromptV2, buildIA3UserPromptV2, blocoFichaCenarioV2, CONFERENCIA_FATOS_E_PAPEL_V2,
   blocoIrmaosV2, listasDaReguaV2, MAX_IRMAOS_NO_CHECK,
-  textosDosCasosReais, casoRealDaCompetencia, alternativasComCasoReal,
+  casosReaisDoCargo, casoRealDaCompetencia, alternativasComCasoReal,
 } from '@/lib/ia3-cenarios-v2';
 
 // ── Prompts (movidos VERBATIM de fase1.ts) ──────────────────────────────────
@@ -397,7 +397,7 @@ export async function montarContextoIA3(
       const ficha = await carregarFichaParaCenario(tdb.raw, empresaId, cargoNome);
       fichaLinhas = ficha.linhas;
       // O caso real do gestor para ESTA competência (posição no Top 5 do cargo; mig 286).
-      casoReal = casoRealDaCompetencia(textosDosCasosReais(ficha.info?.casos_reais), ficha.info?.top5_workshop, comp);
+      casoReal = casoRealDaCompetencia(casosReaisDoCargo(ficha.info?.casos_reais), ficha.info?.top5_workshop, comp);
     } catch (e: any) {
       return { ok: false, error: `Ficha do cargo: ${e?.message || e}` };
     }

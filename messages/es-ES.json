@@ -4787,8 +4787,9 @@
       },
       "casos_reais": {
         "label": "Casos reales",
-        "hint": "Una situación real por competencia del cargo: qué pasó, quién estaba involucrado (por el rol, nunca por el nombre) y qué se hizo. Los escenarios de las reglas v2 parten de estos casos.",
-        "placeholder": "Caso real {n}"
+        "hint": "Una situación real para cada competencia del Top 5 del cargo: qué pasó, quién estaba involucrado (por el rol, nunca por el nombre) y qué se hizo. Los escenarios de las reglas v2 parten de estos casos; una competencia sin caso parte de la ficha del cargo.",
+        "placeholder": "Caso real {n}",
+        "placeholderCompetencia": "Qué pasó, quién estaba involucrado (por el rol) y qué se hizo, en una situación real en la que apareció esta competencia."
       },
       "stakeholders": {
         "label": "Stakeholders",

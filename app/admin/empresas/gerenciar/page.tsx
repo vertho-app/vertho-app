@@ -749,16 +749,20 @@ export default function GerenciarPage() {
                         </div>
                       ))}
 
-                      {/* Casos reais do gestor (mig 286): um por competência do cargo. O vazio some ao salvar. */}
+                      {/* Casos reais do gestor (mig 286): um por competência do Top 5, gravado COM a competência
+                          (caso em branco não desloca os outros). O vazio some ao salvar. */}
                       <div>
                         <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('cargoFields.casos_reais.label')}</label>
                         <p className="text-[10px] text-gray-500 mb-2">{t('cargoFields.casos_reais.hint')}</p>
                         <div className="space-y-2">
-                          {slotsDosCasos(editCargo.casos_reais).map((texto, i) => (
-                            <textarea key={i} value={texto}
-                              onChange={e => setEditCargo(p => ({ ...p, casos_reais: comCasoTrocado(p.casos_reais, i, e.target.value) }))}
-                              rows={2} placeholder={t('cargoFields.casos_reais.placeholder', { n: i + 1 })}
-                              className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none" />
+                          {slotsDosCasos(editCargo.casos_reais, editCargo.top5_workshop).map((slot, i) => (
+                            <div key={`${slot.competencia ?? 'geral'}-${i}`}>
+                              <p className="text-[10px] text-gray-400 mb-1">{slot.competencia || t('cargoFields.casos_reais.placeholder', { n: i + 1 })}</p>
+                              <textarea value={slot.texto}
+                                onChange={e => setEditCargo(p => ({ ...p, casos_reais: comCasoTrocado(p.casos_reais, p.top5_workshop, i, e.target.value) }))}
+                                rows={2} placeholder={t('cargoFields.casos_reais.placeholderCompetencia')}
+                                className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none" />
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -843,7 +847,7 @@ export default function GerenciarPage() {
                       <tr><td className="pr-4 py-0.5">contexto cultural</td><td className="pr-4">{t('import.no')}</td><td>Ritmo acelerado...</td></tr>
                       <tr><td className="pr-4 py-0.5">cargo de liderança?</td><td className="pr-4">{t('import.no')}</td><td>{t('import.leadershipExample')}</td></tr>
                       <tr><td className="pr-4 py-0.5">fronteiras</td><td className="pr-4">{t('import.no')}</td><td>Climatização: aciona o técnico terceirizado...</td></tr>
-                      <tr><td className="pr-4 py-0.5">caso real 1 … caso real 8</td><td className="pr-4">{t('import.no')}</td><td>Duas pistas paradas numa sexta com festa...</td></tr>
+                      <tr><td className="pr-4 py-0.5">competência N + caso real N (N de 1 a 8)</td><td className="pr-4">{t('import.no')}</td><td>Foco no cliente + Um cliente ligou pela terceira vez...</td></tr>
                     </tbody>
                   </table>
                 </div>

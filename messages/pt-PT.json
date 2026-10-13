@@ -4787,8 +4787,9 @@
       },
       "casos_reais": {
         "label": "Casos reais",
-        "hint": "Uma situação real por competência do cargo: o que aconteceu, quem estava envolvido (pelo papel, nunca pelo nome) e o que foi feito. Os cenários das regras v2 partem destes casos.",
-        "placeholder": "Caso real {n}"
+        "hint": "Uma situação real para cada competência do Top 5 do cargo: o que aconteceu, quem estava envolvido (pelo papel, nunca pelo nome) e o que foi feito. Os cenários das regras v2 partem destes casos; competência sem caso sai da ficha do cargo.",
+        "placeholder": "Caso real {n}",
+        "placeholderCompetencia": "O que aconteceu, quem estava envolvido (pelo papel) e o que foi feito, numa situação real em que esta competência apareceu."
       },
       "stakeholders": {
         "label": "Stakeholders",

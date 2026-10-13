@@ -598,7 +598,7 @@ const _importarCargosLote = protectedLoader<[any, any[]], { success: boolean; me
 
   const sb = await requireAdminSupabase();
   const { data: existentes, error: errExistentes } = await sb.from('cargos_empresa')
-    .select('id, nome').eq('empresa_id', empresaId);
+    .select('id, nome, top5_workshop').eq('empresa_id', empresaId);
   // Falha de leitura não vira "nenhum cargo existe" (o import inseriria duplicatas).
   if (errExistentes) return { success: false, error: `Não foi possível ler os cargos: ${errExistentes.message}` };
 
@@ -620,10 +620,12 @@ const _importarCargosLote = protectedLoader<[any, any[]], { success: boolean; me
     atualizados++;
   }
 
-  if (!plano.novos.length && !atualizados) return { success: true, message: 'Todos os cargos já estavam cadastrados e a planilha não trouxe casos reais nem fronteiras' };
+  // Caso com competência fora do Top 5 do cargo: gravado, mas nenhum cenário o usaria. Diz qual.
+  const avisos = plano.avisos.length ? ` · atenção: ${plano.avisos.slice(0, 5).join('; ')}${plano.avisos.length > 5 ? ` (e mais ${plano.avisos.length - 5})` : ''}` : '';
+  if (!plano.novos.length && !atualizados) return { success: true, message: `Todos os cargos já estavam cadastrados e a planilha não trouxe casos reais nem fronteiras${avisos}` };
   return {
     success: true,
-    message: `${plano.novos.length} cargos importados · ${atualizados} com casos reais ou fronteiras atualizados · ${plano.ignorados} sem mudança`,
+    message: `${plano.novos.length} cargos importados · ${atualizados} com casos reais ou fronteiras atualizados · ${plano.ignorados} sem mudança${avisos}`,
   };
 }, 'companies.manage');
 

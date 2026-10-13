@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  textosDosCasosReais, casoRealDaCompetencia, insumoDosCenarios, alternativasComCasoReal,
+  textosDosCasosReais, casosReaisDoCargo, casoRealDaCompetencia, insumoDosCenarios, alternativasComCasoReal,
   MAX_CARACTERES_CASO_REAL,
 } from '@/lib/ia3-cenarios-v2';
 import { montarPromptsGeracaoIA3, buildIA3UserPrompt } from '@/lib/ia3-cenarios';
@@ -47,6 +47,35 @@ describe('casoRealDaCompetencia', () => {
 
   it('sem caso: null (o cenário sai do genérico da ficha)', () => {
     expect(casoRealDaCompetencia([], TOP5, { nome: TOP5[0] })).toBeNull();
+  });
+});
+
+describe('casoRealDaCompetencia com a competência gravada no caso', () => {
+  const casos = casosReaisDoCargo([
+    { texto: 'do cliente', competencia: 'foco na experiencia do cliente' },
+    { texto: 'da equipe', competencia: 'Relação Interpessoal/Cooperação/Trabalho em equipe' },
+  ]);
+
+  it('o caso escrito para a competência vence, sem caixa e sem acento', () => {
+    expect(casoRealDaCompetencia(casos, TOP5, { nome: 'Foco na experiência do cliente' })).toBe('do cliente');
+    expect(casoRealDaCompetencia(casos, TOP5, { nome: TOP5[1] })).toBe('da equipe');
+  });
+
+  it('competência sem caso próprio NÃO pega o caso de outra (sairia repetido): null, e o cenário parte da ficha', () => {
+    expect(casoRealDaCompetencia(casos, TOP5, { nome: 'Agilidade e Flexibilidade' })).toBeNull();
+  });
+
+  it('casos gerais (sem competência) servem de reserva, pela posição no Top 5', () => {
+    const misto = casosReaisDoCargo([{ texto: 'do cliente', competencia: TOP5[0] }, { texto: 'geral A' }, { texto: 'geral B' }]);
+    expect(casoRealDaCompetencia(misto, TOP5, { nome: TOP5[0] })).toBe('do cliente');
+    expect(casoRealDaCompetencia(misto, TOP5, { nome: TOP5[1] })).toBe('geral B');
+    expect(casoRealDaCompetencia(misto, TOP5, { nome: TOP5[2] })).toBe('geral A');
+  });
+
+  it('casosReaisDoCargo lê a competência e trata registro sem ela como caso geral', () => {
+    expect(casosReaisDoCargo([{ texto: 't', competencia: '  X  ' }, { texto: 'u' }, 'v'])).toEqual([
+      { texto: 't', competencia: 'X' }, { texto: 'u', competencia: null }, { texto: 'v', competencia: null },
+    ]);
   });
 });
 

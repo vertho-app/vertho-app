@@ -4787,8 +4787,9 @@
       },
       "casos_reais": {
         "label": "Real cases",
-        "hint": "One real situation per competency of the role: what happened, who was involved (by role, never by name) and what was done. Scenarios under the v2 rules start from these cases.",
-        "placeholder": "Real case {n}"
+        "hint": "One real situation for each Top 5 competency of the role: what happened, who was involved (by role, never by name) and what was done. Scenarios under the v2 rules start from these cases; a competency without a case starts from the role profile.",
+        "placeholder": "Real case {n}",
+        "placeholderCompetencia": "What happened, who was involved (by role) and what was done, in a real situation where this competency showed up."
       },
       "stakeholders": {
         "label": "Stakeholders",

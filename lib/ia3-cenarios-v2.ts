@@ -198,37 +198,65 @@ export const MAX_CARACTERES_CASO_REAL = 1200;
 
 const normalizarNome = (s: unknown) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
+/** Um caso real como o prompt usa: o texto e a competência para a qual foi escrito (`null` = caso geral). */
+export interface CasoReal { texto: string; competencia: string | null }
+
 /**
- * Os textos de `cargos_empresa.casos_reais` (`[{ "texto": "..." }]`), limpos e na ordem.
- * Aceita string solta por robustez; o que não for texto some. Cada caso é cortado na
- * última palavra inteira antes de `MAX_CARACTERES_CASO_REAL`.
+ * Os casos de `cargos_empresa.casos_reais` (`[{ "texto": "...", "competencia": "..." }]`),
+ * limpos e na ordem. Aceita string solta e registro sem competência (caso geral). Cada
+ * texto é cortado na última palavra inteira antes de `MAX_CARACTERES_CASO_REAL`.
  */
-export function textosDosCasosReais(valor: unknown): string[] {
+export function casosReaisDoCargo(valor: unknown): CasoReal[] {
   if (!Array.isArray(valor)) return [];
   return valor
-    .map((c) => (typeof c === 'string' ? c : c && typeof c === 'object' ? (c as Record<string, unknown>).texto : ''))
-    .map((t) => String(t ?? '').replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
+    .map((c) => {
+      const o = typeof c === 'string' ? { texto: c } : c && typeof c === 'object' ? (c as Record<string, unknown>) : {};
+      return {
+        texto: String(o.texto ?? '').replace(/\s+/g, ' ').trim(),
+        competencia: String(o.competencia ?? '').replace(/\s+/g, ' ').trim() || null,
+      };
+    })
+    .filter((c) => c.texto)
     .slice(0, MAX_CASOS_REAIS)
-    .map((t) => (t.length <= MAX_CARACTERES_CASO_REAL ? t : `${t.slice(0, MAX_CARACTERES_CASO_REAL).replace(/\s+\S*$/, '')}…`));
+    .map((c) => (c.texto.length <= MAX_CARACTERES_CASO_REAL ? c : {
+      ...c, texto: `${c.texto.slice(0, MAX_CARACTERES_CASO_REAL).replace(/\s+\S*$/, '')}…`,
+    }));
+}
+
+/** Só os textos (o aviso do "Gerar cenários" conta quantos cargos têm caso). */
+export function textosDosCasosReais(valor: unknown): string[] {
+  return casosReaisDoCargo(valor).map((c) => c.texto);
 }
 
 /**
- * O caso real de PARTIDA de uma competência (plano, 3.3): a competência na posição k do
- * Top 5 do cargo recebe o caso k e, com menos casos que competências, o caso se repete
- * (k mod n). Determinístico e em código: a mesma célula recebe o mesmo caso na geração e
- * na regeneração, e cenários do mesmo cargo partem de casos DIFERENTES (5 de 6 cenários
- * de um cargo da Amazon repetiam "a festa de 40 pessoas"). Competência fora do Top 5 cai
- * numa posição estável pelo id. Sem caso: `null`, e o cenário sai do genérico da ficha.
+ * O caso real de PARTIDA de uma competência (plano, 3.3). Determinístico e em código: a
+ * mesma célula recebe o mesmo caso na geração e na regeneração.
+ *  1. O caso escrito PARA esta competência (planilha com "competência N", formulário com
+ *     o Top 5), pelo nome sem caixa e sem acento.
+ *  2. Sem caso próprio, um caso GERAL do cargo (escrito sem competência), pela posição da
+ *     competência no Top 5 (k mod n): cenários do mesmo cargo partem de casos diferentes
+ *     enquanto houver caso para todos.
+ *  3. Nem um nem outro: `null`, e o cenário sai do genérico da ficha. Um caso escrito para
+ *     OUTRA competência não é reaproveitado: repetir o mesmo caso em vários cenários foi
+ *     parte da queixa (5 de 6 cenários de um cargo da Amazon tinham "a festa de 40 pessoas").
+ *
+ * Até 13/10/2026 (noite) o casamento era só pela posição, e os casos em branco eram
+ * compactados ao gravar: preencher os casos 1 e 3 entregava o caso 3 à competência 2.
  */
 export function casoRealDaCompetencia(
-  casos: string[], top5: unknown, competencia: { id?: string | null; nome?: string | null },
+  casos: Array<CasoReal | string>, top5: unknown, competencia: { id?: string | null; nome?: string | null },
 ): string | null {
-  if (!casos.length) return null;
+  const lista: CasoReal[] = (casos || []).map((c) => (typeof c === 'string' ? { texto: c, competencia: null } : c));
+  if (!lista.length) return null;
+  const alvo = normalizarNome(competencia.nome);
+  const proprio = lista.find((c) => c.competencia && normalizarNome(c.competencia) === alvo);
+  if (proprio) return proprio.texto;
+  const gerais = lista.filter((c) => !c.competencia);
+  if (!gerais.length) return null;
   const posicoes = Array.isArray(top5) ? top5.map(normalizarNome) : [];
-  let k = posicoes.indexOf(normalizarNome(competencia.nome));
+  let k = posicoes.indexOf(alvo);
   if (k < 0) k = [...String(competencia.id ?? competencia.nome ?? '')].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
-  return casos[k % casos.length];
+  return gerais[k % gerais.length].texto;
 }
 
 /**

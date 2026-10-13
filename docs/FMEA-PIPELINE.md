@@ -728,7 +728,10 @@ consumo gravado ao entrar na conversa, que é o que deixa o flag da tela velho).
     - `cargos_empresa.casos_reais` e `fronteiras`, preenchidos pela planilha de cargos ("Fronteiras", "Caso real 1" a 8) ou pelo formulário;
     - o import passa a ATUALIZAR casos e fronteiras de cargo que já existe; antes, ele só inseria cargo novo;
     - as fronteiras entram na ficha de todo gerador;
-    - na v2, a competência k do Top 5 parte do caso k, e o caso fica gravado com o cenário para o auditor;
+    - na v2, cada competência parte do caso escrito PARA ela (a competência vai gravada com o caso),
+      e o caso fica gravado com o cenário para o auditor. Corrigido na noite de 13/10: o casamento
+      era pela posição, e os casos em branco eram compactados ao gravar, então preencher os casos 1
+      e 3 entregava o caso 3 à competência 2. Achado na revisão, antes de qualquer planilha voltar;
     - o "Gerar cenários" de empresa v2 avisa quantos cargos têm caso e fronteiras;
     - a ficha da Amazon foi corrigida: no Infra e Mecânica, a climatização "aciona o técnico terceirizado e coordena a agenda dele (não executa)".
 - **Guardas:**
@@ -739,7 +742,7 @@ consumo gravado ao entrar na conversa, que é o que deixa o flag da tela velho).
   - regras v2: `tests/unit/ia3/cenarios-v2-regras.test.ts` e o golden
     `tests/unit/ia3/prompt-golden-v2.test.ts`;
   - Fase 3: `tests/unit/cargos-import-casos.test.ts` e `tests/unit/ia3/casos-reais-v2.test.ts`;
-  - 31 mutações mortas (20 das Fases 0 a 2 e 11 da Fase 3), entre elas:
+  - 37 mutações mortas (20 das Fases 0 a 2, 11 da Fase 3 e 6 do casamento caso × competência), entre elas:
     - Fases 0 a 2: respondido reescrito no lugar, conversa fora da conta, versão substituída
       regenerando, B apagado ou regenerado pelo gerador do A, check na régua da empresa, carimbo
       perdido no recheck, pessoas contadas como respostas e prompt v2 mudando em silêncio;
