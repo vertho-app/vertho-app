@@ -24,8 +24,12 @@ import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
  * `nextjs-app/scripts/_zerar-segundo-fator.mjs` (fora do git) remove os fatores pela chave de serviço.
  */
 
-/** Fase 1: só o master, para testar antes de valer para os sócios. Fase 2: `'todos'`. */
-export const ADMINS_COM_SEGUNDO_FATOR: readonly string[] | 'todos' = ['rodrigo@vertho.ai'];
+/**
+ * Fase 1 (10/10/2026): só o master, para testar antes de valer para os sócios. Fase 2 (13/10/2026, o
+ * dono: "pode ligar", depois de confirmar o código na conta dele): `'todos'`, os admins da plataforma
+ * (`platform_admins` e a lista `ADMIN_EMAILS`). Emergência com um sócio: trocar por uma lista sem ele.
+ */
+export const ADMINS_COM_SEGUNDO_FATOR: readonly string[] | 'todos' = 'todos';
 
 export function exigeSegundoFator(email: string | null | undefined): boolean {
   const e = String(email || '').trim().toLowerCase();

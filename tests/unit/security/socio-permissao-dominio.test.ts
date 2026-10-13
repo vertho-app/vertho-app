@@ -18,9 +18,15 @@ const estado = vi.hoisted(() => ({ ctx: null as any }));
 const sb = criarSupabaseMock({ lista: () => [], resolver: () => null });
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
+// Sessão COM o código do aplicativo (`aal2`): desde a fase 2 do segundo fator (13/10/2026) todo
+// admin precisa dele, e este teste mede a permissão do domínio, não o segundo fator
+// (`tests/unit/security/segundo-fator.test.ts`).
 vi.mock('@/lib/auth/supabase-server', () => ({
   createSupabaseServerClient: async () => ({
-    auth: { getUser: async () => ({ data: { user: { email: estado.ctx?.email } }, error: null }) },
+    auth: {
+      getUser: async () => ({ data: { user: { email: estado.ctx?.email } }, error: null }),
+      getClaims: async () => ({ data: { claims: { email: estado.ctx?.email, aal: 'aal2' } }, error: null }),
+    },
   }),
 }));
 vi.mock('@/lib/authz', () => ({

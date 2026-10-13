@@ -68,7 +68,7 @@ vi.mock('next/headers', () => ({
   cookies: async () => ({ get: () => undefined, getAll: () => [] }),
 }));
 
-import { exigeSegundoFator, segundoFatorConfirmado } from '@/lib/auth/segundo-fator';
+import { ADMINS_COM_SEGUNDO_FATOR, exigeSegundoFator, segundoFatorConfirmado } from '@/lib/auth/segundo-fator';
 import { getUserContext, isPlatformAdmin } from '@/lib/authz';
 import { checarAcessoPlataforma } from '@/lib/authz-plataforma';
 import { requireAdminAction } from '@/lib/auth/action-context';
@@ -90,11 +90,13 @@ beforeEach(() => {
   delete process.env.ADMIN_EMAILS;
 });
 
-describe('quem exige (fase 1)', () => {
-  it('só o master, sem diferenciar maiúsculas', () => {
+describe('quem exige (fase 2, desde 13/10/2026)', () => {
+  it('todos os admins: master e sócios, sem diferenciar maiúsculas', () => {
+    expect(ADMINS_COM_SEGUNDO_FATOR).toBe('todos');
     expect(exigeSegundoFator(MASTER)).toBe(true);
     expect(exigeSegundoFator(' Rodrigo@Vertho.ai ')).toBe(true);
-    expect(exigeSegundoFator(SOCIO)).toBe(false);
+    expect(exigeSegundoFator(SOCIO)).toBe(true);
+    expect(exigeSegundoFator(' Socio@Vertho.ai ')).toBe(true);
     expect(exigeSegundoFator('')).toBe(false);
   });
 });
@@ -160,9 +162,16 @@ describe('getUserContext / isPlatformAdmin: sem o código, perde o PODER, não a
     expect(await isPlatformAdmin(MASTER, { fatoDoBanco: true })).toBe(true);
   });
 
-  it('sócio (fora da fase 1) em aal1: segue admin, como antes', async () => {
+  it('sócio em aal1 (fase 2): perde o poder, fica com o fator pendente', async () => {
     estado.cookie = { email: SOCIO, aal: 'aal1' };
+    expect(await getUserContext(SOCIO)).toMatchObject({ isPlatformAdmin: false, platformAdminRole: null, segundoFatorPendente: true });
+    expect(await isPlatformAdmin(SOCIO)).toBe(false);
+  });
+
+  it('sócio em aal2: admin sócio', async () => {
+    estado.cookie = { email: SOCIO, aal: 'aal2' };
     expect(await getUserContext(SOCIO)).toMatchObject({ isPlatformAdmin: true, platformAdminRole: 'socio', segundoFatorPendente: false });
+    expect(await isPlatformAdmin(SOCIO)).toBe(true);
   });
 
   it('quem não é admin não muda', async () => {
@@ -249,12 +258,17 @@ describe('allow POR USUÁRIO de quem é da equipe só vale com o poder de plataf
     expect(await can(ctx, 'permissions.manage')).toBe(false);
   });
 
-  it('sócio (fora da fase 1) com allow por usuário: vale, como antes', async () => {
+  it('sócio (fase 2) com allow por usuário: suspenso em aal1, vale em aal2', async () => {
     estado.overrides = [allowDoUsuario(SOCIO, 'permissions.manage')];
     estado.cookie = { email: SOCIO, aal: 'aal1' };
-    const ctx = { ...(await getUserContext(SOCIO))!, email: SOCIO };
-    expect(ctx.platformAdminRole).toBe('socio');
-    expect(await can(ctx, 'permissions.manage')).toBe(true);
+    const semCodigo = { ...(await getUserContext(SOCIO))!, email: SOCIO };
+    expect(semCodigo.platformAdminRole).toBeNull();
+    expect(await can(semCodigo, 'permissions.manage')).toBe(false);
+
+    estado.cookie = { email: SOCIO, aal: 'aal2' };
+    const comCodigo = { ...(await getUserContext(SOCIO))!, email: SOCIO };
+    expect(comCodigo.platformAdminRole).toBe('socio');
+    expect(await can(comCodigo, 'permissions.manage')).toBe(true);
   });
 
   it('quem não é da equipe não muda: o allow por usuário vale', async () => {
