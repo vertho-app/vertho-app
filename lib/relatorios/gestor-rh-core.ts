@@ -209,13 +209,16 @@ export async function gerarRelatorioGestorCore(
         } catch (e: any) { console.error('[PDF Gestor]', e.message); }
 
         // empresa_id é injetado pelo tdb.upsert
-        await tdb.from('relatorios').upsert({
+        const { error: errGravar } = await tdb.from('relatorios').upsert({
           colaborador_id: gestorColab?.id || null,
           tipo: 'gestor',
           conteudo: { ...relatorio, gestor_email: gestorEmail, gestor_nome: gestorNome },
           pdf_path: pdfPath,
           gerado_em: new Date().toISOString(),
         }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
+        // Sem checar, a gravação que falhou virava "ok" e o relatório (com a IA já paga) se perdia calado. Caso real:
+        // gestor sem cadastro no tenant tem `colaborador_id` NULL, e o 2º do mesmo tenant bate em `uq_relatorios_agregado`.
+        if (errGravar) return { gestor: gestorNome, erro: `relatório gerado, mas não gravado: ${errGravar.message}` };
 
         return { gestor: gestorNome, equipe: equipe.length, ok: true };
       } catch (e: any) {
@@ -355,11 +358,11 @@ ${JSON.stringify(registros, null, 2)}`;
     // PostgreSQL UNIQUE não detecta conflito em NULL — select+update/insert explícito.
     const { data: existingRh } = await tdb.from('relatorios')
       .select('id').eq('tipo', 'rh').is('colaborador_id', null).maybeSingle();
-    if (existingRh) {
-      await tdb.from('relatorios').update({ conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString() }).eq('id', existingRh.id);
-    } else {
-      await tdb.from('relatorios').insert({ colaborador_id: null, tipo: 'rh', conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString() });
-    }
+    const { error: errGravarRh } = existingRh
+      ? await tdb.from('relatorios').update({ conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString() }).eq('id', existingRh.id)
+      : await tdb.from('relatorios').insert({ colaborador_id: null, tipo: 'rh', conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString() });
+    // Sem checar, a gravação que falhou devolvia "Relatório RH gerado" e a tela mostrava o relatório antigo (ou nenhum).
+    if (errGravarRh) return { success: false, error: `Relatório gerado, mas não gravado: ${errGravarRh.message}` };
 
     return { success: true, message: `Relatório RH gerado${pdfPath ? ' (PDF salvo)' : ''}` };
   } catch (err: any) {

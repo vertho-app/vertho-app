@@ -349,8 +349,10 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     .map(([semana, pessoas]) => ({ semana, pessoas }));
 
   // ── 3. Checkpoints (pendentes + respondidos) ──
+  // Colunas de `checkpoints_gestor`: `created_at` e `validado_em` (`trilhas` usa `criado_em`, esta não).
+  // Pedir `criado_em`/`atualizado_em` derrubava a consulta inteira e a home saía "indisponível" para todo gestor.
   const { data: cps, error: errCps } = await sb.from('checkpoints_gestor')
-    .select('id, trilha_id, semana, status, avaliacao_gestor, criado_em, atualizado_em')
+    .select('id, trilha_id, semana, status, avaliacao_gestor, created_at')
     .in('trilha_id', ativas.map(t => t.id));
   // Sem checar, a falha virava "nenhum checkpoint pendente" e o card do gestor ficava em dia.
   if (errCps) {
@@ -516,7 +518,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // resposta já traz. Antes a action montava a frase em português, com o plural escrito à mão.
   const alertas: GestorAlerta[] = [];
   const cpAtrasados = cpPendentes.filter((cp: any) => {
-    const dias = (Date.now() - new Date(cp.criado_em).getTime()) / (24 * 3600 * 1000);
+    const dias = (Date.now() - new Date(cp.created_at).getTime()) / (24 * 3600 * 1000);
     return dias > 7;
   });
   if (cpAtrasados.length > 0) {
