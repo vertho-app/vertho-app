@@ -94,6 +94,10 @@ Regras de escrita: o `CLAUDE.md` é resumo operacional — entrada nova ali é *
 Project batendo com o repo; a receita completa (comandos, refs, armadilhas) está em
 **`sincronizar-project.md`**, ao lado.
 
+🔑 O Project é o **vertho.ai** da conta **`rodrigo@vertho.ai`** (org Vertho Gestão, privado), com o endereço na receita. O que existe
+em `rdnaves@gmail.com` é o antigo, órfão e defasado: não sincronizar nele. A extensão do Chrome tem que estar no perfil de
+`rodrigo@vertho.ai`.
+
 ```
 CLAUDE.md · docs/ARQUITETURA.md · docs/PIPELINE-TRILHA.md · docs/FMEA-PIPELINE.md
 docs/PASSO-A-PASSO-VERTHO.md · docs/CUSTO-QUALIDADE.md · docs/SECURITY-STATUS.md

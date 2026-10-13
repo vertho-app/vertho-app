@@ -8,6 +8,27 @@
 Chamado pelo passo 3.1 do `SKILL.md`. **Não é aviso — é execução.** Desde 26/09/2026 nada
 pede confirmação, salvo remover arquivo SEM par novo (passo 6).
 
+## 🔑 Onde o Project mora: conta `rodrigo@vertho.ai` (desde 13/10/2026)
+
+O Project **vertho.ai** das 20 fontes vive na conta **`rodrigo@vertho.ai`** (a mesma do Claude Code), na organização
+**Vertho Gestão** (Team), **privado**: `https://claude.ai/project/01a135a2-309a-75d9-9e57-680601a18271`.
+Foi RECRIADO em 13/10/2026, porque não existe migração de Project entre contas. O antigo
+(`019c7614-e003-719c-89ba-681693339e87`, conta `rdnaves@gmail.com`) ficou órfão e defasado: **nunca sincronizar nele**; só o
+dono pode apagá-lo ou renomeá-lo. Onde esta receita cita o `019c7614…`, vale o `01a135a2…`.
+
+- **Chrome:** a extensão precisa estar no perfil logado como `rodrigo@vertho.ai`. O perfil do Gmail NÃO aparece em
+  `list_connected_browsers`. Antes de tudo, confirme que o Project abre: `GET /api/organizations/<org>/projects/<id>` tem que dar 200
+  em alguma org do `GET /api/organizations` (a certa é "Vertho Gestão"; a org "vertho.ai" dá 403). Cair em
+  `claude.ai/projects/no-permission` significa perfil errado, não Project apagado.
+- **UI do Project novo:** não há modal "Contexto"/"Arquivos". Os cards ficam na própria página, e o `input[type=file]` do Contexto
+  é o **2º** da página (o 1º é o do chat). Marque-o com `aria-label`, peça o `ref` ao `find` e use `file_upload`. O "+" do Contexto
+  É esse input: clicar nele pode abrir o seletor nativo, que não aparece no screenshot. Os passos de modal mais abaixo valem para a UI
+  antiga; no Project novo, leia, suba e remova pela API (seção de 04/10).
+- **Visibilidade:** deixe **Privado**. `SECURITY-STATUS`, `ORCAMENTO` e `CLAUDE.md` não devem ficar visíveis a toda a organização.
+- **Instruções do Project:** são o campo "Instruções" do próprio Project (textarea React: setter nativo + evento `input`). O texto
+  original veio do Project antigo, e só o dono o tem.
+- **Remover a cópia velha:** `DELETE` com a trava de hash, só depois do "sim" do dono que NOMEIA a remoção (itens 7 a 8b abaixo).
+
 Fonte de Project não se atualiza sozinha: fica congelada na versão subida, e **fonte defasada é pior
 que fonte ausente** — ela responde com autoridade sobre um sistema que já mudou, e fora do Claude
 Code não há repositório para conferir.
@@ -171,7 +192,7 @@ disco, a comparação é aproximada; depois de uma rodada inteira subida via `gi
 (`<ul>`, um `<li>` por arquivo, botão `aria-label="Excluir"`). Agora ficam num **modal "Arquivos"**,
 e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 subidas, 6 remoções).
 
-1. **Ler o Project.** Abrir `https://claude.ai/project/019c7614-e003-719c-89ba-681693339e87`. No
+1. **Ler o Project.** Abrir `https://claude.ai/project/01a135a2-309a-75d9-9e57-680601a18271` (conta `rodrigo@vertho.ai`). No
    painel da direita, o item **"Arquivos"** mostra só o total ("20 arquivos · 22% da capacidade");
    a lista abre no **botão `aria-label="Mostrar arquivos"`** (clique nele, não em "Adicionar").
    🔴 `Medido: 30/09/2026`: **mudou de novo.** O item do painel virou **"Contexto · N arquivos"**, o
