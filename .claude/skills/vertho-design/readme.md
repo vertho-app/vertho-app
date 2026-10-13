@@ -1,5 +1,10 @@
 # Vertho Design System
 
+> **Read `SKILL.md` first.** It is the reconciled version and wins wherever this file differs. This readme is the v1 handoff
+> text; the brand book of Oct/2026 ("Diretrizes de identidade visual") replaced its type system (Codec Cold Extra Bold for
+> titles + Roboto for text, no Fraunces, Inter or Plus Jakarta Sans), its photography note and its naming (always `vertho.ai`,
+> never "a Vertho"). Palette, logo tints and the "what to avoid" list also live in `SKILL.md`.
+
 Brand + UI design system for **Vertho (vertho.ai)** — a **competency-development platform**
 that brings together **HR, education and AI**. Vertho helps schools and companies develop people
 with method: behavioral mapping (**DISC**), **learning trails/tracks (trilhas)**, and an
@@ -21,7 +26,7 @@ Primary language is **Brazilian Portuguese**.
   the **Sage ("Sábio") archetype** — serene, analytical, precise, a trustworthy guide. The name comes
   from *vertere* ("to turn / convert") → **turning information into actionable wisdom**.
 - **Fonts** — `uploads/Codec-Cold-*.otf` / `Codec-Warm-*.otf` (Zetafonts). Codec Cold is the
-  **wordmark** typeface. The **product** type system is Fraunces + Inter + Plus Jakarta Sans (below).
+  typeface of the wordmark and, since the Oct/2026 brand book, of titles (Extra Bold, with Roboto for text; see Visual foundations).
 - No product codebase, Figma, or real screenshots were provided — so the **UI kit is a
   representative interpretation** of the corrected positioning, not a faithful recreation.
 
@@ -34,7 +39,7 @@ Primary language is **Brazilian Portuguese**.
   not features or specs. e.g. *"Desenvolver pessoas com método."*, *"Conheça seu perfil e evolua no seu ritmo."*,
   *"Do autoconhecimento à prática."*
 - **Person:** address the reader as **"você" / "sua equipe" / "seus alunos"**; the company is
-  **"a Vertho"** (or **"nós"** sparingly). Warm second person, never engineer-to-engineer.
+  **"a vertho.ai"** (or **"nós"** sparingly; never "a Vertho"). Warm second person, never engineer-to-engineer.
 - **Casing:** sentence case everywhere. Wordmark is always lowercase **`vertho.ai`**. UPPERCASE only
   for small overline/label text (wide tracking).
 - **Vocabulary (do use):** competências, desenvolvimento, DISC, perfil comportamental, trilhas,
@@ -52,18 +57,19 @@ Primary language is **Brazilian Portuguese**.
   text color. Accent system is **cyan → purple**: cyan (`#34c5cc`, the on-dark logo color) primary;
   purple (`#9e4edd`) secondary. A **cyan→purple diagonal gradient** (`--vh-gradient`) is used sparingly
   for highlight moments (progress, hero flourish, level-up). Neutrals are subtly cool-tinted.
-- **Type (product system):**
-  - **Fraunces** (editorial serif) — display / headings. Warm, human, editorial — the voice of a
-    mentor. Set at weight 500–600, tight tracking.
-  - **Inter** — body & interface text; the app + PDF default. Regular at 1.6 line-height.
-  - **Plus Jakarta Sans** (`--font-ui`) — UI chrome: buttons, labels, nav, subheads, chips.
-  - **Codec Cold** (`--font-wordmark`) — **logo/wordmark only**, not a system font.
+- **Type (brand book, Oct/2026):**
+  - **Codec Cold Extra Bold, weight 800** (`--font-display`, `--fw-display`) for titles and highlights, "to convey strength
+    and clarity". The slide says "Codec Bold"; the owner chose Extra Bold on 08/10/2026.
+  - **Roboto** (`--font-body`, and `--font-ui` as an alias) for text, information and supporting elements, "for its high
+    legibility". Regular at 1.6 line-height.
+  - Codec is wide: short titles only; paragraphs and small labels stay in Roboto.
   - JetBrains Mono exists (`--font-mono`) for the rare data readout; used lightly.
 - **Spacing:** 4px base (`--space-1`…`--space-9`). Generous section padding (~80px vertical).
 - **Backgrounds:** light `#f7f7fb` page, white cards; dark sections use deepest indigo (`#1c1a33`).
-  Soft blurred gradient **glows** for warmth; no busy patterns/textures. No photography in the kit
-  (placeholders where real people/classroom imagery would go — this is a warm, people-first brand,
-  so real photography of learners/teams is expected in production).
+  Soft blurred gradient **glows** for warmth; no busy patterns/textures. Photography follows the brand book:
+  **real, Brazilian people in work contexts**, authentic, diverse and collaborative settings. The kit ships no
+  photos; with no real photo at hand leave the space empty or use only the graphic element (3 to 7 thin, smooth
+  curved lines, purple only as support) instead of generic or AI-looking imagery.
 - **Corner radii:** rounded and friendly — 12px (controls), 16px (cards), 24px (dialogs/large
   panels), full pill for buttons/tabs/badges.
 - **Cards:** white surface, 16px radius, 1px subtle border, **soft indigo-tinted shadow**. Interactive
@@ -87,7 +93,7 @@ Primary language is **Brazilian Portuguese**.
 - `icone-escuro.png` / `icone-claro.png` — the V+i icon mark (dark ink / light reversed).
 - `logo-h-escuro.png` / `logo-h-claro.png` — horizontal `vertho.ai` lockup (dark / light).
 - `logo-ac-escuro.png` / `logo-ac-claro.png` — stacked (icon-above-copy) lockup.
-- `fonts/Codec-Cold-*.otf` — wordmark font (logo lockups only).
+- `fonts/Codec-Cold-*.otf` — the titles font (Extra Bold, 800). Never use it to rebuild the logo: the logo is always the official file.
 - Use **dark** ink versions on light backgrounds; **light** versions on indigo/gradient.
 
 ---
@@ -111,7 +117,7 @@ No component source was provided, so this is a standard primitive set sized to t
 ## Foundations (Design System tab cards)
 - **Brand:** logo lockup, icon mark.
 - **Colors:** brand navy (primary + logo-ink swatch), cyan accent, purple accent, neutrals, status & gradient.
-- **Type:** display (Fraunces), body (Inter), UI (Plus Jakarta Sans), type scale.
+- **Type:** titles (Codec Cold Extra Bold), text and UI (Roboto), type scale.
 - **Spacing:** spacing scale, radius & shadow.
 
 ## Repo index
@@ -128,6 +134,6 @@ No component source was provided, so this is a standard primitive set sized to t
   trilhas, Mentor IA, escolas + empresas, representantes), without real screens. **Share the app/
   Figma/screenshots** to make it a true recreation of the product surfaces (aluno, gestor RH, escola,
   representante, PDFs de perfil, chat do Mentor IA).
-- **Fonts:** product system = Fraunces + Inter + Plus Jakarta Sans (confirmed by you). Codec Cold is
-  wordmark-only. Fraunces & Inter are Google Fonts; Codec Cold is bundled in `assets/fonts/`.
+- **Fonts:** brand book system = Codec Cold Extra Bold (titles) + Roboto (text). Roboto is a Google Font; Codec Cold is
+  bundled in `assets/fonts/` (the free version: personal, non-commercial EULA; the app uses the licensed woff2).
 - **Icons:** Lucide substituted (no set provided).

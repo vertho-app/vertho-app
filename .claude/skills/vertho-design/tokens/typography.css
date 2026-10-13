@@ -1,14 +1,16 @@
-/* Vertho — Typography tokens
-   The product's real type system: Fraunces (editorial serif) for display,
-   Inter for body/UI (the app + PDF default), Plus Jakarta Sans for UI chrome,
-   labels and subheads. Codec Cold is reserved for the LOGO/wordmark only. */
+/* vertho.ai: tokens de tipografia (brand book, out/2026).
+   Títulos e destaques: Codec Cold Extra Bold (800), o "Codec Bold" do brand book
+   no peso que o dono escolheu em 08/10/2026. Textos e apoio: Roboto.
+   --font-ui e --font-body apontam para a mesma Roboto (o nome --font-ui fica
+   porque os cards de guidelines/ o referenciam). Do Codec só o peso 800 está em
+   uso: não empilhe pesos nele. Em parágrafo e em rótulo pequeno use Roboto. */
 
 :root {
-  --font-display: "Fraunces", "Georgia", "Times New Roman", serif;
-  --font-body: "Inter", system-ui, -apple-system, sans-serif;
-  --font-ui: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display: "Codec Cold", "Roboto", system-ui, -apple-system, sans-serif;
+  --font-body: "Roboto", system-ui, -apple-system, sans-serif;
+  --font-ui: "Roboto", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --font-wordmark: "Codec Cold", "Plus Jakarta Sans", sans-serif; /* logo lockups only */
+  --font-wordmark: "Codec Cold", "Roboto", sans-serif; /* só o logo oficial; não remonte o wordmark em texto */
 
   /* Type scale (1.25 major-third-ish, tuned) */
   --text-xs:  0.75rem;   /* 12 */
@@ -21,11 +23,12 @@
   --text-3xl: 3rem;      /* 48 */
   --text-4xl: 4rem;      /* 64 */
 
-  /* Weights */
+  /* Weights (--fw-display é o peso dos títulos em Codec Cold Extra Bold) */
   --fw-regular: 400; /* @kind other */
   --fw-medium: 500; /* @kind other */
   --fw-semibold: 600; /* @kind other */
   --fw-bold: 700; /* @kind other */
+  --fw-display: 800; /* @kind other */
 
   /* Line heights */
   --lh-tight: 1.08; /* @kind other */

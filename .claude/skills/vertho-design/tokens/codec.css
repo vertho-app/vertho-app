@@ -1,8 +1,9 @@
-/* Vertho — Codec Cold (LOGO / wordmark font only, Zetafonts).
-   Codec Cold is the typeface used to draw the vertho.ai wordmark. It is NOT a
-   system/UI font — the product uses Fraunces + Inter + Plus Jakarta Sans (see
-   typography.css). This @font-face exists so the wordmark can be set in HTML
-   via var(--font-wordmark) when the logo image can't be used. */
+/* vertho.ai: Codec Cold (Zetafonts), a fonte dos TÍTULOS (brand book, out/2026).
+   O peso em uso é o 800 (Extra Bold), via --font-display + --fw-display em
+   typography.css; textos e apoio são Roboto. Os .otf desta pasta são a versão
+   GRATUITA (EULA pessoal, não comercial): servem a artefato fora do app; o app
+   usa o woff2 licenciado em app/fonts/. Não use esta fonte para remontar o
+   logotipo: o logo é sempre o arquivo oficial (assets/logo-*). */
 
 @font-face {
   font-family: "Codec Cold";

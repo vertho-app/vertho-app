@@ -1,7 +1,13 @@
-/* Vertho — Color tokens
-   Navy (#0F2B54) is the PRIMARY text/action color — it's what the live app and
-   PDFs lead with. Indigo (#3c385f, sampled from the logo) is the LOGO/wordmark
-   ink only. Cyan + purple accents come from the brand palette. */
+/* vertho.ai: tokens de cor (brand book, out/2026).
+   As quatro cores da marca e o papel de cada uma:
+     Azul  #0F2B54  base da marca (confiança e profundidade)  --vh-navy-500
+     Ciano #34C5CC  energia (movimento e evolução)             --vh-cyan-500
+     Branco #F7F7F7 respiro (leveza, clareza e equilíbrio)     --vh-brand-white
+     Roxo  #3B0A6D  acento, COM MODERAÇÃO, para destaque       --vh-purple-700
+   O navy é a cor PRIMÁRIA de texto e ação. O indigo (#3c385f) é legado do bundle
+   v1 e não bate com o logo oficial: não use como cor de UI. O roxo luminoso
+   (--vh-purple-500, #9e4edd) é um tom DERIVADO, só para linha/gradiente em fundo
+   escuro. Roxo oficial = --vh-purple-700. */
 
 :root {
   /* ---- Brand navy — PRIMARY text/action ---- */
@@ -24,13 +30,14 @@
   --vh-cyan-500: #34c5cc;
   --vh-cyan-700: #1c8a90;
 
-  /* Purple — secondary accent */
+  /* Purple: acento, com moderação (700 = o roxo oficial; 500 = tom luminoso derivado) */
   --vh-purple-100: #f3e3ff;
   --vh-purple-300: #e1aaff;
   --vh-purple-500: #9e4edd;
   --vh-purple-700: #3b0a6d;
 
   /* ---- Neutral ramp ---- */
+  --vh-brand-white: #f7f7f7;  /* o Branco da marca (respiro); fundo claro de peças e PDFs */
   --vh-white:  #ffffff;
   --vh-gray-50:  #f7f7fb;
   --vh-gray-100: #eeedf4;
@@ -56,7 +63,7 @@
   --text-inverse:  var(--vh-white);
   --text-on-accent:var(--vh-white);
 
-  --surface-page:   var(--vh-gray-50);
+  --surface-page:   var(--vh-brand-white);
   --surface-card:   var(--vh-white);
   --surface-sunken: var(--vh-gray-100);
   --surface-inverse:var(--vh-navy-500);

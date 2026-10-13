@@ -1,12 +1,12 @@
 ---
 name: vertho-design
-description: 'Sistema de design da marca Vertho (cor, tipografia, logo, voz e regras visuais). Use ao criar/ajustar qualquer artefato de marca — PDFs, telas de admin/dashboard, e-mails, one-pagers, slides, protótipos ou o site institucional — ou quando o usuário falar em design, branding, identidade, cores, tipografia, logo ou "look and feel". Encodes os tokens canônicos, a voz (arquétipo Sábio, PT-BR) e a regra de ouro: tokens/regras = verdade; os componentes deste bundle = referência ilustrativa (produção usa os componentes REAIS do app).'
+description: 'Sistema de design da marca vertho.ai (cor, tipografia, logo, elemento gráfico, fotografia, voz e regras visuais, incluindo o que evitar). Use ao criar/ajustar qualquer artefato de marca — PDFs, telas de admin/dashboard, e-mails, one-pagers, slides, protótipos ou o site institucional — ou quando o usuário falar em design, branding, identidade, cores, tipografia, logo, fotografia, imagem ou "look and feel". Encodes os tokens canônicos, a voz (arquétipo Sábio, PT-BR) e a regra de ouro: tokens/regras = verdade; os componentes deste bundle = referência ilustrativa (produção usa os componentes REAIS do app).'
 user-invocable: true
 ---
 
-# Vertho — Design System
+# vertho.ai: Design System
 
-A Vertho é uma **plataforma de desenvolvimento de competências (RH + educação + IA)**: mapeamento comportamental (DISC), trilhas (Temporadas) e um Mentor IA no WhatsApp, para escolas e empresas, com um canal de representantes. **PT-BR primeiro.**
+A vertho.ai é uma **plataforma de desenvolvimento de competências (RH + educação + IA)**: mapeamento comportamental (DISC), trilhas (Temporadas) e um Mentor IA no WhatsApp, para escolas e empresas, com um canal de representantes. **PT-BR primeiro.**
 
 ## Regra de ouro (leia antes de usar)
 
@@ -18,13 +18,13 @@ A Vertho é uma **plataforma de desenvolvimento de competências (RH + educaçã
 
 ## ⚠️ O produto roda em superfície ESCURA — o DS descreve a clara
 
-O bundle assume página clara (`--surface-page: #f7f7fb`, cards brancos, sombra tingida de indigo).
+O bundle assume página clara (`--surface-page: #F7F7F7`, cards brancos, sombra tingida de indigo).
 Isso vale para **PDFs, proposta, site, slides e one-pagers**. A **UI web (admin + dashboard) é
 escura** e sempre foi. Aplicar os aliases claros numa tela é o erro mais fácil de cometer com este DS.
 
 | | DS / marca (claro) | App web (escuro) — `app/globals.css` |
 |---|---|---|
-| Fundo | `--surface-page #f7f7fb`, card branco | gradiente navy `#06172C → #091D35 → #0F2B54`; card = `GlassCard` (`rounded-2xl`, `border-white/[0.06]`, backdrop-blur) |
+| Fundo | `--surface-page #F7F7F7` (o Branco da marca), card branco | gradiente navy `#06172C → #091D35 → #0F2B54`; card = `GlassCard` (`rounded-2xl`, `border-white/[0.06]`, backdrop-blur) |
 | Texto | `--text-strong` navy sobre claro | `--ink #F3F7FB` · `--ink-dim` .62 · `--ink-faint` .38 |
 | Bordas | `--border-subtle/strong` (cinza) | `--line` / `--line-strong` (branco .08/.14) · `--line-phase` |
 | Sombra | indigo suave, "nunca preto" | `--shadow-float 0 24px 48px rgba(0,0,0,.42)` · `--shadow-card` — **preto é o certo aqui**: indigo some em fundo navy |
@@ -52,6 +52,59 @@ Vertho (`#34C5CC` no degrau 400), não uma constante.
 
 Há ainda os **tokens de fase**: `[data-phase="1".."5"]` → `--phase-accent` / `--phase-deep` /
 `--phase-glow` (jornada; `MetricCard` usa `--phase-accent` como acento padrão).
+
+## Diretrizes de identidade visual (brand book, out/2026)
+
+Fonte: o slide "Diretrizes de identidade visual" do PDF `vertho.ai Estratégia de Marca, Comunicação e Identidade (1).pdf`
+(1 página, é uma imagem: não há texto selecionável). São seis diretrizes numeradas; abaixo, o que cada uma diz e como aplicar.
+O slide abre com a regra que vale para tudo: **`vertho.ai` sempre em caixa baixa**.
+
+**1. Logotipo oficial.** "Usar sempre a versão oficial." Três aplicações:
+- **Sobre fundo azul: a versão principal.**
+- Sobre fundo ciano: alta visibilidade.
+- Sobre fundo branco: uso em materiais claros.
+
+Use só os arquivos oficiais (tintas e armadilhas na seção "Logo" abaixo e em "Logos e ícones"). Não redesenhe, recolora, estique
+nem remonte o wordmark em texto: é exatamente o "logo improvisado" da diretriz 6.
+
+**2. Paleta de cores principais: "cores com propósito".** Cada cor tem um papel, e o papel decide onde ela entra:
+
+| Cor | Hex | Papel | O que comunica |
+|---|---|---|---|
+| Azul | `#0F2B54` | Base da marca | Confiança e profundidade |
+| Ciano | `#34C5CC` | Energia | Movimento e evolução |
+| Branco | `#F7F7F7` | Respiro | Leveza, clareza e equilíbrio |
+| Roxo | `#3B0A6D` | Acento | Usado **com moderação**, para destaque |
+
+Na prática: o azul sustenta, o ciano anima, o branco dá ar e o roxo pontua. Tela ou peça em que o roxo domina saiu da marca.
+
+**3. Tipografia: "uma comunicação clara e moderna".**
+- **Títulos e destaques: Codec**, "para transmitir força e clareza".
+- **Textos, informações e elementos de apoio: Roboto**, "pela sua alta legibilidade".
+- ⚠️ O slide escreve "Codec Bold", mas o peso em uso é o **Codec Cold Extra Bold (800)**, escolha do dono em 08/10/2026 (a amostra do
+  slide é mais pesada que o Bold da família). Não "corrija" de volta para o Bold. Detalhes na seção "Tipografia".
+
+**4. Elemento gráfico: "nosso traço em movimento".** **3 a 7 linhas finas**, curvas suaves e movimento orgânico. As linhas correm
+juntas, passam do ciano ao roxo ao longo do traço e se cruzam num ponto, como no painel 4 do slide. **O roxo entra apenas como
+apoio**, nunca como cor dominante do traço. No slide ele contorna a foto da capa e aparece num painel próprio: use em capa e
+fundo de seção, longe do texto corrido.
+
+**5. Fotografia: "pessoas que constroem".** **Pessoas reais, brasileiras, em contextos de trabalho**, em ambientes autênticos,
+diversos e colaborativos (o slide mostra gente conversando e sorrindo numa mesa de trabalho, luz natural). Sem foto real à mão,
+deixe o espaço vazio ou use só o elemento gráfico: não preencha com imagem genérica.
+
+**6. O que evitar: "mantenha a consistência".**
+
+| Evite | O que a diretriz diz |
+|---|---|
+| Logos improvisados | Não criar variações não oficiais |
+| Excesso visual | Evitar poluição de elementos |
+| Linhas aleatórias | Não usar curvas sem critério (3 a 7, finas, suaves, ciano e roxo de apoio) |
+| Estética genérica de IA | Evitar imagens artificiais ou pouco autênticas |
+
+**Escopo.** Estas diretrizes são de **comunicação** (capa, slide, PDF, site, vídeo, e-mail). Na UI web escura do produto continuam
+valendo a tabela do topo e o `page-shell`; dali, o que se aplica com mais força é "Excesso visual" e "Linhas aleatórias": o gradiente
+ciano para roxo e as linhas decorativas entram só em destaque, com parcimônia.
 
 ## Cor
 
@@ -108,10 +161,11 @@ apoio. **`vertho.ai` sempre em caixa baixa**, inclusive dentro de rótulo em cai
 ## Voz e conteúdo
 
 - **Arquétipo Sábio ("Sábio"):** sereno, analítico, preciso — um guia confiável, nunca frio. O nome vem de *vertere* ("converter") → transformar informação em sabedoria aplicável.
-- **Pessoa:** "você" / "sua equipe" / "seus alunos"; a empresa é "a Vertho". Segunda pessoa calorosa, nunca "engenheiro-pra-engenheiro".
+- **Pessoa:** "você" / "sua equipe" / "seus alunos"; a empresa é "a vertho.ai" (nunca "a Vertho": o nome é sempre `vertho.ai`, em caixa baixa e com o `.ai`, em prosa, início de frase e título). Segunda pessoa calorosa, nunca "engenheiro-pra-engenheiro".
+- **Frase da marca (brand book, out/2026):** "Uma identidade consistente fortalece nossa marca e comunica o que acreditamos: pessoas diferentes, resultados reais." Serve de tom para copy de abertura, capa e fecho.
 - **Caixa:** sentence case; wordmark sempre minúsculo `vertho.ai`; UPPERCASE só em overline/label com tracking largo.
 - **Use:** competências, desenvolvimento, DISC, perfil comportamental, mapeamento, autoconhecimento, mentoria, Mentor IA, Beto, evolução, jornada, escolas, empresas, RH, representantes. O vocabulário canônico (um nome por conceito, em quatro idiomas) está em `docs/DESIGN-SYSTEM.md`, seção "Vocabulário canônico do produto".
-- **Evite (produto errado):** API, tokens, latência, model ID, completions, endpoint, SDK, uptime, "developer". A Vertho NÃO é infraestrutura de software.
+- **Evite (produto errado):** API, tokens, latência, model ID, completions, endpoint, SDK, uptime, "developer". A vertho.ai NÃO é infraestrutura de software.
 - Sem emoji no chrome de produto/marketing; use ícones (Lucide, traço 2px).
 - **Sem travessão** em nenhum texto (nem o longo nem o curto): vírgula, dois pontos, ponto ou parênteses, conforme a frase. "Para", não "pra".
 

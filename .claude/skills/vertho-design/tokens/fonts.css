@@ -1,4 +1,5 @@
-/* Vertho — Webfonts (product type system).
-   Fraunces = editorial serif display; Inter = body/UI (app + PDF default);
-   Plus Jakarta Sans = UI chrome / labels. JetBrains Mono for occasional data. */
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+/* vertho.ai: webfonts (brand book, out/2026).
+   Roboto = textos e apoio (e a UI). Os títulos usam Codec Cold, carregado de
+   assets/fonts/ por codec.css (não é Google Font). JetBrains Mono fica para dado
+   ocasional (--font-mono). */
+@import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap");
