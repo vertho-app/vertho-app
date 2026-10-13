@@ -1798,6 +1798,8 @@
     "confirm": "Confirmar",
     "confirming": "Confirmando...",
     "errorInvalid": "Código no válido. Revisa la aplicación e inténtalo de nuevo.",
+    "errorReplaced": "Este código QR fue sustituido (por ejemplo, en otra pestaña del navegador) y ya no es válido. Borra de la aplicación la entrada que creaste con él y genera un código QR nuevo.",
+    "newQr": "Generar un código QR nuevo",
     "error": "No fue posible continuar: {error}",
     "done": "{count, plural, one {Listo. Tienes 1 aplicación registrada.} other {Listo. Tienes # aplicaciones registradas.}}",
     "backupAdvice": "Recomendado: registra una segunda aplicación en otro dispositivo. Si pierdes el móvil, entras con la otra.",

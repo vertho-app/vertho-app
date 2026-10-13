@@ -1798,6 +1798,8 @@
     "confirm": "Confirm",
     "confirming": "Confirming...",
     "errorInvalid": "Invalid code. Check the app and try again.",
+    "errorReplaced": "This QR code was replaced (for example, in another browser tab) and is no longer valid. Delete the entry you created with it in the app and generate a new QR code.",
+    "newQr": "Generate a new QR code",
     "error": "Could not continue: {error}",
     "done": "{count, plural, one {Done. You have 1 app registered.} other {Done. You have # apps registered.}}",
     "backupAdvice": "Recommended: register a second app on another device. If you lose your phone, you sign in with the other one.",

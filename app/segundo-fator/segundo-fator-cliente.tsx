@@ -6,19 +6,15 @@ import { useTranslations } from 'next-intl';
 import { ShieldCheck, Loader2 } from 'lucide-react';
 import { getSupabase } from '@/lib/supabase-browser';
 import { caminhoLocalOu } from '@/lib/auth/caminho-local';
-
-type Fator = { id: string; friendly_name?: string | null };
-type Etapa =
-  | { tipo: 'carregando' }
-  | { tipo: 'cadastrar'; factorId: string; qr: string; chave: string; reserva: boolean }
-  | { tipo: 'confirmar'; fatores: Fator[] }
-  | { tipo: 'pronto'; fatores: Fator[] }
-  | { tipo: 'erro'; mensagem: string };
+import { cadastrarAparelho, confirmarCodigo, lerEtapa, type Etapa } from '@/lib/auth/segundo-fator-tela';
 
 /**
  * Só o cliente do navegador: nenhuma action de admin funciona antes do código (elas negam o poder
  * de plataforma em `aal1`). Depois do `verify`, o supabase-js grava a sessão nova (`aal2`) no
  * cookie, e a navegação seguinte já chega ao servidor com ela.
+ *
+ * As regras (a aba de trás não cadastra; QR trocado não é código inválido) moram em
+ * `lib/auth/segundo-fator-tela.ts`, onde os testes as alcançam.
  */
 export default function SegundoFatorCliente() {
   const t = useTranslations('SegundoFator');
@@ -28,59 +24,53 @@ export default function SegundoFatorCliente() {
   const [fatorEscolhido, setFatorEscolhido] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [erroCodigo, setErroCodigo] = useState('');
+  const [qrTrocado, setQrTrocado] = useState(false);
 
-  const cadastrar = useCallback(async (reserva: boolean) => {
-    const sb = getSupabase();
-    // Cadastro abandonado deixa fator `unverified`, e o próximo `enroll` pode falhar por isso.
-    const { data: atuais } = await sb.auth.mfa.listFactors();
-    const pendentes = (atuais?.all || []).filter((f: any) => f.factor_type === 'totp' && f.status === 'unverified');
-    for (const f of pendentes) await sb.auth.mfa.unenroll({ factorId: f.id });
-    const { data, error } = await sb.auth.mfa.enroll({
-      factorType: 'totp',
-      friendlyName: `vertho.ai ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`,
-    });
-    if (error || !data) { setEtapa({ tipo: 'erro', mensagem: t('error', { error: error?.message || '' }) }); return; }
-    setCodigo(''); setErroCodigo('');
-    setEtapa({ tipo: 'cadastrar', factorId: data.id, qr: data.totp.qr_code, chave: data.totp.secret, reserva });
-  }, [t]);
+  const mostrar = useCallback((proxima: Etapa) => {
+    if (proxima.tipo === 'sem-sessao') { window.location.replace(`/login?redirect=${encodeURIComponent(destino)}`); return; }
+    if (proxima.tipo === 'confirmar') setFatorEscolhido(proxima.fatores[0].id);
+    if (proxima.tipo === 'cadastrar') { setCodigo(''); setErroCodigo(''); }
+    setQrTrocado(false);
+    setEtapa(proxima);
+  }, [destino]);
 
-  const carregar = useCallback(async () => {
-    const sb = getSupabase();
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.replace(`/login?redirect=${encodeURIComponent(destino)}`); return; }
+  const carregar = useCallback(async (sinal?: AbortSignal) => {
+    const proxima = await lerEtapa(getSupabase().auth, document, () => new Date(), sinal);
+    if (sinal?.aborted) return;
+    mostrar(proxima);
+  }, [mostrar]);
 
-    const [{ data: nivel, error: erroNivel }, { data: fatores, error: erroFatores }] = await Promise.all([
-      sb.auth.mfa.getAuthenticatorAssuranceLevel(),
-      sb.auth.mfa.listFactors(),
-    ]);
-    if (erroNivel || erroFatores || !fatores) {
-      setEtapa({ tipo: 'erro', mensagem: t('error', { error: (erroNivel || erroFatores)?.message || '' }) });
-      return;
-    }
-    const verificados: Fator[] = fatores.totp || [];
-    if (nivel?.currentLevel === 'aal2') { setEtapa({ tipo: 'pronto', fatores: verificados }); return; }
-    if (verificados.length > 0) {
-      setFatorEscolhido(verificados[0].id);
-      setEtapa({ tipo: 'confirmar', fatores: verificados });
-      return;
-    }
-    await cadastrar(false);
-  }, [destino, t, cadastrar]);
+  async function cadastrar(reserva: boolean) {
+    mostrar(await cadastrarAparelho(getSupabase().auth, new Date(), reserva));
+  }
 
-  useEffect(() => { carregar(); }, [carregar]);
+  // A aba de trás fica esperando vir para a frente; se a tela sair antes, ela não cadastra mais.
+  useEffect(() => {
+    const controle = new AbortController();
+    carregar(controle.signal);
+    return () => controle.abort();
+  }, [carregar]);
 
   async function confirmar(factorId: string) {
     const limpo = codigo.replace(/\D/g, '');
     if (limpo.length !== 6 || enviando) return;
     setEnviando(true); setErroCodigo('');
     try {
-      const { error } = await getSupabase().auth.mfa.challengeAndVerify({ factorId, code: limpo });
-      if (error) { setErroCodigo(t('errorInvalid')); return; }
+      const resultado = await confirmarCodigo(getSupabase().auth, factorId, limpo);
+      if (resultado.tipo === 'invalido') { setErroCodigo(t('errorInvalid')); return; }
+      if (resultado.tipo === 'substituido') { setErroCodigo(t('errorReplaced')); setQrTrocado(true); return; }
+      if (resultado.tipo === 'falha') { setErroCodigo(t('error', { error: resultado.detalhe })); return; }
       setCodigo('');
       await carregar();
     } finally {
       setEnviando(false);
     }
+  }
+
+  /** QR trocado: no cadastro gera outro do mesmo tipo; na confirmação relê (o aparelho saiu da conta). */
+  function recomecar() {
+    if (etapa.tipo === 'cadastrar') cadastrar(etapa.reserva);
+    else carregar();
   }
 
   const campoCodigo = (factorId: string) => (
@@ -97,13 +87,23 @@ export default function SegundoFatorCliente() {
         className="w-full rounded-lg border border-white/10 bg-[#091D35] px-3 py-2 text-center text-xl tracking-[0.4em] text-white outline-none focus:border-cyan-400/60"
       />
       {erroCodigo && <p className="text-sm text-red-400">{erroCodigo}</p>}
-      <button
-        type="submit"
-        disabled={enviando || codigo.replace(/\D/g, '').length !== 6}
-        className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-[#07162a] transition-colors hover:bg-cyan-400 disabled:opacity-40"
-      >
-        {enviando ? t('confirming') : t('confirm')}
-      </button>
+      {qrTrocado ? (
+        <button
+          type="button"
+          onClick={recomecar}
+          className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-[#07162a] transition-colors hover:bg-cyan-400"
+        >
+          {t('newQr')}
+        </button>
+      ) : (
+        <button
+          type="submit"
+          disabled={enviando || codigo.replace(/\D/g, '').length !== 6}
+          className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-[#07162a] transition-colors hover:bg-cyan-400 disabled:opacity-40"
+        >
+          {enviando ? t('confirming') : t('confirm')}
+        </button>
+      )}
     </form>
   );
 
@@ -115,7 +115,7 @@ export default function SegundoFatorCliente() {
 
         {etapa.tipo === 'carregando' && <Loader2 size={24} className="animate-spin text-gray-400" />}
 
-        {etapa.tipo === 'erro' && <p className="text-sm text-red-400">{etapa.mensagem}</p>}
+        {etapa.tipo === 'erro' && <p className="text-sm text-red-400">{t('error', { error: etapa.detalhe })}</p>}
 
         {etapa.tipo === 'cadastrar' && (
           <>

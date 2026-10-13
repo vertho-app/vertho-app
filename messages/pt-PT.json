@@ -1798,6 +1798,8 @@
     "confirm": "Confirmar",
     "confirming": "A confirmar...",
     "errorInvalid": "Código inválido. Verifique a aplicação e tente novamente.",
+    "errorReplaced": "Este código QR foi substituído (por exemplo, noutro separador do navegador) e já não é válido. Apague da aplicação a entrada que criou com ele e gere um código QR novo.",
+    "newQr": "Gerar um código QR novo",
     "error": "Não foi possível continuar: {error}",
     "done": "{count, plural, one {Pronto. Tem 1 aplicação registada.} other {Pronto. Tem # aplicações registadas.}}",
     "backupAdvice": "Recomendado: registe uma segunda aplicação noutro dispositivo. Se perder o telemóvel, entra com a outra.",

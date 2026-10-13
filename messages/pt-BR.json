@@ -1798,6 +1798,8 @@
     "confirm": "Confirmar",
     "confirming": "Confirmando...",
     "errorInvalid": "Código inválido. Confira o aplicativo e tente de novo.",
+    "errorReplaced": "Este QR code foi trocado (por exemplo, em outra aba do navegador) e não vale mais. Apague do aplicativo a entrada que você criou com ele e gere um QR code novo.",
+    "newQr": "Gerar um QR code novo",
     "error": "Não foi possível continuar: {error}",
     "done": "{count, plural, one {Pronto. Você tem 1 aplicativo cadastrado.} other {Pronto. Você tem # aplicativos cadastrados.}}",
     "backupAdvice": "Recomendado: cadastre um segundo aplicativo em outro aparelho. Se perder o celular, você entra com o outro.",
