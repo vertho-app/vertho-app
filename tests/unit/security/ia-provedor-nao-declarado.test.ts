@@ -136,9 +136,16 @@ describe('1. execução: o callAI troca o modelo não declarado em tarefa com da
   });
 
   it('modelo declarado passa direto em qualquer tarefa', async () => {
-    await callAI('S', 'U', { model: 'gpt-5.6-terra' }, 256, { taskKey: 'ia4_check' });
-    expect(mocks.fetches).toEqual(['https://api.openai.com/v1/chat/completions']);
-    expect(mocks.degradacoes).toEqual([]);
+    // Desde 14/10/2026 o GPT do mapa sai pelo AWS Bedrock (`GPT_VIA_BEDROCK`), que a política
+    // também declara. Com a chave presente, a régua não troca nada e nada vira degradação.
+    vi.stubEnv('AWS_BEARER_TOKEN_BEDROCK', 'chave-ficticia');
+    try {
+      await callAI('S', 'U', { model: 'gpt-5.6-terra' }, 256, { taskKey: 'ia4_check' });
+      expect(mocks.fetches).toEqual(['https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/chat/completions']);
+      expect(mocks.degradacoes).toEqual([]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

@@ -19,7 +19,7 @@
  * `gpt-5.4` não aparece, `gpt-5.4-2026-03-05` e `gpt-5.6-terra` aparecem.
  */
 import { DEFAULT_TASK_MODELS, MODELOS_DISPONIVEIS, familiaDoModelo } from '@/lib/ai-tasks';
-import { modeloTemRota, listarModelosDoProvedor, type ListagemProvedor } from '@/lib/ai-provedores';
+import { BEDROCK_KIMI_K3_MODEL, modeloTemRota, listarModelosDoProvedor, rotaBedrockDoGpt, type ListagemProvedor } from '@/lib/ai-provedores';
 import { MODELS } from '@/lib/ia-cost-catalog';
 
 export interface ModeloObservado {
@@ -33,6 +33,14 @@ export interface ModeloObservado {
   existeNoProvedor: boolean | null;
   /** Preenchido quando `existeNoProvedor` é null: por que ficamos cegos. */
   motivoCegueira?: string;
+  /**
+   * GPT que sai pelo AWS Bedrock (14/10/2026): o id lá e se ele aparece na listagem de
+   * perfis de inferência. `existeNoProvedor` continua perguntando à OpenAI, que virou a
+   * RESERVA; sem isto, um id Bedrock errado mandaria tudo para a reserva e o check, que
+   * só olha a OpenAI, seguiria verde.
+   */
+  idBedrock?: string;
+  existeNoBedrock?: boolean | null;
 }
 
 /**
@@ -91,15 +99,27 @@ export async function inspecionarModelosConfigurados(
   for (const [modelo, f] of familias) if (f && !exemploPorFamilia.has(f)) exemploPorFamilia.set(f, modelo);
 
   const listagens = new Map<string, ListagemProvedor>();
-  await Promise.all([...exemploPorFamilia.entries()].map(async ([f, exemplo]) => {
-    listagens.set(f, await listarModelosDoProvedor(f, exemplo));
-  }));
+  const algumGptNoBedrock = [...mapa.keys()].some((m) => rotaBedrockDoGpt(m));
+  let listagemBedrock: ListagemProvedor | null = null;
+  await Promise.all([
+    ...[...exemploPorFamilia.entries()].map(async ([f, exemplo]) => {
+      listagens.set(f, await listarModelosDoProvedor(f, exemplo));
+    }),
+    // A listagem do Bedrock sai do control plane com a mesma chave; o Kimi resolve o endpoint.
+    (async () => { if (algumGptNoBedrock) listagemBedrock = await listarModelosDoProvedor('bedrock', BEDROCK_KIMI_K3_MODEL); })(),
+  ]);
 
   return [...mapa.entries()].map(([modelo, origens]) => {
     const familia = familias.get(modelo) ?? null;
     const lista = familia ? listagens.get(familia) : undefined;
     const cego = !lista || 'erro' in lista;
+    const idBedrock = rotaBedrockDoGpt(modelo);
+    const bedrock = listagemBedrock as ListagemProvedor | null;
     return {
+      ...(idBedrock ? {
+        idBedrock,
+        existeNoBedrock: !bedrock || 'erro' in bedrock ? null : bedrock.ids.has(idBedrock),
+      } : {}),
       modelo,
       origens,
       familia,

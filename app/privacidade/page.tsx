@@ -32,7 +32,7 @@ const EMPRESA = {
   emailEncarregado: 'rodrigo@vertho.ai',
 };
 
-const ATUALIZACAO = '6 de outubro de 2026';
+const ATUALIZACAO = '14 de outubro de 2026';
 
 export const metadata: Metadata = {
   title: 'Termos de Uso e Política de Privacidade | Vertho',
@@ -306,10 +306,10 @@ export default function PoliticaPrivacidadePage() {
           <Lista
             itens={[
               'Anthropic;',
-              'OpenAI, inclusive a transcrição das respostas faladas do treino de atendimento;',
+              'OpenAI, na pesquisa pública na internet, na geração de imagens, na transcrição das respostas faladas do treino de atendimento e no processamento em lote de parte das revisões, e como alternativa quando a AWS não responde pelos modelos GPT;',
               'Google, inclusive a interpretação de áudios enviados ao assistente no WhatsApp e a síntese de voz;',
               'Voyage, busca semântica no acervo de conteúdo;',
-              'Amazon Web Services (AWS Bedrock), processamento com o modelo Kimi K3 para criar cenários e representar clientes de dificuldade baixa, média ou alta no treinamento de vendas da equipe Vertho. Esse fluxo usa a infraestrutura da AWS e pode envolver processamento fora do Brasil.',
+              'Amazon Web Services (AWS Bedrock), processamento com os modelos GPT da OpenAI usados na geração e na revisão de cenários, avaliações e relatórios, e com o modelo Kimi K3 para criar cenários e representar clientes de dificuldade baixa, média ou alta no treinamento de vendas da equipe Vertho. Esses fluxos usam a infraestrutura da AWS e podem envolver processamento fora do Brasil.',
             ]}
           />
 

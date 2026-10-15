@@ -33,7 +33,8 @@ import { costFromTokens, openAIWebSearchToolCost } from '@/lib/ia-cost-catalog';
 // (A8, ver o cabeçalho acima). A regra de ORGANIZAÇÃO continua: predicado puro
 // mora em `lib/`, não aqui.
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
-import { BEDROCK_KIMI_K3_MODEL, PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
+import { BEDROCK_CHAT_URL, BEDROCK_KIMI_K3_MODEL, BEDROCK_RESPONSES_URL, PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, rotaBedrockDoGpt, usaMaxCompletionTokens } from '@/lib/ai-provedores';
+import { DEGRADACAO, registrarDegradacao } from '@/lib/degradacao';
 import { reservarChamadaBedrock } from '@/lib/bedrock-piloto';
 import { bedrockVendasVerthoAutorizado } from '@/lib/bedrock-vendas-vertho';
 import { DEFAULT_COPILOTO_RESEARCH_MODEL, fallbackRespeitandoDual } from '@/lib/ai-tasks';
@@ -451,6 +452,10 @@ async function registrarUsoIA(
   latencyMs: number,
   options: AICallOptions,
   custoExtraUsd = 0,
+  // Id da TABELA DE PREÇO quando difere do id gravado: o GPT pelo Bedrock é gravado como o
+  // id do app (`gpt-5.6-terra`, para o painel e os comparativos seguirem somando o mesmo
+  // modelo) e precificado pelo id Bedrock (`global.openai.gpt-5.6-terra`).
+  modeloDePreco?: string,
 ) {
   try {
     if (!u) return;
@@ -465,7 +470,7 @@ async function registrarUsoIA(
     // porque o TTS também precisa gravar e duas cópias do mesmo registro divergem.
     // A MONTAGEM da linha continua aqui: o que o wrapper sabe (cache, truncagem,
     // origem do call-site) o TTS não sabe.
-    const custoTokens = costFromTokens(model, u);
+    const custoTokens = costFromTokens(modeloDePreco || model, u);
     const custoTotal = custoTokens === null
       ? (custoExtraUsd > 0 ? custoExtraUsd : null)
       : custoTokens + custoExtraUsd;
@@ -531,27 +536,25 @@ type OpenAIJsonSchemaFormat = {
 /** Mesmo transporte Responses do legado PACE, com o ledger único da Vertho. */
 async function callResponses(system: string, messages: ChatMessage[], model: string, maxTokens: number, options: AICallOptions): Promise<string> {
   if (!/^(gpt-|o[134])/.test(model)) throw new Error('O contrato Responses exige um modelo OpenAI. Revise a configuração desta tarefa.');
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY não configurada');
   const startedAt = Date.now();
   const input = !system && messages.length === 1 && messages[0].role === 'user'
     ? messages[0].content : [...(system ? [{ role: 'system', content: system }] : []), ...messages];
-  const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, input, store: false, max_output_tokens: maxTokens,
-      text: { format: { type: 'json_schema', ...options.responses!.format } },
-      ...(options.reasoningEffort ? { reasoning: { effort: options.reasoningEffort } } : {}),
-    }),
-    signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
-  });
+  const rotas = await rotasDoCompat(model, 'responses', options);
+  const { res: response, rota } = await postarCompat(rotas, {
+    input, store: false, max_output_tokens: maxTokens,
+    text: { format: { type: 'json_schema', ...options.responses!.format } },
+    ...(options.reasoningEffort ? { reasoning: { effort: options.reasoningEffort } } : {}),
+  }, model, options, { guardarCorpoDoErro: false });
   // Não logar payload ou resposta bruta: podem conter histórico de treinamento.
-  if (!response.ok) throw Object.assign(new Error(`OpenAI Responses HTTP ${response.status}`), { status: response.status });
+  if (!response.ok) throw Object.assign(new Error(`${rota.provider === 'bedrock' ? 'Bedrock' : 'OpenAI'} Responses HTTP ${response.status}`), { status: response.status });
   const data = await response.json();
   const u = data.usage, cache = u?.input_tokens_details?.cached_tokens || 0;
-  await registrarUsoIA('openai', data.model || model, u ? {
-    inTokens: Math.max(0, (u.input_tokens || 0) - cache), outTokens: u.output_tokens || 0,
-    cacheRead: cache, truncou: data.status === 'incomplete',
-  } : null, Date.now() - startedAt, options);
+  // No Bedrock, `input_tokens` inclui leitura E gravação de cache (medido 14/10 no Terra).
+  const cacheWrite = rota.provider === 'bedrock' ? (u?.input_tokens_details?.cache_write_tokens || 0) : 0;
+  await registrarUsoIA(rota.provider, rota.provider === 'bedrock' ? model : (data.model || model), u ? {
+    inTokens: Math.max(0, (u.input_tokens || 0) - cache - cacheWrite), outTokens: u.output_tokens || 0,
+    cacheRead: cache, cacheWrite, truncou: data.status === 'incomplete',
+  } : null, Date.now() - startedAt, options, 0, rota.provider === 'bedrock' ? rota.modelo : undefined);
   const parts = (data.output || []).filter((x: any) => x.type === 'message').flatMap((x: any) => x.content || []);
   if (parts.some((x: any) => x.type === 'refusal')) throw new Error('O provedor recusou esta geração.');
   if (data.status !== 'completed') throw new Error('Resposta incompleta do provedor.');
@@ -1101,6 +1104,156 @@ function resolverProvedorCompat(model: string): { apiKey: string; url: string; p
   };
 }
 
+// ── GPT pelo AWS Bedrock (14/10/2026) ───────────────────────────────────────
+//
+// Uma ROTA é para onde o pedido vai, com que chave, com que id de modelo no
+// corpo e com que `provider` no ledger. Para o GPT pelo Bedrock o corpo leva o
+// id Bedrock (`global.openai.gpt-5.6-terra`) e todo o resto do código continua
+// vendo o id do app (`gpt-5.6-terra`): família, Dual-IA, régua de privacidade,
+// ledger e comparativos. O mapa e o kill switch vivem em `lib/ai-provedores.ts`.
+//
+// Os dois gêmeos (`callOpenAI`, `callOpenAIChat`) e o `callResponses` passam
+// pelos MESMOS dois helpers abaixo: a reserva escrita em um só deles é a classe
+// de bug que este arquivo já documenta ("os gêmeos que divergem").
+
+type EndpointCompat = 'chat' | 'responses';
+type RotaCompat = { apiKey: string; url: string; provider: ProvedorCompat; modelo: string };
+type RespostaHttp = Awaited<ReturnType<typeof fetch>>;
+
+function rotaDireta(model: string, endpoint: EndpointCompat): RotaCompat {
+  if (endpoint === 'responses') {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error('OPENAI_API_KEY não configurada');
+    return { apiKey, url: 'https://api.openai.com/v1/responses', provider: 'openai', modelo: model };
+  }
+  return { ...resolverProvedorCompat(model), modelo: model };
+}
+
+/**
+ * Rota principal e de reserva. GPT do mapa sai pelo Bedrock com a OpenAI direta de
+ * reserva (se a `OPENAI_API_KEY` existir neste ambiente). Sem a chave do Bedrock aqui,
+ * sai pela OpenAI e a troca fica registrada: é o caso do Trigger.dev, onde env nova não
+ * sobe com o push. Todo o resto (Kimi pelo Bedrock, Moonshot, xAI, Qwen, Meta, GPT fora
+ * do mapa) segue a rota de sempre, SEM reserva.
+ */
+async function rotasDoCompat(
+  model: string,
+  endpoint: EndpointCompat,
+  options: AICallOptions,
+): Promise<{ primaria: RotaCompat; reserva: RotaCompat | null }> {
+  const idBedrock = rotaBedrockDoGpt(model, options.reasoningEffort);
+  if (idBedrock) {
+    const apiKey = process.env.AWS_BEARER_TOKEN_BEDROCK;
+    if (apiKey) {
+      let reserva: RotaCompat | null = null;
+      try { reserva = rotaDireta(model, endpoint); } catch { reserva = null; }
+      return {
+        primaria: { apiKey, url: endpoint === 'responses' ? BEDROCK_RESPONSES_URL : BEDROCK_CHAT_URL, provider: 'bedrock', modelo: idBedrock },
+        reserva,
+      };
+    }
+    await registrarGptForaDoBedrock(model, 'sem-chave-bedrock', options);
+  }
+  return { primaria: rotaDireta(model, endpoint), reserva: null };
+}
+
+/** A reserva só entra quando o Bedrock RECUSOU: conta barrada (401/403), limite (429) ou queda (5xx). */
+function bedrockRecusou(status: number): boolean {
+  return status === 401 || status === 403 || status === 429 || status >= 500;
+}
+
+/** Fallback visível: a troca de rota vira linha em `degradacao_log`. Nunca lança. */
+async function registrarGptForaDoBedrock(model: string, motivo: string, options: AICallOptions, erro?: string): Promise<void> {
+  console.warn(`[ia] ${model}: o Bedrock não serviu (${motivo}); a chamada sai pela OpenAI direta.`);
+  await registrarDegradacao({
+    fluxo: 'ia',
+    tipo: DEGRADACAO.GPT_BEDROCK_PARA_OPENAI,
+    chave: `${model}:${motivo}`,
+    empresaId: options.empresaId ?? null,
+    colaboradorId: options.colaboradorId ?? null,
+    severidade: 'aviso',
+    detalhe: { modelo: model, motivo, taskKey: options.taskKey ?? null, ...(erro ? { erro } : {}) },
+  });
+}
+
+/**
+ * Envia o corpo pela rota principal e, se o Bedrock recusar, uma vez pela reserva.
+ *
+ * Timeout e erro de rede NÃO vão para a reserva: lançam daqui, como antes. A chamada
+ * pode já ter sido processada e cobrada, e refazê-la dobraria custo e latência sem que
+ * ninguém tivesse pedido. `guardarCorpoDoErro: false` no Responses: lá o corpo pode
+ * trazer histórico de treinamento, então só o status vai para o registro.
+ */
+async function postarCompat(
+  rotas: { primaria: RotaCompat; reserva: RotaCompat | null },
+  corpo: Record<string, unknown>,
+  model: string,
+  options: AICallOptions,
+  opts: { guardarCorpoDoErro: boolean },
+): Promise<{ res: RespostaHttp; rota: RotaCompat }> {
+  const enviar = async (rota: RotaCompat) => {
+    const corpoEnviado = JSON.stringify({ model: rota.modelo, ...corpo });
+    // O orçamento do piloto vale só para o Kimi: o GPT pelo Bedrock é tráfego de produção.
+    if (rota.modelo === BEDROCK_KIMI_K3_MODEL) await reservarChamadaBedrock(options.taskKey, corpoEnviado, options.empresaId);
+    const res = await fetch(rota.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rota.apiKey}` },
+      body: corpoEnviado,
+      signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
+    });
+    return { res, rota };
+  };
+  const primeira = await enviar(rotas.primaria);
+  if (primeira.res.ok || !rotas.reserva || !bedrockRecusou(primeira.res.status)) return primeira;
+  let erro: string | undefined;
+  if (opts.guardarCorpoDoErro) erro = (await primeira.res.text().catch(() => '')).slice(0, 300);
+  else await primeira.res.body?.cancel().catch(() => undefined);
+  await registrarGptForaDoBedrock(model, `http-${primeira.res.status}`, options, erro);
+  return enviar(rotas.reserva);
+}
+
+/** Corpo de chat/completions SEM o `model`, que cada rota põe com o seu id. */
+function corpoDoChat(model: string, maxTokens: number, options: AICallOptions, messages: Array<{ role: string; content: string }>) {
+  // Só o Kimi pelo Bedrock recebe `service_tier` e o schema adaptado (`schemaEstruturadoBedrock`
+  // é o transformador do Claude, montado para ele). O GPT pelo Bedrock aceita o schema estrito
+  // ORIGINAL da OpenAI: medido 14/10 no Terra, parse válido.
+  const kimiBedrock = model === BEDROCK_KIMI_K3_MODEL;
+  // `usaMaxCompletionTokens` vive em lib/ai-provedores porque a mesma pergunta
+  // era feita nos DOIS gêmeos (callOpenAI e callOpenAIChat) — o padrão que este
+  // arquivo já documenta como "quem adicionasse só num deles teria o modelo
+  // funcionando em callAI e falhando em callAIChat". Medido em 25/08: o Qwen
+  // ignora `max_tokens` e rodava sem teto efetivo.
+  return {
+    ...(options.structuredOutput ? { response_format: { type: 'json_schema', json_schema: { ...options.structuredOutput, schema: kimiBedrock ? schemaEstruturadoBedrock(options.structuredOutput.schema) : options.structuredOutput.schema, strict: true } } } : {}),
+    ...(kimiBedrock ? { service_tier: 'default' } : {}),
+    ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
+    ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
+    messages,
+  };
+}
+
+/** Lê a resposta do chat/completions, registra o uso e devolve o texto. Igual nos dois gêmeos. */
+async function lerRespostaDoChat(res: RespostaHttp, rota: RotaCompat, model: string, options: AICallOptions, t0: number): Promise<string> {
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`${rota.provider} ${res.status}: ${detail}`);
+  }
+  const data = await res.json();
+  const uo = data.usage;
+  const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
+  // No Bedrock, prompt_tokens inclui leitura E gravação de cache; cada parcela tem sua tarifa.
+  const cacheWrite = rota.provider === 'bedrock' ? (uo?.prompt_tokens_details?.cache_write_tokens || 0) : 0;
+  await registrarUsoIA(rota.provider, model, uo ? {
+    inTokens: (uo.prompt_tokens || 0) - cachedIn - cacheWrite,
+    outTokens: uo.completion_tokens || 0,
+    cacheRead: cachedIn,
+    cacheWrite,
+    truncou: data.choices?.[0]?.finish_reason === 'length',
+  } : null, Date.now() - t0, options, 0, rota.modelo !== model ? rota.modelo : undefined);
+  if (options.structuredOutput && data.choices?.[0]?.finish_reason !== 'stop') throw new Error(`Resposta estruturada incompleta de ${rota.provider}: ${data.choices?.[0]?.finish_reason || 'ausente'}`);
+  return conteudoOuFalhaAlto(data, model);
+}
+
 async function callOpenAI(
   system: string,
   user: string,
@@ -1108,57 +1261,14 @@ async function callOpenAI(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const { apiKey, url, provider } = resolverProvedorCompat(model);
   const t0 = Date.now();
-
-  // `usaMaxCompletionTokens` vive em lib/ai-provedores porque a mesma pergunta
-  // era feita nos DOIS gêmeos (callOpenAI e callOpenAIChat) — o padrão que este
-  // arquivo já documenta como "quem adicionasse só num deles teria o modelo
-  // funcionando em callAI e falhando em callAIChat". Medido em 25/08: o Qwen
-  // ignora `max_tokens` e rodava sem teto efetivo.
-  const body: any = {
-    model,
-    ...(options.structuredOutput ? { response_format: { type: 'json_schema', json_schema: { ...options.structuredOutput, schema: provider === 'bedrock' ? schemaEstruturadoBedrock(options.structuredOutput.schema) : options.structuredOutput.schema, strict: true } } } : {}),
-    ...(provider === 'bedrock' ? { service_tier: 'default' } : {}),
-    ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
-    ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-  };
-
-  const serializedBody = JSON.stringify(body);
-  if (provider === 'bedrock') await reservarChamadaBedrock(options.taskKey, serializedBody, options.empresaId);
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: serializedBody,
-    signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`${provider} ${res.status}: ${detail}`);
-  }
-
-  const data = await res.json();
-  const uo = data.usage;
-  const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
-  // No Bedrock, prompt_tokens inclui leitura E gravação de cache; cada parcela tem sua tarifa.
-  const cacheWrite = provider === 'bedrock' ? (uo?.prompt_tokens_details?.cache_write_tokens || 0) : 0;
-  await registrarUsoIA(provider, model, uo ? {
-    inTokens: (uo.prompt_tokens || 0) - cachedIn - cacheWrite,
-    outTokens: uo.completion_tokens || 0,
-    cacheRead: cachedIn,
-    cacheWrite,
-    truncou: data.choices?.[0]?.finish_reason === 'length',
-  } : null, Date.now() - t0, options);
-  if (options.structuredOutput && data.choices?.[0]?.finish_reason !== 'stop') throw new Error(`Resposta estruturada incompleta de ${provider}: ${data.choices?.[0]?.finish_reason || 'ausente'}`);
-  return conteudoOuFalhaAlto(data, model);
+  const rotas = await rotasDoCompat(model, 'chat', options);
+  const corpo = corpoDoChat(model, maxTokens, options, [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ]);
+  const { res, rota } = await postarCompat(rotas, corpo, model, options, { guardarCorpoDoErro: true });
+  return lerRespostaDoChat(res, rota, model, options, t0);
 }
 
 // ── Multi-turn variants ────────────────────────────────────────────────────
@@ -1225,51 +1335,9 @@ async function callOpenAIChat(
   maxTokens: number,
   options: AICallOptions = {},
 ): Promise<string> {
-  const { apiKey, url, provider } = resolverProvedorCompat(model);
   const t0 = Date.now();
-
-  // `usaMaxCompletionTokens` vive em lib/ai-provedores porque a mesma pergunta
-  // era feita nos DOIS gêmeos (callOpenAI e callOpenAIChat) — o padrão que este
-  // arquivo já documenta como "quem adicionasse só num deles teria o modelo
-  // funcionando em callAI e falhando em callAIChat". Medido em 25/08: o Qwen
-  // ignora `max_tokens` e rodava sem teto efetivo.
-  const body: any = {
-    model,
-    ...(options.structuredOutput ? { response_format: { type: 'json_schema', json_schema: { ...options.structuredOutput, schema: provider === 'bedrock' ? schemaEstruturadoBedrock(options.structuredOutput.schema) : options.structuredOutput.schema, strict: true } } } : {}),
-    ...(provider === 'bedrock' ? { service_tier: 'default' } : {}),
-    ...(usaMaxCompletionTokens(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }),
-    ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
-    messages: [{ role: 'system', content: system }, ...messages],
-  };
-
-  const serializedBody = JSON.stringify(body);
-  if (provider === 'bedrock') await reservarChamadaBedrock(options.taskKey, serializedBody, options.empresaId);
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: serializedBody,
-    signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`${provider} ${res.status}: ${detail}`);
-  }
-
-  const data = await res.json();
-  const uo = data.usage;
-  const cachedIn = uo?.prompt_tokens_details?.cached_tokens || 0;
-  const cacheWrite = provider === 'bedrock' ? (uo?.prompt_tokens_details?.cache_write_tokens || 0) : 0;
-  await registrarUsoIA(provider, model, uo ? {
-    inTokens: (uo.prompt_tokens || 0) - cachedIn - cacheWrite,
-    outTokens: uo.completion_tokens || 0,
-    cacheRead: cachedIn,
-    cacheWrite,
-    truncou: data.choices?.[0]?.finish_reason === 'length',
-  } : null, Date.now() - t0, options);
-  if (options.structuredOutput && data.choices?.[0]?.finish_reason !== 'stop') throw new Error(`Resposta estruturada incompleta de ${provider}: ${data.choices?.[0]?.finish_reason || 'ausente'}`);
-  return conteudoOuFalhaAlto(data, model);
+  const rotas = await rotasDoCompat(model, 'chat', options);
+  const corpo = corpoDoChat(model, maxTokens, options, [{ role: 'system', content: system }, ...messages]);
+  const { res, rota } = await postarCompat(rotas, corpo, model, options, { guardarCorpoDoErro: true });
+  return lerRespostaDoChat(res, rota, model, options, t0);
 }

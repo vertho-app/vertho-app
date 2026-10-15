@@ -17,10 +17,69 @@
  */
 export const BEDROCK_KIMI_K3_MODEL = 'global.moonshotai.kimi-k3';
 
+/** Endpoints OpenAI-compatíveis do `bedrock-runtime` (us-east-1), a mesma credencial do Kimi. */
+export const BEDROCK_CHAT_URL = 'https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/chat/completions';
+export const BEDROCK_RESPONSES_URL = 'https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/responses';
+
+/**
+ * GPT que sai pelo AWS Bedrock (perfil `global.`), pago pelo crédito Activate.
+ *
+ * Decisão do dono (13/10/2026): perfil global, política de privacidade
+ * atualizada e, se o Bedrock falhar, a chamada refeita pela OpenAI direta com a
+ * troca registrada em `degradacao_log`. O id do APP não muda (`gpt-5.6-terra`):
+ * só o transporte. Família, Dual-IA, régua de privacidade e seletor seguem
+ * lendo o id do app; o id Bedrock aparece só no corpo do pedido e no preço.
+ *
+ * `Medido: 14/10/2026`, com o corpo que produção manda (teto 16.000, sem esforço
+ * e com cada esforço, schema estrito, cache acima de 1.024 tokens, Responses):
+ * os sete responderam 200 em `global.`. O preço de cada um está em
+ * `lib/ia-cost-catalog.ts`, lido do model card da AWS no mesmo dia.
+ *
+ * Fica de fora o que não tem rota ou preço `global.` publicado: ver
+ * `GPT_FICA_NA_OPENAI`. O guard `tests/unit/integrations/gpt-via-bedrock.test.ts`
+ * exige que todo id `gpt-<número>` do código esteja numa das duas listas.
+ */
+export const GPT_VIA_BEDROCK: Readonly<Record<string, string>> = {
+  'gpt-6.1-sol': 'global.openai.gpt-6.1-sol',
+  'gpt-6-sol': 'global.openai.gpt-6-sol',
+  'gpt-6-luna': 'global.openai.gpt-6-luna',
+  'gpt-6-astra': 'global.openai.gpt-6-astra',
+  'gpt-5.6-sol': 'global.openai.gpt-5.6-sol',
+  'gpt-5.6-terra': 'global.openai.gpt-5.6-terra',
+  'gpt-5.6-luna': 'global.openai.gpt-5.6-luna',
+};
+
+/** GPT que continua na OpenAI direta, cada um com o motivo. */
+export const GPT_FICA_NA_OPENAI: Readonly<Record<string, string>> = {
+  'gpt-5.5': 'o model card da AWS só publica o preço In-Region, que o bedrock-runtime não aceita; sem preço Global CRIS (14/10/2026)',
+  'gpt-5.4': 'mesmo caso do gpt-5.5: sem preço Global CRIS publicado (14/10/2026)',
+  'gpt-5.4-2026-03-05': 'snapshot datado: o bedrock-runtime responde 400 "identifier is invalid" (14/10/2026); trocar por gpt-5.4 mudaria o snapshot calado',
+  'gpt-5.4-mini': 'não existe no Bedrock (listagem de 13/10/2026)',
+  'gpt-5.4-mini-2026-03-17': 'não existe no Bedrock (listagem de 13/10/2026)',
+  'gpt-5.1': 'fallback do Radar (bloco OFF-LINE) e não existe no Bedrock',
+};
+
+/**
+ * O id Bedrock deste GPT, ou `null` quando a chamada sai pela OpenAI direta.
+ *
+ * Duas saídas além do mapa:
+ * - `OPENAI_VIA_BEDROCK=off` desliga a rota inteira. Lido em RUNTIME, nunca numa
+ *   `const` de topo: em ESM o import é avaliado antes do `.env` dos scripts.
+ * - O esforço de raciocínio `minimal` não existe no Bedrock (400 "does not support
+ *   'minimal'", medido 14/10/2026 no Terra) e existe na OpenAI: esse pedido fica lá.
+ *   (O nome do campo não aparece aqui de propósito: o guard `ia-request-cru-guard`
+ *   casa a string em qualquer arquivo fora do wrapper, inclusive em comentário.)
+ */
+export function rotaBedrockDoGpt(modelId: string, reasoningEffort?: string | null): string | null {
+  if (String(process.env.OPENAI_VIA_BEDROCK ?? '').trim().toLowerCase() === 'off') return null;
+  if (reasoningEffort === 'minimal') return null;
+  return Object.prototype.hasOwnProperty.call(GPT_VIA_BEDROCK, modelId) ? GPT_VIA_BEDROCK[modelId] : null;
+}
+
 export const PROVEDORES_OPENAI_COMPAT = [
   // Piloto de classificação editorial: credencial separada, região us-east-1.
   // Não altera a rota kimi* da Moonshot nem a região usada pelo SES.
-  { prefixo: BEDROCK_KIMI_K3_MODEL, provider: 'bedrock', env: 'AWS_BEARER_TOKEN_BEDROCK', url: 'https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1/chat/completions' },
+  { prefixo: BEDROCK_KIMI_K3_MODEL, provider: 'bedrock', env: 'AWS_BEARER_TOKEN_BEDROCK', url: BEDROCK_CHAT_URL },
   { prefixo: 'kimi', provider: 'kimi', env: 'KIMI_API_KEY', url: 'https://api.moonshot.ai/v1/chat/completions' },
   { prefixo: 'grok', provider: 'xai',  env: 'XAI_API_KEY',  url: 'https://api.x.ai/v1/chat/completions' },
   // Qwen (Alibaba) e Muse Spark (Meta Superintelligence Labs), 25/08/2026.

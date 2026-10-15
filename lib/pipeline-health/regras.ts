@@ -1003,6 +1003,7 @@ export function checarModelosConfigurados(
     modelo: string; origens: string[]; familia: string | null;
     temRota: boolean; temPreco: boolean;
     existeNoProvedor: boolean | null; motivoCegueira?: string;
+    idBedrock?: string; existeNoBedrock?: boolean | null;
   }>,
 ): Achado[] {
   const obs = observados || [];
@@ -1046,6 +1047,22 @@ export function checarModelosConfigurados(
     semPreco.length,
     '`costFromTokens` devolve null e a linha do ledger nasce sem custo — cega justamente o instrumento que decide se o modelo compensa.',
     { amostra: amostrar(semPreco), acao: 'Adicionar a entrada em `lib/ia-cost-catalog.ts::MODELS`.' },
+  ));
+
+  // GPT pelo AWS Bedrock (14/10/2026). Sem o id na listagem de perfis, toda chamada cai na
+  // reserva (OpenAI direta): a resposta chega, o crédito da AWS deixa de pagar, e os checks
+  // acima, que perguntam à OpenAI, seguem verdes. Listagem que falhou entra aqui também:
+  // não saber é diferente de saber que está certo.
+  const foraDoBedrock = obs.filter((o) => o.idBedrock && o.existeNoBedrock !== true);
+  out.push(achado(
+    'gpt-fora-do-bedrock', 'aviso',
+    'GPT configurado não está saindo pelo AWS Bedrock',
+    foraDoBedrock.length,
+    'O id do Bedrock não apareceu na listagem de perfis de inferência, ou a listagem falhou. As chamadas desse modelo caem na OpenAI direta: funcionam, mas o crédito da AWS deixa de pagar.',
+    {
+      amostra: foraDoBedrock.map((o) => `${o.modelo} → ${o.idBedrock}${o.existeNoBedrock === null ? ' (listagem indisponível)' : ''}`),
+      acao: 'Conferir `AWS_BEARER_TOKEN_BEDROCK` na Vercel e o mapa `GPT_VIA_BEDROCK` em `lib/ai-provedores.ts`; as trocas ficam em `degradacao_log` (`gpt-bedrock-para-openai`).',
+    },
   ));
 
   return out.filter(Boolean) as Achado[];

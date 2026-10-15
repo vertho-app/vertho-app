@@ -577,6 +577,15 @@ export const DEGRADACAO = {
    * respostas nem o e-mail; só o motivo e a mensagem do erro.
    */
   DISC_NAO_SALVO: 'disc-nao-salvo',
+  /**
+   * GPT pelo AWS Bedrock (14/10/2026): a rota principal não serviu e a chamada saiu pela OpenAI
+   * direta. Fluxo `ia`. Chave: `<modelo>:<motivo>`. `detalhe.motivo`: `http-<status>` (401, 403
+   * ou 429 e 5xx; o 401/403 com "not available for this account" é a AWS voltando a barrar a
+   * conta, como até 13/10) ou `sem-chave-bedrock` (`AWS_BEARER_TOKEN_BEDROCK` ausente NESTE
+   * ambiente: no Trigger.dev, por exemplo, ela não sobe com o push). A resposta da pessoa chega;
+   * o que se perde é o crédito da AWS. Timeout NÃO refaz: a chamada pode já ter sido cobrada.
+   */
+  GPT_BEDROCK_PARA_OPENAI: 'gpt-bedrock-para-openai',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

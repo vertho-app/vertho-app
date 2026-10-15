@@ -83,6 +83,18 @@ export const MODELS = {
   // Bedrock, Global CRIS / Standard. Conferido em 06/10/2026:
   // docs.aws.amazon.com/bedrock/latest/userguide/model-card-moonshot-ai-kimi-k3.html
   'global.moonshotai.kimi-k3':   { label: 'Kimi K3 (AWS Bedrock)', inUsd: 3, outUsd: 15, cacheReadUsd: 0.30, cacheWriteUsd: 3.75 },
+  // GPT pelo Bedrock, Global CRIS / Standard (rota em `lib/ai-provedores.ts`, `GPT_VIA_BEDROCK`).
+  // Lidos no model card de cada um em 14/10/2026 (docs.aws.amazon.com/bedrock/latest/userguide/
+  // model-card-openai-gpt-56-terra.html e vizinhos). "Long-context" vale para o pedido INTEIRO quando
+  // a entrada passa de 272.000 tokens. A gravação de cache é 1,25× a entrada nas duas faixas em todos
+  // os cards, que é a fórmula padrão de `costFromTokens`: por isso não há `cacheWriteUsd` aqui.
+  'global.openai.gpt-6.1-sol':   { label: 'GPT 6.1 Sol (AWS Bedrock)',   inUsd: 2,    outUsd: 10,  cacheReadUsd: 0.10, longContextThresholdTokens: 272_001, longContextInUsd: 4,    longContextCacheReadUsd: 0.20, longContextOutUsd: 15 },
+  'global.openai.gpt-6-sol':     { label: 'GPT 6 Sol (AWS Bedrock)',     inUsd: 2,    outUsd: 10,  cacheReadUsd: 0.20, longContextThresholdTokens: 272_001, longContextInUsd: 4,    longContextCacheReadUsd: 0.40, longContextOutUsd: 15 },
+  'global.openai.gpt-6-luna':    { label: 'GPT 6 Luna (AWS Bedrock)',    inUsd: 0.1,  outUsd: 0.5, cacheReadUsd: 0.01, longContextThresholdTokens: 272_001, longContextInUsd: 0.2,  longContextCacheReadUsd: 0.02, longContextOutUsd: 0.75 },
+  'global.openai.gpt-6-astra':   { label: 'GPT 6 Astra (AWS Bedrock)',   inUsd: 10,   outUsd: 50,  cacheReadUsd: 1,    longContextThresholdTokens: 272_001, longContextInUsd: 20,   longContextCacheReadUsd: 2,    longContextOutUsd: 75 },
+  'global.openai.gpt-5.6-sol':   { label: 'GPT 5.6 Sol (AWS Bedrock)',   inUsd: 4,    outUsd: 20,  cacheReadUsd: 0.40, longContextThresholdTokens: 272_001, longContextInUsd: 8,    longContextCacheReadUsd: 0.80, longContextOutUsd: 30 },
+  'global.openai.gpt-5.6-terra': { label: 'GPT 5.6 Terra (AWS Bedrock)', inUsd: 2,    outUsd: 12,  cacheReadUsd: 0.20, longContextThresholdTokens: 272_001, longContextInUsd: 4,    longContextCacheReadUsd: 0.40, longContextOutUsd: 18 },
+  'global.openai.gpt-5.6-luna':  { label: 'GPT 5.6 Luna (AWS Bedrock)',  inUsd: 0.2,  outUsd: 1.2, cacheReadUsd: 0.02, longContextThresholdTokens: 272_001, longContextInUsd: 0.4,  longContextCacheReadUsd: 0.04, longContextOutUsd: 1.8 },
   // xAI (provider xai no ai-client). Preço LIDO da própria API em 24/08/2026
   // (`GET /v1/language-models`), não de tabela de terceiro: prompt 20000 e
   // completion 60000, na unidade de 1e-10 USD/token → $2 e $6 por 1M.

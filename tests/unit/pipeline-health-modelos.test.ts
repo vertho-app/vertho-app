@@ -72,6 +72,21 @@ describe('checarModelosConfigurados', () => {
   it('lista vazia não vira achado (0 nunca é ocorrência)', () => {
     expect(checarModelosConfigurados([])).toEqual([]);
   });
+
+  it('GPT pelo Bedrock (14/10): id ausente da listagem ou listagem cega → aviso próprio; presente → nada', () => {
+    const vivo = obs({ idBedrock: 'global.openai.gpt-5.6-terra', existeNoBedrock: true });
+    expect(checarModelosConfigurados([vivo])).toEqual([]);
+    const a = checarModelosConfigurados([
+      vivo,
+      obs({ modelo: 'gpt-5.6-sol', idBedrock: 'global.openai.gpt-5.6-sol', existeNoBedrock: false }),
+      obs({ modelo: 'gpt-5.6-luna', idBedrock: 'global.openai.gpt-5.6-luna', existeNoBedrock: null }),
+    ]);
+    expect(ids(a)).toEqual(['gpt-fora-do-bedrock']);
+    const achado = a[0];
+    expect(achado.severidade).toBe('aviso');
+    expect(achado.contagem).toBe(2);
+    expect(achado.amostra).toEqual(['gpt-5.6-sol → global.openai.gpt-5.6-sol', 'gpt-5.6-luna → global.openai.gpt-5.6-luna (listagem indisponível)']);
+  });
 });
 
 /**

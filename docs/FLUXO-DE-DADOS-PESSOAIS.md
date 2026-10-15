@@ -25,6 +25,15 @@
 
 ---
 
+> **GPT pela AWS Bedrock, 14/10/2026 (decisão do dono de 13/10):** os modelos GPT mapeados em
+> `GPT_VIA_BEDROCK` (`lib/ai-provedores.ts`) passam a sair pela AWS Bedrock, perfil `global.`, nas
+> mesmas tarefas de antes: auditores Dual-IA (cenários, IA4, PDI, fechamento, módulo-base,
+> blueprint), geração de cenários quando a empresa escolhe GPT e o fallback de provedor. O
+> conteúdo enviado não muda; muda quem processa. Se a AWS recusar (401, 403, 429 ou 5xx) ou a
+> chave dela faltar no ambiente, a chamada sai pela OpenAI direta e a troca vira linha em
+> `degradacao_log` (`gpt-bedrock-para-openai`). Ficam na OpenAI direta: pesquisa web do
+> Copiloto, Batch API do check, imagens, Whisper e os GPT sem perfil `global.` (§2.3).
+
 > **Treinamento comercial, 06/10/2026:** o criador e o cliente dos três níveis passam
 > a usar Kimi K3 hospedado na AWS Bedrock, com autorização específica do dono e
 > a máscara existente. O escopo e os resíduos de dados pessoais estão na §2.3.
@@ -146,9 +155,9 @@ empresa (§2.3), e aí o provedor é o do modelo escolhido.
 | Provedor | Papel | Onde |
 |---|---|---|
 | **Anthropic** (Claude) | padrão da maior parte do pipeline; Batch API nos lotes; desde 08/10/2026 também os simuladores PACE (vendas e liderança), o Copiloto (ao vivo, planejamento, memória) e o brief da escola, que antes rodavam em OpenAI ou Google | `actions/ai-client.ts`, `lib/ai-batch.ts` |
-| **OpenAI** | fallback de provedor, auditores cross-família, Batch API do check, pesquisa web do Copiloto, transcrição (Whisper) | idem, `app/api/recepcao/voz` |
+| **OpenAI** | desde 14/10/2026: pesquisa web do Copiloto, Batch API do check, imagens, transcrição (Whisper), os GPT sem perfil `global.` no Bedrock (`GPT_FICA_NA_OPENAI`) e a RESERVA quando a AWS recusa o GPT. Antes disso também os auditores cross-família e o fallback de provedor, que passaram à AWS | idem, `app/api/recepcao/voz`, `lib/imagem-editorial.ts` |
 | **Google** (Gemini) | Beto no WhatsApp (texto e áudio), síntese de voz (vídeo, devolutiva, podcast) | `lib/whatsapp/suporte-auto.ts`, `lib/gemini-tts.ts`, `worker-hetzner/` |
-| **Amazon Web Services (AWS Bedrock)** | Kimi K3: criador de cenários e cliente nas dificuldades baixa, média e alta no treinamento comercial Vertho; nome do vendedor e contatos mascarados, nomes de terceiros em texto livre podem permanecer | `lib/bedrock-vendas-vertho.ts`, `lib/simulador-vendas/ai.ts`, `actions/ai-client.ts` |
+| **Amazon Web Services (AWS Bedrock)** | desde 14/10/2026, os GPT de `GPT_VIA_BEDROCK` (perfil `global.`, sem garantia de residência no Brasil nem nos EUA): auditores cross-família, fallback de provedor e geração quando a empresa escolhe GPT, com o mesmo conteúdo que ia à OpenAI. E o Kimi K3: criador de cenários e cliente nas dificuldades baixa, média e alta no treinamento comercial Vertho; nome do vendedor e contatos mascarados, nomes de terceiros em texto livre podem permanecer | `lib/bedrock-vendas-vertho.ts`, `lib/simulador-vendas/ai.ts`, `actions/ai-client.ts` |
 | **Voyage** | vetores do acervo de conteúdo e da pergunta do Tira-Dúvidas | `lib/embeddings.ts`, `lib/rag.ts` |
 | Moonshot (Kimi), xAI (Grok), Alibaba (Qwen), Meta (Muse) | **não declarados na política**. Desde 03/10/2026 (R-45) só rodam nas tarefas liberadas abaixo, nenhuma com dado de pessoa; fora da escada de fallback | `lib/ai-tasks.ts` (`TAREFAS_LIBERADAS_FORA_DAS_DECLARADAS`), `lib/ai-regua-privacidade.ts` |
 
