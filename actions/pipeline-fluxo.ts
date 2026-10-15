@@ -22,6 +22,7 @@ import { coletarEntradaPrevia, lerTudoPaginado } from '@/lib/pipeline-fluxo/cole
 import { montarPreviaFluxo, type PreviaFluxo } from '@/lib/pipeline-fluxo/previa';
 import { filaConteudoEscopo } from '@/lib/pipeline-fluxo/conteudo';
 import { coletarPrerequisitos } from '@/lib/pipeline-fluxo/prerequisitos-coleta';
+import { regraFocoIndividual } from '@/lib/foco-individual';
 import type { PrerequisitosFluxo } from '@/lib/pipeline-fluxo/prerequisitos';
 import { FASE_FLUXO, TASK_FLUXO, progressoInicial, type ParamsFluxo, type ProgressoFluxo } from '@/lib/pipeline-fluxo/tipos';
 
@@ -55,6 +56,10 @@ export async function previaFluxoCompleto(input: z.infer<typeof EntradaSchema>):
 
     const coleta = await coletarEntradaPrevia(tenantDb(empresaId), { permitidos, cargos: cargos || undefined, kit: { sb, empresaId, turmaId: turmaId || null } });
     if (coleta.error || !coleta.entrada) return { success: false, error: coleta.error || 'Falha ao coletar o estado da empresa' };
+    // Regra da competência por pessoa (menor nota): com ela, "cargo sem foco" não bloqueia, a etapa do foco decide.
+    const { data: empCfg, error: errCfg } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+    if (errCfg) return { success: false, error: `Não foi possível ler a configuração da empresa: ${errCfg.message}` };
+    coleta.entrada.regraFoco = regraFocoIndividual(empCfg?.sys_config);
     // Pré-requisitos da base (módulo-base, DISC, programa, preferências, render). É um AVISO: uma falha aqui não derruba a prévia
     // (o painel mostra "não foi possível conferir"), e roda junto da fila de conteúdos porque as duas só leem a mesma coleta.
     const pre = coletarPrerequisitos({ sb, tdb: tenantDb(empresaId), empresaId, entrada: coleta.entrada })

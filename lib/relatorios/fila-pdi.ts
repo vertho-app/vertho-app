@@ -20,6 +20,7 @@
  */
 import { lerTudoPaginado } from '@/lib/paginacao';
 import { normalizeAssessmentCompetency } from '@/lib/assessment/completion';
+import { focoIndividual } from '@/lib/foco-cargo';
 
 export type FilaPdi =
   | { error: string }
@@ -57,7 +58,7 @@ export async function buscarFilaPdi(tdb: any): Promise<FilaPdi> {
   if (errRel) return { error: `relatorios: ${errRel.message}` };
   const jaGerados = new Set((existentes || []).map((r: any) => r.colaborador_id));
 
-  const { data: colabs, error: errColab } = await tdb.from('colaboradores').select('id, cargo').in('id', colabIds);
+  const { data: colabs, error: errColab } = await tdb.from('colaboradores').select('id, cargo, foco_individual').in('id', colabIds);
   if (errColab) return { error: `colaboradores: ${errColab.message}` };
   const { data: cargosEmp, error: errCargos } = await tdb.from('cargos_empresa').select('nome, top5_workshop');
   if (errCargos) return { error: `cargos_empresa: ${errCargos.message}` };
@@ -96,9 +97,13 @@ export async function buscarFilaPdi(tdb: any): Promise<FilaPdi> {
     const doColab = respostasPorColab.get(c.id) || [];
     const top5 = top5DoCargo(c.cargo);
     // Cargo sem Top 5: a regra antiga (basta ter avaliação), e todas elas contam para o check.
-    const contam = top5.length
+    const doTop5 = top5.length
       ? top5.map((nome) => respostaDoTop5(doColab, c.cargo, nome))
       : doColab;
+    // Quem tem competência PRÓPRIA (mig 287) entra com o que respondeu (decisão do dono, 15/10/2026): contam as
+    // competências do Top 5 que a pessoa TEM avaliadas, e basta uma. O prompt confere que nada respondido ficou sem
+    // avaliação; a competência própria só é gravada depois disso (`prontidaoParaFoco`).
+    const contam = focoIndividual(c).length ? doTop5.filter(Boolean) : doTop5;
     if (!contam.length || contam.some((r) => !r)) { incompletos++; continue; }
     if (contam.some((r: any) => !r.status_ia4)) { aguardandoCheck++; continue; }
     pendentes.push(c.id);

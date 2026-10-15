@@ -7,7 +7,7 @@
  */
 import { filaKitEscopo } from './kit';
 import { buscarFilaIA4 } from '@/lib/ia4-fila';
-import { focoDoCargo } from '@/lib/foco-cargo';
+import { focoDoCargo, focoIndividual } from '@/lib/foco-cargo';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import type { EntradaPrevia } from './previa';
 import { lerTudoPaginado } from '@/lib/paginacao';
@@ -34,13 +34,13 @@ export type EscopoColeta = {
 export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Promise<{ entrada?: EntradaPrevia; error?: string }> {
   // Pessoas (sem contas internas da Vertho — as personas de demo continuam, como nos relatórios).
   const pessoasQ = await lerTudoPaginado((de, ate) => excludeInternalEmails(
-    tdb.from('colaboradores').select('id, nome_completo, cargo, gestor_email, email'),
+    tdb.from('colaboradores').select('id, nome_completo, cargo, gestor_email, email, foco_individual'),
   ).order('id').range(de, ate));
   if (pessoasQ.error) return { error: `colaboradores: ${pessoasQ.error}` };
   if (escopo.incluirInternos?.length) {
     const ja = new Set<string>(pessoasQ.data.map((p: any) => p.id));
     const extra = await lerTudoPaginado((de, ate) => tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, gestor_email, email').in('id', escopo.incluirInternos).order('id').range(de, ate));
+      .select('id, nome_completo, cargo, gestor_email, email, foco_individual').in('id', escopo.incluirInternos).order('id').range(de, ate));
     if (extra.error) return { error: `colaboradores (exceção de contas internas): ${extra.error}` };
     for (const p of extra.data) if (!ja.has(p.id)) pessoasQ.data.push(p);
   }
@@ -55,7 +55,7 @@ export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Prom
   if (cargosQ.error) return { error: `cargos_empresa: ${cargosQ.error}` };
 
   const respostasQ = await lerTudoPaginado((de, ate) => tdb.from('respostas')
-    .select('colaborador_id, competencia_nome, avaliacao_ia').not('r1', 'is', null).order('id').range(de, ate));
+    .select('colaborador_id, competencia_nome, avaliacao_ia, status_ia4').not('r1', 'is', null).order('id').range(de, ate));
   if (respostasQ.error) return { error: `respostas: ${respostasQ.error}` };
 
   const assessQ = await lerTudoPaginado((de, ate) => tdb.from('descriptor_assessments')
@@ -91,9 +91,9 @@ export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Prom
 
   return {
     entrada: {
-      pessoas: pessoasBrutas.map((p: any) => ({ id: p.id, nome: p.nome_completo || p.email || p.id, cargo: p.cargo ?? null, gestorEmail: p.gestor_email ?? null })),
+      pessoas: pessoasBrutas.map((p: any) => ({ id: p.id, nome: p.nome_completo || p.email || p.id, cargo: p.cargo ?? null, gestorEmail: p.gestor_email ?? null, focoIndividual: focoIndividual(p) })),
       cargos: cargosQ.data.map((c: any) => ({ nome: c.nome, foco: focoDoCargo(c), top5: (c.top5_workshop || []).length })),
-      respostas: dosEscopo(respostasQ.data as any[]).map((r: any) => ({ colaborador_id: r.colaborador_id, competencia_nome: r.competencia_nome ?? null, avaliada: r.avaliacao_ia != null })),
+      respostas: dosEscopo(respostasQ.data as any[]).map((r: any) => ({ colaborador_id: r.colaborador_id, competencia_nome: r.competencia_nome ?? null, avaliada: r.avaliacao_ia != null, checada: r.status_ia4 != null })),
       filaIA4: dosEscopo((fila.data || []) as any[]).map((r: any) => ({ colaborador_id: r.colaborador_id })),
       assessments: dosEscopo(assessQ.data as any[]).map((a: any) => ({ colaborador_id: a.colaborador_id, competencia: a.competencia })),
       blueprints: dosEscopo(bpQ.data as any[]).map((b: any) => ({ colaborador_id: b.colaborador_id, auditado: b.auditado_em != null })),

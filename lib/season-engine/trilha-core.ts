@@ -2,7 +2,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { selectDescriptors, selectDescriptorsMulti, selectDescriptorsDuo, selectDescriptorsPiloto, descritoresEsperadosNoOnboarding, type AssessmentPorCompetencia } from '@/lib/season-engine/select-descriptors';
 import { buildSeason } from '@/lib/season-engine/build-season';
 import { blueprintToTrilhaInputs, type BlueprintTrilhaInputs } from '@/lib/blueprint/to-descriptors';
-import { focoDoCargo } from '@/lib/foco-cargo';
+import { focoDaPessoa, focoIndividual } from '@/lib/foco-cargo';
 import { chaveMapeamento } from '@/lib/mapeamento-competencias';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
 import { getProgramaConfigByModo, normalizarModoPrograma, semanasDeMapeamentoDoPrograma, type ProgramaConfig, type ProgramaModoLabel, type SequenciaPersonalizado } from '@/lib/season-engine/programa-config';
@@ -64,7 +64,15 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     // A partir daqui, todas queries em tabelas tenant-owned passam por tdb.
     const tdb = tenantDb(colab.empresa_id);
 
-    // 1) Determina competência foco — trilha existente → cargo → erro
+    // Competência PRÓPRIA da pessoa (mig 287), com o `{ error }` checado: lida errada, a trilha cairia no foco do
+    // cargo e a pessoa faria uma competência enquanto o PDI dela fala de outra. Vai no `colab` porque o DUO e o
+    // Personalizado resolvem as competências a partir dele.
+    const { data: focoRow, error: errFoco } = await tdb.from('colaboradores')
+      .select('foco_individual').eq('id', colaboradorId).maybeSingle();
+    if (errFoco) return { error: `Falha ao ler a competência da pessoa: ${errFoco.message}` };
+    colab.foco_individual = focoRow?.foco_individual ?? null;
+
+    // 1) Determina competência foco — trilha existente → pessoa → cargo → erro
     let competenciaAlvo = competencia;
     if (!competenciaAlvo) {
       const { data: trilhaExist } = await tdb.from('trilhas')
@@ -74,16 +82,18 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
         .limit(1).maybeSingle();
       competenciaAlvo = trilhaExist?.competencia_foco;
     }
+    if (!competenciaAlvo) competenciaAlvo = focoIndividual(colab)[0];
     if (!competenciaAlvo && colab.cargo) {
-      // A MESMA régua de PDI e blueprint (`focoDoCargo`, o array antes da coluna
-      // simples), R-85: lendo só `competencia_foco` a trilha da Jornada podia seguir
-      // uma competência e o PDI da mesma pessoa outra.
+      // A MESMA régua de PDI e blueprint (`focoDaPessoa`: a da pessoa, mig 287, e
+      // depois o array do cargo antes da coluna simples), R-85: lendo só
+      // `competencia_foco` a trilha da Jornada podia seguir uma competência e o PDI
+      // da mesma pessoa outra.
       const { data: cargoEmp, error: errCargoFoco } = await tdb.from('cargos_empresa')
         .select('competencia_foco, competencias_foco')
         .eq('nome', colab.cargo)
         .maybeSingle();
       if (errCargoFoco) return { error: `Falha ao ler o foco do cargo: ${errCargoFoco.message}` };
-      competenciaAlvo = focoDoCargo(cargoEmp)[0];
+      competenciaAlvo = focoDaPessoa(colab, cargoEmp)[0];
     }
     // A falta de foco só barra os modos que dependem dele (checagem logo depois de
     // resolver o modo): o Onboarding cobre o Top 5 do cargo e não usa a
@@ -599,7 +609,7 @@ export async function gerarTemporadaRegularDuo(args: {
   // com o PDI, mig 174) → sys_config override → top-2 do top10 (âncora primeiro).
   const { data: cargoFocoRow } = await tdb.from('cargos_empresa')
     .select('competencia_foco, competencias_foco').eq('nome', colab.cargo || '').maybeSingle();
-  let comps: string[] = focoDoCargo(cargoFocoRow).slice(0, 2);
+  let comps: string[] = focoDaPessoa(colab, cargoFocoRow).slice(0, 2);
   // Config EFETIVA (empresa → turma → participação): a safra pode ter as suas
   // competências. Sem turma, é a sys_config da empresa — mesmo resultado de antes.
   const cfgDuo = args.turma?.config ?? empresa?.sys_config ?? {};
@@ -847,7 +857,7 @@ export async function gerarTemporadaPiloto(args: {
  */
 export async function resolverCompetenciasDoPersonalizado(
   tdb: any,
-  colab: { cargo?: string | null },
+  colab: { cargo?: string | null; foco_individual?: string[] | null },
   ancora: string,
   cfg: Record<string, any> | null | undefined,
 ): Promise<string[]> {
@@ -867,7 +877,7 @@ export async function resolverCompetenciasDoPersonalizado(
   const { data: cargoFocoRow } = await tdb.from('cargos_empresa')
     .select('competencia_foco, competencias_foco').eq('nome', colab.cargo || '').maybeSingle();
   const doSysConfig = Array.isArray(cfg?.competencias_regular_duo) ? cfg!.competencias_regular_duo : [];
-  let comps = unicas([ancora, ...focoDoCargo(cargoFocoRow), ...doSysConfig]);
+  let comps = unicas([ancora, ...focoDaPessoa(colab, cargoFocoRow), ...doSysConfig]);
   if (comps.length < 2) {
     const { data: top10 } = await tdb.from('top10_cargos')
       .select('competencia_id, posicao')
@@ -910,7 +920,7 @@ export type PlanoPersonalizado =
  */
 export async function planejarTrilhaPersonalizada(args: {
   tdb: any;
-  colab: { id: string; cargo?: string | null };
+  colab: { id: string; cargo?: string | null; foco_individual?: string[] | null };
   cfg: Record<string, any> | null | undefined;
   competenciaAlvo: string;
   configCongelada?: ProgramaConfig;

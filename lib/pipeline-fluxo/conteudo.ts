@@ -7,7 +7,8 @@
  * a trilha nunca passava. O que sobra de lacuna aqui é só a ordem: a biblioteca precisa existir antes da trilha.
  *
  * REGRAS (decisão do dono, 03/10):
- *  - gera SÓ o que falta: um descritor da competência foco do cargo que não tem nenhum conteúdo servível ao cargo;
+ *  - gera SÓ o que falta: um descritor da competência foco (a da pessoa, ou a do cargo) que não tem nenhum conteúdo
+ *    servível ao cargo;
  *  - nos formatos que as pessoas precisam, não por reflexo: a UNIÃO dos 2 primeiros formatos (sem o vídeo, que vem do
  *    pipeline de célula) de quem vai receber a trilha neste cargo; sem preferência = texto + estudo de caso;
  *  - é a biblioteca de quem vai ter a trilha MONTADA nesta rodada (`idsTrilhaProntos`), a mesma fila da etapa seguinte.
@@ -20,7 +21,7 @@ import {
   COLUNAS_PREFERENCIA_KIT, FORMATOS_SEM_PREFERENCIA, ORDEM_FORMATOS_KIT, topDoisFormatos, type FormatoKit,
 } from '@/lib/season-engine/kit/formatos-por-preferencia';
 import { coletarEntradaPrevia, lerTudoPaginado } from './coletar';
-import { idsTrilhaProntos, type EntradaPrevia } from './previa';
+import { focoEfetivo, idsTrilhaProntos, type EntradaPrevia } from './previa';
 import type { ConteudoItem } from './executor';
 
 /** Formatos de biblioteca de um cargo: união dos 2 primeiros de cada pessoa, SEM o vídeo; sem preferência = texto + caso. */
@@ -68,15 +69,21 @@ export async function filaConteudoEscopo(
   }
   const prefDe = new Map<string, any>(prefs.map((p) => [p.id, p]));
 
-  // Por cargo: competências foco, formatos da biblioteca.
+  // Por PAR (cargo × competência): a competência de CADA pessoa (a dela vence a do cargo, `focoEfetivo`) e os formatos
+  // da biblioteca de quem vai receber aquela competência naquele cargo. Iterar por cargo lendo o foco do cargo deixava
+  // de fora quem tem foco próprio (Amazon, 15/10/2026: 4 pessoas no mesmo cargo, competências diferentes). Com o foco
+  // só do cargo, todo mundo do cargo cai nos mesmos pares e o resultado é o de antes.
   const cargoPorNome = new Map(entrada.cargos.map((x) => [x.nome, x]));
-  const porCargo = new Map<string, any[]>();
+  const porPar = new Map<string, { cargo: string; comp: string; pessoas: any[] }>();
   for (const p of pessoasProntas) {
     if (!p.cargo) continue;
-    (porCargo.get(p.cargo) || porCargo.set(p.cargo, []).get(p.cargo)!).push(prefDe.get(p.id) || {});
+    for (const comp of focoEfetivo(p, cargoPorNome)) {
+      const k = `${p.cargo}\u0001${comp}`;
+      const par = porPar.get(k) || porPar.set(k, { cargo: p.cargo, comp, pessoas: [] }).get(k)!;
+      par.pessoas.push(prefDe.get(p.id) || {});
+    }
   }
-  const comps = new Set<string>();
-  for (const cargo of porCargo.keys()) for (const f of cargoPorNome.get(cargo)?.foco || []) comps.add(f);
+  const comps = new Set<string>([...porPar.values()].map((x) => x.comp));
   if (comps.size === 0) return [];
 
   // Descritores de cada competência POR CARGO (o catálogo é por cargo); sem linha da empresa, cai no catálogo base.
@@ -107,19 +114,17 @@ export async function filaConteudoEscopo(
 
   const itens: ConteudoItem[] = [];
   const vistos = new Set<string>();
-  for (const [cargo, pessoas] of porCargo) {
+  for (const { cargo, comp, pessoas } of porPar.values()) {
     const formatos = formatosDaBiblioteca(pessoas);
-    for (const comp of cargoPorNome.get(cargo)?.foco || []) {
-      const descritores = descritoresDe(comp, cargo).length ? descritoresDe(comp, cargo) : descritoresBase(comp);
-      for (const desc of descritores) {
-        const servem = conteudosServiveisPorCargo(conteudosDoBuild(existentes.filter((x: any) => x.competencia === comp && normDescritor(String(x.descritor || '')) === normDescritor(desc))), cargo);
-        if (servem.length > 0) continue;
-        for (const formato of formatos) {
-          const k = `${chave(comp, desc, cargo)}\u0001${formato}`;
-          if (vistos.has(k)) continue;
-          vistos.add(k);
-          itens.push({ competencia: comp, descritor: desc, cargo, formato });
-        }
+    const descritores = descritoresDe(comp, cargo).length ? descritoresDe(comp, cargo) : descritoresBase(comp);
+    for (const desc of descritores) {
+      const servem = conteudosServiveisPorCargo(conteudosDoBuild(existentes.filter((x: any) => x.competencia === comp && normDescritor(String(x.descritor || '')) === normDescritor(desc))), cargo);
+      if (servem.length > 0) continue;
+      for (const formato of formatos) {
+        const k = `${chave(comp, desc, cargo)}\u0001${formato}`;
+        if (vistos.has(k)) continue;
+        vistos.add(k);
+        itens.push({ competencia: comp, descritor: desc, cargo, formato });
       }
     }
   }

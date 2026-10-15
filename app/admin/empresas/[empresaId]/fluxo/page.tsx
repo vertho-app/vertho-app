@@ -111,7 +111,7 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
           <div>
             <h1 className="text-xl font-bold text-white">Fluxo completo</h1>
             <p className="text-[12.5px] mt-1" style={{ color: 'rgba(255,255,255,.55)' }}>
-              IA4 → blueprint → auditoria → PDI → conteúdos → trilha → Kit → Gestor e RH. A prévia é somente leitura: nada é gerado nem gasto até você executar.
+              IA4 → competência de cada pessoa (só com a regra da menor nota ligada) → blueprint → auditoria → PDI → conteúdos → trilha → Kit → Gestor e RH. A prévia é somente leitura: nada é gerado nem gasto até você executar.
             </p>
           </div>
           <button
@@ -377,6 +377,26 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                     </li>
                   ))}
                 </ul>
+                {!!fluxo.progresso.focoDefinido?.length && (
+                  <div className="px-4 py-2.5" style={{ borderTop: '1px solid rgba(255,255,255,.06)' }}>
+                    <div className="text-[11.5px] font-bold text-white mb-1.5">
+                      Competência de cada pessoa{fluxo.dryRun ? ' (seria definida)' : ''}
+                    </div>
+                    <ul className="space-y-1">
+                      {fluxo.progresso.focoDefinido.map((f) => (
+                        <li key={f.colaboradorId} className="text-[11.5px] flex flex-wrap items-baseline gap-x-2" style={{ color: 'rgba(255,255,255,.7)' }}>
+                          <span className="text-white">{f.nome}</span>
+                          {f.cargo && <span style={{ color: 'rgba(255,255,255,.4)' }}>{f.cargo}</span>}
+                          <span>→ {f.competencia}</span>
+                          <span className="font-mono" style={{ color: 'rgba(255,255,255,.45)' }}>
+                            média {f.media.toFixed(2).replace('.', ',')}
+                            {f.empatadas.length > 0 && ` · empate com ${f.empatadas.filter((c) => c !== f.competencia).join(', ')}, decidido ${f.criterio === 'pior_descritor' ? 'pelo pior descritor' : f.criterio === 'ordem_top5' ? 'pela ordem do Top 5' : 'pela ordem alfabética'}`}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {fluxo.progresso.modelos && (
                   <div className="px-4 py-2 text-[11px]" style={{ borderTop: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.4)' }}>
                     Modelos: {Object.entries(fluxo.progresso.modelos).map(([k, v]) => `${k} ${v}`).join(' · ')}

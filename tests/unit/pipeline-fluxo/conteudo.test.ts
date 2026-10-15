@@ -149,3 +149,43 @@ describe('filaConteudoEscopo', () => {
     await expect(filaConteudoEscopo(bancoFalso(), { permitidos: null })).rejects.toThrow(/respostas: x/);
   });
 });
+
+/**
+ * Competência POR PESSOA (mig 287, Amazon Bowling 15/10/2026): no mesmo cargo, cada pessoa pode fazer a trilha de uma
+ * competência diferente. A fila iterava por cargo lendo o foco do CARGO; aqui o cargo não tem foco nenhum, então a
+ * versão antiga devolve fila vazia e a trilha das duas abortaria sem biblioteca.
+ */
+describe('filaConteudoEscopo com a competência de cada pessoa', () => {
+  const duasPessoas = () => entrada({
+    pessoas: [
+      { id: 'p1', nome: 'Ana', cargo: 'CAIXA', focoIndividual: ['Rotina'] },
+      { id: 'p2', nome: 'Bia', cargo: 'CAIXA', focoIndividual: ['Simplicidade'] },
+    ],
+    cargos: [{ nome: 'CAIXA', foco: [], top5: 6 }],
+    assessments: [{ colaborador_id: 'p1', competencia: 'Rotina' }, { colaborador_id: 'p2', competencia: 'Simplicidade' }],
+  });
+
+  it('duas pessoas do mesmo cargo com competências diferentes geram os DOIS pares, cada um nos formatos de quem o recebe', async () => {
+    coletar.mockResolvedValue({ entrada: duasPessoas() });
+    const tdb = bancoFalso({
+      prefs: [{ id: 'p1', ...pref({ pref_audio: 7, pref_video_curto: 6 }) }, { id: 'p2', ...pref({}) }],
+      competencias: [...desc('Rotina', 'CAIXA', 'r1', 'r2'), ...desc('Simplicidade', 'CAIXA', 's1')],
+    });
+    const itens = await filaConteudoEscopo(tdb, { permitidos: null });
+    const porComp = (c: string) => itens.filter((i) => i.competencia === c).map((i) => `${i.descritor}:${i.formato}`).sort();
+    expect(porComp('Rotina')).toEqual(['r1:audio', 'r2:audio']);
+    expect(porComp('Simplicidade')).toEqual(['s1:case', 's1:texto']);
+    expect(itens.every((i) => i.cargo === 'CAIXA')).toBe(true);
+  });
+
+  it('a competência da pessoa vence a do cargo', async () => {
+    coletar.mockResolvedValue({ entrada: entrada({
+      pessoas: [{ id: 'p1', nome: 'Ana', cargo: 'CAIXA', focoIndividual: ['Simplicidade'] }],
+      cargos: [{ nome: 'CAIXA', foco: ['Rotina'], top5: 6 }],
+      assessments: [{ colaborador_id: 'p1', competencia: 'Simplicidade' }],
+    }) });
+    const tdb = bancoFalso({ competencias: [...desc('Rotina', 'CAIXA', 'r1'), ...desc('Simplicidade', 'CAIXA', 's1')] });
+    const itens = await filaConteudoEscopo(tdb, { permitidos: null });
+    expect([...new Set(itens.map((i) => i.competencia))]).toEqual(['Simplicidade']);
+  });
+});

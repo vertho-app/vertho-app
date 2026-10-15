@@ -6,7 +6,7 @@
  * sempre montou — extração mecânica, sem mudança de comportamento.
  */
 import { tenantDb } from '@/lib/tenant-db';
-import { focoDoCargo } from '@/lib/foco-cargo';
+import { focoDaPessoa, focoIndividual } from '@/lib/foco-cargo';
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { nivelDaNota, nivelOuNull } from '@/lib/nivel-regua';
@@ -208,7 +208,7 @@ export async function buildRelatorioIndividualPrompt(
 ): Promise<PdiPromptBuilt | { error: string }> {
   const tdb = tenantDb(empresaId);
   const { data: colab, error: errColab } = await tdb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, programa_modo, d_natural, i_natural, s_natural, c_natural, perfil_dominante, lid_executivo, lid_motivador, lid_metodico, lid_sistematico')
+    .select('id, nome_completo, cargo, email, programa_modo, foco_individual, d_natural, i_natural, s_natural, c_natural, perfil_dominante, lid_executivo, lid_motivador, lid_metodico, lid_sistematico')
     .eq('id', colaboradorId).single();
   // `.single()` devolve PGRST116 quando não há linha: isso é "não encontrado", e
   // qualquer outro erro é falha de leitura (não pode virar "não encontrado").
@@ -236,17 +236,28 @@ export async function buildRelatorioIndividualPrompt(
   const { data: cargoEmp } = await tdb.from('cargos_empresa')
     .select('top5_workshop, competencia_foco, competencias_foco').eq('nome', colab.cargo).maybeSingle();
   const top5Esperado: string[] = cargoEmp?.top5_workshop || [];
-  // Gate "PDI completo": com top5 configurado, só gera quando TODAS as
-  // competências esperadas têm resposta AVALIADA pela IA — avaliação parcial
-  // gerava PDI capado (ex.: 1/2 respondida chegava a entrar na fila do lote).
-  if (top5Esperado.length > 0) {
+  // Quem tem competência PRÓPRIA (mig 287, a da menor nota) entrou no programa com o que respondeu: decisão do
+  // dono em 15/10/2026 (Amazon Bowling, prazo encerrado, "todos entram"). Para essa pessoa o gate é "tudo o que
+  // ela respondeu está avaliado", não o Top 5 inteiro; o PDI mostra as competências avaliadas, com a da trilha
+  // na frente.
+  const comFocoProprio = focoIndividual(colab).length > 0;
+  if (comFocoProprio) {
+    const respondidas = (respostas || []).filter((r) => r.r1 != null || r.avaliacao_ia != null);
+    const avaliadas = respondidas.filter((r) => r.avaliacao_ia != null).length;
+    if (!respondidas.length || avaliadas < respondidas.length) {
+      return { error: `Avaliação incompleta: ${avaliadas}/${respondidas.length} respostas avaliadas — o PDI só é gerado com tudo o que a pessoa respondeu avaliado` };
+    }
+  } else if (top5Esperado.length > 0) {
+    // Gate "PDI completo": com top5 configurado, só gera quando TODAS as
+    // competências esperadas têm resposta AVALIADA pela IA — avaliação parcial
+    // gerava PDI capado (ex.: 1/2 respondida chegava a entrar na fila do lote).
     const avaliadas = (respostas || []).filter((r) => r.avaliacao_ia != null).length;
     if (avaliadas < top5Esperado.length) {
       return { error: `Avaliação incompleta: ${avaliadas}/${top5Esperado.length} competências avaliadas — o PDI só é gerado com a avaliação completa` };
     }
   }
-  // Competências FOCO do cargo (fonte única PDI↔trilha, item D).
-  const focoCargo: string[] = focoDoCargo(cargoEmp);
+  // Competências FOCO da pessoa, senão as do cargo (fonte única PDI↔trilha, item D + mig 287).
+  const focoCargo: string[] = focoDaPessoa(colab, cargoEmp);
 
   // Coerência PDI↔trilha (Fase 0, item 1): o PDI deve focar EXATAMENTE as
   // competências que a trilha do colaborador trabalha. Lê competencias_foco

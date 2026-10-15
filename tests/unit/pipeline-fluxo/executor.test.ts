@@ -1,12 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { executarFluxo, type DepsFluxo, type KitItem, type ConteudoItem } from '@/lib/pipeline-fluxo/executor';
+import { executarFluxo, type DepsFluxo, type KitItem, type ConteudoItem, type FilaFoco, type FocoItem } from '@/lib/pipeline-fluxo/executor';
 import { progressoInicial, ORDEM_ETAPAS, type ParamsFluxo, type EtapaId } from '@/lib/pipeline-fluxo/tipos';
 
 /**
  * O executor é o controle de fluxo do botão "fluxo completo". Estes testes usam dependências falsas que REGISTRAM
  * cada chamada, então provam o que o fluxo FAZ (e, principalmente, o que NÃO faz) sem Trigger, banco ou IA.
  */
-type Filas = { ia4?: { itens: string[]; checkOnly?: string[] }; blueprint?: string[]; auditoria?: string[]; pdi?: string[]; trilha?: string[]; kit?: KitItem[]; conteudo?: ConteudoItem[] };
+type Filas = { ia4?: { itens: string[]; checkOnly?: string[] }; foco?: FilaFoco; blueprint?: string[]; auditoria?: string[]; pdi?: string[]; trilha?: string[]; kit?: KitItem[]; conteudo?: ConteudoItem[] };
+const FOCO_DESLIGADO: FilaFoco = { regraLigada: false, itens: [], aguardandoIA4: 0, aguardandoCheck: 0, semNota: 0 };
+const focoItem = (colaboradorId: string, competencia = 'Simplicidade'): FocoItem => ({
+  colaboradorId, nome: `Pessoa ${colaboradorId}`, cargo: 'CAIXA', competencia, media: 1.8, criterio: 'menor_media', empatadas: [], meta: { regra: 'menor_nota' },
+});
+const filaFoco = (itens: FocoItem[], extra: Partial<FilaFoco> = {}): FilaFoco => ({ ...FOCO_DESLIGADO, regraLigada: true, itens, ...extra });
 
 function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
   const chamadas: string[] = [];
@@ -18,9 +23,15 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
   const gravados: any[] = [];
   const kitsEnfileirados: KitItem[] = [];
   const conteudosGerados: ConteudoItem[] = [];
+  const focosGravados: FocoItem[] = [];
   const deps: DepsFluxo = {
     ler: {
       ia4: async () => { chamadas.push('ler.ia4'); return { itens: filas.ia4?.itens ?? [], checkOnly: filas.ia4?.checkOnly ?? [] }; },
+      foco: async () => {
+        chamadas.push('ler.foco');
+        const f = filas.foco ?? FOCO_DESLIGADO;
+        return { ...f, itens: f.itens.filter((i) => !focosGravados.includes(i)) };
+      },
       blueprint: async () => { chamadas.push('ler.blueprint'); return filas.blueprint ?? []; },
       auditoria: async (alvo) => { chamadas.push('ler.auditoria'); return (filas.auditoria ?? alvo).filter((x) => !auditados.includes(x)); },
       pdi: async () => { chamadas.push('ler.pdi'); return filas.pdi ?? []; },
@@ -34,6 +45,7 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
     gerarConteudo: async (item) => { chamadas.push(`conteudo.${item.descritor}.${item.formato}`); conteudosGerados.push(item); relogio += 10; return { ok: true }; },
     kitEnfileirar: async (item) => { chamadas.push(`kit.enfileirar.${item.competencia}`); kitsEnfileirados.push(item); return { jobId: `kit-${item.competencia}`, adotado: false }; },
     aguardarKits: async (ids) => { chamadas.push('kit.aguardar'); return ids.map((jobId) => ({ jobId, status: 'done' as const, kits: kitsEnfileirados.find((k) => `kit-${k.competencia}` === jobId)?.faltantes.length ?? 0 })); },
+    definirFoco: async (item) => { chamadas.push(`foco.${item.colaboradorId}`); focosGravados.push(item); return { ok: true }; },
     auditar: async (id) => { chamadas.push(`auditar.${id}`); auditados.push(id); relogio += 10; return { ok: true }; },
     gerarTrilha: async (id) => { chamadas.push(`trilha.${id}`); trilhas.push(id); relogio += 10; return { ok: true }; },
     relatorioGestor: async () => { chamadas.push('gestor'); return { ok: true, gerados: 2 }; },
@@ -43,7 +55,7 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
     agora: () => relogio,
     ...extra,
   };
-  return { deps, chamadas, lotes, auditados, trilhas, gravados, kitsEnfileirados, conteudosGerados, cancelar: () => { cancelar = true; } };
+  return { deps, chamadas, lotes, auditados, trilhas, gravados, kitsEnfileirados, conteudosGerados, focosGravados, cancelar: () => { cancelar = true; } };
 }
 const params = (p: Partial<ParamsFluxo> = {}): ParamsFluxo => ({ empresaId: 'e1', escopo: {}, permitidos: null, ...p });
 const pecaItem = (descritor: string, formato: ConteudoItem['formato'] = 'texto'): ConteudoItem => ({ competencia: 'C', descritor, cargo: 'CAIXA', formato });
@@ -51,11 +63,11 @@ const kitItem = (competencia: string, faltantes = ['D', 'I']): KitItem => ({ com
 const etapa = (r: any, id: EtapaId) => r.progresso.etapas.find((e: any) => e.id === id);
 
 describe('ordem e execução completa', () => {
-  it('roda as 9 etapas NA ORDEM, cada uma recalculando a própria fila', async () => {
-    const m = montar({ ia4: { itens: ['r1', 'r2'] }, blueprint: ['a'], pdi: ['a'], trilha: ['a'], kit: [kitItem('c1')], conteudo: [pecaItem('d1', 'audio')] });
+  it('roda as 10 etapas NA ORDEM, cada uma recalculando a própria fila', async () => {
+    const m = montar({ ia4: { itens: ['r1', 'r2'] }, foco: filaFoco([focoItem('a')]), blueprint: ['a'], pdi: ['a'], trilha: ['a'], kit: [kitItem('c1')], conteudo: [pecaItem('d1', 'audio')] });
     const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
     expect(r.resultado).toBe('terminou');
-    const marcas = ['ler.ia4', 'lote.ia4', 'ler.blueprint', 'lote.blueprint', 'ler.auditoria', 'auditar.a', 'ler.pdi', 'lote.relatorios', 'ler.conteudo', 'conteudo.d1.audio', 'ler.trilha', 'trilha.a', 'ler.kit', 'kit.enfileirar.c1', 'kit.aguardar', 'gestor', 'rh'];
+    const marcas = ['ler.ia4', 'lote.ia4', 'aguardar.job-ia4', 'ler.foco', 'foco.a', 'ler.blueprint', 'lote.blueprint', 'ler.auditoria', 'auditar.a', 'ler.pdi', 'lote.relatorios', 'ler.conteudo', 'conteudo.d1.audio', 'ler.trilha', 'trilha.a', 'ler.kit', 'kit.enfileirar.c1', 'kit.aguardar', 'gestor', 'rh'];
     const posicoes = marcas.map((c) => m.chamadas.indexOf(c));
     expect(posicoes.every((p) => p >= 0)).toBe(true);
     expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b)); // estritamente na ordem
@@ -469,5 +481,72 @@ describe('pool do executor: cada item roda UMA vez (sem item fantasma no último
     expect(new Set(chamadosA).size).toBe(chamadosA.length);
     expect(etapa(r, 'conteudo')).toMatchObject({ estado: 'ok', feitos: 3, falhas: 0 });
     expect(etapa(r, 'trilha')).toMatchObject({ estado: 'ok', feitos: 3, falhas: 0 });
+  });
+});
+
+describe('etapa "Competência de cada pessoa" (menor nota, 15/10/2026)', () => {
+  it('regra desligada: a etapa é pulada com o motivo e NADA é gravado', async () => {
+    const m = montar({ blueprint: ['a'] });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'foco')).toMatchObject({ estado: 'pulado' });
+    expect(etapa(r, 'foco').detalhe).toMatch(/desligada/);
+    expect(m.focosGravados).toHaveLength(0);
+  });
+
+  it('regra ligada: grava a competência de cada pessoa ANTES do blueprint e a lista vai para a tela (sem o rastro interno)', async () => {
+    const m = montar({ foco: filaFoco([focoItem('a', 'Simplicidade'), focoItem('b', 'Rotina e Disciplina')]), blueprint: ['a', 'b'] });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'foco')).toMatchObject({ estado: 'ok', feitos: 2, falhas: 0, total: 2 });
+    expect(m.chamadas.indexOf('foco.b')).toBeLessThan(m.chamadas.indexOf('ler.blueprint'));
+    expect(r.progresso.focoDefinido?.map((f) => [f.colaboradorId, f.competencia])).toEqual([['a', 'Simplicidade'], ['b', 'Rotina e Disciplina']]);
+    expect(r.progresso.focoDefinido?.every((f) => !('meta' in f))).toBe(true);
+  });
+
+  it('quem ainda não pode ter a competência escolhida é CONTADO no detalhe, mesmo sem ninguém para gravar', async () => {
+    const m = montar({ foco: filaFoco([], { aguardandoIA4: 2, aguardandoCheck: 1, semNota: 1 }) });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    const e = etapa(r, 'foco');
+    expect(e.estado).toBe('pulado');
+    expect(e.detalhe).toMatch(/2 aguardando a avaliação da IA4/);
+    expect(e.detalhe).toMatch(/1 aguardando a 2ª checagem/);
+    expect(e.detalhe).toMatch(/1 sem nota por descritor/);
+  });
+
+  it('com gente gravada e gente esperando, o detalhe diz as duas coisas', async () => {
+    const m = montar({ foco: filaFoco([focoItem('a')], { aguardandoCheck: 3 }) });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'foco')).toMatchObject({ estado: 'ok', feitos: 1 });
+    expect(etapa(r, 'foco').detalhe).toMatch(/3 aguardando a 2ª checagem/);
+  });
+
+  it('simulação: mostra quem SERIA definido e não grava nada', async () => {
+    const m = montar({ foco: filaFoco([focoItem('a')]) });
+    const r = await executarFluxo(params({ dryRun: true }), null, m.deps, { orcamentoMs: 10_000 });
+    expect(m.focosGravados).toHaveLength(0);
+    expect(etapa(r, 'foco').detalhe).toMatch(/simulação: 1 pessoa/);
+    expect(r.progresso.focoDefinido?.map((f) => f.colaboradorId)).toEqual(['a']);
+  });
+
+  it('falha ao gravar conta como falha (não some) e as etapas seguintes rodam', async () => {
+    const m = montar({ foco: filaFoco([focoItem('a'), focoItem('b')]), blueprint: ['a'] }, {
+      definirFoco: async (item) => (item.colaboradorId === 'b' ? { ok: false, erro: 'b: já tinha a competência "X" definida; nada foi trocado' } : { ok: true }),
+    });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'foco')).toMatchObject({ estado: 'parcial', feitos: 1, falhas: 1 });
+    expect(etapa(r, 'foco').detalhe).toMatch(/já tinha/);
+    expect(r.progresso.focoDefinido?.map((f) => f.colaboradorId)).toEqual(['a']);
+    expect(etapa(r, 'blueprint').estado).toBe('ok');
+  });
+
+  it('continuação de um fluxo gravado ANTES da etapa existir: não quebra e a etapa roda', async () => {
+    const m = montar({ foco: filaFoco([focoItem('a')]), blueprint: ['a'] });
+    const antigo = progressoInicial();
+    antigo.etapas = antigo.etapas.filter((e) => e.id !== 'foco');
+    antigo.etapas[0] = { ...antigo.etapas[0], estado: 'ok' }; // a IA4 já tinha rodado
+    const r = await executarFluxo(params(), antigo, m.deps, { orcamentoMs: 10_000 });
+    expect(r.resultado).toBe('terminou');
+    expect(r.progresso.etapas.map((e) => e.id)).toEqual(ORDEM_ETAPAS);
+    expect(etapa(r, 'foco')).toMatchObject({ estado: 'ok', feitos: 1 });
+    expect(m.chamadas).not.toContain('ler.ia4');
   });
 });

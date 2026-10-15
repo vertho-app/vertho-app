@@ -57,6 +57,25 @@ describe('buscarFilaPdi', () => {
     expect(r.incompletos).toBe(0);
   });
 
+  it('competência PRÓPRIA (mig 287, "todos entram"): entra com o que respondeu do Top 5 (2 de 3); sem ela, 2 de 3 segue incompleto', async () => {
+    const r: any = await buscarFilaPdi(banco({
+      colaboradores: [{ id: 'a', empresa_id: 'e', cargo: 'CAIXA', foco_individual: ['x'] }, { id: 'b', empresa_id: 'e', cargo: 'CAIXA', foco_individual: null }],
+      respostas: [resp('a', 'cx'), resp('a', 'cy'), resp('b', 'cx'), resp('b', 'cy')],
+    }).client);
+    expect(r.pendentes).toEqual(['a']);
+    expect(r.incompletos).toBe(1);
+  });
+
+  it('competência PRÓPRIA não dispensa o check da 2ª IA (R-59) nem a resposta do Top 5 DO CARGO (R-87)', async () => {
+    const r: any = await buscarFilaPdi(banco({
+      colaboradores: [{ id: 'a', empresa_id: 'e', cargo: 'CAIXA', foco_individual: ['x'] }, { id: 'b', empresa_id: 'e', cargo: 'CAIXA', foco_individual: ['x'] }],
+      respostas: [resp('a', 'cx'), resp('a', 'cy', { status_ia4: null }), resp('b', 'lid2')],
+    }).client);
+    expect(r.pendentes).toEqual([]);
+    expect(r.aguardandoCheck).toBe(1);
+    expect(r.incompletos).toBe(1);
+  });
+
   it('cargo SEM top5 configurado mantém a regra antiga: basta ter avaliação', async () => {
     const r: any = await buscarFilaPdi(banco({
       colaboradores: [{ id: 'a', empresa_id: 'e', cargo: 'SEM-TOP5' }],

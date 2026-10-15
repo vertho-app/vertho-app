@@ -13,9 +13,17 @@
  *  · O ORÇAMENTO DE TEMPO conta só COMPUTE (auditoria, trilha, Gestor/RH). A espera por lote da Batch API é
  *    checkpointada pelo Trigger e não conta: um lote de horas não estoura a run.
  */
-import { ORDEM_ETAPAS, progressoInicial, type EtapaId, type ParamsFluxo, type ProgressoEtapa, type ProgressoFluxo } from './tipos';
+import { ORDEM_ETAPAS, etapasCompletas, progressoInicial, type EtapaId, type FocoDefinido, type ParamsFluxo, type ProgressoEtapa, type ProgressoFluxo } from './tipos';
 
 export type ResultadoLote = { jobId: string; adotado: boolean } | { erro: string };
+/** Uma competência a gravar NA PESSOA (etapa "Competência de cada pessoa"), com o rastro da escolha. */
+export interface FocoItem extends FocoDefinido { meta: Record<string, unknown> }
+/**
+ * A fila da etapa "Competência de cada pessoa". Quem ainda não pode ter a competência escolhida (avaliação ou check
+ * pendente, nota por descritor ausente) é CONTADO: essa pessoa fica sem foco e, por isso, fora de blueprint, PDI e
+ * trilha, e isso não pode acontecer em silêncio.
+ */
+export interface FilaFoco { regraLigada: boolean; itens: FocoItem[]; aguardandoIA4: number; aguardandoCheck: number; semNota: number }
 /** Uma peça de biblioteca (conteúdo-base) a gerar antes da trilha: descritor × formato num cargo. */
 export interface ConteudoItem { competencia: string; descritor: string; cargo: string; formato: 'audio' | 'texto' | 'case' }
 
@@ -35,6 +43,7 @@ export type EsperaJob = { status: 'done' | 'error' | 'cancelled'; erro?: string;
 export interface DepsFluxo {
   ler: {
     ia4(): Promise<{ itens: string[]; checkOnly: string[] }>;
+    foco(): Promise<FilaFoco>;
     blueprint(): Promise<string[]>;
     /** Entre `alvo`, quem JÁ TEM blueprint e ainda não foi auditado. */
     auditoria(alvo: string[]): Promise<string[]>;
@@ -51,6 +60,8 @@ export interface DepsFluxo {
   kitEnfileirar(item: KitItem): Promise<ResultadoKit>;
   /** Espera todos os jobs juntos, num único laço de sondagem (um `wait.for` por volta, nunca em paralelo). */
   aguardarKits(jobIds: string[]): Promise<EsperaKit[]>;
+  /** Grava a competência NA PESSOA, só onde ainda está vazia (nunca sobrescreve uma escolha anterior). */
+  definirFoco(item: FocoItem): Promise<{ ok: boolean; erro?: string }>;
   auditar(colaboradorId: string): Promise<{ ok: boolean; erro?: string }>;
   /** Gera UMA peça de biblioteca (áudio já com MP3). */
   gerarConteudo(item: ConteudoItem): Promise<{ ok: boolean; erro?: string }>;
@@ -93,7 +104,7 @@ export async function executarFluxo(
   deps: DepsFluxo,
   opts: { orcamentoMs: number; concorrencia?: number },
 ): Promise<ResultadoExecucao> {
-  const prog: ProgressoFluxo = inicial ? { ...inicial, etapas: inicial.etapas.map((e) => ({ ...e, jobIds: [...e.jobIds] })) } : progressoInicial(!!params.dryRun);
+  const prog: ProgressoFluxo = inicial ? { ...inicial, etapas: etapasCompletas(inicial.etapas).map((e) => ({ ...e, jobIds: [...e.jobIds] })) } : progressoInicial(!!params.dryRun);
   prog.execucoes = (inicial?.execucoes ?? 0) + 1;
   prog.dryRun = !!params.dryRun;
   const concorrencia = opts.concorrencia ?? 3;
@@ -152,6 +163,41 @@ export async function executarFluxo(
       e.feitos += ok; e.falhas += falhas;
       e.estado = falhas === 0 ? 'ok' : ok === 0 ? 'erro' : 'parcial';
       if (falhas) e.detalhe = `${falhas} item(ns) com erro no lote`;
+      await salvar();
+      continue;
+    }
+
+    // ─── Competência de cada pessoa: regra pura sobre as notas da IA4 (sem IA), gravada uma vez ─────────
+    if (id === 'foco') {
+      const fila = await deps.ler.foco();
+      if (!fila.regraLigada) { e.estado = 'pulado'; e.detalhe = 'desligada nesta empresa: vale a competência foco do cargo'; await salvar(); continue; }
+      const esperando = [
+        fila.aguardandoIA4 ? `${fila.aguardandoIA4} aguardando a avaliação da IA4` : '',
+        fila.aguardandoCheck ? `${fila.aguardandoCheck} aguardando a 2ª checagem` : '',
+        fila.semNota ? `${fila.semNota} sem nota por descritor` : '',
+      ].filter(Boolean).join(' · ');
+      const semMeta = ({ meta: _meta, ...f }: FocoItem): FocoDefinido => f;
+      if (dryRun) {
+        e.total += fila.itens.length;
+        e.estado = 'pulado';
+        e.detalhe = [`simulação: ${fila.itens.length} pessoa(s) teriam a competência definida`, esperando].filter(Boolean).join(' · ');
+        prog.focoDefinido = fila.itens.map(semMeta);
+        await salvar();
+        continue;
+      }
+      if (fila.itens.length === 0) { e.estado = 'pulado'; e.detalhe = esperando ? `nada a definir agora · ${esperando}` : 'nada pendente'; await salvar(); continue; }
+      e.total += fila.itens.length;
+      for (const item of fila.itens) {
+        let r: { ok: boolean; erro?: string };
+        try { r = await deps.definirFoco(item); }
+        catch (err: any) { r = { ok: false, erro: String(err?.message || err).slice(0, 160) }; }
+        if (r.ok) {
+          e.feitos++;
+          prog.focoDefinido = [...(prog.focoDefinido || []).filter((f) => f.colaboradorId !== item.colaboradorId), semMeta(item)];
+        } else { e.falhas++; e.detalhe = r.erro || e.detalhe; }
+      }
+      e.estado = e.falhas === 0 ? 'ok' : e.feitos === 0 ? 'erro' : 'parcial';
+      if (esperando) e.detalhe = [e.detalhe, esperando].filter(Boolean).join(' · ');
       await salvar();
       continue;
     }

@@ -15,7 +15,7 @@
 
 import { tenantDb } from '@/lib/tenant-db';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { focoDoCargo } from '@/lib/foco-cargo';
+import { focoDaPessoa } from '@/lib/foco-cargo';
 import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 import { buildBlueprintPrompt, type BlueprintCompetenciaInput } from '@/lib/blueprint/prompt';
 import {
@@ -57,10 +57,16 @@ export async function resolverFilaBlueprint100(tdb: any): Promise<FilaBlueprintI
   const { data: cargoRows } = cargos.length
     ? await tdb.from('cargos_empresa').select('nome, competencia_foco, competencias_foco').in('nome', cargos)
     : { data: [] };
-  const focoPorCargo = new Map<string, string[]>((cargoRows || []).map((r: any) => [r.nome, focoDoCargo(r)]));
+  const cargoPorNome = new Map<string, any>((cargoRows || []).map((r: any) => [r.nome, r]));
+  // A competência da PESSOA vence a do cargo (mig 287): a mesma régua de `buildBlueprintReq`. Lida à parte e com o
+  // `{ error }` checado: ler errado aqui tiraria da fila, em silêncio, justamente quem tem competência própria.
+  const { data: proprios, error: errProprios } = await tdb.from('colaboradores')
+    .select('id, foco_individual').not('foco_individual', 'is', null);
+  if (errProprios) throw new Error(`competência própria das pessoas: ${errProprios.message}`);
+  const focoProprio = new Map<string, any>((proprios || []).map((p: any) => [p.id, p]));
   const fila: FilaBlueprintItem[] = [];
   for (const c of colabs) {
-    const foco = focoPorCargo.get(c.cargo) || [];
+    const foco = focoDaPessoa(focoProprio.get(c.id), cargoPorNome.get(c.cargo));
     if (foco.length === 0) continue; // sem foco definido → não gera
     const tem = mapPorColab.get(c.id) || new Set<string>();
     const todasMapeadas = foco.every((f) => tem.has(normNome(f)));
@@ -162,12 +168,15 @@ export async function buildBlueprintReq(
   const { data: empresa } = await sbRaw.from('empresas').select('nome, segmento, sys_config').eq('id', empresaId).single();
   if (!empresa) return { error: 'Empresa não encontrada' };
 
-  // Foco do cargo (fonte única PDI↔trilha). Gate: sem foco, não gera.
+  // Foco da PESSOA, senão o do cargo (fonte única PDI↔trilha, `focoDaPessoa`). Gate: sem foco, não gera.
   const { data: cargoEmp } = await tdb.from('cargos_empresa')
     .select('competencia_foco, competencias_foco').eq('nome', colab.cargo).maybeSingle();
-  const focoCargo = focoDoCargo(cargoEmp);
+  const { data: focoRow, error: errFoco } = await tdb.from('colaboradores')
+    .select('foco_individual').eq('id', colaboradorId).maybeSingle();
+  if (errFoco) return { error: `Falha ao ler a competência da pessoa: ${errFoco.message}` };
+  const focoCargo = focoDaPessoa(focoRow, cargoEmp);
   if (focoCargo.length === 0) {
-    return { error: 'Selecione as competências foco do cargo antes de gerar o blueprint.' };
+    return { error: 'Selecione as competências foco do cargo (ou rode a etapa "Competência de cada pessoa") antes de gerar o blueprint.' };
   }
 
   // Assessments (IA4) por competência foco → nível/nota consolidados.

@@ -1,5 +1,6 @@
 /**
- * PRÉVIA do fluxo completo (IA4 → blueprint → auditoria → PDI → conteúdos → trilha → Kit → Gestor/RH) — função PURA.
+ * PRÉVIA do fluxo completo (IA4 → competência de cada pessoa → blueprint → auditoria → PDI → conteúdos → trilha → Kit →
+ * Gestor/RH) — função PURA.
  *
  * O admin escolhe as competências foco e aperta UM botão; o resto roda sozinho. Antes de disparar, esta prévia
  * responde, por etapa: quem está pronto agora, quem fica pronto depois da etapa anterior (PROJEÇÃO), quem já
@@ -15,14 +16,24 @@
  * decide quem gera.
  */
 
-export type PessoaPrevia = { id: string; nome: string; cargo: string | null; gestorEmail?: string | null };
+export type PessoaPrevia = {
+  id: string; nome: string; cargo: string | null; gestorEmail?: string | null;
+  /** Foco gravado NA PESSOA (mig 287); quando existe, vence o do cargo (`focoDaPessoa`). */
+  focoIndividual?: string[];
+};
 export type CargoPrevia = { nome: string; foco: string[]; top5: number };
 
 export type EntradaPrevia = {
   pessoas: PessoaPrevia[];
   cargos: CargoPrevia[];
-  /** Respostas de cenário com r1 preenchido. `avaliada` = avaliacao_ia gravada. */
-  respostas: Array<{ colaborador_id: string; competencia_nome: string | null; avaliada: boolean }>;
+  /**
+   * Regra de foco por pessoa ligada na empresa (`sys_config.foco_individual`). Ligada, quem ainda não tem foco
+   * individual o ganha na etapa "Competência de cada pessoa", logo depois da IA4: a prévia projeta blueprint, PDI
+   * e trilha para depois dela em vez de bloquear por "cargo sem foco". Ausente = desligada.
+   */
+  regraFoco?: 'menor_nota' | null;
+  /** Respostas de cenário com r1 preenchido. `avaliada` = avaliacao_ia gravada; `checada` = passou pela 2ª IA. */
+  respostas: Array<{ colaborador_id: string; competencia_nome: string | null; avaliada: boolean; checada?: boolean }>;
   /** A fila REAL da IA4 (pendentes + presas), de `buscarFilaIA4`. */
   filaIA4: Array<{ colaborador_id: string }>;
   /** `descriptor_assessments`: competências já mapeadas por pessoa. */
@@ -51,7 +62,7 @@ export type EntradaPrevia = {
   conteudoPlano?: { pecas: number; audios: number };
 };
 
-export type EtapaId = 'ia4' | 'blueprint' | 'auditoria' | 'pdi' | 'conteudo' | 'trilha' | 'kit' | 'gestor' | 'rh';
+export type EtapaId = 'ia4' | 'foco' | 'blueprint' | 'auditoria' | 'pdi' | 'conteudo' | 'trilha' | 'kit' | 'gestor' | 'rh';
 
 export type EtapaPrevia = {
   id: EtapaId;
@@ -80,6 +91,7 @@ const norm = (s: unknown): string => (s || '').toString().trim().toLowerCase();
 
 const TITULOS: Record<EtapaId, string> = {
   ia4: 'IA4 — avaliar respostas + check',
+  foco: 'Competência de cada pessoa (menor nota)',
   blueprint: 'Blueprint',
   auditoria: 'Auditoria do blueprint',
   pdi: 'PDI',
@@ -89,6 +101,16 @@ const TITULOS: Record<EtapaId, string> = {
   gestor: 'Relatório do Gestor',
   rh: 'Relatório do RH',
 };
+
+/**
+ * O foco que vale para a pessoa NA PRÉVIA E NAS FILAS do fluxo: o dela (mig 287) vence o do cargo. A mesma régua de
+ * `focoDaPessoa` (lib/foco-cargo.ts), sobre os dados já coletados: blueprint, PDI e trilha leem de lá, e a fila que
+ * olhasse só o cargo deixaria de fora quem tem foco próprio num cargo sem foco (a Amazon inteira, 15/10/2026).
+ */
+export function focoEfetivo(p: PessoaPrevia, cargoPorNome: Map<string, CargoPrevia>): string[] {
+  if (p.focoIndividual?.length) return p.focoIndividual;
+  return (p.cargo ? cargoPorNome.get(p.cargo)?.foco : undefined) || [];
+}
 
 /**
  * Quem a TRILHA toma agora: foco definido, TODAS as competências foco já mapeadas e nenhuma trilha ainda. É o mesmo
@@ -107,7 +129,7 @@ export function idsTrilhaProntos(entrada: EntradaPrevia): string[] {
   return entrada.pessoas
     .filter((p) => {
       if (temTrilha.has(p.id)) return false;
-      const foco = (p.cargo ? cargoPorNome.get(p.cargo)?.foco : undefined) || [];
+      const foco = focoEfetivo(p, cargoPorNome);
       if (foco.length === 0) return false;
       const assessed = assessPorPessoa.get(p.id) || new Set<string>();
       return foco.every((f) => assessed.has(norm(f)));
@@ -118,10 +140,10 @@ export function idsTrilhaProntos(entrada: EntradaPrevia): string[] {
 export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
   const cargoPorNome = new Map(entrada.cargos.map((c) => [c.nome, c]));
 
-  const respPorPessoa = new Map<string, Array<{ competencia: string; avaliada: boolean }>>();
+  const respPorPessoa = new Map<string, Array<{ competencia: string; avaliada: boolean; checada: boolean }>>();
   for (const r of entrada.respostas) {
     const arr = respPorPessoa.get(r.colaborador_id) || [];
-    arr.push({ competencia: norm(r.competencia_nome), avaliada: r.avaliada });
+    arr.push({ competencia: norm(r.competencia_nome), avaliada: r.avaliada, checada: !!r.checada });
     respPorPessoa.set(r.colaborador_id, arr);
   }
   const pendIA4PorPessoa = new Map<string, number>();
@@ -152,7 +174,8 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
 
   for (const p of entrada.pessoas) {
     const cargo = p.cargo ? cargoPorNome.get(p.cargo) : undefined;
-    const foco = cargo?.foco || [];
+    const foco = focoEfetivo(p, cargoPorNome);
+    const individual = p.focoIndividual || [];
     const esperadoTop5 = cargo?.top5 || 0;
     const resp = respPorPessoa.get(p.id) || [];
     const respondidas = new Set(resp.map((r) => r.competencia));
@@ -165,6 +188,18 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     // ── IA4: as respostas da fila REAL (pendentes + presas). Quem não tem nada na fila não bloqueia nada aqui. ──
     if (pendIA4 > 0) acc.ia4.agora++;
 
+    // ── Competência de cada pessoa (regra da empresa, mig 287). A etapa escolhe para quem ainda não tem foco próprio
+    // nem trilha (a trilha em curso segue a competência dela), entre as competências que a pessoa respondeu, e só
+    // depois de todas avaliadas e checadas (`prontidaoParaFoco`). Até lá blueprint, PDI e trilha ficam PROJETADOS. ──
+    const focoADefinir = !!entrada.regraFoco && individual.length === 0 && !temTrilha.has(p.id) && resp.length > 0;
+    if (entrada.regraFoco) {
+      if (individual.length) acc.foco.ja++;
+      else if (temTrilha.has(p.id)) { /* segue a competência da trilha */ }
+      else if (resp.length === 0) bloquear('foco', 'Ainda não respondeu nenhum cenário', p.nome);
+      else if (resp.every((r) => r.avaliada && r.checada && assessed.has(r.competencia))) acc.foco.agora++;
+      else acc.foco.apos++;
+    }
+
     // ── Blueprint e trilha dependem do mesmo critério de foco/mapeamento (a regra dos 100%). ──
     const semFoco = foco.length === 0;
     const todasMapeadas = !semFoco && foco.every((f) => assessed.has(norm(f)));
@@ -173,6 +208,7 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
 
     // Blueprint
     if (bp) acc.blueprint.ja++;
+    else if (focoADefinir) acc.blueprint.apos++;
     else if (semFoco) bloquear('blueprint', 'Cargo sem competências foco definidas', p.nome);
     else if (todasMapeadas) acc.blueprint.agora++;
     else if (todasRespondidasOuMapeadas) acc.blueprint.apos++;
@@ -182,14 +218,19 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     // não entra: o fluxo não reavalia o passado (decisão do dono, 01/10/2026) — e na Macaé isso evitaria 57
     // auditorias retroativas de blueprints de agosto, que custariam e carimbariam um selo novo sobre conteúdo velho.
     if (bp) acc.auditoria.ja++;
-    else if (!semFoco && todasRespondidasOuMapeadas) acc.auditoria.apos++;
+    else if (focoADefinir || (!semFoco && todasRespondidasOuMapeadas)) acc.auditoria.apos++;
     // (quem está bloqueado no blueprint aparece UMA vez, lá; não se repete o motivo em cada etapa)
 
     // PDI: regra da fila real — avaliação COMPLETA do top5 (linhas de resposta avaliadas >= top5), sem PDI ainda.
+    // Quem tem foco próprio entra com o que respondeu (decisão do dono, 15/10/2026: prazo encerrado, "todos
+    // entram"), e quem ainda vai ganhar o foco espera a etapa dele.
     if (temPdi.has(p.id)) acc.pdi.ja++;
     else {
-      const completoAgora = avaliadasLinhas > 0 && (esperadoTop5 === 0 || avaliadasLinhas >= esperadoTop5);
-      const completoApos = (avaliadasLinhas + pendIA4) > 0 && (esperadoTop5 === 0 || avaliadasLinhas + pendIA4 >= esperadoTop5);
+      const todasAvaliadas = resp.length > 0 && avaliadasLinhas >= resp.length;
+      const completoAgora = !focoADefinir && avaliadasLinhas > 0
+        && (esperadoTop5 === 0 || avaliadasLinhas >= esperadoTop5 || (individual.length > 0 && todasAvaliadas));
+      const completoApos = (avaliadasLinhas + pendIA4) > 0
+        && (esperadoTop5 === 0 || avaliadasLinhas + pendIA4 >= esperadoTop5 || individual.length > 0 || focoADefinir);
       if (completoAgora) { acc.pdi.agora++; algumPdi = true; }
       else if (completoApos) { acc.pdi.apos++; algumPdi = true; }
       else if (resp.length === 0) bloquear('pdi', 'Ainda não respondeu nenhum cenário', p.nome);
@@ -199,6 +240,7 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     // Trilha: precisa de foco do cargo e do mapeamento; sem trilha ainda. (Se o blueprint dirige a trilha, ela
     // também espera o blueprint — a etapa real confere.)
     if (temTrilha.has(p.id)) acc.trilha.ja++;
+    else if (focoADefinir) acc.trilha.apos++;
     else if (semFoco) bloquear('trilha', 'Cargo sem competências foco definidas', p.nome);
     else if (todasMapeadas) acc.trilha.agora++;
     else if (todasRespondidasOuMapeadas) acc.trilha.apos++;
@@ -220,6 +262,9 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
 
   const notas: Partial<Record<EtapaId, string>> = {
     ia4: 'Conta as respostas da fila da IA4 (pendentes + presas), não as pessoas.',
+    foco: entrada.regraFoco
+      ? 'Para quem ainda não tem: a competência de MENOR nota (média dos descritores; empate: o pior descritor, depois a ordem do Top 5), gravada uma vez. Só depois de todas as respostas da pessoa avaliadas e checadas.'
+      : 'Desligada nesta empresa: vale a competência foco do cargo.',
     auditoria: 'Só dos blueprints gerados nesta rodada; blueprint antigo não é reauditado.',
     conteudo: entrada.conteudoPlano === undefined ? 'Não medido nesta prévia.' : `Biblioteca que falta (descritor × formato) para quem vai ter trilha montada, nos formatos que as pessoas precisam: ${entrada.conteudoPlano.audios} podcast(s) com áudio. Sem peça faltando, a etapa é pulada.`,
     kit: entrada.kitPlano === undefined ? 'Não medido nesta prévia.' : `Kits (tema × DISC) que faltam para as trilhas já montadas, com os 2 primeiros formatos das preferências: ${entrada.kitPlano.podcasts} podcast(s) pré-renderizado(s) e ${entrada.kitPlano.videos} vídeo(s). Os das trilhas novas aparecem depois da etapa da trilha.`,

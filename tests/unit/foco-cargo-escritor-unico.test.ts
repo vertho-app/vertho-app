@@ -98,3 +98,23 @@ describe('sem blueprint, a geração degrada REGISTRANDO (R-85)', () => {
     }));
   });
 });
+
+describe('competência PRÓPRIA da pessoa (mig 287, Amazon 15/10/2026)', () => {
+  it('a trilha usa a competência DA PESSOA, que vence o foco do cargo', async () => {
+    tabelas.colaboradores[0].foco_individual = ['Didática'];
+    const r: any = await gerarTemporadaCoreHeadless(sb.client, { colaboradorId: 'col' });
+    expect(r.error).toBeTruthy();
+    expect(r.error).toContain('Didática');
+    expect(r.error).not.toContain('Comunicação');
+  });
+
+  it('cargo SEM foco: com a competência própria a trilha tem alvo; sem ela, recusa por falta de foco', async () => {
+    tabelas.cargos_empresa[0].competencias_foco = [];
+    tabelas.cargos_empresa[0].competencia_foco = null;
+    const sem: any = await gerarTemporadaCoreHeadless(sb.client, { colaboradorId: 'col' });
+    expect(sem.error).toMatch(/Sem competência foco/);
+    tabelas.colaboradores[0].foco_individual = ['Antiga'];
+    const com: any = await gerarTemporadaCoreHeadless(sb.client, { colaboradorId: 'col' });
+    expect(com.error).toContain('"Antiga"');
+  });
+});

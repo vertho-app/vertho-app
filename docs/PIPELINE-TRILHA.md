@@ -146,14 +146,32 @@ simulado; não confundem entrega da instrução com obediência do modelo).
 | Colaborador | `colaboradores` (`nome_completo`, `cargo`, `empresa_id`) | cadastro / import | **sim** |
 | **DISC** | `colaboradores`: `perfil_dominante`, `d/i/s/c_natural`, `lid_*` | `actions/simulador-disc.ts` (simulação demo), import externo. Nenhuma action de evolução escreve o DISC (`actions/evolucao-granular.ts`, que só o lia, foi removido em 04/10/2026) | **não** p/ blueprint (`lib/blueprint/core.ts:149`); **sim** p/ Kit |
 | Preferência de formato | `colaboradores.pref_*` (likert 1–5) | cadastro | não (default vídeo) |
-| **Foco do cargo** | `cargos_empresa.competencias_foco` (TEXT[], mig 174), fallback `competencia_foco` | tela de Cargos (⭐) | **sim** p/ blueprint |
+| **Foco do cargo** | `cargos_empresa.competencias_foco` (TEXT[], mig 174), fallback `competencia_foco` | tela de Cargos (⭐) | **sim** p/ blueprint (ou o foco da pessoa) |
+| **Foco da pessoa** | `colaboradores.foco_individual` (TEXT[], mig 287) + `foco_individual_meta` (como foi escolhido) | etapa "Competência de cada pessoa" do Fluxo completo, com `sys_config.foco_individual = 'menor_nota'` | quando existe, **vence** o do cargo |
 | **Assessment** | `descriptor_assessments` (`colaborador_id`, `competencia`, `descritor`, `nota` 1–4) | **IA4** (`actions/fase3.ts:320`, `origem:'ia4'`, clamp 1.0–4.0) ou nota manual (`actions/assessment-descritores.ts:77`) | **sim** |
 
 **Funil a montante:** o colaborador responde o cenário (IA3) → `respostas` → **IA4** mapeia →
 `descriptor_assessments`. É essa nota por descritor que alimenta tudo o que vem depois.
 
-`focoDoCargo()` (`lib/foco-cargo.ts:19-28`) é o resolver puro compartilhado — PDI e trilha leem
+`focoDoCargo()` (`lib/foco-cargo.ts`) é o resolver puro compartilhado — PDI e trilha leem
 a mesma fonte, o que garante coerência independente da ordem de geração.
+
+**Foco por pessoa (15/10/2026, Amazon Bowling).** Na Amazon cada pessoa faz a trilha da competência em que teve a
+MENOR nota, e pessoas do mesmo cargo caem em competências diferentes (a Supervisão tem 4). Por isso existe
+`focoDaPessoa(pessoa, cargo)`: o `foco_individual` da pessoa vence o foco do cargo, e blueprint (fila e prompt), PDI
+(fila e prompt), trilha (`trilha-core`, inclusive DUO e Personalizado) e o Fluxo completo (prévia, conteúdos,
+pré-requisitos) leem dele. A escolha é gravada UMA vez, logo depois da IA4, e não muda mais: calculá-la na leitura
+deixaria uma reavaliação trocar a competência do PDI e não a da trilha.
+
+- **Regra** (`lib/foco-individual.ts`, pura): média dos descritores (`descriptor_assessments`, 2 casas, o número
+  que o PDI mostra), só entre as competências que a pessoa respondeu. Empate: o **pior descritor** isolado, depois a
+  **ordem do Top 5** do cargo, depois alfabética (decisão do dono, 15/10/2026).
+- **Quando:** só com todas as respostas da pessoa avaliadas, checadas pela 2ª IA e com nota por descritor
+  (`prontidaoParaFoco`). Quem ainda não está pronto é contado no detalhe da etapa, nunca some.
+- **"Todos entram":** quem tem foco próprio entrou com o que respondeu (prazo encerrado). O PDI dessa pessoa exige
+  tudo o que ela respondeu avaliado, não o Top 5 inteiro (`buildRelatorioIndividualPrompt`, `buscarFilaPdi`).
+- **Sem trava cruzada:** quem já tem trilha não ganha foco próprio (a trilha em curso segue a dela). O encadeamento
+  da Jornada ainda percorre o foco do CARGO: com o cargo sem foco (Amazon), a jornada termina na competência da pessoa.
 
 ---
 
@@ -725,9 +743,16 @@ iniciar a cadência seguem sendo decisão de quem opera.
   `cancelarFluxoCompleto` (`actions/pipeline-fluxo.ts`, gate `ai.audit.regenerate`). A execução enfileira a
   task `fluxo-completo` (`trigger/fluxo-completo.ts`, até 4 h); o estado vive em `ia_jobs` (`fase='fluxo'`) e
   a tela acompanha por polling de 5 s. O controle de fluxo é puro e testado sem rede (`executor.ts`).
-- **Ordem** (`ORDEM_ETAPAS`, `lib/pipeline-fluxo/tipos.ts`): IA4 + check, blueprint, auditoria, PDI,
-  **conteúdos**, trilha, **Kit**, Gestor, RH. Cada etapa recalcula a própria fila (idempotente: só gera o que
-  falta, não reavalia o passado) e a falha de uma etapa não derruba a cadeia.
+- **Ordem** (`ORDEM_ETAPAS`, `lib/pipeline-fluxo/tipos.ts`): IA4 + check, **competência de cada pessoa**,
+  blueprint, auditoria, PDI, **conteúdos**, trilha, **Kit**, Gestor, RH. Cada etapa recalcula a própria fila
+  (idempotente: só gera o que falta, não reavalia o passado) e a falha de uma etapa não derruba a cadeia.
+- **Competência de cada pessoa** (`lib/pipeline-fluxo/foco.ts`, 15/10/2026): só com `sys_config.foco_individual =
+  'menor_nota'`; desligada, a etapa é pulada e vale o foco do cargo. Grava `colaboradores.foco_individual` para quem
+  não tem e não tem trilha (o update só pega a linha com o foco vazio). A tela lista "pessoa → competência, média,
+  desempate" e o detalhe conta quem ficou esperando IA4, check ou nota. Com a regra ligada, a prévia projeta
+  blueprint, PDI e trilha para depois dela, e o pré-requisito de módulo-base confere TODAS as competências que a
+  pessoa respondeu (qualquer uma pode ser a escolhida). Um fluxo gravado antes da etapa existir ganha a etapa ao
+  continuar (`etapasCompletas`).
 - **Escopo:** com 2 ou mais turmas ativas a turma é obrigatória (fail-closed, `idsDoEscopoOuFalhar`); um
   fluxo ativo por empresa; empresa de demonstração só **simula**; contas `@vertho.ai` ficam de fora (a
   exceção existe só para script de teste). Gestor e RH só entram com a empresa inteira e PDI novo na rodada.

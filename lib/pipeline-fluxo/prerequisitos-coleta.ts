@@ -11,7 +11,7 @@ import { normalizarModoPrograma } from '@/lib/season-engine/programa-config';
 import { COLUNAS_PREFERENCIA_KIT } from '@/lib/season-engine/kit/formatos-por-preferencia';
 import { carregarConfigsEfetivasEmLote } from '@/lib/turmas/contexto';
 import { lerTudoPaginado } from '@/lib/paginacao';
-import type { EntradaPrevia } from './previa';
+import { focoEfetivo, type EntradaPrevia } from './previa';
 import {
   competenciasQueODuoResolve, montarPrerequisitos,
   type InfraRenderPrereq, type ModuloBaseDoPar, type PessoaPrereq, type PrerequisitosFluxo,
@@ -88,8 +88,9 @@ export async function coletarPrerequisitos(deps: {
     }
   }
 
+  const cargoPorNome = new Map(entrada.cargos.map((c) => [c.nome, c]));
   const pessoas: PessoaPrereq[] = entrada.pessoas.map((p) => {
-    const foco = (p.cargo && focoDe.get(p.cargo)) || [];
+    const foco = focoEfetivo(p, cargoPorNome);
     return {
       id: p.id, nome: p.nome, cargo: p.cargo ?? null,
       colab: colabs.get(p.id) || {},
@@ -112,12 +113,40 @@ export async function coletarPrerequisitos(deps: {
  * (`materiaPrimaCanonica`). O candidato é o mesmo conjunto que o Kit enxerga, então "nenhum" aqui é "nenhum" lá.
  */
 async function consultarModulosBase(sb: any, empresaId: string, entrada: EntradaPrevia): Promise<ModuloBaseDoPar[] | { erro: string }> {
-  const cargosComGente = new Set(entrada.pessoas.map((p) => p.cargo).filter((c): c is string => !!c));
-  const pares: Array<{ cargo: string; competencia: string }> = [];
-  for (const c of entrada.cargos) {
-    if (!cargosComGente.has(c.nome)) continue;
-    for (const competencia of c.foco) pares.push({ cargo: c.nome, competencia });
+  return conferirPares(sb, empresaId, paresDeModuloBase(entrada));
+}
+
+/**
+ * Os pares (cargo, competência) cuja trilha o fluxo vai montar: a competência de CADA pessoa (a dela vence a do cargo).
+ * Com a regra da menor nota ligada e a competência da pessoa ainda por escolher, QUALQUER competência que ela respondeu
+ * pode ser a escolhida, então todas entram: avisar só depois da escolha seria avisar com a trilha já na fila.
+ */
+export function paresDeModuloBase(entrada: EntradaPrevia): Array<{ cargo: string; competencia: string }> {
+  const cargoPorNome = new Map(entrada.cargos.map((c) => [c.nome, c]));
+  const temTrilha = new Set(entrada.trilhas);
+  const respondidas = new Map<string, string[]>();
+  for (const r of entrada.respostas) {
+    if (!r.competencia_nome) continue;
+    (respondidas.get(r.colaborador_id) || respondidas.set(r.colaborador_id, []).get(r.colaborador_id)!).push(r.competencia_nome);
   }
+  const vistos = new Set<string>();
+  const pares: Array<{ cargo: string; competencia: string }> = [];
+  for (const p of entrada.pessoas) {
+    if (!p.cargo) continue;
+    const foco = focoEfetivo(p, cargoPorNome);
+    const aEscolher = !!entrada.regraFoco && !p.focoIndividual?.length && !temTrilha.has(p.id);
+    const comps = aEscolher ? (respondidas.get(p.id) || []) : foco;
+    for (const competencia of comps) {
+      const k = `${p.cargo}\u0001${competencia.trim().toLowerCase()}`;
+      if (vistos.has(k)) continue;
+      vistos.add(k);
+      pares.push({ cargo: p.cargo, competencia });
+    }
+  }
+  return pares;
+}
+
+async function conferirPares(sb: any, empresaId: string, pares: Array<{ cargo: string; competencia: string }>): Promise<ModuloBaseDoPar[] | { erro: string }> {
   const out: ModuloBaseDoPar[] = new Array(pares.length);
   let proximo = 0;
   let erro: string | null = null;

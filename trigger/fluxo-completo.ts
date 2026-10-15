@@ -11,13 +11,15 @@ import { gerarRelatorioGestorCore, gerarRelatorioRHCore } from '@/lib/relatorios
 import { executarFluxo, type DepsFluxo } from '@/lib/pipeline-fluxo/executor';
 import { enfileirarLote, enfileirarKit, lerDesfechoDoJob, lerDesfechoKits } from '@/lib/pipeline-fluxo/enfileirar';
 import { filaConteudoEscopo } from '@/lib/pipeline-fluxo/conteudo';
+import { filaFocoEscopo, gravarFocoIndividual } from '@/lib/pipeline-fluxo/foco';
 import { gerarConteudoDaBiblioteca } from '@/lib/pipeline-fluxo/conteudo-gerar';
 import { filaIA4Escopo, filaBlueprintEscopo, filaPdiEscopo, filaTrilhaEscopo, filaAuditoriaEscopo, filaKitEscopo } from '@/lib/pipeline-fluxo/filas';
 import { TASK_FLUXO, type ParamsFluxo, type ProgressoFluxo } from '@/lib/pipeline-fluxo/tipos';
 
 /**
- * FLUXO COMPLETO em background: IA4+check → blueprint → auditoria → PDI → conteúdos (biblioteca) → trilha → kit (sem vídeo) → Gestor → RH, depois que o admin
- * definiu as competências foco (esse passo continua humano). Só a FIAÇÃO mora aqui; o controle de fluxo (ordem, pulos,
+ * FLUXO COMPLETO em background: IA4+check → competência de cada pessoa → blueprint → auditoria → PDI → conteúdos (biblioteca) → trilha → kit (sem vídeo) → Gestor → RH,
+ * depois que o admin definiu as competências foco do cargo (passo humano) ou ligou a regra da menor nota por pessoa
+ * (`sys_config.foco_individual`, aí a escolha é a etapa "competência de cada pessoa"). Só a FIAÇÃO mora aqui; o controle de fluxo (ordem, pulos,
  * cancelamento, continuação, simulação) está em `lib/pipeline-fluxo/executor.ts`, testado sem rede.
  *
  * Os lotes (IA4, blueprint, PDI) são as MESMAS tasks dos botões manuais, disparadas por `enfileirarLote`; esta task só
@@ -70,6 +72,12 @@ export const fluxoCompletoTask = task({
         const deps: DepsFluxo = {
           ler: {
             ia4: () => filaIA4Escopo(tdb, permitidos),
+            // A regra é lida NA HORA (não no início da run): ligar ou desligar entre execuções vale para a próxima etapa.
+            foco: async () => {
+              const { data: emp, error } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+              if (error) throw new Error(`sys_config da empresa: ${error.message}`);
+              return filaFocoEscopo(tdb, emp?.sys_config, { permitidos, cargos: params.escopo?.cargos || undefined, incluirInternos: params.excecaoInternos });
+            },
             blueprint: () => filaBlueprintEscopo(tdb, permitidos),
             auditoria: (alvo) => filaAuditoriaEscopo(tdb, alvo),
             pdi: () => filaPdiEscopo(tdb, permitidos),
@@ -96,6 +104,7 @@ export const fluxoCompletoTask = task({
               await wait.for({ seconds: SONDAGEM_S });
             }
           },
+          definirFoco: (item) => gravarFocoIndividual(tdb, item),
           gerarConteudo: (item) => gerarConteudoDaBiblioteca(sb, empresaId, item),
           kitEnfileirar: (item) => enfileirarKit(sb, { empresaId, item }),
           aguardarKits: async (jobIds) => {

@@ -27,6 +27,27 @@ export function focoDoCargo(cargo: CargoFocoRow | null | undefined): string[] {
   return [...new Set(base.filter(Boolean))];
 }
 
+export interface PessoaFocoRow {
+  foco_individual?: string[] | null;
+}
+
+/** O foco gravado NA PESSOA (mig 287), limpo; vazio quando ela segue o foco do cargo. */
+export function focoIndividual(pessoa: PessoaFocoRow | null | undefined): string[] {
+  const arr = Array.isArray(pessoa?.foco_individual) ? pessoa!.foco_individual : [];
+  return [...new Set(arr.map((s) => (s || '').toString().trim()).filter(Boolean))];
+}
+
+/**
+ * O foco que vale para a PESSOA: o dela (mig 287, gravado pela etapa "Competência de cada pessoa" do Fluxo
+ * completo) vence o do cargo. Blueprint, PDI, trilha, conteúdos e a prévia do fluxo leem DAQUI: na Amazon
+ * Bowling (15/10/2026) pessoas do mesmo cargo fazem trilhas de competências diferentes, e um leitor que
+ * ficasse no cargo montaria o PDI de uma competência e a trilha de outra.
+ */
+export function focoDaPessoa(pessoa: PessoaFocoRow | null | undefined, cargo: CargoFocoRow | null | undefined): string[] {
+  const proprio = focoIndividual(pessoa);
+  return proprio.length ? proprio : focoDoCargo(cargo);
+}
+
 /**
  * As DUAS colunas do foco, sempre juntas (R-85, 03/10/2026). Havia dois escritores:
  * `/admin/cargos` gravava as duas, e o seletor do pipeline (`salvarCompetenciaFoco`)
