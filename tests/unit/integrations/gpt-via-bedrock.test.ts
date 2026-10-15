@@ -18,7 +18,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const mocks = vi.hoisted(() => ({ fetch: vi.fn(), ledger: [] as any[], degradacoes: [] as any[] }));
+const mocks = vi.hoisted(() => ({ fetch: vi.fn(), ledger: [] as any[], degradacoes: [] as any[], claudeSobrecarregado: false }));
+// Só o teste do fallback de provedor liga a sobrecarga; os outros não chamam Claude.
+vi.mock('@anthropic-ai/sdk', () => ({
+  default: class {
+    messages = {
+      create: async () => {
+        if (mocks.claudeSobrecarregado) throw Object.assign(new Error('Overloaded'), { status: 529 });
+        return { content: [{ type: 'text', text: 'ok' }], usage: { input_tokens: 1, output_tokens: 1 }, stop_reason: 'end_turn' };
+      },
+    };
+  },
+}));
 vi.mock('@/lib/supabase', () => ({
   createSupabaseAdmin: () => ({ from: () => ({ insert: async (row: any) => { mocks.ledger.push(row); return {}; } }) }),
 }));
@@ -324,5 +335,40 @@ describe('lote síncrono do GPT (executarLoteSincrono, 15/10/2026)', () => {
     expect(new Set(chamadas().map((c) => c.url))).toEqual(new Set([BEDROCK_CHAT_URL]));
     expect(mocks.ledger).toHaveLength(8);
     for (const linha of mocks.ledger) expect(linha).toMatchObject({ feature: 'ia3_check', empresa_id: 'emp-1', provider: 'bedrock', model: TERRA });
+  });
+});
+
+describe('fallback de provedor com GPT aposentado na env (15/10/2026)', () => {
+  // `AI_FALLBACK_MODEL` é Sensitive na Vercel: o valor gravado não se lê. Se for um GPT
+  // aposentado, o fallback tem de sair pelo substituto no Bedrock, não pelo id antigo na OpenAI.
+  beforeEach(() => {
+    vi.stubEnv('AWS_BEARER_TOKEN_BEDROCK', 'chave-aws');
+    vi.stubEnv('OPENAI_API_KEY', 'chave-openai');
+    vi.stubEnv('ANTHROPIC_API_KEY', 'chave-anthropic');
+    vi.stubEnv('AI_FALLBACK_MODEL', 'gpt-5.4');
+    vi.stubGlobal('fetch', mocks.fetch);
+    mocks.fetch.mockReset().mockImplementation(async () => respostaChat());
+    mocks.ledger = [];
+    mocks.degradacoes = [];
+    mocks.claudeSobrecarregado = true;
+    vi.resetModules(); // a env é lida no import do ai-client
+  });
+  afterEach(() => { mocks.claudeSobrecarregado = false; vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it.each(['single', 'chat'])('%s: Claude sobrecarregado cai no Terra pelo Bedrock', async (tipo) => {
+    const cliente = await import('@/actions/ai-client');
+    const opcoes = { locale: 'pt-BR' as const };
+    // As 4 retentativas do Claude esperam com backoff: o relógio falso anda 1 s por vez até resolver.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    let fim = false;
+    const chamada = (tipo === 'single'
+      ? cliente.callAI('SYS', 'USER', { model: 'claude-sonnet-4-6' }, 2000, opcoes)
+      : cliente.callAIChat('SYS', [{ role: 'user', content: 'USER' }], { model: 'claude-sonnet-4-6' }, 2000, opcoes)
+    ).finally(() => { fim = true; });
+    for (let s = 0; s < 90 && !fim; s++) await vi.advanceTimersByTimeAsync(1000);
+    const texto = await chamada;
+    expect(texto).toBe('ok');
+    expect(chamadas()).toEqual([expect.objectContaining({ url: BEDROCK_CHAT_URL, body: expect.objectContaining({ model: TERRA_BEDROCK }) })]);
+    expect(mocks.ledger.at(-1)).toMatchObject({ provider: 'bedrock', model: TERRA });
   });
 });

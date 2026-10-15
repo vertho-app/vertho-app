@@ -166,4 +166,11 @@ describe('AI_FALLBACK_MODEL entra na coleta do health', () => {
     const mapa = reunirModelosConfigurados([]);
     expect(mapa.get('gpt-5.6-terra')).toContain('env:AI_FALLBACK_MODEL');
   });
+
+  it('GPT aposentado na env: coleta o substituto, que é o que roda (15/10/2026)', () => {
+    process.env.AI_FALLBACK_MODEL = 'gpt-5.4';
+    const mapa = reunirModelosConfigurados([]);
+    expect(mapa.get('gpt-5.6-terra')).toContain('env:AI_FALLBACK_MODEL');
+    expect(mapa.get('gpt-5.4') ?? []).not.toContain('env:AI_FALLBACK_MODEL');
+  });
 });

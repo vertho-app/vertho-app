@@ -19,7 +19,7 @@
  * `gpt-5.4` não aparece, `gpt-5.4-2026-03-05` e `gpt-5.6-terra` aparecem.
  */
 import { DEFAULT_TASK_MODELS, MODELOS_DISPONIVEIS, familiaDoModelo } from '@/lib/ai-tasks';
-import { BEDROCK_KIMI_K3_MODEL, modeloTemRota, listarModelosDoProvedor, rotaBedrockDoGpt, type ListagemProvedor } from '@/lib/ai-provedores';
+import { BEDROCK_KIMI_K3_MODEL, gptAtual, modeloTemRota, listarModelosDoProvedor, rotaBedrockDoGpt, type ListagemProvedor } from '@/lib/ai-provedores';
 import { MODELS } from '@/lib/ia-cost-catalog';
 
 export interface ModeloObservado {
@@ -71,7 +71,8 @@ export function reunirModelosConfigurados(
   // O health roda EM PRODUÇÃO, onde a var existe de verdade — é o único lugar
   // de onde dá para observar o valor aplicado. Mesma regra do
   // `checarTemplatesLigados` (R13) para `WHATSAPP_TEMPLATE_PILULA`.
-  add(process.env.AI_FALLBACK_MODEL || 'gpt-5.6-terra', 'env:AI_FALLBACK_MODEL');
+  // Desde 15/10/2026 um GPT aposentado na env roda pelo substituto (`gptAtual`, como no ai-client).
+  add(gptAtual(process.env.AI_FALLBACK_MODEL || 'gpt-5.6-terra'), 'env:AI_FALLBACK_MODEL');
   for (const { nome, sysConfig } of sysConfigs) {
     add(sysConfig?.ai?.modelo_padrao, `${nome}:modelo_padrao`);
     for (const [task, modelo] of Object.entries(sysConfig?.ai?.modelos || {})) {

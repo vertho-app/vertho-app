@@ -318,10 +318,12 @@ export async function callAI(
     // `semRetentativa`: quem chama reparte o próprio orçamento; trocar de provedor aqui
     // gastaria outro teto cheio fora dele.
     if (isTransientAIError(err) && !model.startsWith('gemini') && !options.semRetentativa) {
-      const alvo = fallbackRespeitandoDual(model, options.taskKey, AI_FALLBACK_MODEL, AI_FALLBACK_ESCADA);
+      // A env é Sensitive na Vercel (o valor não se lê): um GPT aposentado nela vira o substituto.
+      const preferido = gptAtual(AI_FALLBACK_MODEL);
+      const alvo = fallbackRespeitandoDual(model, options.taskKey, preferido, AI_FALLBACK_ESCADA);
       if (alvo && alvo !== model) {
-        if (alvo !== AI_FALLBACK_MODEL) {
-          console.warn(`[callAI] fallback padrão (${AI_FALLBACK_MODEL}) violaria o Dual-IA de '${options.taskKey}' — usando ${alvo}`);
+        if (alvo !== preferido) {
+          console.warn(`[callAI] fallback padrão (${preferido}) violaria o Dual-IA de '${options.taskKey}' — usando ${alvo}`);
         }
         console.warn(`[callAI] ${model} sobrecarregado após retries — fallback p/ ${alvo}`);
         try {
@@ -391,10 +393,12 @@ export async function callAIChat(
     // guard `ai-fallback-dual` pegou — os dois caminhos, sempre. `semRetentativa`
     // vale aqui pelo mesmo motivo que no gêmeo.
     if (isTransientAIError(err) && !model.startsWith('gemini') && !options.semRetentativa) {
-      const alvo = fallbackRespeitandoDual(model, options.taskKey, AI_FALLBACK_MODEL, AI_FALLBACK_ESCADA);
+      // O mesmo do gêmeo `callAI`: GPT aposentado na env vira o substituto.
+      const preferido = gptAtual(AI_FALLBACK_MODEL);
+      const alvo = fallbackRespeitandoDual(model, options.taskKey, preferido, AI_FALLBACK_ESCADA);
       if (alvo && alvo !== model) {
-        if (alvo !== AI_FALLBACK_MODEL) {
-          console.warn(`[callAIChat] fallback padrão (${AI_FALLBACK_MODEL}) violaria o Dual-IA de '${options.taskKey}' — usando ${alvo}`);
+        if (alvo !== preferido) {
+          console.warn(`[callAIChat] fallback padrão (${preferido}) violaria o Dual-IA de '${options.taskKey}' — usando ${alvo}`);
         }
         console.warn(`[callAIChat] ${model} sobrecarregado após retries — fallback p/ ${alvo}`);
         try {
