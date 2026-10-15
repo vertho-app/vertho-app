@@ -4,8 +4,8 @@
 
 ## Visão geral
 
-- **Função:** `buildRoteiroPrompt(modulo)` — pura. Chamada por `gerarRoteiroDeModulo()` (`max_tokens` 8000).
-- **Modelo:** **`claude-opus-4-6` com extended thinking** (default da task `conteudo_video`; mesmo preço do 4.8 — $5 in / $25 out), operado em lote via Batch API sempre que a geração não for interativa. O custo comercial considera 50% off de batch + prompt caching/prompting quando vários roteiros compartilham o mesmo system prompt.
+- **Função:** `buildRoteiroPrompt(modulo)` — pura. Chamada por `gerarRoteiroDeModulo()` (`max_tokens` 16000, `ROTEIRO_MAX_TOKENS`).
+- **Modelo:** o default da task `conteudo_video` em `lib/ai-tasks.ts` (**`claude-opus-5`** desde 05/08/2026, mantido pelo bake-off de 24/09/2026; o roteiro resolve sem empresa, então o `modelo_padrao` do tenant não o troca). Operado em lote via Batch API sempre que a geração não for interativa, **sem `thinking` no corpo** (na geração 5 o raciocínio já vem ligado e divide `max_tokens`, hoje 16k). O custo comercial considera 50% off de batch.
 - **Entrada:** Módulo-Base + contexto opcional da célula (cargo, PPP, DISC dominante, transição de nível).
 - **Saída:** JSON `VideoRoteiro`. Alimenta TTS → HeyGen → Remotion.
 - **Formato:** 180–300s, avatar_intro + miolo de 6–12 cenas + avatar_outro. Avatar só nas pontas; miolo em voice-over.

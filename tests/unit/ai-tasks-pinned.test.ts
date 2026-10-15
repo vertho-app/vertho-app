@@ -134,6 +134,17 @@ describe('resolveTaskModel — tasks pinned', () => {
     }
   });
 
+  // 15/10/2026: 9 de 9 chamadas de `video_avatar_grupo` saíram no Sonnet 4.6, porque a task
+  // recebe a empresa e o `modelo_padrao` dela vencia o default. O roteiro resolve sem empresa.
+  it('abertura e fecho do avatar resolvem no MESMO modelo do roteiro com o sys_config REAL das empresas', () => {
+    const sysConfigReal = { ai: { modelo_padrao: 'claude-sonnet-4-6' } };
+    expect(PINNED_TASKS.has('video_avatar_grupo')).toBe(true);
+    expect(resolveTaskModel(sysConfigReal, 'video_avatar_grupo')).toBe(DEFAULT_TASK_MODELS.conteudo_video);
+    expect(resolveTaskModel(null, 'conteudo_video')).toBe(DEFAULT_TASK_MODELS.conteudo_video);
+    const rollback = { ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: { video_avatar_grupo: 'claude-sonnet-5-5' } } };
+    expect(resolveTaskModel(rollback, 'video_avatar_grupo')).toBe('claude-sonnet-5-5');
+  });
+
   it('modulo_base_autor NÃO foi junto (é onde o Sonnet 5 trunca JSON)', () => {
     expect(DEFAULT_TASK_MODELS['modulo_base_autor']).toBe('claude-sonnet-4-6');
   });

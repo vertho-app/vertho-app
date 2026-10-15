@@ -475,6 +475,12 @@ export const PINNED_TASKS = new Set([
   // sintético e contaminar a comparação entre braços. Override explícito por
   // `sim_aluno` continua sendo a porta de rollback controlado.
   'sim_aluno',
+  // Abertura e fecho do avatar (15/10/2026): a decisão é "mesmo modelo do roteiro", e o roteiro
+  // (`conteudo_video`) resolve sem empresa, logo nunca herda o `modelo_padrao`. Esta task recebe
+  // a empresa, e sem o pino o `claude-sonnet-4-6` das 15 empresas vencia. `Medido` no ledger, 30
+  // dias: 9 de 9 chamadas no Sonnet 4.6 (Boehringer e ACME Demo), o roteiro das mesmas células
+  // no Opus 5.
+  'video_avatar_grupo',
 ]);
 
 /**

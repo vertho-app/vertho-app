@@ -24,7 +24,7 @@
 2. **Narração** — Gemini TTS, voz **`Aoede`** (`VIDEO_TTS_VOICE`; até 05/09/2026 era Vindemiatrix no modelo 3.1), 1 mp3/cena, com **direção de estilo por tipo de cena** (intro calorosa/engajante, miolo conversa, outro pausado) + correção de pronúncia de siglas. Whisper alinha palavra-a-palavra (legendas).
 3. **Avatar (HeyGen)** — só nas pontas; lip-sync do NOSSO mp3 (`audio_url`), 1920×1080; mp4 normalizado p/ CFR (25→30fps). **API v3 desde 25/09/2026**, motor `avatar_iii` explícito: contrato, preços e método de medição na seção "Integração HeyGen v3" abaixo. **Sopro antes da fala (08/10/2026):** se o mp3 da cena abre com sopro acima de −55 dB, a HeyGen recebe o mp3 SEM esse começo e o clipe volta com os mesmos quadros repostos (`assets[cena].aparouQuadros`); o mp3 original segue como áudio. `VIDEO_APARAR_SOPRO=off` desliga. Detalhe: FMEA F-V10.
 4. **Render (Remotion, comp `VerthoVideo`)** — recebe tudo via `inputProps` (timeline de `montar-inputprops.ts`). **Dois backends** (`RENDER_BACKEND`):
-   - **`hetzner`** (default/produção): enfileira `render_queued`; a box **CCX33 efêmera** (`worker-hetzner/worker.mjs`, modelo PULL) renderiza. **~$0,18/vídeo**, sobe/deleta por lote.
+   - **`hetzner`** (default/produção): enfileira `render_queued`; a box **efêmera** (`worker-hetzner/worker.mjs`, modelo PULL) renderiza, até `MAX_RENDER_BOXES` (4). O tipo sai da escada `RENDER_SERVER_TYPES` do Trigger: **cx43** primeiro, depois cx53, cx33, cpx32, cpx22 e, por último, a dedicada ccx13, começando em `nbg1` (conferido na env de produção em 15/10/2026; a "CCX33" que estava aqui é a máquina dos spikes de junho). **~$0,18/vídeo**, sobe/deleta por lote.
    - **`trigger`** (override de teste): render em chunks paralelos no trigger.dev. **~$5-6/vídeo em 1080p** (~42min). Snap de scale p/ dims inteiras (`Math.round(h*scale)/h`) corrige o bug do 0.6667.
    - Default **1080p** (`VIDEO_RENDER_SCALE` ausente → scale 1); 720p = 0.6667.
 5. **SFX por template** — pacote sonoro (tick/count-up/chime/etc.) embutido na composição (`VideoCompositionV3`), volumes calibrados, gatilho casado com a fala (Whisper). **Sem transição de slides** entre cenas (cortes secos — `fadeInOut` desligado; só a abertura/fechamento do vídeo inteiro tem fade via `FilmFade`).
@@ -121,7 +121,10 @@ só 13 combinações de módulo × cargo, ~19 avatares a mais.
 1. **Textos, 1× por grupo** (`lib/video/avatar-grupo-core.ts` `prepararGrupoAvatar`), ANTES do
    fan-out dos DISC, junto com o brief e o PPP. Uma chamada curta ao modelo da tarefa
    `video_avatar_grupo` (Opus 5, o mesmo do roteiro) escreve a abertura e o fecho em tom NEUTRO,
-   sem DISC. A régua (`problemasDosTextosAvatar`): abertura 28-36 palavras e sem cumprimento (a
+   sem DISC. ⚠️ A task está em `PINNED_TASKS` desde 15/10/2026. Antes, ela recebia a empresa e o
+   `modelo_padrao` do tenant (`claude-sonnet-4-6` nas 15) vencia o default: `Medido` no ledger,
+   9 de 9 chamadas em 30 dias saíram no Sonnet 4.6, enquanto o roteiro das mesmas células, que
+   resolve sem empresa, saía no Opus 5. A régua (`problemasDosTextosAvatar`): abertura 28-36 palavras e sem cumprimento (a
    saudação com o nome entra antes), fecho 24-32 palavras terminando em pergunta, tela curta. Duas
    tentativas; recusado, segue sem grupo.
 2. **Roteiro de cada DISC com o avatar fixo** (`roteiro-prompt.ts` `avatarFixo`): o modelo copia a
