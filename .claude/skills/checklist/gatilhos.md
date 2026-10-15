@@ -1652,3 +1652,12 @@ Padrão que casa: `@trigger.dev/*` · `next` · `pdfjs-dist` · qualquer depend�
 - [ ] **Espaço:** o `node_modules` tem ~1,5 a 1,8 GB e o disco já andou em 3 GB livres: confira antes de instalar uma segunda cópia.
 
 **Consequência medida (06-08/10/2026):** o commit `529384a9` levou o SDK do Trigger a 4.7.3 e o `node_modules` compartilhado ficou em 4.4.6: o 1º `trigger.dev deploy` do dia foi recusado, e por dois dias a suíte do catraca mediu o master com pdfjs 5, next 16.2 e sentry 10.53 em vez das versões do lock. Medido depois com o `npm ci` do lock: tsc limpo e 11.544 testes verdes; o código antigo do disco, contra o mesmo `node_modules`, dá 2 erros de TypeScript (pdfjs). Memória `reference_trigger_deploy`.
+
+## § Vou trocar MODELO ou TRANSPORTE de IA por um mapa (`GPT_VIA_BEDROCK`, `GPT_APOSENTADO`, rota Bedrock) ou mexer num `*_MODEL` de env
+
+Padrão que casa: `lib/ai-provedores.ts` · `actions/ai-client.ts` · qualquer `process.env.*MODEL` · deploy de task que chama IA.
+
+- [ ] **Siga até o `dispatch` quem NÃO passa pela entrada.** O guard `gpt-via-bedrock.test.ts` só lê id LITERAL: id vindo de env escapa. `grep 'process\.env\.[A-Z_]*MODEL'` em `actions/ lib/ trigger/ app/` e confira cada um.
+- [ ] **A env do Trigger.dev é outra e não sobe no push.** O valor secreto volta `<redacted>` pela API: a prova é o 1º run (ledger `provider` sem `gpt-bedrock-para-openai`). Deploy das tasks antes da env manda a chamada ao caminho pago em dinheiro.
+
+**Consequência medida (15/10/2026):** o `AI_FALLBACK_MODEL` (Sensitive na Vercel, valor ilegível) ia ao `dispatch` sem `gptAtual`: um `gpt-5.4` ali sairia pela OpenAI direta sem linha no `degradacao_log`, justo num outage da Anthropic (`76f7f4bb`). E a `AWS_BEARER_TOKEN_BEDROCK` faltava no Trigger.dev com o deploy das tasks já feito por outra sessão. Memória `reference_aws_credits`.

@@ -40,7 +40,7 @@
 | **IA Secundaria** | Google Gemini · OpenAI (`gpt-5.x`) · **Kimi/Moonshot** (`kimi*`, OpenAI-compatible) | via wrapper unico | ✅ |
 | **IA Validacao** | **GPT 5.6 Terra** — 7 auditores 2a-IA `pinned` em `lib/ai-tasks.ts` (desde 22/07) | — | ✅ |
 | **IA Leve** | Gemini 3.8 Flash (classificações, brief e simulador sintético) | via wrapper | ✅ |
-| **IA em lote** | Batch API da Anthropic **e** da OpenAI (−50%) — `lib/ai-batch.ts` | — | ✅ |
+| **IA em lote** | Batch API da Anthropic (−50%) — `lib/ai-batch.ts`. O check GPT em lote é SÍNCRONO pelo AWS Bedrock desde 15/10/2026 (`executarLoteSincrono`, concorrência 4): o Bedrock não tem Batch para o GPT-5.x, e o lote da OpenAI saiu do código | — | ✅ |
 | **Jobs de fundo** | Trigger.dev (deploy **MANUAL**, nao sai no `git push`) | 4.7.3 | ✅ |
 | **Video** | HeyGen (avatar) + Remotion (render, backend Hetzner) + Bunny Stream (hosting) | Remotion 4.0 | ✅ |
 | **PDF** | @react-pdf/renderer (geracao) | 4.4.0 | ✅ |

@@ -746,8 +746,9 @@ barata de "melhorar nota boa".
 
 **Otimização óbvia e não feita:** o refino é o candidato natural a `submitClaudeBatch`
 — é assíncrono por natureza (ninguém espera na tela) e roda em lote de N módulos.
-Cortaria ~US$ 1,35 por manuscrito reprovado pela metade. Mesma família do
-`submitOpenAIBatch` pendente para a auditoria.
+Cortaria ~US$ 1,35 por manuscrito reprovado pela metade. (O `submitOpenAIBatch` que
+viria para a auditoria foi descartado em 15/10/2026: o GPT saiu pelo AWS Bedrock, sem Batch
+para o GPT-5.x; ver a seção de 14-15/10 no fim.)
 
 ⚠️ **`conteudo_expansao_pdf` pagou por um PDF que não nascia** (4 chamadas, US$ 0,26):
 a expansão roda ANTES do render, e o render falhava por fonte (F-I18 do
@@ -2918,3 +2919,33 @@ usou 3 das 50 tentativas.
 
 **Não medido.** Nenhum rótulo humano (o rótulo é o alvo da geração); os 4 braços erraram quase tudo nas 3 competências cujo rótulo não está no vocabulário.
 Instrumentos e dados em `Downloads\Comparativo-modelos-2026-10-08\parte-3-conteudo-tags\`.
+
+## 14-15/10/2026: GPT pelo AWS Bedrock, check em lote síncrono e GPT antigo vira 5.6
+
+**Decisão do dono (13 e 15/10):** todo GPT de texto sai pelo AWS Bedrock, perfil `global.`, pago pelo crédito Activate da
+AWS; a OpenAI direta fica de reserva (recusa 401/403/429/5xx ou chave ausente, com `gpt-bedrock-para-openai` no
+`degradacao_log`) e para pesquisa web, imagem e Whisper. Código: `GPT_VIA_BEDROCK`, `GPT_APOSENTADO` e `gptAtual` em
+`lib/ai-provedores.ts`; commits `1c4f16b5`, `30227a4e` (14/10), `f010751e`, `76f7f4bb` (15/10).
+
+**Preço:** o Global CRIS dos model cards da AWS é igual ao da OpenAI direta na faixa curta; só a faixa acima de 272 mil
+tokens de entrada difere (`lib/ia-cost-catalog.ts`). `Medido: 14/10/2026`, replay das MESMAS 10 checagens `ia3_check`
+reais nas duas rotas: Bedrock US$ 0,230 contra OpenAI US$ 0,206. A diferença é cache: o Bedrock cobrou a GRAVAÇÃO
+(1,25×, 28.717 tokens) e não leu nada; a OpenAI grava sem custo e leu 11.556. Suponho que o `global.` espalhe as chamadas
+por regiões e o cache, que é regional, não acerte; o replay da IA4 em 15/10 repetiu o padrão (35.100 gravados, 0 lidos).
+Se um dia pesar, medir com o perfil `us.`.
+
+**O lote do check deixou de ter desconto.** O lote OpenAI do Bedrock só aceita os modelos gpt-oss, então a onda de check
+GPT da IA3, da IA4 e dos cenários B virou SÍNCRONA (`executarLoteSincrono`, `lib/ai-batch.ts`, concorrência 4). Antes, no
+lote da OpenAI a −50%: em 60 dias, `ia4_check` até 43 itens por lote (média 22), `ia3_check` até 24 (média 9),
+`cenarios_b_check` 3, perto de US$ 0,55/mês. `Medido: 15/10/2026`, replay só de leitura de 5 checks reais da IA4 pelo
+caminho novo: 5 de 5 com JSON, 4 de 5 com o mesmo veredito gravado, 30 s, **US$ 0,17 (~US$ 0,034 por check)**; o maior
+lote visto daria ~US$ 1,50. Sai do crédito, não do caixa.
+
+**GPT antigo vira 5.6** (`GPT_APOSENTADO`): 5.5 → Sol; 5.4 e snapshot → Terra; mini, snapshot do mini e 5.1 → Luna. Não
+estavam em `DEFAULT_TASK_MODELS`, no seletor nem em `sys_config`; sobravam o `MODELOS_PACE` e 4 sessões abertas do simulador
+de vendas com o id congelado. `Medido: 15/10/2026`: os 8 schemas do PACE em strict pelo Responses do Bedrock, chamados
+pelos ids antigos, 16 de 16 válidos, US$ 0,088. O fallback de provedor (`AI_FALLBACK_MODEL`, Sensitive na Vercel, valor
+ilegível) também passa por `gptAtual`.
+
+**Não medido:** o primeiro check GPT em lote das tasks do Trigger.dev depois do deploy `20261015.2` (prova da chave da
+AWS lá: ledger `provider = bedrock` sem `gpt-bedrock-para-openai`).

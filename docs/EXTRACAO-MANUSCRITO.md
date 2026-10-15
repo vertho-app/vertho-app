@@ -343,7 +343,9 @@ descritor são disjuntas — não há prefixo literal comum para cachear.
 | **Por manuscrito** | **$5,35** | **~$2,67** |
 | Cargo inteiro (12 comps, 216 módulos) | ~$64 | **~$32** |
 
-¹ Depende do `submitOpenAIBatch`, ainda não escrito. Hoje a auditoria roda síncrona.
+¹ Não vai acontecer: desde 14/10/2026 o GPT sai pelo AWS Bedrock (crédito Activate), que não tem
+Batch para o GPT-5.x, e em 15/10 o lote da OpenAI saiu do código. A auditoria segue síncrona, a
+preço cheio, paga pelo crédito.
 
 Medido em produção: o SED08 inteiro (18 módulos, autoria em batch + auditoria
 síncrona) levou ~10 min de autoria e saiu por ~US$3,60.
@@ -358,8 +360,9 @@ As alavancas, em ordem de retorno:
    saída caiu **15%** (10.684 → 9.085 tokens) sem perda de qualidade. O modelo
    encosta exatamente no teto de cada categoria — lê a faixa como alvo, não como
    limite. Apertar mais é possível, mas não testado.
-3. **`submitOpenAIBatch`** — *pendente*. `submitClaudeBatch` só fala Claude; a
-   auditoria GPT-5.4 cai no fallback síncrono. Cortaria ~US$0,90 por manuscrito.
+3. ~~**`submitOpenAIBatch`**~~ — *descartado em 15/10/2026*. O GPT passou ao AWS Bedrock, que não
+   tem Batch para o GPT-5.x; a auditoria fica síncrona, paga pelo crédito Activate (e o `gpt-5.4`
+   antigo virou `gpt-5.6-terra` pelo `GPT_APOSENTADO`).
 
 Não trocar o Sonnet por Haiku, e **não reduzir a cobertura da auditoria**: ela
 custa ~US$1,80 por manuscrito e agora reprova de verdade. Chegamos a implementar

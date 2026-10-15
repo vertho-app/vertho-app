@@ -6,7 +6,7 @@
 > Prompt caching automático: `system` > 4000 chars → `cache_control: ephemeral`. Prefixo grande e estável de lote → `options.cachedUserPrefix` (2º breakpoint).
 > Extended thinking: `options.thinking = true` (budget 32k-65k tokens). Reasoning effort: `options.reasoningEffort` (kimi-k3, gpt-5.x).
 > Streaming: automático quando `maxTokens > 8192`.
-> Geração em lote: `lib/ai-batch.ts` — Batch API da Anthropic **e** da OpenAI (−50%).
+> Geração em lote: `lib/ai-batch.ts` — Batch API da Anthropic (−50%). O check GPT em lote (IA3, IA4, cenários B) é síncrono pelo AWS Bedrock desde 15/10/2026 (`executarLoteSincrono`), sem o desconto.
 >
 > **Saída ao cliente sem travessão (R-57, 04/10/2026):** `lib/ai-saida-sem-travessao.ts` guarda o sanitizador e o registro `SAIDAS_AO_CLIENTE` (`taskKey` para texto ou json). Para as tarefas do registro o wrapper acrescenta a regra de pontuação ao system e passa a resposta pelo sanitizador (inclusive no fallback de provedor); o lote não passa por aqui. Ficam FORA, de propósito, as tarefas que ecoam nome ou citação e depois comparam com a fonte (`sem14_scorer`, IA4, arguição de avaliação, simuladores); o texto do scorer que a pessoa lê é limpo na LEITURA (`resumoSemTravessao`). Tarefa nova que escreve para o cliente entra no registro, e exemplo de prompt com o caractere é barrado por `tests/unit/prompts-exemplos-sem-travessao.test.ts`.
 >

@@ -14,8 +14,9 @@ const txt = await callAI(system, user, { model? }, maxTokens?, options?);
 ```
 
 - Roteia por **prefixo do model**: `claude*` → Anthropic · `gemini*` → Gemini · `gpt*`/`o1*`/`o3*`/`o4*` → OpenAI · `kimi*` → Moonshot (OpenAI-compatible, `KIMI_API_KEY`).
+  - 🔑 **GPT sai pelo AWS Bedrock** (14/10/2026, `GPT_VIA_BEDROCK` em `lib/ai-provedores.ts`), com a OpenAI de reserva. Desde 15/10 o GPT antigo (5.5, 5.4, mini, 5.1) vira o 5.6 do mesmo nível antes de sair (`GPT_APOSENTADO` + `gptAtual`), e o check GPT em lote é síncrono (`executarLoteSincrono`): o Bedrock não tem Batch para o GPT-5.x. GPT novo no código entra numa das duas listas, senão `gpt-via-bedrock.test.ts` reprova.
 - **Model default: `claude-sonnet-4-6`.** `claude-opus-4-6` **só** para roteiros de vídeo.
-- **Fallback de provedor**: Claude sobrecarregado após retries → gera com `gpt-5.4` (`AI_FALLBACK_MODEL`). Retry com backoff+jitter em erros transitórios (429/503/529/overloaded). Timeout default **120s** (`AI_TIMEOUT_MS`).
+- **Fallback de provedor**: Claude sobrecarregado após retries → gera com o `AI_FALLBACK_MODEL` (env vence o código, cujo padrão é `gpt-5.6-terra`; a env é Sensitive na Vercel e passa por `gptAtual`), respeitando o par Dual-IA da task (`fallbackRespeitandoDual`). Retry com backoff+jitter em erros transitórios (429/503/529/overloaded). Timeout default **120s** (`AI_TIMEOUT_MS`).
 - **Locale** é resolvido do cookie automaticamente e injeta a instrução de idioma — não traduza manualmente; passe `options.locale` só quando precisar forçar.
 
 ## Prompt caching (economia real)
