@@ -103,6 +103,9 @@ function MercadoTab() {
   const t = useTranslations('AdminMarketPotential');
   const [tab, setTab] = useState<Tab>('municipio');
   const [rows, setRows] = useState<any[]>([]);
+  // O que o servidor leu: total no banco para estes filtros e se o limite CORTOU linhas.
+  const [leitura, setLeitura] = useState<{ totalNoBanco: number | null; truncado: boolean }>({ totalNoBanco: null, truncado: false });
+  const pedido = useRef(0);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -155,19 +158,26 @@ function MercadoTab() {
   }), [ufs, regioes, redes, municipioDebounced, inseMin, inseMax, profsMinDebounced, gestMinDebounced, precoProf, precoGestor, idadeOnboarding, orderBy, orderDir, limiteEfetivo]);
 
   async function carregar() {
+    // A leitura é em páginas e leva segundos: uma resposta ANTIGA pode chegar depois
+    // de uma mais nova (mudou o filtro no meio) e sobrescrever a tela. Só o último pedido vale.
+    const meu = ++pedido.current;
     setLoading(true);
     setError('');
     try {
       const fn = tab === 'municipio' ? loadMercadoMunicipios
         : tab === 'rede' ? loadMercadoRedes
         : loadMercadoEscolas;
-      const r = await fn(filtros);
-      if ((r as any).error) setError((r as any).error);
-      else setRows((r as any).rows || []);
+      const r: any = await fn(filtros);
+      if (meu !== pedido.current) return;
+      if (r.error) setError(r.error);
+      else {
+        setRows(r.rows || []);
+        setLeitura({ totalNoBanco: r.totalNoBanco ?? null, truncado: !!r.truncado });
+      }
     } catch (e: any) {
-      setError(e.message);
+      if (meu === pedido.current) setError(e.message);
     }
-    setLoading(false);
+    if (meu === pedido.current) setLoading(false);
   }
 
   useEffect(() => { carregar(); }, [tab, filtros]);
@@ -330,6 +340,17 @@ function MercadoTab() {
           ))}
         </div>
 
+        {/* Corte do limite: avisa AQUI, ao lado dos totais que ele deixa parciais */}
+        {leitura.truncado && rows.length > 0 && !loading && (
+          <div className="flex items-start gap-2 mb-3 p-3 rounded-lg border border-amber-400/20"
+            style={{ background: 'rgba(244,183,64,0.06)' }}>
+            <AlertTriangle size={14} className="text-amber-300 mt-0.5 shrink-0" />
+            <p className="text-xs text-amber-200/90">
+              {t('limitReached', { shown: fmt.int(rows.length, locale), total: fmt.int(leitura.totalNoBanco ?? rows.length, locale) })}
+            </p>
+          </div>
+        )}
+
         {/* Totais */}
         {totais && !loading && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
@@ -431,11 +452,6 @@ function MercadoTab() {
                   ))}
                 </tbody>
               </table>
-              {rows.length >= limiteEfetivo && (
-                <p className="text-[10px] text-white/40 text-center py-2 border-t border-white/[0.04]">
-                  {t('limitReached', { limit: limiteEfetivo.toLocaleString(locale) })}
-                </p>
-              )}
             </div>
           )}
         </div>

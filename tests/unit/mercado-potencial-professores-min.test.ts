@@ -7,8 +7,8 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
  * Filtro "nº de professores (>=)" da tela Mercado Potencial.
  *
  * O que ele precisa garantir, e onde olha:
- *  - vai AO BANCO e ANTES do `limit` (a ordem da cadeia é a prova): filtrar no JS
- *    depois do `limit` aplicaria o mínimo só às N primeiras linhas;
+ *  - vai AO BANCO e ANTES do `range` da leitura em páginas (a ordem da cadeia é a prova): filtrar no JS
+ *    depois da leitura aplicaria o mínimo só às N primeiras linhas;
  *  - vale nas 3 visões (município, rede, escola), todas com a coluna `qt_professores`;
  *  - a action é endpoint HTTP, então valor hostil (NaN, Infinity, negativo, texto)
  *    NÃO vira filtro nem derruba a consulta, e fração vira inteiro (`>= 12.5` num
@@ -55,7 +55,7 @@ describe('Mercado Potencial: filtro de nº mínimo de professores', () => {
       expect(doMinimo(v.tabela)[0].args).toEqual(['qt_professores', 50]);
 
       const cadeia = sb.chamadas.filter((c) => c.tabela === v.tabela).map((c) => c.metodo);
-      expect(cadeia.indexOf('gte'), 'o mínimo tem de entrar antes do limit').toBeLessThan(cadeia.indexOf('limit'));
+      expect(cadeia.indexOf('gte'), 'o mínimo tem de entrar antes do range').toBeLessThan(cadeia.indexOf('range'));
     });
 
     it(`${v.nome}: sem filtro (ausente, 0, negativo ou inválido) não manda nada`, async () => {

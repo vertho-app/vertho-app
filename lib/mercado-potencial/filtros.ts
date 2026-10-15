@@ -80,6 +80,26 @@ export function corteDeMinimo(valor: unknown): number | null {
 }
 
 /**
+ * Teto de linhas de uma consulta: o `limit` pedido na tela (do cliente, então
+ * saneado como os mínimos: só inteiro > 0), senão o padrão da visão, e nunca
+ * acima do teto dela (protege o navegador).
+ */
+export function limiteDaConsulta(pedido: unknown, padrao: number, teto: number): number {
+  return Math.min(corteDeMinimo(pedido) ?? padrao, teto);
+}
+
+/**
+ * O que a tela precisa saber sobre o que foi lido: quantas linhas vieram, quantas
+ * existem no banco para esses filtros (`count` exato da primeira página, `null` se
+ * não veio) e se o teto CORTOU algo. Sem o total, o corte só se adivinha pelo teto
+ * ter sido atingido.
+ */
+export function resumoDaLeitura(lidas: number, totalNoBanco: number | null | undefined, limite: number) {
+  const total = typeof totalNoBanco === 'number' ? totalNoBanco : null;
+  return { total: lidas, totalNoBanco: total, truncado: total != null ? total > lidas : lidas >= limite };
+}
+
+/**
  * Onde o "gestores >= N" se aplica em cada visão.
  *
  * Município e rede: a MV já traz `qt_gestores` (a soma, mig 093/094/095).

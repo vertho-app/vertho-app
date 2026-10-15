@@ -84,13 +84,13 @@ describe('Mercado Potencial: cidades (uma ou várias)', () => {
       expect(doTabela(v.tabela, 'or')).toHaveLength(0);
     });
 
-    it(`${v.nome}: várias cidades viram UM or, antes do limit`, async () => {
+    it(`${v.nome}: várias cidades viram UM or, antes do range`, async () => {
       const r: any = await v.carregar({ municipioBusca: 'campinas, salvador' });
       expect(r.error).toBeUndefined();
       expect(doTabela(v.tabela, 'or').map((c) => c.args)).toEqual([['municipio.ilike."%campinas%",municipio.ilike."%salvador%"']]);
       expect(doTabela(v.tabela, 'ilike')).toHaveLength(0);
       const cadeia = sb.chamadas.filter((c) => c.tabela === v.tabela).map((c) => c.metodo);
-      expect(cadeia.indexOf('or'), 'a busca tem de entrar antes do limit').toBeLessThan(cadeia.indexOf('limit'));
+      expect(cadeia.indexOf('or'), 'a busca tem de entrar antes do range').toBeLessThan(cadeia.indexOf('range'));
     });
 
     it(`${v.nome}: busca vazia ou só separadores não filtra`, async () => {
@@ -106,13 +106,13 @@ describe('Mercado Potencial: cidades (uma ou várias)', () => {
 
 describe('Mercado Potencial: mínimo de gestores', () => {
   for (const v of VISOES) {
-    it(`${v.nome}: gte em ${v.colunaGestores}, antes do limit`, async () => {
+    it(`${v.nome}: gte em ${v.colunaGestores}, antes do range`, async () => {
       const r: any = await v.carregar({ gestoresMin: 10 });
       expect(r.error).toBeUndefined();
       const gte = doTabela(v.tabela, 'gte').filter((c) => c.args[0] === v.colunaGestores);
       expect(gte.map((c) => c.args)).toEqual([[v.colunaGestores, 10 - v.diretor]]);
       const cadeia = sb.chamadas.filter((c) => c.tabela === v.tabela).map((c) => c.metodo);
-      expect(cadeia.indexOf('gte'), 'o mínimo tem de entrar antes do limit').toBeLessThan(cadeia.indexOf('limit'));
+      expect(cadeia.indexOf('gte'), 'o mínimo tem de entrar antes do range').toBeLessThan(cadeia.indexOf('range'));
     });
 
     it(`${v.nome}: sem filtro (ausente, 0, negativo ou inválido) não manda nada`, async () => {

@@ -104,7 +104,7 @@ describe('municipiosDasRegioes', () => {
 
 describe('Mercado Potencial: região metropolitana nas três visões', () => {
   for (const v of VISOES) {
-    it(`${v.nome}: in(municipio_ibge) com a união das regiões, antes do limit`, async () => {
+    it(`${v.nome}: in(municipio_ibge) com a união das regiões, antes do range`, async () => {
       const campinas = porNome('Campinas (SP)');
       const salvador = porNome('Salvador (BA)');
       const r: any = await v.carregar({ regioesMetropolitanas: [campinas.id, salvador.id] });
@@ -113,7 +113,7 @@ describe('Mercado Potencial: região metropolitana nas três visões', () => {
       expect(chamadas).toHaveLength(1);
       expect(chamadas[0].args[1]).toEqual(municipiosDasRegioes([campinas.id, salvador.id]));
       const cadeia = sb.chamadas.filter((c) => c.tabela === v.tabela).map((c) => c.metodo);
-      expect(cadeia.indexOf('in'), 'a região tem de entrar antes do limit').toBeLessThan(cadeia.indexOf('limit'));
+      expect(cadeia.indexOf('in'), 'a região tem de entrar antes do range').toBeLessThan(cadeia.indexOf('range'));
     });
 
     it(`${v.nome}: sem região não manda nada; região inexistente manda lista vazia`, async () => {
