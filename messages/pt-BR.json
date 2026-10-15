@@ -5781,6 +5781,7 @@
       "ufCount": "{count} UF",
       "networkCount": "{count} rede",
       "teachersMinCount": "≥ {min} profs",
+      "managersMinCount": "≥ {min} gest.",
       "none": "sem filtros"
     },
     "inputs": {
@@ -5792,12 +5793,14 @@
       "uf": "UF (multi-select)",
       "allUfs": "Todas as UFs",
       "ufSelected": "{count} UFs selecionadas",
-      "city": "Cidade (busca por nome)",
+      "city": "Cidades (busca por nome)",
+      "cityHint": "Várias cidades: separe por vírgula.",
       "cityPlaceholder": "ex.: São Paulo, Salvador...",
       "network": "Rede administrativa",
       "inseMin": "INSE mínimo (1=baixo, 6=alto)",
       "inseMax": "INSE máximo",
-      "teachersMin": "Nº de professores (≥)"
+      "teachersMin": "Nº de professores (≥)",
+      "managersMin": "Nº de gestores (≥)"
     },
     "tabs": {
       "city": "Município",

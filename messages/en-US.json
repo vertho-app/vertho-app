@@ -5781,6 +5781,7 @@
       "ufCount": "{count} UF",
       "networkCount": "{count} network",
       "teachersMinCount": "≥ {min} teachers",
+      "managersMinCount": "≥ {min} managers",
       "none": "no filters"
     },
     "inputs": {
@@ -5792,12 +5793,14 @@
       "uf": "UF (multi-select)",
       "allUfs": "All UFs",
       "ufSelected": "{count} selected UFs",
-      "city": "City (search by name)",
+      "city": "Cities (search by name)",
+      "cityHint": "Several cities: separate with commas.",
       "cityPlaceholder": "e.g.: Sao Paulo, Salvador...",
       "network": "Administrative network",
       "inseMin": "Minimum INSE (1=low, 6=high)",
       "inseMax": "maximum INSE",
-      "teachersMin": "Number of teachers (≥)"
+      "teachersMin": "Number of teachers (≥)",
+      "managersMin": "Number of managers (≥)"
     },
     "tabs": {
       "city": "Municipality",

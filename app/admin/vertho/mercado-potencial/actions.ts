@@ -2,6 +2,10 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import {
+  GESTORES_NA_ESCOLA, GESTORES_NA_MV, corteDeMinimo, orDeCidades, termosDeCidade,
+  type ColunaGestores,
+} from '@/lib/mercado-potencial/filtros';
 import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
 import { escaparLike } from '@/lib/sql-like';
 
@@ -25,10 +29,11 @@ import { escaparLike } from '@/lib/sql-like';
 export interface MercadoFilters {
   uf?: string[];                          // multi-UF (vazio = todas)
   redes?: string[];                       // MUNICIPAL/ESTADUAL/FEDERAL/PRIVADA (vazio = todas)
-  municipioBusca?: string;                // busca por nome do município (ilike)
+  municipioBusca?: string;                // nome(s) do município (ilike); várias separadas por vírgula = OU
   inseMin?: number;                       // 1-6 (NULL passa)
   inseMax?: number;
   professoresMin?: number;                // nº MÍNIMO de professores (total, >=) da linha
+  gestoresMin?: number;                   // nº MÍNIMO de gestores (>=) da linha
   precoProf?: number;                     // R$/mês por professor (default 300)
   precoGestor?: number;                   // R$/mês por gestor (default 500)
   idadeOnboarding?: number;               // corte recém-formados (default 29)
@@ -66,22 +71,29 @@ interface MercadoRowBase {
  * INSE: a MV de município/rede tem `inse_medio` (AVG agregado); a MV de escola
  * tem `inse_grupo` (valor original 1-6). Caller passa o nome da coluna.
  */
-function aplicarFiltrosBase(query: any, filtros: MercadoFilters, inseCol: 'inse_medio' | 'inse_grupo' | 'inse_efetivo' = 'inse_medio') {
+function aplicarFiltrosBase(
+  query: any,
+  filtros: MercadoFilters,
+  inseCol: 'inse_medio' | 'inse_grupo' | 'inse_efetivo' = 'inse_medio',
+  gestores: ColunaGestores = GESTORES_NA_MV,
+) {
   if (filtros.uf?.length) query = query.in('uf', filtros.uf);
   if (filtros.inseMin != null) query = query.gte(inseCol, filtros.inseMin);
   if (filtros.inseMax != null) query = query.lte(inseCol, filtros.inseMax);
-  // Mínimo de professores vai ao BANCO (antes do `limit`): filtrar depois, no
-  // JS, cortaria o mínimo sobre as N primeiras linhas e esconderia o resto.
-  // As 3 MVs têm `qt_professores`. A action é endpoint HTTP, então o valor é
-  // do cliente: só número finito > 0, e `ceil` porque a coluna é inteira e
-  // `>= 12.5` num bigint dá 22P02 (para inteiros, `>= 12.5` é `>= 13`).
-  const profsMin = Number(filtros.professoresMin);
-  if (Number.isFinite(profsMin) && profsMin > 0) query = query.gte('qt_professores', Math.ceil(profsMin));
-  if (filtros.municipioBusca?.trim()) {
-    // ilike é case-insensitive; unaccent ficaria melhor, mas o índice gin trgm
-    // em diag_escolas não está nas MVs — usar ilike simples.
-    query = query.ilike('municipio', `%${escaparLike(filtros.municipioBusca.trim())}%`);
-  }
+  // Mínimos de professores e de gestores vão ao BANCO (antes do `limit`):
+  // filtrar depois, no JS, cortaria o mínimo sobre as N primeiras linhas e
+  // esconderia o resto. As 3 MVs têm `qt_professores`; onde fica o "gestores"
+  // muda por visão (ver `GESTORES_NA_ESCOLA`). Valor do cliente: `corteDeMinimo`.
+  const profsMin = corteDeMinimo(filtros.professoresMin);
+  if (profsMin != null) query = query.gte('qt_professores', profsMin);
+  const gestMin = corteDeMinimo(filtros.gestoresMin);
+  if (gestMin != null) query = query.gte(gestores.coluna, gestMin - gestores.diretorProxy);
+  // Cidades: uma ou várias separadas por vírgula ("campinas, salvador").
+  // ilike é case-insensitive; unaccent ficaria melhor, mas o índice gin trgm
+  // em diag_escolas não está nas MVs — usar ilike simples.
+  const cidades = termosDeCidade(filtros.municipioBusca);
+  if (cidades.length === 1) query = query.ilike('municipio', `%${escaparLike(cidades[0])}%`);
+  else if (cidades.length > 1) query = query.or(orDeCidades(cidades));
   return query;
 }
 
@@ -181,7 +193,7 @@ export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
     .select('codigo_inep, nome, municipio, municipio_ibge, uf, rede, inse_grupo, inse_efetivo, inse_fonte, etapas, qt_professores, qt_doc_0_24, qt_docs_jovens, qt_docs_pos, qt_coord_pedag, qt_diretor_proxy, score_conectividade');
   // Escola usa `inse_efetivo` (oficial OR proxy) pra filtros — pra que privadas
   // sem INSE oficial ainda apareçam quando o range cobrir o proxy.
-  q = aplicarFiltrosBase(q, filtros, 'inse_efetivo');
+  q = aplicarFiltrosBase(q, filtros, 'inse_efetivo', GESTORES_NA_ESCOLA);
   if (filtros.redes?.length) q = q.in('rede', filtros.redes);
   q = q.limit(limit);
 

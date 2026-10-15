@@ -118,7 +118,7 @@ function MercadoTab() {
   const [inseMin, setInseMin] = useState<number | null>(null);
   const [inseMax, setInseMax] = useState<number | null>(null);
   const [profsMin, setProfsMin] = useState<number | null>(null);
-  const [profsMinDebounced, setProfsMinDebounced] = useState<number | null>(null);
+  const [gestMin, setGestMin] = useState<number | null>(null);
   const [orderBy, setOrderBy] = useState('score_completo');
   const [orderDir, setOrderDir] = useState<'asc' | 'desc'>('desc');
   const [showFiltros, setShowFiltros] = useState(true);
@@ -130,12 +130,10 @@ function MercadoTab() {
     return () => clearTimeout(t);
   }, [municipioBusca]);
 
-  // Mesmo debounce para o mínimo de professores: "100" são três teclas e, sem
-  // isso, três consultas em corrida (a resposta de "1" pode chegar por último).
-  useEffect(() => {
-    const t = setTimeout(() => setProfsMinDebounced(profsMin), 400);
-    return () => clearTimeout(t);
-  }, [profsMin]);
+  // Mesmo debounce para os mínimos: "100" são três teclas e, sem isso, três
+  // consultas em corrida (a resposta de "1" pode chegar por último).
+  const profsMinDebounced = useDebounced(profsMin);
+  const gestMinDebounced = useDebounced(gestMin);
 
   // Defaults por tab (alinhados com o cap na action).
   const DEFAULT_LIMITE: Record<Tab, number> = { municipio: 6000, rede: 8000, escola: 1000 };
@@ -148,9 +146,10 @@ function MercadoTab() {
     inseMin: inseMin ?? undefined,
     inseMax: inseMax ?? undefined,
     professoresMin: profsMinDebounced && profsMinDebounced > 0 ? profsMinDebounced : undefined,
+    gestoresMin: gestMinDebounced && gestMinDebounced > 0 ? gestMinDebounced : undefined,
     precoProf, precoGestor, idadeOnboarding,
     orderBy, orderDir, limit: limiteEfetivo,
-  }), [ufs, redes, municipioDebounced, inseMin, inseMax, profsMinDebounced, precoProf, precoGestor, idadeOnboarding, orderBy, orderDir, limiteEfetivo]);
+  }), [ufs, redes, municipioDebounced, inseMin, inseMax, profsMinDebounced, gestMinDebounced, precoProf, precoGestor, idadeOnboarding, orderBy, orderDir, limiteEfetivo]);
 
   async function carregar() {
     setLoading(true);
@@ -230,7 +229,7 @@ function MercadoTab() {
             className="w-full flex items-center gap-2 px-4 py-3 text-xs font-semibold text-white/70 hover:text-white">
             <Filter size={13} /> {t('filters.title')}
             <span className="text-[10px] text-white/40 ml-2">
-              {[ufs.length && t('filters.ufCount', { count: ufs.length }), redes.length && t('filters.networkCount', { count: redes.length }), (inseMin != null || inseMax != null) && 'INSE', profsMin != null && profsMin > 0 && t('filters.teachersMinCount', { min: profsMin.toLocaleString(locale) })].filter(Boolean).join(' · ') || t('filters.none')}
+              {[ufs.length && t('filters.ufCount', { count: ufs.length }), redes.length && t('filters.networkCount', { count: redes.length }), (inseMin != null || inseMax != null) && 'INSE', profsMin != null && profsMin > 0 && t('filters.teachersMinCount', { min: profsMin.toLocaleString(locale) }), gestMin != null && gestMin > 0 && t('filters.managersMinCount', { min: gestMin.toLocaleString(locale) })].filter(Boolean).join(' · ') || t('filters.none')}
             </span>
             {showFiltros ? <ChevronUp size={13} className="ml-auto" /> : <ChevronDown size={13} className="ml-auto" />}
           </button>
@@ -276,6 +275,7 @@ function MercadoTab() {
                       </button>
                     )}
                   </div>
+                  <p className="text-[9px] text-gray-600 mt-1">{t('inputs.cityHint')}</p>
                 </div>
               </div>
 
@@ -299,11 +299,12 @@ function MercadoTab() {
                 </div>
               )}
 
-              {/* INSE range + mínimo de professores (total) */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {/* INSE range + mínimos de professores (total) e de gestores */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <NumInput label={t('inputs.inseMin')} value={inseMin} onChange={setInseMin} allowNull />
                 <NumInput label={t('inputs.inseMax')} value={inseMax} onChange={setInseMax} allowNull />
                 <NumInput label={t('inputs.teachersMin')} value={profsMin} onChange={setProfsMin} allowNull />
+                <NumInput label={t('inputs.managersMin')} value={gestMin} onChange={setGestMin} allowNull />
               </div>
             </div>
           )}
@@ -447,6 +448,15 @@ function MercadoTab() {
 }
 
 // ── Subcomponentes ──────────────────────────────────────────────────────────
+
+function useDebounced<T>(valor: T, ms = 400): T {
+  const [atual, setAtual] = useState(valor);
+  useEffect(() => {
+    const t = setTimeout(() => setAtual(valor), ms);
+    return () => clearTimeout(t);
+  }, [valor, ms]);
+  return atual;
+}
 
 function NumInput({ label, value, onChange, allowNull = false }: { label: string; value: number | null; onChange: (v: any) => void; allowNull?: boolean }) {
   return (
