@@ -41,7 +41,7 @@ vi.mock('@/lib/supabase', async () => {
   return { createSupabaseAdmin: () => sb.client };
 });
 
-import { createAIBatchCollector, createClaudeBatch, createOpenAIBatch } from '@/lib/ai-batch';
+import { createAIBatchCollector, createClaudeBatch, executarLoteSincrono } from '@/lib/ai-batch';
 import { REDACAO_SEM_GENERO, REGRA_NOMES_DOS_DADOS, withLanguageInstruction } from '@/lib/ai-language';
 
 const modelo = 'claude-sonnet-4-6';
@@ -102,23 +102,23 @@ describe('lote Claude: o idioma de cada request', () => {
   });
 });
 
-describe('lote OpenAI: o idioma de cada request', () => {
-  it('o JSONL leva o idioma de cada linha', async () => {
-    let jsonl = '';
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
-      if (String(url).endsWith('/files')) {
-        jsonl = await init.body.get('file').text();
-        return new Response(JSON.stringify({ id: 'file_teste' }), { status: 200 });
-      }
-      return new Response(JSON.stringify({ id: 'batch_teste' }), { status: 200 });
+describe('lote síncrono do GPT (Bedrock, 15/10/2026): o idioma de cada request', () => {
+  // Substitui o lote OpenAI, que levava o idioma no JSONL. Agora cada request passa pelo
+  // `callAI`, e o idioma da request vence o do lote, como antes.
+  it('cada chamada leva o idioma da sua request, e a que não pede fica no do lote', async () => {
+    const corpos: any[] = [];
+    vi.stubEnv('AWS_BEARER_TOKEN_BEDROCK', 'teste');
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: any) => {
+      corpos.push(JSON.parse(String(init.body)));
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1 } }), { status: 200 });
     }));
-    await createOpenAIBatch([
-      { customId: 'a', system, user, model: 'gpt-5.4', maxTokens: 1000, locale: 'en-US' },
-      { customId: 'b', system, user, model: 'gpt-5.4', maxTokens: 1000 },
-    ], { locale: 'es-ES' });
-    const linhas = jsonl.split('\n').map((l) => JSON.parse(l));
-    expect(linhas[0].body.messages[0].content).toBe(withLanguageInstruction(system, 'en-US'));
-    expect(linhas[1].body.messages[0].content).toBe(withLanguageInstruction(system, 'es-ES'));
+    const saida = await executarLoteSincrono([
+      { customId: 'a', system, user, model: 'gpt-5.6-terra', maxTokens: 1000, locale: 'en-US' },
+      { customId: 'b', system, user, model: 'gpt-5.6-terra', maxTokens: 1000 },
+    ], { locale: 'es-ES', concorrencia: 1 });
+    expect([...saida.keys()].sort()).toEqual(['a', 'b']);
+    expect(corpos[0].messages[0].content).toBe(withLanguageInstruction(system, 'en-US'));
+    expect(corpos[1].messages[0].content).toBe(withLanguageInstruction(system, 'es-ES'));
   });
 });
 

@@ -11,7 +11,9 @@
 //   2. A RESERVA só quando o Bedrock RECUSA (401/403/429/5xx). 400 é erro do pedido e timeout
 //      pode já ter sido cobrado: nenhum dos dois é refeito.
 //   3. O GUARD: todo id `gpt-<número>` do código tem destino declarado (`GPT_VIA_BEDROCK` ou
-//      `GPT_FICA_NA_OPENAI`) e todo id mapeado tem preço. Id sem guard diverge calado.
+//      `GPT_APOSENTADO`) e todo id mapeado tem preço. Id sem guard diverge calado.
+//   4. (15/10/2026) O GPT APOSENTADO vira o substituto da família 5.6 antes de sair, e o check
+//      em lote (`executarLoteSincrono`) vai pelo mesmo `callAI`, com concorrência limitada.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -26,7 +28,9 @@ vi.mock('@/lib/degradacao', async (importOriginal) => ({
 }));
 
 import { callAI, callAIChat } from '@/actions/ai-client';
-import { BEDROCK_CHAT_URL, BEDROCK_RESPONSES_URL, GPT_FICA_NA_OPENAI, GPT_VIA_BEDROCK, rotaBedrockDoGpt } from '@/lib/ai-provedores';
+import { BEDROCK_CHAT_URL, BEDROCK_RESPONSES_URL, GPT_APOSENTADO, GPT_VIA_BEDROCK, gptAtual, rotaBedrockDoGpt } from '@/lib/ai-provedores';
+import { executarLoteSincrono } from '@/lib/ai-batch';
+import { modeloPaceCompativel } from '@/lib/simulador-vendas/modelos';
 import { DEGRADACAO } from '@/lib/degradacao';
 import { MODELS } from '@/lib/ia-cost-catalog';
 
@@ -185,10 +189,37 @@ describe('GPT pelo AWS Bedrock · rota', () => {
     }
   });
 
-  it('GPT fora do mapa (snapshot datado) fica na OpenAI, sem degradação', async () => {
-    await callAI('SYS', 'USER', { model: 'gpt-5.4-2026-03-05' }, 7000, SO_TRANSPORTE);
-    expect(chamadas().map((c) => c.url)).toEqual([OPENAI_CHAT]);
+  it.each([
+    ['gpt-5.4-2026-03-05', 'gpt-5.6-terra'],
+    ['gpt-5.4', 'gpt-5.6-terra'],
+    ['gpt-5.5', 'gpt-5.6-sol'],
+    ['gpt-5.4-mini', 'gpt-5.6-luna'],
+    ['gpt-5.4-mini-2026-03-17', 'gpt-5.6-luna'],
+    ['gpt-5.1', 'gpt-5.6-luna'],
+  ])('GPT aposentado %s sai como %s pelo Bedrock, e o ledger grava o substituto (15/10)', async (antigo, novo) => {
+    await callAI('SYS', 'USER', { model: antigo }, 7000, SO_TRANSPORTE);
+    expect(chamadas()).toEqual([expect.objectContaining({ url: BEDROCK_CHAT_URL, body: expect.objectContaining({ model: `global.openai.${novo}` }) })]);
+    expect(mocks.ledger[0]).toMatchObject({ provider: 'bedrock', model: novo });
     expect(mocks.degradacoes).toEqual([]);
+  });
+
+  it('o gêmeo callAIChat troca o aposentado do mesmo jeito', async () => {
+    await callAIChat('SYS', [{ role: 'user', content: 'USER' }], { model: 'gpt-5.4-2026-03-05' }, 7000, SO_TRANSPORTE);
+    expect(chamadas()).toEqual([expect.objectContaining({ url: BEDROCK_CHAT_URL, body: expect.objectContaining({ model: TERRA_BEDROCK }) })]);
+    expect(mocks.ledger[0]).toMatchObject({ provider: 'bedrock', model: TERRA });
+  });
+
+  it('structuredOutput com id aposentado NÃO é recusado como troca da régua de privacidade', async () => {
+    const schema = { type: 'object', additionalProperties: false, required: ['ok'], properties: { ok: { type: 'boolean' } } };
+    await expect(callAI('SYS', 'USER', { model: 'gpt-5.4-mini' }, 2000, { ...SO_TRANSPORTE, structuredOutput: { name: 'x', schema } })).resolves.toBe('ok');
+    expect(chamadas()[0].body.model).toBe('global.openai.gpt-5.6-luna');
+  });
+
+  it('simulador: a sessão congelada no GPT antigo segue compatível, pelo substituto', () => {
+    for (const antigo of ['gpt-5.4-2026-03-05', 'gpt-5.4-mini', 'gpt-5.4-mini-2026-03-17']) expect(modeloPaceCompativel(antigo), antigo).toBe(true);
+    expect(modeloPaceCompativel('gpt-5.6-terra')).toBe(true);
+    expect(modeloPaceCompativel('gpt-5.6-luna')).toBe(true);
+    expect(gptAtual('claude-sonnet-5-5')).toBe('claude-sonnet-5-5');
   });
 
   it('Responses (simuladores): Bedrock com o id global; na recusa, OpenAI SEM guardar o corpo do erro', async () => {
@@ -233,21 +264,65 @@ describe('GPT pelo AWS Bedrock · guard de destino e preço', () => {
           achados++;
           const id = m[1];
           const declarado = Object.prototype.hasOwnProperty.call(GPT_VIA_BEDROCK, id)
-            || Object.prototype.hasOwnProperty.call(GPT_FICA_NA_OPENAI, id);
+            || Object.prototype.hasOwnProperty.call(GPT_APOSENTADO, id);
           if (!declarado) semDestino.push(`${relative(RAIZ, arquivo)}: ${id}`);
         }
       }
     }
     // Denominador: um guard que não acha nada passa por construção.
     expect(achados).toBeGreaterThan(20);
-    expect(semDestino, 'GPT novo no código: ponha em GPT_VIA_BEDROCK (com preço) ou em GPT_FICA_NA_OPENAI (com o motivo)').toEqual([]);
+    expect(semDestino, 'GPT novo no código: ponha em GPT_VIA_BEDROCK (com preço) ou em GPT_APOSENTADO (com o substituto)').toEqual([]);
   });
 
-  it('as duas listas não se sobrepõem, e todo id mapeado é o global do mesmo modelo, com preço no catálogo', () => {
-    for (const id of Object.keys(GPT_FICA_NA_OPENAI)) expect(GPT_VIA_BEDROCK, id).not.toHaveProperty(id);
+  it('as duas listas não se sobrepõem; todo id mapeado é o global do mesmo modelo, com preço; todo substituto sai pelo Bedrock', () => {
+    for (const id of Object.keys(GPT_APOSENTADO)) expect(GPT_VIA_BEDROCK, id).not.toHaveProperty(id);
     for (const [id, idBedrock] of Object.entries(GPT_VIA_BEDROCK)) {
       expect(idBedrock).toBe(`global.openai.${id}`);
       expect(MODELS, `${idBedrock} sem preço: o ledger nasceria com cost_usd nulo`).toHaveProperty(idBedrock);
     }
+    for (const [antigo, novo] of Object.entries(GPT_APOSENTADO)) expect(GPT_VIA_BEDROCK, `${antigo} → ${novo}`).toHaveProperty(novo);
+  });
+
+  it('nenhum arquivo de produção volta ao lote da OpenAI (15/10/2026)', () => {
+    const achados: string[] = [];
+    for (const dir of DIRS) {
+      for (const arquivo of arquivos(join(RAIZ, dir))) {
+        if (/api\.openai\.com\/v1\/(batches|files)|\/v1\/batches/.test(readFileSync(arquivo, 'utf8'))) achados.push(relative(RAIZ, arquivo));
+      }
+    }
+    expect(achados, 'o check GPT em lote é síncrono pelo Bedrock (`executarLoteSincrono`)').toEqual([]);
+  });
+});
+
+describe('lote síncrono do GPT (executarLoteSincrono, 15/10/2026)', () => {
+  beforeEach(() => {
+    vi.stubEnv('AWS_BEARER_TOKEN_BEDROCK', 'chave-aws');
+    vi.stubEnv('OPENAI_API_KEY', 'chave-openai');
+    vi.stubGlobal('fetch', mocks.fetch);
+    mocks.ledger = [];
+    mocks.degradacoes = [];
+  });
+  afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it('respeita a concorrência, devolve por customId e deixa FORA do mapa o que falhou', async () => {
+    let emVoo = 0, pico = 0;
+    mocks.fetch.mockReset().mockImplementation(async (_url: string, init: any) => {
+      emVoo++; pico = Math.max(pico, emVoo);
+      await new Promise((r) => setTimeout(r, 5));
+      emVoo--;
+      const corpo = JSON.parse(String(init.body));
+      if (corpo.messages[1].content === 'FALHA') return { ...recusa(400), text: async () => 'pedido inválido' };
+      return respostaChat();
+    });
+    const reqs = Array.from({ length: 9 }, (_, i) => ({ customId: `k${i}`, system: 'SYS', user: i === 4 ? 'FALHA' : `U${i}`, model: TERRA, maxTokens: 4096 }));
+    const saida = await executarLoteSincrono(reqs, { ledger: { feature: 'ia3_check', empresaId: 'emp-1' }, concorrencia: 3 });
+    expect(pico).toBeLessThanOrEqual(3);
+    expect(pico).toBeGreaterThan(1);
+    expect(saida.has('k4')).toBe(false);
+    expect([...saida.keys()].sort()).toEqual(['k0', 'k1', 'k2', 'k3', 'k5', 'k6', 'k7', 'k8']);
+    // Cada item vai pelo Bedrock e grava no ledger com a etiqueta e a empresa do lote.
+    expect(new Set(chamadas().map((c) => c.url))).toEqual(new Set([BEDROCK_CHAT_URL]));
+    expect(mocks.ledger).toHaveLength(8);
+    for (const linha of mocks.ledger) expect(linha).toMatchObject({ feature: 'ia3_check', empresa_id: 'emp-1', provider: 'bedrock', model: TERRA });
   });
 });

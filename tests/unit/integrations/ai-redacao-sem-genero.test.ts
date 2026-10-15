@@ -20,7 +20,7 @@ vi.mock('@/lib/supabase', async () => {
 });
 
 import { callAI, callAIChat } from '@/actions/ai-client';
-import { createClaudeBatch, createOpenAIBatch } from '@/lib/ai-batch';
+import { createClaudeBatch, executarLoteSincrono } from '@/lib/ai-batch';
 import { REDACAO_SEM_GENERO, withLanguageInstruction } from '@/lib/ai-language';
 
 const modelo = 'claude-sonnet-4-6';
@@ -74,19 +74,19 @@ describe('regra de redação chega ao provedor, sem editar evidências ou respos
     }
   });
 
-  it('lote OpenAI recebe a regra no arquivo JSONL enviado', async () => {
-    let jsonl = '';
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
-      if (String(url).endsWith('/files')) {
-        jsonl = await init.body.get('file').text();
-        return new Response(JSON.stringify({ id: 'file_teste' }), { status: 200 });
-      }
-      return new Response(JSON.stringify({ id: 'batch_teste' }), { status: 200 });
+  it('lote síncrono do GPT (Bedrock, 15/10/2026) recebe a regra em cada chamada', async () => {
+    // Substitui o lote OpenAI, que levava a regra no JSONL: agora cada request passa pelo `callAI`.
+    const corpos: any[] = [];
+    vi.stubEnv('AWS_BEARER_TOKEN_BEDROCK', 'teste');
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: any) => {
+      corpos.push(JSON.parse(String(init.body)));
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{"nota":2.7}' }, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1 } }), { status: 200 });
     }));
-    await createOpenAIBatch([{ customId: 'pessoa', system, user, model: 'gpt-5.4', maxTokens: 1000 }]);
-    const enviado = JSON.parse(jsonl).body;
-    expect(enviado.messages[0].content).toBe(withLanguageInstruction(system, 'pt-BR'));
-    expect(enviado.messages[1].content).toBe(user);
+    await executarLoteSincrono([{ customId: 'pessoa', system, user, model: 'gpt-5.6-terra', maxTokens: 1000 }]);
+    expect(corpos).toHaveLength(1);
+    expect(corpos[0].messages[0].content).toBe(withLanguageInstruction(system, 'pt-BR'));
+    expect(corpos[0].messages[0].content).toContain(REDACAO_SEM_GENERO);
+    expect(corpos[0].messages[1].content).toBe(user);
   });
 
   it('a orientação mantém o idioma, citações, critérios e formato de saída', () => {

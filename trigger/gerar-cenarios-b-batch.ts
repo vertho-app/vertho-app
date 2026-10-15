@@ -7,14 +7,17 @@ import { versaoDoCenario } from '@/lib/ia3-cenarios-v2';
 import { prepararCenariosB, salvarCenarioB, salvarCheckCenarioB, type ItemCenarioB } from '@/lib/cenarios-b-lote';
 import { extractJSON } from '@/actions/utils';
 import {
-  createClaudeBatch, createOpenAIBatch, pollClaudeBatch, pollOpenAIBatch,
-  fetchClaudeBatchResults, fetchOpenAIBatchResults, batchPendenteDoJob, encerrarBatch, type BatchReq,
+  createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults, executarLoteSincrono,
+  batchPendenteDoJob, encerrarBatch, type BatchReq,
 } from '@/lib/ai-batch';
 import { IA_BATCH } from '@/lib/status';
 
 const MAX_TENTATIVAS = 3;
 
-/** Duas ondas pagas, com ids persistidos e retomada a partir dos cenários gravados. */
+/**
+ * Duas ondas pagas, com retomada a partir dos cenários gravados: a geração (Claude) em
+ * batch, com o id persistido; a validação (GPT) síncrona pelo Bedrock desde 15/10/2026.
+ */
 export const gerarCenariosBBatchTask = task({
   id: 'gerar-cenarios-b-batch',
   maxDuration: 3600,
@@ -58,38 +61,28 @@ export const gerarCenariosBBatchTask = task({
         await verificarCancelamento();
         const feature = etapa === 'Gen' ? 'cenarios_b' : 'cenarios_b_check';
         const ledger = { feature, empresaId: payload.empresaId, jobId: payload.jobId };
+        // Validação GPT pelo Bedrock (15/10/2026): lá não há Batch API para o GPT-5.x, então a
+        // onda de check é SÍNCRONA, com concorrência limitada. Item que falhar fica fora do
+        // mapa e sai abaixo como "cenário preservado para nova checagem".
+        if (etapa === 'Chk') {
+          await progresso('Validação: chamando o modelo pelo Bedrock…');
+          return executarLoteSincrono(reqs, { ledger: ledger });
+        }
         const campo = `batchId${etapa}`;
         let batchId: string = params[campo] || await batchPendenteDoJob(payload.jobId, feature);
-        if (!batchId) {
-          batchId = etapa === 'Gen'
-            ? await createClaudeBatch(reqs, { ledger: ledger })
-            : await createOpenAIBatch(reqs, { ledger: ledger });
-        }
+        if (!batchId) batchId = await createClaudeBatch(reqs, { ledger: ledger });
         // Se a persistência falhar, a task retenta e recupera o lote pelo rastro.
         // Não transforma um erro de banco numa segunda geração paga.
         await salvarParams({ [campo]: batchId });
         for (let i = 0; i < 24 * 60; i++) {
           await verificarCancelamento();
-          if (etapa === 'Gen') {
-            const estado = await pollClaudeBatch(batchId);
-            if (estado.ended) {
-              const respostas = await fetchClaudeBatchResults(batchId, ledger);
-              await encerrarBatch(batchId, IA_BATCH.CONCLUIDO);
-              return respostas;
-            }
-          } else {
-            const estado = await pollOpenAIBatch(batchId);
-            if (estado.ended) {
-              if (estado.status !== 'completed' || !estado.outputFileId) {
-                await encerrarBatch(batchId, IA_BATCH.ERRO, `Check em lote terminou como ${estado.status}`);
-                throw new Error(`Check em lote terminou como ${estado.status}`);
-              }
-              const respostas = await fetchOpenAIBatchResults(estado.outputFileId, ledger);
-              await encerrarBatch(batchId, IA_BATCH.CONCLUIDO);
-              return respostas;
-            }
+          const estado = await pollClaudeBatch(batchId);
+          if (estado.ended) {
+            const respostas = await fetchClaudeBatchResults(batchId, ledger);
+            await encerrarBatch(batchId, IA_BATCH.CONCLUIDO);
+            return respostas;
           }
-          await progresso(etapa === 'Gen' ? 'Geração em lote: aguardando resultados…' : 'Validação em lote: aguardando resultados…');
+          await progresso('Geração em lote: aguardando resultados…');
           await wait.for({ seconds: 60 });
         }
         throw new Error('Lote não terminou em 24 horas; os ids foram preservados para retomada');

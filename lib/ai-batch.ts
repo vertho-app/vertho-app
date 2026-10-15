@@ -473,146 +473,51 @@ export function createAIBatchCollector(
   return { run };
 }
 
-// ── OpenAI Batch API (−50%) ─────────────────────────────────────────────────
-// Mesmo contrato do submitClaudeBatch, para modelos OpenAI (gpt-*): JSONL →
-// /v1/files → /v1/batches → polling → download dos resultados por customId.
-// Usado pelos CHECKS duais em lote (auditor GPT 5.6 Terra) — o gerador Claude
-// batcha pelo caminho Anthropic acima.
-
-const OPENAI_BASE = 'https://api.openai.com/v1';
-
-function openaiHeaders(): Record<string, string> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error('OPENAI_API_KEY not set');
-  return { Authorization: `Bearer ${key}` };
-}
-
-/** Sobe o JSONL e cria o batch; devolve o id (metade "submeter" do padrão destacado). */
-export async function createOpenAIBatch(
-  reqs: BatchReq[],
-  opts: { locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null; jobId?: string | null } } = {},
-): Promise<string> {
-  const locale = opts.locale || defaultLocale;
-  const jsonl = reqs.map((r) => JSON.stringify({
-    custom_id: r.customId,
-    method: 'POST',
-    url: '/v1/chat/completions',
-    body: {
-      model: r.model,
-      // gpt-5.x (reasoning) exige max_completion_tokens; margem p/ o thinking.
-      max_completion_tokens: r.maxTokens,
-      messages: [
-        { role: 'system', content: withLanguageInstruction(r.system, r.locale || locale) },
-        { role: 'user', content: r.user },
-      ],
-    },
-  })).join('\n');
-
-  const fd = new FormData();
-  fd.append('purpose', 'batch');
-  fd.append('file', new Blob([jsonl], { type: 'application/jsonl' }), 'batch.jsonl');
-  const upRes = await fetch(`${OPENAI_BASE}/files`, { method: 'POST', headers: openaiHeaders(), body: fd });
-  if (!upRes.ok) throw new Error(`OpenAI files upload ${upRes.status}: ${(await upRes.text()).slice(0, 300)}`);
-  const file = await upRes.json();
-
-  const bRes = await fetch(`${OPENAI_BASE}/batches`, {
-    method: 'POST',
-    headers: { ...openaiHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ input_file_id: file.id, endpoint: '/v1/chat/completions', completion_window: '24h' }),
-  });
-  if (!bRes.ok) throw new Error(`OpenAI batch create ${bRes.status}: ${(await bRes.text()).slice(0, 300)}`);
-  const batch = await bRes.json();
-  // C2: o lado OpenAI não registrava rastro NENHUM — `ia_batches` tinha zero
-  // linha de OpenAI, então o custo do check (que é metade do par dual) não
-  // aparecia em lugar nenhum como lote.
-  await registrarBatch(batch.id, reqs.length, opts.ledger);
-  return batch.id;
-}
-
-/** Uma consulta ao estado do batch OpenAI. */
-export async function pollOpenAIBatch(batchId: string): Promise<{ ended: boolean; status: string; outputFileId: string | null; errorFileId: string | null }> {
-  const res = await fetch(`${OPENAI_BASE}/batches/${batchId}`, { headers: openaiHeaders() });
-  if (!res.ok) throw new Error(`OpenAI batch retrieve ${res.status}`);
-  const b = await res.json();
-  const ended = ['completed', 'failed', 'expired', 'cancelled'].includes(b.status);
-  return { ended, status: b.status, outputFileId: b.output_file_id || null, errorFileId: b.error_file_id || null };
-}
-
-/** Colhe os textos por customId + registra o usage no ledger (source='batch', −50%). */
-export async function fetchOpenAIBatchResults(
-  outputFileId: string,
-  ledger: { feature?: string; empresaId?: string | null } = {},
-): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
-  const res = await fetch(`${OPENAI_BASE}/files/${outputFileId}/content`, { headers: openaiHeaders() });
-  if (!res.ok) throw new Error(`OpenAI batch results ${res.status}`);
-  const linhasLedger: any[] = [];
-  for (const line of (await res.text()).split('\n')) {
-    if (!line.trim()) continue;
-    let entry: any;
-    try { entry = JSON.parse(line); } catch { continue; }
-    const body = entry?.response?.body;
-    if (entry?.response?.status_code !== 200 || !body) continue;
-    out.set(entry.custom_id, body.choices?.[0]?.message?.content || '');
-    const u = body.usage;
-    if (u) {
-      const inTok = u.prompt_tokens || 0, outTok = u.completion_tokens || 0;
-      linhasLedger.push({
-        feature: ledger.feature || 'batch',
-        empresa_id: ledger.empresaId ?? null,
-        provider: 'openai',
-        model: body.model || null,
-        input_tokens: inTok, output_tokens: outTok,
-        cost_usd: body.model ? costFromTokens(body.model, { inTokens: inTok, outTokens: outTok }, { batch: true }) : null,
-        status: 'ok', source: 'batch',
-      });
-    }
-  }
-  if (linhasLedger.length) {
-    try {
-      await (await sbInfra()).from('ia_usage_log').insert(linhasLedger);
-    } catch (e: any) {
-      console.warn('[ia-ledger] falha ao registrar batch openai:', e?.message);
-    }
-  }
-  return out;
-}
+// ── Lote SÍNCRONO (GPT pelo Bedrock, 15/10/2026) ──────────────────────────────
+// O check dual em lote (auditor GPT) ia pela Batch API da OpenAI (−50%). Desde 14/10
+// o GPT sai pelo AWS Bedrock, pago pelo crédito Activate, e o batch OpenAI do
+// Bedrock só aceita gpt-oss. Decisão do dono (15/10): o check em lote passa a ser
+// SÍNCRONO pelo Bedrock, custo cheio. Medido em 60 dias antes da troca: lotes de
+// até 43 itens (ia4_check), média 9 a 22, ~US$ 0,55/mês no −50%.
+//
+// Devolve o MESMO formato que a colheita do lote devolvia (`Map<customId, texto>`),
+// então as tasks seguem com o loop de persistência de sempre. Item que falha fica
+// FORA do mapa, e as tasks já tratam isso como tratavam o item errado do lote: IA3 e
+// IA4 caem no síncrono por item, com as retentativas normais do `callAI`; os
+// cenários B preservam o cenário para nova checagem.
 
 /**
- * Submete N requests como UM batch OpenAI, polling inline até terminar.
- * Mesmos avisos do submitClaudeBatch (segura a run; bom p/ lotes pequenos).
+ * Roda cada request por `callAI` (rota Bedrock, reserva OpenAI e ledger por chamada),
+ * com no máximo `concorrencia` em voo. Os resultados ficam num mapa LOCAL e só saem
+ * quando o lote inteiro termina: nada escreve em estado compartilhado de dentro do
+ * pool (o `Promise.all` não para os outros workers quando um falha).
  */
-export async function submitOpenAIBatch(
+export async function executarLoteSincrono(
   reqs: BatchReq[],
-  opts: { pollMs?: number; budgetMs?: number; locale?: AppLocale; ledger?: { feature?: string; empresaId?: string | null; jobId?: string | null } } = {},
+  opts: { locale?: AppLocale; concorrencia?: number; timeoutMs?: number; ledger?: { feature?: string; empresaId?: string | null } } = {},
 ): Promise<Map<string, string>> {
-  const batchId = await createOpenAIBatch(reqs, { locale: opts.locale, ledger: opts.ledger });
-  const budgetMs = opts.budgetMs ?? 40 * 60_000;
-  const pollMs = opts.pollMs ?? 10_000;
-  const deadline = Date.now() + budgetMs;
-
-  for (;;) {
-    const st = await pollOpenAIBatch(batchId);
-    if (st.ended) {
-      // Fecha o rastro nos três desfechos — inclusive nos ruins. Rastro que só
-      // fecha no caminho feliz deixa a falha indistinguível do batch em voo.
-      if (st.status !== 'completed') {
-        await encerrarBatch(batchId, IA_BATCH.ERRO, `terminou como ${st.status}`);
-        throw new Error(`OpenAI batch ${batchId} terminou como ${st.status}`);
+  const resultados = new Map<string, string>();
+  const fila = [...reqs];
+  const largura = Math.max(1, Math.min(opts.concorrencia ?? 4, fila.length || 1));
+  const trabalhador = async () => {
+    for (let r = fila.shift(); r; r = fila.shift()) {
+      try {
+        const texto = await callAI(r.system, r.user, { model: r.model }, r.maxTokens, {
+          taskKey: opts.ledger?.feature,
+          empresaId: opts.ledger?.empresaId ?? undefined,
+          locale: r.locale || opts.locale || defaultLocale,
+          ...(r.cacheSystem === false ? { cacheSystem: false } : {}),
+          ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
+          // Uma tentativa aqui: quem falha cai no síncrono por item das tasks, que retenta.
+          semRetentativa: true,
+          maxRetries: 0,
+        });
+        if (texto && texto.trim()) resultados.set(r.customId, texto);
+      } catch (e: any) {
+        console.warn(`[lote-sincrono] ${opts.ledger?.feature || 'lote'} ${r.customId} falhou (${String(e?.message || e).slice(0, 160)}); fica para o síncrono por item`);
       }
-      if (!st.outputFileId) {
-        await encerrarBatch(batchId, IA_BATCH.ERRO, 'sem output_file_id');
-        throw new Error(`OpenAI batch ${batchId} sem output_file_id`);
-      }
-      const out = await fetchOpenAIBatchResults(st.outputFileId, opts.ledger || {});
-      await encerrarBatch(batchId, IA_BATCH.CONCLUIDO);
-      return out;
     }
-    if (Date.now() > deadline) {
-      // Como no lado Claude: NÃO cancela — o batch termina, e o rastro em
-      // 'submetido' é o que permite colhê-lo depois.
-      throw new Error(`OpenAI batch ${batchId} excedeu ${Math.round(budgetMs / 60000)}min (rastro em ia_batches, recuperável)`);
-    }
-    await sleep(pollMs);
-  }
+  };
+  await Promise.all(Array.from({ length: largura }, trabalhador));
+  return resultados;
 }

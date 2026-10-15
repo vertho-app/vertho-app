@@ -12,7 +12,7 @@ import {
 } from '@/lib/check-ia4-core';
 import {
   createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults,
-  createOpenAIBatch, pollOpenAIBatch, fetchOpenAIBatchResults,
+  executarLoteSincrono,
   encerrarBatch, batchPendenteDoJob, type BatchReq,
 } from '@/lib/ai-batch';
 import { IA_BATCH } from '@/lib/status';
@@ -32,7 +32,7 @@ import { comContexto } from '@/lib/execucao-contexto';
  * Duas ondas:
  *   1. AVALIAÇÃO (Claude, −50%): 1 request por resposta → valida → consolida em
  *      CÓDIGO e persiste. Sem resposta/JSON inválido → fallback SÍNCRONO no core.
- *   2. CHECK (OpenAI −50% p/ gpt-*; Claude −50% p/ claude-*): 1 request por
+ *   2. CHECK (gpt-*: síncrono pelo Bedrock, desde 15/10/2026; claude-*: batch −50%): 1 request por
  *      avaliação persistida → nota/status derivados em código.
  *
  * Resiliência (mesmo contrato do IA2/IA3): falha POR-ITEM registra e segue;
@@ -246,44 +246,32 @@ export const gerarIA4BatchTask = task({
           const reqs: BatchReq[] = checks
             .filter((c) => !checados.has(c.resp.id))
             .map((c) => ({ customId: c.customId, system: c.system, user: c.user, model: checkModel, maxTokens: 8192 }));
-          const ehOpenAI = checkModel.startsWith('gpt');
+          const ehGpt = checkModel.startsWith('gpt');
           const ehClaude = checkModel.startsWith('claude');
 
-          if (reqs.length && (ehOpenAI || ehClaude)) {
+          if (reqs.length && ehGpt) {
+            // GPT pelo Bedrock (15/10/2026): sem Batch API para o GPT-5.x lá, o check em lote é
+            // SÍNCRONO, com concorrência limitada e o mesmo teto de tempo do check por item
+            // (`IA4_CHECK_CALL_OPTIONS`, 180 s). O que falhar fica fora do mapa e o loop abaixo
+            // refaz por item; o que já persistiu está em `checados`.
+            await pushProgress(`check: ${reqs.length} item(s) pelo Bedrock…`);
+            respostasChk = await executarLoteSincrono(reqs, { ledger: ledgerChk, timeoutMs: 180_000 });
+          } else if (reqs.length && ehClaude) {
             if (!batchIdChk) {
-              batchIdChk = ehOpenAI
-                ? await createOpenAIBatch(reqs, { ledger: ledgerChk })
-                : await createClaudeBatch(reqs, { ledger: ledgerChk });
+              batchIdChk = await createClaudeBatch(reqs, { ledger: ledgerChk });
               try {
                 await salvarParams({ batchIdChk });
               } catch (ePersist: any) {
                 console.error(`[gerar-ia4-batch] batchIdChk ${batchIdChk} NÃO persistido (${ePersist?.message}) — segue em memória; rastro em ia_batches`);
               }
             }
-
-            if (ehOpenAI) {
-              let saida: string | null = null;
-              for (let i = 0; i < 24 * 60; i++) {
-                const st = await pollOpenAIBatch(batchIdChk);
-                if (st.ended) {
-                  if (st.status !== 'completed') throw new Error(`OpenAI batch ${batchIdChk} terminou como ${st.status}`);
-                  saida = st.outputFileId;
-                  break;
-                }
-                await pushProgress(`check: aguardando OpenAI (${reqs.length} item(s))…`);
-                await wait.for({ seconds: 60 });
-              }
-              if (!saida) throw new Error(`OpenAI batch ${batchIdChk} sem output_file_id`);
-              respostasChk = await fetchOpenAIBatchResults(saida, ledgerChk);
-            } else {
-              for (let i = 0; i < 24 * 60; i++) {
-                const st = await pollClaudeBatch(batchIdChk);
-                if (st.ended) break;
-                await pushProgress(`check: ${st.counts.succeeded}/${reqs.length} prontos…`);
-                await wait.for({ seconds: 60 });
-              }
-              respostasChk = await fetchClaudeBatchResults(batchIdChk, ledgerChk);
+            for (let i = 0; i < 24 * 60; i++) {
+              const st = await pollClaudeBatch(batchIdChk);
+              if (st.ended) break;
+              await pushProgress(`check: ${st.counts.succeeded}/${reqs.length} prontos…`);
+              await wait.for({ seconds: 60 });
             }
+            respostasChk = await fetchClaudeBatchResults(batchIdChk, ledgerChk);
             await encerrarBatch(batchIdChk, IA_BATCH.CONCLUIDO);
           }
           // Outros provedores (gemini/kimi): sem Batch API aqui → mapa vazio = síncrono.

@@ -79,7 +79,8 @@ describe('geradores de conteúdo · chamadas de IA etiquetadas no ledger', () =>
  * `gerar-ia3-batch` as duas formas conviviam a duas linhas de distância.
  */
 describe('C7 · submissões de LOTE carregam a etiqueta do ledger', () => {
-  const ENTRADAS = /\b(submitClaudeBatch|submitOpenAIBatch|createClaudeBatch|createOpenAIBatch|createAIBatchCollector)\s*\(/g;
+  // 15/10/2026: o lote da OpenAI saiu; o check GPT em lote vai por `executarLoteSincrono` (Bedrock).
+  const ENTRADAS = /\b(submitClaudeBatch|createClaudeBatch|executarLoteSincrono|createAIBatchCollector)\s*\(/g;
 
   /** Arquivos de produção que submetem lote — descobertos, não listados à mão. */
   function callSites(): Array<{ arquivo: string; src: string }> {

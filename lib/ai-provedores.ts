@@ -35,9 +35,10 @@ export const BEDROCK_RESPONSES_URL = 'https://bedrock-runtime.us-east-1.amazonaw
  * os sete responderam 200 em `global.`. O preço de cada um está em
  * `lib/ia-cost-catalog.ts`, lido do model card da AWS no mesmo dia.
  *
- * Fica de fora o que não tem rota ou preço `global.` publicado: ver
- * `GPT_FICA_NA_OPENAI`. O guard `tests/unit/integrations/gpt-via-bedrock.test.ts`
- * exige que todo id `gpt-<número>` do código esteja numa das duas listas.
+ * O GPT antigo, sem rota ou sem preço `global.` publicado, não sai pela OpenAI: vira o
+ * substituto da família 5.6 (`GPT_APOSENTADO`). O guard
+ * `tests/unit/integrations/gpt-via-bedrock.test.ts` exige que todo id `gpt-<número>` do
+ * código esteja numa das duas listas.
  */
 export const GPT_VIA_BEDROCK: Readonly<Record<string, string>> = {
   'gpt-6.1-sol': 'global.openai.gpt-6.1-sol',
@@ -49,15 +50,33 @@ export const GPT_VIA_BEDROCK: Readonly<Record<string, string>> = {
   'gpt-5.6-luna': 'global.openai.gpt-5.6-luna',
 };
 
-/** GPT que continua na OpenAI direta, cada um com o motivo. */
-export const GPT_FICA_NA_OPENAI: Readonly<Record<string, string>> = {
-  'gpt-5.5': 'o model card da AWS só publica o preço In-Region, que o bedrock-runtime não aceita; sem preço Global CRIS (14/10/2026)',
-  'gpt-5.4': 'mesmo caso do gpt-5.5: sem preço Global CRIS publicado (14/10/2026)',
-  'gpt-5.4-2026-03-05': 'snapshot datado: o bedrock-runtime responde 400 "identifier is invalid" (14/10/2026); trocar por gpt-5.4 mudaria o snapshot calado',
-  'gpt-5.4-mini': 'não existe no Bedrock (listagem de 13/10/2026)',
-  'gpt-5.4-mini-2026-03-17': 'não existe no Bedrock (listagem de 13/10/2026)',
-  'gpt-5.1': 'fallback do Radar (bloco OFF-LINE) e não existe no Bedrock',
+/**
+ * GPT APOSENTADO: o id antigo vira o da família 5.6 do mesmo nível, já em `GPT_VIA_BEDROCK`.
+ *
+ * Decisão do dono (15/10/2026), entre a família 5.6 e a GPT-6: a 5.6 já roda e já foi medida
+ * nesta base (o Terra audita seis tarefas, o Sol gera cenários), e é mais barata que cada
+ * antigo. Os antigos não tinham rota `global.` (o snapshot datado dá 400 "identifier is
+ * invalid"; o mini não existe no Bedrock) nem preço Global publicado (5.5 e 5.4). Medido no
+ * mesmo dia: nenhum deles em `DEFAULT_TASK_MODELS`, no seletor ou em `sys_config`; sobravam
+ * `MODELOS_PACE` e 4 sessões abertas do simulador de vendas com o modelo congelado.
+ *
+ * A troca é no id PEDIDO, antes da régua de privacidade (`gptAtual`, em `callAI`/`callAIChat`):
+ * o ledger grava o substituto, e a sessão congelada passa a rodar nele sem nada a migrar no banco.
+ * O preço dos antigos fica no catálogo, para o histórico do ledger.
+ */
+export const GPT_APOSENTADO: Readonly<Record<string, string>> = {
+  'gpt-5.5': 'gpt-5.6-sol',
+  'gpt-5.4': 'gpt-5.6-terra',
+  'gpt-5.4-2026-03-05': 'gpt-5.6-terra',
+  'gpt-5.4-mini': 'gpt-5.6-luna',
+  'gpt-5.4-mini-2026-03-17': 'gpt-5.6-luna',
+  'gpt-5.1': 'gpt-5.6-luna',
 };
+
+/** O id que a chamada usa: o substituto de um GPT aposentado, ou o próprio id. */
+export function gptAtual(modelId: string): string {
+  return Object.prototype.hasOwnProperty.call(GPT_APOSENTADO, modelId) ? GPT_APOSENTADO[modelId] : modelId;
+}
 
 /**
  * O id Bedrock deste GPT, ou `null` quando a chamada sai pela OpenAI direta.

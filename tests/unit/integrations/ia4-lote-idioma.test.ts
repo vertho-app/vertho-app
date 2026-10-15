@@ -16,6 +16,9 @@ const h = vi.hoisted(() => ({
   sb: null as any,
   jobs: new Map<string, any>(),
   lote: [] as any[],
+  lotesClaude: 0,
+  lotesSincronos: [] as Array<{ reqs: any[]; opts: any }>,
+  respostaRelida: null as any,
   respostasBatch: new Map<string, string>(),
   callAI: vi.fn(),
   locale: { pessoa: null as string | null, empresa: null as string | null },
@@ -26,12 +29,10 @@ vi.mock('@trigger.dev/sdk', () => ({ task: (cfg: any) => cfg, wait: { for: async
 vi.mock('@/actions/ai-client', () => ({ callAI: h.callAI, callAIChat: vi.fn() }));
 vi.mock('@/lib/ai-tasks', () => ({ getModelForTask: async () => 'modelo-da-task', DEFAULT_TASK_MODELS: {} }));
 vi.mock('@/lib/ai-batch', () => ({
-  createClaudeBatch: async (reqs: any[]) => { h.lote = reqs; return 'msgbatch_1'; },
-  createOpenAIBatch: async () => 'openai_1',
+  createClaudeBatch: async (reqs: any[]) => { h.lotesClaude++; h.lote = reqs; return 'msgbatch_1'; },
   pollClaudeBatch: async () => ({ ended: true, counts: { processing: 0, succeeded: 1, errored: 0, canceled: 0, expired: 0 } }),
-  pollOpenAIBatch: async () => ({ ended: true, counts: {} }),
   fetchClaudeBatchResults: async () => h.respostasBatch,
-  fetchOpenAIBatchResults: async () => new Map(),
+  executarLoteSincrono: async (reqs: any[], opts: any) => { h.lotesSincronos.push({ reqs, opts }); return new Map(); },
   encerrarBatch: async () => undefined,
   batchPendenteDoJob: async () => null,
 }));
@@ -60,6 +61,7 @@ function montar() {
   h.sb = criarSupabaseMock({
     resolver: (tabela: string) => {
       if (tabela === 'ia_jobs') return h.jobs.get(JOB) ?? null;
+      if (tabela === 'respostas') return h.respostaRelida;
       if (tabela === 'colaboradores') return { ...COLAB, locale: h.locale.pessoa };
       if (tabela === 'empresas') return { default_locale: h.locale.empresa };
       return null;
@@ -72,6 +74,9 @@ function montar() {
 beforeEach(() => {
   h.jobs = new Map([[JOB, { id: JOB, status: 'queued', empresa_id: 'emp-1', result_ids: [], params: { items: [{ id: 'r1' }], aiConfig: { model: 'claude-sonnet-5' } } }]]);
   h.lote = [];
+  h.lotesClaude = 0;
+  h.lotesSincronos = [];
+  h.respostaRelida = null;
   h.respostasBatch = new Map([['i0', IA4_JSON]]);
   h.locale = { pessoa: null, empresa: null };
   h.callAI.mockReset();
@@ -110,5 +115,20 @@ describe('lote da IA4: a nota em pt-BR, a devolutiva no idioma da pessoa', () =>
     expect(r.okCount).toBe(1);
     expect(h.callAI).not.toHaveBeenCalled();
     expect(gravacao().feedback_ia4).toBe('Resumo em português.\nPositiva.\nConstrutiva.');
+  });
+});
+
+describe('check GPT da IA4 em lote (15/10/2026): síncrono pelo Bedrock, sem lote pago', () => {
+  it('a onda de check vai ao `executarLoteSincrono` com a etiqueta e o teto do check por item', async () => {
+    const core = await import('@/lib/check-ia4-core') as any;
+    core.montarCheckIA4Prompt.mockResolvedValue({ system: 'S', prefix: 'P', user: 'U', pii: null });
+    core.checarUmaRespostaCore.mockResolvedValue({ success: true, nota: 80 });
+    h.jobs.get(JOB).params.aiConfig = { model: 'claude-sonnet-5', checkModel: 'gpt-5.6-terra' };
+    h.respostaRelida = { ...RESP, avaliacao_ia: { nota: 3 } };
+    await rodar();
+    expect(h.lotesClaude, 'o check GPT não pode virar lote Claude').toBe(1);
+    expect(h.lotesSincronos).toHaveLength(1);
+    expect(h.lotesSincronos[0].reqs).toEqual([expect.objectContaining({ model: 'gpt-5.6-terra', maxTokens: 8192 })]);
+    expect(h.lotesSincronos[0].opts).toEqual({ ledger: { feature: 'ia4_check', empresaId: 'emp-1', jobId: JOB }, timeoutMs: 180_000 });
   });
 });

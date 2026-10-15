@@ -21,7 +21,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
   jobs: new Map<string, any>(),
   claudeCriados: [] as string[],
-  openaiCriados: [] as string[],
+  // Desde 15/10/2026 o check GPT é síncrono pelo Bedrock: cada entrada é um lote síncrono (n de itens).
+  lotesSincronos: [] as number[],
   patches: [] as any[],
   /** Respostas dos lotes, por customId. */
   respGen: new Map<string, string>(),
@@ -85,15 +86,9 @@ vi.mock('@/lib/ai-batch', () => ({
     mocks.claudeCriados.push(id);
     return id;
   },
-  createOpenAIBatch: async () => {
-    const id = `openai_${mocks.openaiCriados.length + 1}`;
-    mocks.openaiCriados.push(id);
-    return id;
-  },
   pollClaudeBatch: async () => ({ ended: true, counts: { processing: 0, succeeded: 1, errored: 0, canceled: 0, expired: 0 } }),
-  pollOpenAIBatch: async () => ({ ended: true, status: 'completed', outputFileId: 'file-1', errorFileId: null }),
   fetchClaudeBatchResults: async (id: string) => (String(id).startsWith('claude_1') ? mocks.respGen : mocks.respChk),
-  fetchOpenAIBatchResults: async () => mocks.respChk,
+  executarLoteSincrono: async (reqs: any[]) => { mocks.lotesSincronos.push(reqs.length); return mocks.respChk; },
   encerrarBatch: async () => undefined,
   batchPendenteDoJob: async () => mocks.batchNoRastro,
 }));
@@ -135,7 +130,7 @@ vi.mock('@/lib/degradacao', async (importOriginal) => {
 const JOB = 'job-x';
 
 beforeEach(() => {
-  mocks.claudeCriados = []; mocks.openaiCriados = []; mocks.patches = [];
+  mocks.claudeCriados = []; mocks.lotesSincronos = []; mocks.patches = [];
   mocks.sincronasGen = 0; mocks.sincronasChk = 0;
   mocks.cenariosPersistidos = []; mocks.checksPersistidos = [];
   mocks.respGen = new Map([['i0', '{"x":1}']]);
@@ -169,14 +164,15 @@ async function rodarIA3(tentativa = 1, maxAttempts = 3) {
 }
 
 describe('C3 · IA3: duas ondas, dois ids persistidos', () => {
-  it('persiste batchIdGen e batchIdChk, cada um antes do seu polling', async () => {
+  it('persiste batchIdGen antes do polling; o check GPT vai ao lote síncrono, sem id a persistir', async () => {
     mocks.jobs = new Map([[JOB, jobIA3()]]);
 
     await rodarIA3();
 
     const params = mocks.jobs.get(JOB).params;
     expect(params.batchIdGen, 'o id da GERAÇÃO não foi persistido').toBe('claude_1');
-    expect(params.batchIdChk, 'o id do CHECK não foi persistido').toBe('openai_1');
+    expect(params.batchIdChk, 'check GPT não tem lote pago para retomar').toBeUndefined();
+    expect(mocks.lotesSincronos, 'o check não passou pelo lote síncrono').toEqual([1]);
   });
 
   /**
@@ -210,7 +206,7 @@ describe('C3 · IA3: duas ondas, dois ids persistidos', () => {
 
     await rodarIA3();
 
-    expect(mocks.openaiCriados, 'recriou o lote de CHECK já pago').toHaveLength(0);
+    expect(mocks.lotesSincronos, 'rechecou o que já estava checado').toHaveLength(0);
     expect(mocks.sincronasChk).toBe(0);
     expect(mocks.checksPersistidos).toHaveLength(0);
   });
@@ -272,7 +268,7 @@ describe('C3 · IA3: duas ondas, dois ids persistidos', () => {
 
     expect(r.reentrante).toBe(true);
     expect(mocks.claudeCriados).toHaveLength(0);
-    expect(mocks.openaiCriados).toHaveLength(0);
+    expect(mocks.lotesSincronos).toHaveLength(0);
     expect(mocks.patches).toHaveLength(0);
   });
 });

@@ -1,11 +1,13 @@
-import { BEDROCK_KIMI_K3_MODEL } from '@/lib/ai-provedores';
+import { BEDROCK_KIMI_K3_MODEL, gptAtual } from '@/lib/ai-provedores';
 
 // Compatibilidade comprovada pelo canário strict JSON do PACE, não pelo prefixo do fornecedor.
 // Expandir este conjunto exige verificar JSON nativo + schema PACE + contexto + catálogo de custo.
 export const MODELOS_PACE = new Set([
-  'gpt-5.4-2026-03-05',
-  'gpt-5.4-mini',
-  'gpt-5.4-mini-2026-03-17',
+  // 15/10/2026: os GPT 5.4 e 5.4 mini foram aposentados (`GPT_APOSENTADO`) e viraram Terra e Luna,
+  // pelo Bedrock. Os schemas das cinco etapas foram enviados aos dois pelo Responses do Bedrock
+  // antes da troca. Sessão aberta com o id antigo congelado passa por `gptAtual` na conferência.
+  'gpt-5.6-terra',
+  'gpt-5.6-luna',
   'gemini-3.8-flash',
   'claude-sonnet-5-5',
   'claude-opus-5-5',
@@ -15,7 +17,7 @@ export const MODELOS_PACE = new Set([
   BEDROCK_KIMI_K3_MODEL,
 ]);
 export function modeloPaceCompativel(modelo: string): boolean {
-  return MODELOS_PACE.has(modelo);
+  return MODELOS_PACE.has(gptAtual(modelo));
 }
 
 /**

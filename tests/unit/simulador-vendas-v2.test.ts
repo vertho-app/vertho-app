@@ -256,11 +256,13 @@ describe('PACE v3: contratos, evidências e acesso ilimitado por prazo', () => {
     expect(configSchema.safeParse({ ...config, limiteSessoes: 3 }).success).toBe(false);
     expect(configSchema.safeParse({ ...config, periodoFim: null }).success).toBe(false);
   });
-  it.each(['gpt-5.4-2026-03-05', 'gpt-5.4-mini', 'gpt-5.4-mini-2026-03-17'])(
+  // 15/10/2026: os GPT 5.4 viraram Terra e Luna (`GPT_APOSENTADO`); o id antigo segue qualificado pelo substituto.
+  it.each(['gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4-2026-03-05', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-mini-2026-03-17'])(
     'modelo qualificado %s',
     (modelo) => expect(modeloPaceCompativel(modelo)).toBe(true),
   );
-  it.each(['claude-sonnet-4-6', 'gemini-3', 'gpt-5.4', 'gpt-foo'])('modelo não qualificado %s', (modelo) =>
+  // `gpt-5.5` vira o Sol, que não passou pelo canário do PACE.
+  it.each(['claude-sonnet-4-6', 'gemini-3', 'gpt-6-sol', 'gpt-5.5', 'gpt-foo'])('modelo não qualificado %s', (modelo) =>
     expect(modeloPaceCompativel(modelo)).toBe(false),
   );
   it('pagina depois do trigésimo sem offset e recusa cursor injetado', () => {

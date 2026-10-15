@@ -33,7 +33,7 @@ import { costFromTokens, openAIWebSearchToolCost } from '@/lib/ia-cost-catalog';
 // (A8, ver o cabeçalho acima). A regra de ORGANIZAÇÃO continua: predicado puro
 // mora em `lib/`, não aqui.
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
-import { BEDROCK_CHAT_URL, BEDROCK_KIMI_K3_MODEL, BEDROCK_RESPONSES_URL, PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, rotaBedrockDoGpt, usaMaxCompletionTokens } from '@/lib/ai-provedores';
+import { BEDROCK_CHAT_URL, BEDROCK_KIMI_K3_MODEL, BEDROCK_RESPONSES_URL, PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, gptAtual, rotaBedrockDoGpt, usaMaxCompletionTokens } from '@/lib/ai-provedores';
 import { DEGRADACAO, registrarDegradacao } from '@/lib/degradacao';
 import { reservarChamadaBedrock } from '@/lib/bedrock-piloto';
 import { bedrockVendasVerthoAutorizado } from '@/lib/bedrock-vendas-vertho';
@@ -266,12 +266,13 @@ export async function callAI(
   // realmente passa (tela, constante, script e `sys_config` chegam pelo `aiConfig`).
   // Provedor não declarado numa tarefa não liberada vira o default declarado dela,
   // com degradação registrada; não lança, porque isto é entrega.
-  const model = await modeloNaReguaDePrivacidade(aiConfig?.model || DEFAULT_MODEL, {
+  // GPT aposentado vira o substituto da família 5.6 ANTES da régua (`GPT_APOSENTADO`, 15/10/2026).
+  const model = await modeloNaReguaDePrivacidade(gptAtual(aiConfig?.model || DEFAULT_MODEL), {
     taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAI',
   });
   options = opcoesDoBedrock(model, options);
   if (options.structuredOutput) {
-    if (model !== aiConfig.model) throw new Error('O modelo estruturado foi recusado pela régua de privacidade.');
+    if (model !== gptAtual(aiConfig.model ?? '')) throw new Error('O modelo estruturado foi recusado pela régua de privacidade.');
     options = { ...options, semRetentativa: true, maxRetries: 0 };
   }
   // R-57: a resposta das tarefas que escrevem para o cliente sai sem travessão
@@ -354,12 +355,13 @@ export async function callAIChat(
     options = { ...options, _origemCodigo: origemDaChamada() };
   }
   // R-45: a mesma régua do gêmeo `callAI` (os dois caminhos, sempre).
-  const model = await modeloNaReguaDePrivacidade(aiConfig?.model || DEFAULT_MODEL, {
+  // GPT aposentado vira o substituto da família 5.6 ANTES da régua (`GPT_APOSENTADO`, 15/10/2026).
+  const model = await modeloNaReguaDePrivacidade(gptAtual(aiConfig?.model || DEFAULT_MODEL), {
     taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAIChat',
   });
   options = opcoesDoBedrock(model, options);
   if (options.structuredOutput) {
-    if (model !== aiConfig.model) throw new Error('O modelo estruturado foi recusado pela régua de privacidade.');
+    if (model !== gptAtual(aiConfig.model ?? '')) throw new Error('O modelo estruturado foi recusado pela régua de privacidade.');
     options = { ...options, semRetentativa: true, maxRetries: 0 };
   }
   // R-57: o mesmo registro do gêmeo `callAI` (os dois caminhos, sempre). No chat a
@@ -579,7 +581,8 @@ export async function callOpenAIWebSearch(
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY não configurada');
 
-  const model = options.model || process.env.OPENAI_WEB_SEARCH_MODEL || DEFAULT_COPILOTO_RESEARCH_MODEL;
+  // A busca segue na OpenAI (o Bedrock não tem `web_search`), mas nunca num GPT aposentado.
+  const model = gptAtual(options.model || process.env.OPENAI_WEB_SEARCH_MODEL || DEFAULT_COPILOTO_RESEARCH_MODEL);
   const startedAt = Date.now();
   const res = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
