@@ -1534,6 +1534,12 @@ Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvecto
 - **094** — INSE proxy para escolas privadas sem Saeb (score ponderado de signals do Censo)
 - **095** — `qt_doc_0_24` (idade-corte flexivel)
 
+**Filtros da tela `/admin/vertho/mercado-potencial`** (15/10/2026; peças puras em `lib/mercado-potencial/filtros.ts`, ligação em `app/admin/vertho/mercado-potencial/actions.ts`). Todos vão ao **banco, antes do `limit`**, nas três visões, e somam (AND):
+- **Cidades**: uma ou várias separadas por vírgula, com OU entre elas (`.ilike` para uma, `.or()` com `valorDeFiltro` para 2+; teto de 30).
+- **Nº de professores (≥)** (`qt_professores`) e **Nº de gestores (≥)**. Gestores: município e rede usam `qt_gestores`; a MV de escola **não tem** essa coluna, a tela soma `qt_coord_pedag + qt_diretor_proxy` em JS, e o proxy é a constante 1 (mig 093/094), então o filtro vira `qt_coord_pedag >= N - 1`. Um guard lê as migrations e reprova se o proxy deixar de ser 1.
+- **Região metropolitana** (multi-select com busca): união dos municípios das RMs e RIDEs escolhidas, como `.in('municipio_ibge', …)`. A composição é do IBGE e mora em `lib/mercado-potencial/regioes-metropolitanas.ts`, **gerado** por `node --use-system-ca scripts/atualizar-regioes-metropolitanas.mjs` (84 RMs e 3 RIDEs em 15/10/2026; sem aglomerações urbanas nem sub-regiões; `--use-system-ca` porque o servidor do IBGE entrega a cadeia de certificado incompleta). Refaça o script de tempos em tempos: as RMs mudam por lei estadual. Os 1.432 códigos batiam com `diag_mv_mercado_municipio` na geração.
+- ⚠️ O PostgREST corta cada consulta em **1.000 linhas** mesmo com `limit` maior: a aba Município sem filtro mostra "Linhas 1.000" de 5.571, e o aviso de limite atingido não aparece (ele compara com 6.000). Os totais dos cartões somam só essas linhas.
+
 ### Migrations 096-098 (Pulso de Desenvolvimento)
 - **096** — `pulse_ciclos`, `pulse_assignments`, `pulse_responses`, `pulse_audit_logs` (RLS permissiva)
 - **097** — MV `pulse_mv_aggregates` (company/area/cargo × dimensao × T0/T2 + linha `_geral`) + funcao `refresh_pulse_aggregates()`

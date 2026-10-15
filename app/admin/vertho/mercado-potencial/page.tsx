@@ -16,6 +16,7 @@ import {
 } from './actions';
 import UnificadoTab from './_components/unificado-tab';
 import { secoesDoMercado, secaoInicialDoMercado, type SecaoMercado } from '@/lib/mercado-potencial/secoes';
+import { REGIOES_METROPOLITANAS } from '@/lib/mercado-potencial/regioes-metropolitanas';
 
 type Tab = 'municipio' | 'rede' | 'escola';
 
@@ -112,6 +113,7 @@ function MercadoTab() {
   const [precoGestor, setPrecoGestor] = useState(100);
   const [idadeOnboarding, setIdadeOnboarding] = useState(29);
   const [ufs, setUfs] = useState<string[]>([]);
+  const [regioes, setRegioes] = useState<string[]>([]);
   const [redes, setRedes] = useState<string[]>([]);
   const [municipioBusca, setMunicipioBusca] = useState('');
   const [municipioDebounced, setMunicipioDebounced] = useState('');
@@ -141,6 +143,7 @@ function MercadoTab() {
 
   const filtros: MercadoFilters = useMemo(() => ({
     uf: ufs.length ? ufs : undefined,
+    regioesMetropolitanas: regioes.length ? regioes : undefined,
     redes: redes.length ? redes : undefined,
     municipioBusca: municipioDebounced.trim() || undefined,
     inseMin: inseMin ?? undefined,
@@ -149,7 +152,7 @@ function MercadoTab() {
     gestoresMin: gestMinDebounced && gestMinDebounced > 0 ? gestMinDebounced : undefined,
     precoProf, precoGestor, idadeOnboarding,
     orderBy, orderDir, limit: limiteEfetivo,
-  }), [ufs, redes, municipioDebounced, inseMin, inseMax, profsMinDebounced, gestMinDebounced, precoProf, precoGestor, idadeOnboarding, orderBy, orderDir, limiteEfetivo]);
+  }), [ufs, regioes, redes, municipioDebounced, inseMin, inseMax, profsMinDebounced, gestMinDebounced, precoProf, precoGestor, idadeOnboarding, orderBy, orderDir, limiteEfetivo]);
 
   async function carregar() {
     setLoading(true);
@@ -229,7 +232,7 @@ function MercadoTab() {
             className="w-full flex items-center gap-2 px-4 py-3 text-xs font-semibold text-white/70 hover:text-white">
             <Filter size={13} /> {t('filters.title')}
             <span className="text-[10px] text-white/40 ml-2">
-              {[ufs.length && t('filters.ufCount', { count: ufs.length }), redes.length && t('filters.networkCount', { count: redes.length }), (inseMin != null || inseMax != null) && 'INSE', profsMin != null && profsMin > 0 && t('filters.teachersMinCount', { min: profsMin.toLocaleString(locale) }), gestMin != null && gestMin > 0 && t('filters.managersMinCount', { min: gestMin.toLocaleString(locale) })].filter(Boolean).join(' · ') || t('filters.none')}
+              {[ufs.length && t('filters.ufCount', { count: ufs.length }), regioes.length && t('filters.metroCount', { count: regioes.length }), redes.length && t('filters.networkCount', { count: redes.length }), (inseMin != null || inseMax != null) && 'INSE', profsMin != null && profsMin > 0 && t('filters.teachersMinCount', { min: profsMin.toLocaleString(locale) }), gestMin != null && gestMin > 0 && t('filters.managersMinCount', { min: gestMin.toLocaleString(locale) })].filter(Boolean).join(' · ') || t('filters.none')}
             </span>
             {showFiltros ? <ChevronUp size={13} className="ml-auto" /> : <ChevronDown size={13} className="ml-auto" />}
           </button>
@@ -259,8 +262,9 @@ function MercadoTab() {
               </div>
 
               {/* UF (dropdown multi-select) + filtro por cidade */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <UfDropdown selected={ufs} onChange={setUfs} labels={{ title: t('inputs.uf'), all: t('inputs.allUfs'), selected: (count) => t('inputs.ufSelected', { count }), clear: t('actions.clear') }} />
+                <RegiaoDropdown selected={regioes} onChange={setRegioes} labels={{ title: t('inputs.metro'), all: t('inputs.allMetros'), selected: (count) => t('inputs.metroSelected', { count }), clear: t('actions.clear'), search: t('inputs.metroSearch'), cities: (count) => t('inputs.metroCities', { count }), hint: t('inputs.metroHint') }} />
                 <div>
                   <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">{t('inputs.city')}</label>
                   <div className="relative">
@@ -582,6 +586,128 @@ function UfDropdown({ selected, onChange, labels }: { selected: string[]; onChan
                   {selected.includes(uf) && '✓'}
                 </span>
                 {uf}
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+const semAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// Mesma mecânica do UfDropdown (painel em portal, fecha ao clicar fora), com BUSCA:
+// são 87 regiões, e achar "Campinas" rolando a lista não é prático.
+function RegiaoDropdown({ selected, onChange, labels }: {
+  selected: string[]; onChange: (ids: string[]) => void;
+  labels: { title: string; all: string; selected: (count: number) => string; clear: string; search: string; cities: (count: number) => string; hint: string };
+}) {
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [busca, setBusca] = useState('');
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    function update() {
+      const el = triggerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    }
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(t) &&
+        dropdownRef.current && !dropdownRef.current.contains(t)
+      ) setOpen(false);
+    }
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  const visiveis = useMemo(() => {
+    const q = semAcento(busca.trim());
+    return q ? REGIOES_METROPOLITANAS.filter(r => semAcento(r.nome).includes(q)) : REGIOES_METROPOLITANAS;
+  }, [busca]);
+
+  function toggle(id: string) {
+    onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
+  }
+
+  const label = selected.length === 0
+    ? labels.all
+    : selected.length <= 2
+      ? selected.map(id => REGIOES_METROPOLITANAS.find(r => r.id === id)?.nome ?? id).join(', ')
+      : labels.selected(selected.length);
+
+  return (
+    <div>
+      <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-1">
+        {labels.title}
+      </label>
+      <button ref={triggerRef} onClick={() => { setOpen(!open); setBusca(''); }}
+        className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40 hover:border-white/30 transition-colors"
+        style={{ background: '#091D35' }}>
+        <span className="truncate text-left">{label}</span>
+        <div className="flex items-center gap-1 shrink-0 ml-2">
+          {selected.length > 0 && (
+            <span onClick={e => { e.stopPropagation(); onChange([]); }}
+              className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white/60 hover:text-white hover:bg-white/10 cursor-pointer">
+              {labels.clear}
+            </span>
+          )}
+          <ChevronDown size={13} className="text-white/40" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: '.15s' }} />
+        </div>
+      </button>
+      <p className="text-[9px] text-gray-600 mt-1">{labels.hint}</p>
+      {mounted && open && createPortal(
+        <div ref={dropdownRef}
+          className="rounded-lg p-2 shadow-2xl"
+          style={{
+            position: 'fixed',
+            top: coords.top,
+            left: coords.left,
+            width: Math.max(coords.width, 340),
+            zIndex: 1000,
+            background: '#0b1d36',
+            border: '1px solid rgba(255,255,255,.1)',
+          }}>
+          <input autoFocus value={busca} onChange={e => setBusca(e.target.value)} placeholder={labels.search}
+            className="w-full mb-2 px-3 py-1.5 rounded-md text-xs text-white border border-white/10 outline-none focus:border-cyan-400/40"
+            style={{ background: '#091D35' }} />
+          <div className="max-h-64 overflow-y-auto">
+            {visiveis.map(r => (
+              <button key={r.id} onClick={() => toggle(r.id)}
+                className={`w-full flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-semibold text-left transition-colors ${
+                  selected.includes(r.id)
+                    ? 'bg-cyan-400/15 text-cyan-300'
+                    : 'text-white/60 hover:bg-white/[0.05] hover:text-white'
+                }`}>
+                <span className={`w-3 h-3 shrink-0 rounded-sm border flex items-center justify-center text-[9px] ${
+                  selected.includes(r.id) ? 'border-cyan-400 bg-cyan-400/20' : 'border-white/20'
+                }`}>
+                  {selected.includes(r.id) && '✓'}
+                </span>
+                <span className="truncate flex-1">{r.nome}</span>
+                <span className="shrink-0 text-[9px] font-normal text-white/30">{labels.cities(r.municipios.length)}</span>
               </button>
             ))}
           </div>

@@ -3,7 +3,7 @@
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import {
-  GESTORES_NA_ESCOLA, GESTORES_NA_MV, corteDeMinimo, orDeCidades, termosDeCidade,
+  GESTORES_NA_ESCOLA, GESTORES_NA_MV, corteDeMinimo, municipiosDasRegioes, orDeCidades, termosDeCidade,
   type ColunaGestores,
 } from '@/lib/mercado-potencial/filtros';
 import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
@@ -28,6 +28,7 @@ import { escaparLike } from '@/lib/sql-like';
 
 export interface MercadoFilters {
   uf?: string[];                          // multi-UF (vazio = todas)
+  regioesMetropolitanas?: string[];       // ids IBGE de RM/RIDE (lib/mercado-potencial/regioes-metropolitanas); união dos municípios
   redes?: string[];                       // MUNICIPAL/ESTADUAL/FEDERAL/PRIVADA (vazio = todas)
   municipioBusca?: string;                // nome(s) do município (ilike); várias separadas por vírgula = OU
   inseMin?: number;                       // 1-6 (NULL passa)
@@ -78,6 +79,10 @@ function aplicarFiltrosBase(
   gestores: ColunaGestores = GESTORES_NA_MV,
 ) {
   if (filtros.uf?.length) query = query.in('uf', filtros.uf);
+  // Região metropolitana: a união dos municípios das regiões escolhidas. As 3 MVs
+  // têm `municipio_ibge`, e o filtro soma (AND) com UF, cidade e o resto.
+  const municipiosRm = municipiosDasRegioes(filtros.regioesMetropolitanas);
+  if (municipiosRm) query = query.in('municipio_ibge', municipiosRm);
   if (filtros.inseMin != null) query = query.gte(inseCol, filtros.inseMin);
   if (filtros.inseMax != null) query = query.lte(inseCol, filtros.inseMax);
   // Mínimos de professores e de gestores vão ao BANCO (antes do `limit`):

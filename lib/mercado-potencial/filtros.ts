@@ -1,3 +1,5 @@
+import { REGIOES_METROPOLITANAS } from '@/lib/mercado-potencial/regioes-metropolitanas';
+import { valorDeFiltro } from '@/lib/postgrest-valor';
 import { escaparLike } from '@/lib/sql-like';
 
 /**
@@ -36,14 +38,33 @@ export function termosDeCidade(busca?: string | null): string[] {
  *
  * O valor vai ENTRE ASPAS porque `,` `.` `:` `(` `)` são sintaxe do `or` e um nome
  * com qualquer um deles (ex.: "Sta. Maria") quebraria a expressão. `escaparLike`
- * primeiro (`%` e `_` literais), depois a barra e a aspa para a string entre
- * aspas do PostgREST, que desfaz esse nível de escape antes de entregar o padrão
- * ao ILIKE.
+ * primeiro (`%` e `_` literais), depois `valorDeFiltro` (aspas, com a barra e a
+ * aspa escapadas para a string do PostgREST, que desfaz esse nível de escape
+ * antes de entregar o padrão ao ILIKE).
  */
 export function orDeCidades(termos: string[]): string {
-  return termos
-    .map((t) => `municipio.ilike."%${escaparLike(t).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}%"`)
-    .join(',');
+  return termos.map((t) => `municipio.ilike.${valorDeFiltro(`%${escaparLike(t)}%`)}`).join(',');
+}
+
+const MUNICIPIOS_POR_REGIAO = new Map(REGIOES_METROPOLITANAS.map((r) => [r.id, r.municipios]));
+
+/**
+ * Regiões escolhidas (ids IBGE de RM/RIDE) -> códigos `municipio_ibge` da UNIÃO
+ * delas, para um `.in('municipio_ibge', …)`.
+ *
+ * `null` = filtro não pedido (ausente, não-lista ou lista vazia): não filtra.
+ * Id que não existe é ignorado, e se TODOS forem desconhecidos o resultado é
+ * `[]`, que no banco é "nenhuma linha" (medido no PostgREST real nas 3 visões):
+ * pedir uma região que não existe não pode devolver o mercado inteiro.
+ * A lista vem do cliente, então a leitura é limitada ao número de regiões que existem.
+ */
+export function municipiosDasRegioes(ids: unknown): string[] | null {
+  if (!Array.isArray(ids) || ids.length === 0) return null;
+  const uniao = new Set<string>();
+  for (const id of ids.slice(0, REGIOES_METROPOLITANAS.length)) {
+    for (const codigo of (typeof id === 'string' ? MUNICIPIOS_POR_REGIAO.get(id) : undefined) ?? []) uniao.add(codigo);
+  }
+  return [...uniao];
 }
 
 /**
