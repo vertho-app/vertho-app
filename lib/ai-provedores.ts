@@ -65,14 +65,19 @@ export const GPT_FICA_NA_OPENAI: Readonly<Record<string, string>> = {
  * Duas saídas além do mapa:
  * - `OPENAI_VIA_BEDROCK=off` desliga a rota inteira. Lido em RUNTIME, nunca numa
  *   `const` de topo: em ESM o import é avaliado antes do `.env` dos scripts.
- * - O esforço de raciocínio `minimal` não existe no Bedrock (400 "does not support
- *   'minimal'", medido 14/10/2026 no Terra) e existe na OpenAI: esse pedido fica lá.
- *   (O nome do campo não aparece aqui de propósito: o guard `ia-request-cru-guard`
- *   casa a string em qualquer arquivo fora do wrapper, inclusive em comentário.)
+ * - Esforço de raciocínio fora dos níveis MEDIDOS no Bedrock fica na OpenAI. Lista de
+ *   permissão, não de proibição: um 400 do Bedrock não vai para a reserva, então um
+ *   nível novo vindo de tela, `sys_config` ou constante viraria falha onde a OpenAI
+ *   talvez aceitasse. Medido 14/10/2026 no Terra: `minimal` deu 400 ("does not support
+ *   'minimal'"); none, low, medium, high e xhigh, 200. (O nome do campo não aparece aqui
+ *   de propósito: o guard `ia-request-cru-guard` casa a string em qualquer arquivo fora
+ *   do wrapper, inclusive em comentário.)
  */
+const ESFORCOS_MEDIDOS_NO_BEDROCK: ReadonlySet<string> = new Set(['none', 'low', 'medium', 'high', 'xhigh']);
+
 export function rotaBedrockDoGpt(modelId: string, reasoningEffort?: string | null): string | null {
   if (String(process.env.OPENAI_VIA_BEDROCK ?? '').trim().toLowerCase() === 'off') return null;
-  if (reasoningEffort === 'minimal') return null;
+  if (reasoningEffort != null && !ESFORCOS_MEDIDOS_NO_BEDROCK.has(reasoningEffort)) return null;
   return Object.prototype.hasOwnProperty.call(GPT_VIA_BEDROCK, modelId) ? GPT_VIA_BEDROCK[modelId] : null;
 }
 

@@ -172,10 +172,17 @@ describe('GPT pelo AWS Bedrock · rota', () => {
     expect(mocks.degradacoes).toEqual([]);
   });
 
-  it("reasoning 'minimal' fica na OpenAI: o Bedrock recusa esse nível (400, medido 14/10)", async () => {
-    await callAI('SYS', 'USER', { model: TERRA }, 7000, { ...SO_TRANSPORTE, reasoningEffort: 'minimal' });
+  it.each(['minimal', 'max'] as const)("esforço '%s' (fora dos níveis medidos no Bedrock) fica na OpenAI", async (esforco) => {
+    // Lista de PERMISSÃO: um 400 do Bedrock não vai para a reserva, então nível não medido não sai por lá.
+    await callAI('SYS', 'USER', { model: TERRA }, 7000, { ...SO_TRANSPORTE, reasoningEffort: esforco });
     expect(chamadas().map((c) => c.url)).toEqual([OPENAI_CHAT]);
-    expect(rotaBedrockDoGpt(TERRA, 'low')).toBe(TERRA_BEDROCK);
+    expect(mocks.degradacoes).toEqual([]);
+  });
+
+  it('os níveis medidos (e a ausência de esforço) saem pelo Bedrock', () => {
+    for (const esforco of [undefined, null, 'none', 'low', 'medium', 'high', 'xhigh']) {
+      expect(rotaBedrockDoGpt(TERRA, esforco), String(esforco)).toBe(TERRA_BEDROCK);
+    }
   });
 
   it('GPT fora do mapa (snapshot datado) fica na OpenAI, sem degradação', async () => {
