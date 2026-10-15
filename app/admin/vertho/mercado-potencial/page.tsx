@@ -117,6 +117,8 @@ function MercadoTab() {
   const [municipioDebounced, setMunicipioDebounced] = useState('');
   const [inseMin, setInseMin] = useState<number | null>(null);
   const [inseMax, setInseMax] = useState<number | null>(null);
+  const [profsMin, setProfsMin] = useState<number | null>(null);
+  const [profsMinDebounced, setProfsMinDebounced] = useState<number | null>(null);
   const [orderBy, setOrderBy] = useState('score_completo');
   const [orderDir, setOrderDir] = useState<'asc' | 'desc'>('desc');
   const [showFiltros, setShowFiltros] = useState(true);
@@ -128,6 +130,13 @@ function MercadoTab() {
     return () => clearTimeout(t);
   }, [municipioBusca]);
 
+  // Mesmo debounce para o mínimo de professores: "100" são três teclas e, sem
+  // isso, três consultas em corrida (a resposta de "1" pode chegar por último).
+  useEffect(() => {
+    const t = setTimeout(() => setProfsMinDebounced(profsMin), 400);
+    return () => clearTimeout(t);
+  }, [profsMin]);
+
   // Defaults por tab (alinhados com o cap na action).
   const DEFAULT_LIMITE: Record<Tab, number> = { municipio: 6000, rede: 8000, escola: 1000 };
   const limiteEfetivo = limite ?? DEFAULT_LIMITE[tab];
@@ -138,9 +147,10 @@ function MercadoTab() {
     municipioBusca: municipioDebounced.trim() || undefined,
     inseMin: inseMin ?? undefined,
     inseMax: inseMax ?? undefined,
+    professoresMin: profsMinDebounced && profsMinDebounced > 0 ? profsMinDebounced : undefined,
     precoProf, precoGestor, idadeOnboarding,
     orderBy, orderDir, limit: limiteEfetivo,
-  }), [ufs, redes, municipioDebounced, inseMin, inseMax, precoProf, precoGestor, idadeOnboarding, orderBy, orderDir, limiteEfetivo]);
+  }), [ufs, redes, municipioDebounced, inseMin, inseMax, profsMinDebounced, precoProf, precoGestor, idadeOnboarding, orderBy, orderDir, limiteEfetivo]);
 
   async function carregar() {
     setLoading(true);
@@ -220,7 +230,7 @@ function MercadoTab() {
             className="w-full flex items-center gap-2 px-4 py-3 text-xs font-semibold text-white/70 hover:text-white">
             <Filter size={13} /> {t('filters.title')}
             <span className="text-[10px] text-white/40 ml-2">
-              {[ufs.length && t('filters.ufCount', { count: ufs.length }), redes.length && t('filters.networkCount', { count: redes.length }), (inseMin != null || inseMax != null) && 'INSE'].filter(Boolean).join(' · ') || t('filters.none')}
+              {[ufs.length && t('filters.ufCount', { count: ufs.length }), redes.length && t('filters.networkCount', { count: redes.length }), (inseMin != null || inseMax != null) && 'INSE', profsMin != null && profsMin > 0 && t('filters.teachersMinCount', { min: profsMin.toLocaleString(locale) })].filter(Boolean).join(' · ') || t('filters.none')}
             </span>
             {showFiltros ? <ChevronUp size={13} className="ml-auto" /> : <ChevronDown size={13} className="ml-auto" />}
           </button>
@@ -289,10 +299,11 @@ function MercadoTab() {
                 </div>
               )}
 
-              {/* INSE range */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* INSE range + mínimo de professores (total) */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <NumInput label={t('inputs.inseMin')} value={inseMin} onChange={setInseMin} allowNull />
                 <NumInput label={t('inputs.inseMax')} value={inseMax} onChange={setInseMax} allowNull />
+                <NumInput label={t('inputs.teachersMin')} value={profsMin} onChange={setProfsMin} allowNull />
               </div>
             </div>
           )}
@@ -361,6 +372,7 @@ function MercadoTab() {
                     )}
                     <Th label="UF" coluna="uf" orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label={t('table.schools')} coluna="qt_escolas" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
+                    <Th label={t('table.teachersTotal')} coluna="qt_professores" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label={t('table.teachers', { age: idadeLabel })} coluna="qt_professores_onboarding" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label={t('table.managersShort')} coluna="qt_gestores" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
                     <Th label={t('table.youngPct')} coluna="pct_jovens" right orderBy={orderBy} orderDir={orderDir} onSort={toggleSort} />
@@ -392,6 +404,7 @@ function MercadoTab() {
                       )}
                       <td className="px-3 py-2.5 text-white/70">{r.uf}</td>
                       <td className="px-3 py-2.5 text-right text-white/85">{fmt.int(r.qt_escolas, locale)}</td>
+                      <td className="px-3 py-2.5 text-right text-white/85">{fmt.int(r.qt_professores, locale)}</td>
                       <td className="px-3 py-2.5 text-right text-white">{fmt.int(r.qt_professores_onboarding ?? r.qt_jovens_efetivo, locale)}</td>
                       <td className="px-3 py-2.5 text-right text-white/85">{fmt.int(r.qt_gestores, locale)}</td>
                       <td className="px-3 py-2.5 text-right text-emerald-300/80">{fmt.pct(r.pct_jovens)}</td>

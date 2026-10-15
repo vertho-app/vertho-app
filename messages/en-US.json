@@ -5780,6 +5780,7 @@
       "title": "Filters",
       "ufCount": "{count} UF",
       "networkCount": "{count} network",
+      "teachersMinCount": "≥ {min} teachers",
       "none": "no filters"
     },
     "inputs": {
@@ -5795,7 +5796,8 @@
       "cityPlaceholder": "e.g.: Sao Paulo, Salvador...",
       "network": "Administrative network",
       "inseMin": "Minimum INSE (1=low, 6=high)",
-      "inseMax": "maximum INSE"
+      "inseMax": "maximum INSE",
+      "teachersMin": "Number of teachers (≥)"
     },
     "tabs": {
       "city": "Municipality",
@@ -5820,6 +5822,7 @@
       "identification": "Identification",
       "network": "Network",
       "schools": "Schools",
+      "teachersTotal": "Total teachers",
       "teachers": "Professors {age}",
       "managersShort": "Management",
       "youngPct": "% young",

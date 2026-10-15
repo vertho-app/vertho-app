@@ -28,6 +28,7 @@ export interface MercadoFilters {
   municipioBusca?: string;                // busca por nome do município (ilike)
   inseMin?: number;                       // 1-6 (NULL passa)
   inseMax?: number;
+  professoresMin?: number;                // nº MÍNIMO de professores (total, >=) da linha
   precoProf?: number;                     // R$/mês por professor (default 300)
   precoGestor?: number;                   // R$/mês por gestor (default 500)
   idadeOnboarding?: number;               // corte recém-formados (default 29)
@@ -69,6 +70,13 @@ function aplicarFiltrosBase(query: any, filtros: MercadoFilters, inseCol: 'inse_
   if (filtros.uf?.length) query = query.in('uf', filtros.uf);
   if (filtros.inseMin != null) query = query.gte(inseCol, filtros.inseMin);
   if (filtros.inseMax != null) query = query.lte(inseCol, filtros.inseMax);
+  // Mínimo de professores vai ao BANCO (antes do `limit`): filtrar depois, no
+  // JS, cortaria o mínimo sobre as N primeiras linhas e esconderia o resto.
+  // As 3 MVs têm `qt_professores`. A action é endpoint HTTP, então o valor é
+  // do cliente: só número finito > 0, e `ceil` porque a coluna é inteira e
+  // `>= 12.5` num bigint dá 22P02 (para inteiros, `>= 12.5` é `>= 13`).
+  const profsMin = Number(filtros.professoresMin);
+  if (Number.isFinite(profsMin) && profsMin > 0) query = query.gte('qt_professores', Math.ceil(profsMin));
   if (filtros.municipioBusca?.trim()) {
     // ilike é case-insensitive; unaccent ficaria melhor, mas o índice gin trgm
     // em diag_escolas não está nas MVs — usar ilike simples.
