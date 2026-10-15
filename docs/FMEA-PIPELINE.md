@@ -679,7 +679,7 @@ consumo gravado ao entrar na conversa, que é o que deixa o flag da tela velho).
   repete uma escrita idempotente). A qualitativa da `evaluation` não tem retorno antecipado depois de
   concluída: não medido se algum caminho regrava `em_andamento` ali.
 
-### F-I41 · Cenário que a pessoa não reconhece como dela 🟡 (proteções e sinal no ar em 13/10/2026; regras v2 desligadas até a verificação)
+### F-I41 · Cenário que a pessoa não reconhece como dela 🟡 (proteções e sinal no ar em 13/10/2026; regras v2 desligadas: a verificação de 13/10 reprovou o auditor)
 - **Gatilho:** o gerador do Cenário A (`lib/ia3-cenarios.ts`) recebia 5 campos do cargo, sem
   `contexto_cultural`, e um prompt que pedia trade-off, fator complicador, dilema ético, dois
   personagens e "1 dado concreto". Sem situação real no insumo, ele inventava fato técnico e papel. O
@@ -748,12 +748,36 @@ consumo gravado ao entrar na conversa, que é o que deixa o flag da tela velho).
       perdido no recheck, pessoas contadas como respostas e prompt v2 mudando em silêncio;
     - Fase 3: salvar zerando o que não veio, todo cenário partindo do mesmo caso, caso entrando
       na v1 e auditor ignorando o caso gravado.
+- **Verificação de 13/10/2026** (sem gravar em `banco_cenarios` nem em `respostas`; US$ 6,34 no
+  ledger): a v2 segue **desligada**, com três bloqueios.
+  - **O auditor v2 reprova o controle.** O B elogiado de Ibipeba (92 em produção) levou 60 nas duas
+    leituras, com erro grave: a régua conta como "fato técnico sem fonte" o número de unidades da
+    rede, a avaliação externa e os percentuais da própria situação. A causa é a régua, não o
+    contexto (o gerador desse B via o mesmo contexto). Com ela, todo cenário v2 trava em 60, sai do
+    ar pelo corte de 80 e esgota a escada. Os 4 defeitos da reunião foram pegos: 3 nas listas e a
+    rede inventada pela regra de anonimização.
+  - **O auditor do A vê só 500 caracteres do contexto da empresa** (`montarCheckIA3Prompt`,
+    `contexto.slice(0, 500)`, de quando ele não conferia fatos), e o gerador vê o contexto inteiro: o
+    que está no PPP depois do corte vira "fato sem fonte".
+  - **Sem caso real, os 6 cenários de um cargo viram a mesma situação** (6 de 6, 5 de 6 e 6 de 6 em
+    três cargos da Amazon). Cada célula é gerada isolada, e a regra "sem fonte, texto genérico"
+    prende o gerador às mesmas entregas da ficha. Não ligar sem os casos por competência ou um
+    mecanismo de variedade. A leitura cega não mostra isso: ela tem uma situação por cargo.
+  - O que melhorou (29 A em 6 cargos, a mesma régua nos dois lados): texto lido de 1.425 para 1.132
+    caracteres, nenhum acima dos tetos e nenhum retry; perguntas com 2 ou mais "?" de 26 para 2 em
+    116; fatos sem fonte de 96 para 17; pontos fora do cargo de 13 para 0. A IA4 separou N1 de N3
+    nas três versões (no Caixa, a resposta N3 saiu com nota de N2, 2,94 e 2,95, em duas delas).
+  - O B v2 ficou dentro dos tetos (6 de 6) só pelo prompt: `validarCenarioB` não confere teto.
+  - De passagem: um A da v1 traz o nome da empresa (a anonimização falhou ali), e 4 dos 7 A de um
+    cargo de Ibipeba apontam para competências que não existem mais.
 - ⚠️ **Em aberto:**
-  - a v2 só liga depois da verificação do plano: conjunto rotulado da reunião, geração sem gravar, a
-    IA4 separando N1 de N3 e a leitura cega do dono. No protótipo de 11/10, duas leituras do mesmo
-    texto deram 89 e 60, e a variância do auditor ainda não foi medida em escala;
-  - o lote (Trigger) recebeu as Fases 0 a 2 no deploy `20261013.1`. Os casos reais e as
-    fronteiras (Fase 3) só chegam ao lote no próximo `trigger.dev deploy`;
+  - ligar a v2 pede, nesta ordem: recalibrar a régua do auditor e repetir o conjunto rotulado até o
+    controle passar; os casos reais por competência; e a leitura cega do dono, que decide o alvo de
+    tamanho (o teto de 600 deu textos de 421 a 450 caracteres; o de 900, de 611 a 703). No protótipo
+    de 11/10, duas leituras do mesmo texto deram 89 e 60, e a variância do auditor ainda não foi
+    medida em escala;
+  - o lote (Trigger) tem as Fases 0 a 3 e o casamento caso × competência: os deploys de 15/10
+    (`20261015.1` em diante) saem de commits que já contêm `76b5e021`;
   - a Amazon e os demais clientes ainda não devolveram a planilha com casos e fronteiras, e o
     caso real ainda não alimenta o Cenário B;
   - a nota de representatividade tem efeito de ORDEM (o primeiro cenário recebe nota mais alta) e só
