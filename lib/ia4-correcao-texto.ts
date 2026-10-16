@@ -46,7 +46,11 @@ const CHAVES_FIXAS = new Set([
  * encolher (tirar uma barreira não demonstrada é uma correção legítima); lista de objetos só é mesclada item a item
  * quando tem o mesmo tamanho, senão fica a original. Chave que só existe na correção é ignorada. PURO.
  */
-export function mesclarSoTexto(original: any, correcao: any): any {
+export function mesclarSoTexto(
+  original: any, correcao: any,
+  /** Chave que vem INTEIRA da original. Padrão: as da avaliação da IA4; o blueprint passa a régua dele. */
+  ehFixa: (chave: string, valor: unknown) => boolean = (k) => CHAVES_FIXAS.has(k),
+): any {
   if (original === null || original === undefined) return original;
   if (typeof original === 'number' || typeof original === 'boolean') return original;
   if (typeof original === 'string') {
@@ -58,12 +62,12 @@ export function mesclarSoTexto(original: any, correcao: any): any {
     const soTexto = original.every((x) => typeof x === 'string' && !PARECE_NUMERO.test(x));
     if (soTexto) return correcao.every((x: unknown) => typeof x === 'string') ? correcao : original;
     if (correcao.length !== original.length) return original;
-    return original.map((item, i) => mesclarSoTexto(item, correcao[i]));
+    return original.map((item, i) => mesclarSoTexto(item, correcao[i], ehFixa));
   }
   if (typeof original === 'object') {
     const c = correcao && typeof correcao === 'object' && !Array.isArray(correcao) ? correcao : {};
     const out: Record<string, any> = {};
-    for (const k of Object.keys(original)) out[k] = CHAVES_FIXAS.has(k) ? original[k] : mesclarSoTexto(original[k], c[k]);
+    for (const k of Object.keys(original)) out[k] = ehFixa(k, original[k]) ? original[k] : mesclarSoTexto(original[k], c[k], ehFixa);
     return out;
   }
   return original;
