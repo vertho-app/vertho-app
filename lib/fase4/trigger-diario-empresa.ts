@@ -43,6 +43,7 @@ import { temaPilula } from '@/lib/notifications/pilula-envio';
 import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
 import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
 import { carregarIdiomasDaEmpresa } from '@/lib/idioma-do-destinatario';
+import { pausaDeEnvios } from '@/lib/envios-pausados';
 
 const TOTAL_SEMANAS = 14;
 const SEMANAS_IMPL = [4, 8, 12]; // Semanas de implementação (sem pílula nova)
@@ -133,6 +134,14 @@ export async function processarEmpresaDiario(
   /** Envios cuja trilha ainda não começou: pulados sem enviar e sem avançar o relógio. */
   let aguardandoInicio = 0;
   let recuperacoes = 0, pendenciasPosFim = 0;
+
+  // Envios pausados pelo dono (`lib/envios-pausados.ts`): nada sai e nenhum relógio anda. O despacho já filtra; isto
+  // cobre a task que já estava na fila do QStash quando a pausa entrou, e qualquer outro chamador do worker.
+  const pausa = pausaDeEnvios((empresa as any).sys_config);
+  if (pausa) {
+    console.log(`[triggerDiario] ${(empresa as any).slug}: envios pausados (${pausa.motivo}), nada enviado`);
+    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, pendenciasPosFim };
+  }
 
   const cadencia = (empresa as any).sys_config?.cadencia || {};
   /**

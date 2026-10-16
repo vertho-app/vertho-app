@@ -13,6 +13,7 @@ import { publicarQStashTask, publicarWhatsappCis } from '@/lib/qstash-publish';
 import { criarRelogioCadencia, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 import { deepLinkSemana } from '@/lib/notifications/pilula-envio';
 import { APP_URL, tenantUrl } from '@/lib/domain';
+import { pausaDeEnvios } from '@/lib/envios-pausados';
 
 const TIMEOUT_ABANDONO_HORAS = 48;
 const TOTAL_SEMANAS = 14;
@@ -384,6 +385,9 @@ export async function triggerDiario() {
   // 2 DUO = ter, evidência = qui). O worker re-checa — aqui é para não enfileirar
   // task à toa.
   const doDia = (empresas as any[]).filter((e) => {
+    // Envios pausados pelo dono (`lib/envios-pausados.ts`): a empresa não entra no dia. O worker re-checa.
+    const pausa = pausaDeEnvios(e.sys_config);
+    if (pausa) { console.info(`[triggerDiario] ${e.slug}: envios pausados (${pausa.motivo})`); return false; }
     const cadencia = e.sys_config?.cadencia || {};
     // 🔴 O DESLOCAMENTO DE FERIADO ENTRA AQUI TAMBÉM. O worker aplica
     // `diasDaSemanaComFeriado` e re-checa, mas re-check só acontece em quem foi

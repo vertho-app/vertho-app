@@ -36,6 +36,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { enviarPorTemplate } from '@/lib/notifications/pilula-template';
 import { tenantUrl } from '@/lib/domain';
 import { criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
+import { pausaDeEnvios } from '@/lib/envios-pausados';
 
 /**
  * Momento em que o aviso foi ligado. Relatório mais antigo que isto é passado —
@@ -117,10 +118,10 @@ export async function avisarPlanosProntos(opts: {
     throw new Error('corteIso exige apenasSlug: reanúncio em massa sem escopo alcançaria outros tenants.');
   }
   const sb = createSupabaseAdmin();
-  const resumo = { elegiveis: 0, enviados: 0, falhas: 0, antigos: 0, repetidos: 0, semTelefone: 0, reprovados: 0 };
+  const resumo = { elegiveis: 0, enviados: 0, falhas: 0, antigos: 0, repetidos: 0, semTelefone: 0, reprovados: 0, pausadas: 0 };
 
   let q = sb.from('empresas')
-    .select('id, slug, nome, is_demo').or('is_demo.is.null,is_demo.eq.false');
+    .select('id, slug, nome, is_demo, sys_config').or('is_demo.is.null,is_demo.eq.false');
   if (opts.apenasSlug) q = q.eq('slug', opts.apenasSlug);
   const { data: empresas, error: eE } = await q;
   if (eE) { console.error('[avisar-plano] empresas:', eE.message); return resumo; }
@@ -129,6 +130,9 @@ export async function avisarPlanosProntos(opts: {
   }
 
   for (const emp of (empresas || []) as any[]) {
+    // Empresa com os envios pausados (`lib/envios-pausados.ts`) fica de fora, inclusive do botão: liberar é tirar a chave.
+    const pausa = pausaDeEnvios(emp.sys_config);
+    if (pausa) { resumo.pausadas++; console.info(`[avisar-plano] ${emp.slug}: envios pausados (${pausa.motivo})`); continue; }
     // Só o que nasceu depois do corte já filtra no banco — o `decidirAvisos`
     // refaz a checagem porque a régua tem que valer mesmo se a query mudar.
     const { data: rels, error: eR } = await sb.from('relatorios')
