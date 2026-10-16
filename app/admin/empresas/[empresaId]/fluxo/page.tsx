@@ -24,6 +24,7 @@ const STATUS_TXT: Record<string, string> = { queued: 'na fila', running: 'em and
 
 const PREREQ_COR: Record<GravidadePrereq, string> = { ok: '#2ECC71', atencao: '#f4b740', critico: '#e5484d' };
 const PREREQ_ROTULO: Record<GravidadePrereq, string> = { ok: 'ok', atencao: 'atenção', critico: 'crítico' };
+const rotuloKitSemanas = (n: number) => (n === 1 ? 'só da semana 1' : `até a semana ${n}`);
 
 export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);
@@ -37,6 +38,8 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
   const [confirmando, setConfirmando] = useState(false);
   const [disparando, setDisparando] = useState(false);
   const [erroExec, setErroExec] = useState<string | null>(null);
+  /** Kit só até a semana N (`null` = todas). Pedido do dono (16/10/2026), testando a criação de vídeo. */
+  const [kitSemanaMax, setKitSemanaMax] = useState<number | null>(null);
 
   const lerFluxo = useCallback(async () => {
     try {
@@ -56,7 +59,7 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
   const disparar = async (dryRun: boolean) => {
     setDisparando(true); setErroExec(null);
     try {
-      const r = await iniciarFluxoCompleto({ empresaId, turmaId, dryRun });
+      const r = await iniciarFluxoCompleto({ empresaId, turmaId, dryRun, kitSemanaMax });
       if ('error' in r) setErroExec(r.error);
       else { setConfirmando(false); await lerFluxo(); }
     } catch (e: any) { setErroExec(e?.message || 'Falha ao iniciar'); }
@@ -317,6 +320,21 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                   Roda no servidor, etapa por etapa, e você pode fechar a aba. Não envia nada às pessoas: enviar o PDI e iniciar a cadência continuam com você.
                   Gestor e RH só entram com a empresa inteira e PDI novo na rodada.
                 </p>
+                <label className="flex flex-wrap items-center gap-2 text-[11.5px] mb-1" style={{ color: 'rgba(255,255,255,.7)' }}>
+                  Kit semanal (conteúdos por DISC e vídeo):
+                  <select value={kitSemanaMax ?? ''} onChange={(e) => setKitSemanaMax(e.target.value ? Number(e.target.value) : null)}
+                    disabled={disparando || ativo || confirmando}
+                    className="rounded-md px-2 py-1 text-[11.5px] disabled:opacity-50"
+                    style={{ background: '#091D35', border: '1px solid rgba(255,255,255,.18)', color: '#e8eef6' }}>
+                    <option value="">todas as semanas</option>
+                    <option value="1">só a semana 1</option>
+                    {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>até a semana {n}</option>)}
+                  </select>
+                </label>
+                <p className="text-[11px] mb-3" style={{ color: 'rgba(255,255,255,.4)' }}>
+                  O limite vale só para o Kit. A trilha e a biblioteca saem completas, porque a trilha precisa de conteúdo em todas as semanas.
+                  As semanas que ficarem de fora podem ser geradas depois, rodando de novo com &quot;todas as semanas&quot;: o Kit só gera o que falta.
+                </p>
                 {!confirmando ? (
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => disparar(true)} disabled={disparando || ativo || p.nadaAFazer}
@@ -332,7 +350,8 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                   </div>
                 ) : (
                   <div className="rounded-lg px-3 py-3 text-[12.5px]" style={{ background: 'rgba(244,183,64,.08)', border: '1px solid rgba(244,183,64,.3)', color: '#f4b740' }}>
-                    Vai gerar com IA para {p.totalPessoas} pessoa(s) no escopo, e o que for gerado não se desfaz. Confirmar?
+                    Vai gerar com IA para {p.totalPessoas} pessoa(s) no escopo, e o que for gerado não se desfaz.
+                    {' '}{kitSemanaMax ? `Kit ${rotuloKitSemanas(kitSemanaMax)}.` : 'Kit de todas as semanas.'} Confirmar?
                     {criticos.length > 0 && (
                       <div className="mt-2 rounded-lg px-2.5 py-2 text-[12px]" style={{ background: 'rgba(229,72,77,.1)', border: '1px solid rgba(229,72,77,.35)', color: '#e5484d' }}>
                         Há {criticos.length} pré-requisito(s) crítico(s) pendente(s): {criticos.map((c) => c.titulo).join('; ')}. O que dependia deles vai falhar, e o gasto até lá não volta.
@@ -359,6 +378,7 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
             <div className="px-4 py-3 flex items-center justify-between gap-3 text-[12px]" style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}>
               <span className="text-white font-bold">
                 Último fluxo{fluxo.dryRun ? ' (simulação)' : ''} · {new Date(fluxo.criadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                {fluxo.kitSemanaMax ? ` · Kit ${rotuloKitSemanas(fluxo.kitSemanaMax)}` : ''}
               </span>
               <span className="flex items-center gap-2">
                 <span style={{ color: fluxo.status === 'done' ? '#2ECC71' : fluxo.status === 'error' ? '#e5484d' : fluxo.status === 'cancelled' ? '#f4b740' : '#34c5cc' }}>

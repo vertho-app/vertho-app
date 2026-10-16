@@ -80,6 +80,11 @@ export async function previaFluxoCompleto(input: z.infer<typeof EntradaSchema>):
 const IniciarSchema = EntradaSchema.extend({
   /** Simulação: lê as filas e grava o que FARIA, sem enfileirar nem gerar nada. */
   dryRun: z.boolean().optional(),
+  /**
+   * Kit só nas primeiras N semanas da trilha (`ParamsFluxo.kitSemanaMax`). Pedido do dono (16/10/2026), testando a criação
+   * de vídeo: rodar o fluxo gerando o Kit só da semana 1. A trilha e a biblioteca seguem completas. Ausente = todas.
+   */
+  kitSemanaMax: z.number().int().min(1).max(14).nullish(),
 });
 
 export type IniciarFluxoResult =
@@ -90,7 +95,7 @@ export async function iniciarFluxoCompleto(input: z.infer<typeof IniciarSchema>)
   const ctx = await requireAdminAction('ai.audit.regenerate');
   const parsed = IniciarSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: 'Entrada inválida' };
-  const { empresaId, turmaId, empresaInteiraJustificativa, cargos, dryRun } = parsed.data;
+  const { empresaId, turmaId, empresaInteiraJustificativa, cargos, dryRun, kitSemanaMax } = parsed.data;
 
   try {
     const sb = await requireAdminSupabase('ai.audit.regenerate');
@@ -130,6 +135,7 @@ export async function iniciarFluxoCompleto(input: z.infer<typeof IniciarSchema>)
       permitidos: permitidos ? [...permitidos] : null,
       dryRun: !!dryRun,
       criadoPor: (ctx as any)?.email || null,
+      ...(kitSemanaMax ? { kitSemanaMax } : {}),
     };
     const { data: job, error } = await sb.from('ia_jobs').insert({
       empresa_id: empresaId, fase: FASE_FLUXO, params, status: 'queued', progress: { ...progressoInicial(!!dryRun), atual: 'na fila' },
@@ -160,6 +166,8 @@ export interface EstadoFluxo {
   atualizadoEm: string | null;
   dryRun: boolean;
   escopo: ParamsFluxo['escopo'] | null;
+  /** O limite de semanas do Kit que ESTE fluxo pediu (`null` = todas): a tela mostra, para conferir o que foi pedido. */
+  kitSemanaMax: number | null;
 }
 
 const IdSchema = z.object({ empresaId: z.string().min(1), jobId: z.string().min(1).optional() });
@@ -185,6 +193,7 @@ export async function statusFluxoCompleto(input: z.infer<typeof IdSchema>): Prom
         jobId: data.id, status: data.status, erro: data.error || null,
         progresso: data.progress && Array.isArray((data.progress as any).etapas) ? (data.progress as ProgressoFluxo) : null,
         criadoEm: data.created_at, atualizadoEm: data.updated_at || null, dryRun: !!p.dryRun, escopo: p.escopo || null,
+        kitSemanaMax: typeof p.kitSemanaMax === 'number' ? p.kitSemanaMax : null,
       },
     };
   } catch (err: any) {
