@@ -72,7 +72,8 @@ describe('quinta não cobra quem já concluiu a semana acessível', () => {
     // Nos três pontos de retorno, senão o número some conforme o caminho.
     // `aguardandoInicio` (R-15, 03/10/2026) entrou no mesmo resumo, nos mesmos três pontos.
     // `recuperacoes` e `pendenciasPosFim` (R-94, 04/10/2026) entraram no resumo, nos mesmos três pontos.
+    // A pausa de envios por empresa (16/10/2026, `lib/envios-pausados.ts`) é o QUARTO ponto, com o mesmo resumo.
     const retornos = FONTE.match(/return \{ pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, pendenciasPosFim \}/g) || [];
-    expect(retornos.length).toBe(3);
+    expect(retornos.length).toBe(4);
   });
 });
