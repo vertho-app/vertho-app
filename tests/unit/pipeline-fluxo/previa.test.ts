@@ -188,7 +188,8 @@ describe('sem estimativa de custo (retirada a pedido do dono, 06/10/2026)', () =
       assessments: [{ colaborador_id: 'a', competencia: 's' }, { colaborador_id: 'b', competencia: 's' }],
       kitPlano: { kits: 3, podcasts: 1, videos: 1 }, conteudoPlano: { pecas: 4, audios: 1 },
     }));
-    expect(Object.keys(p).sort()).toEqual(['avisos', 'bloqueios', 'etapas', 'nadaAFazer', 'totalPessoas']);
+    // `pessoas` (16/10/2026) é o "x de Y com o fluxo inteiro": contagem de gente, não dinheiro (o JSON abaixo confere).
+    expect(Object.keys(p).sort()).toEqual(['avisos', 'bloqueios', 'etapas', 'nadaAFazer', 'pessoas', 'totalPessoas']);
     for (const e of p.etapas) expect(Object.keys(e).sort(), e.id).toEqual(expect.not.arrayContaining(['custoUsd', 'unidade']));
     expect(JSON.stringify(p)).not.toMatch(/custo|usd|US\$/i);
   });

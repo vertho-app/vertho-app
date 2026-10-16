@@ -10,6 +10,21 @@ export type { EtapaId };
 /** Ordem de execução. A competência de cada pessoa sai das notas da IA4 e decide o blueprint, o PDI e a trilha, então vem entre eles; a auditoria depende do blueprint; Gestor e RH vêm depois do PDI; a trilha depois do blueprint; o kit lê o plano da trilha, então vem depois dela; a trilha exige a biblioteca de conteúdo-base, então os conteúdos vêm antes dela. */
 export const ORDEM_ETAPAS: EtapaId[] = ['ia4', 'foco', 'blueprint', 'auditoria', 'pdi', 'conteudo', 'trilha', 'kit', 'gestor', 'rh'];
 
+/**
+ * "x de Y pessoas com o fluxo inteiro" (pedido do dono, 16/10/2026): os artefatos POR PESSOA (a competência dela,
+ * quando a regra está ligada, blueprint, PDI e trilha). Na simulação é a projeção ("teriam", nenhuma etapa bloqueada);
+ * na rodada real é o que ficou gravado ("ficaram com"). O Kit não entra: é por tema × DISC.
+ */
+export interface ResumoPessoasFluxo {
+  total: number;
+  completas: number;
+  projecao: boolean;
+  /** Quem fica de fora, com o que falta. */
+  incompletas: Array<{ nome: string; faltam: string[] }>;
+  /** Bloqueados por etapa (da prévia), para o selo da linha na simulação. */
+  bloqueadosPorEtapa: Partial<Record<EtapaId, number>>;
+}
+
 /** Uma escolha da etapa "Competência de cada pessoa", para a tela mostrar quem ficou com o quê e por quê. */
 export interface FocoDefinido {
   colaboradorId: string;
@@ -49,6 +64,10 @@ export interface ProgressoFluxo {
   blueprintAlvo?: string[];
   /** Competências escolhidas pela etapa "Competência de cada pessoa" nesta rodada (na simulação, as que SERIAM). */
   focoDefinido?: FocoDefinido[];
+  /** Quem tem (ou teria, na simulação) o fluxo inteiro, lido do banco no FIM da execução. */
+  pessoas?: ResumoPessoasFluxo;
+  /** A leitura do resumo de pessoas falhou: a tela diz que não mediu, em vez de mostrar "0 de N". */
+  pessoasErro?: string;
   /** Quantas execuções da task já houve (a task se re-agenda quando acaba o orçamento de tempo). */
   execucoes: number;
   dryRun?: boolean;

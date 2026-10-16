@@ -78,6 +78,23 @@ export type EtapaPrevia = {
 
 export type BloqueioPrevia = { etapa: EtapaId; motivo: string; quantidade: number; exemplos: string[] };
 
+/**
+ * Quantas pessoas têm (ou teriam) o fluxo INTEIRO, ou seja, os artefatos que são de cada pessoa: a competência dela
+ * (só com a regra da menor nota ligada), blueprint, PDI e trilha. O Kit não entra: ele é por tema × DISC, não por pessoa.
+ * Pedido do dono (16/10/2026): na simulação a tela listava etapa por etapa e não dizia quem sairia com tudo.
+ */
+export type ResumoPessoasPrevia = {
+  total: number;
+  /** Já têm tudo. */
+  completas: number;
+  /** Já têm tudo, ou terão se as etapas rodarem sem falha (projeção). */
+  completasProjetadas: number;
+  /** Quem não está com tudo AGORA, e o que falta (etapa: motivo, quando bloqueada). */
+  incompletas: Array<{ nome: string; faltam: string[] }>;
+  /** Quem não completaria nem rodando tudo: alguma etapa BLOQUEADA, com o motivo. */
+  incompletasProjetadas: Array<{ nome: string; faltam: string[] }>;
+};
+
 export type PreviaFluxo = {
   totalPessoas: number;
   etapas: EtapaPrevia[];
@@ -85,7 +102,11 @@ export type PreviaFluxo = {
   /** Nada a fazer: nenhuma etapa tem item pronto agora nem projetado. */
   nadaAFazer: boolean;
   avisos: string[];
+  pessoas: ResumoPessoasPrevia;
 };
+
+/** Situação de UMA pessoa numa etapa por pessoa: já tem, pronta agora, pronta depois da anterior, bloqueada. */
+type SituacaoNaEtapa = 'ja' | 'agora' | 'apos' | 'bloq';
 
 const norm = (s: unknown): string => (s || '').toString().trim().toLowerCase();
 
@@ -171,8 +192,14 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
 
   let algumPdi = false;
   const gestores = new Set<string>();
+  const pessoas: ResumoPessoasPrevia = { total: entrada.pessoas.length, completas: 0, completasProjetadas: 0, incompletas: [], incompletasProjetadas: [] };
 
   for (const p of entrada.pessoas) {
+    // Situação da pessoa em cada etapa POR PESSOA (competência, blueprint, PDI, trilha), para o "x de Y" da tela.
+    const sit: Partial<Record<EtapaId, SituacaoNaEtapa>> = {};
+    const motivo: Partial<Record<EtapaId, string>> = {};
+    const conta = (etapa: EtapaId, s: 'ja' | 'agora' | 'apos') => { acc[etapa][s]++; sit[etapa] = s; };
+    const bloq = (etapa: EtapaId, m: string) => { bloquear(etapa, m, p.nome); sit[etapa] = 'bloq'; motivo[etapa] = m; };
     const cargo = p.cargo ? cargoPorNome.get(p.cargo) : undefined;
     const foco = focoEfetivo(p, cargoPorNome);
     const individual = p.focoIndividual || [];
@@ -193,11 +220,11 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     // depois de todas avaliadas e checadas (`prontidaoParaFoco`). Até lá blueprint, PDI e trilha ficam PROJETADOS. ──
     const focoADefinir = !!entrada.regraFoco && individual.length === 0 && !temTrilha.has(p.id) && resp.length > 0;
     if (entrada.regraFoco) {
-      if (individual.length) acc.foco.ja++;
+      if (individual.length) conta('foco', 'ja');
       else if (temTrilha.has(p.id)) { /* segue a competência da trilha */ }
-      else if (resp.length === 0) bloquear('foco', 'Ainda não respondeu nenhum cenário', p.nome);
-      else if (resp.every((r) => r.avaliada && r.checada && assessed.has(r.competencia))) acc.foco.agora++;
-      else acc.foco.apos++;
+      else if (resp.length === 0) bloq('foco', 'Ainda não respondeu nenhum cenário');
+      else if (resp.every((r) => r.avaliada && r.checada && assessed.has(r.competencia))) conta('foco', 'agora');
+      else conta('foco', 'apos');
     }
 
     // ── Blueprint e trilha dependem do mesmo critério de foco/mapeamento (a regra dos 100%). ──
@@ -207,12 +234,12 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     const faltam = semFoco ? [] : foco.filter((f) => !assessed.has(norm(f)) && !respondidas.has(norm(f)));
 
     // Blueprint
-    if (bp) acc.blueprint.ja++;
-    else if (focoADefinir) acc.blueprint.apos++;
-    else if (semFoco) bloquear('blueprint', 'Cargo sem competências foco definidas', p.nome);
-    else if (todasMapeadas) acc.blueprint.agora++;
-    else if (todasRespondidasOuMapeadas) acc.blueprint.apos++;
-    else bloquear('blueprint', `Falta responder: ${faltam.join(', ')}`, p.nome);
+    if (bp) conta('blueprint', 'ja');
+    else if (focoADefinir) conta('blueprint', 'apos');
+    else if (semFoco) bloq('blueprint', 'Cargo sem competências foco definidas');
+    else if (todasMapeadas) conta('blueprint', 'agora');
+    else if (todasRespondidasOuMapeadas) conta('blueprint', 'apos');
+    else bloq('blueprint', `Falta responder: ${faltam.join(', ')}`);
 
     // Auditoria: SÓ do blueprint gerado NESTA rodada (roda depois dele). Blueprint que já existia, auditado ou não,
     // não entra: o fluxo não reavalia o passado (decisão do dono, 01/10/2026) — e na Macaé isso evitaria 57
@@ -224,27 +251,36 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     // PDI: regra da fila real — avaliação COMPLETA do top5 (linhas de resposta avaliadas >= top5), sem PDI ainda.
     // Quem tem foco próprio entra com o que respondeu (decisão do dono, 15/10/2026: prazo encerrado, "todos
     // entram"), e quem ainda vai ganhar o foco espera a etapa dele.
-    if (temPdi.has(p.id)) acc.pdi.ja++;
+    if (temPdi.has(p.id)) conta('pdi', 'ja');
     else {
       const todasAvaliadas = resp.length > 0 && avaliadasLinhas >= resp.length;
       const completoAgora = !focoADefinir && avaliadasLinhas > 0
         && (esperadoTop5 === 0 || avaliadasLinhas >= esperadoTop5 || (individual.length > 0 && todasAvaliadas));
       const completoApos = (avaliadasLinhas + pendIA4) > 0
         && (esperadoTop5 === 0 || avaliadasLinhas + pendIA4 >= esperadoTop5 || individual.length > 0 || focoADefinir);
-      if (completoAgora) { acc.pdi.agora++; algumPdi = true; }
-      else if (completoApos) { acc.pdi.apos++; algumPdi = true; }
-      else if (resp.length === 0) bloquear('pdi', 'Ainda não respondeu nenhum cenário', p.nome);
-      else bloquear('pdi', `Avaliação incompleta (${avaliadasLinhas + pendIA4} de ${esperadoTop5} competências do top 5)`, p.nome);
+      if (completoAgora) { conta('pdi', 'agora'); algumPdi = true; }
+      else if (completoApos) { conta('pdi', 'apos'); algumPdi = true; }
+      else if (resp.length === 0) bloq('pdi', 'Ainda não respondeu nenhum cenário');
+      else bloq('pdi', `Avaliação incompleta (${avaliadasLinhas + pendIA4} de ${esperadoTop5} competências do top 5)`);
     }
 
     // Trilha: precisa de foco do cargo e do mapeamento; sem trilha ainda. (Se o blueprint dirige a trilha, ela
     // também espera o blueprint — a etapa real confere.)
-    if (temTrilha.has(p.id)) acc.trilha.ja++;
-    else if (focoADefinir) acc.trilha.apos++;
-    else if (semFoco) bloquear('trilha', 'Cargo sem competências foco definidas', p.nome);
-    else if (todasMapeadas) acc.trilha.agora++;
-    else if (todasRespondidasOuMapeadas) acc.trilha.apos++;
-    else bloquear('trilha', `Falta responder: ${faltam.join(', ')}`, p.nome);
+    if (temTrilha.has(p.id)) conta('trilha', 'ja');
+    else if (focoADefinir) conta('trilha', 'apos');
+    else if (semFoco) bloq('trilha', 'Cargo sem competências foco definidas');
+    else if (todasMapeadas) conta('trilha', 'agora');
+    else if (todasRespondidasOuMapeadas) conta('trilha', 'apos');
+    else bloq('trilha', `Falta responder: ${faltam.join(', ')}`);
+
+    // ── O fluxo INTEIRO desta pessoa: as etapas por pessoa que se aplicam a ela (a da competência só com a regra
+    // ligada e sem trilha em curso). "Completa" = já tem tudo; "projetada" = nenhuma bloqueada. ──
+    const relevantes = (['foco', 'blueprint', 'pdi', 'trilha'] as EtapaId[]).filter((e) => sit[e] !== undefined);
+    const rotulo = (e: EtapaId) => (sit[e] === 'bloq' ? `${TITULOS[e]}: ${motivo[e]}` : `${TITULOS[e]}: ${sit[e] === 'agora' ? 'pronto para gerar' : 'depois da etapa anterior'}`);
+    if (relevantes.every((e) => sit[e] === 'ja')) pessoas.completas++;
+    else pessoas.incompletas.push({ nome: p.nome, faltam: relevantes.filter((e) => sit[e] !== 'ja').map(rotulo) });
+    if (relevantes.every((e) => sit[e] !== 'bloq')) pessoas.completasProjetadas++;
+    else pessoas.incompletasProjetadas.push({ nome: p.nome, faltam: relevantes.filter((e) => sit[e] === 'bloq').map(rotulo) });
   }
 
   // Conteúdos: biblioteca que a trilha precisa (peças = descritor × formato).
@@ -290,5 +326,6 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     etapas,
     bloqueios: [...bloqueios.values()].sort((a, b) => b.quantidade - a.quantidade),
     nadaAFazer, avisos,
+    pessoas,
   };
 }

@@ -550,3 +550,36 @@ describe('etapa "Competência de cada pessoa" (menor nota, 15/10/2026)', () => {
     expect(m.chamadas).not.toContain('ler.ia4');
   });
 });
+
+describe('x de Y pessoas com o fluxo inteiro (lido no fim da execução)', () => {
+  const resumo = {
+    total: 14, completas: 3, completasProjetadas: 13,
+    incompletas: [{ nome: 'Ana', faltam: ['Blueprint: pronto para gerar'] }],
+    incompletasProjetadas: [{ nome: 'Caio', faltam: ['PDI: Ainda não respondeu nenhum cenário'] }],
+    bloqueadosPorEtapa: { pdi: 1 },
+  };
+
+  it('simulação grava a PROJEÇÃO ("teriam") e quem ficaria de fora', async () => {
+    const m = montar({ blueprint: ['a'] });
+    m.deps.ler.pessoas = async () => resumo;
+    const r = await executarFluxo(params({ dryRun: true }), null, m.deps, { orcamentoMs: 10_000 });
+    expect(r.progresso.pessoas).toEqual({ total: 14, completas: 13, projecao: true, incompletas: resumo.incompletasProjetadas, bloqueadosPorEtapa: { pdi: 1 } });
+  });
+
+  it('rodada real grava o que FICOU ("ficaram com"), lido depois de todas as etapas', async () => {
+    const m = montar({ blueprint: ['a'] });
+    m.deps.ler.pessoas = async () => { m.chamadas.push('ler.pessoas'); return resumo; };
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(r.progresso.pessoas).toMatchObject({ total: 14, completas: 3, projecao: false, incompletas: resumo.incompletas });
+    expect(m.chamadas.indexOf('ler.pessoas')).toBeGreaterThan(m.chamadas.indexOf('rh'));
+  });
+
+  it('falha ao contar não derruba o fluxo e é dita (não vira "0 de N")', async () => {
+    const m = montar({ blueprint: ['a'] });
+    m.deps.ler.pessoas = async () => { throw new Error('colaboradores: timeout'); };
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(r.resultado).toBe('terminou');
+    expect(r.progresso.pessoas).toBeUndefined();
+    expect(r.progresso.pessoasErro).toMatch(/timeout/);
+  });
+});

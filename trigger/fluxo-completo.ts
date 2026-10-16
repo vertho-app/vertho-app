@@ -12,6 +12,9 @@ import { executarFluxo, type DepsFluxo } from '@/lib/pipeline-fluxo/executor';
 import { enfileirarLote, enfileirarKit, lerDesfechoDoJob, lerDesfechoKits } from '@/lib/pipeline-fluxo/enfileirar';
 import { filaConteudoEscopo } from '@/lib/pipeline-fluxo/conteudo';
 import { filaFocoEscopo, gravarFocoIndividual } from '@/lib/pipeline-fluxo/foco';
+import { coletarEntradaPrevia } from '@/lib/pipeline-fluxo/coletar';
+import { montarPreviaFluxo } from '@/lib/pipeline-fluxo/previa';
+import { regraFocoIndividual } from '@/lib/foco-individual';
 import { gerarConteudoDaBiblioteca } from '@/lib/pipeline-fluxo/conteudo-gerar';
 import { filaIA4Escopo, filaBlueprintEscopo, filaPdiEscopo, filaTrilhaEscopo, filaAuditoriaEscopo, filaKitEscopo } from '@/lib/pipeline-fluxo/filas';
 import { TASK_FLUXO, type ParamsFluxo, type ProgressoFluxo } from '@/lib/pipeline-fluxo/tipos';
@@ -85,6 +88,16 @@ export const fluxoCompletoTask = task({
             conteudo: () => filaConteudoEscopo(tdb, { permitidos, cargos: params.escopo?.cargos || undefined, incluirInternos: params.excecaoInternos }),
             // RAW de propósito: a varredura do plano precisa enxergar também os kits GLOBAIS (empresa_id nulo).
             kit: () => filaKitEscopo(sb, empresaId, { turmaId: params.escopo?.turmaId, cargos: params.escopo?.cargos, semanaMax: params.kitSemanaMax }),
+            // "x de Y pessoas com o fluxo inteiro": a mesma prévia da tela, sobre o banco no fim da execução.
+            pessoas: async () => {
+              const c = await coletarEntradaPrevia(tdb, { permitidos, cargos: params.escopo?.cargos || undefined, incluirInternos: params.excecaoInternos });
+              if (c.error || !c.entrada) throw new Error(`estado das pessoas: ${c.error || 'sem dados'}`);
+              const { data: emp, error } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+              if (error) throw new Error(`sys_config da empresa: ${error.message}`);
+              c.entrada.regraFoco = regraFocoIndividual(emp?.sys_config);
+              const previa = montarPreviaFluxo(c.entrada);
+              return { ...previa.pessoas, bloqueadosPorEtapa: Object.fromEntries(previa.etapas.map((e) => [e.id, e.bloqueados])) };
+            },
           },
           // Modelo IMPRESSO por etapa: `callAI` não consulta `getModelForTask`, então quem decide é este mapa, e ele
           // vai para o `progress` (config declarada não é config aplicada).

@@ -3,7 +3,8 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle, ExternalLink, Loader2, Play, RefreshCw, Square, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, ExternalLink, Loader2, MinusCircle, Play, RefreshCw, Square, XCircle } from 'lucide-react';
+import { seloDaEtapa, ROTULO_SELO, type SeloEtapa } from '@/lib/pipeline-fluxo/selo-etapa';
 import BackButton from '@/components/back-button';
 import { previaFluxoCompleto, iniciarFluxoCompleto, statusFluxoCompleto, cancelarFluxoCompleto, type PreviaFluxoResult, type EstadoFluxo } from '@/actions/pipeline-fluxo';
 import { TURMA_ENCERRADAS } from '@/lib/status';
@@ -191,7 +192,9 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                       {p.etapas.map((e) => (
                         <tr key={e.id} style={{ borderTop: '1px solid rgba(255,255,255,.05)' }}>
                           <td className="px-4 py-2.5">
-                            <div className="font-semibold text-white">{e.titulo}</div>
+                            <div className="font-semibold text-white flex items-center gap-2">
+                              <SeloIcone selo={e.bloqueados > 0 ? 'atencao' : 'passou'} />{e.titulo}
+                            </div>
                             {e.nota && <div className="text-[11px]" style={{ color: 'rgba(255,255,255,.4)' }}>{e.nota}</div>}
                           </td>
                           <td className="px-3 py-2.5 text-right font-mono" style={{ color: e.prontosAgora ? '#2ECC71' : undefined }}>{e.prontosAgora}</td>
@@ -203,6 +206,13 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                     </tbody>
                   </table>
                 </div>
+                <ResumoPessoas
+                  total={p.pessoas.total}
+                  completas={p.pessoas.completasProjetadas}
+                  projecao
+                  jaCompletas={p.pessoas.completas}
+                  incompletas={p.pessoas.incompletasProjetadas}
+                />
                 <div className="px-4 py-2.5 text-[11px]" style={{ borderTop: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.4)' }}>
                   Estimativa: cada etapa real recalcula a própria fila ao rodar. "Após a etapa anterior" é projeção (por exemplo, quem responde mas ainda não foi avaliado pela IA4).
                 </div>
@@ -367,10 +377,26 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
             {fluxo.progresso && (
               <>
                 <div className="px-4 py-2 text-[12px]" style={{ color: 'rgba(255,255,255,.6)' }}>{fluxo.progresso.atual}</div>
+                {fluxo.progresso.pessoas && (
+                  <ResumoPessoas
+                    total={fluxo.progresso.pessoas.total}
+                    completas={fluxo.progresso.pessoas.completas}
+                    projecao={fluxo.progresso.pessoas.projecao}
+                    incompletas={fluxo.progresso.pessoas.incompletas}
+                  />
+                )}
+                {fluxo.progresso.pessoasErro && (
+                  <div className="px-4 py-2 text-[12px]" style={{ borderTop: '1px solid rgba(255,255,255,.06)', color: '#f4b740' }}>
+                    Não foi possível contar quem ficou com o fluxo inteiro: {fluxo.progresso.pessoasErro}
+                  </div>
+                )}
                 <ul>
                   {fluxo.progresso.etapas.map((e) => (
                     <li key={e.id} className="px-4 py-2 text-[12.5px] flex items-baseline justify-between gap-3" style={{ borderTop: '1px solid rgba(255,255,255,.05)' }}>
-                      <span className="text-white">{e.titulo}{e.detalhe && <span className="ml-2 text-[11px]" style={{ color: 'rgba(255,255,255,.45)' }}>{e.detalhe}</span>}</span>
+                      <span className="text-white flex items-baseline gap-2">
+                        <SeloIcone selo={seloDaEtapa(e, { dryRun: fluxo.dryRun, bloqueados: fluxo.progresso!.pessoas?.bloqueadosPorEtapa?.[e.id] })} />
+                        <span>{e.titulo}{e.detalhe && <span className="ml-2 text-[11px]" style={{ color: 'rgba(255,255,255,.45)' }}>{e.detalhe}</span>}</span>
+                      </span>
                       <span className="font-mono shrink-0" style={{ color: ESTADO_COR[e.estado] }}>
                         {ESTADO_TXT[e.estado]}{e.total > 0 && e.estado !== 'pulado' ? ` · ${e.feitos}/${e.total}${e.falhas ? ` · ${e.falhas} falha(s)` : ''}` : ''}
                       </span>
@@ -411,6 +437,60 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+const SELO_VISUAL: Record<SeloEtapa, { cor: string; Icone: typeof CheckCircle; gira?: boolean }> = {
+  passou: { cor: '#2ECC71', Icone: CheckCircle },
+  atencao: { cor: '#f4b740', Icone: AlertTriangle },
+  falhou: { cor: '#e5484d', Icone: XCircle },
+  rodando: { cor: '#34c5cc', Icone: Loader2, gira: true },
+  aguardando: { cor: 'rgba(255,255,255,.4)', Icone: Clock },
+  neutro: { cor: 'rgba(255,255,255,.35)', Icone: MinusCircle },
+};
+
+/** O selo da linha (passou, atenção, falhou...), decidido em `seloDaEtapa`; aqui só o desenho. */
+function SeloIcone({ selo }: { selo: SeloEtapa }) {
+  const { cor, Icone, gira } = SELO_VISUAL[selo];
+  return (
+    <span title={ROTULO_SELO[selo]} aria-label={ROTULO_SELO[selo]} className="shrink-0 self-center inline-flex">
+      <Icone size={14} className={gira ? 'animate-spin' : undefined} style={{ color: cor }} />
+    </span>
+  );
+}
+
+/**
+ * "x de Y pessoas com o fluxo inteiro" (competência, quando a regra está ligada, blueprint, PDI e trilha; o Kit é por
+ * tema × DISC e não entra). Na projeção: quem TERIA tudo se as etapas rodarem sem falha; na rodada real: quem FICOU.
+ */
+function ResumoPessoas({ total, completas, projecao, jaCompletas, incompletas }: {
+  total: number; completas: number; projecao: boolean; jaCompletas?: number;
+  incompletas: Array<{ nome: string; faltam: string[] }>;
+}) {
+  const tudo = total > 0 && completas === total;
+  return (
+    <div className="px-4 py-2.5" style={{ borderTop: '1px solid rgba(255,255,255,.06)' }}>
+      <div className="flex items-center gap-2 text-[12.5px] text-white">
+        <SeloIcone selo={tudo ? 'passou' : 'atencao'} />
+        <span>
+          {projecao ? 'Teriam' : 'Ficaram com'} o fluxo inteiro: <b className="font-mono">{completas} de {total}</b> pessoa(s)
+          {jaCompletas !== undefined && jaCompletas > 0 && <span style={{ color: 'rgba(255,255,255,.45)' }}> · {jaCompletas} já com tudo</span>}
+        </span>
+      </div>
+      <div className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,.4)' }}>
+        Competência de cada pessoa (com a regra ligada), blueprint, PDI e trilha.{projecao ? ' Projeção: conta quem não tem nenhuma etapa bloqueada.' : ''}
+      </div>
+      {incompletas.length > 0 && (
+        <ul className="mt-1.5 space-y-0.5">
+          {incompletas.slice(0, 20).map((i) => (
+            <li key={i.nome} className="text-[11.5px]" style={{ color: 'rgba(255,255,255,.65)' }}>
+              <span className="text-white">{i.nome}</span>: {i.faltam.join(' · ')}
+            </li>
+          ))}
+          {incompletas.length > 20 && <li className="text-[11px]" style={{ color: 'rgba(255,255,255,.4)' }}>… e mais {incompletas.length - 20}</li>}
+        </ul>
+      )}
     </div>
   );
 }

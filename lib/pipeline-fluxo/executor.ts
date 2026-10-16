@@ -14,6 +14,7 @@
  *    checkpointada pelo Trigger e não conta: um lote de horas não estoura a run.
  */
 import { ORDEM_ETAPAS, etapasCompletas, progressoInicial, type EtapaId, type FocoDefinido, type ParamsFluxo, type ProgressoEtapa, type ProgressoFluxo } from './tipos';
+import type { ResumoPessoasPrevia } from './previa';
 
 export type ResultadoLote = { jobId: string; adotado: boolean } | { erro: string };
 /** Uma competência a gravar NA PESSOA (etapa "Competência de cada pessoa"), com o rastro da escolha. */
@@ -52,6 +53,8 @@ export interface DepsFluxo {
     /** Peças de biblioteca que a trilha vai precisar e ainda não existem. */
     conteudo(): Promise<ConteudoItem[]>;
     kit(): Promise<KitItem[]>;
+    /** O estado por pessoa no FIM da execução (a prévia sobre o banco), para o "x de Y" da tela. Opcional. */
+    pessoas?(): Promise<ResumoPessoasPrevia & { bloqueadosPorEtapa: Partial<Record<EtapaId, number>> }>;
   };
   modelos(): Promise<Record<string, string>>;
   lote(etapa: 'ia4' | 'blueprint' | 'relatorios', args: { itens?: string[]; checkOnly?: string[]; colabIds?: string[]; aiConfig: Record<string, unknown> }): Promise<ResultadoLote>;
@@ -296,6 +299,24 @@ export async function executarFluxo(
       else { e.estado = 'erro'; e.falhas = 1; e.detalhe = r.erro; }
       await salvar();
       continue;
+    }
+  }
+
+  // "x de Y pessoas com o fluxo inteiro", lido DEPOIS de tudo rodar. Simulação: a projeção (ninguém bloqueado);
+  // rodada real: o que ficou gravado. Falha de leitura não derruba o fluxo, mas é dita (não vira "0 de N").
+  if (deps.ler.pessoas) {
+    try {
+      const r = await deps.ler.pessoas();
+      prog.pessoas = {
+        total: r.total,
+        completas: dryRun ? r.completasProjetadas : r.completas,
+        projecao: dryRun,
+        incompletas: dryRun ? r.incompletasProjetadas : r.incompletas,
+        bloqueadosPorEtapa: r.bloqueadosPorEtapa,
+      };
+      delete prog.pessoasErro;
+    } catch (err: any) {
+      prog.pessoasErro = String(err?.message || err).slice(0, 160);
     }
   }
 
