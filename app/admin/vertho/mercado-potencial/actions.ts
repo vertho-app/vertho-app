@@ -274,13 +274,16 @@ type ResultadoExportacao =
   | { ok: false; error: string };
 
 /**
- * Gate comum da exportação e do enriquecimento: permissão `exports.run` + conta da equipe vertho.ai
+ * Gate comum da exportação e do enriquecimento: a permissão do pedido + conta da equipe vertho.ai
  * (decisão do dono, 16/10/2026: a base enriquecida com contatos é só da casa). Devolve erro, nunca lança.
+ * A exportação pede `exports.run` (o Sócio tem); o enriquecimento pede `mercado.contatos.enrich`, só do master.
  */
-async function gateEquipe(recusaSemPermissao: string, recusaForaDaEquipe: string): Promise<{ ok: true; email: string } | { ok: false; error: string }> {
+async function gateEquipe(
+  permissao: 'exports.run' | 'mercado.contatos.enrich', recusaSemPermissao: string, recusaForaDaEquipe: string,
+): Promise<{ ok: true; email: string } | { ok: false; error: string }> {
   let ctx;
   try {
-    ctx = await requireAdminAction('exports.run');
+    ctx = await requireAdminAction(permissao);
   } catch {
     return { ok: false, error: recusaSemPermissao };
   }
@@ -298,7 +301,7 @@ async function gateEquipe(recusaSemPermissao: string, recusaForaDaEquipe: string
  * vai para a auditoria.
  */
 export async function exportarMercadoXLSX(visao: VisaoMercado, filtros: MercadoFilters = {}): Promise<ResultadoExportacao> {
-  const gate = await gateEquipe('Sem permissão para exportar.', 'A exportação é só da equipe vertho.ai.');
+  const gate = await gateEquipe('exports.run', 'Sem permissão para exportar.', 'A exportação é só da equipe vertho.ai.');
   if (gate.ok === false) return { ok: false, error: gate.error };
   const ctx = { email: gate.email };
   if (visao !== 'municipio' && visao !== 'rede' && visao !== 'escola') return { ok: false, error: 'Visão inválida.' };
@@ -342,7 +345,8 @@ export async function exportarMercadoXLSX(visao: VisaoMercado, filtros: MercadoF
 
 // ── Enriquecimento de contatos das escolas (Fase 2, 16/10/2026) ────────────
 //
-// Mesmo gate da exportação (`exports.run` + @vertho.ai): a busca web é paga e o resultado é dado pessoal.
+// Gate: conta @vertho.ai E a permissão `mercado.contatos.enrich`, que só o master tem (pedido do dono, 16/10/2026):
+// a busca web é paga e o resultado é dado pessoal. A exportação segue em `exports.run`.
 // A lógica vive em `lib/mercado-potencial/enriquecimento/` (núcleo sem gate, testável); aqui só entram o
 // gate, o cliente de banco e a auditoria. Nada aqui grava nome ou e-mail em log ou na auditoria.
 
@@ -354,7 +358,7 @@ const RECUSA_FORA_DA_EQUIPE = 'O enriquecimento de contatos é só da equipe ver
  * quantas precisam de busca web nova, com o custo estimado. As escolas vêm na ORDEM DA TELA (a mesma do filtro).
  */
 export async function planejarEnriquecimento(filtros: MercadoFilters = {}): Promise<{ ok: true; plano: PlanoEnriquecimento } | { ok: false; error: string }> {
-  const gate = await gateEquipe(RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
+  const gate = await gateEquipe('mercado.contatos.enrich', RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
   if (gate.ok === false) return { ok: false, error: gate.error };
   // Lê o filtro inteiro (até o teto da exportação) e só então ordena: cortar antes pegaria as primeiras por INEP.
   const r: any = await loadMercadoEscolas({ ...filtros, limit: LIMITE_EXPORTACAO });
@@ -369,7 +373,7 @@ export async function planejarEnriquecimento(filtros: MercadoFilters = {}): Prom
  * chama em laço; o teto de 5 mantém cada chamada abaixo do limite de tempo da função.
  */
 export async function enriquecerLote(codigos: string[]): Promise<({ ok: true } & ResultadoLote) | { ok: false; error: string }> {
-  const gate = await gateEquipe(RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
+  const gate = await gateEquipe('mercado.contatos.enrich', RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
   if (gate.ok === false) return { ok: false, error: gate.error };
   const sb = await requireAdminSupabase();
   const r = await enriquecerLoteNucleo(sb, gate.email, codigos);
@@ -391,7 +395,7 @@ export async function enriquecerLote(codigos: string[]): Promise<({ ok: true } &
  * está removendo); fica quem pediu e quantas escolas foram atingidas.
  */
 export async function suprimirContato(email: string, motivo?: string): Promise<{ ok: true; escolas: number } | { ok: false; error: string }> {
-  const gate = await gateEquipe(RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
+  const gate = await gateEquipe('mercado.contatos.enrich', RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
   if (gate.ok === false) return { ok: false, error: gate.error };
   const sb = await requireAdminSupabase();
   const r = await suprimirEmail(sb, email, motivo ?? null, gate.email);

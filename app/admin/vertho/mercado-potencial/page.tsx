@@ -16,6 +16,7 @@ import {
 } from './actions';
 import UnificadoTab from './_components/unificado-tab';
 import EnriquecerPainel from './_components/enriquecer-painel';
+import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 import { secoesDoMercado, secaoInicialDoMercado, type SecaoMercado } from '@/lib/mercado-potencial/secoes';
 import { REGIOES_METROPOLITANAS } from '@/lib/mercado-potencial/regioes-metropolitanas';
 
@@ -102,6 +103,11 @@ function MercadoPotencialPageInner() {
 function MercadoTab() {
   const locale = useLocale();
   const t = useTranslations('AdminMarketPotential');
+  // Só o master enriquece (`mercado.contatos.enrich`). `podeVer` devolve true ENQUANTO as permissões carregam (a UI
+  // "se comporta como antes"), e um botão que gasta não pode piscar para o Sócio: espera o papel chegar. O servidor
+  // decide de novo em cada action; a tela só não oferece o que ele recusaria.
+  const { podeVer, adminRole } = useAdminShell();
+  const podeEnriquecer = adminRole !== null && podeVer('mercado.contatos.enrich');
   const [tab, setTab] = useState<Tab>('municipio');
   const [rows, setRows] = useState<any[]>([]);
   // O que o servidor leu: total no banco para estes filtros e se o limite CORTOU linhas.
@@ -255,8 +261,8 @@ function MercadoTab() {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {/* Só na visão Escola: o contato é por escola. O servidor confere a conta da equipe vertho.ai. */}
-            {tab === 'escola' && (
+            {/* Só na visão Escola (o contato é por escola) e só para o master. O servidor confere de novo. */}
+            {tab === 'escola' && podeEnriquecer && (
               <button onClick={() => setPainelEnriquecer(v => !v)} aria-expanded={painelEnriquecer}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-violet-400/30 text-violet-300 hover:bg-violet-400/10">
                 <Contact size={12} />
@@ -276,7 +282,7 @@ function MercadoTab() {
           </div>
         </div>
 
-        {tab === 'escola' && painelEnriquecer && <EnriquecerPainel filtros={filtros} onFechar={() => setPainelEnriquecer(false)} />}
+        {tab === 'escola' && podeEnriquecer && painelEnriquecer && <EnriquecerPainel filtros={filtros} onFechar={() => setPainelEnriquecer(false)} />}
 
         {/* Filtros sticky */}
         <div className="rounded-2xl mb-5 overflow-hidden"

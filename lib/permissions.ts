@@ -35,6 +35,7 @@ export type PermissionKey =
   | 'sales_channel.view'
   | 'sales_channel.manage'
   | 'exports.run'
+  | 'mercado.contatos.enrich'
   | 'trash.manage'
   | 'program.configure'
   | 'dre.view'
@@ -109,6 +110,12 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { key: 'sales_channel.view', domain: 'Canal Comercial', label: 'Ver canal de representantes', description: 'Visualizar pipeline, precificação, propostas e comissões dos RCs.', risk: 'medium' },
   { key: 'sales_channel.manage', domain: 'Canal Comercial', label: 'Gerenciar canal de representantes', description: 'Aprovar propostas, gerenciar RCs, materiais e eventos de comissão.', risk: 'critical' },
   { key: 'exports.run', domain: 'Dados', label: 'Exportar dados', description: 'Gerar planilhas, PDFs e saídas em lote.', risk: 'high' },
+  // 16/10/2026, pedido do dono: o botão "Enriquecer contatos" do Mercado Potencial é só do master. A rodada GASTA
+  // (busca web paga, créditos do Hunter) e grava dado pessoal de terceiros (decisores de escolas), e `exports.run`
+  // não serve de gate porque o Sócio o tem. Como `platform_admin` recebe `PERMISSIONS.map(p => p.key)` e os outros
+  // papéis só têm o que está listado, a chave nasce exclusiva do master. Planejar, enriquecer e bloquear e-mail
+  // pedem esta chave; exportar a planilha segue em `exports.run`.
+  { key: 'mercado.contatos.enrich', domain: 'Dados', label: 'Enriquecer contatos das escolas', description: 'Rodar a busca de contatos das escolas no Mercado Potencial (busca web e Hunter, com custo) e bloquear e-mails de decisores.', risk: 'critical' },
   { key: 'trash.manage', domain: 'Dados', label: 'Gerenciar lixeira', description: 'Visualizar e restaurar/remover registros excluídos.', risk: 'critical' },
   // 🔑 A ÚNICA CHAVE QUE EXCLUI O SÓCIO **E** O RH — e é por isso que ela existe.
   //

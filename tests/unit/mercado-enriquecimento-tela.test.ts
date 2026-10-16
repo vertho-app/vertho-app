@@ -17,9 +17,15 @@ const layout = ler('app/admin/vertho/mercado-potencial/layout.tsx');
 const acoes = ler('app/admin/vertho/mercado-potencial/actions.ts');
 
 describe('ligação da tela', () => {
-  it('o botão e o painel só existem na visão Escola', () => {
-    expect(pagina).toMatch(/tab === 'escola' && \(\s*<button onClick=\{\(\) => setPainelEnriquecer/);
-    expect(pagina).toMatch(/tab === 'escola' && painelEnriquecer && <EnriquecerPainel filtros=\{filtros\}/);
+  it('o botão e o painel só existem na visão Escola e só para quem tem a chave do master', () => {
+    expect(pagina).toMatch(/tab === 'escola' && podeEnriquecer && \(\s*<button onClick=\{\(\) => setPainelEnriquecer/);
+    expect(pagina).toMatch(/tab === 'escola' && podeEnriquecer && painelEnriquecer && <EnriquecerPainel filtros=\{filtros\}/);
+  });
+
+  it('podeEnriquecer vem da permissão mercado.contatos.enrich e ESPERA o papel carregar (podeVer devolve true enquanto carrega)', () => {
+    expect(pagina).toMatch(/const \{ podeVer, adminRole \} = useAdminShell\(\);/);
+    expect(pagina).toContain("const podeEnriquecer = adminRole !== null && podeVer('mercado.contatos.enrich');");
+    expect(pagina).toMatch(/from '@\/app\/admin\/_shell\/AdminShellContext'/);
   });
 
   it('o gasto só começa depois de uma CONFIRMAÇÃO com o custo: "Enriquecer" abre a confirmação, e só "Confirmar" chama o laço', () => {
@@ -190,8 +196,15 @@ describe('nada de dado pessoal em log, em todo o núcleo e nas actions', () => {
     expect(hunter).not.toMatch(/api_key/);
   });
 
-  it('as actions pedem o mesmo gate (exports.run + @vertho.ai) e nenhuma aceita parâmetro que pule o gate', () => {
-    expect(acoes).toMatch(/requireAdminAction\('exports\.run'\)/);
+  it('o gate é a permissão do pedido + @vertho.ai: exportar pede exports.run, as 3 do enriquecimento pedem a chave do master; nenhuma aceita parâmetro que pule o gate', () => {
+    expect(acoes).toMatch(/requireAdminAction\(permissao\)/);
+    expect(acoes).toContain("gateEquipe('exports.run', 'Sem permissão para exportar.'");
+    expect((acoes.match(/gateEquipe\('mercado\.contatos\.enrich', RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE\)/g) || []).length).toBe(3);
+    for (const nome of ['planejarEnriquecimento', 'enriquecerLote', 'suprimirContato']) {
+      const corpo = acoes.slice(acoes.indexOf(`export async function ${nome}`)).slice(0, 400);
+      expect(corpo, nome).toContain("gateEquipe('mercado.contatos.enrich'");
+      expect(corpo, nome).not.toContain("'exports.run'");
+    }
     expect(acoes).not.toMatch(/export async function (planejarEnriquecimento|enriquecerLote|suprimirContato)\([^)]*(internal|empresaId|skipGate)/);
     for (const nome of ['planejarEnriquecimento', 'enriquecerLote', 'suprimirContato', 'exportarMercadoXLSX']) {
       const corpo = acoes.slice(acoes.indexOf(`export async function ${nome}`));

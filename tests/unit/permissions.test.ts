@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getSystemRole, BASE_ROLE_PERMISSIONS, hasBasePermission } from '@/lib/permissions';
+import { getSystemRole, BASE_ROLE_PERMISSIONS, hasBasePermission, PERMISSIONS } from '@/lib/permissions';
 
 describe('papel Admin Sócio', () => {
   it('getSystemRole distingue master x sócio', () => {
@@ -46,6 +46,19 @@ describe('papel Admin Sócio', () => {
    * permissão). Contratar módulo pago e reescrever o programa de um cliente é
    * governança — o desenho do papel Sócio declara "nenhuma ação geradora".
    */
+  /**
+   * Enriquecer contatos das escolas (Mercado Potencial, 16/10/2026, pedido do dono: botão só do master). A rodada
+   * gasta (busca web e Hunter) e grava dado pessoal de terceiros; `exports.run` não serve porque o Sócio o tem.
+   */
+  it('mercado.contatos.enrich: só o master; sócio (que tem exports.run), rh, gestor e usuário não', () => {
+    expect(hasBasePermission('platform_admin', 'mercado.contatos.enrich')).toBe(true);
+    expect(hasBasePermission('socio', 'exports.run')).toBe(true);
+    for (const papel of ['socio', 'rh', 'gestor', 'colaborador'] as const) {
+      expect(hasBasePermission(papel, 'mercado.contatos.enrich'), papel).toBe(false);
+    }
+    expect(PERMISSIONS.find((p) => p.key === 'mercado.contatos.enrich')?.risk).toBe('critical');
+  });
+
   it('program.configure é exclusiva do master: nem socio nem rh nem gestor', () => {
     expect(hasBasePermission('platform_admin', 'program.configure')).toBe(true);
     for (const papel of ['socio', 'rh', 'gestor', 'colaborador'] as const) {

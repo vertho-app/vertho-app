@@ -9,6 +9,8 @@ import { criarSupabaseMock, type Chamada } from '../helpers/supabase-mock';
 
 let emailAtual = 'rodrigo@vertho.ai';
 let permissaoNegada = false;
+/** Permissões que o usuário simulado NÃO tem (o resto passa): o Sócio tem exports.run e não tem a chave do enriquecimento. */
+const semPermissao = new Set<string>();
 const permissoesPedidas: Array<string | undefined> = [];
 const auditoria = vi.fn(async (..._a: any[]) => true);
 const buscaWeb = vi.fn();
@@ -17,7 +19,7 @@ const paginaPublica = vi.fn();
 vi.mock('@/lib/auth/action-context', () => ({
   requireAdminAction: vi.fn(async (permissao?: string) => {
     permissoesPedidas.push(permissao);
-    if (permissaoNegada) throw new Error('FORBIDDEN');
+    if (permissaoNegada || (permissao && semPermissao.has(permissao))) throw new Error('FORBIDDEN');
     return { email: emailAtual, isPlatformAdmin: true };
   }),
 }));
@@ -65,7 +67,7 @@ function novoBanco(n = 3) {
 }
 
 beforeEach(() => {
-  emailAtual = 'rodrigo@vertho.ai'; permissaoNegada = false; permissoesPedidas.length = 0;
+  emailAtual = 'rodrigo@vertho.ai'; permissaoNegada = false; semPermissao.clear(); permissoesPedidas.length = 0;
   auditoria.mockClear(); buscaWeb.mockReset(); paginaPublica.mockReset();
   vi.stubEnv('HUNTER_API', '');
   buscaWeb.mockResolvedValue({ text: JSON.stringify(RESPOSTA_DA_BUSCA) });
@@ -87,13 +89,24 @@ describe('gate: exports.run + conta da equipe vertho.ai, em CADA action', () => 
     expect(auditoria).not.toHaveBeenCalled();
   });
 
-  it('sem a permissão a action responde erro (não lança) e pede exports.run', async () => {
+  it('sem a permissão a action responde erro (não lança) e pede mercado.contatos.enrich', async () => {
     permissaoNegada = true;
     for (const r of [await planejarEnriquecimento({}), await enriquecerLote(['35000000']), await suprimirContato('x@y.com')]) {
       expect(r.ok).toBe(false);
     }
-    expect(permissoesPedidas.filter((p) => p === 'exports.run').length).toBeGreaterThanOrEqual(3);
+    expect(permissoesPedidas.filter((p) => p === 'mercado.contatos.enrich')).toHaveLength(3);
+    expect(permissoesPedidas, 'o enriquecimento não usa mais exports.run (o Sócio o tem)').not.toContain('exports.run');
     expect(sb.chamadas).toHaveLength(0);
+  });
+
+  it('SÓ O MASTER: quem tem exports.run (o Sócio) mas não a chave do enriquecimento é recusado nas 3 actions, sem banco, sem busca, sem auditoria', async () => {
+    semPermissao.add('mercado.contatos.enrich');
+    for (const r of [await planejarEnriquecimento({}), await enriquecerLote(['35000000']), await suprimirContato('x@y.com', 'pediu')]) {
+      expect(r).toMatchObject({ ok: false });
+    }
+    expect(sb.chamadas).toHaveLength(0);
+    expect(buscaWeb).not.toHaveBeenCalled();
+    expect(auditoria).not.toHaveBeenCalled();
   });
 });
 
