@@ -5891,10 +5891,14 @@
     "refresh": "Atualizar dados",
     "alerts": {
       "error": "Erro: {message}",
-      "updated": "MVs atualizadas. Recarregando..."
+      "updated": "MVs atualizadas. Recarregando...",
+      "exported": "{count} linhas exportadas.",
+      "exportedTruncated": "{count} de {total} linhas exportadas (limite de {max} por ficheiro). Refine os filtros para exportar o resto.",
+      "exportError": "Não foi possível exportar: {message}"
     },
     "actions": {
-      "clear": "limpar"
+      "clear": "limpar",
+      "exportXlsx": "Exportar XLSX"
     },
     "age": {
       "until24": "até 24",

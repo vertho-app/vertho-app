@@ -5765,10 +5765,14 @@
     "refresh": "Update data",
     "alerts": {
       "error": "Error: {message}",
-      "updated": "Updated MVs. Reloading..."
+      "updated": "Updated MVs. Reloading...",
+      "exported": "{count} rows exported.",
+      "exportedTruncated": "{count} of {total} rows exported (cap of {max} per file). Narrow the filters to export the rest.",
+      "exportError": "Could not export: {message}"
     },
     "actions": {
-      "clear": "clean"
+      "clear": "clean",
+      "exportXlsx": "Export XLSX"
     },
     "age": {
       "until24": "up to 24",

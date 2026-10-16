@@ -1,7 +1,10 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
+import { logAdminAction } from '@/lib/audit';
 import { requireAdminAction } from '@/lib/auth/action-context';
+import { isInternalEmail } from '@/lib/internal-emails';
+import { LIMITE_EXPORTACAO, TAMANHO_MAXIMO_BYTES, montarPlanilhaMercado, type VisaoMercado } from '@/lib/mercado-potencial/exportar-xlsx';
 import { lerTudoPaginado } from '@/lib/paginacao';
 import {
   GESTORES_NA_ESCOLA, GESTORES_NA_MV, corteDeMinimo, limiteDaConsulta, municipiosDasRegioes, orDeCidades,
@@ -260,6 +263,55 @@ function ordenarRows(rows: any[], filtros: MercadoFilters): any[] {
     if (av === bv) return 0;
     return av < bv ? -1 * mult : 1 * mult;
   });
+}
+
+// ── Exportação em XLSX (template fixo) ──────────────────────────────────────
+
+type ResultadoExportacao =
+  | { ok: true; base64: string; n: number; totalNoBanco: number | null; truncado: boolean; limite: number; nomeArquivo: string }
+  | { ok: false; error: string };
+
+/**
+ * Exporta, em XLSX, as linhas que os filtros da tela devolvem na visão escolhida.
+ *
+ * Gate: `exports.run` + conta da equipe vertho.ai (decisão do dono, 16/10/2026: a base
+ * enriquecida com contatos é só da casa). Lê TODAS as linhas do filtro até
+ * `LIMITE_EXPORTACAO`, sem o "Limite" da tela (ele existe para proteger o navegador, e
+ * quem exporta quer a base inteira). Cada exportação vai para a auditoria.
+ */
+export async function exportarMercadoXLSX(visao: VisaoMercado, filtros: MercadoFilters = {}): Promise<ResultadoExportacao> {
+  let ctx;
+  try {
+    ctx = await requireAdminAction('exports.run');
+  } catch {
+    return { ok: false, error: 'Sem permissão para exportar.' };
+  }
+  if (!isInternalEmail(ctx.email)) return { ok: false, error: 'A exportação é só da equipe vertho.ai.' };
+  if (visao !== 'municipio' && visao !== 'rede' && visao !== 'escola') return { ok: false, error: 'Visão inválida.' };
+
+  const carregar = visao === 'municipio' ? loadMercadoMunicipios : visao === 'rede' ? loadMercadoRedes : loadMercadoEscolas;
+  const r: any = await carregar({ ...filtros, limit: LIMITE_EXPORTACAO });
+  if (r.error) return { ok: false, error: r.error };
+  if (!r.rows?.length) return { ok: false, error: 'Nenhuma linha para exportar com estes filtros.' };
+
+  const geradoEm = new Date();
+  const buf = await montarPlanilhaMercado({
+    visao, linhas: r.rows, filtros, exportadoPor: ctx.email, geradoEm,
+    totalNoBanco: r.totalNoBanco ?? null, truncado: !!r.truncado, limiteExportacao: LIMITE_EXPORTACAO,
+  });
+  if (buf.length > TAMANHO_MAXIMO_BYTES) {
+    return { ok: false, error: 'O arquivo ficou grande demais para baixar de uma vez. Refine os filtros (UF, região, rede) e exporte em partes.' };
+  }
+
+  await logAdminAction({
+    adminEmail: ctx.email, acao: 'mercado.export', alvo: `${r.rows.length} linhas (${visao})`,
+    detalhes: { visao, formato: 'xlsx', n: r.rows.length, totalNoBanco: r.totalNoBanco ?? null, truncado: !!r.truncado, filtros },
+  });
+  const dia = geradoEm.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  return {
+    ok: true, base64: buf.toString('base64'), n: r.rows.length, totalNoBanco: r.totalNoBanco ?? null,
+    truncado: !!r.truncado, limite: LIMITE_EXPORTACAO, nomeArquivo: `mercado-potencial-${visao}-${dia}.xlsx`,
+  };
 }
 
 // ── Refresh manual das MVs (admin Vertho only) ─────────────────────────────

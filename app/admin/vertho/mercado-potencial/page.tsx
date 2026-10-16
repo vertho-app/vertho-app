@@ -7,12 +7,12 @@ import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   Loader2, RefreshCw, Filter, Building2, Users, School,
-  TrendingUp, MapPin, AlertTriangle, ChevronDown, ChevronUp, X, Layers,
+  TrendingUp, MapPin, AlertTriangle, ChevronDown, ChevronUp, X, Layers, Download,
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
   loadMercadoMunicipios, loadMercadoRedes, loadMercadoEscolas,
-  refreshMercadoPotencial, type MercadoFilters,
+  refreshMercadoPotencial, exportarMercadoXLSX, type MercadoFilters,
 } from './actions';
 import UnificadoTab from './_components/unificado-tab';
 import { secoesDoMercado, secaoInicialDoMercado, type SecaoMercado } from '@/lib/mercado-potencial/secoes';
@@ -108,6 +108,7 @@ function MercadoTab() {
   const pedido = useRef(0);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [exportando, setExportando] = useState(false);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
@@ -195,6 +196,29 @@ function MercadoTab() {
     else { setOrderBy(coluna); setOrderDir('desc'); }
   }
 
+  // Exporta o que os filtros devolvem na visão aberta, SEM o "Limite" da tela (a action lê até o teto
+  // do arquivo). O servidor confere a permissão e a conta da equipe vertho.ai e registra na auditoria.
+  async function exportarXlsx() {
+    setExportando(true);
+    try {
+      const r = await exportarMercadoXLSX(tab, filtros);
+      if (r.ok === false) { toast.error(t('alerts.exportError', { message: r.error })); return; }
+      const bytes = Uint8Array.from(atob(r.base64), c => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = r.nomeArquivo;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      if (r.truncado) toast.warning(t('alerts.exportedTruncated', { count: fmt.int(r.n, locale), total: fmt.int(r.totalNoBanco ?? r.n, locale), max: fmt.int(r.limite, locale) }));
+      else toast.success(t('alerts.exported', { count: fmt.int(r.n, locale) }));
+    } catch (e: any) {
+      toast.error(t('alerts.exportError', { message: e?.message || '' }));
+    } finally {
+      setExportando(false);
+    }
+  }
+
   function toggleUf(uf: string) {
     setUfs(prev => prev.includes(uf) ? prev.filter(u => u !== uf) : [...prev, uf]);
   }
@@ -228,11 +252,18 @@ function MercadoTab() {
               {t('eyebrow')}
             </span>
           </div>
-          <button onClick={refreshMVs} disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-white/10 text-white/60 hover:text-white hover:border-white/30 disabled:opacity-40">
-            {refreshing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            {t('refresh')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={exportarXlsx} disabled={exportando || loading || rows.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-40">
+              {exportando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+              {t('actions.exportXlsx')}
+            </button>
+            <button onClick={refreshMVs} disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-white/10 text-white/60 hover:text-white hover:border-white/30 disabled:opacity-40">
+              {refreshing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              {t('refresh')}
+            </button>
+          </div>
         </div>
 
         {/* Filtros sticky */}
