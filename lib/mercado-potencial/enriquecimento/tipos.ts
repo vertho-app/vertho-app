@@ -111,6 +111,29 @@ export function finalDoTelefone(numero: unknown): string {
   return soDigitos(String(numero ?? '').replace(/(ramal|ramais|r\.)\s*.*$/i, '')).slice(-8);
 }
 
+/** "(19) 2138-8300, ramal 1000" -> "(19) 2138-8300". */
+export function semRamal(numero: unknown): string {
+  return String(numero ?? '').replace(/[\s,;(]*(ramal|ramais|r\.)\s*\d.*$/i, '').trim();
+}
+
+/**
+ * Uma entrada por número: variações só de ramal viram o número principal. Medido em produção (16/10, Notre Dame):
+ * a página de contato listou 10 ramais do mesmo (19) 2138-8300, e a célula da planilha, que não leva rótulo,
+ * mostraria 10 linhas quase iguais. O primeiro item de cada número mantém o rótulo e a fonte.
+ */
+export function colapsarRamais<T extends { numero: string }>(itens: readonly T[]): T[] {
+  const vistos = new Set<string>();
+  const saida: T[] = [];
+  for (const t of itens) {
+    const chave = finalDoTelefone(t.numero);
+    if (!chave) { saida.push(t); continue; }
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    saida.push({ ...t, numero: semRamal(t.numero) || t.numero });
+  }
+  return saida;
+}
+
 export function nivelDe(l: Pick<LinhaContato, 'site' | 'telefones' | 'emails'>): Nivel {
   if (l.site && l.telefones.length && l.emails.length) return 'A';
   if (l.telefones.length || l.emails.length) return 'B';

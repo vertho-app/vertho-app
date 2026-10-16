@@ -38,6 +38,15 @@ describe('ligação da tela', () => {
     expect(painel).toContain("if (parar.current) { acc.parada = 'operador'; break; }");
   });
 
+  it('sem a chave do Hunter a tela NÃO fala em crédito: some a linha de créditos e a confirmação usa o texto sem eles', () => {
+    expect(painel).toMatch(/\{plano\.hunterConfigurado && \(\s*<p>\s*\{plano\.creditosHunter != null/);
+    expect(painel).toMatch(/plano\.hunterConfigurado\s*\? t\('confirmText', \{[^}]*credits:[^}]*\}\)\s*: t\('confirmTextNoHunter', \{ fresh: n\(plano\.buscasNovas\), usd: usd\(plano\.custoBuscaUsd\) \}\)/);
+    for (const idioma of ['pt-BR', 'pt-PT', 'es-ES', 'en-US']) {
+      const enrich = JSON.parse(ler(`messages/${idioma}.json`)).AdminMarketPotential.enrich;
+      expect(enrich.confirmTextNoHunter, idioma).not.toMatch(/\{credits\}/);
+    }
+  });
+
   it('fechar o painel (ou trocar de visão) no meio do laço PARA o gasto: o desmonte liga a parada', () => {
     expect(painel).toMatch(/useEffect\(\(\) => \(\) => \{ parar\.current = true; \}, \[\]\);/);
   });

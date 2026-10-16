@@ -5795,6 +5795,7 @@
       "capToday": "Today's cap limits this run: {count} more new searches fit.",
       "start": "Enrich {count} schools",
       "confirmText": "This will run {fresh} new searches (about US$ {usd}) and use up to ~{credits} Hunter credits. Each school is saved as it finishes, and you can stop at any time.",
+      "confirmTextNoHunter": "This will run {fresh} new searches (about US$ {usd}). Hunter is not configured, so none of its credits are used. Each school is saved as it finishes, and you can stop at any time.",
       "confirm": "Confirm (≈ US$ {usd})",
       "cancel": "Cancel",
       "recalc": "Recalculate",

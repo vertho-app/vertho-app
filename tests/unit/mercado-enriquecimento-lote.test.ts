@@ -347,6 +347,12 @@ describe('contato na planilha e remoção por pedido', () => {
     expect(c.emails).toEqual(['secretaria@x.com']);
   });
 
+  it('linha JÁ gravada com o mesmo número em vários ramais sai com um número só (a de produção tinha 10)', () => {
+    const t = (numero: string) => ({ numero, rotulo: '', fonte_url: FONTE });
+    const l = linhaContato('1', { telefones: [t('(19) 2138-8300'), t('(19) 2138-8300, ramal 1000'), t('(19) 2138-8300, ramais 1700 e 1703'), t('(19) 3303-1250')], whatsapp: [] });
+    expect(paraContatoEnriquecido(l, new Set()).telefones).toEqual(['(19) 2138-8300', '(19) 3303-1250']);
+  });
+
   it('nome vindo do Hunter leva a fonte no cargo; WhatsApp sai rotulado junto dos telefones', () => {
     const l = linhaContato('1', {
       whatsapp: [{ numero: '(19) 99999-0000', rotulo: '', fonte_url: FONTE }],

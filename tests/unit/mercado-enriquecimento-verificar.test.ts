@@ -4,7 +4,7 @@ import {
   buscarPaginaPublica, confirmaEmail, confirmaNome, confirmaTelefone, conferirResultado, hostNaoVale, paginaDeHtml,
   type BuscaPagina, type Pagina,
 } from '@/lib/mercado-potencial/enriquecimento/verificar';
-import { dominioRegistravel, finalDoTelefone, nivelDe, nomeParaBusca } from '@/lib/mercado-potencial/enriquecimento/tipos';
+import { colapsarRamais, dominioRegistravel, finalDoTelefone, nivelDe, nomeParaBusca, semRamal } from '@/lib/mercado-potencial/enriquecimento/tipos';
 
 /**
  * Conferência SEM modelo: só o que aparece na página que a busca citou é gravado. O piloto de Campinas mediu
@@ -191,5 +191,39 @@ describe('regras comuns', () => {
     expect(nivelDe({ site: null, telefones: t, emails: [] })).toBe('B');
     expect(nivelDe({ site: 'https://x', telefones: [], emails: e })).toBe('B');
     expect(nivelDe({ site: 'https://x', telefones: [], emails: [] })).toBe('C');
+  });
+});
+
+describe('ramais: uma entrada por número (medido em produção: Notre Dame veio com 10 linhas do mesmo telefone)', () => {
+  const tel = (numero: string, rotulo = 'x') => ({ numero, rotulo, fonte_url: 'https://www.colegioexemplo.com.br/contato' });
+
+  it('semRamal tira "ramal", "ramais" e "r." com o que vem depois, e só isso', () => {
+    expect(semRamal('(19) 2138-8300, ramal 1000')).toBe('(19) 2138-8300');
+    expect(semRamal('(19) 2138-8300, ramais 1700 e 1703')).toBe('(19) 2138-8300');
+    expect(semRamal('(19) 2138-8300 (ramal 1000)')).toBe('(19) 2138-8300');
+    expect(semRamal('(19) 2138-8300 r. 22')).toBe('(19) 2138-8300');
+    expect(semRamal('(19) 2138-8300')).toBe('(19) 2138-8300');
+    expect(semRamal(null)).toBe('');
+  });
+
+  it('colapsarRamais: o mesmo número com ramais diferentes vira UMA entrada (a primeira, com rótulo e fonte); números distintos ficam', () => {
+    const r = colapsarRamais([
+      tel('(19) 2138-8300', 'Central'), tel('(19) 2138-8300, ramal 1000', 'Secretaria'), tel('(19) 2138-8300, ramais 1700 e 1703', 'Social'),
+      tel('(19) 3303-1250', 'Outra unidade'),
+    ]);
+    expect(r.map((t) => t.numero)).toEqual(['(19) 2138-8300', '(19) 3303-1250']);
+    expect(r[0].rotulo).toBe('Central');
+  });
+
+  it('se só há variações com ramal, fica o número principal sem o ramal; entrada sem dígito passa como veio', () => {
+    expect(colapsarRamais([tel('(19) 2138-8300, ramal 1000'), tel('(19) 2138-8300, ramal 1032')]).map((t) => t.numero)).toEqual(['(19) 2138-8300']);
+    expect(colapsarRamais([tel('sem número')]).map((t) => t.numero)).toEqual(['sem número']);
+  });
+
+  it('a conferência já grava um número só (não 10)', async () => {
+    const pg = pagina('<p>(19) 2138-8300 ramal 1000 ramal 1032 ramal 1100</p>');
+    const r = busca({ telefones: ['', ', ramal 1000', ', ramal 1032', ', ramal 1100'].map((sufixo) => tel(`(19) 2138-8300${sufixo}`)) });
+    const c = await conferirResultado(r, web({ [FONTE]: pg }));
+    expect(c.telefones.map((t) => t.numero)).toEqual(['(19) 2138-8300']);
   });
 });

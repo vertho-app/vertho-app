@@ -1,6 +1,6 @@
 import type { ContatoEnriquecido } from '@/lib/mercado-potencial/exportar-xlsx';
 import { lerTudoPaginado } from '@/lib/paginacao';
-import type { LinhaContato } from './tipos';
+import { colapsarRamais, type LinhaContato } from './tipos';
 
 /**
  * Leitura e escrita de `mercado_escola_contatos` e `mercado_contatos_supressao` (mig 288).
@@ -47,7 +47,7 @@ export function paraContatoEnriquecido(l: LinhaContato, supressao: ReadonlySet<s
   const barrado = (email?: string | null) => !!email && supressao.has(email.toLowerCase());
   return {
     site: l.site,
-    telefones: [...(l.telefones || []).map((t) => t.numero), ...(l.whatsapp || []).map((w) => `${w.numero} (WhatsApp)`)],
+    telefones: [...colapsarRamais(l.telefones || []).map((t) => t.numero), ...colapsarRamais(l.whatsapp || []).map((w) => `${w.numero} (WhatsApp)`)],
     emails: (l.emails || []).filter((e) => !barrado(e.endereco)).map((e) => e.endereco),
     responsaveis: (l.responsaveis || [])
       .filter((p) => !barrado(p.email))

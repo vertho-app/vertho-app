@@ -5921,6 +5921,7 @@
       "capToday": "O limite de hoje condiciona esta ronda: cabem mais {count} pesquisas novas.",
       "start": "Enriquecer {count} escolas",
       "confirmText": "Vai correr {fresh} pesquisas novas (cerca de US$ {usd}) e gastar até ~{credits} créditos do Hunter. Cada escola é gravada ao terminar e pode parar quando quiser.",
+      "confirmTextNoHunter": "Vai correr {fresh} pesquisas novas (cerca de US$ {usd}). O Hunter não está configurado, por isso não se gasta nenhum crédito dele. Cada escola é gravada ao terminar e pode parar quando quiser.",
       "confirm": "Confirmar (≈ US$ {usd})",
       "cancel": "Cancelar",
       "recalc": "Recalcular",

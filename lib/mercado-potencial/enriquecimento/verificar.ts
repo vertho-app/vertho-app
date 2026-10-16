@@ -1,6 +1,6 @@
 import { fetchTextoPublico } from '@/lib/fetch-texto-publico';
 import type { ResultadoBusca } from './busca-web';
-import { finalDoTelefone, soDigitos, type ItemEmail, type ItemResponsavel, type ItemTelefone } from './tipos';
+import { colapsarRamais, finalDoTelefone, soDigitos, type ItemEmail, type ItemResponsavel, type ItemTelefone } from './tipos';
 
 /**
  * Conferência SEM modelo: cada telefone, e-mail e nome que a busca devolveu é procurado na página que ela
@@ -126,5 +126,5 @@ export async function conferirResultado(r: ResultadoBusca, buscar: BuscaPagina):
     .map((p) => ({ nome: p.nome, cargo: p.cargo, fonte_url: p.fonte_url }));
 
   const siteOk = !!r.site_oficial && r.site_confere_com_endereco && !hostNaoVale(r.site_oficial);
-  return { site: siteOk ? r.site_oficial : null, siteConfere: siteOk, telefones, emails, whatsapp, responsaveis, descartados: d };
+  return { site: siteOk ? r.site_oficial : null, siteConfere: siteOk, telefones: colapsarRamais(telefones), emails, whatsapp: colapsarRamais(whatsapp), responsaveis, descartados: d };
 }

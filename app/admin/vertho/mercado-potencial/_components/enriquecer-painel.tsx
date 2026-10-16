@@ -184,11 +184,14 @@ export default function EnriquecerPainel({ filtros, onFechar }: { filtros: Merca
             <div className="text-xs text-white/70 space-y-1">
               <p>{t('round', { count: n(plano.codigos.length), fresh: n(plano.buscasNovas), resume: n(plano.soHunter) })}</p>
               <p>{t('cost', { usd: usd(plano.custoBuscaUsd) })}</p>
-              <p>
-                {plano.creditosHunter != null
-                  ? t('credits', { credits: n(plano.creditosHunterEstimados), available: n(plano.creditosHunter) })
-                  : t('creditsUnknown', { credits: n(plano.creditosHunterEstimados) })}
-              </p>
+              {/* Sem a chave do Hunter não há crédito a gastar: falar de crédito aqui contradiria o aviso logo abaixo. */}
+              {plano.hunterConfigurado && (
+                <p>
+                  {plano.creditosHunter != null
+                    ? t('credits', { credits: n(plano.creditosHunterEstimados), available: n(plano.creditosHunter) })
+                    : t('creditsUnknown', { credits: n(plano.creditosHunterEstimados) })}
+                </p>
+              )}
               {plano.paraDepois > 0 && <p className="text-white/50">{t('later', { count: n(plano.paraDepois) })}</p>}
             </div>
           )}
@@ -207,7 +210,11 @@ export default function EnriquecerPainel({ filtros, onFechar }: { filtros: Merca
             )}
             {fase === 'confirmar' && (
               <div className="w-full rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 space-y-2">
-                <p className="text-xs text-amber-100">{t('confirmText', { fresh: n(plano.buscasNovas), usd: usd(plano.custoBuscaUsd), credits: n(plano.creditosHunterEstimados) })}</p>
+                <p className="text-xs text-amber-100">
+                  {plano.hunterConfigurado
+                    ? t('confirmText', { fresh: n(plano.buscasNovas), usd: usd(plano.custoBuscaUsd), credits: n(plano.creditosHunterEstimados) })
+                    : t('confirmTextNoHunter', { fresh: n(plano.buscasNovas), usd: usd(plano.custoBuscaUsd) })}
+                </p>
                 <div className="flex gap-2">
                   <button onClick={rodar}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-400/20 border border-amber-400/50 text-amber-100 hover:bg-amber-400/30">
