@@ -331,21 +331,14 @@ export async function buildRelatorioIndividualPrompt(
         ? focoTrilha
         : top5Esperado;
 
-  // 🔑 O PDI mostra TUDO QUE A PESSOA MAPEOU, com o plano na frente.
-  //
-  // Antes, a lista era só a da prioridade — e com blueprint (que é o plano dos
-  // próximos 30 dias, uma competência na jornada) o documento saía com UMA
-  // competência para quem respondeu CINCO. Quem lê conclui que as outras quatro
-  // não foram avaliadas, quando na verdade estão medidas e fora do plano do mês.
-  //
-  // A ordem preserva a coerência PDI↔trilha (Fase 0, item 1): as competências
-  // do plano continuam primeiro, na ordem em que o blueprint as trouxe; as
-  // demais entram depois, como panorama do mapeamento.
-  const respondidas = [...new Set((respostas || []).map(r => r.competencia_nome).filter(Boolean))] as string[];
-  const competenciasAlvo: string[] = [
-    ...prioridade,
-    ...respondidas.filter((nome) => !prioridade.some((p) => normKey(p) === normKey(nome))),
-  ];
+  // 🔑 O PDI é SÓ da competência que a pessoa vai trabalhar (decisão do dono, 16/10/2026: "o PDI deve ser apenas
+  // da competência que será trabalhada"). Desfaz o panorama de 02/09/2026, que acrescentava depois do plano as
+  // outras competências respondidas. Medido na Amazon Bowling (16/10, 14 PDIs, uma competência por trilha): o
+  // panorama reprovou os 14 na auditoria. O gerador escrevia sprint de 30 dias para cada competência abaixo de N3,
+  // e esses sprints não vêm do blueprint (prometem o que a trilha não sustenta); e 15 das 19 "afirmações sem
+  // lastro" apontadas pela 2ª IA estavam nessas competências. A evidência do prompt (cenário e respostas) sai da
+  // MESMA lista (`respostasUsadas`, abaixo), então o gerador também não vê as outras competências.
+  const competenciasAlvo: string[] = prioridade.filter((nome, i) => prioridade.findIndex((p) => normKey(p) === normKey(nome)) === i);
 
   // Mapa competencia → meta (id, cod_comp)
   const compIds = [...new Set((respostas || []).map(r => r.competencia_id).filter(Boolean))];

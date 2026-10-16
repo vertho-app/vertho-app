@@ -40,12 +40,22 @@ describe('PDI com a competência de cada pessoa', () => {
     expect(r.error).toBeUndefined();
   });
 
-  it('a competência própria vem na frente das demais avaliadas', async () => {
+  // Decisão do dono (16/10/2026): "o PDI deve ser apenas da competência que será trabalhada". Até então as outras
+  // avaliadas entravam depois, como panorama, e na Amazon isso reprovou os 14 PDIs (sprint fora do blueprint e
+  // afirmações sobre cenários que não são do plano).
+  it('o PDI é só da competência própria: as outras avaliadas ficam fora dos dados E da evidência', async () => {
     const r: any = await montar(['Rotina'], [resposta('Foco no cliente'), resposta('Rotina')], ['Foco no cliente']);
     expect(r.error).toBeUndefined();
-    const texto = JSON.stringify(r);
-    expect(texto.indexOf('Rotina')).toBeGreaterThan(-1);
-    expect(texto.indexOf('Rotina')).toBeLessThan(texto.indexOf('Foco no cliente'));
+    expect(r.dadosComps.map((c: any) => c.competencia)).toEqual(['Rotina']);
+    expect(r.user).toContain('Rotina');
+    expect(r.user).not.toContain('Foco no cliente');
+  });
+
+  it('sem competência própria vale o mesmo: o PDI é só do foco do cargo, mesmo com o Top 5 inteiro respondido', async () => {
+    const r: any = await montar(null, TOP5.map((c) => resposta(c)), ['Rotina']);
+    expect(r.error).toBeUndefined();
+    expect(r.dadosComps.map((c: any) => c.competencia)).toEqual(['Rotina']);
+    expect(r.user).not.toMatch(/Foco no cliente|Simplicidade/);
   });
 
   it('com competência própria, uma resposta ainda sem avaliação segura o PDI', async () => {

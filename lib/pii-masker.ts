@@ -159,6 +159,17 @@ function formasDoNome(nome: string): string[] {
  * `map.volta` devolve o PRIMEIRO nome: a IA escreve para a pessoa ("COLAB_1A2B,
  * você...") e é o primeiro nome que ela deve ler.
  */
+/**
+ * O nome que VOLTA para o texto que a pessoa lê. Cadastro todo em maiúsculas (a planilha da Amazon Bowling, 16/10/2026)
+ * fazia o PDI abrir com "ADRIANO, este retorno...": só nesse caso o nome volta com a inicial maiúscula ("Adriano").
+ * Nome com caixa mista (já escrito como a pessoa escreve) volta intacto.
+ */
+export function nomeParaLeitura(nome: string): string {
+  const n = String(nome || '');
+  if (n !== n.toLocaleUpperCase('pt-BR') || n === n.toLocaleLowerCase('pt-BR')) return n;
+  return n.toLocaleLowerCase('pt-BR').replace(/(^|[\s'’-])(\p{L})/gu, (_, antes: string, letra: string) => antes + letra.toLocaleUpperCase('pt-BR'));
+}
+
 export function maskColaborador(
   colab: ColaboradorInput | null | undefined,
 ): { masked: MaskedColaborador | null; map: PIIMapas } {
@@ -175,7 +186,7 @@ export function maskColaborador(
   for (const forma of formasDoNome(nome)) ida[forma] = alias;
 
   const volta: PIIMap = {};
-  if (primeiroNome) volta[alias] = primeiroNome;
+  if (primeiroNome) volta[alias] = nomeParaLeitura(primeiroNome);
   if (email && emailAlias) volta[emailAlias] = email;
 
   return {

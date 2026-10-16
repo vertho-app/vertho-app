@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  maskColaborador, maskTextPII, unmaskPII, maskDeepPII, unmaskDeepPII, maskEmpresa, juntarMapas,
+  maskColaborador, maskTextPII, unmaskPII, maskDeepPII, unmaskDeepPII, maskEmpresa, juntarMapas, nomeParaLeitura,
 } from '@/lib/pii-masker';
 
 const ana = maskColaborador({ id: 'col-ana', nome_completo: 'Ana Beatriz Teste', email: 'ana@exemplo.com' });
@@ -120,5 +120,25 @@ describe('versões profundas e empresa', () => {
     const out = maskTextPII('Ana trabalha na Escola Horizonte.', mapas);
     expect(out).toBe(`${ALIAS} trabalha na ${emp.masked!.nome}.`);
     expect(unmaskPII(out, mapas)).toBe('Ana trabalha na Escola Horizonte.');
+  });
+});
+
+// Cadastro todo em maiúsculas (planilha da Amazon Bowling, 16/10/2026): o PDI abria com "ADRIANO, este retorno...".
+describe('o nome que volta para a pessoa ler', () => {
+  it('cadastro todo em maiúsculas volta com a inicial maiúscula; a máscara de ida continua casando', () => {
+    const caps = maskColaborador({ id: 'col-caps', nome_completo: 'JOÃO DA SILVA TESTE', email: 'joao@exemplo.com' });
+    const alias = caps.masked!.nome;
+    expect(maskTextPII('JOÃO, você e o João.', caps.map)).toBe(`${alias}, você e o ${alias}.`);
+    expect(unmaskPII(`${alias}, este retorno...`, caps.map)).toBe('João, este retorno...');
+  });
+  it('nome com caixa mista volta como está escrito', () => {
+    expect(unmaskPII(`${ALIAS}, oi`, ana.map)).toBe('Ana, oi');
+    expect(nomeParaLeitura('McKenzie')).toBe('McKenzie');
+    expect(nomeParaLeitura('ana')).toBe('ana');
+  });
+  it('maiúsculas com acento, hífen e apóstrofo', () => {
+    expect(nomeParaLeitura('ÉRICA')).toBe('Érica');
+    expect(nomeParaLeitura('ANA-LUÍZA')).toBe('Ana-Luíza');
+    expect(nomeParaLeitura("D'ÁVILA")).toBe("D'Ávila");
   });
 });
