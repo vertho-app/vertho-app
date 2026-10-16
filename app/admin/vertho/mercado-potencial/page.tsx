@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   Loader2, RefreshCw, Filter, Building2, Users, School,
-  TrendingUp, MapPin, AlertTriangle, ChevronDown, ChevronUp, X, Layers, Download,
+  TrendingUp, MapPin, AlertTriangle, ChevronDown, ChevronUp, X, Layers, Download, Contact,
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
@@ -15,6 +15,7 @@ import {
   refreshMercadoPotencial, exportarMercadoXLSX, type MercadoFilters,
 } from './actions';
 import UnificadoTab from './_components/unificado-tab';
+import EnriquecerPainel from './_components/enriquecer-painel';
 import { secoesDoMercado, secaoInicialDoMercado, type SecaoMercado } from '@/lib/mercado-potencial/secoes';
 import { REGIOES_METROPOLITANAS } from '@/lib/mercado-potencial/regioes-metropolitanas';
 
@@ -109,6 +110,7 @@ function MercadoTab() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const [painelEnriquecer, setPainelEnriquecer] = useState(false);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
@@ -253,6 +255,14 @@ function MercadoTab() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            {/* Só na visão Escola: o contato é por escola. O servidor confere a conta da equipe vertho.ai. */}
+            {tab === 'escola' && (
+              <button onClick={() => setPainelEnriquecer(v => !v)} aria-expanded={painelEnriquecer}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-violet-400/30 text-violet-300 hover:bg-violet-400/10">
+                <Contact size={12} />
+                {t('enrich.button')}
+              </button>
+            )}
             <button onClick={exportarXlsx} disabled={exportando || loading || rows.length === 0}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-40">
               {exportando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
@@ -265,6 +275,8 @@ function MercadoTab() {
             </button>
           </div>
         </div>
+
+        {tab === 'escola' && painelEnriquecer && <EnriquecerPainel filtros={filtros} onFechar={() => setPainelEnriquecer(false)} />}
 
         {/* Filtros sticky */}
         <div className="rounded-2xl mb-5 overflow-hidden"

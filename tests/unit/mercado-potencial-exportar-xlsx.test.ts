@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { criarSupabaseMock, type Chamada } from '../helpers/supabase-mock';
 import {
-  COLUNAS_BASE, LIMITE_EXPORTACAO, TAMANHO_MAXIMO_BYTES, dataBRT, descreverFiltros, montarPlanilhaMercado, regioesDoMunicipio,
+  COLUNAS_BASE, LIMITE_EXPORTACAO, TAMANHO_MAXIMO_BYTES, montarPlanilhaMercado, regioesDoMunicipio,
 } from '@/lib/mercado-potencial/exportar-xlsx';
 
 /**
@@ -40,16 +40,13 @@ const ESCOLA = {
 const MUNICIPIO = { id: '3509502', nome: 'Campinas', uf: 'SP', qt_escolas: 735, qt_professores: 12948, qt_professores_total: 12948, qt_professores_onboarding: 1477, qt_gestores: 2095, pct_jovens: 0.11, pct_sem_pos: 0.72, inse_medio: 3.5, tam_mensal_mentor_ia: 1504300, tam_mensal_onboarding: 357200, fit_pedagogico: 0.65, score_completo: 487956 };
 const REDE = { id: '3509502::PRIVADA', nome: 'Campinas — PRIVADA', uf: 'SP', rede: 'PRIVADA', municipio: 'Campinas', municipio_ibge: '3509502', qt_escolas: 318, qt_professores: 5000, qt_professores_total: 5000, qt_professores_onboarding: 600, qt_gestores: 900, pct_jovens: 0.12, pct_sem_pos: 0.5, inse_medio: 4.2, tam_mensal_mentor_ia: 650000, tam_mensal_onboarding: 150000, fit_pedagogico: 0.7, score_completo: 400000 };
 
-const base = (over: any = {}) => ({
-  visao: 'escola' as const, linhas: [ESCOLA], filtros: {}, exportadoPor: 'rodrigo@vertho.ai', geradoEm: new Date('2026-10-16T12:00:00Z'),
-  totalNoBanco: 1, truncado: false, limiteExportacao: LIMITE_EXPORTACAO, ...over,
-});
+const base = (over: any = {}) => ({ visao: 'escola' as const, linhas: [ESCOLA], ...over });
 
 describe('template fixo da planilha', () => {
   it('as colunas da aba Base são um contrato: títulos e ordem travados', async () => {
     expect(COLUNAS_BASE.map((c) => c.titulo)).toEqual(TITULOS_FIXOS);
     const wb = await ler(await montarPlanilhaMercado(base()));
-    expect(wb.worksheets.map((w) => w.name)).toEqual(['Base', 'Resumo', 'Leia-me']);
+    expect(wb.worksheets.map((w) => w.name), 'só a aba Base (Resumo e Leia-me saíram a pedido do dono)').toEqual(['Base']);
     const ws = wb.getWorksheet('Base')!;
     expect((ws.getRow(2).values as any[]).slice(1)).toEqual(TITULOS_FIXOS);
     expect(ws.getCell(1, 1).value).toBe('Identificação');
@@ -80,7 +77,6 @@ describe('template fixo da planilha', () => {
     expect(com[24]).toBe('fulana@escola-ficticia.example.br\n-');
     const sem = (ws.getRow(4).values as any[]).slice(1);
     expect(sem.slice(19, 25).every((v) => v == null || v === '')).toBe(true);
-    expect(textoDe(wb.getWorksheet('Resumo'))).toContain('1 de 2');
   });
 
   it('escola: preenche INEP, rede e IBGE; números ficam números (não texto) e % em fração', async () => {
@@ -116,27 +112,7 @@ describe('template fixo da planilha', () => {
     expect(regioesDoMunicipio(undefined)).toBe('');
   });
 
-  it('Resumo traz quem exportou, filtros, corte e totais; Leia-me avisa que não há dado pessoal', async () => {
-    const wb = await ler(await montarPlanilhaMercado(base({
-      filtros: { uf: ['SP'], professoresMin: 50, gestoresMin: 5, redes: ['PRIVADA'], idadeOnboarding: 24, precoProf: 120 },
-      totalNoBanco: 4632, truncado: true, limiteExportacao: 10000,
-    })));
-    const r = textoDe(wb.getWorksheet('Resumo'));
-    expect(r).toContain('rodrigo@vertho.ai');
-    expect(r).toContain('Nº de professores (≥)');
-    expect(r).toContain('até 24 anos');
-    expect(r).toContain('Corte');
-    expect(r).toMatch(/SIM\./);
-    expect(r).toContain('4.632');
-    expect(textoDe(wb.getWorksheet('Leia-me'))).toContain('uso restrito à equipe vertho.ai');
-  });
-
-  it('dataBRT usa Brasília, não o fuso do servidor (02:30 UTC ainda é a noite anterior)', () => {
-    expect(dataBRT(new Date('2026-10-16T02:30:00Z'))).toMatch(/15\/10\/2026.*23:30/);
-  });
-
-  it('sem filtro de lugar o Resumo diz "Recorte", e nenhum texto tem caractere de controle', async () => {
-    expect(descreverFiltros({}).map(([k]) => k)).toContain('Recorte');
+  it('nenhum texto da planilha tem caractere de controle', async () => {
     const wb = await ler(await montarPlanilhaMercado(base()));
     for (const ws of wb.worksheets) expect(textoDe(ws), ws.name).not.toMatch(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/);
   });
@@ -165,12 +141,20 @@ const LINHAS = (n: number) => Array.from({ length: n }, (_, i) => ({
   qt_coord_pedag: 1 + (i % 4), qt_diretor_proxy: 1, inse_medio: 4, inse_efetivo: 4, inse_grupo: 4,
 }));
 let banco: any[] = [];
+// Contato enriquecido (Fase 2): as duas tabelas novas são lidas na visão Escola, cada uma com o seu conteúdo.
+let contatosBanco: any[] = [];
+let supressaoBanco: any[] = [];
 let sb = criarSupabaseMock();
 const intervalo = (cadeia: Chamada[]): [number, number] => { const r = cadeia.find((c) => c.metodo === 'range'); return r ? [r.args[0], r.args[1]] : [0, banco.length - 1]; };
 function novoBanco(n: number) {
   banco = LINHAS(n);
+  contatosBanco = []; supressaoBanco = [];
   sb = criarSupabaseMock({
-    lista: (_t, _c, cadeia) => { const [de, ate] = intervalo(cadeia); return banco.slice(de, Math.min(ate, de + 999, banco.length - 1) + 1); },
+    lista: (tabela, _c, cadeia) => {
+      if (tabela === 'mercado_escola_contatos') return contatosBanco;
+      if (tabela === 'mercado_contatos_supressao') return supressaoBanco;
+      const [de, ate] = intervalo(cadeia); return banco.slice(de, Math.min(ate, de + 999, banco.length - 1) + 1);
+    },
     contagem: () => banco.length,
   });
 }
@@ -216,7 +200,8 @@ describe('exportarMercadoXLSX: gate, auditoria e leitura da base inteira', () =>
     novoBanco(2500);
     const r: any = await exportarMercadoXLSX('escola', { limit: 1000 });
     expect(r.n).toBe(2500);
-    const ranges = sb.chamadas.filter((c) => c.metodo === 'range').map((c) => [c.args[0], c.args[1]]);
+    // Só as páginas da MV de escolas: as tabelas de contato (visão Escola) são lidas à parte.
+    const ranges = sb.chamadas.filter((c) => c.metodo === 'range' && c.tabela === 'diag_mv_mercado_escola').map((c) => [c.args[0], c.args[1]]);
     expect(ranges).toEqual([[0, 999], [1000, 1999], [2000, 2999]]);
   });
 
@@ -237,10 +222,88 @@ describe('exportarMercadoXLSX: gate, auditoria e leitura da base inteira', () =>
     const bytes = Buffer.from(r.base64, 'base64');
     expect(bytes.length, 'tamanho do .xlsx no teto').toBeLessThan(TAMANHO_MAXIMO_BYTES);
     expect(r.base64.length, 'base64 abaixo do teto da resposta (~4,5 MB)').toBeLessThan(4_500_000);
-    const wb = await ler(bytes);
-    expect(textoDe(wb.getWorksheet('Resumo'))).toMatch(/SIM\./);
+    const ws = (await ler(bytes)).getWorksheet('Base')!;
+    expect(ws.rowCount, '2 linhas de cabeçalho + as linhas do teto').toBe(2 + LIMITE_EXPORTACAO);
     expect(auditoria.mock.calls[0][0].detalhes).toMatchObject({ n: LIMITE_EXPORTACAO, truncado: true });
   }, 60_000);
+});
+
+describe('exportação com o contato enriquecido (visão Escola)', () => {
+  const INEP = '35000001';
+  const linhaContato = (parcial: any = {}) => ({
+    codigo_inep: INEP, site: 'https://www.colegioexemplo.com.br', site_confere_endereco: true,
+    telefones: [{ numero: '(19) 3251-0000', rotulo: 's', fonte_url: 'https://x' }], emails: [{ endereco: 'secretaria@colegioexemplo.com.br', rotulo: 's', fonte_url: 'https://x' }],
+    whatsapp: [{ numero: '(19) 99999-0000', rotulo: 'w', fonte_url: 'https://x' }],
+    responsaveis: [
+      { nome: 'Maria Lima', cargo: 'Diretora Geral', fonte_url: 'https://x', email: 'maria@colegioexemplo.com.br', email_status: 'valid', email_origem: 'hunter_finder' },
+      { nome: 'Pedro Souza', cargo: 'Coordenador', fonte_url: 'https://x', email: 'pedro@colegioexemplo.com.br', email_status: 'accept_all', email_origem: 'hunter_finder' },
+    ],
+    nivel: 'A', hunter_status: 'ok', observacao: null, custo_usd: 0.09, hunter_creditos: 2, coletado_por: 'a@vertho.ai',
+    coletado_em: '2026-10-10T12:00:00.000Z', expira_em: '2027-04-08T12:00:00.000Z', ...parcial,
+  });
+  /** A linha da planilha de uma escola, achada pelo INEP (a ordem das linhas é a do score). */
+  async function linhaDe(r: any, inep: string) {
+    const ws = (await ler(Buffer.from(r.base64, 'base64'))).getWorksheet('Base')!;
+    let achada: any[] | null = null;
+    ws.eachRow((row: any, n: number) => { if (n > 2 && row.getCell(1).value === inep) achada = (row.values as any[]).slice(1); });
+    return achada as any[] | null;
+  }
+
+  it('anexa site, telefones (com WhatsApp), e-mails e responsáveis; só o e-mail VERIFICADO do responsável sai', async () => {
+    novoBanco(3);
+    contatosBanco = [linhaContato()];
+    const r: any = await exportarMercadoXLSX('escola', {});
+    const l = await linhaDe(r, INEP);
+    expect(l![19]).toBe('https://www.colegioexemplo.com.br');
+    expect(l![20]).toBe('(19) 3251-0000\n(19) 99999-0000 (WhatsApp)');
+    expect(l![21]).toBe('secretaria@colegioexemplo.com.br');
+    expect(l![22]).toBe('Maria Lima\nPedro Souza');
+    expect(l![23]).toBe('Diretora Geral\nCoordenador');
+    expect(l![24], 'accept_all fica guardado, mas NÃO sai na planilha').toBe('maria@colegioexemplo.com.br\n-');
+    expect(auditoria.mock.calls[0][0].detalhes).toMatchObject({ n: 3, comContato: 1 });
+    expect(r.comContato).toBe(1);
+  });
+
+  it('só lê contato VIGENTE (`expira_em` no futuro), em páginas e ordenado; escola sem contato sai em branco', async () => {
+    novoBanco(3);
+    contatosBanco = [linhaContato()];
+    const r: any = await exportarMercadoXLSX('escola', {});
+    const gt = sb.chamadas.find((c) => c.tabela === 'mercado_escola_contatos' && c.metodo === 'gt');
+    expect(gt!.args[0]).toBe('expira_em');
+    expect(Date.parse(gt!.args[1])).toBeGreaterThan(Date.now() - 60_000);
+    expect(sb.usou('mercado_escola_contatos', 'order', 'codigo_inep')).toBe(true);
+    const sem = await linhaDe(r, '35000002');
+    expect(sem!.slice(19, 25).every((v) => v == null || v === '')).toBe(true);
+  });
+
+  it('quem está na lista de bloqueio sai por inteiro (nome, cargo e e-mail), e o e-mail institucional bloqueado também', async () => {
+    novoBanco(3);
+    supressaoBanco = [{ email: 'maria@colegioexemplo.com.br' }, { email: 'SECRETARIA@colegioexemplo.com.br' }];
+    contatosBanco = [linhaContato()];
+    const l = await linhaDe(await exportarMercadoXLSX('escola', {}), INEP);
+    expect(l![22]).toBe('Pedro Souza');
+    expect(l![21]).toBeUndefined();
+    expect(JSON.stringify(l)).not.toMatch(/Maria Lima|maria@|secretaria@/i);
+  });
+
+  it('falha ao ler a lista de bloqueio ou os contatos NÃO gera arquivo (falha fechada) e não audita', async () => {
+    for (const tabela of ['mercado_contatos_supressao', 'mercado_escola_contatos']) {
+      novoBanco(3); auditoria.mockClear();
+      sb.falharEm({ tabela, op: 'select', mensagem: 'caiu' });
+      const r: any = await exportarMercadoXLSX('escola', {});
+      expect(r.ok, tabela).toBe(false);
+      expect(r.base64, tabela).toBeUndefined();
+      expect(auditoria, tabela).not.toHaveBeenCalled();
+    }
+  });
+
+  it('município e rede não consultam contato nenhum', async () => {
+    novoBanco(3);
+    const r: any = await exportarMercadoXLSX('municipio', {});
+    expect(r.ok).toBe(true);
+    expect(r.comContato).toBe(0);
+    expect(sb.chamadas.filter((c) => c.tabela === 'mercado_escola_contatos' || c.tabela === 'mercado_contatos_supressao')).toHaveLength(0);
+  });
 });
 
 describe('a tela chama a exportação', () => {

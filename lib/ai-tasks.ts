@@ -149,6 +149,9 @@ export const AI_TASKS = [
   { key: 'copiloto_pesquisa_noticias_externas', label: 'Copiloto PACE — pesquisa notícias externas', fase: 'Copiloto' },
   { key: 'copiloto_pesquisa_pessoas', label: 'Copiloto PACE — quem responde por pessoas', fase: 'Copiloto' },
   { key: 'copiloto_pesquisa_pessoa', label: 'Copiloto PACE — pessoa da reunião em profundidade', fase: 'Copiloto' },
+  // 16/10/2026: busca web do enriquecimento de contatos das escolas (Mercado Potencial). Só fonte oficial; cada dado é
+  // conferido contra a página citada antes de gravar (lib/mercado-potencial/enriquecimento). Mesmo transporte do Copiloto.
+  { key: 'mercado_enriquecimento_contatos', label: 'Mercado Potencial — enriquecimento de contatos (busca web)', fase: 'Vertho' },
 ];
 
 /**
@@ -300,6 +303,7 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   copiloto_pesquisa_noticias_externas: DEFAULT_COPILOTO_RESEARCH_MODEL,
   copiloto_pesquisa_pessoas:           DEFAULT_COPILOTO_RESEARCH_MODEL,
   copiloto_pesquisa_pessoa:            DEFAULT_COPILOTO_RESEARCH_MODEL,
+  mercado_enriquecimento_contatos:     DEFAULT_COPILOTO_RESEARCH_MODEL,
   // Módulos-Base — autora (extração/segmentação/estruturação) em Claude Sonnet 4.6
   // (24/06): qualidade pedagógica e aderência ao spec acima do Gemini Flash, que
   // entregava segmentação/estruturação mais rasa. Custo/latência maiores, aceitos

@@ -4,6 +4,8 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { logAdminAction } from '@/lib/audit';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { isInternalEmail } from '@/lib/internal-emails';
+import { enriquecerLote as enriquecerLoteNucleo, montarPlano, type PlanoEnriquecimento, type ResultadoLote } from '@/lib/mercado-potencial/enriquecimento/lote';
+import { carregarSupressao, contatosParaExportacao, suprimirEmail } from '@/lib/mercado-potencial/enriquecimento/persistencia';
 import { LIMITE_EXPORTACAO, TAMANHO_MAXIMO_BYTES, montarPlanilhaMercado, type VisaoMercado } from '@/lib/mercado-potencial/exportar-xlsx';
 import { lerTudoPaginado } from '@/lib/paginacao';
 import {
@@ -268,25 +270,37 @@ function ordenarRows(rows: any[], filtros: MercadoFilters): any[] {
 // ── Exportação em XLSX (template fixo) ──────────────────────────────────────
 
 type ResultadoExportacao =
-  | { ok: true; base64: string; n: number; totalNoBanco: number | null; truncado: boolean; limite: number; nomeArquivo: string }
+  | { ok: true; base64: string; n: number; comContato: number; totalNoBanco: number | null; truncado: boolean; limite: number; nomeArquivo: string }
   | { ok: false; error: string };
 
 /**
- * Exporta, em XLSX, as linhas que os filtros da tela devolvem na visão escolhida.
- *
- * Gate: `exports.run` + conta da equipe vertho.ai (decisão do dono, 16/10/2026: a base
- * enriquecida com contatos é só da casa). Lê TODAS as linhas do filtro até
- * `LIMITE_EXPORTACAO`, sem o "Limite" da tela (ele existe para proteger o navegador, e
- * quem exporta quer a base inteira). Cada exportação vai para a auditoria.
+ * Gate comum da exportação e do enriquecimento: permissão `exports.run` + conta da equipe vertho.ai
+ * (decisão do dono, 16/10/2026: a base enriquecida com contatos é só da casa). Devolve erro, nunca lança.
  */
-export async function exportarMercadoXLSX(visao: VisaoMercado, filtros: MercadoFilters = {}): Promise<ResultadoExportacao> {
+async function gateEquipe(recusaSemPermissao: string, recusaForaDaEquipe: string): Promise<{ ok: true; email: string } | { ok: false; error: string }> {
   let ctx;
   try {
     ctx = await requireAdminAction('exports.run');
   } catch {
-    return { ok: false, error: 'Sem permissão para exportar.' };
+    return { ok: false, error: recusaSemPermissao };
   }
-  if (!isInternalEmail(ctx.email)) return { ok: false, error: 'A exportação é só da equipe vertho.ai.' };
+  if (!isInternalEmail(ctx.email)) return { ok: false, error: recusaForaDaEquipe };
+  return { ok: true, email: ctx.email };
+}
+
+/**
+ * Exporta, em XLSX, as linhas que os filtros da tela devolvem na visão escolhida.
+ *
+ * Gate: `exports.run` + conta da equipe vertho.ai. Lê TODAS as linhas do filtro até
+ * `LIMITE_EXPORTACAO`, sem o "Limite" da tela (ele existe para proteger o navegador, e
+ * quem exporta quer a base inteira). Na visão Escola, anexa o contato enriquecido VIGENTE
+ * de cada escola (só e-mail verificado; quem pediu para sair fica de fora). Cada exportação
+ * vai para a auditoria.
+ */
+export async function exportarMercadoXLSX(visao: VisaoMercado, filtros: MercadoFilters = {}): Promise<ResultadoExportacao> {
+  const gate = await gateEquipe('Sem permissão para exportar.', 'A exportação é só da equipe vertho.ai.');
+  if (gate.ok === false) return { ok: false, error: gate.error };
+  const ctx = { email: gate.email };
   if (visao !== 'municipio' && visao !== 'rede' && visao !== 'escola') return { ok: false, error: 'Visão inválida.' };
 
   const carregar = visao === 'municipio' ? loadMercadoMunicipios : visao === 'rede' ? loadMercadoRedes : loadMercadoEscolas;
@@ -295,23 +309,95 @@ export async function exportarMercadoXLSX(visao: VisaoMercado, filtros: MercadoF
   if (!r.rows?.length) return { ok: false, error: 'Nenhuma linha para exportar com estes filtros.' };
 
   const geradoEm = new Date();
-  const buf = await montarPlanilhaMercado({
-    visao, linhas: r.rows, filtros, exportadoPor: ctx.email, geradoEm,
-    totalNoBanco: r.totalNoBanco ?? null, truncado: !!r.truncado, limiteExportacao: LIMITE_EXPORTACAO,
-  });
+  let linhas = r.rows;
+  let comContato = 0;
+  if (visao === 'escola') {
+    // Falha FECHADA: sem a lista de quem pediu para sair, não há como garantir que o e-mail dela não saia.
+    const sb = await requireAdminSupabase();
+    const sup = await carregarSupressao(sb);
+    if (sup.erro) return { ok: false, error: `Não consegui ler a lista de e-mails bloqueados: ${sup.erro}` };
+    const contatos = await contatosParaExportacao(sb, geradoEm, sup.set);
+    if (contatos.erro) return { ok: false, error: `Não consegui ler os contatos coletados: ${contatos.erro}` };
+    linhas = r.rows.map((l: any) => {
+      const contato = contatos.mapa.get(l.codigo_inep);
+      if (contato) comContato++;
+      return contato ? { ...l, contato } : l;
+    });
+  }
+  const buf = await montarPlanilhaMercado({ visao, linhas });
   if (buf.length > TAMANHO_MAXIMO_BYTES) {
     return { ok: false, error: 'O arquivo ficou grande demais para baixar de uma vez. Refine os filtros (UF, região, rede) e exporte em partes.' };
   }
 
   await logAdminAction({
     adminEmail: ctx.email, acao: 'mercado.export', alvo: `${r.rows.length} linhas (${visao})`,
-    detalhes: { visao, formato: 'xlsx', n: r.rows.length, totalNoBanco: r.totalNoBanco ?? null, truncado: !!r.truncado, filtros },
+    detalhes: { visao, formato: 'xlsx', n: r.rows.length, comContato, totalNoBanco: r.totalNoBanco ?? null, truncado: !!r.truncado, filtros },
   });
   const dia = geradoEm.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
   return {
-    ok: true, base64: buf.toString('base64'), n: r.rows.length, totalNoBanco: r.totalNoBanco ?? null,
+    ok: true, base64: buf.toString('base64'), n: r.rows.length, comContato, totalNoBanco: r.totalNoBanco ?? null,
     truncado: !!r.truncado, limite: LIMITE_EXPORTACAO, nomeArquivo: `mercado-potencial-${visao}-${dia}.xlsx`,
   };
+}
+
+// ── Enriquecimento de contatos das escolas (Fase 2, 16/10/2026) ────────────
+//
+// Mesmo gate da exportação (`exports.run` + @vertho.ai): a busca web é paga e o resultado é dado pessoal.
+// A lógica vive em `lib/mercado-potencial/enriquecimento/` (núcleo sem gate, testável); aqui só entram o
+// gate, o cliente de banco e a auditoria. Nada aqui grava nome ou e-mail em log ou na auditoria.
+
+const RECUSA_SEM_PERMISSAO = 'Sem permissão para enriquecer contatos.';
+const RECUSA_FORA_DA_EQUIPE = 'O enriquecimento de contatos é só da equipe vertho.ai.';
+
+/**
+ * Conta o que a rodada faria SEM gastar nada: quantas escolas já estão prontas, quantas faltam só no Hunter e
+ * quantas precisam de busca web nova, com o custo estimado. As escolas vêm na ORDEM DA TELA (a mesma do filtro).
+ */
+export async function planejarEnriquecimento(filtros: MercadoFilters = {}): Promise<{ ok: true; plano: PlanoEnriquecimento } | { ok: false; error: string }> {
+  const gate = await gateEquipe(RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
+  if (gate.ok === false) return { ok: false, error: gate.error };
+  // Lê o filtro inteiro (até o teto da exportação) e só então ordena: cortar antes pegaria as primeiras por INEP.
+  const r: any = await loadMercadoEscolas({ ...filtros, limit: LIMITE_EXPORTACAO });
+  if (r.error) return { ok: false, error: r.error };
+  if (!r.rows?.length) return { ok: false, error: 'Nenhuma escola com estes filtros.' };
+  const sb = await requireAdminSupabase();
+  return montarPlano(sb, r.rows.map((x: any) => String(x.codigo_inep)), { totalNoBanco: r.totalNoBanco ?? null, truncado: !!r.truncado }, new Date());
+}
+
+/**
+ * Enriquece até 5 escolas por chamada (busca web → conferência → Hunter) e grava cada uma ao terminar. A tela
+ * chama em laço; o teto de 5 mantém cada chamada abaixo do limite de tempo da função.
+ */
+export async function enriquecerLote(codigos: string[]): Promise<({ ok: true } & ResultadoLote) | { ok: false; error: string }> {
+  const gate = await gateEquipe(RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
+  if (gate.ok === false) return { ok: false, error: gate.error };
+  const sb = await requireAdminSupabase();
+  const r = await enriquecerLoteNucleo(sb, gate.email, codigos);
+  if (r.ok === false) return r;
+
+  await logAdminAction({
+    adminEmail: gate.email, acao: 'mercado.enriquecer', alvo: `${r.resultados.length} escolas`,
+    detalhes: {
+      escolas: r.resultados.map((x) => x.codigo_inep), buscas: r.buscas, custoUsd: r.custoUsd, hunterCreditos: r.hunterCreditosGastos,
+      erros: r.resultados.filter((x) => !x.ok && !x.adiada).length, adiadas: r.resultados.filter((x) => x.adiada).length,
+    },
+  });
+  return r;
+}
+
+/**
+ * Pedido de quem não quer ser contatado: grava o e-mail na lista de bloqueio (conferida ao enriquecer e ao
+ * exportar) e tira a pessoa de toda linha vigente. O e-mail NÃO vai para a auditoria (seria copiar o dado que se
+ * está removendo); fica quem pediu e quantas escolas foram atingidas.
+ */
+export async function suprimirContato(email: string, motivo?: string): Promise<{ ok: true; escolas: number } | { ok: false; error: string }> {
+  const gate = await gateEquipe(RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
+  if (gate.ok === false) return { ok: false, error: gate.error };
+  const sb = await requireAdminSupabase();
+  const r = await suprimirEmail(sb, email, motivo ?? null, gate.email);
+  if (r.ok === false) return { ok: false, error: r.erro };
+  await logAdminAction({ adminEmail: gate.email, acao: 'mercado.suprimir', alvo: 'e-mail bloqueado', detalhes: { escolas: r.escolas } });
+  return { ok: true, escolas: r.escolas };
 }
 
 // ── Refresh manual das MVs (admin Vertho only) ─────────────────────────────

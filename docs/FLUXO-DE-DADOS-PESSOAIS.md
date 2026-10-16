@@ -81,6 +81,16 @@ Isto descreve **como uma pessoa foi avaliada no trabalho**. Quem é avaliado, na
 `diag_leads`, `sales_contacts`, `radarempresas_estabelecimentos` (nome, e-mail, telefones de
 contato de escolas/empresas prospectadas).
 
+**`mercado_escola_contatos` e `mercado_contatos_supressao`** (mig 288, 16/10/2026; Mercado Potencial,
+botão "Enriquecer contatos"): site, telefones e e-mails **institucionais** da escola e, **dado pessoal**,
+nome, cargo e e-mail de quem decide (diretor, coordenador, mantenedor). Vêm de fontes públicas (a busca web
+só vale com a página citada conferida) e do Hunter. Titulares são pessoas que **não têm relação com a
+Vertho**: a Vertho é **controladora** desse dado (prospecção comercial), diferente do §6. Base legal
+proposta: legítimo interesse (LGPD, art. 7º, IX), **a validar com o jurídico**. Salvaguardas no código:
+validade de **180 dias** (`expira_em`; cada lote apaga o vencido), lista de bloqueio conferida ao
+enriquecer e ao exportar (formulário no painel), só a equipe `@vertho.ai` lê e exporta, auditoria sem nome
+nem e-mail, nenhum log com nome ou e-mail, e só e-mail **verificado** sai na planilha.
+
 ---
 
 ## 2. 🔴 O que sai para a IA
@@ -281,6 +291,8 @@ nem conteúdo do navegador. Especificação operacional: `docs/BETO-CANAIS.md`.
 | Monitoramento de erros | **Sentry** | dados técnicos de erro; e-mail, telefone, CPF e credenciais de URL (`t`, `token`, `token_hash`, `codigo`, `code`, `ticket`, `passe`, `key`, `secret`) removidos em `lib/sentry-scrub-pii.ts`; **nome em texto livre não é detectado** |
 | Vídeo | **Bunny Stream** | vídeos genéricos e personalizados; os personalizados têm o primeiro nome na saudação e no **título** (`worker-hetzner/worker.mjs`) |
 | Avatar de vídeo | **HeyGen** | roteiros de conteúdo dos decks genéricos, sem dado da pessoa |
+| Enriquecimento de contatos (Mercado Potencial) | **Hunter** (hunter.io, fora do país) | **só nome completo do decisor e domínio da escola** (Email Finder) ou só o domínio (Domain Search), mais o e-mail achado (Verifier); a chave `HUNTER_API` vai no cabeçalho, nunca na URL; nenhum log com nome ou e-mail (`lib/mercado-potencial/enriquecimento/hunter.ts`) |
+| Busca de contatos da escola | **OpenAI** (pesquisa web, `callOpenAIWebSearch`) | só dado **público da escola**: nome, município, UF, endereço do Censo e INEP; nenhum dado de pessoa (`busca-web.ts`) |
 
 **Transferência internacional:** todos os fornecedores acima são estrangeiros. A confirmação de
 *em que país* cada dado repousa depende da configuração de região de Supabase e Vercel: é o
@@ -312,6 +324,7 @@ Google para interpretação, conforme a §2.4.
 |---|---|---|
 | `mensagens_chat` de sessão abandonada | apagada após **48h** de inatividade | `cleanup_sessoes` |
 | Backups | rotação de **7 dias** | `actions/backup.ts` |
+| Contatos de decisores de escolas (`mercado_escola_contatos`) | vencem **180 dias** após a coleta (`expira_em`): vencido não é exportado, e o apagamento físico roda **a cada lote de enriquecimento** (não há cron: sem uso, a linha vencida fica no banco até o próximo lote); a pedido, por e-mail na lista de bloqueio | `lib/mercado-potencial/enriquecimento/persistencia.ts` |
 | **Todo o resto** | **sem prazo definido** — permanece indefinidamente | — |
 
 ⚠️ Não existe rotina de exclusão a pedido do titular, nem prazo de descarte para avaliação,
