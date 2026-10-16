@@ -35,6 +35,16 @@ export function seloDaEtapa(
   }
 }
 
+/**
+ * Etapa com AUDITORIA (IA4, blueprint, PDI): gerado não é aprovado (pedido do dono, 16/10/2026: "na tela aparece tudo
+ * verde concluído... falsa impressão de estar ok"). Com algo reprovado ou sem veredito, o que seria "passou" (ou
+ * "sem ação") vira "atenção". Rodando, aguardando e falhou ficam como estão: dizem mais do que o veredito.
+ */
+export function seloComVeredito(selo: SeloEtapa, v: { naoAprovados: number; semVeredito: number } | null | undefined): SeloEtapa {
+  if (!v || v.naoAprovados + v.semVeredito === 0) return selo;
+  return selo === 'passou' || selo === 'neutro' ? 'atencao' : selo;
+}
+
 export const ROTULO_SELO: Record<SeloEtapa, string> = {
   passou: 'passou',
   atencao: 'atenção',

@@ -23,6 +23,7 @@ import { montarPreviaFluxo, type PreviaFluxo } from '@/lib/pipeline-fluxo/previa
 import { filaConteudoEscopo } from '@/lib/pipeline-fluxo/conteudo';
 import { coletarPrerequisitos } from '@/lib/pipeline-fluxo/prerequisitos-coleta';
 import { regraFocoIndividual } from '@/lib/foco-individual';
+import { lerVereditos, type VereditosFluxo } from '@/lib/pipeline-fluxo/vereditos';
 import type { PrerequisitosFluxo } from '@/lib/pipeline-fluxo/prerequisitos';
 import { FASE_FLUXO, TASK_FLUXO, progressoInicial, type ParamsFluxo, type ProgressoFluxo } from '@/lib/pipeline-fluxo/tipos';
 
@@ -198,6 +199,35 @@ export async function statusFluxoCompleto(input: z.infer<typeof IdSchema>): Prom
     };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Erro ao ler o fluxo' };
+  }
+}
+
+/**
+ * Vereditos das auditorias (IA4, blueprint, PDI) no escopo do fluxo (o do `jobId`, senão o do último; sem fluxo, a
+ * empresa inteira). Somente leitura. A tela usa para não pintar de verde o que foi gerado e não foi aprovado
+ * (pedido do dono, 16/10/2026). Separado de `statusFluxoCompleto` de propósito: o status é sondado a cada 5 s, e isto
+ * lê as respostas e os PDIs da empresa; a tela relê só quando uma etapa muda.
+ */
+export async function vereditosFluxo(input: z.infer<typeof IdSchema>): Promise<{ success: true; vereditos: VereditosFluxo } | { success: false; error: string }> {
+  await requireAdminAction();
+  const parsed = IdSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: 'Entrada inválida' };
+  const { empresaId, jobId } = parsed.data;
+  try {
+    const sb = await requireAdminSupabase('admin.access');
+    let q = sb.from('ia_jobs').select('id, params').eq('empresa_id', empresaId).eq('fase', FASE_FLUXO);
+    if (jobId) q = q.eq('id', jobId);
+    const { data: job, error } = await q.order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (error) return { success: false, error: error.message };
+    const p: any = job?.params || {};
+    const r = await lerVereditos(tenantDb(empresaId), {
+      permitidos: Array.isArray(p.permitidos) ? new Set<string>(p.permitidos) : null,
+      incluirInternos: Array.isArray(p.excecaoInternos) ? p.excecaoInternos : undefined,
+    });
+    if (r.error || !r.vereditos) return { success: false, error: r.error || 'sem vereditos' };
+    return { success: true, vereditos: r.vereditos };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao ler os vereditos' };
   }
 }
 

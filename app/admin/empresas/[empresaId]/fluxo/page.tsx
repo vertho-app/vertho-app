@@ -4,9 +4,10 @@ import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AlertTriangle, CheckCircle, Clock, ExternalLink, Loader2, MinusCircle, Play, RefreshCw, Square, XCircle } from 'lucide-react';
-import { seloDaEtapa, ROTULO_SELO, type SeloEtapa } from '@/lib/pipeline-fluxo/selo-etapa';
+import { seloDaEtapa, seloComVeredito, ROTULO_SELO, type SeloEtapa } from '@/lib/pipeline-fluxo/selo-etapa';
+import { resumoComVereditos, temPendencia, type EtapaComVeredito, type VereditosFluxo } from '@/lib/pipeline-fluxo/vereditos';
 import BackButton from '@/components/back-button';
-import { previaFluxoCompleto, iniciarFluxoCompleto, statusFluxoCompleto, cancelarFluxoCompleto, type PreviaFluxoResult, type EstadoFluxo } from '@/actions/pipeline-fluxo';
+import { previaFluxoCompleto, iniciarFluxoCompleto, statusFluxoCompleto, cancelarFluxoCompleto, vereditosFluxo, type PreviaFluxoResult, type EstadoFluxo } from '@/actions/pipeline-fluxo';
 import { TURMA_ENCERRADAS } from '@/lib/status';
 import type { GravidadePrereq } from '@/lib/pipeline-fluxo/prerequisitos';
 import { linksDoPrerequisito } from '@/lib/pipeline-fluxo/prerequisitos-links';
@@ -50,6 +51,24 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
 
   useEffect(() => { lerFluxo(); }, [lerFluxo]);
   const ativo = !!fluxo && ATIVO.includes(fluxo.status);
+
+  // Vereditos das auditorias (IA4, blueprint, PDI), lidos na hora: "ok" na etapa é GERADO, não APROVADO (pedido do
+  // dono, 16/10/2026). Relidos quando o fluxo muda de etapa, não a cada sondagem de 5 s.
+  const [vereditos, setVereditos] = useState<VereditosFluxo | null>(null);
+  const [vereditosErro, setVereditosErro] = useState<string | null>(null);
+  const assinaturaFluxo = fluxo ? `${fluxo.jobId}|${fluxo.status}|${(fluxo.progresso?.etapas || []).map((e) => e.estado).join(',')}` : '';
+  const lerVereditos = useCallback(async () => {
+    try {
+      const r = await vereditosFluxo({ empresaId });
+      if ('vereditos' in r) { setVereditos(r.vereditos); setVereditosErro(null); }
+      else { setVereditos(null); setVereditosErro(r.error); }
+    } catch (e: any) { setVereditos(null); setVereditosErro(e?.message || 'falha ao ler'); }
+  }, [empresaId]);
+  useEffect(() => { lerVereditos(); }, [lerVereditos, assinaturaFluxo]);
+  const vereditoDa = (id: string) => vereditos?.porEtapa[id as EtapaComVeredito];
+  // Sem conseguir ler os vereditos, etapa com auditoria não fica verde: não se sabe se foi aprovada.
+  const ETAPAS_COM_VEREDITO = ['ia4', 'auditoria', 'pdi'];
+  const vereditoOuDuvida = (id: string) => (vereditosErro && ETAPAS_COM_VEREDITO.includes(id) ? { naoAprovados: 0, semVeredito: 1 } : vereditoDa(id));
   useEffect(() => {
     if (!ativo) return;
     const t = setInterval(lerFluxo, 5000);
@@ -211,10 +230,10 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                 </div>
                 <ResumoPessoas
                   total={p.pessoas.total}
-                  completas={p.pessoas.completasProjetadas}
                   projecao
-                  jaCompletas={p.pessoas.completas}
-                  incompletas={p.pessoas.incompletasProjetadas}
+                  jaCompletas={resumoComVereditos({ completas: p.pessoas.completas, incompletas: p.pessoas.incompletas }, vereditos?.pendencias).completas}
+                  {...resumoComVereditos({ completas: p.pessoas.completasProjetadas, incompletas: p.pessoas.incompletasProjetadas }, vereditos?.pendencias)}
+                  vereditosErro={vereditosErro}
                 />
                 <div className="px-4 py-2.5 text-[11px]" style={{ borderTop: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.4)' }}>
                   Estimativa: cada etapa real recalcula a própria fila ao rodar. "Após a etapa anterior" é projeção (por exemplo, quem responde mas ainda não foi avaliado pela IA4).
@@ -400,9 +419,9 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                 {fluxo.progresso.pessoas && (
                   <ResumoPessoas
                     total={fluxo.progresso.pessoas.total}
-                    completas={fluxo.progresso.pessoas.completas}
                     projecao={fluxo.progresso.pessoas.projecao}
-                    incompletas={fluxo.progresso.pessoas.incompletas}
+                    {...resumoComVereditos({ completas: fluxo.progresso.pessoas.completas, incompletas: fluxo.progresso.pessoas.incompletas }, vereditos?.pendencias)}
+                    vereditosErro={vereditosErro}
                   />
                 )}
                 {fluxo.progresso.pessoasErro && (
@@ -414,8 +433,16 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                   {fluxo.progresso.etapas.map((e) => (
                     <li key={e.id} className="px-4 py-2 text-[12.5px] flex items-baseline justify-between gap-3" style={{ borderTop: '1px solid rgba(255,255,255,.05)' }}>
                       <span className="text-white flex items-baseline gap-2">
-                        <SeloIcone selo={seloDaEtapa(e, { dryRun: fluxo.dryRun, bloqueados: fluxo.progresso!.pessoas?.bloqueadosPorEtapa?.[e.id] })} />
-                        <span>{e.titulo}{e.detalhe && <span className="ml-2 text-[11px]" style={{ color: 'rgba(255,255,255,.45)' }}>{e.detalhe}</span>}</span>
+                        <SeloIcone selo={seloComVeredito(seloDaEtapa(e, { dryRun: fluxo.dryRun, bloqueados: fluxo.progresso!.pessoas?.bloqueadosPorEtapa?.[e.id] }), vereditoOuDuvida(e.id))} />
+                        <span>
+                          {e.titulo}{e.detalhe && <span className="ml-2 text-[11px]" style={{ color: 'rgba(255,255,255,.45)' }}>{e.detalhe}</span>}
+                          {vereditoDa(e.id) && (
+                            <span className="block text-[11px]" style={{ color: temPendencia(vereditoDa(e.id)) ? '#f4b740' : 'rgba(255,255,255,.45)' }}>
+                              Auditoria agora: {vereditoDa(e.id)!.rotulo}
+                              {vereditoDa(e.id)!.pessoas.length > 0 && ` · ${vereditoDa(e.id)!.pessoas.slice(0, 8).join(', ')}${vereditoDa(e.id)!.pessoas.length > 8 ? ` e mais ${vereditoDa(e.id)!.pessoas.length - 8}` : ''}`}
+                            </span>
+                          )}
+                        </span>
                       </span>
                       <span className="font-mono shrink-0" style={{ color: ESTADO_COR[e.estado] }}>
                         {ESTADO_TXT[e.estado]}{e.total > 0 && e.estado !== 'pulado' ? ` · ${e.feitos}/${e.total}${e.falhas ? ` · ${e.falhas} falha(s)` : ''}` : ''}
@@ -484,23 +511,31 @@ function SeloIcone({ selo }: { selo: SeloEtapa }) {
  * "x de Y pessoas com o fluxo inteiro" (competência, quando a regra está ligada, blueprint, PDI e trilha; o Kit é por
  * tema × DISC e não entra). Na projeção: quem TERIA tudo se as etapas rodarem sem falha; na rodada real: quem FICOU.
  */
-function ResumoPessoas({ total, completas, projecao, jaCompletas, incompletas }: {
+function ResumoPessoas({ total, completas, projecao, jaCompletas, incompletas, vereditosErro }: {
   total: number; completas: number; projecao: boolean; jaCompletas?: number;
   incompletas: Array<{ nome: string; faltam: string[] }>;
+  /** Sem os vereditos a conta não sabe o que foi aprovado: o selo nunca fica verde e a tela diz por quê. */
+  vereditosErro?: string | null;
 }) {
-  const tudo = total > 0 && completas === total;
+  const tudo = total > 0 && completas === total && !vereditosErro;
   return (
     <div className="px-4 py-2.5" style={{ borderTop: '1px solid rgba(255,255,255,.06)' }}>
       <div className="flex items-center gap-2 text-[12.5px] text-white">
         <SeloIcone selo={tudo ? 'passou' : 'atencao'} />
         <span>
-          {projecao ? 'Teriam' : 'Ficaram com'} o fluxo inteiro: <b className="font-mono">{completas} de {total}</b> pessoa(s)
+          {projecao ? 'Teriam' : 'Ficaram com'} o fluxo inteiro e aprovado: <b className="font-mono">{completas} de {total}</b> pessoa(s)
           {jaCompletas !== undefined && jaCompletas > 0 && <span style={{ color: 'rgba(255,255,255,.45)' }}> · {jaCompletas} já com tudo</span>}
         </span>
       </div>
       <div className="text-[11px] mt-0.5" style={{ color: 'rgba(255,255,255,.4)' }}>
-        Competência de cada pessoa (com a regra ligada), blueprint, PDI e trilha.{projecao ? ' Projeção: conta quem não tem nenhuma etapa bloqueada.' : ''}
+        Competência de cada pessoa (com a regra ligada), blueprint, PDI e trilha, e as auditorias de cada um aprovadas (IA4 da competência da trilha, blueprint, PDI).
+        {' '}&quot;Aprovado com ajustes&quot; na IA4 e PDI &quot;com alerta&quot; contam como aprovados: não ficam retidos.{projecao ? ' Projeção: conta quem não tem nenhuma etapa bloqueada.' : ''}
       </div>
+      {vereditosErro && (
+        <div className="text-[11.5px] mt-1" style={{ color: '#f4b740' }}>
+          Não foi possível ler as auditorias ({vereditosErro}): esta conta não sabe o que foi aprovado.
+        </div>
+      )}
       {incompletas.length > 0 && (
         <ul className="mt-1.5 space-y-0.5">
           {incompletas.slice(0, 20).map((i) => (
