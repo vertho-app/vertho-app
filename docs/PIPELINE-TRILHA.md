@@ -265,6 +265,8 @@ parcial fazia a IA **inventar** a competência não-mapeada e a trilha degradar 
 
 - **Densidade: exatamente 2 descritores por semana de conteúdo, da MESMA competência** (`:87`) — "nunca 1".
 - **Cobertura:** todo descritor com gap (nota < 3.0) coberto 1× **antes de repetir** (`:89`).
+- **Sem lacuna, sem pílula** (regra do dono, 15/10/2026): descritor com nota ≥ 3.0 (N3/N4) não entra em semana
+  de conteúdo; a vaga vai para o de MENOR nota da mesma competência. O prompt pede, e o adapter garante (abaixo).
 - **Alocação DUO:** comp1 → semanas 1-4, comp2 → 5-8, integração → 9-12 (`:82-83`).
 - **Avaliação mede UMA competência** (`:85`); evidência **observável por terceiros**, nunca autoavaliação.
 - **Anti-clínico forte** (`:76`): lista de termos proibidos ("esgotamento", "burnout", "bem-estar"…) com substituições prescritas.
@@ -380,6 +382,13 @@ incondicionalmente; a flag não os afeta.
 5. **ENFORCEMENT determinístico de cobertura** (`:176-202`): todo descritor com gap que ficou de
    fora **rouba a vaga** de um repetido (o de menor gap) da mesma competência. Existe porque o
    prompt sozinho é não-confiável — a IA repetia e pulava gaps.
+6. **Descritor sem lacuna sai das semanas de conteúdo** (15/10/2026): nota ≥ 3.0 cede cada semana
+   ao descritor de MENOR nota da mesma competência que ainda não está naquela semana (a semana segue
+   com 2 distintos). Competência sem lacuna nenhuma fica como veio; quando o único com lacuna já está
+   na semana, o proficiente fica e vira aviso. O caminho de reserva (`selectDescriptors`, também do
+   DUO) deixou de puxar proficientes "para elevar a Avançado": a sobra vira reforço do de maior gap.
+   Teste: `tests/unit/descritor-sem-lacuna-sem-pilula.test.ts`. Ficam de fora, por decisão: o Piloto
+   (descontinuado, exige descritores distintos) e o Onboarding (mede contra N2 e não repete descritor).
 
 ### Quem manda em missão/avaliação: **o ProgramaConfig**, por 3 mecanismos independentes
 

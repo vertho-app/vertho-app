@@ -8,8 +8,9 @@
  *   - nota < 2.0 → 2 semanas; senão → 1 semana
  *   - Distribui em N slots de conteúdo (default 9: [1,2,3], [5,6,7], [9,10,11])
  *   - Slots contíguos por descritor (2 semanas = consecutivas dentro do bloco)
- *   - Sobram slots: puxa descritores >= 3.0 pra elevar a Avançado (1 semana cada)
- *   - Ainda sobram slots: redistribui aos descritores com maior gap (semana extra de reforço)
+ *   - Sobram slots: redistribui aos descritores com maior gap (semana extra de reforço).
+ *     Descritor >= 3.0 (N3/N4) NÃO ganha pílula (regra do dono, 15/10/2026); só entra
+ *     se a competência não tiver lacuna nenhuma, para a trilha não sair vazia
  *   - Faltam slots: prioriza maior gap, demais ficam pra próxima temporada
  *
  * Os slots são parametrizáveis via `programaConfig.slotsConteudo` — qualquer
@@ -91,8 +92,12 @@ export function selectDescriptors(
     slotIdx += semanas;
   }
 
-  // Sobram slots → puxa proficientes (1 semana cada)
-  for (const p of proficientes) {
+  // Sobram slots → proficientes (nota ≥ 3.0) NÃO ganham pílula: a vaga vai para o
+  // reforço do de maior lacuna, logo abaixo (regra do dono, 15/10/2026: "o slot dele
+  // passa para o descritor de menor nota"). Antes eles eram puxados "para elevar a
+  // Avançado". Só entram quando a competência não tem lacuna NENHUMA: aí a trilha
+  // sairia vazia.
+  for (const p of comGap.length ? [] : proficientes) {
     if (slotIdx >= SLOTS.length) break;
     selecionados.push({
       descritor: p.descritor,
@@ -277,8 +282,8 @@ export function selectDescriptorsPiloto(
 
 /**
  * Regular DUO: 2 competências em "blocos paralelos", com a MESMA
- * profundidade do Regular (alocação de 2 semanas pra gaps < 2.0, puxa
- * proficientes, reforço) — diferente do `selectDescriptorsMulti`
+ * profundidade do Regular (alocação de 2 semanas pra gaps < 2.0 e reforço;
+ * proficiente só sem lacuna nenhuma) — diferente do `selectDescriptorsMulti`
  * (Onboarding, 1 descritor raso por competência por semana).
  *
  * Cada competência recebe a grade completa de slots de conteúdo. Assim, toda

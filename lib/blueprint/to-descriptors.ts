@@ -219,6 +219,46 @@ export function blueprintToTrilhaInputs(
     }
   }
 
+  // ── DESCRITOR SEM LACUNA NÃO TEM PÍLULA (regra do dono, 15/10/2026) ───────
+  // Nota ≥ 3.0 (N3 ou N4) já está na meta: a semana de conteúdo dele vai para o
+  // descritor de MENOR nota da mesma competência que ainda não está naquela
+  // semana (a semana segue com 2 descritores distintos). O prompt do blueprint
+  // pede isso, mas é a IA que decide; aqui vira garantia, como a cobertura acima.
+  // Competência sem nenhuma lacuna fica como veio (senão a trilha sairia vazia).
+  for (const [compNorm, m] of Object.entries(idxPorComp)) {
+    const comp = compOriginalPorNorm[compNorm] || compNorm;
+    const comLacuna = [...m.values()].filter((d) => d.nota < GAP_LIMITE).sort((a, b) => a.nota - b.nota);
+    if (!comLacuna.length) continue;
+    const semLacuna = [...selMap.values()].filter((d) => d.competencia === comp && d.nota_atual >= GAP_LIMITE);
+    for (const p of semLacuna) {
+      for (const semana of [...p.semanas_ids]) {
+        const naSemana = new Set([...selMap.values()]
+          .filter((d) => d.competencia === comp && d.semanas_ids.includes(semana))
+          .map((d) => normDescritor(d.descritor)));
+        const destino = comLacuna.find((g) => !naSemana.has(normDescritor(g.descritor)));
+        if (!destino) {
+          avisos.push(`sem lacuna: "${p.descritor}" (nota ${p.nota_atual}) ficou na semana ${semana}: os descritores com lacuna de "${comp}" já estão nela`);
+          continue;
+        }
+        p.semanas_ids = p.semanas_ids.filter((s) => s !== semana);
+        p.semanas_alocadas = p.semanas_ids.length;
+        const key = `${comp}||${destino.descritor}`;
+        const alvo = selMap.get(key);
+        if (alvo) {
+          alvo.semanas_ids = [...alvo.semanas_ids, semana].sort((a, b) => a - b);
+          alvo.semanas_alocadas = alvo.semanas_ids.length;
+        } else {
+          selMap.set(key, {
+            descritor: destino.descritor, competencia: comp, nota_atual: destino.nota,
+            gap: GAP_LIMITE - destino.nota, semanas_alocadas: 1, semanas_ids: [semana],
+          });
+        }
+        avisos.push(`sem lacuna: "${p.descritor}" (nota ${p.nota_atual}) saiu da semana ${semana}, que foi para "${destino.descritor}" (nota ${destino.nota})`);
+      }
+      if (!p.semanas_ids.length) selMap.delete(`${comp}||${p.descritor}`);
+    }
+  }
+
   const descritoresSelecionados = [...selMap.values()];
   if (descritoresSelecionados.length === 0) {
     return { error: 'nenhum descritor resolvido do blueprint' };
