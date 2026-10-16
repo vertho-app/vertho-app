@@ -67,7 +67,7 @@ export async function previaFluxoCompleto(input: z.infer<typeof EntradaSchema>):
       .catch((e: any) => ({ prerequisitos: null as PrerequisitosFluxo | null, prerequisitosErro: String(e?.message || e) }));
     // Biblioteca que falta para quem vai ter trilha montada (reaproveita a coleta). Falha de leitura derruba a prévia: ela não
     // pode mostrar "0 peças" quando na verdade não conseguiu medir.
-    const fila = await filaConteudoEscopo(tenantDb(empresaId), { permitidos, cargos: cargos || undefined }, coleta.entrada);
+    const fila = await filaConteudoEscopo(tenantDb(empresaId), { permitidos, cargos: cargos || undefined, empresaId }, coleta.entrada);
     coleta.entrada.conteudoPlano = { pecas: fila.length, audios: fila.filter((i) => i.formato === 'audio').length };
     return { success: true, previa: montarPreviaFluxo(coleta.entrada), cargosFiltrados: cargos || [], ...(await pre) };
   } catch (err: any) {

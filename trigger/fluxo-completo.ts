@@ -85,7 +85,7 @@ export const fluxoCompletoTask = task({
             auditoria: (alvo) => filaAuditoriaEscopo(tdb, alvo),
             pdi: () => filaPdiEscopo(tdb, permitidos),
             trilha: () => filaTrilhaEscopo(tdb, permitidos, params.excecaoInternos),
-            conteudo: () => filaConteudoEscopo(tdb, { permitidos, cargos: params.escopo?.cargos || undefined, incluirInternos: params.excecaoInternos }),
+            conteudo: () => filaConteudoEscopo(tdb, { permitidos, cargos: params.escopo?.cargos || undefined, incluirInternos: params.excecaoInternos, empresaId }),
             // RAW de propósito: a varredura do plano precisa enxergar também os kits GLOBAIS (empresa_id nulo).
             kit: () => filaKitEscopo(sb, empresaId, { turmaId: params.escopo?.turmaId, cargos: params.escopo?.cargos, semanaMax: params.kitSemanaMax }),
             // "x de Y pessoas com o fluxo inteiro": a mesma prévia da tela, sobre o banco no fim da execução.
