@@ -57,6 +57,18 @@ describe('avisarPlanosProntos respeita a pausa', () => {
   });
 });
 
+describe('o preparo antecipado dos desafios respeita a pausa', () => {
+  it('o cron preparar_desafios pula a empresa pausada antes de gerar (e sem acusar "sem brief")', () => {
+    const f = readFileSync('app/api/cron/route.ts', 'utf8');
+    const caso = f.slice(f.indexOf("case 'preparar_desafios'"), f.indexOf("case 'preparar_desafios'") + 1500);
+    expect(caso).toMatch(/select\('id,slug,sys_config'\)/);
+    const iPausa = caso.indexOf('pausaDeEnvios(empresa.sys_config)');
+    expect(iPausa).toBeGreaterThan(-1);
+    expect(iPausa).toBeLessThan(caso.indexOf('prepararDesafiosDaCoorte(sb, empresa.id'));
+    expect(caso.slice(iPausa, iPausa + 200)).toMatch(/semBrief: 0[\s\S]*continue;/);
+  });
+});
+
 describe('a cadência diária respeita a pausa (despacho e worker)', () => {
   it('o despacho tira a empresa pausada do dia', () => {
     const f = readFileSync('actions/cron-jobs.ts', 'utf8');

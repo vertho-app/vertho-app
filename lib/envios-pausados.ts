@@ -8,7 +8,8 @@
  * reprovadas a refazer.
  *
  * `sys_config.envios_pausados = { motivo, desde, ate? }` (ou `true`). Sem `ate`, vale até alguém tirar a chave.
- * PAUSA: o aviso de PDI pronto (cron e o botão do painel do cliente) e a cadência diária (o despacho e o worker).
+ * PAUSA: o aviso de PDI pronto (cron e o botão do painel do cliente), a cadência diária (o despacho e o worker) e o
+ * preparo antecipado dela (cron `preparar_desafios`, que gera com IA as tarefas das semanas seguintes).
  * NÃO PAUSA: o envio manual explícito do admin (broadcast), que é decisão de quem clica.
  */
 export interface PausaEnvios { motivo: string; desde?: string; ate?: string }

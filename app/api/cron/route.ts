@@ -273,11 +273,15 @@ export async function GET(req) {
       // kit, com o piloto já na semana 3 — ninguém dispara o que ninguém sabe que falta.
       case 'preparar_desafios': {
         const { prepararDesafiosDaCoorte } = await import('@/lib/season-engine/kit/plano-desafios');
+        const { pausaDeEnvios } = await import('@/lib/envios-pausados');
         const sb = clienteCron();
-        const { data: empresas, error } = await sb.from('empresas').select('id,slug').eq('is_demo', false);
+        const { data: empresas, error } = await sb.from('empresas').select('id,slug,sys_config').eq('is_demo', false);
         if (error) throw error;
         const resultados: any[] = [];
         for (const empresa of empresas || []) {
+          // Empresa com os envios pausados (`lib/envios-pausados.ts`): a cadência não anda, então não se paga o preparo
+          // antecipado dela (16/10/2026, Amazon: trilhas que ainda podem ser refeitas, e só a semana 1 tem Kit).
+          if (pausaDeEnvios(empresa.sys_config)) { resultados.push({ empresa: empresa.slug, pausada: true, gerados: 0, faltantes: 0, semBrief: 0, adiados: 0 }); continue; }
           resultados.push({ empresa: empresa.slug, ...await prepararDesafiosDaCoorte(sb, empresa.id, { limite: 12 }) });
         }
         result = { resultados, message: `Desafios: ${resultados.reduce((n, r) => n + r.gerados, 0)} gerados; ${resultados.reduce((n, r) => n + r.semBrief, 0)} sem brief` };
