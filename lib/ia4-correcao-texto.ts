@@ -106,11 +106,15 @@ export interface ResultadoCorrecao {
  * Corrige o texto de UMA avaliação em "revisar"/"aprovado com ajustes". Com `aplicar: false` só mede (gera a candidata,
  * confere e devolve os dois vereditos, sem gravar). Headless: `sb` é o client service-role.
  */
-export async function corrigirTextoAvaliacaoCore(sb: SupabaseClient, respostaId: string, opts: { aplicar: boolean }): Promise<ResultadoCorrecao> {
+export async function corrigirTextoAvaliacaoCore(
+  sb: SupabaseClient, alvo: { empresaId: string; respostaId: string }, opts: { aplicar: boolean },
+): Promise<ResultadoCorrecao> {
+  const { empresaId, respostaId } = alvo;
   try {
+    // Client service-role (o banco não filtra): o tenant vai na cadeia.
     const { data: resp, error } = await sb.from('respostas')
       .select('id, empresa_id, colaborador_id, competencia_id, cenario_id, r1, r2, r3, r4, avaliacao_ia, nivel_ia4, payload_ia4, status_ia4')
-      .eq('id', respostaId).single();
+      .eq('empresa_id', empresaId).eq('id', respostaId).single();
     if (error || !resp) return { success: false, error: `resposta: ${error?.message || 'não encontrada'}` };
     const original = typeof resp.avaliacao_ia === 'string' ? JSON.parse(resp.avaliacao_ia) : resp.avaliacao_ia;
     const checkAntes = typeof resp.payload_ia4 === 'string' ? JSON.parse(resp.payload_ia4) : resp.payload_ia4;
