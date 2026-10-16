@@ -187,15 +187,22 @@ describe('GPT pelo AWS Bedrock · rota', () => {
     expect(mocks.degradacoes).toEqual([]);
   });
 
-  it.each(['minimal', 'max'] as const)("esforço '%s' (fora dos níveis medidos no Bedrock) fica na OpenAI", async (esforco) => {
+  it.each(['minimal'] as const)("esforço '%s' (recusado pelo Bedrock, 400 em 14/10) fica na OpenAI", async (esforco) => {
     // Lista de PERMISSÃO: um 400 do Bedrock não vai para a reserva, então nível não medido não sai por lá.
     await callAI('SYS', 'USER', { model: TERRA }, 7000, { ...SO_TRANSPORTE, reasoningEffort: esforco });
     expect(chamadas().map((c) => c.url)).toEqual([OPENAI_CHAT]);
     expect(mocks.degradacoes).toEqual([]);
   });
 
+  // Decisão do dono (16/10/2026): o GPT sai SEMPRE pelo Bedrock primeiro. `max` medido em 16/10 (200 nos 7 ids).
+  it("esforço 'max' sai pelo Bedrock, com a OpenAI só de reserva", async () => {
+    await callAI('SYS', 'USER', { model: TERRA }, 7000, { ...SO_TRANSPORTE, reasoningEffort: 'max' });
+    expect(chamadas()).toEqual([expect.objectContaining({ url: BEDROCK_CHAT_URL, body: expect.objectContaining({ model: TERRA_BEDROCK }) })]);
+    expect(mocks.degradacoes).toEqual([]);
+  });
+
   it('os níveis medidos (e a ausência de esforço) saem pelo Bedrock', () => {
-    for (const esforco of [undefined, null, 'none', 'low', 'medium', 'high', 'xhigh']) {
+    for (const esforco of [undefined, null, 'none', 'low', 'medium', 'high', 'xhigh', 'max']) {
       expect(rotaBedrockDoGpt(TERRA, esforco), String(esforco)).toBe(TERRA_BEDROCK);
     }
   });

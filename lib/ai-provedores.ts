@@ -88,11 +88,15 @@ export function gptAtual(modelId: string): string {
  *   permissão, não de proibição: um 400 do Bedrock não vai para a reserva, então um
  *   nível novo vindo de tela, `sys_config` ou constante viraria falha onde a OpenAI
  *   talvez aceitasse. Medido 14/10/2026 no Terra: `minimal` deu 400 ("does not support
- *   'minimal'"); none, low, medium, high e xhigh, 200. (O nome do campo não aparece aqui
+ *   'minimal'"); none, low, medium, high e xhigh, 200. Medido 16/10/2026: `max` deu 200
+ *   (e raciocinou) nos 7 ids de `GPT_VIA_BEDROCK`. (O nome do campo não aparece aqui
  *   de propósito: o guard `ia-request-cru-guard` casa a string em qualquer arquivo fora
  *   do wrapper, inclusive em comentário.)
+ *
+ * Decisão do dono (16/10/2026): a primeira opção do GPT é SEMPRE o Bedrock, por enquanto; a
+ * OpenAI direta fica como reserva e para o que o Bedrock recusa (`minimal`).
  */
-const ESFORCOS_MEDIDOS_NO_BEDROCK: ReadonlySet<string> = new Set(['none', 'low', 'medium', 'high', 'xhigh']);
+const ESFORCOS_MEDIDOS_NO_BEDROCK: ReadonlySet<string> = new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']);
 
 export function rotaBedrockDoGpt(modelId: string, reasoningEffort?: string | null): string | null {
   if (String(process.env.OPENAI_VIA_BEDROCK ?? '').trim().toLowerCase() === 'off') return null;
