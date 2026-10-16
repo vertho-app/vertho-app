@@ -500,8 +500,9 @@ export function descritoresInsuficientesDoOnboarding(
  * Estratégia:
  *  1. Resolve as N competências e as avaliações (`resolverCompetenciasDoOnboarding`:
  *     override da config efetiva, depois o Top 5 do cargo; falha alto)
- *  2. selectDescriptorsMulti aloca, por competência, 4 descritores DISTINTOS (2 por
- *     semana) nas semanas dela de `semanaParaCompetenciaIdx`; competência com
+ *  2. selectDescriptorsMulti aloca, por competência, 4 pílulas (2 por semana, distintas
+ *     dentro da semana; descritor em N3/N4 cede a vaga ao de menor nota, que pode se
+ *     repetir) nas semanas dela de `semanaParaCompetenciaIdx`; competência com
  *     menos descritores do que isso FALHA ALTO (semana vazia é o R-20)
  *  3. buildSeason monta o plano (semana 1 = mapeamento, sem IA)
  *  4. Persiste em `trilhas.competencias_foco TEXT[]` (migration 091), com a semana

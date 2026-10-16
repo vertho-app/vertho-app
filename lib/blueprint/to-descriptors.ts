@@ -24,7 +24,7 @@
  */
 
 import type { DevelopmentBlueprint } from './types';
-import type { SelectedDescriptor } from '@/lib/season-engine/select-descriptors';
+import { LIMIAR_SEM_LACUNA, type SelectedDescriptor } from '@/lib/season-engine/select-descriptors';
 import type { ProgramaConfig } from '@/lib/season-engine/programa-config';
 
 export interface AssessmentRow {
@@ -178,7 +178,7 @@ export function blueprintToTrilhaInputs(
           descritor: hit.descritor,
           competencia: comp,
           nota_atual: nota,
-          gap: nota < 3.0 ? 3.0 - nota : 0,
+          gap: nota < LIMIAR_SEM_LACUNA ? LIMIAR_SEM_LACUNA - nota : 0,
           semanas_alocadas: 1,
           semanas_ids: [semana],
         });
@@ -197,7 +197,7 @@ export function blueprintToTrilhaInputs(
   // MENOR gap) da MESMA competência. Só age quando há repeat pra roubar (i.e.,
   // há vagas suficientes: nº semanas × 2 ≥ nº descritores da competência).
   // Mantém 2 descritores/semana e a competência da semana. Determinístico.
-  const GAP_LIMITE = 3.0;
+  const GAP_LIMITE = LIMIAR_SEM_LACUNA;
   for (const [compNorm, m] of Object.entries(idxPorComp)) {
     const comp = compOriginalPorNorm[compNorm] || compNorm;
     const gaps = [...m.values()].filter((d) => d.nota < GAP_LIMITE).sort((a, b) => a.nota - b.nota);

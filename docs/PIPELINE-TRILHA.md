@@ -387,8 +387,11 @@ incondicionalmente; a flag não os afeta.
    com 2 distintos). Competência sem lacuna nenhuma fica como veio; quando o único com lacuna já está
    na semana, o proficiente fica e vira aviso. O caminho de reserva (`selectDescriptors`, também do
    DUO) deixou de puxar proficientes "para elevar a Avançado": a sobra vira reforço do de maior gap.
-   Teste: `tests/unit/descritor-sem-lacuna-sem-pilula.test.ts`. Ficam de fora, por decisão: o Piloto
-   (descontinuado, exige descritores distintos) e o Onboarding (mede contra N2 e não repete descritor).
+   Teste: `tests/unit/descritor-sem-lacuna-sem-pilula.test.ts`. O limite é UMA constante,
+   `LIMIAR_SEM_LACUNA` (3.0, `select-descriptors.ts`), usada pelo adapter e pelos seletores. No
+   **Onboarding** (decisão do dono, 16/10/2026) vale igual, REPETINDO o de menor nota quando preciso
+   (a semana segue com descritores distintos; quem está em N2 continua com pílula, a régua é 3.0 e não a
+   meta 2 do programa). Fica de fora só o **Piloto** (descontinuado, exige descritores distintos).
 
 ### Quem manda em missão/avaliação: **o ProgramaConfig**, por 3 mecanismos independentes
 

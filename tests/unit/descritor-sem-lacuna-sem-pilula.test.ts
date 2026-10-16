@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { blueprintToTrilhaInputs } from '@/lib/blueprint/to-descriptors';
-import { selectDescriptors } from '@/lib/season-engine/select-descriptors';
+import { selectDescriptors, selectDescriptorsMulti, LIMIAR_SEM_LACUNA } from '@/lib/season-engine/select-descriptors';
 import { PROGRAMA_JORNADA } from '@/lib/season-engine/programa-config';
 
 /**
@@ -85,5 +85,42 @@ describe('caminho de reserva (selectDescriptors): proficiente não é puxado qua
   it('sem lacuna nenhuma, os proficientes entram (a trilha não sai vazia)', () => {
     const sel = selectDescriptors([{ descritor: 'A', nota: 3.2 }, { descritor: 'B', nota: 3.6 }], SLOTS);
     expect(sel.map((s) => s.descritor).sort()).toEqual(['A', 'B']);
+  });
+});
+
+/**
+ * Onboarding (decisão do dono, 16/10/2026): a mesma regra, repetindo o de menor nota. Cada competência tem 2
+ * semanas com 2 pílulas DISTINTAS em cada uma; antes, os 4 descritores de menor nota entravam mesmo que algum
+ * estivesse em N3/N4. A régua é a meta do produto (3.0), não o nível-meta do programa (2 no Onboarding).
+ */
+describe('Onboarding: descritor sem lacuna não tem pílula, repetindo o de menor nota', () => {
+  const SEMANAS = { 2: 0, 3: 0 }; // 1 competência, 2 semanas
+  const comp = (notas: number[]) => [{ competencia: 'Rotina', assessment: notas.map((nota, i) => ({ descritor: `D${i + 1}`, nota })) }];
+  const daSemana = (sel: any[], semana: number) => sel.filter((s) => s.semanas_ids.includes(semana)).map((s) => s.descritor).sort();
+
+  it('os de N3/N4 saem e a vaga vai para o de menor nota que ainda não está na semana', () => {
+    // Antes: semana 2 = [D1, D2], semana 3 = [D3, D4] (3.2 e 3.4, na meta).
+    const sel = selectDescriptorsMulti(comp([1.0, 1.5, 3.2, 3.4, 3.6, 3.8]), SEMANAS, 2, 2);
+    expect(daSemana(sel, 2)).toEqual(['D1', 'D2']);
+    expect(daSemana(sel, 3)).toEqual(['D1', 'D2']);
+    expect(sel.every((s) => s.nota_atual < LIMIAR_SEM_LACUNA)).toBe(true);
+    expect(sel).toHaveLength(4); // a presença que o gerador confere (uma entrada por vaga) continua inteira
+  });
+
+  it('a semana nunca repete descritor: com um só com lacuna, o proficiente fica onde trocar duplicaria', () => {
+    const sel = selectDescriptorsMulti(comp([1.0, 3.1, 3.2, 3.3, 3.4, 3.5]), SEMANAS, 2, 2);
+    expect(daSemana(sel, 2)).toEqual(['D1', 'D2']); // D1 já está: D2 (3.1) fica
+    expect(daSemana(sel, 3)).toEqual(['D1', 'D4']); // D3 (3.2) cede para D1; D4 não tem para onde ir
+    for (const s of [2, 3]) expect(new Set(daSemana(sel, s)).size).toBe(2);
+  });
+
+  it('quem está em N2 continua ganhando pílula (a régua é 3.0, não a meta 2 do Onboarding)', () => {
+    const sel = selectDescriptorsMulti(comp([2.1, 2.4, 2.6, 2.8, 3.5, 3.9]), SEMANAS, 2, 2);
+    expect(sel.map((s) => s.descritor).sort()).toEqual(['D1', 'D2', 'D3', 'D4']);
+  });
+
+  it('competência sem lacuna nenhuma fica como veio', () => {
+    const sel = selectDescriptorsMulti(comp([3.1, 3.2, 3.3, 3.4, 3.5, 3.6]), SEMANAS, 2, 2);
+    expect(sel.map((s) => s.descritor).sort()).toEqual(['D1', 'D2', 'D3', 'D4']);
   });
 });

@@ -40,6 +40,14 @@ interface InternalCandidate extends DescriptorAssessment {
 const DEFAULT_SLOTS = [1, 2, 3, 5, 6, 7, 9, 10, 11]; // 9 slots (regular 14sem)
 
 /**
+ * Nota a partir da qual o descritor já está na meta (N3/N4) e NÃO ganha pílula: a vaga dele vai para o descritor
+ * de MENOR nota da mesma competência (regra do dono, 15/10/2026). Fonte única para os seletores daqui e para o
+ * adapter do blueprint (`lib/blueprint/to-descriptors.ts`). É a meta do PRODUTO, não o `nivelMetaAlvo` de um
+ * programa: no Onboarding (meta 2) quem está em N2 continua ganhando pílula.
+ */
+export const LIMIAR_SEM_LACUNA = 3.0;
+
+/**
  * Núcleo de ordenação do single (fonte única, reusado pelo Piloto):
  * separa em "tem gap" (nota < 3.0, ordenado por gap DECRESCENTE = nota
  * crescente) e "já proficiente" (nota >= 3.0, mais alto primeiro — eleva
@@ -50,12 +58,12 @@ function ordenarCandidatos(assessment: DescriptorAssessment[]): {
   proficientes: InternalCandidate[];
 } {
   const comGap: InternalCandidate[] = assessment
-    .filter(a => Number(a.nota) < 3.0)
-    .map(a => ({ ...a, gap: 3.0 - Number(a.nota), semanas_desejadas: Number(a.nota) < 2.0 ? 2 : 1 }))
+    .filter(a => Number(a.nota) < LIMIAR_SEM_LACUNA)
+    .map(a => ({ ...a, gap: LIMIAR_SEM_LACUNA - Number(a.nota), semanas_desejadas: Number(a.nota) < 2.0 ? 2 : 1 }))
     .sort((a, b) => Number(a.nota) - Number(b.nota));
 
   const proficientes: InternalCandidate[] = assessment
-    .filter(a => Number(a.nota) >= 3.0)
+    .filter(a => Number(a.nota) >= LIMIAR_SEM_LACUNA)
     .map(a => ({ ...a, gap: Math.max(0, 4.0 - Number(a.nota)), semanas_desejadas: 1 }))
     .sort((a, b) => Number(b.nota) - Number(a.nota)); // mais alto primeiro (eleva pra Avançado)
 
@@ -155,7 +163,8 @@ export interface AssessmentPorCompetencia {
  * Não usa contiguidade nem reforço: se a competência tem MENOS descritores do que
  * as semanas pedem, devolve só os que existem, e quem chama valida por PRESENÇA
  * (`descritoresEsperadosNoOnboarding`): semana sem descritor é a semana vazia que
- * o R-20 tirou, e repetir descritor para encher a vaga seria decisão de produto.
+ * o R-20 tirou. Repetir descritor só acontece para tirar a pílula de quem está em
+ * N3/N4 (`LIMIAR_SEM_LACUNA`, decisão do dono de 16/10/2026), nunca para encher vaga.
  *
  * `nivelMeta` é o nível-meta do programa (`ProgramaConfig.nivelMetaAlvo`): o
  * Onboarding mira o N2, e o gap de cada descritor é medido contra ele (R-100).
@@ -183,8 +192,20 @@ export function selectDescriptorsMulti(
       vistos.add(d.descritor);
       return true;
     });
+    // Descritor sem lacuna (nota ≥ LIMIAR_SEM_LACUNA, N3/N4) não tem pílula: a vaga vai para o de MENOR nota com
+    // lacuna que ainda não está naquela semana, mesmo que ele se repita na competência (decisão do dono, 16/10/2026:
+    // repetir o de menor nota vale mais que dar pílula a quem já está na meta). A semana segue com descritores
+    // distintos; sem nenhum descritor com lacuna, fica como veio.
+    const comLacuna = unicos.filter((d) => Number(d.nota) < LIMIAR_SEM_LACUNA);
     semanas.forEach((semana, i) => {
-      for (const escolhido of unicos.slice(i * porSemana, (i + 1) * porSemana)) {
+      const daSemana = unicos.slice(i * porSemana, (i + 1) * porSemana);
+      for (let k = 0; k < daSemana.length; k++) {
+        if (Number(daSemana[k].nota) < LIMIAR_SEM_LACUNA || !comLacuna.length) continue;
+        const naSemana = new Set(daSemana.map((d) => d.descritor));
+        const destino = comLacuna.find((g) => !naSemana.has(g.descritor));
+        if (destino) daSemana[k] = destino;
+      }
+      for (const escolhido of daSemana) {
         const nota = Number(escolhido.nota);
         selecionados.push({
           descritor: escolhido.descritor,
