@@ -21,10 +21,10 @@ CREATE TABLE IF NOT EXISTS mercado_escola_contatos (
   whatsapp jsonb NOT NULL DEFAULT '[]'::jsonb,     -- [{ numero, rotulo, fonte_url }]
   responsaveis jsonb NOT NULL DEFAULT '[]'::jsonb, -- DADO PESSOAL: [{ nome, cargo, fonte_url, email, email_status, email_score, email_origem }]
   nivel text CHECK (nivel IN ('A', 'B', 'C')),
-  -- 'pendente' = a etapa do Hunter ainda não rodou; 'sem_creditos' e 'indisponivel' = tentou e não pôde.
+  -- 'a_completar' = a etapa do Hunter ainda não rodou; 'sem_creditos' e 'indisponivel' = tentou e não pôde.
   -- Os três podem ser completados depois SEM pagar a busca web de novo.
-  hunter_status text NOT NULL DEFAULT 'pendente'
-    CHECK (hunter_status IN ('ok', 'pendente', 'sem_nomes', 'sem_creditos', 'indisponivel')),
+  hunter_status text NOT NULL DEFAULT 'a_completar'
+    CHECK (hunter_status IN ('ok', 'a_completar', 'sem_nomes', 'sem_creditos', 'indisponivel')),
   observacao text,                                  -- contagens do que foi descartado; nunca nome nem e-mail
   custo_usd numeric(8, 4) NOT NULL DEFAULT 0,       -- busca web desta escola
   hunter_creditos numeric(6, 1) NOT NULL DEFAULT 0,
@@ -33,6 +33,15 @@ CREATE TABLE IF NOT EXISTS mercado_escola_contatos (
   expira_em timestamptz NOT NULL,                   -- validade do dado pessoal
   atualizado_em timestamptz NOT NULL DEFAULT now()
 );
+
+-- Reaplicável: o primeiro valor desta coluna era 'pendente', que colide com o vocabulário de status do repo
+-- (guard status-literal) e com o do progresso. A tabela nasceu minutos antes, vazia, e passou a 'a_completar'.
+-- Este bloco leva uma base onde a 288 já rodou ao mesmo estado de uma base nova.
+UPDATE mercado_escola_contatos SET hunter_status = 'a_completar' WHERE hunter_status = 'pendente';
+ALTER TABLE mercado_escola_contatos DROP CONSTRAINT IF EXISTS mercado_escola_contatos_hunter_status_check;
+ALTER TABLE mercado_escola_contatos ALTER COLUMN hunter_status SET DEFAULT 'a_completar';
+ALTER TABLE mercado_escola_contatos ADD CONSTRAINT mercado_escola_contatos_hunter_status_check
+  CHECK (hunter_status IN ('ok', 'a_completar', 'sem_nomes', 'sem_creditos', 'indisponivel'));
 
 CREATE INDEX IF NOT EXISTS idx_mercado_contatos_expira ON mercado_escola_contatos (expira_em);
 CREATE INDEX IF NOT EXISTS idx_mercado_contatos_coletado ON mercado_escola_contatos (coletado_em);

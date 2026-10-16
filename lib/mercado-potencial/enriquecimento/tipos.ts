@@ -33,10 +33,10 @@ export interface ItemResponsavel {
   email_origem?: 'hunter_finder' | 'hunter_domain' | null;
 }
 
-/** 'pendente' = a etapa do Hunter ainda não rodou; 'sem_creditos' e 'indisponivel' = tentou e não pôde. */
-export type HunterStatus = 'ok' | 'pendente' | 'sem_nomes' | 'sem_creditos' | 'indisponivel';
+/** 'a_completar' = a etapa do Hunter ainda não rodou; 'sem_creditos' e 'indisponivel' = tentou e não pôde. */
+export type HunterStatus = 'ok' | 'a_completar' | 'sem_nomes' | 'sem_creditos' | 'indisponivel';
 /** Os três que podem ser completados depois SEM pagar a busca web de novo. */
-export const HUNTER_COMPLETAVEL: readonly HunterStatus[] = ['pendente', 'sem_creditos', 'indisponivel'];
+export const HUNTER_COMPLETAVEL: readonly HunterStatus[] = ['a_completar', 'sem_creditos', 'indisponivel'];
 
 export type Nivel = 'A' | 'B' | 'C';
 

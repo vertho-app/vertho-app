@@ -141,7 +141,7 @@ export async function enriquecerEscola(
     linha = {
       codigo_inep: e.codigo_inep, site: c.site, site_confere_endereco: c.siteConfere,
       telefones: c.telefones, emails: c.emails, whatsapp: c.whatsapp, responsaveis: c.responsaveis,
-      nivel: null, hunter_status: 'pendente', observacao: observacaoDe(c.descartados),
+      nivel: null, hunter_status: 'a_completar', observacao: observacaoDe(c.descartados),
       custo_usd: CUSTO_BUSCA_USD, hunter_creditos: 0, coletado_por: solicitadoPor,
       coletado_em: agora.toISOString(), expira_em: new Date(agora.getTime() + VALIDADE_DIAS * 86_400_000).toISOString(),
     };

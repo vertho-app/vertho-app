@@ -39,7 +39,7 @@ const VAZIO = (total: number): Resumo => ({
 });
 
 /** Escola que acabou sem o e-mail do decisor por falta de crédito ou de chave do Hunter (a busca web ficou gravada). */
-const HUNTER_FALTOU = new Set(['pendente', 'sem_creditos', 'indisponivel']);
+const HUNTER_FALTOU = new Set(['a_completar', 'sem_creditos', 'indisponivel']);
 
 export default function EnriquecerPainel({ filtros, onFechar }: { filtros: MercadoFilters; onFechar: () => void }) {
   const t = useTranslations('AdminMarketPotential.enrich');

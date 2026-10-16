@@ -129,6 +129,34 @@ describe('textos: toda chave que a tela usa existe nos 4 idiomas, com os mesmos 
   });
 });
 
+describe('contrato com o banco', () => {
+  const sql = ler('migrations/288-mercado-contatos.sql');
+  const tipos = ler('lib/mercado-potencial/enriquecimento/tipos.ts');
+  const valores = (trecho: string) => [...trecho.matchAll(/'(\w+)'/g)].map((m) => m[1]).sort().join(',');
+
+  it('os valores de hunter_status do código são EXATAMENTE os do CHECK da migration (a do CREATE TABLE e a do bloco reaplicável)', () => {
+    const doCodigo = valores(tipos.match(/export type HunterStatus = ([^;]+);/)![1]);
+    const doSql = [...sql.matchAll(/hunter_status IN \(([^)]*)\)/g)].map((m) => valores(m[1]));
+    expect(doSql).toHaveLength(2);
+    for (const v of doSql) expect(v).toBe(doCodigo);
+  });
+
+  it('o DEFAULT da coluna é o valor que o código grava quando a etapa do Hunter ainda não rodou', () => {
+    const enriquecer = ler('lib/mercado-potencial/enriquecimento/enriquecer.ts');
+    const gravado = enriquecer.match(/hunter_status: '(\w+)', observacao/)![1];
+    const padroes = [...sql.matchAll(/DEFAULT '(\w+)'/g)].map((m) => m[1]).filter((v) => v !== 'ok');
+    expect(padroes).toContain(gravado);
+    expect(gravado).toBe('a_completar');
+  });
+
+  it('as tabelas guardam o dado pessoal com RLS ligada e a policy que nega tudo', () => {
+    expect(sql).toContain("FOREACH t IN ARRAY ARRAY['mercado_escola_contatos', 'mercado_contatos_supressao']");
+    expect(sql).toContain('ENABLE ROW LEVEL SECURITY');
+    expect(sql).toContain('USING (false) WITH CHECK (false)');
+    expect(sql).toMatch(/email text PRIMARY KEY CHECK \(email = lower\(email\)\)/);
+  });
+});
+
 describe('nada de dado pessoal em log, em todo o núcleo e nas actions', () => {
   const pasta = 'lib/mercado-potencial/enriquecimento';
   const arquivos = readdirSync(join(raiz, pasta)).filter((f) => f.endsWith('.ts'));
