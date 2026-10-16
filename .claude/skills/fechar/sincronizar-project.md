@@ -120,6 +120,21 @@ Nunca confie no tamanho da rodada para estimar o tamanho da defasagem.
    com o `ref` e os hashes) e diga ao dono, no fecho, que a sincronização NÃO foi feita e por quê. Não conte o
    Project como "em dia" nem como "defasado": não foi medido. Retomada: com a extensão conectada, siga do passo 2
    (o mapa e as cópias do passo 1 valem se o `origin/master` não andou; confira o `ref` do `_mapa.json`).
+12. ✅ **`Medido: 15/10/2026`: tudo pela API numa página LEVE do mesmo domínio, sem a página do Project.** A página do
+   Project congelou o renderer de novo (45 s do CDP, mesmo com `AbortSignal.timeout`). Em `https://claude.ai/robots.txt`
+   os mesmos `fetch` (cookies da sessão valem) rodaram sem travar: leitura com SHA-1 em ~5 s. **Subir sem modal:** criar
+   na página um `<input type=file multiple aria-label=...>`, `find` + `file_upload` das cópias do passo 1, ler cada
+   `File` com `.text()`, conferir o SHA-1 contra o mapa ANTES de enviar e fazer
+   `POST /api/organizations/<org>/projects/<proj>/docs` com `{file_name, content}` (7 de 7 com `201`). Remover é o
+   mesmo `DELETE` do passo 5 (16 de 16 com `204`). Fecho na página recarregada: `n=21 duplicados=0 iguais=21/21`.
+13. 🔴 **`Medido: 15/10/2026`: o "sim" do dono vale só para o que a pergunta NOMEOU.** O classificador negou o `POST`
+   antes da pergunta e, depois do "sim, subir e remover as 7 antigas", negou de novo o `DELETE` das minhas próprias
+   cópias novas, que a pergunta não citava. Pergunte com a lista EXATA do que vai sair (antigas E duplicatas).
+14. 🔴 **`Medido: 15/10/2026`: releia o Project DEPOIS da resposta do dono, não antes da pergunta.** A resposta levou
+   cerca de 1 h, e nesse intervalo outra sessão sincronizou as mesmas fontes (9 cópias novas, de um master mais
+   novo). O meu envio virou 7 duplicatas idênticas, e a trava "2 cópias, 1 igual ao repo" achou 3 e pulou tudo,
+   como devia. Saída: regerar o mapa do master ATUAL, perguntar de novo com a lista das 16 e manter a cópia
+   mais antiga igual ao master; depois avisar as sessões candidatas (`SendMessage`) para não removerem nada.
 
 `Medido: 22/09/2026` — o lado inverso também vale: **o doc do repo pode estar atrás do código**, e o
 Project herda. O `FEATURES-E-BENEFICIOS.md` batia com o repo e mesmo assim vendia Pulso e Radar
