@@ -127,7 +127,7 @@ REGRAS:
 - NÃO invente campo "nota" nem "status" — eles são derivados em código.
 - \`mudancas_sugeridas\` deve ter uma entrada por item false, na mesma ordem.`;
 
-const IA4_CHECK_CALL_OPTIONS = { timeoutMs: 180000, maxRetries: 0 } as const;
+export const IA4_CHECK_CALL_OPTIONS = { timeoutMs: 180000, maxRetries: 0 } as const;
 
 // Retorna o prompt em duas partes p/ prompt caching (mesmo lote da IA4): o
 // PREFIXO estável por (competência, cenário) — régua/cenário/perguntas, idêntico
