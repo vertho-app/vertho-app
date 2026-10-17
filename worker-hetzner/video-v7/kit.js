@@ -22,7 +22,7 @@
   // ── DOM ─────────────────────────────────────────────────────────────────────
   const tpl = document.createElement('template');
   const h = (html) => { tpl.innerHTML = String(html).trim(); const el = tpl.content.firstElementChild; tpl.innerHTML = ''; return el; };
-  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
   let STAGE = null;   // o palco principal (#stage), fixado pelo driver
   const srect = (node) => { const r = node.getBoundingClientRect(), s = STAGE.getBoundingClientRect(); return { x: r.left - s.left, y: r.top - s.top, w: r.width, h: r.height }; };
@@ -138,7 +138,8 @@
   const ASSETS = {};
   const kit = {
     W, H, clamp01, clamp, seg, lerp, eo, ei, eio, eob, smoothstep, rng, h, esc, srect, phraseRect, TextFx, typist, Marks, cutPaper, polyLerp, polyStr,
-    assets: { url: (n) => ASSETS[n] || n, has: (n) => n in ASSETS, list: () => Object.keys(ASSETS) },
+    // nome desconhecido não vira endereço: devolve vazio (o nome vem do plano da IA)
+    assets: { url: (n) => (Object.prototype.hasOwnProperty.call(ASSETS, n) ? ASSETS[n] : ''), has: (n) => Object.prototype.hasOwnProperty.call(ASSETS, n), list: () => Object.keys(ASSETS) },
     get stage() { return STAGE; },
     css(text) { const s = document.createElement('style'); s.textContent = text; (this.stage || STAGE).append(s); return s; },
     svgLayer() { const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('class', 'art'); svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none'; this.stage.append(svg); return svg; },

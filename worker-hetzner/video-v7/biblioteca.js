@@ -9,7 +9,8 @@
 (function () {
   const { seg, eo, ei, eio, eob, lerp, TextFx } = kit;
   const RY = 720;
-  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // escapa também as aspas: o mesmo texto serve dentro de elemento e de atributo (os dados vêm do plano da IA)
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const fora = (t, D) => 1 - eo(seg(t, D - 0.6, D - 0.3));         // v4: objetos saem mais tarde (a última frase termina na tela)
   const volta = (t, D) => eio(seg(t, D - 0.55, D - 0.1));
   const abre = (t) => eio(seg(t, 0, 0.7));
@@ -393,7 +394,8 @@
   // ── imagem: uma imagem gerada em tela cheia (com véu para o texto) ou num painel ao lado, com até 3 pontos ──
   T.imagem = (d) => base(function (k, g, d) {
     const lado = ['cheia', 'direita', 'esquerda'].includes(d.lado) ? d.lado : 'cheia';
-    const src = d.arquivo ? k.assets.url(d.arquivo) : '';
+    // só um arquivo REGISTRADO na composição vira endereço (o nome vem do plano; nunca entra cru no atributo)
+    const src = d.arquivo && k.assets.has(d.arquivo) ? esc(k.assets.url(d.arquivo)) : '';
     const pontos = (d.pontos || []).slice(0, 3);
     this.lado = lado;
     if (lado === 'cheia') {
