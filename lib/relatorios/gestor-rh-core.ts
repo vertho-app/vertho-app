@@ -26,6 +26,9 @@ import { excludeInternalEmails } from '@/lib/internal-emails';
 import { RELATORIO_GESTOR_SYSTEM, RELATORIO_RH_SYSTEM } from '@/lib/relatorios/prompts';
 import { cargosParaOPrompt, linhasDeNiveisParaOPrompt } from '@/lib/relatorios/niveis-do-rh';
 
+/** Teto da chamada de IA dos relatórios do Gestor e do RH: o mesmo do PDI (300 s), e não o padrão de 120 s do cliente. */
+export const TIMEOUT_RELATORIO_MS = 300000;
+
 export interface ResultadoRelatorio<T = unknown> {
   success: boolean;
   error?: string;
@@ -191,7 +194,7 @@ export async function gerarRelatorioGestorCore(
         const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})\nGESTOR: ${gestorNome} (${gestorEmail})\nTOTAL EQUIPE: ${membros.length}\nDISC: D=${discDist.D} I=${discDist.I} S=${discDist.S} C=${discDist.C}\n${groundingBlock ? `\n${groundingBlock}\n` : ''}\nDADOS DA EQUIPE:\n${JSON.stringify(membros, null, 2)}`;
 
         const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 64000, {
-          taskKey: 'relatorio_gestor', empresaId,
+          taskKey: 'relatorio_gestor', empresaId, timeoutMs: TIMEOUT_RELATORIO_MS,
           locale: resolveAppLocale(gestorColab ? idiomaPorColab.get(gestorColab.id) : null, idiomaDaEmpresa),
         });
         const relatorio: any = await extractJSON(resultado);
@@ -339,8 +342,10 @@ ${JSON.stringify(registros, null, 2)}`;
     // mesmo do texto fixo do PDF. Sem `locale`, o `callAI` lia o cookie de quem DISPAROU (a operação da Vertho),
     // e o RH de uma empresa em outro idioma abria o relatório com a prosa no idioma errado.
     const locale = await idiomaDaPessoa(empresaId, null);
+    // Teto de 300 s, como o PDI: com o padrão de 120 s do cliente, o relatório (longo por desenho) morria em
+    // "Request was aborted" depois do trabalho pago. Medido 16/10/2026: o fluxo completo da Amazon falhou na etapa RH.
     const resultado = await callAI(RELATORIO_RH_SYSTEM, user, aiConfig, 64000, {
-      taskKey: 'relatorio_rh', empresaId, locale,
+      taskKey: 'relatorio_rh', empresaId, locale, timeoutMs: TIMEOUT_RELATORIO_MS,
     });
     const relatorio: any = await extractJSON(resultado);
 
