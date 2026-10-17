@@ -6,7 +6,7 @@
 // evita descobrir no fim de 40 minutos que o manuscrito fala de descritores que
 // o catálogo não tem.
 //
-// Uso: npx tsx scripts/_extrair-manuscrito-diretores.ts <caminho.docx> <slug> [--aplicar]
+// Uso: npx tsx scripts/_extrair-manuscrito-diretores.ts <caminho.docx> <slug> [--comp=COD] [--cargo=NOME] [--desc=1,2] [--aplicar]
 process.loadEnvFile('.env.local');
 import { readFileSync } from 'node:fs';
 import { tasks } from '@trigger.dev/sdk';
@@ -28,6 +28,10 @@ const COD_ALVO = (process.argv.find((a) => a.startsWith('--comp='))?.slice(7) ||
 // graça no dry-run, a QUALIDADE do texto só se vê depois de gerar.
 const DESCRITORES = (process.argv.find((a) => a.startsWith('--desc='))?.slice(7) || '')
   .split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
+// `--cargo=` escolhe a cópia da matriz quando o mesmo código existe em cargos com
+// descritores DIFERENTES (Ibipeba GES01: Coordenação ≠ Gestão Educacional/Escolar).
+// Sem ele, `resolverDescritores` recusa e lista os cargos. A task já lê `params.cargo`.
+const CARGO = (process.argv.find((a) => a.startsWith('--cargo='))?.slice(8) || '').trim() || null;
 
 async function main() {
   if (!ARQUIVO) throw new Error('informe o caminho do .docx');
@@ -41,8 +45,9 @@ async function main() {
   console.log(`\n${parse.titulo}`);
   console.log(`cod_comp=${parse.cod_comp} · cargo=${parse.cargo} · ${parse.descritores.length} descritores · ${parse.stats?.modulosPrevistos ?? '?'} módulos previstos (${TRANSICOES_POR_DESCRITOR} transições cada)`);
 
-  const { resolvidos, avisos, error } = await resolverDescritores(sb, parse, empresaId, { codCompAlvo: COD_ALVO });
+  const { resolvidos, avisos, error } = await resolverDescritores(sb, parse, empresaId, { codCompAlvo: COD_ALVO, cargo: CARGO });
   if (error || !resolvidos) throw new Error(error || 'falha ao resolver descritores');
+  console.log(`matriz ancorada em: ${(resolvidos[0] as any)?.comp?.cargo || '—'} · serve: ${((resolvidos[0] as any)?.cargosDaMatriz || []).join(', ') || '—'}`);
 
   console.log(`\ncasamento com o modelo da empresa:`);
   for (const r of resolvidos as any[]) {
@@ -57,7 +62,7 @@ async function main() {
   const total = nDesc * TRANSICOES_POR_DESCRITOR;
   if (DESCRITORES.length) console.log(`\nPILOTO: só descritor(es) ${DESCRITORES.join(', ')} → ${total} módulos`);
   const params = {
-    cod_comp: parse.cod_comp, codCompAlvo: COD_ALVO, titulo: parse.titulo, cargoManuscrito: parse.cargo,
+    cod_comp: parse.cod_comp, codCompAlvo: COD_ALVO, cargo: CARGO, titulo: parse.titulo, cargoManuscrito: parse.cargo,
     empresaId, locale: 'pt-BR', termoCanonico: null,
     apenasDescritores: DESCRITORES.length ? DESCRITORES : null,
     substituirExistentes: false, auditar: true, createdBy: 'script:_extrair-manuscrito-diretores',
