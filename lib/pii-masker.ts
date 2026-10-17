@@ -170,8 +170,16 @@ export function nomeParaLeitura(nome: string): string {
   return n.toLocaleLowerCase('pt-BR').replace(/(^|[\s'’-])(\p{L})/gu, (_, antes: string, letra: string) => antes + letra.toLocaleUpperCase('pt-BR'));
 }
 
+/**
+ * `textosDoCaso`: o texto do CASO que a pessoa respondeu (cenário, perguntas), que vai à IA sem máscara. A forma do nome
+ * que aparece nele é nome de PERSONAGEM e não é mascarada. Medido na 4Life (17/10/2026): os dois cenários de Professor
+ * têm uma "Renata", e a participante Renata respondia "falaria com a Renata"; a máscara trocava a personagem pelo
+ * identificador da PESSOA, e avaliação, check e PDI liam a participante falando com ela mesma (PDI reprovado por
+ * "confunde a pessoa com a personagem"). O nome completo e as outras formas que o caso não usa continuam mascarados.
+ */
 export function maskColaborador(
   colab: ColaboradorInput | null | undefined,
+  opts: { textosDoCaso?: Array<string | null | undefined> } = {},
 ): { masked: MaskedColaborador | null; map: PIIMapas } {
   if (!colab) return { masked: null, map: MAPAS_VAZIOS() };
   const idBase = colab.id || colab.email || colab.nome_completo || colab.nome || 'unknown';
@@ -180,10 +188,14 @@ export function maskColaborador(
   const emailAlias = email ? `${alias.toLowerCase()}${DOMINIO_ALIAS}` : null;
   const nome = String(colab.nome_completo || colab.nome || '').trim();
   const primeiroNome = nome.split(/\s+/)[0] || '';
+  const caso = (opts.textosDoCaso || []).filter((t): t is string => typeof t === 'string' && !!t).join('\n').normalize('NFC');
 
   const ida: PIIMap = {};
   if (email && emailAlias) ida[email] = emailAlias;
-  for (const forma of formasDoNome(nome)) ida[forma] = alias;
+  for (const forma of formasDoNome(nome)) {
+    if (caso && regexDoReal(forma).test(caso)) continue;
+    ida[forma] = alias;
+  }
 
   const volta: PIIMap = {};
   if (primeiroNome) volta[alias] = nomeParaLeitura(primeiroNome);

@@ -5,7 +5,6 @@ import { tenantDb } from '@/lib/tenant-db';
 import { comContexto } from '@/lib/execucao-contexto';
 import { regionOpts } from '@/lib/trigger-region';
 import { getModelForTask } from '@/lib/ai-tasks';
-import { auditarBlueprintCore } from '@/lib/blueprint/core';
 import { gerarTemporadaCoreHeadless } from '@/lib/season-engine/trilha-core';
 import { gerarRelatorioGestorCore, gerarRelatorioRHCore } from '@/lib/relatorios/gestor-rh-core';
 import { executarFluxo, type DepsFluxo } from '@/lib/pipeline-fluxo/executor';
@@ -16,7 +15,12 @@ import { coletarEntradaPrevia } from '@/lib/pipeline-fluxo/coletar';
 import { montarPreviaFluxo } from '@/lib/pipeline-fluxo/previa';
 import { regraFocoIndividual } from '@/lib/foco-individual';
 import { gerarConteudoDaBiblioteca } from '@/lib/pipeline-fluxo/conteudo-gerar';
-import { filaIA4Escopo, filaBlueprintEscopo, filaPdiEscopo, filaTrilhaEscopo, filaAuditoriaEscopo, filaKitEscopo } from '@/lib/pipeline-fluxo/filas';
+import { filaIA4Escopo, filaBlueprintEscopo, filaPdiEscopo, filaTrilhaEscopo, filaKitEscopo } from '@/lib/pipeline-fluxo/filas';
+import {
+  idsInternos, idsComPdiEntregue, dentroDoEscopo, filaCorrecaoIA4, filaAuditoriaComCorrecao, filaCorrecaoPdi, filaPdiDesatualizado, filaTrilhaDesatualizada,
+  corrigirIA4, auditarECorrigirBlueprint, refazerPdiGuardandoMelhor, marcarTrilhaRefeita,
+} from '@/lib/pipeline-fluxo/correcoes';
+import { pausaDeEnvios } from '@/lib/envios-pausados';
 import { TASK_FLUXO, type ParamsFluxo, type ProgressoFluxo } from '@/lib/pipeline-fluxo/tipos';
 
 /**
@@ -31,7 +35,12 @@ import { TASK_FLUXO, type ParamsFluxo, type ProgressoFluxo } from '@/lib/pipelin
  * reprovado pela 2ª IA, que fica retido, R-60), e avaliação sem o check da 2ª IA segura o PDI na fila (R-59).
  * Iniciar a cadência continua decisão do dono.
  *
- * Orçamento: ~45 min de COMPUTE por execução (auditoria, trilha, relatórios). Se acabar, a task se re-agenda com o
+ * Correções (17/10/2026, `lib/pipeline-fluxo/correcoes.ts`): o "revisar" da IA4, o blueprint reprovado (correção guiada,
+ * dentro da auditoria) e o PDI reprovado ou com alerta são corrigidos aqui, antes de quem os lê. Com a empresa PAUSADA
+ * (`sys_config.envios_pausados`, lida a cada fila), também o de rodadas anteriores, com a cascata (PDI mais velho que o
+ * blueprint vai ao lote do PDI; trilha de quem teve o blueprint corrigido é refeita).
+ *
+ * Orçamento: ~45 min de COMPUTE por execução (auditoria, correções, trilha, relatórios). Se acabar, a task se re-agenda com o
  * mesmo `jobId` e a fila é recalculada lá — por isso a continuação é idempotente.
  */
 const MAX_TENTATIVAS = 2;
@@ -66,6 +75,19 @@ export const fluxoCompletoTask = task({
         const permitidos = params.permitidos ? new Set(params.permitidos) : null;
         const tdb = tenantDb(empresaId);
 
+        // Contas internas fora de TODAS as filas (salvo a exceção do pedido); lido uma vez por execução.
+        const internos = await idsInternos(tdb, params.excecaoInternos);
+        const dentro = dentroDoEscopo(permitidos, internos);
+        // Quem já teve o PDI anunciado: o passado dessas pessoas não se revisita, nem com a empresa pausada.
+        const entregues = await idsComPdiEntregue(tdb);
+        // A pausa é lida A CADA fila: tirar a pausa no meio do fluxo vale para a próxima etapa.
+        const pausada = async () => {
+          const { data: emp, error } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+          if (error) throw new Error(`sys_config da empresa (pausa): ${error.message}`);
+          return !!pausaDeEnvios(emp?.sys_config);
+        };
+        const unir = (...listas: string[][]) => [...new Set(listas.flat())];
+
         const cancelado = async () => {
           const { data, error } = await sb.from('ia_jobs').select('status').eq('id', payload.jobId).maybeSingle();
           if (error) { console.warn(`[fluxo] não li o status do job: ${error.message}`); return false; }
@@ -74,17 +96,21 @@ export const fluxoCompletoTask = task({
 
         const deps: DepsFluxo = {
           ler: {
-            ia4: () => filaIA4Escopo(tdb, permitidos),
+            ia4: () => filaIA4Escopo(tdb, permitidos, internos),
+            ia4Correcao: async (alvo) => filaCorrecaoIA4(tdb, { dentro, alvo, revisitar: await pausada(), entregues }),
             // A regra é lida NA HORA (não no início da run): ligar ou desligar entre execuções vale para a próxima etapa.
             foco: async () => {
               const { data: emp, error } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
               if (error) throw new Error(`sys_config da empresa: ${error.message}`);
               return filaFocoEscopo(tdb, emp?.sys_config, { permitidos, cargos: params.escopo?.cargos || undefined, incluirInternos: params.excecaoInternos });
             },
-            blueprint: () => filaBlueprintEscopo(tdb, permitidos),
-            auditoria: (alvo) => filaAuditoriaEscopo(tdb, alvo),
-            pdi: () => filaPdiEscopo(tdb, permitidos),
-            trilha: () => filaTrilhaEscopo(tdb, permitidos, params.excecaoInternos),
+            blueprint: () => filaBlueprintEscopo(tdb, permitidos, internos),
+            auditoria: async (alvo) => filaAuditoriaComCorrecao(tdb, { dentro, alvo, revisitar: await pausada(), entregues }),
+            // Pausada: + o PDI mais velho que o blueprint (a cascata de quem teve o blueprint corrigido).
+            pdi: async () => unir(await filaPdiEscopo(tdb, permitidos, internos), (await pausada()) ? await filaPdiDesatualizado(tdb, dentro, entregues) : []),
+            pdiCorrecao: async (alvo) => filaCorrecaoPdi(tdb, { dentro, alvo, revisitar: await pausada(), entregues }),
+            // Pausada: + a trilha de quem teve o blueprint corrigido depois de ela nascer.
+            trilha: async () => unir(await filaTrilhaEscopo(tdb, permitidos, params.excecaoInternos), (await pausada()) ? await filaTrilhaDesatualizada(tdb, dentro, entregues) : []),
             conteudo: () => filaConteudoEscopo(tdb, { permitidos, cargos: params.escopo?.cargos || undefined, incluirInternos: params.excecaoInternos, empresaId }),
             // RAW de propósito: a varredura do plano precisa enxergar também os kits GLOBAIS (empresa_id nulo).
             kit: () => filaKitEscopo(sb, empresaId, { turmaId: params.escopo?.turmaId, cargos: params.escopo?.cargos, semanaMax: params.kitSemanaMax }),
@@ -130,13 +156,15 @@ export const fluxoCompletoTask = task({
               await wait.for({ seconds: SONDAGEM_S });
             }
           },
-          auditar: async (colaboradorId) => {
-            const r: any = await auditarBlueprintCore(sb as any, { colaboradorId, empresaIdEsperado: empresaId });
-            return r?.error ? { ok: false, erro: String(r.error) } : { ok: true };
-          },
+          auditar: (colaboradorId) => auditarECorrigirBlueprint(sb, empresaId, colaboradorId),
+          corrigirIA4: (respostaId) => corrigirIA4(sb, empresaId, respostaId),
+          refazerPdi: (colaboradorId, aiConfig) => refazerPdiGuardandoMelhor(sb, empresaId, colaboradorId, aiConfig),
           gerarTrilha: async (colaboradorId, aiConfig) => {
             const r: any = await gerarTemporadaCoreHeadless(sb, { colaboradorId, aiConfig, empresaIdEsperado: empresaId });
-            return r?.error ? { ok: false, erro: String(r.error) } : { ok: true };
+            if (r?.error) return { ok: false, erro: String(r.error) };
+            // A cascata não volta a refazer esta trilha (sem blueprint corrigido, não faz nada).
+            await marcarTrilhaRefeita(sb, empresaId, colaboradorId);
+            return { ok: true };
           },
           relatorioGestor: async (aiConfig) => {
             const r = await gerarRelatorioGestorCore(sb as any, empresaId, aiConfig as any);

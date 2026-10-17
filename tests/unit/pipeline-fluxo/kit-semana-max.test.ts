@@ -86,11 +86,15 @@ describe('iniciarFluxoCompleto: limite de semanas do Kit', () => {
 
 describe('a tela manda o limite e o mostra', () => {
   const pagina = readFileSync(join(process.cwd(), 'app', 'admin', 'empresas', '[empresaId]', 'fluxo', 'page.tsx'), 'utf8');
-  it('o disparo leva o kitSemanaMax escolhido, com "todas as semanas" como padrão', () => {
+  // 17/10/2026, 4Life: com "todas as semanas" de padrão, o seletor voltava a "todas" a cada carga da página e o fluxo real
+  // saiu com o Kit inteiro quando a escolha era só a semana 1. Agora começa SEM escolha e o Rodar só libera depois dela.
+  it('o disparo leva o kitSemanaMax escolhido; a tela começa sem escolha e o Rodar fica travado até haver uma', () => {
     expect(pagina).toMatch(/iniciarFluxoCompleto\(\{[^}]*kitSemanaMax[^}]*\}\)/);
-    expect(pagina).toMatch(/useState<number \| null>\(null\)/);
-    expect(pagina).toContain('<option value="">todas as semanas</option>');
+    expect(pagina).toMatch(/useState<'' \| 'todas' \| number>\(''\)/);
+    expect(pagina).toContain('<option value="">escolha…</option>');
+    expect(pagina).toContain('<option value="todas">todas as semanas</option>');
     expect(pagina).toContain('<option value="1">só a semana 1</option>');
+    expect(pagina).toMatch(/setConfirmando\(true\)\} disabled=\{[^}]*kitEscolha === ''[^}]*\}/);
   });
   it('a confirmação e o painel do fluxo dizem o limite', () => {
     expect(pagina).toMatch(/Kit \$\{rotuloKitSemanas\(kitSemanaMax\)\}/);

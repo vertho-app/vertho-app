@@ -7,8 +7,8 @@ import type { EtapaId } from './previa';
 
 export type { EtapaId };
 
-/** Ordem de execução. A competência de cada pessoa sai das notas da IA4 e decide o blueprint, o PDI e a trilha, então vem entre eles; a auditoria depende do blueprint; Gestor e RH vêm depois do PDI; a trilha depois do blueprint; o kit lê o plano da trilha, então vem depois dela; a trilha exige a biblioteca de conteúdo-base, então os conteúdos vêm antes dela. */
-export const ORDEM_ETAPAS: EtapaId[] = ['ia4', 'foco', 'blueprint', 'auditoria', 'pdi', 'conteudo', 'trilha', 'kit', 'gestor', 'rh'];
+/** Ordem de execução. A competência de cada pessoa sai das notas da IA4 e decide o blueprint, o PDI e a trilha, então vem entre eles; a auditoria depende do blueprint; Gestor e RH vêm depois do PDI; a trilha depois do blueprint; o kit lê o plano da trilha, então vem depois dela; a trilha exige a biblioteca de conteúdo-base, então os conteúdos vêm antes dela. As CORREÇÕES (17/10/2026, `correcoes.ts`) vêm logo depois do que corrigem e antes de quem lê: o texto da IA4 antes do blueprint e do PDI; a correção guiada do blueprint dentro da auditoria, antes do PDI; o PDI refeito antes da trilha e do Gestor/RH. */
+export const ORDEM_ETAPAS: EtapaId[] = ['ia4', 'ia4_correcao', 'foco', 'blueprint', 'auditoria', 'pdi', 'pdi_correcao', 'conteudo', 'trilha', 'kit', 'gestor', 'rh'];
 
 /**
  * "x de Y pessoas com o fluxo inteiro" (pedido do dono, 16/10/2026): os artefatos POR PESSOA (a competência dela,
@@ -60,8 +60,12 @@ export interface ProgressoFluxo {
   atual: string;
   /** Modelos efetivamente usados por etapa (impressos: config declarada não é config aplicada). */
   modelos?: Record<string, string>;
-  /** Pessoas que entraram na fila do blueprint NESTA rodada: só elas são auditadas (não se reavalia o passado). */
+  /** Pessoas que entraram na fila do blueprint NESTA rodada: só elas são auditadas (não se reavalia o passado, salvo a empresa pausada). */
   blueprintAlvo?: string[];
+  /** Respostas que o lote da IA4 tratou NESTA rodada: só o "revisar" delas é corrigido (salvo a empresa pausada). */
+  ia4Alvo?: string[];
+  /** Pessoas que o lote do PDI tratou NESTA rodada: só o PDI delas é refeito (salvo a empresa pausada). */
+  pdiAlvo?: string[];
   /** Competências escolhidas pela etapa "Competência de cada pessoa" nesta rodada (na simulação, as que SERIAM). */
   focoDefinido?: FocoDefinido[];
   /** Quem tem (ou teria, na simulação) o fluxo inteiro, lido do banco no FIM da execução. */
@@ -106,10 +110,12 @@ export interface ParamsFluxo {
 
 export const TITULOS_ETAPA: Record<EtapaId, string> = {
   ia4: 'IA4 — avaliar respostas + check',
+  ia4_correcao: 'IA4 — corrigir o texto do que ficou em "revisar"',
   foco: 'Competência de cada pessoa (menor nota)',
   blueprint: 'Blueprint',
-  auditoria: 'Auditoria do blueprint',
+  auditoria: 'Auditoria do blueprint (e correção guiada)',
   pdi: 'PDI',
+  pdi_correcao: 'PDI — refazer o reprovado e o com alerta',
   conteudo: 'Conteúdos (biblioteca da trilha)',
   trilha: 'Trilha (temporada)',
   kit: 'Kit semanal (conteúdos por DISC)',

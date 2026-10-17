@@ -313,6 +313,14 @@ como `aprovado_com_ressalvas` (que é publicável), e 3 chegaram a produção. A
 `nota` e `veredito` são derivados em código a partir dos `problemas`. Ver
 `docs/MODULOS-BASE-CONTEUDO.md`.
 
+**Correção automática no fim do job (17/10/2026, `lib/modulos-base/correcao-automatica.ts`).** Depois da
+auditoria, o job corrige o que reprovou, até 2 tentativas por módulo: **bloco vazio** (`conteudo_central` ou
+`conteudo_aplicavel` = `{}`, a geração cortou) é regerado com o MESMO pedido do manuscrito (o vazio é obsoletado
+antes, porque a idempotência só conta os não obsoletos; volta se a gravação falhar) e o novo é auditado;
+**reprovado com conteúdo** é refinado (`refinarModuloCore`, que reverte se a nota cair). Medido na 4Life antes:
+6 de 51 módulos vazios e 11 reprovados por coerência, todos corrigidos à mão. O que sobra fica reprovado e não
+é publicado; o placar sai em `progress.correcao`.
+
 ### 4.7 Bônus: recursos do apêndice
 
 30 recursos curados, com link, extraídos e validados. `formatoDoRecurso()` já mapeia

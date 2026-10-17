@@ -142,3 +142,35 @@ describe('o nome que volta para a pessoa ler', () => {
     expect(nomeParaLeitura("D'ÁVILA")).toBe("D'Ávila");
   });
 });
+
+describe('nome de personagem do caso (4Life, 17/10/2026)', () => {
+  // A participante Renata respondeu um cenário com uma personagem Renata. Mascarar o primeiro nome trocava a
+  // personagem pelo identificador da PESSOA nas respostas: avaliação, check e PDI liam a pessoa falando com ela mesma.
+  const cenario = 'Na reunião, Renata, mãe do Mateus, pede explicações sobre o recado.';
+  const renata = maskColaborador({ id: 'col-renata', nome_completo: 'Renata Aparecida Solera', email: 'renata@exemplo.com' }, { textosDoCaso: [cenario, null, undefined] });
+  const RA = renata.masked!.nome;
+
+  it('o primeiro nome que o caso usa fica intacto (é a personagem)', () => {
+    expect(maskTextPII('Eu chamaria a Renata para conversar com calma.', renata.map)).toBe('Eu chamaria a Renata para conversar com calma.');
+  });
+
+  it('o nome completo e o e-mail da pessoa continuam mascarados', () => {
+    const out = maskTextPII('Renata Aparecida Solera (renata@exemplo.com) respondeu.', renata.map);
+    expect(out).not.toMatch(/Solera|renata@exemplo/);
+    expect(out).toContain(RA);
+  });
+
+  it('sem colisão nada muda: o primeiro nome segue mascarado', () => {
+    const outra = maskColaborador({ id: 'col-paula', nome_completo: 'Paula Cardoso Teste' }, { textosDoCaso: [cenario] });
+    expect(maskTextPII('Paula, você disse.', outra.map)).toBe(`${outra.masked!.nome}, você disse.`);
+  });
+
+  it('a volta continua devolvendo o primeiro nome da pessoa', () => {
+    expect(unmaskPII(`${RA}, este retorno é seu.`, renata.map)).toBe('Renata, este retorno é seu.');
+  });
+
+  it('sem `textosDoCaso` o comportamento antigo vale (o primeiro nome é mascarado)', () => {
+    const semCaso = maskColaborador({ id: 'col-renata', nome_completo: 'Renata Aparecida Solera' });
+    expect(maskTextPII('Renata, você disse.', semCaso.map)).toBe(`${semCaso.masked!.nome}, você disse.`);
+  });
+});

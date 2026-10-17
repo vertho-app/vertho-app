@@ -13,33 +13,39 @@ import { idsTrilhaProntos } from './previa';
 export { filaKitEscopo } from './kit';
 
 export type Permitidos = Set<string> | null;
-const dentro = (permitidos: Permitidos, id: string | null | undefined) => !!id && (!permitidos || permitidos.has(id));
+/**
+ * Dentro do escopo E fora das contas internas (`internos`, ver `idsInternos` em `correcoes.ts`). Até 17/10/2026 só a fila
+ * da trilha excluía as contas `@vertho.ai` (via `coletarEntradaPrevia`); IA4, blueprint e PDI as tratavam, e a conta de
+ * teste da 4Life ganhou avaliação, blueprint e PDI sem trilha.
+ */
+const dentro = (permitidos: Permitidos, id: string | null | undefined, internos?: Set<string>) =>
+  !!id && !internos?.has(id) && (!permitidos || permitidos.has(id));
 
-export async function filaIA4Escopo(tdb: any, permitidos: Permitidos): Promise<{ itens: string[]; checkOnly: string[] }> {
+export async function filaIA4Escopo(tdb: any, permitidos: Permitidos, internos?: Set<string>): Promise<{ itens: string[]; checkOnly: string[] }> {
   const fila = await buscarFilaIA4(tdb);
   if (fila.error) throw new Error(`fila da IA4: ${fila.error}`);
-  const itens = (fila.data || []).filter((r: any) => dentro(permitidos, r.colaborador_id)).map((r: any) => r.id as string);
+  const itens = (fila.data || []).filter((r: any) => dentro(permitidos, r.colaborador_id, internos)).map((r: any) => r.id as string);
 
   // Avaliações que JÁ existem e nunca passaram pela 2ª IA (um lote interrompido deixa isso para trás — 11/08: 58 de 72).
   const q = await lerTudoPaginado((de, ate) => tdb.from('respostas')
     .select('id, colaborador_id').not('avaliacao_ia', 'is', null).is('status_ia4', null).order('id').range(de, ate));
   if (q.error) throw new Error(`respostas sem check: ${q.error}`);
   const jaNaFila = new Set(itens);
-  const checkOnly = q.data.filter((r: any) => dentro(permitidos, r.colaborador_id) && !jaNaFila.has(r.id)).map((r: any) => r.id as string);
+  const checkOnly = q.data.filter((r: any) => dentro(permitidos, r.colaborador_id, internos) && !jaNaFila.has(r.id)).map((r: any) => r.id as string);
   return { itens, checkOnly };
 }
 
 /** Pessoas com TODAS as competências foco mapeadas e SEM blueprint (o upsert sobrescreveria um blueprint já entregue). */
-export async function filaBlueprintEscopo(tdb: any, permitidos: Permitidos): Promise<string[]> {
+export async function filaBlueprintEscopo(tdb: any, permitidos: Permitidos, internos?: Set<string>): Promise<string[]> {
   const fila = await resolverFilaBlueprint100(tdb);
   const { pendentes } = await separarPorBlueprintExistente(tdb, fila);
-  return pendentes.filter((f: any) => dentro(permitidos, f.id)).map((f: any) => f.id as string);
+  return pendentes.filter((f: any) => dentro(permitidos, f.id, internos)).map((f: any) => f.id as string);
 }
 
-export async function filaPdiEscopo(tdb: any, permitidos: Permitidos): Promise<string[]> {
+export async function filaPdiEscopo(tdb: any, permitidos: Permitidos, internos?: Set<string>): Promise<string[]> {
   const f = await buscarFilaPdi(tdb);
   if ('error' in f) throw new Error(`fila do PDI: ${f.error}`);
-  return f.pendentes.filter((id) => dentro(permitidos, id));
+  return f.pendentes.filter((id) => dentro(permitidos, id, internos));
 }
 
 export async function filaTrilhaEscopo(tdb: any, permitidos: Permitidos, incluirInternos?: string[]): Promise<string[]> {

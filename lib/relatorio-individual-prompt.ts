@@ -492,18 +492,26 @@ export async function buildRelatorioIndividualPrompt(
   // PDI SEM o nome (decisão 10b do dono, 03/10/2026): gerador e auditor recebem
   // o identificador, e o texto gerado é desmascarado antes de gravar
   // (`persistRelatorioIndividualFromText`, nos caminhos síncrono e em lote).
-  const { masked: colabMasked, map: pii } = maskColaborador(colab);
   const cenarios = new Map<string, any>();
+  for (const { r } of respostasUsadas) {
+    if (!r.cenario_id || cenarios.has(r.cenario_id)) continue;
+    const { data: cen, error: eCen } = await sbRaw.from('banco_cenarios')
+      .select('titulo, descricao, alternativas').eq('id', r.cenario_id).maybeSingle();
+    cenarios.set(r.cenario_id, eCen ? null : cen);
+  }
+  // A máscara nasce DEPOIS dos cenários: nome de personagem do caso não é mascarado (`textosDoCaso`, a participante
+  // Renata e a personagem Renata da 4Life, 17/10/2026).
+  const textosDoCaso = [...cenarios.values()].filter(Boolean).flatMap((cen: any) => {
+    const alt = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+    const pergs: any[] = (alt as any).perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
+    return [cen.titulo, cen.descricao, ...pergs.map((p: any) => p?.texto)];
+  });
+  const { masked: colabMasked, map: pii } = maskColaborador(colab, { textosDoCaso });
   const perguntasDe = new Map<string, any[]>();
   const blocosResposta: string[] = [];
   for (const { competencia, r } of respostasUsadas) {
     let cenarioTxt = 'CENÁRIO: (não localizado)';
     if (r.cenario_id) {
-      if (!cenarios.has(r.cenario_id)) {
-        const { data: cen, error: eCen } = await sbRaw.from('banco_cenarios')
-          .select('titulo, descricao, alternativas').eq('id', r.cenario_id).maybeSingle();
-        cenarios.set(r.cenario_id, eCen ? null : cen);
-      }
       const cen = cenarios.get(r.cenario_id);
       if (cen) {
         cenarioTxt = `CENÁRIO (hipotético, apresentado à pessoa): ${cen.titulo || ''}\n${String(cen.descricao || '').slice(0, 2000)}`;

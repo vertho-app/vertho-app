@@ -39,8 +39,13 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
   const [confirmando, setConfirmando] = useState(false);
   const [disparando, setDisparando] = useState(false);
   const [erroExec, setErroExec] = useState<string | null>(null);
-  /** Kit só até a semana N (`null` = todas). Pedido do dono (16/10/2026), testando a criação de vídeo. */
-  const [kitSemanaMax, setKitSemanaMax] = useState<number | null>(null);
+  /**
+   * Kit só até a semana N. Pedido do dono (16/10/2026), testando a criação de vídeo. Começa SEM escolha (`''`) e o Rodar só
+   * libera depois dela: com o padrão "todas", o seletor voltava a "todas" a cada carga da página e o fluxo real da 4Life
+   * (17/10/2026) saiu com o Kit de todas as semanas quando a escolha era só a semana 1.
+   */
+  const [kitEscolha, setKitEscolha] = useState<'' | 'todas' | number>('');
+  const kitSemanaMax = typeof kitEscolha === 'number' ? kitEscolha : null;
 
   const lerFluxo = useCallback(async () => {
     try {
@@ -341,11 +346,12 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                 </p>
                 <label className="flex flex-wrap items-center gap-2 text-[11.5px] mb-1" style={{ color: 'rgba(255,255,255,.7)' }}>
                   Kit semanal (conteúdos por DISC e vídeo):
-                  <select value={kitSemanaMax ?? ''} onChange={(e) => setKitSemanaMax(e.target.value ? Number(e.target.value) : null)}
+                  <select value={kitEscolha} onChange={(e) => setKitEscolha(e.target.value === '' ? '' : e.target.value === 'todas' ? 'todas' : Number(e.target.value))}
                     disabled={disparando || ativo || confirmando}
                     className="rounded-md px-2 py-1 text-[11.5px] disabled:opacity-50"
                     style={{ background: '#091D35', border: '1px solid rgba(255,255,255,.18)', color: '#e8eef6' }}>
-                    <option value="">todas as semanas</option>
+                    <option value="">escolha…</option>
+                    <option value="todas">todas as semanas</option>
                     <option value="1">só a semana 1</option>
                     {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>até a semana {n}</option>)}
                   </select>
@@ -361,11 +367,13 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                       style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.18)', color: '#e8eef6' }}>
                       Simular (não gasta)
                     </button>
-                    <button onClick={() => setConfirmando(true)} disabled={disparando || ativo || p.nadaAFazer}
+                    <button onClick={() => setConfirmando(true)} disabled={disparando || ativo || p.nadaAFazer || kitEscolha === ''}
+                      title={kitEscolha === '' ? 'Escolha as semanas do Kit para liberar' : undefined}
                       className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-bold disabled:opacity-40"
                       style={{ background: 'rgba(52,197,204,.14)', border: '1px solid rgba(52,197,204,.4)', color: '#34c5cc' }}>
                       <Play size={13} /> Rodar fluxo completo
                     </button>
+                    {kitEscolha === '' && <span className="self-center text-[11px]" style={{ color: '#f4b740' }}>Escolha as semanas do Kit para liberar o Rodar.</span>}
                   </div>
                 ) : (
                   <div className="rounded-lg px-3 py-3 text-[12.5px]" style={{ background: 'rgba(244,183,64,.08)', border: '1px solid rgba(244,183,64,.3)', color: '#f4b740' }}>

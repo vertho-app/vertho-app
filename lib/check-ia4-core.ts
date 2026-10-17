@@ -143,8 +143,8 @@ function buildCheckUser(colab: any, compNome: string, perfilCIS: string, resp: a
   // Auditoria SEM o nome (decisão 10b do dono, 03/10/2026): o auditor confere a
   // avaliação contra a régua e as respostas, e nada disso depende de quem é a
   // pessoa. A avaliação a auditar está GRAVADA com o nome (é texto que ela lê),
-  // então passa pela máscara junto com as respostas.
-  const { masked: colabMasked, map: pii } = maskColaborador(colab);
+  // então passa pela máscara junto com as respostas. Nome de personagem do cenário não é mascarado (`textosDoCaso`).
+  const { masked: colabMasked, map: pii } = maskColaborador(colab, { textosDoCaso: [cenarioTexto, perguntasTexto] });
   const m = (s: unknown) => maskTextPII(neutralizarFala(typeof s === 'string' ? s : ''), pii) || '(sem resposta)';
   const variavel: string[] = [];
   variavel.push(`═══ PROFISSIONAL ═══
@@ -211,8 +211,9 @@ export async function montarCheckIA4Prompt(
 
   const perfilCIS = formatPerfilContext(colab as any);
   const { prefix, user } = buildCheckUser(colab, compNome, perfilCIS, resp, reguaTexto, cenarioTexto, perguntasTexto);
-  // `pii` volta para quem chama desmascarar o veredito (`processCheckResult`).
-  return { system: CHECK_SYSTEM, prefix, user, compNome, colab, pii: maskColaborador(colab).map };
+  // `pii` volta para quem chama desmascarar o veredito (`processCheckResult`) e, na correção de texto, mascarar o que
+  // ela manda à IA: a MESMA máscara do check, com o nome de personagem do cenário de fora.
+  return { system: CHECK_SYSTEM, prefix, user, compNome, colab, pii: maskColaborador(colab, { textosDoCaso: [cenarioTexto, perguntasTexto] }).map };
 }
 
 /** Persistência do veredito — um lugar só, usado pelo síncrono e pelo lote. */

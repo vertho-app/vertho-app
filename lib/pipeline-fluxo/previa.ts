@@ -62,7 +62,7 @@ export type EntradaPrevia = {
   conteudoPlano?: { pecas: number; audios: number };
 };
 
-export type EtapaId = 'ia4' | 'foco' | 'blueprint' | 'auditoria' | 'pdi' | 'conteudo' | 'trilha' | 'kit' | 'gestor' | 'rh';
+export type EtapaId = 'ia4' | 'ia4_correcao' | 'foco' | 'blueprint' | 'auditoria' | 'pdi' | 'pdi_correcao' | 'conteudo' | 'trilha' | 'kit' | 'gestor' | 'rh';
 
 export type EtapaPrevia = {
   id: EtapaId;
@@ -112,10 +112,12 @@ const norm = (s: unknown): string => (s || '').toString().trim().toLowerCase();
 
 const TITULOS: Record<EtapaId, string> = {
   ia4: 'IA4 — avaliar respostas + check',
+  ia4_correcao: 'IA4 — corrigir o texto do que ficou em "revisar"',
   foco: 'Competência de cada pessoa (menor nota)',
   blueprint: 'Blueprint',
-  auditoria: 'Auditoria do blueprint',
+  auditoria: 'Auditoria do blueprint (e correção guiada)',
   pdi: 'PDI',
+  pdi_correcao: 'PDI — refazer o reprovado e o com alerta',
   conteudo: 'Conteúdos (biblioteca da trilha)',
   trilha: 'Trilha (temporada)',
   kit: 'Kit semanal (conteúdos por DISC)',
@@ -301,7 +303,9 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     foco: entrada.regraFoco
       ? 'Para quem ainda não tem: a competência de MENOR nota (média dos descritores; empate: o pior descritor, depois a ordem do Top 5), gravada uma vez. Só depois de todas as respostas da pessoa avaliadas e checadas.'
       : 'Desligada nesta empresa: vale a competência foco do cargo.',
-    auditoria: 'Só dos blueprints gerados nesta rodada; blueprint antigo não é reauditado.',
+    ia4_correcao: 'Só o que a 2ª IA deixar em "revisar": reescreve o TEXTO apontado (nota e nível não mudam), até 2 tentativas. Com a empresa pausada, também o de rodadas anteriores.',
+    auditoria: 'Audita o blueprint desta rodada e, se reprovar, roda a correção guiada (até 2 tentativas). Com a empresa pausada, também o reprovado de rodadas anteriores (e o PDI e a trilha dessa pessoa são refeitos).',
+    pdi_correcao: 'Refaz o PDI reprovado ou com alerta guardando a melhor versão, até 2 tentativas. Com a empresa pausada, também o de rodadas anteriores.',
     conteudo: entrada.conteudoPlano === undefined ? 'Não medido nesta prévia.' : `Biblioteca que falta (descritor × formato) para quem vai ter trilha montada, nos formatos que as pessoas precisam: ${entrada.conteudoPlano.audios} podcast(s) com áudio. Sem peça faltando, a etapa é pulada.`,
     kit: entrada.kitPlano === undefined ? 'Não medido nesta prévia.' : `Kits (tema × DISC) que faltam para as trilhas já montadas, com os 2 primeiros formatos das preferências: ${entrada.kitPlano.podcasts} podcast(s) pré-renderizado(s) e ${entrada.kitPlano.videos} vídeo(s). Os das trilhas novas aparecem depois da etapa da trilha.`,
     gestor: entrada.empresaInteira === false ? 'Não incluído: o relatório não filtra por turma/cargo (gere manualmente se quiser).' : 'Gera ao final; um por gestor (agrupado por e-mail do gestor).',

@@ -755,9 +755,30 @@ iniciar a cadência seguem sendo decisão de quem opera.
   `cancelarFluxoCompleto` (`actions/pipeline-fluxo.ts`, gate `ai.audit.regenerate`). A execução enfileira a
   task `fluxo-completo` (`trigger/fluxo-completo.ts`, até 4 h); o estado vive em `ia_jobs` (`fase='fluxo'`) e
   a tela acompanha por polling de 5 s. O controle de fluxo é puro e testado sem rede (`executor.ts`).
-- **Ordem** (`ORDEM_ETAPAS`, `lib/pipeline-fluxo/tipos.ts`): IA4 + check, **competência de cada pessoa**,
-  blueprint, auditoria, PDI, **conteúdos**, trilha, **Kit**, Gestor, RH. Cada etapa recalcula a própria fila
-  (idempotente: só gera o que falta, não reavalia o passado) e a falha de uma etapa não derruba a cadeia.
+- **Ordem** (`ORDEM_ETAPAS`, `lib/pipeline-fluxo/tipos.ts`): IA4 + check, **correção da IA4**, **competência de cada
+  pessoa**, blueprint, auditoria (**com a correção guiada**), PDI, **refazer o PDI**, **conteúdos**, trilha, **Kit**,
+  Gestor, RH. Cada etapa recalcula a própria fila (idempotente: só gera o que falta, não reavalia o passado, salvo a
+  empresa pausada, abaixo) e a falha de uma etapa não derruba a cadeia.
+- **Correções automáticas** (`lib/pipeline-fluxo/correcoes.ts`, 17/10/2026, decisão do dono: "corrigir a origem das
+  reprovações"). Na 4Life, a 1ª rodada saiu com 4 avaliações em "revisar", 14 de 22 blueprints e 4 PDIs reprovados (+2
+  com alerta); na Amazon os mesmos defeitos foram fechados à mão por script. Agora cada correção roda logo depois do que
+  corrige e antes de quem lê: o **texto** da IA4 em "revisar" (`corrigirTextoAvaliacaoCore`, nota e nível não mudam),
+  o blueprint reprovado (correção guiada, estrutura travada, adoção pela régua de 2 rodadas) e o PDI reprovado **ou com
+  alerta** (refeito guardando a melhor versão; restaurar uma anterior zera `pdf_path`, o download refaz o PDF). Teto de
+  **2 tentativas por artefato**, contado no próprio artefato (`avaliacao_ia._correcao_texto_tentativas`,
+  `auditoria.correcao_guiada_tentativas`, `conteudo._refazer_tentativas`): nenhuma execução paga a mesma correção sem
+  fim. O que não fecha vira falha da etapa, com o motivo, e aparece no painel. Limite conhecido: apontamento sobre a
+  NOTA de um descritor (ex.: "D6 em N2 sem evidência") não se corrige pelo texto; fica em "revisar" para decisão humana.
+- **Empresa pausada** (`sys_config.envios_pausados`, lida a cada fila): as correções também pegam o que ficou reprovado
+  de **rodadas anteriores**, mas NUNCA de quem já teve o PDI anunciado (`notification_deliveries` kind `plano`): pausa não
+  prova que nada saiu (a Ibipeba estava pausada com a 1ª temporada entregue). A **cascata** (o PDI mais velho que a
+  correção vai ao lote do PDI; a trilha que ainda não começou é refeita) só vale para o blueprint que a correção
+  AUTOMÁTICA corrigiu (`auditoria.correcao_guiada.cascata_automatica`): a correção à mão da Amazon já fez a dela por
+  script, e sem a marca 14 trilhas e 4 PDIs de lá seriam refeitos à toa. A trilha regravada preserva `criado_em` e
+  `data_inicio`, então "já refeita" é a marca `correcao_guiada.trilha_refeita_em`. A correção guiada trava os
+  descritores das semanas: a semana 1 e o Kit dela continuam valendo. Sem pausa, só o desta rodada.
+- **Kit:** a tela começa SEM escolha de semanas e o Rodar só libera depois dela (17/10/2026: com "todas" de padrão, o
+  seletor voltava a "todas" a cada carga e o fluxo real da 4Life saiu com o Kit inteiro quando a escolha era a semana 1).
 - **Competência de cada pessoa** (`lib/pipeline-fluxo/foco.ts`, 15/10/2026): só com `sys_config.foco_individual =
   'menor_nota'`; desligada, a etapa é pulada e vale o foco do cargo. Grava `colaboradores.foco_individual` para quem
   não tem e não tem trilha (o update só pega a linha com o foco vazio). A tela lista "pessoa → competência, média,
@@ -766,7 +787,8 @@ iniciar a cadência seguem sendo decisão de quem opera.
   pessoa respondeu (qualquer uma pode ser a escolhida). Um fluxo gravado antes da etapa existir ganha a etapa ao
   continuar (`etapasCompletas`).
 - **Escopo:** com 2 ou mais turmas ativas a turma é obrigatória (fail-closed, `idsDoEscopoOuFalhar`); um
-  fluxo ativo por empresa; empresa de demonstração só **simula**; contas `@vertho.ai` ficam de fora (a
+  fluxo ativo por empresa; empresa de demonstração só **simula**; contas `@vertho.ai` ficam de fora de TODAS as
+  filas (até 17/10/2026 só a trilha filtrava, e a conta de teste da 4Life ganhou avaliação, blueprint e PDI; a
   exceção existe só para script de teste). Gestor e RH só entram com a empresa inteira e PDI novo na rodada.
 - **Custo:** a tela **não estima custo** (retirado a pedido do dono em 06/10/2026; o modelo de custo por unidade saiu
   do código junto, porque nada mais o consumia). Ordem de grandeza medida no ledger, para quem precisa saber: US$ 1,5

@@ -357,8 +357,8 @@ export function buildIA4UserPrompt(
   // saber quem é a pessoa. Vai o identificador, e as respostas passam pela mesma
   // máscara das conversas (o nome e o contato que ela digitou). O texto que a IA
   // devolve é desmascarado em `consolidarEPersistirIA4`, por onde os dois
-  // caminhos (síncrono e lote) gravam.
-  const { masked: colabMasked, map: pii } = maskColaborador(colab);
+  // caminhos (síncrono e lote) gravam. Nome de personagem do cenário não é mascarado (`textosDoCaso`).
+  const { masked: colabMasked, map: pii } = maskColaborador(colab, { textosDoCaso: [ctx.cenarioTexto, ctx.perguntasTexto] });
   // A fala entra no meio de um prompt de seções `═══ … ═══`: o que só serve para forjar uma
   // seção ou um turno é desarmado ANTES da máscara (o texto comum sai idêntico), e a tentativa
   // vira um `[injecao]` no log, sem o texto. Reavaliação e check usam a mesma neutralização.

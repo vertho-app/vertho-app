@@ -171,7 +171,7 @@ export async function reavaliarRespostaCore(sbRaw: SupabaseClient, respostaId: s
     // Sem o nome, como a IA4 original (decisão 10b do dono, 03/10/2026): vai o
     // identificador; respostas, avaliação anterior e auditoria (gravadas com o
     // nome) passam pela máscara. A revisão volta desmascarada antes de gravar.
-    const { masked: colabMasked, map: pii } = maskColaborador(colab);
+    const { masked: colabMasked, map: pii } = maskColaborador(colab, { textosDoCaso: [cenarioTexto, perguntasTexto] });
     const m = (s: unknown) => maskTextPII(neutralizarFala(typeof s === 'string' ? s : ''), pii);
     const userBlocks: string[] = [];
 

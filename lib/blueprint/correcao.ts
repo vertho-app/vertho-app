@@ -148,9 +148,13 @@ export async function corrigirBlueprintCore(
  */
 export async function gravarBlueprintCorrigido(
   sb: SupabaseClient,
-  p: { empresaId: string; colaboradorId: string; blueprint: any; relatorio: BlueprintAuditReport; anterior: { blueprint: any; auditoria: any } },
+  p: {
+    empresaId: string; colaboradorId: string; blueprint: any; relatorio: BlueprintAuditReport; anterior: { blueprint: any; auditoria: any };
+    /** Marcas extras no rastro da correção (ex.: `cascata_automatica`, ver `lib/pipeline-fluxo/correcoes.ts`). */
+    marcas?: Record<string, unknown>;
+  },
 ): Promise<{ error?: string }> {
-  const auditoria = { ...p.relatorio, correcao_guiada: { blueprint_anterior: p.anterior.blueprint, auditoria_anterior: p.anterior.auditoria, corrigido_em: new Date().toISOString() } };
+  const auditoria = { ...p.relatorio, correcao_guiada: { blueprint_anterior: p.anterior.blueprint, auditoria_anterior: p.anterior.auditoria, corrigido_em: new Date().toISOString(), ...(p.marcas || {}) } };
   const { data, error } = await sb.from('development_blueprints')
     .update({ blueprint: p.blueprint, auditoria, auditado_em: p.relatorio.auditado_em, gerado_em: new Date().toISOString() })
     .eq('empresa_id', p.empresaId).eq('colaborador_id', p.colaboradorId).select('id');

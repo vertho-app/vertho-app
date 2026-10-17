@@ -17,3 +17,24 @@ describe('trigger/fluxo-completo.ts liga a etapa de conteúdos', () => {
     expect(fonte).toContain('gerarConteudo: (item) => gerarConteudoDaBiblioteca(sb, empresaId, item)');
   });
 });
+
+describe('trigger/fluxo-completo.ts liga as correções (17/10/2026)', () => {
+  const fonte = readFileSync('trigger/fluxo-completo.ts', 'utf-8');
+  it('auditoria corrige o reprovado; IA4 e PDI têm as correções reais', () => {
+    expect(fonte).toContain('auditar: (colaboradorId) => auditarECorrigirBlueprint(sb, empresaId, colaboradorId)');
+    expect(fonte).toContain('corrigirIA4: (respostaId) => corrigirIA4(sb, empresaId, respostaId)');
+    expect(fonte).toContain('refazerPdi: (colaboradorId, aiConfig) => refazerPdiGuardandoMelhor(sb, empresaId, colaboradorId, aiConfig)');
+  });
+  it('contas internas fora da IA4, do blueprint e do PDI (antes só a trilha filtrava)', () => {
+    expect(fonte).toContain('filaIA4Escopo(tdb, permitidos, internos)');
+    expect(fonte).toContain('filaBlueprintEscopo(tdb, permitidos, internos)');
+    expect(fonte).toContain('filaPdiEscopo(tdb, permitidos, internos)');
+  });
+  it('o passado e a cascata só com a empresa pausada (lida a cada fila) e nunca para quem já recebeu o PDI', () => {
+    expect(fonte).toMatch(/revisitar: await pausada\(\), entregues/);
+    expect(fonte).toContain('(await pausada()) ? await filaPdiDesatualizado(tdb, dentro, entregues)');
+    expect(fonte).toContain('(await pausada()) ? await filaTrilhaDesatualizada(tdb, dentro, entregues)');
+    expect(fonte).toContain('pausaDeEnvios(emp?.sys_config)');
+    expect(fonte).toContain('const entregues = await idsComPdiEntregue(tdb)');
+  });
+});

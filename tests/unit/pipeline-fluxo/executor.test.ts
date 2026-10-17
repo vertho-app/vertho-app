@@ -6,7 +6,7 @@ import { progressoInicial, ORDEM_ETAPAS, type ParamsFluxo, type EtapaId } from '
  * O executor é o controle de fluxo do botão "fluxo completo". Estes testes usam dependências falsas que REGISTRAM
  * cada chamada, então provam o que o fluxo FAZ (e, principalmente, o que NÃO faz) sem Trigger, banco ou IA.
  */
-type Filas = { ia4?: { itens: string[]; checkOnly?: string[] }; foco?: FilaFoco; blueprint?: string[]; auditoria?: string[]; pdi?: string[]; trilha?: string[]; kit?: KitItem[]; conteudo?: ConteudoItem[] };
+type Filas = { ia4?: { itens: string[]; checkOnly?: string[] }; ia4Correcao?: string[]; foco?: FilaFoco; blueprint?: string[]; auditoria?: string[]; pdi?: string[]; pdiCorrecao?: string[]; trilha?: string[]; kit?: KitItem[]; conteudo?: ConteudoItem[] };
 const FOCO_DESLIGADO: FilaFoco = { regraLigada: false, itens: [], aguardandoIA4: 0, aguardandoCheck: 0, semNota: 0 };
 const focoItem = (colaboradorId: string, competencia = 'Simplicidade'): FocoItem => ({
   colaboradorId, nome: `Pessoa ${colaboradorId}`, cargo: 'CAIXA', competencia, media: 1.8, criterio: 'menor_media', empatadas: [], meta: { regra: 'menor_nota' },
@@ -24,6 +24,9 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
   const kitsEnfileirados: KitItem[] = [];
   const conteudosGerados: ConteudoItem[] = [];
   const focosGravados: FocoItem[] = [];
+  const corrigidas: string[] = [];
+  const refeitos: string[] = [];
+  const alvos: { ia4?: string[]; pdi?: string[] } = {};
   const deps: DepsFluxo = {
     ler: {
       ia4: async () => { chamadas.push('ler.ia4'); return { itens: filas.ia4?.itens ?? [], checkOnly: filas.ia4?.checkOnly ?? [] }; },
@@ -34,7 +37,9 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
       },
       blueprint: async () => { chamadas.push('ler.blueprint'); return filas.blueprint ?? []; },
       auditoria: async (alvo) => { chamadas.push('ler.auditoria'); return (filas.auditoria ?? alvo).filter((x) => !auditados.includes(x)); },
+      ia4Correcao: async (alvo) => { chamadas.push('ler.ia4Correcao'); alvos.ia4 = alvo; return (filas.ia4Correcao ?? []).filter((x) => !corrigidas.includes(x)); },
       pdi: async () => { chamadas.push('ler.pdi'); return filas.pdi ?? []; },
+      pdiCorrecao: async (alvo) => { chamadas.push('ler.pdiCorrecao'); alvos.pdi = alvo; return (filas.pdiCorrecao ?? []).filter((x) => !refeitos.includes(x)); },
       trilha: async () => { chamadas.push('ler.trilha'); return (filas.trilha ?? []).filter((x) => !trilhas.includes(x)); },
       conteudo: async () => { chamadas.push('ler.conteudo'); return (filas.conteudo ?? []).filter((x) => !conteudosGerados.includes(x)); },
       kit: async () => { chamadas.push('ler.kit'); return filas.kit ?? []; },
@@ -47,6 +52,8 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
     aguardarKits: async (ids) => { chamadas.push('kit.aguardar'); return ids.map((jobId) => ({ jobId, status: 'done' as const, kits: kitsEnfileirados.find((k) => `kit-${k.competencia}` === jobId)?.faltantes.length ?? 0 })); },
     definirFoco: async (item) => { chamadas.push(`foco.${item.colaboradorId}`); focosGravados.push(item); return { ok: true }; },
     auditar: async (id) => { chamadas.push(`auditar.${id}`); auditados.push(id); relogio += 10; return { ok: true }; },
+    corrigirIA4: async (id) => { chamadas.push(`corrigirIA4.${id}`); corrigidas.push(id); relogio += 10; return { ok: true }; },
+    refazerPdi: async (id) => { chamadas.push(`refazerPdi.${id}`); refeitos.push(id); relogio += 10; return { ok: true }; },
     gerarTrilha: async (id) => { chamadas.push(`trilha.${id}`); trilhas.push(id); relogio += 10; return { ok: true }; },
     relatorioGestor: async () => { chamadas.push('gestor'); return { ok: true, gerados: 2 }; },
     relatorioRh: async () => { chamadas.push('rh'); return { ok: true }; },
@@ -55,7 +62,7 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
     agora: () => relogio,
     ...extra,
   };
-  return { deps, chamadas, lotes, auditados, trilhas, gravados, kitsEnfileirados, conteudosGerados, focosGravados, cancelar: () => { cancelar = true; } };
+  return { deps, chamadas, lotes, auditados, trilhas, gravados, kitsEnfileirados, conteudosGerados, focosGravados, corrigidas, refeitos, alvos, cancelar: () => { cancelar = true; } };
 }
 const params = (p: Partial<ParamsFluxo> = {}): ParamsFluxo => ({ empresaId: 'e1', escopo: {}, permitidos: null, ...p });
 const pecaItem = (descritor: string, formato: ConteudoItem['formato'] = 'texto'): ConteudoItem => ({ competencia: 'C', descritor, cargo: 'CAIXA', formato });
@@ -63,11 +70,11 @@ const kitItem = (competencia: string, faltantes = ['D', 'I']): KitItem => ({ com
 const etapa = (r: any, id: EtapaId) => r.progresso.etapas.find((e: any) => e.id === id);
 
 describe('ordem e execução completa', () => {
-  it('roda as 10 etapas NA ORDEM, cada uma recalculando a própria fila', async () => {
-    const m = montar({ ia4: { itens: ['r1', 'r2'] }, foco: filaFoco([focoItem('a')]), blueprint: ['a'], pdi: ['a'], trilha: ['a'], kit: [kitItem('c1')], conteudo: [pecaItem('d1', 'audio')] });
+  it('roda as 12 etapas NA ORDEM, cada uma recalculando a própria fila (as correções logo depois do que corrigem)', async () => {
+    const m = montar({ ia4: { itens: ['r1', 'r2'] }, ia4Correcao: ['r2'], foco: filaFoco([focoItem('a')]), blueprint: ['a'], pdi: ['a'], pdiCorrecao: ['a'], trilha: ['a'], kit: [kitItem('c1')], conteudo: [pecaItem('d1', 'audio')] });
     const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
     expect(r.resultado).toBe('terminou');
-    const marcas = ['ler.ia4', 'lote.ia4', 'aguardar.job-ia4', 'ler.foco', 'foco.a', 'ler.blueprint', 'lote.blueprint', 'ler.auditoria', 'auditar.a', 'ler.pdi', 'lote.relatorios', 'ler.conteudo', 'conteudo.d1.audio', 'ler.trilha', 'trilha.a', 'ler.kit', 'kit.enfileirar.c1', 'kit.aguardar', 'gestor', 'rh'];
+    const marcas = ['ler.ia4', 'lote.ia4', 'aguardar.job-ia4', 'ler.ia4Correcao', 'corrigirIA4.r2', 'ler.foco', 'foco.a', 'ler.blueprint', 'lote.blueprint', 'ler.auditoria', 'auditar.a', 'ler.pdi', 'lote.relatorios', 'ler.pdiCorrecao', 'refazerPdi.a', 'ler.conteudo', 'conteudo.d1.audio', 'ler.trilha', 'trilha.a', 'ler.kit', 'kit.enfileirar.c1', 'kit.aguardar', 'gestor', 'rh'];
     const posicoes = marcas.map((c) => m.chamadas.indexOf(c));
     expect(posicoes.every((p) => p >= 0)).toBe(true);
     expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b)); // estritamente na ordem
@@ -581,5 +588,53 @@ describe('x de Y pessoas com o fluxo inteiro (lido no fim da execução)', () =>
     expect(r.resultado).toBe('terminou');
     expect(r.progresso.pessoas).toBeUndefined();
     expect(r.progresso.pessoasErro).toMatch(/timeout/);
+  });
+});
+
+describe('correções automáticas (17/10/2026)', () => {
+  it('a correção da IA4 recebe as respostas que o lote DESTA rodada tratou (itens e só-check), e a do PDI as pessoas do lote do PDI', async () => {
+    const m = montar({ ia4: { itens: ['r1'], checkOnly: ['r9'] }, blueprint: ['a'], pdi: ['a', 'b'] });
+    await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(m.alvos.ia4).toEqual(['r1', 'r9']);
+    expect(m.alvos.pdi).toEqual(['a', 'b']);
+  });
+
+  it('sem nada a corrigir, as duas etapas ficam puladas com o motivo (não "ok")', async () => {
+    const m = montar({ ia4: { itens: ['r1'] } });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'ia4_correcao')).toMatchObject({ estado: 'pulado', detalhe: 'nenhuma avaliação em "revisar" a corrigir' });
+    expect(etapa(r, 'pdi_correcao')).toMatchObject({ estado: 'pulado', detalhe: 'nenhum PDI reprovado ou com alerta a refazer' });
+  });
+
+  it('o que não fecha conta como falha, com o motivo, e a cadeia segue', async () => {
+    const m = montar({ pdiCorrecao: ['a', 'b'], trilha: ['a'] }, {
+      refazerPdi: async (id) => (id === 'b' ? { ok: false, erro: 'PDI segue com alerta depois de 2 tentativa(s)' } : { ok: true }),
+    });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'pdi_correcao')).toMatchObject({ estado: 'parcial', feitos: 1, falhas: 1, detalhe: 'PDI segue com alerta depois de 2 tentativa(s)' });
+    expect(etapa(r, 'trilha').estado).toBe('ok');
+  });
+
+  it('o refazer do PDI usa o modelo do PDI (config aplicada)', async () => {
+    let cfg: any = null;
+    const m = montar({ pdiCorrecao: ['a'] }, { refazerPdi: async (_id, aiConfig) => { cfg = aiConfig; return { ok: true }; } });
+    await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(cfg).toEqual({ model: 'claude-sonnet-5' });
+  });
+
+  it('PDI refeito pela correção conta como PDI novo para o Gestor e o RH', async () => {
+    const m = montar({ pdiCorrecao: ['a'] });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(m.chamadas).toContain('gestor');
+    expect(etapa(r, 'rh').estado).toBe('ok');
+  });
+
+  it('simulação: as correções contam a fila e não corrigem nada', async () => {
+    const m = montar({ ia4Correcao: ['r1'], pdiCorrecao: ['a'] });
+    const r = await executarFluxo(params({ dryRun: true }), null, m.deps, { orcamentoMs: 10_000 });
+    expect(m.corrigidas).toEqual([]);
+    expect(m.refeitos).toEqual([]);
+    expect(etapa(r, 'ia4_correcao').detalhe).toBe('simulação: 1 avaliação(ões) na fila');
+    expect(etapa(r, 'pdi_correcao').detalhe).toBe('simulação: 1 pessoa(s) na fila');
   });
 });

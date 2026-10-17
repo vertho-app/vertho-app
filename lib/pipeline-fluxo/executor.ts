@@ -8,7 +8,10 @@
  *    é a verdade. Isso também torna a execução IDEMPOTENTE: rodar de novo (ou continuar depois do orçamento de tempo)
  *    só encontra o que ainda falta.
  *  · NÃO REAVALIA O PASSADO: a auditoria cobre só o blueprint gerado nesta rodada; Gestor e RH só entram se a rodada
- *    gerou PDI novo e o escopo é a empresa inteira (nenhum dos dois filtra por turma).
+ *    gerou PDI novo e o escopo é a empresa inteira (nenhum dos dois filtra por turma). EXCEÇÃO (decisão do dono,
+ *    17/10/2026): com a empresa PAUSADA nada foi entregue, e as filas de correção (fiação) também pegam o reprovado
+ *    de rodadas anteriores. O executor não sabe da pausa: só passa o que a rodada tratou (`*Alvo`).
+ *  · CORRIGE O QUE REPROVA antes de quem lê (`correcoes.ts`): o texto da IA4, o blueprint (dentro da auditoria) e o PDI.
  *  · UMA ETAPA QUE FALHA NÃO DERRUBA A CADEIA: as seguintes recalculam a própria fila e seguem; o resumo diz onde parou.
  *  · O ORÇAMENTO DE TEMPO conta só COMPUTE (auditoria, trilha, Gestor/RH). A espera por lote da Batch API é
  *    checkpointada pelo Trigger e não conta: um lote de horas não estoura a run.
@@ -46,9 +49,13 @@ export interface DepsFluxo {
     ia4(): Promise<{ itens: string[]; checkOnly: string[] }>;
     foco(): Promise<FilaFoco>;
     blueprint(): Promise<string[]>;
-    /** Entre `alvo`, quem JÁ TEM blueprint e ainda não foi auditado. */
+    /** Entre `alvo`, quem JÁ TEM blueprint e ainda não foi auditado, e o reprovado a corrigir. */
     auditoria(alvo: string[]): Promise<string[]>;
+    /** Respostas em "revisar" a corrigir (entre `alvo`, as que o lote desta rodada tratou). */
+    ia4Correcao(alvo: string[]): Promise<string[]>;
     pdi(): Promise<string[]>;
+    /** PDIs reprovados ou com alerta a refazer (entre `alvo`, as pessoas do lote desta rodada). */
+    pdiCorrecao(alvo: string[]): Promise<string[]>;
     trilha(): Promise<string[]>;
     /** Peças de biblioteca que a trilha vai precisar e ainda não existem. */
     conteudo(): Promise<ConteudoItem[]>;
@@ -65,7 +72,12 @@ export interface DepsFluxo {
   aguardarKits(jobIds: string[]): Promise<EsperaKit[]>;
   /** Grava a competência NA PESSOA, só onde ainda está vazia (nunca sobrescreve uma escolha anterior). */
   definirFoco(item: FocoItem): Promise<{ ok: boolean; erro?: string }>;
+  /** Audita e, reprovado, corrige o blueprint (correção guiada). `ok` = aprovado no fim. */
   auditar(colaboradorId: string): Promise<{ ok: boolean; erro?: string }>;
+  /** Corrige o texto de UMA avaliação em "revisar". `ok` = saiu de "revisar". */
+  corrigirIA4(respostaId: string): Promise<{ ok: boolean; erro?: string }>;
+  /** Refaz o PDI de UMA pessoa guardando a melhor versão. `ok` = aprovado no fim. */
+  refazerPdi(colaboradorId: string, aiConfig: Record<string, unknown>): Promise<{ ok: boolean; erro?: string }>;
   /** Gera UMA peça de biblioteca (áudio já com MP3). */
   gerarConteudo(item: ConteudoItem): Promise<{ ok: boolean; erro?: string }>;
   gerarTrilha(colaboradorId: string, aiConfig: Record<string, unknown>): Promise<{ ok: boolean; erro?: string }>;
@@ -157,6 +169,8 @@ export async function executarFluxo(
       if ('erro' in enf) { e.estado = 'erro'; e.falhas += total; e.detalhe = enf.erro; await salvar(); continue; }
       if (!e.jobIds.includes(enf.jobId)) e.jobIds.push(enf.jobId);
       if (id === 'blueprint') prog.blueprintAlvo = [...new Set([...(prog.blueprintAlvo || []), ...colabIds])];
+      if (id === 'ia4') prog.ia4Alvo = [...new Set([...(prog.ia4Alvo || []), ...fila!.itens, ...fila!.checkOnly])];
+      if (id === 'pdi') prog.pdiAlvo = [...new Set([...(prog.pdiAlvo || []), ...colabIds])];
       await salvar(`${e.titulo}: ${enf.adotado ? 'aguardando o lote que já estava rodando' : 'lote enviado'}, aguardando`);
 
       const fim = await deps.aguardarJob(enf.jobId);
@@ -205,21 +219,32 @@ export async function executarFluxo(
       continue;
     }
 
-    // ─── auditoria, conteúdos e trilha: COMPUTE por item, em pool, com orçamento de tempo ──────────────
-    if (id === 'auditoria' || id === 'trilha' || id === 'conteudo') {
-      const fila: any[] = id === 'auditoria' ? await deps.ler.auditoria(prog.blueprintAlvo || []) : id === 'trilha' ? await deps.ler.trilha() : await deps.ler.conteudo();
-      if (fila.length === 0) { e.estado = e.total > 0 ? 'ok' : 'pulado'; if (e.estado === 'pulado') e.detalhe = id === 'auditoria' ? 'nenhum blueprint novo para auditar' : id === 'conteudo' ? 'biblioteca já completa' : 'nada pendente'; await salvar(); continue; }
-      if (dryRun) { e.total += fila.length; e.estado = 'pulado'; e.detalhe = `simulação: ${fila.length} ${id === 'conteudo' ? 'peça(s) de biblioteca' : 'pessoa(s)'} na fila`; await salvar(); continue; }
+    // ─── auditoria (+ correção guiada), correções, conteúdos e trilha: COMPUTE por item, em pool, com orçamento ─────
+    if (id === 'auditoria' || id === 'trilha' || id === 'conteudo' || id === 'ia4_correcao' || id === 'pdi_correcao') {
+      const fila: any[] = id === 'auditoria' ? await deps.ler.auditoria(prog.blueprintAlvo || [])
+        : id === 'ia4_correcao' ? await deps.ler.ia4Correcao(prog.ia4Alvo || [])
+          : id === 'pdi_correcao' ? await deps.ler.pdiCorrecao(prog.pdiAlvo || [])
+            : id === 'trilha' ? await deps.ler.trilha() : await deps.ler.conteudo();
+      const vazio: Record<string, string> = {
+        auditoria: 'nenhum blueprint a auditar ou corrigir', conteudo: 'biblioteca já completa',
+        ia4_correcao: 'nenhuma avaliação em "revisar" a corrigir', pdi_correcao: 'nenhum PDI reprovado ou com alerta a refazer',
+      };
+      if (fila.length === 0) { e.estado = e.total > 0 ? 'ok' : 'pulado'; if (e.estado === 'pulado') e.detalhe = vazio[id] || 'nada pendente'; await salvar(); continue; }
+      if (dryRun) { e.total += fila.length; e.estado = 'pulado'; e.detalhe = `simulação: ${fila.length} ${id === 'conteudo' ? 'peça(s) de biblioteca' : id === 'ia4_correcao' ? 'avaliação(ões)' : 'pessoa(s)'} na fila`; await salvar(); continue; }
       // Total = o que já foi tratado nas execuções anteriores + o que ainda está na fila agora.
       e.total = e.feitos + e.falhas + fila.length;
 
       const t0 = deps.agora();
-      const aiConfig = id === 'trilha' ? aiConfigDe(prog.modelos!, 'temporada_desafio') : {};
+      const aiConfig = id === 'trilha' ? aiConfigDe(prog.modelos!, 'temporada_desafio') : id === 'pdi_correcao' ? aiConfigDe(prog.modelos!, 'pdi_individual') : {};
       let cancelou = false;
       // Conteúdos em concorrência BAIXA: o áudio leva TTS e o TTS do Vertex é compartilhado com o vídeo (F-V4).
       const { restantes } = await pool(fila, id === 'conteudo' ? Math.min(concorrencia, 2) : concorrencia, async (colab) => {
         let r: { ok: boolean; erro?: string };
-        try { r = id === 'auditoria' ? await deps.auditar(colab) : id === 'conteudo' ? await deps.gerarConteudo(colab) : await deps.gerarTrilha(colab, aiConfig); }
+        try {
+          r = id === 'auditoria' ? await deps.auditar(colab) : id === 'conteudo' ? await deps.gerarConteudo(colab)
+            : id === 'ia4_correcao' ? await deps.corrigirIA4(colab) : id === 'pdi_correcao' ? await deps.refazerPdi(colab, aiConfig)
+              : await deps.gerarTrilha(colab, aiConfig);
+        }
         catch (err: any) { r = { ok: false, erro: String(err?.message || err).slice(0, 160) }; }
         if (r.ok) e.feitos++; else { e.falhas++; e.detalhe = r.erro || e.detalhe; }
         await salvar(`${e.titulo}: ${e.feitos + e.falhas}/${e.total}`);
@@ -282,7 +307,8 @@ export async function executarFluxo(
     // ─── Gestor e RH: ao FINAL, só com escopo = empresa inteira e PDI novo nesta rodada ─────────────────
     if (id === 'gestor' || id === 'rh') {
       // Em simulação nada foi gerado, então "PDI novo" é o que a etapa do PDI TERIA gerado (total na fila).
-      const pdiNovo = etapaDe('pdi').feitos > 0 || (dryRun && etapaDe('pdi').total > 0);
+      // O PDI refeito pela correção também é PDI novo: o relatório do Gestor e o do RH leem o texto dele.
+      const pdiNovo = etapaDe('pdi').feitos > 0 || etapaDe('pdi_correcao').feitos > 0 || (dryRun && etapaDe('pdi').total > 0);
       if (!empresaInteira) { e.estado = 'pulado'; e.detalhe = 'não filtra por turma: gere manualmente se quiser'; await salvar(); continue; }
       if (!pdiNovo) { e.estado = 'pulado'; e.detalhe = 'nenhum PDI novo nesta rodada'; await salvar(); continue; }
       if (dryRun) { e.estado = 'pulado'; e.detalhe = 'simulação: seria gerado ao final'; await salvar(); continue; }

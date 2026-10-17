@@ -349,6 +349,55 @@ export const gerarModulosManuscritoTask = task({
         }
       }
 
+      // 5b) CORREÇÃO AUTOMÁTICA (decisão do dono, 17/10/2026): bloco vazio é regerado (a mesma transição, do manuscrito) e
+      // reprovado com conteúdo é refinado, até 2 tentativas por módulo (`lib/modulos-base/correcao-automatica.ts`). Na
+      // 4Life, 6 de 51 vieram vazios e 11 reprovaram por coerência, e tudo foi corrigido À MÃO depois do job.
+      let correcao: { regerados: number; refinados: number; seguem: string[] } = { regerados: 0, refinados: 0, seguem: [] };
+      if (idsCriados.length && pp.auditar !== false) {
+        try {
+          const { corrigirModulosGerados, blocoVazio } = await import('@/lib/modulos-base/correcao-automatica');
+          const { refinarModuloCore } = await import('@/lib/modulo-base-refino');
+          const r = await corrigirModulosGerados([...idsCriados], {
+            ler: async (id) => {
+              const { data, error } = await sb.from('modulos_base_conteudo')
+                .select('id, status, competencia_id, nivel_entrada, nivel_destino, conteudo_central, conteudo_aplicavel, auditoria_ia')
+                .eq('id', id).maybeSingle();
+              if (error) throw new Error(`módulo ${id}: ${error.message}`);
+              return data as any;
+            },
+            regerar: async (m: any) => {
+              const req = reqs.find((q) => (q.idsEquivalentes ?? [q.comp.id]).includes(m.competencia_id)
+                && q.nivel_entrada === m.nivel_entrada && q.nivel_destino === m.nivel_destino);
+              if (!req) return null;
+              const texto = await callAI(req.system, req.user, { model }, MAX_TOKENS, { taskKey: 'modulo_base_autor', source: 'correcao-vazio', empresaId });
+              const corpo = extractCorpo(texto);
+              if (!corpo || blocoVazio((corpo as any).conteudo_central) || blocoVazio((corpo as any).conteudo_aplicavel)) return null;
+              // Obsoleta o vazio ANTES de gravar o novo (a idempotência só conta os não obsoletos); volta se a gravação falhar.
+              const { error: eObs } = await sb.from('modulos_base_conteudo').update({ status: 'obsoleto' }).eq('id', m.id);
+              if (eObs) throw new Error(`obsoletar o vazio: ${eObs.message}`);
+              const ins = await persistirModuloDeManuscrito(sb, {
+                comp: req.comp, empresaId, nivel_entrada: req.nivel_entrada, nivel_destino: req.nivel_destino, locale,
+                descritor: req.descritor, corpo, codManuscrito: parse.cod_comp, microblocos: req.microblocos, createdBy, contextoCargo: req.contextoCargo,
+              });
+              if (ins.error || !ins.id) {
+                const { error: eVolta } = await sb.from('modulos_base_conteudo').update({ status: m.status }).eq('id', m.id);
+                if (eVolta) throw new Error(`o novo não gravou (${ins.error}) e o vazio ${m.id} ficou obsoleto: ${eVolta.message}`);
+                return null;
+              }
+              await auditarModulosCore(sb, [ins.id], { promoverParaRevisao: true });
+              return ins.id;
+            },
+            refinar: async (id) => { await refinarModuloCore(sb as any, id); },
+            aoAvancar: (texto) => pushProgress(texto),
+          });
+          idsCriados.splice(0, idsCriados.length, ...r.ids);
+          await salvarParams({ modulosCriados: [...idsCriados] });
+          correcao = r;
+        } catch (e: any) {
+          console.warn('[gerar-modulos-manuscrito] correção automática falhou inteira:', e?.message);
+        }
+      }
+
       // 6) Descarta o DOCX do job — 360KB de base64 não precisam viver pra sempre.
       // Sai do ACUMULADO, não de `pp`: senão o `modulosCriados`/`batchId` gravados
       // ao longo da run voltariam ao valor que tinham quando a run começou.
@@ -363,12 +412,14 @@ export const gerarModulosManuscritoTask = task({
         params: paramsSemDocx,
         result_ids: idsCriados,
         progress: {
-          done: total, total, pulados, resultados, auditados,
+          done: total, total, pulados, resultados, auditados, correcao,
           current: `concluído: ${okCount} ok, ${errCount} erro(s)${pulados ? `, ${pulados} pulado(s)` : ''}`
-            + (auditados ? ` · ${auditados}/${idsCriados.length} auditado(s)` : ''),
+            + (auditados ? ` · ${auditados}/${idsCriados.length} auditado(s)` : '')
+            + (correcao.regerados || correcao.refinados ? ` · corrigidos: ${correcao.regerados} regerado(s), ${correcao.refinados} refino(s)` : '')
+            + (correcao.seguem.length ? ` · ${correcao.seguem.length} seguem reprovados` : ''),
         },
       });
-      return { ok: true, jobId: payload.jobId, okCount, errCount, pulados, auditados };
+      return { ok: true, jobId: payload.jobId, okCount, errCount, pulados, auditados, correcao };
     } catch (e: any) {
       // `error` só na ÚLTIMA tentativa: antes disso o job segue `running`, senão
       // o guard anti-duplicata solta e a tela anuncia falha de um lote que ainda
