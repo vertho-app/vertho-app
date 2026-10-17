@@ -82,6 +82,9 @@ A comparação mostra: IA orçada × realizada, pior saldo de caixa previsto × 
 
 ## Fora do escopo desta fase
 
-- WhatsApp: gravar o `pricing` do webhook e uma tabela de tarifa (fase 2).
+- WhatsApp: gravar o `pricing` do webhook e uma tabela de tarifa (fase 2). `Medido: 16/10/2026`: a tarifa e o total
+  faturado já se leem na `pricing_analytics` da WABA, em **BRL**, por categoria e por dia (setembro R$ 69,76; utility a
+  R$ 0,035). É o total da conta: por cliente, conte `whatsapp_mensagens_enviadas` por `template_nome`, leia a categoria em
+  `message_templates` e multiplique pela tarifa. Detalhe: `docs/CUSTO-QUALIDADE.md` §16-17/10/2026.
 - Passar `empresaId` nos call-sites de entrega que não o passam, e ratear a infraestrutura (fase 3).
 - Fechar o custo manual por semana (hoje o lançamento é livre e auditado, não "fechado").

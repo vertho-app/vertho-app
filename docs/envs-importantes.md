@@ -16,7 +16,7 @@
 | `VOYAGE_API_KEY` | Segredo de embeddings Voyage (quando `EMBEDDING_PROVIDER=voyage`) | Não | Vercel/Trigger/Local |
 | `VOYAGE_EMBEDDING_MODEL` | Modelo Voyage: default `voyage-4-large`; `voyage-3-large` para rollback sobre vetores legados | Não | Vercel/Trigger/Local |
 | `TTS_BACKEND` | TTS do podcast: `aistudio` (GEMINI_API_KEY, teto 100/dia) ou `vertex` (cota alta) | Não | Produção |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | SA (base64) do Vertex — ⚠️ OBRIGATÓRIA no Vercel se `TTS_BACKEND=vertex` | Não | Produção/Trigger |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | SA (base64) do Vertex — ⚠️ OBRIGATÓRIA no Vercel se `TTS_BACKEND=vertex`. Sensitive na Vercel (Production); no Trigger, nos três ambientes. Chave trocada em 17/10/2026 | Não | Produção/Trigger |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error tracking (chave pública, inlined no build) | Não | Produção |
 | `NEXT_PUBLIC_APP_URL` | URL base da app | Sim | Produção |
 | `RESEND_API_KEY` | Emails (Fase 2) | Sim | Produção |

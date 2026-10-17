@@ -259,6 +259,12 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - `vercel env add` com **pipe injeta `\n`** → usar `printf '%s'`. Env da Vercel **vence o código**.
 - Não commitar secret; `.env.local` é a fonte local. Lista canônica: `docs/envs-importantes.md`.
 - `ADMIN_EMAILS` é **autorização**, não caderno de contatos — alerta vai em `HEALTH_ALERT_EMAILS`.
+- **Script que lê CREDENCIAL de env: nunca `JSON.parse` solto.** O `SyntaxError` do Node 24 repete a
+  ENTRADA, e a entrada é o segredo. `Medido: 16/10/2026`: `GOOGLE_SERVICE_ACCOUNT_JSON` é base64, o
+  parse direto falhou e a saída trouxe a conta de serviço inteira, com a chave privada; a chave teve
+  de ser trocada no Google, na Vercel e no Trigger. Faça `try/catch` imprimindo só `e.name`,
+  decodifique o base64 antes e imprima só campo não secreto (`client_email`, prefixo do
+  `private_key_id`). Filtrar a saída depois (`grep -v private`) não salva: a linha já saiu em base64.
 
 ## 15. Cron / jornada / semana
 

@@ -2949,3 +2949,45 @@ ilegível) também passa por `gptAtual`.
 
 **Não medido:** o primeiro check GPT em lote das tasks do Trigger.dev depois do deploy `20261015.2` (prova da chave da
 AWS lá: ledger `provider = bedrock` sem `gpt-bedrock-para-openai`).
+
+## 16-17/10/2026: o custo dos fornecedores, lido no fornecedor
+
+Pedido do dono: listar todos os fornecedores do app e o custo mensal. O `INFRA_FIXA` (`lib/ia-cost-catalog.ts`) é uma faixa
+declarada em 10/09 que "não sai de fatura"; aqui o valor foi lido no próprio fornecedor sempre que havia API. Câmbio: PTAX
+de 16/10, R$ 5,0826.
+
+**Resultado:** saem do caixa **US$ 105 a 180 por mês** (R$ 530 a 925). O crédito paga outros **US$ 210 a 285**: Anthropic
+US$ 170 a 220 (crédito de US$ 1.000) e Bedrock mais SES US$ 40 a 65 (crédito AWS até 09/2028). Os maiores desembolsos são
+Supabase (US$ 26), Google TTS (fatura de setembro R$ 234,57), Vercel (US$ 20), WhatsApp, HeyGen e OpenAI direta.
+
+**Onde o número é real (reusar no próximo levantamento):**
+
+| Fornecedor | Leitura | `Medido` |
+|---|---|---|
+| Meta (WhatsApp) | `pricing_analytics` da WABA, granularidade diária, dimensões `PRICING_CATEGORY` e `PRICING_TYPE` | Valor FATURADO e em **BRL** (a conta fatura em reais; `fields=currency`). Ago R$ 31,68, set R$ 69,76, 01 a 16/10 R$ 22,68. Utility a R$ 0,035 (cerca de US$ 0,0069). Em outubro o SERVICE ainda veio como `FREE_CUSTOMER_SERVICE` |
+| Vercel | Export FOCUS `/v1/billing/charges` (estoura o MCP e a CLI não lê JSONL: `curl` com o token da CLI) | Só traz Usage: US$ 26 a 28 por mês de uso dentro do plano e excedente de US$ 0,10 a 0,41. O assento Pro (1 membro) não aparece no export |
+| Supabase | Management API (`/billing/addons`, `/config/disk`, organização) | Plano `pro`, 1 projeto, compute Micro (coberto pelo crédito de compute), disco provisionado de 18 GB |
+| Trigger.dev | `GET /api/v1/runs` com a chave de produção, campo `costInCents` | 123 runs em 30 dias, US$ 3,94 (US$ 3,49 do `gerar-video-modulo`) |
+| Bunny Stream | Soma de `storageSize` em `/library/{id}/videos` | 385 GB em 2.467 vídeos, quase todos nominais |
+| Twilio | `Usage/Records` com `totalprice` | US$ 0, nenhum número |
+
+O WhatsApp da analytics é o total da conta, sem tenant. Para a DRE (`docs/DRE.md`, fase 2), ele dá a tarifa de cada
+categoria; o valor por cliente sai da contagem de `whatsapp_mensagens_enviadas` por `template_nome`, com a categoria lida em
+`message_templates`.
+
+**No Google, o ledger conta menos que a fatura.** Em setembro, `ia_usage_log` somou US$ 33,65 de Gemini contra R$ 234,57 na
+fatura, dos quais R$ 232,89 de Cloud TTS. O crédito "GenAI App Builder" (R$ 5.677) não abate TTS. Custo do Google se lê na
+fatura. É a mesma família da seção de 29/08: o ledger mede o que passa pelo instrumento, não o que o fornecedor cobra.
+
+**O `INFRA_FIXA` diverge do medido** (não alterado nesta rodada). Ele alimenta o rateio de infra do orçamento pelo ponto
+médio, US$ 194,50 por mês; os mesmos itens, medidos, ficam entre US$ 69 e 114.
+- Z-API (US$ 20 a 30): a assinatura venceu e o último envio foi em 13/08. A cadência sai pela Cloud API.
+- HeyGen como assinatura (US$ 29 a 89): é crédito de API v3, US$ 13,17 em 30 dias.
+- Sentry (US$ 0 a 26): plano free.
+- WhatsApp em USD (US$ 0 a 30): a conta fatura em BRL, R$ 69,76 em setembro.
+- Trigger.dev (US$ 0 a 20): uso de US$ 3,94.
+- O Google TTS, maior desembolso, fica fora do `INFRA_FIXA` porque é IA por chamada: entra no orçamento pela estimativa
+  por token do catálogo, que é a mesma régua do ledger, e por isso também fica abaixo da fatura.
+
+**Não medido:** os planos do Trigger.dev, do Upstash e do Resend; a Hetzner (o token só está na Vercel); 101domain e
+Gamma; o Google de outubro.
