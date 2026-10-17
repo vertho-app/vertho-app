@@ -770,8 +770,9 @@ iniciar a cadência seguem sendo decisão de quem opera.
   fim. O que não fecha vira falha da etapa, com o motivo, e aparece no painel. Limite conhecido: apontamento sobre a
   NOTA de um descritor (ex.: "D6 em N2 sem evidência") não se corrige pelo texto; fica em "revisar" para decisão humana.
 - **Empresa pausada** (`sys_config.envios_pausados`, lida a cada fila): as correções também pegam o que ficou reprovado
-  de **rodadas anteriores**, mas NUNCA de quem já teve o PDI anunciado (`notification_deliveries` kind `plano`): pausa não
-  prova que nada saiu (a Ibipeba estava pausada com a 1ª temporada entregue). A **cascata** (o PDI mais velho que a
+  de **rodadas anteriores**, mas só o que nasceu DEPOIS do `desde` da pausa (a pausa esconde o PDI e segura o aviso, então
+  ninguém viu; o anterior pode ter sido visto no app) e NUNCA de quem já teve o PDI anunciado (`notification_deliveries`
+  kind `plano`). Pausa sem `desde` não revisita nada. A Ibipeba estava pausada com a 1ª temporada entregue: ficou fora. A **cascata** (o PDI mais velho que a
   correção vai ao lote do PDI; a trilha que ainda não começou é refeita) só vale para o blueprint que a correção
   AUTOMÁTICA corrigiu (`auditoria.correcao_guiada.cascata_automatica`): a correção à mão da Amazon já fez a dela por
   script, e sem a marca 14 trilhas e 4 PDIs de lá seriam refeitos à toa. A trilha regravada preserva `criado_em` e

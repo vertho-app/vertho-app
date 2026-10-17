@@ -80,11 +80,12 @@ export const fluxoCompletoTask = task({
         const dentro = dentroDoEscopo(permitidos, internos);
         // Quem já teve o PDI anunciado: o passado dessas pessoas não se revisita, nem com a empresa pausada.
         const entregues = await idsComPdiEntregue(tdb);
-        // A pausa é lida A CADA fila: tirar a pausa no meio do fluxo vale para a próxima etapa.
-        const pausada = async () => {
+        // A pausa é lida A CADA fila: tirar a pausa no meio do fluxo vale para a próxima etapa. Devolve o `desde` da pausa
+        // (só o que nasceu depois dele se revisita); sem pausa, ou pausa sem data, `null` (nada do passado).
+        const pausadaDesde = async (): Promise<string | null> => {
           const { data: emp, error } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
           if (error) throw new Error(`sys_config da empresa (pausa): ${error.message}`);
-          return !!pausaDeEnvios(emp?.sys_config);
+          return pausaDeEnvios(emp?.sys_config)?.desde ?? null;
         };
         const unir = (...listas: string[][]) => [...new Set(listas.flat())];
 
@@ -97,7 +98,7 @@ export const fluxoCompletoTask = task({
         const deps: DepsFluxo = {
           ler: {
             ia4: () => filaIA4Escopo(tdb, permitidos, internos),
-            ia4Correcao: async (alvo) => filaCorrecaoIA4(tdb, { dentro, alvo, revisitar: await pausada(), entregues }),
+            ia4Correcao: async (alvo) => filaCorrecaoIA4(tdb, { dentro, alvo, revisitarDesde: await pausadaDesde(), entregues }),
             // A regra é lida NA HORA (não no início da run): ligar ou desligar entre execuções vale para a próxima etapa.
             foco: async () => {
               const { data: emp, error } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
@@ -105,12 +106,12 @@ export const fluxoCompletoTask = task({
               return filaFocoEscopo(tdb, emp?.sys_config, { permitidos, cargos: params.escopo?.cargos || undefined, incluirInternos: params.excecaoInternos });
             },
             blueprint: () => filaBlueprintEscopo(tdb, permitidos, internos),
-            auditoria: async (alvo) => filaAuditoriaComCorrecao(tdb, { dentro, alvo, revisitar: await pausada(), entregues }),
+            auditoria: async (alvo) => filaAuditoriaComCorrecao(tdb, { dentro, alvo, revisitarDesde: await pausadaDesde(), entregues }),
             // Pausada: + o PDI mais velho que o blueprint (a cascata de quem teve o blueprint corrigido).
-            pdi: async () => unir(await filaPdiEscopo(tdb, permitidos, internos), (await pausada()) ? await filaPdiDesatualizado(tdb, dentro, entregues) : []),
-            pdiCorrecao: async (alvo) => filaCorrecaoPdi(tdb, { dentro, alvo, revisitar: await pausada(), entregues }),
+            pdi: async () => unir(await filaPdiEscopo(tdb, permitidos, internos), await filaPdiDesatualizado(tdb, dentro, { revisitarDesde: await pausadaDesde(), entregues })),
+            pdiCorrecao: async (alvo) => filaCorrecaoPdi(tdb, { dentro, alvo, revisitarDesde: await pausadaDesde(), entregues }),
             // Pausada: + a trilha de quem teve o blueprint corrigido depois de ela nascer.
-            trilha: async () => unir(await filaTrilhaEscopo(tdb, permitidos, params.excecaoInternos), (await pausada()) ? await filaTrilhaDesatualizada(tdb, dentro, entregues) : []),
+            trilha: async () => unir(await filaTrilhaEscopo(tdb, permitidos, params.excecaoInternos), await filaTrilhaDesatualizada(tdb, dentro, { revisitarDesde: await pausadaDesde(), entregues })),
             conteudo: () => filaConteudoEscopo(tdb, { permitidos, cargos: params.escopo?.cargos || undefined, incluirInternos: params.excecaoInternos, empresaId }),
             // RAW de propósito: a varredura do plano precisa enxergar também os kits GLOBAIS (empresa_id nulo).
             kit: () => filaKitEscopo(sb, empresaId, { turmaId: params.escopo?.turmaId, cargos: params.escopo?.cargos, semanaMax: params.kitSemanaMax }),

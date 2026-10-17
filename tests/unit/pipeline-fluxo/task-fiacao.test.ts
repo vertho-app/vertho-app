@@ -30,11 +30,11 @@ describe('trigger/fluxo-completo.ts liga as correções (17/10/2026)', () => {
     expect(fonte).toContain('filaBlueprintEscopo(tdb, permitidos, internos)');
     expect(fonte).toContain('filaPdiEscopo(tdb, permitidos, internos)');
   });
-  it('o passado e a cascata só com a empresa pausada (lida a cada fila) e nunca para quem já recebeu o PDI', () => {
-    expect(fonte).toMatch(/revisitar: await pausada\(\), entregues/);
-    expect(fonte).toContain('(await pausada()) ? await filaPdiDesatualizado(tdb, dentro, entregues)');
-    expect(fonte).toContain('(await pausada()) ? await filaTrilhaDesatualizada(tdb, dentro, entregues)');
-    expect(fonte).toContain('pausaDeEnvios(emp?.sys_config)');
+  it('o passado e a cascata só com a empresa pausada (o desde da pausa, lido a cada fila) e nunca para quem já recebeu o PDI', () => {
+    expect(fonte).toMatch(/revisitarDesde: await pausadaDesde\(\), entregues/);
+    expect(fonte).toContain('filaPdiDesatualizado(tdb, dentro, { revisitarDesde: await pausadaDesde(), entregues })');
+    expect(fonte).toContain('filaTrilhaDesatualizada(tdb, dentro, { revisitarDesde: await pausadaDesde(), entregues })');
+    expect(fonte).toContain('pausaDeEnvios(emp?.sys_config)?.desde ?? null');
     expect(fonte).toContain('const entregues = await idsComPdiEntregue(tdb)');
   });
 });

@@ -17,9 +17,10 @@
  * continuação automática, nem o botão de novo) pagar a mesma correção sem fim. O que sobra fica no painel, com nome
  * e motivo (o auditor tem ruído: não há promessa de zero).
  *
- * O PASSADO só com a empresa PAUSADA (`revisitar`, decisão do dono), e NUNCA de quem já teve o PDI anunciado
- * (`entregues`, `notification_deliveries` kind `plano`): pausa não prova que nada saiu (Ibipeba estava pausada com a
- * 1ª temporada entregue, medido 17/10/2026). A CASCATA (PDI e trilha de quem teve o blueprint corrigido) só vale para o
+ * O PASSADO só com a empresa PAUSADA (`revisitarDesde` = o `desde` da pausa, decisão do dono), e só o que nasceu
+ * DEPOIS do início da pausa: a pausa esconde o PDI e segura o aviso, então o que nasceu sob ela ninguém viu; o anterior
+ * pode ter sido visto no app ou anunciado (Ibipeba estava pausada com a 1ª temporada entregue, medido 17/10/2026). Por
+ * cima, nunca de quem já teve o PDI anunciado (`entregues`, `notification_deliveries` kind `plano`). A CASCATA (PDI e trilha de quem teve o blueprint corrigido) só vale para o
  * blueprint que ESTA automação corrigiu (`correcao_guiada.cascata_automatica`): a correção à mão da Amazon (16-17/10)
  * já fez a dela por script e não deixou a marca, e sem esta trava 14 trilhas e 4 PDIs de lá seriam refeitos à toa.
  * Trilha só é refeita se ainda não começou. Sem pausa, o fluxo continua sem revisitar o passado.
@@ -40,10 +41,16 @@ const parse = (v: any) => (typeof v === 'string' ? JSON.parse(v) : v);
 
 /** Quem pode entrar numa fila de correção: dentro do escopo e fora das contas internas (salvo a exceção explícita). */
 export type Dentro = (colaboradorId: string | null | undefined) => boolean;
-/** O que uma fila de correção sabe: escopo, o que esta rodada tratou, se pode revisitar o passado e quem já recebeu o PDI. */
-export interface OpcoesFila { dentro: Dentro; alvo: string[]; revisitar: boolean; entregues?: Set<string> }
-/** Item do PASSADO pode entrar: empresa pausada e a pessoa ainda sem PDI anunciado. */
-const passadoPode = (o: OpcoesFila, colaboradorId: string | null | undefined) => o.revisitar && !!colaboradorId && !o.entregues?.has(colaboradorId);
+/**
+ * O que uma fila de correção sabe: escopo, o que esta rodada tratou, desde quando a empresa está pausada (`null` = não
+ * está, ou a pausa não diz desde quando: não revisita) e quem já recebeu o PDI.
+ */
+export interface OpcoesFila { dentro: Dentro; alvo: string[]; revisitarDesde: string | null; entregues?: Set<string> }
+/** Item do PASSADO pode entrar: nasceu sob a pausa (depois do `desde`) e a pessoa ainda não teve o PDI anunciado. */
+export function passadoPode(o: Pick<OpcoesFila, 'revisitarDesde' | 'entregues'>, colaboradorId: string | null | undefined, nasceuEm: string | null | undefined): boolean {
+  if (!o.revisitarDesde || !colaboradorId || !nasceuEm || o.entregues?.has(colaboradorId)) return false;
+  return new Date(nasceuEm).getTime() > new Date(o.revisitarDesde).getTime();
+}
 export function dentroDoEscopo(permitidos: Set<string> | null, internos: Set<string>): Dentro {
   return (id) => !!id && !internos.has(id) && (!permitidos || permitidos.has(id));
 }
@@ -72,12 +79,12 @@ export async function idsInternos(tdb: any, incluirInternos?: string[] | null): 
 
 /** IA4: o "revisar" desta rodada (ou de qualquer rodada, com a empresa pausada), abaixo do teto de correções. */
 export function selecionarCorrecaoIA4(
-  linhas: Array<{ id: string; colaborador_id: string | null; status_ia4: string | null; tentativas?: unknown }>,
+  linhas: Array<{ id: string; colaborador_id: string | null; status_ia4: string | null; avaliado_em?: string | null; tentativas?: unknown }>,
   o: OpcoesFila,
 ): string[] {
   const alvo = new Set(o.alvo);
   return linhas
-    .filter((r) => r.status_ia4 === 'revisar' && o.dentro(r.colaborador_id) && (alvo.has(r.id) || passadoPode(o, r.colaborador_id)) && num(r.tentativas) < MAX_CORRECOES)
+    .filter((r) => r.status_ia4 === 'revisar' && o.dentro(r.colaborador_id) && (alvo.has(r.id) || passadoPode(o, r.colaborador_id, r.avaliado_em)) && num(r.tentativas) < MAX_CORRECOES)
     .map((r) => r.id);
 }
 
@@ -86,13 +93,13 @@ export function selecionarCorrecaoIA4(
  * correções (desta rodada ou, com a empresa pausada, de qualquer uma). Pausada, o blueprint antigo sem auditoria também.
  */
 export function selecionarAuditoria(
-  linhas: Array<{ colaborador_id: string; auditado_em: string | null; ok: unknown; tentativas?: unknown }>,
+  linhas: Array<{ colaborador_id: string; auditado_em: string | null; gerado_em?: string | null; ok: unknown; tentativas?: unknown }>,
   o: OpcoesFila,
 ): string[] {
   const alvo = new Set(o.alvo);
   return linhas.filter((b) => {
     if (!o.dentro(b.colaborador_id)) return false;
-    const pode = alvo.has(b.colaborador_id) || passadoPode(o, b.colaborador_id);
+    const pode = alvo.has(b.colaborador_id) || passadoPode(o, b.colaborador_id, b.gerado_em);
     if (b.auditado_em == null) return pode;
     const reprovado = String(b.ok) !== 'true';
     return reprovado && pode && num(b.tentativas) < MAX_CORRECOES;
@@ -101,12 +108,12 @@ export function selecionarAuditoria(
 
 /** PDI: o reprovado e o com alerta desta rodada (ou de qualquer uma, pausada), abaixo do teto. */
 export function selecionarCorrecaoPdi(
-  linhas: Array<{ colaborador_id: string; status: string | null; tentativas?: unknown }>,
+  linhas: Array<{ colaborador_id: string; status: string | null; gerado_em?: string | null; tentativas?: unknown }>,
   o: OpcoesFila,
 ): string[] {
   const alvo = new Set(o.alvo);
   return linhas
-    .filter((p) => (p.status === 'fail' || p.status === 'warn') && o.dentro(p.colaborador_id) && (alvo.has(p.colaborador_id) || passadoPode(o, p.colaborador_id)) && num(p.tentativas) < MAX_CORRECOES)
+    .filter((p) => (p.status === 'fail' || p.status === 'warn') && o.dentro(p.colaborador_id) && (alvo.has(p.colaborador_id) || passadoPode(o, p.colaborador_id, p.gerado_em)) && num(p.tentativas) < MAX_CORRECOES)
     .map((p) => p.colaborador_id);
 }
 
@@ -119,12 +126,13 @@ export function selecionarPdiDesatualizado(
   pdis: Array<{ colaborador_id: string; gerado_em: string | null }>,
   blueprints: BlueprintCascata[],
   dentro: Dentro,
-  entregues?: Set<string>,
+  o: Pick<OpcoesFila, 'revisitarDesde' | 'entregues'>,
 ): string[] {
   const bp = new Map(blueprints.map((b) => [b.colaborador_id, b]));
   return pdis.filter((p) => {
     const b = bp.get(p.colaborador_id);
-    return dentro(p.colaborador_id) && !entregues?.has(p.colaborador_id) && daCascata(b) && !!p.gerado_em && String(p.gerado_em) < String(b.corrigido_em);
+    return dentro(p.colaborador_id) && passadoPode(o, p.colaborador_id, p.gerado_em) && daCascata(b)
+      && new Date(String(p.gerado_em)).getTime() < new Date(String(b.corrigido_em)).getTime();
   }).map((p) => p.colaborador_id);
 }
 
@@ -137,14 +145,14 @@ export function selecionarTrilhaDesatualizada(
   trilhas: Array<{ colaborador_id: string; criado_em: string | null; data_inicio?: string | null }>,
   blueprints: BlueprintCascata[],
   dentro: Dentro,
-  o: { entregues?: Set<string>; hojeISO: string },
+  o: Pick<OpcoesFila, 'revisitarDesde' | 'entregues'> & { hojeISO: string },
 ): string[] {
   const bp = new Map(blueprints.map((b) => [b.colaborador_id, b]));
   return trilhas.filter((t) => {
     const b = bp.get(t.colaborador_id);
     const naoComecou = !t.data_inicio || String(t.data_inicio).slice(0, 10) > o.hojeISO.slice(0, 10);
-    return dentro(t.colaborador_id) && !o.entregues?.has(t.colaborador_id) && daCascata(b) && !b.trilha_refeita_em
-      && naoComecou && !!t.criado_em && String(t.criado_em) < String(b.corrigido_em);
+    return dentro(t.colaborador_id) && passadoPode(o, t.colaborador_id, t.criado_em) && daCascata(b) && !b.trilha_refeita_em
+      && naoComecou && new Date(String(t.criado_em)).getTime() < new Date(String(b.corrigido_em)).getTime();
   }).map((t) => t.colaborador_id);
 }
 
@@ -165,25 +173,25 @@ export function melhorVersaoPdi<T extends { conteudo?: any }>(atual: T, nova: T)
 
 export async function filaCorrecaoIA4(tdb: any, o: OpcoesFila): Promise<string[]> {
   const q = await lerTudoPaginado((de, ate) => tdb.from('respostas')
-    .select('id, colaborador_id, status_ia4, tentativas:avaliacao_ia->_correcao_texto_tentativas')
+    .select('id, colaborador_id, status_ia4, avaliado_em, tentativas:avaliacao_ia->_correcao_texto_tentativas')
     .eq('status_ia4', 'revisar').order('id').range(de, ate));
   if (q.error) throw new Error(`fila da correção da IA4: ${q.error}`);
   return selecionarCorrecaoIA4(q.data, o);
 }
 
 export async function filaAuditoriaComCorrecao(tdb: any, o: OpcoesFila): Promise<string[]> {
-  if (!o.revisitar && !o.alvo.length) return [];
+  if (!o.revisitarDesde && !o.alvo.length) return [];
   const q = await lerTudoPaginado((de, ate) => tdb.from('development_blueprints')
-    .select('colaborador_id, auditado_em, ok:auditoria->>ok, tentativas:auditoria->>correcao_guiada_tentativas')
+    .select('colaborador_id, auditado_em, gerado_em, ok:auditoria->>ok, tentativas:auditoria->>correcao_guiada_tentativas')
     .order('colaborador_id').range(de, ate));
   if (q.error) throw new Error(`blueprints a auditar: ${q.error}`);
   return selecionarAuditoria(q.data, o);
 }
 
 export async function filaCorrecaoPdi(tdb: any, o: OpcoesFila): Promise<string[]> {
-  if (!o.revisitar && !o.alvo.length) return [];
+  if (!o.revisitarDesde && !o.alvo.length) return [];
   const q = await lerTudoPaginado((de, ate) => tdb.from('relatorios')
-    .select('colaborador_id, status:conteudo->auditoria->>status, tentativas:conteudo->>_refazer_tentativas')
+    .select('colaborador_id, gerado_em, status:conteudo->auditoria->>status, tentativas:conteudo->>_refazer_tentativas')
     .eq('tipo', 'individual').order('colaborador_id').range(de, ate));
   if (q.error) throw new Error(`fila da correção do PDI: ${q.error}`);
   return selecionarCorrecaoPdi(q.data, o);
@@ -191,22 +199,24 @@ export async function filaCorrecaoPdi(tdb: any, o: OpcoesFila): Promise<string[]
 
 const SELECT_CASCATA = 'colaborador_id, cascata:auditoria->correcao_guiada->>cascata_automatica, corrigido_em:auditoria->correcao_guiada->>corrigido_em, trilha_refeita_em:auditoria->correcao_guiada->>trilha_refeita_em';
 
-export async function filaPdiDesatualizado(tdb: any, dentro: Dentro, entregues?: Set<string>): Promise<string[]> {
+export async function filaPdiDesatualizado(tdb: any, dentro: Dentro, o: Pick<OpcoesFila, 'revisitarDesde' | 'entregues'>): Promise<string[]> {
+  if (!o.revisitarDesde) return [];
   const [pdis, bps] = await Promise.all([
     lerTudoPaginado((de, ate) => tdb.from('relatorios').select('colaborador_id, gerado_em').eq('tipo', 'individual').order('colaborador_id').range(de, ate)),
     lerTudoPaginado((de, ate) => tdb.from('development_blueprints').select(SELECT_CASCATA).order('colaborador_id').range(de, ate)),
   ]);
   if (pdis.error || bps.error) throw new Error(`PDIs desatualizados: ${pdis.error || bps.error}`);
-  return selecionarPdiDesatualizado(pdis.data, bps.data, dentro, entregues);
+  return selecionarPdiDesatualizado(pdis.data, bps.data, dentro, o);
 }
 
-export async function filaTrilhaDesatualizada(tdb: any, dentro: Dentro, entregues?: Set<string>): Promise<string[]> {
+export async function filaTrilhaDesatualizada(tdb: any, dentro: Dentro, o: Pick<OpcoesFila, 'revisitarDesde' | 'entregues'>): Promise<string[]> {
+  if (!o.revisitarDesde) return [];
   const [trilhas, bps] = await Promise.all([
     lerTudoPaginado((de, ate) => tdb.from('trilhas').select('colaborador_id, criado_em, data_inicio').order('colaborador_id').range(de, ate)),
     lerTudoPaginado((de, ate) => tdb.from('development_blueprints').select(SELECT_CASCATA).order('colaborador_id').range(de, ate)),
   ]);
   if (trilhas.error || bps.error) throw new Error(`trilhas desatualizadas: ${trilhas.error || bps.error}`);
-  return selecionarTrilhaDesatualizada(trilhas.data, bps.data, dentro, { entregues, hojeISO: new Date().toISOString() });
+  return selecionarTrilhaDesatualizada(trilhas.data, bps.data, dentro, { ...o, hojeISO: new Date().toISOString() });
 }
 
 // ─── As correções (I/O; `sb` é o client service-role, o tenant vai em cada consulta) ───────────────────────────
