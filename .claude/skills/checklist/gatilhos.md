@@ -34,6 +34,13 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   `DEFAULT` é o que dispensa deploy simultâneo (DRE, mig 280, 05/10/2026: 26 verificações, aplicada,
   depois o push). `ia_usage_log.empresa_id` é CASCADE: tabela de DINHEIRO por tenant usa `SET NULL` +
   chave estável (mig 276). Detalhe: `docs/DRE.md`.
+- 🔴 **Tabela nova que o código vai LER: depois de aplicar, prove pelo caminho do app, não pelo `pg`/MCP.** Um
+  `select` das colunas que o código usa pelo supabase-js com a service-role (e a leitura anônima recusada) mostra que o
+  PostgREST enxerga o schema; o MCP e o `apply-migration` falam com o Postgres direto e não provam o cache. Aplicar ANTES do
+  push, porque leitura que falha fechada (aqui, a lista de bloqueio na exportação) derrubaria uma tela que já funcionava.
+  CHECK que muda DEPOIS de aplicada (tabela vazia) vira bloco reaplicável na própria migration: `DROP CONSTRAINT IF EXISTS` +
+  `ADD`, e um teste que compara os valores do CHECK com o tipo do código (mig 288, 16/10/2026: `pendente` → `a_completar`,
+  barrado pelo `status-literal-guard` só no push).
 - Coluna nova "para corrigir algo": conferir o **schema atual** antes — a especificação do FMEA
   também envelhece (F-I4 pedia coluna que já existia).
 - Antes de **deletar** conteúdo/linha: varrer referências **JSONB** (`temporada_plano`: `core_id`,
