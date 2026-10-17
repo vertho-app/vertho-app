@@ -17,6 +17,7 @@ import { getProgramaConfigByModo, getProgramaConfigDaTrilha, getProgramaConfigLe
 import { parseConfigSnapshot, parseProgramaCustom, derivarConfigCustom } from './programa-custom';
 import { avaliarAcessoSemana } from './week-gating';
 import { PROGRESSO, TRILHA } from '@/lib/status';
+import { pausaDaEmpresa } from '@/lib/envios-pausados';
 
 interface TrilhaRuntime {
   id: string;
@@ -258,6 +259,13 @@ export async function checarGatesSemana(
   trilha: TrilhaRuntime,
   semana: number | string,
 ): Promise<{ error: string; status: number; codigo: 'semana-bloqueada' | 'indisponivel' } | null> {
+  // Empresa com os envios pausados (dono, 16/10/2026, "esconder até liberar"): nenhuma semana libera, como na tela
+  // (`loadTemporada` entrega a trilha sem data). Sem isto a trava da pausa era só visual: quem chamasse a rota direto
+  // abria a semana (revisão de segurança do commit 12eb9957).
+  if (await pausaDaEmpresa(sb, trilha.empresa_id)) {
+    return { error: 'Sua jornada começa em breve.', status: 403, codigo: 'semana-bloqueada' };
+  }
+
   // A régua mora em `avaliarAcessoSemana` (week-gating), que a TELA também usa
   // para explicar o bloqueio. Duas cópias da mesma regra é como a lista passou a
   // liberar o que a rota nega — ver o comentário da função lá.

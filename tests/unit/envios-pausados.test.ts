@@ -112,6 +112,21 @@ describe('telas da pessoa: a trilha "começa em breve" com a empresa pausada', (
   });
 });
 
+describe('a trava do SERVIDOR também respeita a pausa (não é só visual)', () => {
+  it('checarGatesSemana bloqueia a semana da empresa pausada, mesmo com a data já passada; sem pausa, libera', async () => {
+    const { checarGatesSemana } = await import('@/lib/season-engine/trilha-runtime');
+    const banco = (sysConfig: any) => ({
+      from: (t: string) => {
+        const q: any = { select: () => q, eq: () => q, maybeSingle: () => Promise.resolve(t === 'empresas' ? { data: { sys_config: sysConfig }, error: null } : { data: null, error: null }) };
+        return q;
+      },
+    });
+    const trilha = { id: 't1', empresa_id: 'e1', data_inicio: '2026-01-05', temporada_plano: [{ semana: 1, tipo: 'conteudo' }] };
+    expect(await checarGatesSemana(banco({ envios_pausados: { motivo: 'x' } }), trilha, 1)).toMatchObject({ status: 403, codigo: 'semana-bloqueada' });
+    expect(await checarGatesSemana(banco({}), trilha, 1)).toBeNull();
+  });
+});
+
 describe('o preparo antecipado dos desafios respeita a pausa', () => {
   it('o cron preparar_desafios pula a empresa pausada antes de gerar (e sem acusar "sem brief")', () => {
     const f = readFileSync('app/api/cron/route.ts', 'utf8');
