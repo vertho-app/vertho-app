@@ -1,0 +1,162 @@
+.lb-cont { position:absolute; inset:0 }
+.lb-clip { position:absolute; left:0; top:0; width:1920px; height:720px; overflow:hidden }
+.lb-ic { position:absolute; height:700px; transform-origin:50% 30% }
+.lb-ic svg { display:block; overflow:visible }
+.lb-ic path, .lb-ic circle, .lb-ic rect { fill:none; stroke:color-mix(in srgb, var(--second) 78%, transparent); stroke-width:5; stroke-linecap:round; stroke-linejoin:round }
+.lb-ic.lb-on path, .lb-ic.lb-on circle, .lb-ic.lb-on rect { stroke:var(--main); stroke-width:6 }
+.lb-haste { position:absolute; width:6px; height:620px; border-radius:3px; background:color-mix(in srgb, var(--second) 40%, transparent) }
+.lb-rot { font-size:34px; font-weight:500 } .lb-dest { color:var(--main); font-size:42px; font-weight:700 }
+.lb-note { position:absolute; left:0; top:0; width:250px; height:130px; border-radius:12px; background:color-mix(in srgb, var(--second) 92%, var(--main)); color:var(--ground); box-shadow:0 16px 32px rgba(0,0,0,.3); display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box; text-align:center; font-size:34px; font-weight:500; line-height:1.12 }
+.lb-funil path { fill:color-mix(in srgb, var(--main) 10%, transparent); stroke:var(--main); stroke-width:6; stroke-linejoin:round }
+.lb-crit { position:absolute; left:1250px; top:340px; width:600px; display:flex; flex-direction:column; gap:28px }
+.lb-critl { margin:0; display:flex; align-items:center; gap:20px; font-size:40px; white-space:nowrap }
+.lb-critl i { flex:none; position:relative; width:42px; height:42px; border-radius:50%; background:var(--main) }
+.lb-critl i::after { content:""; position:absolute; left:14px; top:7px; width:10px; height:20px; border:solid var(--ground); border-width:0 5px 5px 0; transform:rotate(45deg) }
+.lb-bal path { fill:none; stroke:var(--main); stroke-width:7; stroke-linecap:round; stroke-linejoin:round }
+.lb-bal .lb-haste2 { stroke-width:10 } .lb-piv { fill:var(--main) }
+.lb-leg { position:absolute; margin:0; left:0; top:0; white-space:nowrap; font-size:44px }
+.lb-form { gap:14px; padding:30px 32px }
+.lb-form > .tag { font-size:36px }
+.lb-f { height:76px; font-size:38px; gap:20px; position:relative; color:var(--second); padding:0 24px }
+.lb-fr { flex:none; overflow:hidden; white-space:nowrap; font-size:32px; color:color-mix(in srgb, var(--second) 72%, var(--ground)) }
+.lb-fv { font-weight:500; white-space:nowrap; color:var(--second) }
+.lb-car { display:inline-block; width:3px; height:42px; background:var(--main); margin-left:-14px }
+.lb-carimbo { position:absolute; left:0; top:0; width:190px; height:190px; border-radius:50%; border:7px solid var(--main); color:var(--main); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:32px; text-transform:uppercase; letter-spacing:.06em; box-sizing:border-box; background:color-mix(in srgb, var(--ground) 70%, transparent); text-align:center; line-height:1.05; padding:14px }
+.lb-fc { min-height:220px } .lb-fc > .tag { font-size:36px }
+.lb-fct { font-size:40px; line-height:1.22; color:var(--second) }
+.lb-arco { fill:none; stroke:var(--main); stroke-width:7; stroke-linecap:round } .lb-bola { fill:var(--main) }
+.lb-alvo { position:absolute; transform-origin:50% 50% }
+.lb-alvo path, .lb-alvo circle, .lb-alvo rect, .lb-alvo2 path, .lb-alvo2 circle, .lb-alvo2 rect { fill:none; stroke:var(--accent); stroke-width:6; stroke-linecap:round; stroke-linejoin:round }
+.lb-traj { fill:none; stroke:var(--main); stroke-width:8; stroke-linecap:round }
+.lb-gap { fill:none; stroke:var(--accent); stroke-width:12; stroke-dasharray:4 18; stroke-linecap:round }
+.lb-pt { fill:var(--main) } .lb-viaj { fill:var(--second); stroke:var(--main); stroke-width:6 }
+.lb-tl { font-size:40px; font-weight:500 } .lb-gl { color:var(--accent); font-weight:700; font-size:40px }
+.lb-cad { position:absolute; border-radius:20px; background:var(--second); color:var(--ground); box-shadow:0 24px 48px rgba(0,0,0,.3); padding:30px 44px; box-sizing:border-box; }
+.lb-cadt { margin:0 0 6px; font-size:30px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:color-mix(in srgb, var(--ground) 72%, var(--main)) }
+.lb-cadl { margin:0; height:76px; display:flex; align-items:center; gap:22px; font-size:40px; border-bottom:2px solid color-mix(in srgb, var(--ground) 13%, transparent); box-sizing:border-box }   /* v5: pauta por linha (a pauta em gradiente cortava o texto) */
+.lb-cadl b { flex:none; width:34px; color:var(--accent); font-weight:700 } .lb-cadl span { white-space:nowrap }
+.lb-lat { left:1080px; top:360px; width:720px } .lb-lat > .tag { font-size:36px }
+.lb-aspa { color:var(--main) }
+.lb-alvo2 { position:absolute; display:flex; align-items:center; gap:18px; transform-origin:0 50% }
+.lb-alvo2 .tag { position:static; color:var(--accent); font-weight:700; font-size:44px }
+.lb-nova { position:absolute; margin:0; left:0; top:0; color:var(--main); white-space:nowrap }
+.lb-blob { fill:color-mix(in srgb, var(--accent) 10%, transparent); stroke:var(--accent); stroke-width:6; stroke-linejoin:round; stroke-dasharray:16 12 }
+.lb-blob.lb-medido { stroke:var(--main); stroke-dasharray:none; fill:color-mix(in srgb, var(--main) 10%, transparent) }
+.lb-vago { color:color-mix(in srgb, var(--second) 72%, var(--ground)); font-size:44px } .lb-prec { color:var(--second); font-weight:700; font-size:48px }
+.lb-med { padding:10px 24px; border-radius:999px; background:color-mix(in srgb, var(--main) 22%, var(--ground)); border:2px solid var(--main); font-size:36px }
+.lb-obs { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent) }
+.lb-dl { font-size:40px; font-weight:500 } .lb-ol { color:var(--accent); font-weight:700; font-size:40px }
+.lb-imgcheia { position:absolute; inset:0; overflow:hidden; opacity:0 }
+.lb-imgcheia img, .lb-imgpainel img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform-origin:60% 50% }
+.lb-veu { position:absolute; inset:0; opacity:0; background:linear-gradient(90deg, color-mix(in srgb, var(--ground) 92%, transparent) 0%, color-mix(in srgb, var(--ground) 72%, transparent) 42%, color-mix(in srgb, var(--ground) 8%, transparent) 78%) }
+.lb-imgpainel { position:absolute; top:140px; width:940px; height:780px; border-radius:28px; overflow:hidden; opacity:0; box-shadow:0 30px 60px rgba(0,0,0,.35) }
+.lb-pontos { position:absolute; top:400px; display:flex; flex-direction:column; gap:28px }
+.lb-ponto { margin:0; display:flex; align-items:center; gap:22px; font-size:44px; font-weight:500; line-height:1.18 }
+.lb-ponto i { flex:none; width:44px; height:52px; display:flex } .lb-ponto i:empty { width:18px; height:18px; border-radius:50%; background:var(--main) }
+.lb-ponto path, .lb-ponto circle, .lb-ponto rect { fill:none; stroke:var(--main); stroke-width:9; stroke-linecap:round; stroke-linejoin:round }
+.lb-leg2 { position:absolute; top:860px; margin:0 }
+.lb-sobrepapel .lb-ic path, .lb-sobrepapel .lb-ic circle, .lb-sobrepapel .lb-ic rect { stroke:var(--ground) }
+.lb-sobrepapel .tag, .lb-sobrepapel .lb-critl, .lb-sobrepapel .lb-leg, .lb-sobrepapel .sub, .lb-sobrepapel .lb-tl, .lb-sobrepapel .lb-dl { color:var(--ground) }
+.lb-sobrepapel .card .tag { color:var(--main) }
+.lb-sobrepapel .lb-note { box-shadow:0 0 0 2px color-mix(in srgb, var(--ground) 25%, transparent), 0 14px 28px rgba(0,0,0,.18) }
+.lb-sobrepapel .lb-viaj { fill:var(--ground) } .lb-sobrepapel .lb-vago { color:color-mix(in srgb, var(--ground) 70%, var(--second)) } .lb-sobrepapel .lb-prec { color:var(--ground) }
+.lb-sobrepapel .lb-fr2 .line, .lb-sobrepapel .lb-cit .line { color:var(--ground) }
+.lb-sobrepapel .lb-cad { box-shadow:0 0 0 2px color-mix(in srgb, var(--ground) 18%, transparent), 0 24px 48px rgba(0,0,0,.18) }
+
+/* v5: fundo por momento (o montador põe data-fundo no palco): as variáveis do tema invertem nos fundos claros */
+#stage[data-fundo="claro"] { --ground:#9AE2E6; --second:#0F2B54; --main:#0F2B54 }
+#stage[data-fundo="branco"] { --ground:#F7F7F7; --second:#0F2B54; --main:#1B8F95 }
+#stage[data-fundo="claro"] .ground, #stage[data-fundo="branco"] .ground { background:var(--ground) }
+.lb-wipe { position:absolute; inset:0; z-index:50; pointer-events:none }
+.lb-wipe[data-f="navy"] { background:linear-gradient(168deg, #0F2B54 0%, color-mix(in srgb, #0F2B54 62%, #06152B) 100%) }
+.lb-wipe[data-f="claro"] { background:#9AE2E6 } .lb-wipe[data-f="branco"] { background:#F7F7F7 }
+.lb-base { z-index:60; opacity:.6 }
+
+/* v7 (16/10/2026): 14 modelos novos. Cores só pelas variáveis do tema (o semáforo é a exceção: vermelho, amarelo, verde).
+   Todo parágrafo posicionado aqui zera a margem (o <p> do navegador desloca 1em e desalinhava rótulo e objeto). */
+.lb-degrau { position:absolute; transform-origin:50% 100%; border-radius:14px 14px 0 0; background:color-mix(in srgb, var(--main) 16%, var(--ground)); border-top:6px solid color-mix(in srgb, var(--main) 70%, transparent); box-sizing:border-box }
+.lb-degrau p { margin:0; padding:16px 14px 0; font-size:38px; font-weight:500; line-height:1.12; text-align:center; color:var(--second) }
+.lb-degrau.lb-on { background:color-mix(in srgb, var(--main) 42%, var(--ground)); border-top-color:var(--main) }
+.lb-alpinista { position:absolute; left:0; top:0; width:96px }
+.lb-alpinista svg { display:block; overflow:visible } .lb-alpinista circle, .lb-alpinista path { fill:var(--accent); stroke:none }
+.lb-esc-rot { position:absolute; left:260px; top:812px; width:1400px; margin:0; text-align:center; font-size:44px }
+.lb-med-fundo { fill:none; stroke:color-mix(in srgb, var(--second) 16%, transparent); stroke-width:40; stroke-linecap:round }
+.lb-med-valor { fill:none; stroke:var(--main); stroke-width:40; stroke-linecap:round }
+.lb-med-pont { stroke:var(--second); stroke-width:10; stroke-linecap:round } .lb-med-eixo { fill:var(--second) }
+.lb-med-min, .lb-med-max { margin:0; top:662px; font-size:36px; color:color-mix(in srgb, var(--second) 72%, var(--ground)) }
+.lb-med-rot { position:absolute; top:730px; margin:0; white-space:nowrap; font-size:58px; font-weight:700; color:var(--second) }
+.lb-dia { position:absolute; top:370px; width:200px; height:232px; border-radius:22px; background:color-mix(in srgb, var(--second) 7%, var(--ground)); border:3px solid color-mix(in srgb, var(--second) 28%, transparent); box-sizing:border-box; display:flex; flex-direction:column; align-items:center; padding-top:24px }
+.lb-dia span { font-size:42px; font-weight:700; white-space:nowrap; color:var(--second) }
+.lb-dia i { position:relative; margin-top:26px; width:84px; height:84px; border-radius:50%; border:4px dashed color-mix(in srgb, var(--second) 30%, transparent); box-sizing:border-box }
+.lb-dia.lb-on { border-color:var(--main); background:color-mix(in srgb, var(--main) 20%, var(--ground)) }
+.lb-dia.lb-on i { border:none; background:var(--main) }
+.lb-dia.lb-on i::after { content:""; position:absolute; left:30px; top:15px; width:18px; height:36px; border:solid var(--ground); border-width:0 8px 8px 0; transform:rotate(45deg) }
+.lb-contador { position:absolute; top:630px; padding:12px 30px; border-radius:16px; border:5px solid var(--accent); color:var(--accent); font-size:44px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; background:color-mix(in srgb, var(--ground) 80%, transparent) }
+.lb-cal-leg { position:absolute; left:260px; top:750px; width:1400px; margin:0; text-align:center; font-size:44px }
+.lb-mesa { position:absolute; border-radius:50%; background:color-mix(in srgb, var(--main) 12%, var(--ground)); border:4px solid color-mix(in srgb, var(--main) 60%, transparent); box-sizing:border-box }
+.lb-lugar { position:absolute; width:90px; height:90px }
+.lb-lugar i { position:absolute; inset:0; border-radius:50%; background:color-mix(in srgb, var(--second) 20%, var(--ground)); border:4px solid color-mix(in srgb, var(--second) 55%, transparent); box-sizing:border-box }
+.lb-lugar .tag { margin:0; left:50%; top:100px; transform:translateX(-50%); font-size:34px } .lb-lugar.lb-cima .tag { top:auto; bottom:100px }
+.lb-lugar.lb-on i { background:var(--main); border-color:var(--main) } .lb-lugar.lb-on .tag { color:var(--main); font-weight:700 }
+.lb-mesa-obj { padding:20px 32px } .lb-mesa-obj .tag { margin:0; font-size:38px }
+.lb-voz { position:absolute; top:470px; width:120px }
+.lb-voz svg { display:block; overflow:visible }
+.lb-voz path, .lb-voz circle { fill:none; stroke:color-mix(in srgb, var(--second) 78%, transparent); stroke-width:5; stroke-linejoin:round }
+.lb-voz.lb-on path, .lb-voz.lb-on circle { stroke:var(--main); stroke-width:7 }
+.lb-balao { --bg:color-mix(in srgb, var(--second) 18%, var(--ground)); position:absolute; top:286px; height:134px; border-radius:24px; background:var(--bg); color:var(--second); display:flex; align-items:center; justify-content:center; text-align:center; padding:12px; box-sizing:border-box; font-size:34px; font-weight:500; line-height:1.1; transform-origin:50% 100% }
+.lb-balao::after { content:""; position:absolute; left:calc(50% - 14px); bottom:-20px; border-left:14px solid transparent; border-right:14px solid transparent; border-top:22px solid var(--bg) }
+.lb-balao.lb-fala2 { --bg:var(--second); color:var(--ground) }
+.lb-vdest { margin:0; color:var(--main); font-size:46px; font-weight:700 }
+.lb-conv-p { position:absolute; top:320px; width:240px; display:flex; flex-direction:column; align-items:center; gap:12px }
+.lb-conv-e { left:50px } .lb-conv-d { left:1630px }
+.lb-conv-p svg { display:block; overflow:visible } .lb-conv-p path, .lb-conv-p circle { fill:none; stroke:var(--main); stroke-width:6; stroke-linejoin:round }
+.lb-conv-p .tag { position:static; margin:0; font-size:34px }
+.lb-msg { position:absolute; max-width:980px; padding:22px 34px; border-radius:30px; font-size:42px; line-height:1.2; box-sizing:border-box }
+.lb-msg-e { left:310px; border-bottom-left-radius:6px; background:color-mix(in srgb, var(--second) 14%, var(--ground)); border:2px solid color-mix(in srgb, var(--second) 28%, transparent); color:var(--second); transform-origin:0 100% }
+.lb-msg-d { right:310px; border-bottom-right-radius:6px; background:var(--main); color:var(--ground); transform-origin:100% 100% }
+.lb-ind { top:330px; height:330px; justify-content:space-between }
+.lb-ind .tag { margin:0; font-size:36px; white-space:normal; line-height:1.15 }
+.lb-ind-val { margin:0; font-family:"Codec-ExtraBold", var(--display, var(--sans, system-ui, sans-serif)); font-size:110px; line-height:1.2; white-space:nowrap; color:var(--second) }
+.lb-ind-trilho { height:18px; border-radius:9px; background:color-mix(in srgb, var(--second) 14%, transparent); overflow:hidden }
+.lb-ind-trilho i { display:block; height:100%; width:0; border-radius:9px; background:var(--main) }
+.lb-ind.lb-alerta { box-shadow:0 0 0 5px var(--accent), 0 24px 48px rgba(0,0,0,.25) } .lb-ind.lb-alerta .tag { color:var(--accent) } .lb-ind.lb-alerta .lb-ind-trilho i { background:var(--accent) }
+.lb-ad { top:310px; width:740px; min-height:380px; gap:26px; padding:36px 40px }
+.lb-ad-a { left:130px } .lb-ad-d { left:1050px; box-shadow:0 0 0 4px var(--main), 0 24px 48px rgba(0,0,0,.25) }
+.lb-ad .tag { margin:0; font-size:40px; letter-spacing:.1em; text-transform:uppercase } .lb-ad-a .tag { color:color-mix(in srgb, var(--second) 60%, var(--ground)) }
+.lb-ad-item { margin:0; display:flex; align-items:center; gap:20px; font-size:46px; line-height:1.15; color:var(--second) }
+.lb-ad-item i { flex:none; width:20px; height:20px; border-radius:50%; background:color-mix(in srgb, var(--second) 45%, transparent) } .lb-ad-d .lb-ad-item i { background:var(--main) }
+.lb-ad-seta { fill:none; stroke:var(--main); stroke-width:8; stroke-linecap:round; stroke-linejoin:round }
+.lb-col-q { position:absolute; top:300px; width:520px; height:540px; border-radius:22px; background:color-mix(in srgb, var(--second) 6%, var(--ground)); border:2px solid color-mix(in srgb, var(--second) 18%, transparent); box-sizing:border-box; padding:22px 30px }
+.lb-col-q .tag { position:static; margin:0; font-size:34px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:color-mix(in srgb, var(--second) 70%, var(--ground)) }
+.lb-cartao-q { position:absolute; left:0; top:0; width:452px; height:96px; border-radius:14px; background:var(--second); color:var(--ground); display:flex; align-items:center; padding:0 26px; box-sizing:border-box; font-size:38px; font-weight:500; line-height:1.1; box-shadow:0 10px 22px rgba(0,0,0,.22) }
+.lb-cartao-q.lb-on { box-shadow:inset 12px 0 0 var(--main), 0 10px 22px rgba(0,0,0,.22) }
+.lb-sem { position:absolute; left:450px; top:310px; width:210px; height:490px; border-radius:46px; background:#06152B; border:4px solid color-mix(in srgb, var(--second) 22%, transparent); box-sizing:border-box; padding:30px 0; display:flex; flex-direction:column; align-items:center; justify-content:space-between; box-shadow:0 24px 48px rgba(0,0,0,.3) }
+.lb-luz { width:126px; height:126px; border-radius:50%; opacity:.2 }
+.lb-luz-0 { background:#E5484D } .lb-luz-1 { background:#F5B53F } .lb-luz-2 { background:#3DBE7A }
+.lb-luz.lb-on { opacity:1 } .lb-luz-0.lb-on { box-shadow:0 0 50px 14px rgba(229,72,77,.55) } .lb-luz-1.lb-on { box-shadow:0 0 50px 14px rgba(245,181,63,.55) } .lb-luz-2.lb-on { box-shadow:0 0 50px 14px rgba(61,190,122,.55) }
+.lb-sem-rot { margin:0; left:720px; font-size:54px }
+.lb-ciclo-roda { fill:none; stroke:color-mix(in srgb, var(--main) 55%, transparent); stroke-width:7 }
+.lb-ciclo-no { fill:var(--ground); stroke:color-mix(in srgb, var(--second) 50%, transparent); stroke-width:5 } .lb-ciclo-no.lb-on { fill:var(--main); stroke:var(--main) }
+.lb-ciclo-bola { fill:var(--accent) }
+.lb-ciclo-rot { margin:0; font-size:44px }
+.lb-ciclo-c { margin:0; width:340px; white-space:normal; text-align:center; font-size:42px; font-weight:700; line-height:1.15; color:var(--main) }
+.lb-num-bloco { position:absolute; left:160px; top:250px; width:1600px; display:flex; flex-direction:column; align-items:center; gap:18px; text-align:center }
+.lb-num-v { margin:0; font-family:"Codec-ExtraBold", var(--display, var(--sans, system-ui, sans-serif)); font-size:280px; line-height:1.2; white-space:nowrap; color:var(--main) }
+.lb-num-rot { margin:0; font-size:60px; font-weight:500; line-height:1.15; color:var(--second) }
+.lb-num-ctx { margin:0; font-size:42px }
+.lb-opc { position:absolute; left:200px; width:1200px; height:94px; border-radius:18px; border:3px solid color-mix(in srgb, var(--second) 28%, transparent); display:flex; align-items:center; gap:26px; padding:0 30px; box-sizing:border-box; font-size:44px; font-weight:500; color:var(--second) }
+.lb-opc i { flex:none; width:38px; height:38px; border-radius:50%; border:4px solid color-mix(in srgb, var(--second) 50%, transparent); box-sizing:border-box }
+.lb-opc span { white-space:nowrap }
+.lb-opc.lb-on { border-color:var(--main); background:color-mix(in srgb, var(--main) 16%, transparent) } .lb-opc.lb-on i { background:var(--main); border-color:var(--main) }
+.lb-cursor { position:absolute; left:0; top:0; width:50px; height:62px; opacity:0; background:var(--second); clip-path:polygon(0 0, 0 82%, 24% 64%, 42% 100%, 58% 93%, 41% 58%, 74% 58%) }
+.lb-rede-l { fill:none; stroke:color-mix(in srgb, var(--second) 35%, transparent); stroke-width:4 } .lb-rede-l.lb-on { stroke:var(--main); stroke-width:7 }
+.lb-rede-c { position:absolute; display:flex; flex-direction:column; align-items:center; gap:8px; padding:18px 26px; border-radius:28px; background:var(--ground) }
+.lb-rede-c svg { display:block; overflow:visible } .lb-rede-c path, .lb-rede-c circle { fill:var(--main); stroke:none }
+.lb-rede-c .tag { position:static; margin:0; font-size:42px; font-weight:700; color:var(--main) }
+.lb-rede-n { position:absolute; padding:18px 34px; border-radius:999px; background:color-mix(in srgb, var(--second) 10%, var(--ground)); border:3px solid color-mix(in srgb, var(--second) 40%, transparent) }
+.lb-rede-n .tag { position:static; margin:0; font-size:40px } .lb-rede-n.lb-on { border-color:var(--main); background:color-mix(in srgb, var(--main) 24%, var(--ground)) } .lb-rede-n.lb-on .tag { font-weight:700 }
+.lb-onda { fill:none; stroke:var(--main); stroke-width:5 }
+.lb-opc.lb-hover { border-color:color-mix(in srgb, var(--second) 60%, transparent); background:color-mix(in srgb, var(--second) 9%, transparent) }
+.lb-degrau.lb-fantasma { background:transparent; border:3px dashed color-mix(in srgb, var(--second) 32%, transparent) } .lb-degrau.lb-fantasma p { opacity:0 }
+.lb-perg-ic { position:absolute; left:845px; top:290px; width:230px; transform-origin:50% 50%; opacity:0 } .lb-perg-ic svg { display:block; overflow:visible }
+.lb-perg-ic path, .lb-perg-ic circle { fill:none; stroke:var(--main); stroke-width:6; stroke-linecap:round; stroke-linejoin:round }
