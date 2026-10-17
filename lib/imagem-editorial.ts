@@ -118,6 +118,8 @@ export function mimeDaImagem(buf: Buffer): MimeImagem | null {
 export interface LedgerImagem {
   feature: string;
   empresaId: string | null;
+  /** `ia_usage_log.correlation_id` (uuid): liga o custo ao artefato (a ilustração do vídeo usa o id do vídeo). */
+  correlationId?: string | null;
 }
 
 export interface ImagemGerada {
@@ -154,6 +156,7 @@ async function registrarUso(
 ) {
   await gravarLinhaLedger({
     feature: ledger.feature,
+    ...(ledger.correlationId ? { correlation_id: ledger.correlationId } : {}),
     empresa_id: ledger.empresaId ?? null,
     provider: u.provider,
     model: u.modelo,

@@ -145,6 +145,16 @@ describe('resolveTaskModel — tasks pinned', () => {
     expect(resolveTaskModel(rollback, 'video_avatar_grupo')).toBe('claude-sonnet-5-5');
   });
 
+  // 17/10/2026: o plano visual v7 foi validado no Opus 5.5 `low`; a task recebe a empresa, e o `modelo_padrao`
+  // dela (Sonnet 4.6 nas empresas reais) trocaria o modelo por um que ninguém testou na biblioteca.
+  it('o plano visual v7 resolve no Opus 5.5 com o sys_config REAL das empresas, e o override por task segue valendo', () => {
+    const sysConfigReal = { ai: { modelo_padrao: 'claude-sonnet-4-6' } };
+    expect(PINNED_TASKS.has('video_plano_visual')).toBe(true);
+    expect(resolveTaskModel(sysConfigReal, 'video_plano_visual')).toBe('claude-opus-5-5');
+    const rollback = { ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: { video_plano_visual: 'claude-opus-5' } } };
+    expect(resolveTaskModel(rollback, 'video_plano_visual')).toBe('claude-opus-5');
+  });
+
   it('modulo_base_autor NÃO foi junto (é onde o Sonnet 5 trunca JSON)', () => {
     expect(DEFAULT_TASK_MODELS['modulo_base_autor']).toBe('claude-sonnet-4-6');
   });

@@ -150,6 +150,16 @@ describe('imagem editorial · fallback Gemini', () => {
     expect(g.cost_usd).toBeCloseTo((64 * 0.5 + 1120 * 60 + 423 * 3) / 1e6, 10);
   });
 
+  it('o `correlationId` do pedido vai ao ledger nos dois provedores (custo por vídeo da ilustração v7); sem ele, a linha não leva a chave', async () => {
+    const id = '4f6c2c1e-7a35-4b8e-9d2a-1c3e5f7a9b0d';
+    stubFetch(() => openaiOk(), () => geminiOk());
+    await gerarImagemEditorial('p', 'paisagem', { ledger: { ...ledger, correlationId: id } });
+    stubFetch(openai403, () => geminiOk());
+    await gerarImagemEditorial('p', 'paisagem', { ledger: { ...ledger, correlationId: id } });
+    await gerarImagemEditorial('p', 'paisagem', { ledger });
+    expect(gravadas.map((g) => [g.provider, g.correlation_id])).toEqual([['openai', id], ['gemini', id], ['gemini', undefined]]);
+  });
+
   it('ignora a imagem de rascunho (`thought: true`) e devolve a final', async () => {
     const rascunho = Buffer.concat([Buffer.from('ffd8ffe0', 'hex'), Buffer.alloc(2048, 9)]);
     stubFetch(openai403, () => geminiOk([

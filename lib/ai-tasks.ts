@@ -73,6 +73,7 @@ export const AI_TASKS = [
   // ── Banco de Conteúdos ───────────────────────────────────
   { key: 'conteudo_video', label: 'Gerar roteiro de vídeo', fase: 'Conteúdos' },
   { key: 'video_avatar_grupo', label: 'Vídeo do Kit: abertura e fecho do avatar (iguais para os 4 DISC)', fase: 'Conteúdos' },
+  { key: 'video_plano_visual', label: 'Vídeo: plano visual da biblioteca v7 (modelo e dados de cada momento)', fase: 'Conteúdos' },
   { key: 'conteudo_podcast', label: 'Gerar roteiro de podcast', fase: 'Conteúdos' },
   { key: 'conteudo_texto', label: 'Gerar artigo (markdown)', fase: 'Conteúdos' },
   { key: 'conteudo_case', label: 'Gerar estudo de caso', fase: 'Conteúdos' },
@@ -380,6 +381,10 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // copiados pelos roteiros dos 4 DISC: a mesma peça do roteiro, no mesmo modelo
   // (o Opus 5 venceu o bake-off de roteiro de 24/09/2026).
   video_avatar_grupo:  'claude-opus-5',
+  // Plano visual da biblioteca v7 (17/10/2026, `lib/video/v7/no-trigger.ts`): Opus 5.5 em effort `low`, o que foi
+  // validado nos dois vídeos aprovados pelo dono. `Medido 16/10`: o Sonnet 5.5 escrevendo cena saiu com mais
+  // defeitos e momentos quebrados (descartado), e o Opus `low` raciocina ~370 tokens por momento.
+  video_plano_visual:  'claude-opus-5-5',
   // ── Tarefas de SAÍDA LONGA em Claude Sonnet 5 (12/08/2026) ──
   // `Medido:` no ledger, 90d, mesmo `source` dos dois lados. O sinal do Sonnet 5
   // INVERTE com o tamanho da saída, porque o thinking cobra um pedágio quase fixo
@@ -485,6 +490,9 @@ export const PINNED_TASKS = new Set([
   // dias: 9 de 9 chamadas no Sonnet 4.6 (Boehringer e ACME Demo), o roteiro das mesmas células
   // no Opus 5.
   'video_avatar_grupo',
+  // Plano visual v7 (17/10/2026): recebe a empresa, e sem o pino o `modelo_padrao` das empresas trocaria o modelo
+  // validado (Opus 5.5 `low`) por um que ninguém testou na biblioteca.
+  'video_plano_visual',
 ]);
 
 /**

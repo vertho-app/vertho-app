@@ -127,6 +127,8 @@ function stubFetch() {
       if (u.includes('select=assets')) return ok([{ assets: assetsIniciais }]);
       if (u.includes('select=empresa_id')) return ok([{ empresa_id: 'emp-1' }]);
     }
+    // A chave do plano visual v7 (17/10/2026) é lida da empresa: aqui, cliente sem ela (o vídeo de hoje).
+    if (u.includes('/rest/v1/empresas?')) return ok([{ nome: 'Empresa', segmento: null, sys_config: {} }]);
     return new Response('{}', { status: 404 });
   }));
 }

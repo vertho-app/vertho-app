@@ -193,6 +193,9 @@ export const SAIDAS_AO_CLIENTE: Readonly<Record<string, FormaDaSaida>> = {
   relatorio_rh: 'json',
   relatorio_comportamental: 'json',
   suporte_whatsapp: 'json',
+  // Texto de tela do vídeo da biblioteca v7 (títulos, cartões, falas): a pessoa lê no vídeo. O plano não confere
+  // eco contra fonte (as âncoras são índices de frase, não texto).
+  video_plano_visual: 'json',
 };
 
 export function formaDaSaidaAoCliente(taskKey?: string | null): FormaDaSaida | null {

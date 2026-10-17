@@ -466,6 +466,13 @@ export const DEGRADACAO = {
    */
   VIDEO_AVATAR_GRUPO_FALLBACK: 'video-avatar-grupo-fallback',
   /**
+   * vídeo (cliente com `sys_config.video_biblioteca_v7` ligada): o plano visual da biblioteca v7 não saiu.
+   * `detalhe.fase` diz onde caiu: `chave` (leitura da empresa), `leitura` (vídeo e módulo), `plano` (Opus, resposta
+   * ilegível ou ilustração que falhou nos dois provedores) ou `gravacao` (`visual_v7`; sem a migration 290 cai aqui).
+   * `aviso`: o vídeo sai no formato de hoje. Chave = videoId:fase. Registrado por `lib/video/v7/no-trigger.ts`.
+   */
+  VIDEO_PLANO_V7_FALHOU: 'video-plano-v7-falhou',
+  /**
    * votação: a cédula de um cargo devia ser a Top 10 dele (decisão de 25/09/2026)
    * e, sem Top 10, mostra a matriz inteira. `aviso`: a pessoa vota normalmente,
    * só que numa lista maior que a combinada. Registrado por `loadResultadosVotacao`

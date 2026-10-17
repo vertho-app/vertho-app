@@ -44,7 +44,7 @@ const NOTA_FIXA_EM_PTBR = ['ia4_avaliacao'];
  * e nunca o cookie de quem clicou em "gerar". `conteudo_podcast` e `conteudo_video` de `actions/conteudos.ts` têm a
  * `taskKey` por variável (formato), então a leitura delas está num teste próprio abaixo.
  */
-const ROTEIRO_COM_IDIOMA = ['conteudo_video', 'video_avatar_grupo'];
+const ROTEIRO_COM_IDIOMA = ['conteudo_video', 'video_avatar_grupo', 'video_plano_visual'];
 
 const RAIZES = ['actions', 'app', 'lib', 'trigger'];
 

@@ -22,6 +22,7 @@ import { ELENCO } from '../lib/tts/elenco';
 import { regionOpts } from '../lib/trigger-region';
 import { registrarDegradacao, DEGRADACAO } from '../lib/degradacao';
 import { ensureRenderWorker } from '../lib/video/ensure-render-worker';
+import { planoVisualV7 } from '../lib/video/v7/no-trigger';
 
 const exec = promisify(execFile);
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
@@ -743,6 +744,12 @@ export async function executarGeracaoVideoModulo(p: {
       const props = montarInputProps(roteiro, assets, {
         brand: p.brand, fps: p.fps, width: p.width, height: p.height,
       });
+
+      // 4b) PLANO VISUAL da biblioteca v7 (E3 da migração do vídeo, 17/10/2026): só para cliente com
+      // `sys_config.video_biblioteca_v7` ligada; grava `visual_v7` (o render no formato novo é a E4).
+      // Nunca lança: falhou, vira degradação e o vídeo segue no formato de hoje.
+      const planoV7 = await planoVisualV7({ videoId, empresaId: empresaIdDoVideo, roteiro, props });
+      if (planoV7 !== 'desligado') console.log(`${videoId}: plano visual v7 → ${planoV7}`);
 
       // 5) render. scale 1.0 = saída Full HD 1080p (design nativo). O avatar HeyGen
       // agora é gerado em 1920×1080, então não há upscale. VIDEO_RENDER_SCALE permite
