@@ -517,11 +517,8 @@ export function consolidarNotasIA4(
     nivelGeral = Math.min(nivelGeral, 2);
     travasAplicadas.push('Descritor N1 presente → nível geral máximo N2');
   }
-  const temN3 = Object.values(notasPorDesc).some((d: any) => d.nivel >= 3);
-  if (temN3 && nivelGeral < 2) {
-    nivelGeral = 2;
-    travasAplicadas.push('Evidência N3 presente → nível mínimo N2');
-  }
+  // Sem piso: o nível geral nunca fica ACIMA do nível da média (decisão do dono, 17/10/2026). A antiga trava
+  // "evidência N3 → mínimo N2" levava média 1,67 a N2 (Amazon Bowling) e contradizia o PDI, que lê o nível pela nota.
   nivelGeral = Math.max(1, Math.min(4, nivelGeral));
 
   const confs = Object.values(notasPorDesc).map((d: any) => d.confianca || 0).filter((c: number) => c > 0);

@@ -68,7 +68,7 @@ export const CHECK_ITENS: readonly CheckItem[] = [
   { fonte: 'codigo' as const, id: 'B1', peso: 10, critico: false, eixo: 'coerencia_nivel_nota',   texto: 'O nível de cada descritor corresponde à nota decimal pela régua (N1 1,00–1,99 · N2 2,00–2,99 · N3 3,00–3,50 · N4 acima de 3,50).' },
   { fonte: 'codigo' as const, id: 'B2', peso: 10, critico: true,  eixo: 'coerencia_nivel_nota',   texto: 'O MESMO descritor aparece com o MESMO nível em todas as seções (consolidação, avaliação por descritor, destaques, PDI e no texto).' },
   { fonte: 'codigo' as const, id: 'C1', peso: 8,  critico: false, eixo: 'coerencia_consolidacao', texto: 'A média informada confere com as notas por descritor.' },
-  { fonte: 'codigo' as const, id: 'C2', peso: 7,  critico: false, eixo: 'coerencia_consolidacao', texto: 'As travas e o gap estão corretos (descritor N1 → máximo N2; mais de 3 descritores N1 → N1; evidência N3 → mínimo N2; gap = 3 − nível geral).' },
+  { fonte: 'codigo' as const, id: 'C2', peso: 7,  critico: false, eixo: 'coerencia_consolidacao', texto: 'As travas e o gap estão corretos (descritor N1 → máximo N2; mais de 3 descritores N1 → N1; nível geral nunca acima do nível da média; gap = 3 − nível geral).' },
   { id: 'D1', peso: 8,  critico: true,  eixo: 'especificidade_feedback',texto: 'O feedback cita algo específico DESTA pessoa — não serviria igual para qualquer outra.' },
   { id: 'D2', peso: 7,  critico: false, eixo: 'especificidade_feedback',texto: 'O tom é construtivo e trata a pessoa pelo que ela demonstrou, sem julgamento moral.' },
   { id: 'E1', peso: 8,  critico: false, eixo: 'qualidade_recomendacoes',texto: 'Cada gap prioritário vira uma ação praticável e observável no trabalho da pessoa.' },
@@ -298,7 +298,10 @@ export function verificarEmCodigo(avaliacao: any): Record<string, { ok: boolean;
   const problemas: string[] = [];
   if (nN1 > 3 && nivelGravado > 1) problemas.push(`${nN1} descritores N1 exigiam nível geral N1`);
   else if (nN1 > 0 && nivelGravado > 2) problemas.push('descritor N1 presente exigia no máximo N2');
-  if (niveis.some((n) => n >= 3) && nivelGravado < 2) problemas.push('evidência N3 exigia no mínimo N2');
+  // Sem piso desde 17/10/2026: as travas só baixam, então o nível geral nunca passa do nível da média.
+  if (mediaEsperada != null && nivelGravado > nivelDaNota(mediaEsperada)) {
+    problemas.push(`nível geral N${nivelGravado} acima do nível da média ${mediaEsperada} (N${nivelDaNota(mediaEsperada)})`);
+  }
   if (Number(cons.gap) !== Math.max(0, 3 - nivelGravado)) problemas.push(`gap ${cons.gap} ≠ ${Math.max(0, 3 - nivelGravado)}`);
   out.C2 = problemas.length ? { ok: false, obs: problemas.join('; ') } : { ok: true };
 

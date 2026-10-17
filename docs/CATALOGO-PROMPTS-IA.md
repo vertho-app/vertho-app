@@ -546,9 +546,9 @@
 - 🔑 **Consolidação EM CÓDIGO (`route.ts:610-649`)** — o que a IA não faz:
   - `media_descritores` = média das `nota_sugerida`; `nivel_geral = floor(media)`;
   - `gap = max(0, 3 - nivel_geral)` e `lacuna = -gap`; `confianca_geral` = média das confianças ×100;
-  - **três travas**, nesta ordem: `>3 descritores N1` → teto N1; senão `≥1 N1 e nivel>2` → teto N2; e um **piso** — `algum descritor ≥N3 e nivel<2` → mínimo N2.
+  - **duas travas, as duas de teto**, nesta ordem: `>3 descritores N1` → teto N1; senão `≥1 N1 e nivel>2` → teto N2. O nível geral nunca fica acima do nível da média.
   - ⚠️ O catálogo dizia "**3+** descritores N1 → N1". O código é `nN1 > 3`, ou seja **4 ou mais**. Com exatamente 3 aplica-se a trava de teto N2, não a de N1.
-  - ⚠️ A trava de **piso** (N3 → mínimo N2) não estava documentada e não tem equivalente no prompt: é só código.
+  - ⚠️ Havia uma trava de **piso** (algum descritor N3 → mínimo N2), só no código. Saiu em 17/10/2026 por decisão do dono: ela levava média 1,67 a N2 e contradizia o PDI, que lê o nível pela nota. O C2 do check confere que o nível geral não passa do nível da média.
   - `feedback` é objeto no JSON e vira **string** por compatibilidade (`:652`).
 - **Consumido por**: `sessoes_avaliacao.rascunho_avaliacao`. Versionado via `prompt_version_id`.
 
