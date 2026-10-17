@@ -145,6 +145,16 @@ describe('montarMomentos: das âncoras aos segundos do momento', () => {
     expect(r.momentos[0].data.imagem).toBeUndefined();
   });
 
+  it('o plano da IA não escolhe arquivo: um `arquivo` dela é descartado; só fica o nome que nós geramos', () => {
+    const resp: RespostaPlano = { cenas: [{ id: 'scene-2', momentos: [
+      m('imagem', 0, 1, { lado: 'cheia', arquivo: 'x" onerror="alert(1)' }),
+      m('imagem', 2, 3, { lado: 'cheia', arquivo: '../../etc/passwd', imagem: { descricao: 'a classroom' } }),
+    ] }] };
+    const r = montarMomentos(resp, [cena('scene-2', 4)]);
+    expect(r.momentos[0].data.arquivo).toBeUndefined();
+    expect(r.momentos[1].data.arquivo).toBe('s2-2-imagem.png');
+  });
+
   it('encadeia os momentos: buraco ou sobreposição nas frases é corrigido e avisado', () => {
     const resp: RespostaPlano = { cenas: [{ id: 'scene-2', momentos: [m('fluxo', 0, 1), m('balanca', 3, 4)] }] };
     const r = montarMomentos(resp, [cena('scene-2', 6)]);

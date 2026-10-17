@@ -279,6 +279,7 @@ export function montarMomentos(resp: RespostaPlano, cenas: CenaPlano[], modelos:
       excessos.push(...conferirTetos(id, tpl, data));
       if (tpl === 'imagem') {
         const im = obj(data.imagem), lado = (['cheia', 'direita', 'esquerda'].includes(String(data.lado)) ? data.lado : 'cheia') as PedidoImagem['lado'];
+        delete data.arquivo;   // o nome do arquivo é sempre o NOSSO (o plano da IA não escolhe arquivo)
         if (im.descricao) { const nome = id + '.png'; imagens.push({ momento: id, nome, descricao: String(im.descricao), lado }); data.arquivo = nome; }
         else avisos.push(`${id}: modelo imagem sem descrição de imagem`);
         delete data.imagem;

@@ -54,6 +54,14 @@ describe('o index.html', () => {
     expect(JSON.parse(json).momentos[0].data.texto).toBe('fim da tag </script><img src=x onerror=alert(1)>');
   });
 
+  it('mídia só da pasta do projeto e com nome simples (o endereço vai para o src da página)', () => {
+    const base = { momentos: [mom('s2-1-imagem', 'imagem')], runtime };
+    expect(() => htmlDaComposicao({ ...base, assets: { 'x.png': 'javascript:alert(1)' } })).toThrow(/mídia/);
+    expect(() => htmlDaComposicao({ ...base, assets: { 'x" onerror="y.png': 'midia/x.png' } })).toThrow(/mídia/);
+    expect(() => htmlDaComposicao({ ...base, audios: [{ arquivo: 'midia/a" onplay="b.mp3', inicio: 0 }] })).toThrow(/áudio/);
+    expect(() => htmlDaComposicao({ ...base, audios: [{ arquivo: '../segredo.mp3', inicio: 0 }] })).toThrow(/áudio/);
+  });
+
   it('carrega o executor antes das linhas da marca, a biblioteca antes da camada, e o driver por último', () => {
     const pos = (marca: string) => html.indexOf(marca);
     const ordem = ['window.__vertho = {', 'window.UI = (function', 'window.LIB = { T, ICONES }', 'window.__vertho.cena = cena', "getElementById('filme-dados')"].map(pos);
@@ -86,6 +94,14 @@ describe('o executor próprio (kit.js)', () => {
     expect(kit.eo(0.1)).toBeCloseTo(0.271, 3);   // medido no player: 1ª palavra a 0,05 s de 0,5 s = 0,271
     expect([kit.eo(0), kit.eio(0), kit.eob(0), kit.eo(1), kit.eio(1), kit.eob(1)]).toEqual([0, 0, 0, 1, 1, 1]);
     expect(kit.eob(0.7)).toBeGreaterThan(1);   // passa do ponto e volta
+  });
+
+  it('arquivo não registrado não vira endereço (o nome vem do plano da IA)', () => {
+    const V = (ctx.window as { __vertho: { setAsset: (n: string, u: string) => void; kit: { assets: { url: (n: string) => string; has: (n: string) => boolean } } } }).__vertho;
+    V.setAsset('s2-1-imagem.png', 'midia/s2-1-imagem.png');
+    expect(V.kit.assets.url('s2-1-imagem.png')).toBe('midia/s2-1-imagem.png');
+    expect(V.kit.assets.url('x" onerror="alert(1)')).toBe('');
+    expect(V.kit.assets.has('constructor')).toBe(false);
   });
 
   it('a digitação é determinística e termina perto do player de referência (medido em 17/10)', () => {

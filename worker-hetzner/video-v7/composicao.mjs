@@ -62,9 +62,12 @@ const jsonSeguro = (o) => JSON.stringify(o).replace(/</g, '\\u003c');
  */
 export function htmlDaComposicao({ momentos, assets = {}, audios = [], runtime, fps = 30, largura = 1920, altura = 1080, fundoPalco = '#0F2B54' }) {
   const { momentos: ms, duracao } = linhaDoTempo(momentos);
+  // mídia só da pasta do projeto e com nome simples: o endereço vai para atributos (src) da página
+  const RE_MIDIA = /^midia\/[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
+  for (const [nome, url] of Object.entries(assets)) if (!RE_ARQ.test(nome) || !RE_MIDIA.test(String(url))) throw new Error('arquivo de mídia inválido: ' + nome);
+  for (const a of audios) if (!RE_MIDIA.test(String(a.arquivo))) throw new Error('áudio fora da pasta de mídia: ' + a.arquivo);
   const dados = { momentos: ms, duracao, fps, assets, fontes: ['400 40px "Codec-ExtraBold"', '400 40px "Roboto"', '500 40px "Roboto"', '700 40px "Roboto"'] };
   const tagsAudio = audios.map((a, i) => {
-    if (!RE_ARQ.test(path.basename(a.arquivo))) throw new Error('nome de áudio inválido: ' + a.arquivo);
     const ini = Math.max(0, +a.inicio || 0);
     return `  <audio id="voz-${i}" src="${a.arquivo}" data-start="${ini}" data-duration="${(duracao - ini).toFixed(3)}" data-volume="1"></audio>`;
   });
