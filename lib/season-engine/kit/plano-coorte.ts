@@ -13,10 +13,7 @@
  * semana 3. Ninguém dispara o que ninguém sabe que falta. Ver F-I11 do FMEA.
  */
 
-import { TRILHA, TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
-
-/** Trilha que terminou e não recebe mais conteúdo (não entra no plano de kits). */
-export const TRILHA_TERMINADA: readonly string[] = [TRILHA.CONCLUIDA, TRILHA.ENCERRADA, TRILHA.ARQUIVADA];
+import { TRILHA_TERMINADA, TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
 import { COLUNAS_PREFERENCIA_KIT, formatosDaCelula, type FormatosDaCelula } from './formatos-por-preferencia';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
 

@@ -45,6 +45,12 @@ export const TRILHA = {
 export type TrilhaStatus = (typeof TRILHA)[keyof typeof TRILHA];
 
 /**
+ * Trilha que TERMINOU (17/10/2026): não pede kit e a pausa de envios não a esconde, porque é histórico que a pessoa
+ * continua lendo. Lista dos estados terminais, não dos vivos: um status novo segue tratado como trilha viva.
+ */
+export const TRILHA_TERMINADA: readonly string[] = [TRILHA.CONCLUIDA, TRILHA.ENCERRADA, TRILHA.ARQUIVADA];
+
+/**
  * fase4_envios.status — inscrição na cadência semanal (o cron `triggerDiario`
  * só envia pra quem está ATIVO).
  *

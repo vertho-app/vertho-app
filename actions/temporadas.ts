@@ -24,7 +24,7 @@ import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction,
 import { protectedAction, DomainError } from '@/lib/auth/protected-action';
 import { findTrilhaComTenant, updateTrilhaInTenant, updateSemanaProgressoInTenant } from '@/lib/repositories/trilhas-repo';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { PROGRESSO, TRILHA } from '@/lib/status';
+import { PROGRESSO, TRILHA, TRILHA_TERMINADA } from '@/lib/status';
 import { marcarSemanaConsumida } from '@/lib/season-engine/consumo-conteudo';
 import { statusAoTocarSemana } from '@/lib/season-engine/progresso-semana';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
@@ -1037,8 +1037,10 @@ export async function loadTemporada(colaboradorId: string, opts: { semanaTranscr
 
     // Empresa com os envios pausados (dono, 16/10/2026, "esconder até liberar"): para a PRÓPRIA pessoa, a trilha sai
     // sem data de início. Sem data nenhuma semana libera (`semanaLiberadaPorData`), e a tela diz "começa em breve".
-    // Gestor e RH continuam vendo a trilha como ela é.
+    // Gestor e RH continuam vendo a trilha como ela é. Trilha que já TERMINOU não é escondida (17/10/2026): na
+    // Temporada 2 de Ibipeba a pausa trancava o histórico da Temporada 1, que a pessoa continua podendo ler.
     const inicioPausado = ctx.colaborador?.id === colaboradorId && !ctx.isPlatformAdmin
+      && !TRILHA_TERMINADA.includes(trilha.status)
       && !!(await pausaDaEmpresa(sbRaw, colaborador.empresa_id));
 
     return {

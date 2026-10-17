@@ -77,9 +77,19 @@ describe('telas da pessoa: o PDI fica "em preparação" com a empresa pausada (d
 describe('telas da pessoa: a trilha "começa em breve" com a empresa pausada', () => {
   it('loadTemporada tira a data de início SÓ na visão da própria pessoa (gestor e RH veem a trilha como é)', () => {
     const f = readFileSync('actions/temporadas.ts', 'utf8');
-    expect(f).toMatch(/const inicioPausado = ctx\.colaborador\?\.id === colaboradorId && !ctx\.isPlatformAdmin\s*&& !!\(await pausaDaEmpresa\(sbRaw, colaborador\.empresa_id\)\)/);
+    expect(f).toMatch(/const inicioPausado = ctx\.colaborador\?\.id === colaboradorId && !ctx\.isPlatformAdmin\s*&& !TRILHA_TERMINADA\.includes\(trilha\.status\)\s*&& !!\(await pausaDaEmpresa\(sbRaw, colaborador\.empresa_id\)\)/);
     expect(f).toMatch(/\.\.\.\(inicioPausado \? \{ data_inicio: null \} : \{\}\)/);
     expect(f).toMatch(/inicioPausado,\s*progresso:/);
+  });
+  /**
+   * 17/10/2026, Ibipeba Temporada 2: a pausa trancava o HISTÓRICO da Temporada 1 (trilhas encerradas e concluídas
+   * sem data não liberam semana nenhuma), e a regra do dono é que a pessoa continua lendo o que fez.
+   */
+  it('trilha que já TERMINOU não é escondida pela pausa (é histórico); a viva é', async () => {
+    const { TRILHA, TRILHA_TERMINADA } = await import('@/lib/status');
+    expect([...TRILHA_TERMINADA].sort()).toEqual([TRILHA.ARQUIVADA, TRILHA.CONCLUIDA, TRILHA.ENCERRADA].sort());
+    expect(TRILHA_TERMINADA).not.toContain(TRILHA.ATIVA);
+    expect(TRILHA_TERMINADA).not.toContain(TRILHA.PAUSADA);
   });
   it('sem data de início nenhuma semana libera (a régua que as telas e o servidor usam)', async () => {
     const { semanaLiberadaPorData, avaliarAcessoSemana } = await import('@/lib/season-engine/week-gating');
