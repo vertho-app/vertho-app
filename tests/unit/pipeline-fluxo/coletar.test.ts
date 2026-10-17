@@ -68,6 +68,7 @@ describe('coletarEntradaPrevia — escopo e filtros', () => {
     development_blueprints: [{ colaborador_id: 'a', auditado_em: '2026-09-01' }, { colaborador_id: 'b', auditado_em: null }],
     relatorios: [{ colaborador_id: 'a' }],
     trilhas: [{ colaborador_id: 'c' }],
+    turma_membros: [],
   };
   const tdb = {
     from: (t: string) => {
@@ -122,6 +123,57 @@ describe('coletarEntradaPrevia — escopo e filtros', () => {
     const falho = { from: (t: string) => { const filtros: any[] = []; const q: any = { select: () => q, not: () => q, eq: () => q, or: () => q, order: () => q, in: () => { filtros.push(1); return q; }, range: () => Promise.resolve(filtros.length ? { data: null, error: { message: 'exc' } } : { data: [], error: null }) }; return q; } };
     const r = await coletarEntradaPrevia(falho, { permitidos: null, incluirInternos: ['z'] });
     expect(r.error).toMatch(/exceção de contas internas\): exc/);
+  });
+  /**
+   * Jornada nova (17/10/2026, Ibipeba Temporada 2): resposta, blueprint, PDI e trilha da jornada ANTERIOR não contam
+   * para quem está numa participação com marco; quem não tem participação segue com a conta de sempre.
+   */
+  it('participação com marco: o que é da jornada anterior não conta; sem participação, nada muda', async () => {
+    const MARCO = '2026-10-07T12:22:33Z';
+    const salvo = { ...tabelas };
+    Object.assign(tabelas, {
+      respostas: [
+        { colaborador_id: 'a', competencia_nome: 'Planejamento', avaliacao_ia: { x: 1 }, created_at: '2026-07-20T00:00:00Z' },
+        { colaborador_id: 'a', competencia_nome: 'Comunicação', avaliacao_ia: null, created_at: '2026-10-08T13:30:55Z' },
+        { colaborador_id: 'b', competencia_nome: 'Simplicidade', avaliacao_ia: null, created_at: '2026-07-20T00:00:00Z' },
+      ],
+      descriptor_assessments: [
+        { colaborador_id: 'a', competencia: 'Planejamento', assessment_date: '2026-10-02T12:13:09Z' },
+        { colaborador_id: 'a', competencia: 'Comunicação', assessment_date: '2026-10-20T00:00:00Z' },
+        { colaborador_id: 'b', competencia: 'Simplicidade', assessment_date: '2026-07-20T00:00:00Z' },
+      ],
+      development_blueprints: [
+        { colaborador_id: 'a', auditado_em: '2026-10-02', gerado_em: '2026-10-02T12:19:04Z' },
+        { colaborador_id: 'b', auditado_em: null, gerado_em: '2026-07-20T00:00:00Z' },
+      ],
+      relatorios: [{ colaborador_id: 'a', gerado_em: '2026-07-20T19:55:12Z' }, { colaborador_id: 'b', gerado_em: '2026-07-20T00:00:00Z' }],
+      trilhas: [
+        { colaborador_id: 'a', criado_em: '2026-07-13T00:00:00Z', turma_membro_id: 'p1' },
+        { colaborador_id: 'b', criado_em: '2026-07-13T00:00:00Z', turma_membro_id: null },
+      ],
+      turma_membros: [
+        { id: 'p1', turma_id: 't1', colaborador_id: 'a', status: 'concluido', created_at: '2026-07-13T00:00:00Z', marco_jornada: null },
+        { id: 'p2', turma_id: 't2', colaborador_id: 'a', status: 'ativo', created_at: MARCO, marco_jornada: MARCO },
+      ],
+    });
+    try {
+      const { entrada } = await coletarEntradaPrevia(tdb, { permitidos: null });
+      // 'a' está na Temporada 2: só a resposta nova conta, e blueprint, PDI e trilha da T1 somem
+      expect(entrada!.respostas.filter((r) => r.colaborador_id === 'a').map((r) => r.competencia_nome)).toEqual(['Comunicação']);
+      expect(entrada!.assessments.filter((x) => x.colaborador_id === 'a').map((x) => x.competencia)).toEqual(['Comunicação']);
+      expect(entrada!.assessments.filter((x) => x.colaborador_id === 'b')).toHaveLength(1);
+      expect(entrada!.blueprints.map((b) => b.colaborador_id)).toEqual(['b']);
+      expect(entrada!.pdis).toEqual(['b']);
+      expect(entrada!.trilhas).toEqual(['b']);
+      // 'b' não tem participação: tudo dele continua contando
+      expect(entrada!.respostas.filter((r) => r.colaborador_id === 'b')).toHaveLength(1);
+    } finally { Object.assign(tabelas, salvo); }
+  });
+  it('erro ao ler as participações derruba a coleta (não vira "todo artefato vale")', async () => {
+    const falho = { from: (t: string) => { const q: any = { select: () => q, not: () => q, eq: () => q, or: () => q, order: () => q, range: () => Promise.resolve(t === 'turma_membros' ? { data: null, error: { message: 'tm' } } : { data: [], error: null }) }; return q; } };
+    const r = await coletarEntradaPrevia(falho, { permitidos: null });
+    expect(r.entrada).toBeUndefined();
+    expect(r.error).toMatch(/participações: tm/);
   });
   it('erro de leitura em qualquer tabela derruba a coleta com a causa (nunca uma prévia "vazia")', async () => {
     const falho = { from: (t: string) => { const q: any = { select: () => q, not: () => q, eq: () => q, or: () => q, order: () => q, range: () => Promise.resolve(t === 'respostas' ? { data: null, error: { message: 'x' } } : { data: [], error: null }) }; return q; } };

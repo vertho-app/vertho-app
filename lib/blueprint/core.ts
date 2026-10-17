@@ -15,6 +15,8 @@
 
 import { tenantDb } from '@/lib/tenant-db';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { arquivarArtefatoAtual } from '@/lib/artefatos-historico';
+import { artefatoValeNaJornada, carregarJornadasAtuais } from '@/lib/turmas/jornada-atual';
 import { focoDaPessoa } from '@/lib/foco-cargo';
 import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 import { buildBlueprintPrompt, type BlueprintCompetenciaInput } from '@/lib/blueprint/prompt';
@@ -48,9 +50,14 @@ export interface FilaBlueprintItem { id: string; nome: string; foco: string[]; }
 export async function resolverFilaBlueprint100(tdb: any): Promise<FilaBlueprintItem[]> {
   const { data: colabs } = await tdb.from('colaboradores').select('id, nome_completo, cargo');
   if (!colabs?.length) return [];
-  const { data: assess } = await tdb.from('descriptor_assessments').select('colaborador_id, competencia');
+  const { data: assess, error: errAssess } = await tdb.from('descriptor_assessments').select('colaborador_id, competencia, assessment_date');
+  if (errAssess) throw new Error(`descriptor_assessments: ${errAssess.message}`);
+  // "Mapeada" é na JORNADA ATUAL (17/10/2026): com o foco do cargo ainda na competência da Temporada 1, as notas
+  // antigas punham a pessoa da Temporada 2 na fila e o blueprint seria regerado na competência errada. Sem
+  // participação com marco, toda nota conta (a conta de sempre).
+  const jornadas = await carregarJornadasAtuais(tdb);
   const mapPorColab = new Map<string, Set<string>>();
-  for (const a of assess || []) {
+  for (const a of (assess || []).filter((x: any) => artefatoValeNaJornada(jornadas, x.colaborador_id, x.assessment_date))) {
     if (!mapPorColab.has(a.colaborador_id)) mapPorColab.set(a.colaborador_id, new Set());
     mapPorColab.get(a.colaborador_id)!.add(normNome(a.competencia));
   }
@@ -108,12 +115,17 @@ export async function separarPorBlueprintExistente(
   fila: FilaBlueprintItem[],
 ): Promise<{ pendentes: FilaBlueprintItem[]; jaTem: FilaBlueprintItem[] }> {
   if (!fila.length) return { pendentes: [], jaTem: [] };
-  const { data, error } = await tdb.from('development_blueprints').select('colaborador_id');
+  const { data, error } = await tdb.from('development_blueprints').select('colaborador_id, gerado_em');
   // supabase-js RETORNA `{ error }`. Sem checar, uma falha de leitura viraria
   // "ninguém tem blueprint" e o lote regeraria a coorte INTEIRA — exatamente o
   // estrago que esta função existe para impedir, entrando pela porta dos fundos.
   if (error) throw new Error(`development_blueprints: ${error.message}`);
-  const comBp = new Set(((data as any[]) || []).map((b) => b.colaborador_id));
+  // "Já tem" é da JORNADA ATUAL (17/10/2026): o blueprint de uma jornada anterior (Temporada 1 de Ibipeba) não
+  // conta, senão a pessoa nunca ganharia o da jornada nova. Sem participação com marco, a conta de sempre.
+  const jornadas = await carregarJornadasAtuais(tdb);
+  const comBp = new Set(((data as any[]) || [])
+    .filter((b) => artefatoValeNaJornada(jornadas, b.colaborador_id, b.gerado_em))
+    .map((b) => b.colaborador_id));
   return {
     pendentes: fila.filter((f) => !comBp.has(f.id)),
     jaTem: fila.filter((f) => comBp.has(f.id)),
@@ -255,8 +267,14 @@ export async function persistBlueprintFromText(
   blueprint.spec_version = BLUEPRINT_SPEC_VERSION;
 
   const tdb = tenantDb(empresaId);
+  // A versão anterior vai para o histórico ANTES de ser sobrescrita (mig 289); sem arquivo, não sobrescreve.
+  const arquivo = await arquivarArtefatoAtual(tdb, 'blueprint', colaboradorId);
+  if (arquivo.error) return { error: arquivo.error };
+  // `auditoria`/`auditado_em` zerados: o upsert não os tocava, e o blueprint novo herdava a auditoria do anterior
+  // (que nunca o viu) e ficava fora da fila de auditoria (`auditado_em == null`). Vale para toda regeração.
   const { data: saved, error: saveErr } = await tdb.from('development_blueprints').upsert({
     colaborador_id: colaboradorId, blueprint, spec_version: BLUEPRINT_SPEC_VERSION, gerado_em: new Date().toISOString(),
+    auditoria: null, auditado_em: null,
   }, { onConflict: 'empresa_id,colaborador_id' }).select('id').maybeSingle();
   if (saveErr) return { error: saveErr.message };
   return { ok: true, blueprintId: saved?.id };

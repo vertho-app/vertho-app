@@ -123,4 +123,31 @@ describe('buscarFilaPdi', () => {
       expect(r.error, tabela).toMatch(new RegExp(`${tabela}: boom`));
     }
   });
+  /**
+   * Jornada nova (17/10/2026, Ibipeba Temporada 2): o PDI e a resposta da jornada ANTERIOR não contam para quem está
+   * numa participação com marco. Sem isto, 25 pessoas "já tinham PDI" (o da Temporada 1) e eram puladas.
+   */
+  it('participação com marco: PDI e resposta de antes do marco não contam; sem participação, nada muda', async () => {
+    const MARCO = '2026-10-07T12:22:33Z';
+    const r: any = await buscarFilaPdi(banco({
+      cargos_empresa: [{ empresa_id: 'e', nome: 'CAIXA', top5_workshop: ['x'] }],
+      colaboradores: [{ id: 'a', empresa_id: 'e', cargo: 'CAIXA' }, { id: 'b', empresa_id: 'e', cargo: 'CAIXA' }, { id: 'c', empresa_id: 'e', cargo: 'CAIXA' }],
+      turma_membros: [
+        { id: 'pa1', empresa_id: 'e', turma_id: 't1', colaborador_id: 'a', status: 'concluido', created_at: '2026-07-13T00:00:00Z', marco_jornada: null },
+        { id: 'pa2', empresa_id: 'e', turma_id: 't2', colaborador_id: 'a', status: 'ativo', created_at: MARCO, marco_jornada: MARCO },
+        { id: 'pc2', empresa_id: 'e', turma_id: 't2', colaborador_id: 'c', status: 'ativo', created_at: MARCO, marco_jornada: MARCO },
+      ],
+      respostas: [
+        resp('a', 'cx', { created_at: '2026-10-08T13:30:55Z' }), // T2
+        resp('b', 'cx', { created_at: '2026-07-20T00:00:00Z' }), // sem participação: conta
+        resp('c', 'cx', { created_at: '2026-07-20T00:00:00Z' }), // só da T1: não completa a T2
+      ],
+      relatorios: [
+        { empresa_id: 'e', colaborador_id: 'a', tipo: 'individual', gerado_em: '2026-07-20T19:55:12Z' }, // PDI da T1
+        { empresa_id: 'e', colaborador_id: 'b', tipo: 'individual', gerado_em: '2026-07-20T19:55:12Z' },
+      ],
+    }).client);
+    expect(r.pendentes).toEqual(['a']); // o PDI da T1 não o tira da fila
+    expect(r.jaGerados).toEqual(['b']); // sem participação: a conta de sempre
+  });
 });

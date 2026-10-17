@@ -13,6 +13,8 @@ import type { AIConfig } from '@/actions/ai-client';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { travaRegeracao } from '@/lib/season-engine/trava-regeracao';
+import { carregarJornadaAtual } from '@/lib/turmas/jornada-atual';
+import { lerBlueprintDaJornada } from '@/lib/blueprint/da-jornada';
 
 /**
  * Gera uma temporada pra um colaborador, focada em 1 competência.
@@ -75,12 +77,15 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     // 1) Determina competência foco — trilha existente → pessoa → cargo → erro
     let competenciaAlvo = competencia;
     if (!competenciaAlvo) {
-      const { data: trilhaExist } = await tdb.from('trilhas')
-        .select('competencia_foco')
-        .eq('colaborador_id', colaboradorId)
-        .order('criado_em', { ascending: false })
-        .limit(1).maybeSingle();
-      competenciaAlvo = trilhaExist?.competencia_foco;
+      // A trilha existente da JORNADA ATUAL (17/10/2026): a mais recente da pessoa era a da Temporada 1 de Ibipeba, e
+      // a trilha da Temporada 2 nasceria na competência antiga. Sem participação com marco, é a mais recente (como antes).
+      let jornada;
+      try {
+        jornada = await carregarJornadaAtual(sbRaw, colab.empresa_id, colaboradorId, 'competencia_foco');
+      } catch (e: any) {
+        return { error: `Falha ao ler a jornada atual da pessoa: ${e?.message || e}` };
+      }
+      competenciaAlvo = jornada.trilha?.competencia_foco;
     }
     if (!competenciaAlvo) competenciaAlvo = focoIndividual(colab)[0];
     if (!competenciaAlvo && colab.cargo) {
@@ -275,11 +280,10 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     // `conteudosPorSemana: 2` era config morta — quem consultava não existia.
     let blueprintInputsSingle: BlueprintTrilhaInputs | null = null;
     if ((programaConfig.conteudosPorSemana || 1) >= 2) {
-      const { data: bpRow, error: errBp } = await tdb.from('development_blueprints')
-        .select('blueprint')
-        .eq('colaborador_id', colab.id)
-        .order('gerado_em', { ascending: false })
-        .limit(1).maybeSingle();
+      // O blueprint da JORNADA ATUAL (`lerBlueprintDaJornada`): o de uma jornada anterior conta como ausente.
+      const bpJ = await lerBlueprintDaJornada(sbRaw, tdb, colab.empresa_id, colab.id);
+      const bpRow = bpJ.blueprint ? { blueprint: bpJ.blueprint } : null;
+      const errBp = bpJ.error ? { message: bpJ.error } : bpJ.deOutraJornada ? { message: 'blueprint de uma jornada anterior' } : null;
       // Sem blueprint (ou sem conseguir lê-lo) a geração cai em `selectDescriptors`,
       // que aloca um descritor por semana. Era calado (R-85): agora fica registrado.
       if (errBp || !bpRow?.blueprint) {
@@ -669,11 +673,10 @@ export async function gerarTemporadaRegularDuo(args: {
   const blueprintDrivesTrilha = process.env.BLUEPRINT_DRIVES_TRILHA === '1'
     || cfgDuo.blueprint_drives_trilha === true;
   if (blueprintDrivesTrilha) {
-    const { data: bpRow, error: errBp } = await tdb.from('development_blueprints')
-      .select('blueprint')
-      .eq('colaborador_id', colab.id)
-      .order('gerado_em', { ascending: false })
-      .limit(1).maybeSingle();
+    // O blueprint da JORNADA ATUAL (`lerBlueprintDaJornada`): o de uma jornada anterior conta como ausente.
+    const bpJ = await lerBlueprintDaJornada(args.sbRaw, tdb, colab.empresa_id, colab.id);
+    const bpRow = bpJ.blueprint ? { blueprint: bpJ.blueprint } : null;
+    const errBp = bpJ.error ? { message: bpJ.error } : bpJ.deOutraJornada ? { message: 'blueprint de uma jornada anterior' } : null;
     // Flag ligada e sem blueprint: o fallback fica registrado (R-85), não calado.
     if (errBp || !bpRow?.blueprint) {
       console.warn(`[DUO] sem blueprint (${errBp?.message || 'não gerado'}), fallback selectDescriptorsDuo`);

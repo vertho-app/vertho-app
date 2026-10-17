@@ -62,3 +62,42 @@ describe('resolverFilaBlueprint100 com a competência de cada pessoa', () => {
     await expect(resolverFilaBlueprint100(tdb)).rejects.toThrow(/competência própria/);
   });
 });
+
+/**
+ * "Mapeada" é na JORNADA ATUAL (17/10/2026, Ibipeba Temporada 2). Com o foco do cargo ainda na competência da
+ * Temporada 1, as notas antigas punham a pessoa na fila e o blueprint seria regerado na competência errada.
+ */
+describe('resolverFilaBlueprint100: notas da jornada atual', () => {
+  const MARCO = '2026-10-07T12:22:33Z';
+  const participacoes = [
+    { empresa_id: 'e', id: 'p1', turma_id: 't1', colaborador_id: 'a', status: 'concluido', created_at: '2026-07-13T00:00:00Z', marco_jornada: null },
+    { empresa_id: 'e', id: 'p2', turma_id: 't2', colaborador_id: 'a', status: 'ativo', created_at: MARCO, marco_jornada: MARCO },
+  ];
+
+  it('nota de ANTES do marco não mapeia a jornada nova; nota de depois mapeia; sem participação, conta', async () => {
+    const fila = await resolverFilaBlueprint100(banco({
+      turma_membros: participacoes,
+      descriptor_assessments: [
+        { empresa_id: 'e', colaborador_id: 'a', competencia: 'Rotina', assessment_date: '2026-10-02T12:13:09Z' },
+        { empresa_id: 'e', colaborador_id: 'b', competencia: 'Simplicidade', assessment_date: '2026-07-20T00:00:00Z' },
+      ],
+    }).client);
+    expect(fila.map((f) => f.id)).toEqual(['b']);
+
+    const depois = await resolverFilaBlueprint100(banco({
+      turma_membros: participacoes,
+      descriptor_assessments: [{ empresa_id: 'e', colaborador_id: 'a', competencia: 'Rotina', assessment_date: '2026-10-20T00:00:00Z' }],
+    }).client);
+    expect(depois.map((f) => f.id)).toEqual(['a']);
+  });
+
+  it('falha ao ler as notas LANÇA (não vira "ninguém mapeado")', async () => {
+    const real = banco().client;
+    const tdb = {
+      from: (t: string) => (t === 'descriptor_assessments'
+        ? { select: () => Promise.resolve({ data: null, error: { message: 'timeout' } }) }
+        : real.from(t)),
+    };
+    await expect(resolverFilaBlueprint100(tdb)).rejects.toThrow(/descriptor_assessments: timeout/);
+  });
+});

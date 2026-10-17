@@ -13,7 +13,10 @@
  * semana 3. Ninguém dispara o que ninguém sabe que falta. Ver F-I11 do FMEA.
  */
 
-import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
+import { TRILHA, TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
+
+/** Trilha que terminou e não recebe mais conteúdo (não entra no plano de kits). */
+export const TRILHA_TERMINADA: readonly string[] = [TRILHA.CONCLUIDA, TRILHA.ENCERRADA, TRILHA.ARQUIVADA];
 import { COLUNAS_PREFERENCIA_KIT, formatosDaCelula, type FormatosDaCelula } from './formatos-por-preferencia';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
@@ -143,6 +146,18 @@ export async function levantarPlanoKitsCoorte(
     .order('criado_em', { ascending: false });
   const ultima = new Map<string, any>();
   for (const t of trilhas || []) if (!ultima.has(t.colaborador_id)) ultima.set(t.colaborador_id, t);
+  // Trilha que já TERMINOU não pede kit (17/10/2026): na Temporada 2 de Ibipeba, quem ainda não tem a trilha nova
+  // ficava com a da Temporada 1 (encerrada ou concluída) como "mais recente", e o plano pedia kits e vídeos das
+  // competências antigas. A lista é dos estados terminais, não dos vivos: um status novo continua pedindo kit.
+  // O status vem numa leitura à parte, com o erro checado: falha aqui não pode virar "ninguém terminou".
+  const { data: situacoes, error: errSituacao } = await sb.from('trilhas')
+    .select('colaborador_id, criado_em, status')
+    .in('colaborador_id', colabs.map((c: any) => c.id))
+    .order('criado_em', { ascending: false });
+  if (errSituacao) return { error: `Falha ao ler o status das trilhas: ${errSituacao.message}` };
+  const statusDaUltima = new Map<string, string>();
+  for (const t of situacoes || []) if (!statusDaUltima.has(t.colaborador_id)) statusDaUltima.set(t.colaborador_id, t.status);
+  for (const colabId of [...ultima.keys()]) if (TRILHA_TERMINADA.includes(statusDaUltima.get(colabId) as string)) ultima.delete(colabId);
 
   // Âncora do horizonte: quem começou mais cedo chega primeiro às semanas futuras —
   // usar o MÍNIMO faz o alarme tocar pela pessoa mais adiantada, não pela média.

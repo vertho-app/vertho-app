@@ -46,6 +46,12 @@ let blueprint: any;
 let sysConfigEmpresa: any;
 let membros: any[];
 let turmas: any[];
+/** PDI que já existe (o escritor o arquiva antes de sobrescrever, mig 289). */
+let pdiAtual: any;
+/** Participações lidas em LISTA pela jornada atual (`carregarJornadaAtual`); vazio = janela aberta. */
+let participacoes: any[];
+let blueprintGeradoEm: string;
+let respostaCriadaEm: string | undefined;
 
 function montar() {
   h.sb = criarSupabaseMock({
@@ -54,17 +60,21 @@ function montar() {
       empresas: { nome: 'Rede Municipal', segmento: 'educacao', sys_config: sysConfigEmpresa },
       cargos_empresa: { top5_workshop: [COMP], competencia_foco: COMP, competencias_foco: [COMP] },
       trilhas: trilha,
-      development_blueprints: blueprint ? { blueprint } : null,
+      development_blueprints: blueprint ? { blueprint, gerado_em: blueprintGeradoEm } : null,
+      relatorios: pdiAtual,
       // `carregarParticipacaoAtiva` lê a participação e a turma por `maybeSingle`.
       turma_membros: membros[0] ? { id: 'm1', ...membros[0] } : null,
       turmas: turmas[0] ? { nome: 'Safra', data_inicio: null, status: 'ativa', ...turmas[0] } : null,
     } as Record<string, any>)[tabela] ?? null,
     lista: (tabela: string) => {
+      // A trilha do PDI é a da jornada atual (`carregarJornadaAtual`), que lê as trilhas da pessoa como LISTA.
+      if (tabela === 'trilhas') return trilha ? [{ id: 'tr1', criado_em: '2026-07-13T00:00:00Z', turma_membro_id: null, ...trilha }] : [];
+      if (tabela === 'turma_membros') return participacoes;
       if (tabela === 'respostas') {
         return [{
           competencia_nome: COMP, colaborador_id: 'c1', cenario_id: null, r1: 'Conversaria antes.',
           avaliacao_ia: { consolidacao: { nivel_geral: 2, media_descritores: 2.2 }, feedback: { resumo_geral: 'Priorizou a turma.' } },
-          nivel_ia4: 2, nota_ia4: 2.2,
+          nivel_ia4: 2, nota_ia4: 2.2, created_at: respostaCriadaEm,
         }];
       }
       return [];
@@ -80,6 +90,10 @@ beforeEach(() => {
   sysConfigEmpresa = {};
   membros = [];
   turmas = [];
+  pdiAtual = null;
+  participacoes = [];
+  blueprintGeradoEm = '2026-08-14T00:00:00Z';
+  respostaCriadaEm = undefined;
   montar();
 });
 
@@ -248,7 +262,8 @@ describe('a linha do tempo de fallback só desenha semanas onde há desenho', ()
 
 describe('a construção do PDI não engole falha de leitura (guard E11)', () => {
   it.each([
-    ['trilhas', /Falha ao ler a trilha da pessoa/],
+    ['trilhas', /Falha ao ler a jornada atual da pessoa: não foi possível ler as trilhas/],
+    ['turma_membros', /Falha ao ler a jornada atual da pessoa: não foi possível ler as participações/],
     ['colaboradores', /Falha ao ler o colaborador/],
     ['empresas', /Falha ao ler a empresa/],
   ])('falha ao ler %s volta como erro, não como PDI sem o dado', async (tabela, esperado) => {
@@ -262,5 +277,70 @@ describe('a construção do PDI não engole falha de leitura (guard E11)', () =>
     h.sb.falharEm({ tabela: 'colaboradores', op: 'select', mensagem: 'JSON object requested, multiple (or no) rows returned', code: 'PGRST116' });
     const built: any = await buildRelatorioIndividualPrompt(h.sb.client as any, { empresaId: 'e1', colaboradorId: 'c1' });
     expect(built.error).toBe('Colaborador não encontrado');
+  });
+});
+
+/**
+ * Jornada nova e histórico (17/10/2026, Ibipeba Temporada 2). O PDI usa o blueprint ANTES do foco do cargo, então um
+ * blueprint da Temporada 1 levaria o PDI novo para a competência antiga; e o escritor arquivava nada (upsert por cima).
+ */
+describe('PDI da jornada atual e histórico (mig 289)', () => {
+  const MARCO = '2026-10-07T12:22:33Z';
+  const T2 = [
+    { id: 'p1', turma_id: 't1', colaborador_id: 'c1', status: 'concluido', created_at: '2026-07-13T00:00:00Z', marco_jornada: null },
+    { id: 'p2', turma_id: 't2', colaborador_id: 'c1', status: 'ativo', created_at: MARCO, marco_jornada: MARCO },
+  ];
+  const BP = { competencias: [{ nome: 'Planejamento e Organização', objetivos_30_dias: [] }], trilha: { semanas: [{ semana: 1, conexao_com_pdi: ['x'] }] } };
+
+  it('🔴 blueprint de ANTES do marco não é o do PDI novo (conta como ausente)', async () => {
+    blueprint = BP;
+    blueprintGeradoEm = '2026-10-02T12:19:04Z';
+    participacoes = T2;
+    respostaCriadaEm = '2026-10-08T13:30:55Z';
+    montar();
+    const built: any = await buildRelatorioIndividualPrompt(h.sb.client as any, { empresaId: 'e1', colaboradorId: 'c1' });
+    expect(built.error, built.error).toBeUndefined();
+    expect(built.blueprint).toBeNull();
+    expect(built.user).not.toContain('Planejamento e Organização');
+  });
+
+  it('blueprint gerado DEPOIS do marco é o do PDI', async () => {
+    const bpNovo = { ...BP, competencias: [{ nome: COMP, objetivos_30_dias: [] }] };
+    blueprint = bpNovo;
+    blueprintGeradoEm = '2026-10-20T10:00:00Z';
+    participacoes = T2;
+    respostaCriadaEm = '2026-10-08T13:30:55Z';
+    montar();
+    const built: any = await buildRelatorioIndividualPrompt(h.sb.client as any, { empresaId: 'e1', colaboradorId: 'c1' });
+    expect(built.error, built.error).toBeUndefined();
+    expect(built.blueprint).toEqual(bpNovo);
+  });
+
+  it('resposta da jornada ANTERIOR não completa o mapeamento da nova', async () => {
+    participacoes = T2;
+    respostaCriadaEm = '2026-07-20T00:00:00Z';
+    montar();
+    const built: any = await buildRelatorioIndividualPrompt(h.sb.client as any, { empresaId: 'e1', colaboradorId: 'c1' });
+    expect(built.error).toMatch(/Avaliação incompleta: 0\/1/);
+  });
+
+  it('o PDI anterior vai para o histórico ANTES de ser sobrescrito', async () => {
+    pdiAtual = { id: 'r1', conteudo: { acolhimento: 'T1' }, pdf_path: 'e1/individual-ana-1.pdf', gerado_em: '2026-07-20T19:55:12Z' };
+    montar();
+    await totalGravado();
+    const ordem = h.sb.escritas.map((e: any) => e.tabela);
+    expect(ordem).toEqual(['artefatos_jornada_historico', 'relatorios']);
+    expect(h.sb.escritas[0].payload).toMatchObject({ tipo: 'pdi', origem_id: 'r1', pdf_path: 'e1/individual-ana-1.pdf', gerado_em: '2026-07-20T19:55:12Z' });
+  });
+
+  it('🔴 o histórico falha: o PDI anterior NÃO é sobrescrito', async () => {
+    pdiAtual = { id: 'r1', conteudo: { acolhimento: 'T1' }, pdf_path: null, gerado_em: '2026-07-20T19:55:12Z' };
+    montar();
+    h.sb.falharEm({ tabela: 'artefatos_jornada_historico', op: 'upsert', mensagem: 'relation does not exist' });
+    const built: any = await buildRelatorioIndividualPrompt(h.sb.client as any, { empresaId: 'e1', colaboradorId: 'c1' });
+    const r = await persistRelatorioIndividualFromText(h.sb.client as any, { empresaId: 'e1', colaboradorId: 'c1', texto, built });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/não arquivei o pdi atual/);
+    expect(h.sb.escritas.filter((e: any) => e.tabela === 'relatorios')).toEqual([]);
   });
 });

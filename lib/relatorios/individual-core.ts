@@ -1,4 +1,5 @@
 import { tenantDb } from '@/lib/tenant-db';
+import { arquivarArtefatoAtual } from '@/lib/artefatos-historico';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import { callAI, type AIConfig } from '@/actions/ai-client';
@@ -321,6 +322,10 @@ export async function persistRelatorioIndividualFromText(
       const buffer = await gerarPDFBuffer('individual', pdfData, empresa.nome, locale);
       if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'individual', colab.nome_completo, buffer, locale);
     } catch (e: any) { console.error('[PDF Gen]', e.message); }
+
+    // O PDI anterior vai para o histórico ANTES de ser sobrescrito (mig 289); sem arquivo, não sobrescreve.
+    const arquivo = await arquivarArtefatoAtual(tdb, 'pdi', colaboradorId);
+    if (arquivo.error) return { success: false, error: arquivo.error };
 
     // Salvar — empresa_id é injetado pelo tdb.upsert
     const { error: saveErr } = await tdb.from('relatorios').upsert({

@@ -16,6 +16,9 @@ import { getProgramaConfigDaGeracao } from '@/lib/season-engine/programa-config'
 import { carregarContextoTurma } from '@/lib/turmas';
 import { valorDeFiltro } from '@/lib/postgrest-valor';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
+import { carregarJornadaAtual } from '@/lib/turmas/jornada-atual';
+import { dentroDaJanela, instanteDaResposta } from '@/lib/turmas/janela';
+import { lerBlueprintDaJornada } from '@/lib/blueprint/da-jornada';
 
 export interface DadoComp {
   competencia: string;
@@ -221,16 +224,26 @@ export async function buildRelatorioIndividualPrompt(
   if (errEmpresa && errEmpresa.code !== 'PGRST116') return { error: `Falha ao ler a empresa: ${errEmpresa.message}` };
   if (!empresa) return { error: 'Empresa não encontrada' };
 
+  // A JORNADA ATUAL da pessoa (17/10/2026): o PDI de uma jornada nova (Temporada 2 de Ibipeba) usa as respostas, a
+  // trilha e o blueprint DELA, não os da jornada anterior. Sem participação com marco, a janela é aberta (como antes).
+  let jornada;
+  try {
+    jornada = await carregarJornadaAtual(sbRaw, empresaId, colaboradorId, 'competencias_foco, competencia_foco, programa_modo, programa_config');
+  } catch (e: any) {
+    return { error: `Falha ao ler a jornada atual da pessoa: ${e?.message || e}` };
+  }
+
   // Buscar TODAS respostas do colab (avaliadas ou não). Aceita match
   // por colaborador_id OU por email_colaborador (alguns rows antigos
   // têm colaborador_id NULL).
   const emailFilter = (colab.email || '').trim().toLowerCase();
-  const { data: respostas, error: erroRespostas } = await tdb.from('respostas')
-    .select('competencia_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, colaborador_id, email_colaborador, cenario_id, r1, r2, r3, r4, r1_situacao, r2_acao, r3_raciocinio, r4_cis')
+  const { data: respostasTodas, error: erroRespostas } = await tdb.from('respostas')
+    .select('competencia_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, colaborador_id, email_colaborador, cenario_id, r1, r2, r3, r4, r1_situacao, r2_acao, r3_raciocinio, r4_cis, timestamp_resposta, created_at')
     .or(`colaborador_id.eq.${valorDeFiltro(colaboradorId)}${emailFilter ? `,email_colaborador.eq.${valorDeFiltro(emailFilter)}` : ''}`);
   // Leitura que falha não pode virar "não respondeu": seria um PDI construído
   // sem a avaliação, ou o erro enganoso de "nenhuma resposta".
   if (erroRespostas) return { error: `Falha ao ler as respostas: ${erroRespostas.message}` };
+  const respostas = (respostasTodas || []).filter((r: any) => dentroDaJanela(instanteDaResposta(r), jornada.janela));
 
   // Top 5 esperado do cargo (fonte de verdade)
   const { data: cargoEmp } = await tdb.from('cargos_empresa')
@@ -263,13 +276,8 @@ export async function buildRelatorioIndividualPrompt(
   // competências que a trilha do colaborador trabalha. Lê competencias_foco
   // (par DUO, mig 091) ou competencia_foco (single). Sem trilha → cai no
   // top5/respostas. Garante que o que está no PDI é o que a pessoa vai praticar.
-  const { data: trilhaColab, error: errTrilhaColab } = await tdb.from('trilhas')
-    .select('competencias_foco, competencia_foco, criado_em, programa_modo, programa_config')
-    .eq('colaborador_id', colaboradorId)
-    .order('criado_em', { ascending: false })
-    .limit(1).maybeSingle();
-  // Sem ler a trilha o PDI sairia sem o foco dela e sem a duração do programa.
-  if (errTrilhaColab) return { error: `Falha ao ler a trilha da pessoa: ${errTrilhaColab.message}` };
+  // A trilha da JORNADA ATUAL (lida acima, com o erro já tratado): a da jornada anterior não dá foco nem duração.
+  const trilhaColab: any = jornada.trilha;
   const focoTrilha: string[] = (
     Array.isArray(trilhaColab?.competencias_foco) && trilhaColab!.competencias_foco.length
       ? trilhaColab!.competencias_foco
@@ -285,12 +293,10 @@ export async function buildRelatorioIndividualPrompt(
   // Development Blueprint (Fase 1, Estágio 2): fonte ÚNICA do plano. Quando existe,
   // o SPRINT do PDI vem DELE (coerência com a trilha) e a página "vira trilha"
   // mostra o binding real. Sem blueprint → comportamento atual (fallback).
-  const { data: bpRow } = await tdb.from('development_blueprints')
-    .select('blueprint')
-    .eq('colaborador_id', colaboradorId)
-    .order('gerado_em', { ascending: false })
-    .limit(1).maybeSingle();
-  const blueprint: DevelopmentBlueprint | null = (bpRow?.blueprint as DevelopmentBlueprint) || null;
+  // O da JORNADA ATUAL: um blueprint da jornada anterior levaria o PDI para a competência antiga (ele vence o foco).
+  const bpJ = await lerBlueprintDaJornada(sbRaw, tdb, empresaId, colaboradorId, jornada.janela);
+  if (bpJ.error) return { error: `Falha ao ler o blueprint da pessoa: ${bpJ.error}` };
+  const blueprint: DevelopmentBlueprint | null = (bpJ.blueprint as DevelopmentBlueprint) || null;
   const blueprintComps = (blueprint?.competencias || []).map((c) => c.nome).filter(Boolean);
 
   if (!respostas?.length && !top5Esperado.length) {

@@ -21,6 +21,8 @@
 import { lerTudoPaginado } from '@/lib/paginacao';
 import { normalizeAssessmentCompetency } from '@/lib/assessment/completion';
 import { focoIndividual } from '@/lib/foco-cargo';
+import { artefatoValeNaJornada, carregarJornadasAtuais } from '@/lib/turmas/jornada-atual';
+import { instanteDaResposta } from '@/lib/turmas/janela';
 
 export type FilaPdi =
   | { error: string }
@@ -42,21 +44,28 @@ const mesmoCargo = (a: unknown, b: unknown) => String(a || '').trim().toLowerCas
 export async function buscarFilaPdi(tdb: any): Promise<FilaPdi> {
   // Paginado: a fila decide por AUSÊNCIA ("falta resposta") e o PostgREST corta em 1.000 linhas calado.
   const respQ = await lerTudoPaginado((de, ate) => tdb.from('respostas')
-    .select('id, colaborador_id, competencia_id, competencia_nome, status_ia4')
+    .select('id, colaborador_id, competencia_id, competencia_nome, status_ia4, timestamp_resposta, created_at')
     .not('avaliacao_ia', 'is', null)
     .order('id')
     .range(de, ate));
   if (respQ.error) return { error: `respostas: ${respQ.error}` };
-  const respostas = respQ.data;
+
+  // Resposta e PDI contam só na JORNADA ATUAL da pessoa (17/10/2026): na Temporada 2 de Ibipeba, o PDI da
+  // Temporada 1 fazia a pessoa "já ter PDI". Sem participação com marco, a conta de sempre.
+  let jornadas;
+  try { jornadas = await carregarJornadasAtuais(tdb); } catch (e: any) { return { error: String(e?.message || e) }; }
+  const respostas = respQ.data.filter((r: any) => artefatoValeNaJornada(jornadas, r.colaborador_id, instanteDaResposta(r)));
 
   const colabIds = [...new Set((respostas || []).map((r: any) => r.colaborador_id).filter(Boolean))] as string[];
   if (!colabIds.length) return { semAvaliacao: true, pendentes: [], incompletos: 0, aguardandoCheck: 0, jaGerados: [] };
 
   const { data: existentes, error: errRel } = await tdb.from('relatorios')
-    .select('colaborador_id')
+    .select('colaborador_id, gerado_em')
     .eq('tipo', 'individual');
   if (errRel) return { error: `relatorios: ${errRel.message}` };
-  const jaGerados = new Set((existentes || []).map((r: any) => r.colaborador_id));
+  const jaGerados = new Set((existentes || [])
+    .filter((r: any) => artefatoValeNaJornada(jornadas, r.colaborador_id, r.gerado_em))
+    .map((r: any) => r.colaborador_id));
 
   const { data: colabs, error: errColab } = await tdb.from('colaboradores').select('id, cargo, foco_individual').in('id', colabIds);
   if (errColab) return { error: `colaboradores: ${errColab.message}` };

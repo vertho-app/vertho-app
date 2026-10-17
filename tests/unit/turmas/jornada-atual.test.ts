@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { artefatoDaJornadaAtual, escolherJornadaAtual } from '@/lib/turmas/jornada-atual';
+import { artefatoDaJornadaAtual, artefatoValeNaJornada, escolherJornadaAtual, jornadasAtuaisPorPessoa, trilhaValeNaJornada } from '@/lib/turmas/jornada-atual';
 import { JANELA_ABERTA } from '@/lib/turmas/janela';
 
 /**
@@ -74,5 +74,48 @@ describe('artefatoDaJornadaAtual (PDI, blueprint)', () => {
   });
   it('sem corte (sem turma ou sem marco), vale sempre', () => {
     expect(artefatoDaJornadaAtual('2026-01-01T00:00:00Z', JANELA_ABERTA)).toBe(true);
+  });
+});
+
+/**
+ * A mesma regra em LOTE, para as filas (etapa 2, 17/10/2026): o Fluxo e os botões de lote decidiam "já tem blueprint,
+ * PDI, trilha" por PESSOA, e 25 das 34 pessoas que responderam na Temporada 2 de Ibipeba seriam puladas.
+ */
+describe('jornadasAtuaisPorPessoa / artefatoValeNaJornada / trilhaValeNaJornada', () => {
+  const elda1 = { ...turma1, id: 'e1', colaborador_id: 'elda' };
+  const elda2 = { ...turma2, id: 'e2', colaborador_id: 'elda' };
+  const macae = { id: 'm1', turma_id: 'tm', colaborador_id: 'macae', status: 'ativo', created_at: '2026-08-01T00:00:00Z', marco_jornada: null };
+  const jornadas = jornadasAtuaisPorPessoa([turma1, turma2, elda1, elda2, macae]);
+
+  it('só quem tem participação ATIVA entra, com a janela dela', () => {
+    expect([...jornadas.keys()].sort()).toEqual(['elda', 'helmar', 'macae']);
+    expect(jornadas.get('helmar')).toEqual({ participacaoId: 'p2', janela: { de: Date.parse(MARCO), ate: null } });
+    expect(jornadas.get('macae')!.janela).toEqual(JANELA_ABERTA);
+  });
+
+  it('artefato de antes do marco NÃO vale; depois do marco vale', () => {
+    expect(artefatoValeNaJornada(jornadas, 'helmar', '2026-10-02T12:19:04Z')).toBe(false);
+    expect(artefatoValeNaJornada(jornadas, 'helmar', '2026-10-20T00:00:00Z')).toBe(true);
+  });
+
+  it('sem participação ativa, ou participação sem marco (Macaé): vale sempre (a conta de antes)', () => {
+    expect(artefatoValeNaJornada(jornadas, 'ninguem', '2025-01-01T00:00:00Z')).toBe(true);
+    expect(artefatoValeNaJornada(jornadas, 'macae', '2025-01-01T00:00:00Z')).toBe(true);
+    expect(artefatoValeNaJornada(jornadas, null, '2025-01-01T00:00:00Z')).toBe(true);
+  });
+
+  it('artefato sem data numa jornada com corte NÃO vale (não se sabe de qual jornada é)', () => {
+    expect(artefatoValeNaJornada(jornadas, 'helmar', null)).toBe(false);
+  });
+
+  it('trilha: a carimbada com a participação ativa vale; a da Temporada 1 não; sem jornada, vale', () => {
+    expect(trilhaValeNaJornada(jornadas, { colaborador_id: 'helmar', turma_membro_id: 'p2', criado_em: '2026-10-20T00:00:00Z' })).toBe(true);
+    expect(trilhaValeNaJornada(jornadas, { colaborador_id: 'helmar', turma_membro_id: 'p1', criado_em: '2026-07-13T00:00:00Z' })).toBe(false);
+    expect(trilhaValeNaJornada(jornadas, { colaborador_id: 'ninguem', turma_membro_id: 'x', criado_em: '2026-07-13T00:00:00Z' })).toBe(true);
+  });
+
+  it('participação removida ou concluída sozinha não vira jornada atual', () => {
+    const j = jornadasAtuaisPorPessoa([{ ...turma1, status: 'concluido' }, { ...turma2, status: 'removido' }]);
+    expect(j.size).toBe(0);
   });
 });

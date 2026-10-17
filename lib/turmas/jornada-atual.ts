@@ -16,6 +16,7 @@
  */
 
 import { TURMA_MEMBRO } from '@/lib/status';
+import { lerTudoPaginado } from '@/lib/paginacao';
 import {
   JANELA_ABERTA,
   dentroDaJanela,
@@ -96,4 +97,71 @@ export async function carregarJornadaAtual(
   if (participacoesRes.error) throw new Error(`não foi possível ler as participações: ${participacoesRes.error.message}`);
   if (trilhasRes.error) throw new Error(`não foi possível ler as trilhas: ${trilhasRes.error.message}`);
   return escolherJornadaAtual(participacoesRes.data || [], trilhasRes.data || []);
+}
+
+// ── A mesma regra em LOTE, para as filas (etapa 2, 17/10/2026) ──────────────────────────────────────────────────
+//
+// O Fluxo completo e os botões de lote decidiam "já tem blueprint / PDI / trilha" por PESSOA. Na Temporada 2 de
+// Ibipeba, 25 das 34 pessoas que responderam tinham os três da Temporada 1 e seriam PULADAS. Com a jornada atual de
+// cada pessoa, o artefato só conta se nasceu na janela dela; quem não tem participação ativa (ou tem sem marco)
+// continua com a conta de sempre.
+
+/** Participação ativa e janela da jornada atual de UMA pessoa. */
+export interface JornadaDaPessoa {
+  participacaoId: string;
+  janela: Janela;
+}
+
+/** A regra, pura: participações de VÁRIAS pessoas → jornada atual de quem tem participação ativa. */
+export function jornadasAtuaisPorPessoa(participacoes: ParticipacaoLinha[]): Map<string, JornadaDaPessoa> {
+  const janelas = janelasDasParticipacoes(participacoes || []);
+  const out = new Map<string, JornadaDaPessoa>();
+  for (const p of participacoes || []) {
+    if (p.status !== TURMA_MEMBRO.ATIVO) continue;
+    out.set(p.colaborador_id, { participacaoId: p.id, janela: janelas.get(p.id) || JANELA_ABERTA });
+  }
+  return out;
+}
+
+/**
+ * Lê as participações da empresa (paginado) e devolve a jornada atual por pessoa. `tdb` já filtra a empresa.
+ * Falha de leitura LANÇA: "não li as turmas" virando "ninguém tem jornada nova" faria a fila pular a Temporada 2.
+ */
+export async function carregarJornadasAtuais(tdb: any): Promise<Map<string, JornadaDaPessoa>> {
+  const q = await lerTudoPaginado((de, ate) => tdb.from('turma_membros')
+    .select('id, turma_id, colaborador_id, status, created_at, marco_jornada').order('id').range(de, ate));
+  if (q.error) throw new Error(`não foi possível ler as participações: ${q.error}`);
+  return jornadasAtuaisPorPessoa(q.data as ParticipacaoLinha[]);
+}
+
+/** O artefato (blueprint, PDI, resposta) desta pessoa vale para a jornada atual dela? Sem jornada com corte, vale. */
+export function artefatoValeNaJornada(
+  jornadas: Map<string, JornadaDaPessoa>,
+  colaboradorId: string | null | undefined,
+  geradoEm: string | null | undefined,
+): boolean {
+  const j = colaboradorId ? jornadas.get(colaboradorId) : undefined;
+  return !j || dentroDaJanela(geradoEm, j.janela);
+}
+
+/** A trilha desta pessoa é da jornada atual dela? A régua de `trilhaPertence`; sem jornada com corte, vale. */
+export function trilhaValeNaJornada(
+  jornadas: Map<string, JornadaDaPessoa>,
+  trilha: TrilhaDatada & { colaborador_id?: string | null },
+): boolean {
+  const j = trilha.colaborador_id ? jornadas.get(trilha.colaborador_id) : undefined;
+  return !j || trilhaPertence(j.participacaoId, j.janela, trilha);
+}
+
+/**
+ * A janela da jornada atual de UMA pessoa, para quem lê um artefato dela (o PDI lendo o blueprint, a trilha lendo o
+ * blueprint). Falha de leitura LANÇA, pelo mesmo motivo de `carregarJornadaAtual`.
+ */
+export async function carregarJanelaAtual(sb: any, empresaId: string, colaboradorId: string): Promise<Janela> {
+  const { data, error } = await sb.from('turma_membros')
+    .select('id, turma_id, colaborador_id, status, created_at, marco_jornada')
+    .eq('empresa_id', empresaId)
+    .eq('colaborador_id', colaboradorId);
+  if (error) throw new Error(`não foi possível ler as participações: ${error.message}`);
+  return jornadasAtuaisPorPessoa(data || []).get(colaboradorId)?.janela || JANELA_ABERTA;
 }

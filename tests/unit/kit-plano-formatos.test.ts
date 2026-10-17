@@ -62,3 +62,64 @@ describe('plano da coorte: falha de leitura dos colaboradores', () => {
     expect(r.error).toMatch(/Falha ao ler os colaboradores: timeout/);
   });
 });
+
+/**
+ * Trilha que TERMINOU não pede kit (17/10/2026, Ibipeba Temporada 2): quem ainda não tem a trilha nova ficava com a da
+ * Temporada 1 (encerrada ou concluída) como "mais recente", e o plano pedia kits e vídeos das competências antigas.
+ */
+describe('plano da coorte: trilha terminada fica de fora', () => {
+  const comStatus = (id: string, status: string, extra: Linha = {}) => ({ ...trilha(id), status, ...extra });
+
+  it('a mais recente concluída, encerrada ou arquivada não pede kit; ativa e pausada pedem', async () => {
+    const sb = sbFake({
+      colaboradores: ['a', 'b', 'c', 'd', 'e'].map((id) => colab(id, 'D', {})),
+      trilhas: [
+        comStatus('a', 'concluida', { competencia_foco: 'Antiga' }),
+        comStatus('b', 'encerrada', { competencia_foco: 'Antiga' }),
+        comStatus('c', 'arquivada', { competencia_foco: 'Antiga' }),
+        comStatus('d', 'ativa'),
+        comStatus('e', 'pausada'),
+      ],
+    });
+    const r: any = await levantarPlanoKitsCoorte(sb, 'e1', {});
+    expect(r.plano.map((i: any) => i.competencia)).toEqual(['C1']);
+    expect(r.plano[0].pessoas).toBe(2);
+  });
+
+  it('vale a MAIS RECENTE: trilha nova ativa por cima da encerrada pede kit da competência nova', async () => {
+    const sb = sbFake({
+      colaboradores: [colab('a', 'D', {})],
+      trilhas: [
+        comStatus('a', 'ativa', { competencia_foco: 'Comunicação', criado_em: '2026-10-20' }),
+        comStatus('a', 'encerrada', { competencia_foco: 'Antiga', criado_em: '2026-07-13' }),
+      ],
+    });
+    const r: any = await levantarPlanoKitsCoorte(sb, 'e1', {});
+    expect(r.plano.map((i: any) => i.competencia)).toEqual(['Comunicação']);
+  });
+
+  it('só trilhas terminadas: nenhuma semana a cobrir (não vira kit da competência antiga)', async () => {
+    const sb = sbFake({ colaboradores: [colab('a', 'D', {})], trilhas: [comStatus('a', 'encerrada')] });
+    const r: any = await levantarPlanoKitsCoorte(sb, 'e1', {});
+    expect(r.error).toMatch(/Nenhuma semana de conteúdo/);
+  });
+
+  it('falha ao ler o status vira erro do plano (não "ninguém terminou")', async () => {
+    let n = 0;
+    const sb = {
+      from(tabela: string) {
+        const api: any = {
+          select: () => api, eq: () => api, is: () => api, or: () => api, order: () => api, limit: () => api, in: () => api,
+          then: (resolve: any) => {
+            if (tabela === 'colaboradores') return resolve({ data: [colab('a', 'D', {})], error: null });
+            n++;
+            return resolve(n === 1 ? { data: [comStatus('a', 'ativa')], error: null } : { data: null, error: { message: 'timeout' } });
+          },
+        };
+        return api;
+      },
+    };
+    const r: any = await levantarPlanoKitsCoorte(sb, 'e1', {});
+    expect(r.error).toMatch(/Falha ao ler o status das trilhas: timeout/);
+  });
+});

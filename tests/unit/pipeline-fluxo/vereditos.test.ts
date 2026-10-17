@@ -140,8 +140,28 @@ describe('lerVereditos', () => {
     expect(r.vereditos!.pendencias).toEqual([]);
   });
 
+  /**
+   * Jornada nova (17/10/2026, Ibipeba Temporada 2): o selo é o da jornada ATUAL. Sem isto, quem está na Temporada 2
+   * aparecia "aprovado" com o blueprint e o PDI da Temporada 1.
+   */
+  it('participação com marco: blueprint e PDI da jornada anterior não contam como aprovados', async () => {
+    const MARCO = '2026-10-07T12:22:33Z';
+    const r = await lerVereditos(bancoFalso({
+      ...linhas,
+      development_blueprints: [{ colaborador_id: 'ana', gerado_em: '2026-10-02T12:19:04Z', auditado_em: '2026-10-02T13:00:00Z', ok: 'true' }],
+      relatorios: [{ colaborador_id: 'ana', gerado_em: '2026-07-20T19:55:12Z', status: 'pass' }],
+      turma_membros: [
+        { id: 'p1', turma_id: 't1', colaborador_id: 'ana', status: 'concluido', created_at: '2026-07-13T00:00:00Z', marco_jornada: null },
+        { id: 'p2', turma_id: 't2', colaborador_id: 'ana', status: 'ativo', created_at: MARCO, marco_jornada: MARCO },
+      ],
+    }), { permitidos: null });
+    expect(r.error).toBeUndefined();
+    expect(r.vereditos!.porEtapa.auditoria).toMatchObject({ aprovados: 0 });
+    expect(r.vereditos!.porEtapa.pdi).toMatchObject({ aprovados: 0 });
+  });
+
   it('erro de leitura volta como erro (a tela diz que não leu, não pinta de verde)', async () => {
-    for (const t of ['colaboradores', 'respostas', 'development_blueprints', 'relatorios', 'trilhas']) {
+    for (const t of ['colaboradores', 'respostas', 'development_blueprints', 'relatorios', 'trilhas', 'turma_membros']) {
       const r = await lerVereditos(bancoFalso(linhas, t), { permitidos: null });
       expect(r.vereditos).toBeUndefined();
       expect(r.error).toBeTruthy();

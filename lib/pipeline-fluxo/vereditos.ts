@@ -16,6 +16,8 @@
 import { pdiRetidoPelaAuditoria } from '@/lib/relatorios/pdi-retido';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { lerTudoPaginado } from '@/lib/paginacao';
+import { artefatoValeNaJornada, carregarJornadasAtuais, trilhaValeNaJornada } from '@/lib/turmas/jornada-atual';
+import { instanteDaResposta } from '@/lib/turmas/janela';
 import type { EtapaId } from './previa';
 
 export type EtapaComVeredito = Extract<EtapaId, 'ia4' | 'auditoria' | 'pdi'>;
@@ -157,7 +159,7 @@ export async function lerVereditos(
   const ids = new Set(pessoas.map((p) => p.id));
 
   const respQ = await lerTudoPaginado((de, ate) => tdb.from('respostas')
-    .select('id, colaborador_id, competencia_nome, status_ia4').not('r1', 'is', null).order('id').range(de, ate));
+    .select('id, colaborador_id, competencia_nome, status_ia4, timestamp_resposta, created_at').not('r1', 'is', null).order('id').range(de, ate));
   if (respQ.error) return { error: `respostas: ${respQ.error}` };
   const bpQ = await lerTudoPaginado((de, ate) => tdb.from('development_blueprints')
     .select('id, colaborador_id, gerado_em, auditado_em, ok:auditoria->>ok').order('id').range(de, ate));
@@ -166,8 +168,18 @@ export async function lerVereditos(
     .select('id, colaborador_id, gerado_em, status:conteudo->auditoria->>status').eq('tipo', 'individual').order('id').range(de, ate));
   if (pdiQ.error) return { error: `PDIs: ${pdiQ.error}` };
   const trilhaQ = await lerTudoPaginado((de, ate) => tdb.from('trilhas')
-    .select('id, colaborador_id, competencia_foco, criado_em').order('id').range(de, ate));
+    .select('id, colaborador_id, competencia_foco, criado_em, turma_membro_id').order('id').range(de, ate));
   if (trilhaQ.error) return { error: `trilhas: ${trilhaQ.error}` };
+
+  // O selo de cada pessoa é o da JORNADA ATUAL (17/10/2026): sem isto, quem está na Temporada 2 de Ibipeba aparecia
+  // "aprovado" com o blueprint e o PDI da Temporada 1. Sem participação com marco, nada muda.
+  let jornadas;
+  try { jornadas = await carregarJornadasAtuais(tdb); } catch (e: any) { return { error: String(e?.message || e) }; }
+  const vale = (colab: string, quando: string | null | undefined) => artefatoValeNaJornada(jornadas, colab, quando);
+  respQ.data = respQ.data.filter((r: any) => vale(r.colaborador_id, instanteDaResposta(r)));
+  bpQ.data = bpQ.data.filter((b: any) => vale(b.colaborador_id, b.gerado_em));
+  pdiQ.data = pdiQ.data.filter((r: any) => vale(r.colaborador_id, r.gerado_em));
+  trilhaQ.data = trilhaQ.data.filter((t: any) => trilhaValeNaJornada(jornadas, t));
 
   // O mais recente por pessoa (blueprint e trilha podem ter mais de uma linha).
   const maisRecente = (linhas: any[], campo: string) => {
