@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mesclarBlueprintCorrigido, aprovadoNasDuas } from '@/lib/blueprint/correcao';
+import { mesclarBlueprintCorrigido, adotavel } from '@/lib/blueprint/correcao';
 
 /**
  * Correção guiada do blueprint (decisão do dono, 16/10/2026): a trilha e o Kit da semana 1 (com vídeo) dependem dos
@@ -78,11 +78,11 @@ describe('mesclarBlueprintCorrigido: estrutura travada, texto corrigido', () => 
   });
 });
 
-describe('aprovadoNasDuas', () => {
-  it('só com as duas rodadas sem reprovação e completas', () => {
-    expect(aprovadoNasDuas({ ok: true, parcial: false }, { ok: true, parcial: false })).toBe(true);
-    expect(aprovadoNasDuas({ ok: true, parcial: false }, { ok: false, parcial: false })).toBe(false);
-    expect(aprovadoNasDuas({ ok: true, parcial: false }, null)).toBe(false);
-    expect(aprovadoNasDuas({ ok: true, parcial: true }, { ok: true, parcial: false })).toBe(false);
+describe('adotavel (régua do PDI: o relatório combinado das duas rodadas)', () => {
+  it('só sem reprovação e com a auditoria completa', () => {
+    expect(adotavel({ ok: true, parcial: false })).toBe(true);
+    expect(adotavel({ ok: false, parcial: false })).toBe(false);
+    expect(adotavel({ ok: true, parcial: true })).toBe(false);
+    expect(adotavel(null)).toBe(false);
   });
 });

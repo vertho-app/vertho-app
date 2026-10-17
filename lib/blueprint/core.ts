@@ -20,8 +20,9 @@ import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 import { buildBlueprintPrompt, type BlueprintCompetenciaInput } from '@/lib/blueprint/prompt';
 import {
   auditEstrutural, buildBlueprintAuditPrompt, parseAuditResponse, montarRelatorioAuditoria,
-  type BlueprintAuditReport,
+  combinarRodadasBlueprint, RODADAS_SEMANTICAS_BLUEPRINT, type BlueprintAuditReport,
 } from '@/lib/blueprint/audit';
+import { montarSemanasDeAvaliacao } from '@/lib/blueprint/avaliacao-final';
 import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
 import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
@@ -233,8 +234,11 @@ export async function persistBlueprintFromText(
   empresaId: string, colaboradorId: string,
   competenciasFoco: BlueprintCompetenciaInput[], text: string,
 ): Promise<GerarBlueprintResult> {
-  const blueprint: DevelopmentBlueprint | null = await extractJSON(text);
-  if (!blueprint) return { error: 'IA não retornou blueprint válido' };
+  const doModelo: DevelopmentBlueprint | null = await extractJSON(text);
+  if (!doModelo) return { error: 'IA não retornou blueprint válido' };
+  // A semana de avaliação é montada EM CÓDIGO a partir dos objetivos (decisão do dono, 16/10/2026): a IA reescrevia
+  // as quantidades ao resumir (objetivo com 20 registros, avaliação com 12). Ver `lib/blueprint/avaliacao-final.ts`.
+  const blueprint: DevelopmentBlueprint = montarSemanasDeAvaliacao(doModelo);
 
   if (!Array.isArray(blueprint.competencias) || blueprint.competencias.length === 0) return { error: 'Blueprint sem competências' };
   const semanas = blueprint.trilha?.semanas;
@@ -280,12 +284,40 @@ export async function gerarBlueprintCore(
     if (dryRun) {
       const { extractJSON } = await import('@/actions/utils');
       const bp = await extractJSON(text);
-      return bp ? ({ blueprint: bp } as GerarBlueprintResult) : { error: 'IA não retornou JSON válido' };
+      // O ensaio mede o que a produção grava: a avaliação montada em código, como em `persistBlueprintFromText`.
+      return bp ? ({ blueprint: montarSemanasDeAvaliacao(bp) } as GerarBlueprintResult) : { error: 'IA não retornou JSON válido' };
     }
     return await persistBlueprintFromText(req.empresaId, colaboradorId, req.competenciasFoco, text);
   } catch (err: any) {
     return { error: err.message };
   }
+}
+
+/**
+ * O passe SEMÂNTICO do auditor em `RODADAS_SEMANTICAS_BLUEPRINT` rodadas paralelas, combinadas com a régua do PDI
+ * (`combinarRodadasBlueprint`, decisão do dono 16/10/2026). Rodada que falha não vota e não derruba a auditoria: sem
+ * nenhuma, o relatório sai só com o estrutural e marcado parcial (`montarRelatorioAuditoria`). Fonte única da
+ * auditoria de produção (`auditarBlueprintCore`) e da correção guiada (`lib/blueprint/correcao.ts`).
+ */
+export async function auditarSemanticoEmRodadas(
+  blueprint: DevelopmentBlueprint,
+  p: { empresaId: string; colaboradorId: string; modelo: string },
+): Promise<{ checks: BlueprintAuditReport['checks']; resumo: string }> {
+  const { system, user } = buildBlueprintAuditPrompt(blueprint);
+  const rodada = async () => {
+    try {
+      const resp = await callAI(system, user, { model: p.modelo }, 7000, {
+        taskKey: 'blueprint_audit', empresaId: p.empresaId, colaboradorId: p.colaboradorId, timeoutMs: 300000,
+      });
+      const parsed = await extractJSON(resp);
+      return parsed ? parseAuditResponse(parsed) : null;
+    } catch (err: any) {
+      console.warn('[auditarBlueprint] rodada do auditor falhou (não vota):', err?.message ?? err);
+      return null;
+    }
+  };
+  const rodadas = await Promise.all(Array.from({ length: RODADAS_SEMANTICAS_BLUEPRINT }, rodada));
+  return combinarRodadasBlueprint(rodadas);
 }
 
 /**
@@ -336,27 +368,16 @@ export async function auditarBlueprintCore(
       semanasAvaliacao: cfg.semanasAvaliacao,
     });
 
-    // 2) Semântico (2ª IA, adversarial). Falha da IA não derruba a auditoria —
-    //    o estrutural sozinho já é um relatório válido.
-    let semantico = { checks: [] as BlueprintAuditReport['checks'], resumo: '' };
-    try {
-      const { system, user } = buildBlueprintAuditPrompt(blueprint);
-      // O modelo do AUDITOR é decisão do servidor, não do cliente. Até 25/08/2026
-      // esta chamada repassava o `aiConfig` que chega da action (vindo da tela) e,
-      // sem `blueprint_audit` em DEFAULT_TASK_MODELS, caía no mesmo
-      // `claude-sonnet-4-6` do gerador — auditoria da própria família. Mesmo
-      // padrão dos outros 7 auditores (`aiConfig?.model || getModelForTask`): o
-      // override explícito continua valendo, o DEFAULT deixa de ser herdado.
-      const { getModelForTask } = await import('@/lib/ai-tasks');
-      const auditorModel = aiConfig?.model || await getModelForTask(empresaId, 'blueprint_audit');
-      const resp = await callAI(system, user, { model: auditorModel }, 7000, {
-        taskKey: 'blueprint_audit', empresaId, colaboradorId,
-      });
-      const parsed = await extractJSON(resp);
-      if (parsed) semantico = parseAuditResponse(parsed);
-    } catch (err: any) {
-      console.warn('[auditarBlueprint] passe semântico falhou — relatório só com estrutural:', err?.message ?? err);
-    }
+    // 2) Semântico (2ª IA, adversarial), em DUAS rodadas com a régua do PDI (`auditarSemanticoEmRodadas`).
+    // O modelo do AUDITOR é decisão do servidor, não do cliente. Até 25/08/2026
+    // esta chamada repassava o `aiConfig` que chega da action (vindo da tela) e,
+    // sem `blueprint_audit` em DEFAULT_TASK_MODELS, caía no mesmo
+    // `claude-sonnet-4-6` do gerador — auditoria da própria família. Mesmo
+    // padrão dos outros 7 auditores (`aiConfig?.model || getModelForTask`): o
+    // override explícito continua valendo, o DEFAULT deixa de ser herdado.
+    const { getModelForTask } = await import('@/lib/ai-tasks');
+    const auditorModel = aiConfig?.model || await getModelForTask(empresaId, 'blueprint_audit');
+    const semantico = await auditarSemanticoEmRodadas(blueprint, { empresaId, colaboradorId, modelo: auditorModel });
 
     const relatorio = montarRelatorioAuditoria(estrutural, semantico, new Date().toISOString());
 

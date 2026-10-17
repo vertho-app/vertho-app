@@ -11,8 +11,10 @@
  *     tipo de cada semana) e os DESCRITORES de cada semana vêm da original. A trilha e o Kit (vídeos da semana 1)
  *     dependem desses descritores e continuam valendo. Da correção entra só texto; `conexao_com_pdi` só aceita ids de
  *     objetivos que existem e nunca fica vazio (regra máxima do blueprint).
- *  2. ADOÇÃO POR DUAS RODADAS (`aprovadoNasDuas`): o auditor de uma rodada troca de veredito no mesmo blueprint; a
- *     candidata só é adotável se passar (sem "fail" e sem auditoria parcial) nas DUAS.
+ *  2. ADOÇÃO PELA RÉGUA DO PDI (`adotavel`, decisão do dono 16/10/2026): a candidata passa pelas DUAS rodadas do
+ *     auditor (`auditarSemanticoEmRodadas`, reprova só se as duas reprovarem) e é adotável sem reprovação e sem
+ *     auditoria parcial. Antes exigia as duas aprovadas, o que com o auditor ruidoso deu 1 de 10. A semana de
+ *     avaliação da candidata é montada em código (`montarSemanasDeAvaliacao`), como na geração.
  *  3. SEM GRAVAR AQUI: `corrigirBlueprintCore` só gera e audita. Gravar é `gravarBlueprintCorrigido`, que quem aplica
  *     chama junto com a cascata (PDI e trilha da mesma pessoa), para ninguém ficar com blueprint novo e PDI velho.
  */
@@ -24,7 +26,9 @@ import { maskColaborador, maskDeepPII, unmaskDeepPII } from '@/lib/pii-masker';
 import { mesclarSoTexto } from '@/lib/ia4-correcao-texto';
 import { getProgramaConfig } from '@/lib/season-engine/programa-config';
 import { idiomaDaPessoa } from '@/lib/pdf-locale';
-import { auditEstrutural, buildBlueprintAuditPrompt, parseAuditResponse, montarRelatorioAuditoria, type BlueprintAuditReport } from './audit';
+import { auditEstrutural, montarRelatorioAuditoria, type BlueprintAuditReport } from './audit';
+import { auditarSemanticoEmRodadas } from './core';
+import { montarSemanasDeAvaliacao } from './avaliacao-final';
 
 const FIXAS = new Set([
   'spec_version', 'semana', 'tipo', 'competencia_foco', 'id', 'nome', 'nivel_atual', 'prioridade', 'duracao_semanas',
@@ -47,9 +51,9 @@ export function mesclarBlueprintCorrigido(original: any, correcao: any): any {
   return m;
 }
 
-/** Adotável só se passar nas DUAS rodadas, sem auditoria parcial. PURO. */
-export function aprovadoNasDuas(r1: Pick<BlueprintAuditReport, 'ok' | 'parcial'> | null, r2: Pick<BlueprintAuditReport, 'ok' | 'parcial'> | null): boolean {
-  return !!r1 && !!r2 && r1.ok && r2.ok && !r1.parcial && !r2.parcial;
+/** Adotável: o relatório combinado das duas rodadas (régua do PDI) sem reprovação e completo. PURO. */
+export function adotavel(r: Pick<BlueprintAuditReport, 'ok' | 'parcial'> | null): boolean {
+  return !!r && r.ok && !r.parcial;
 }
 
 const SYSTEM_CORRECAO = `Você corrige um DEVELOPMENT BLUEPRINT da Vertho que um auditor reprovou. Sua tarefa é resolver CADA problema apontado, mexendo só no necessário.
@@ -68,21 +72,15 @@ COMO RESOLVER OS PROBLEMAS TÍPICOS:
 
 Devolva o JSON COMPLETO do blueprint, com a MESMA estrutura e as MESMAS chaves que recebeu. RETORNE APENAS JSON VÁLIDO, sem markdown.`;
 
-/** Auditoria de UMA rodada, em memória (a mesma régua de `auditarBlueprintCore`, sem gravar). */
+/** Auditoria em memória com a régua de produção: estrutural + semântico em duas rodadas (`auditarSemanticoEmRodadas`). */
 async function auditarEmMemoria(bp: any, p: { empresaId: string; colaboradorId: string; sysConfig: any; modelo: string }): Promise<BlueprintAuditReport> {
   const cfg = getProgramaConfig(p.sysConfig);
   const estrutural = auditEstrutural(bp, { duracaoSemanas: cfg.semanas, semanasMissao: cfg.semanasMissao, semanasAvaliacao: cfg.semanasAvaliacao });
-  let semantico = { checks: [] as BlueprintAuditReport['checks'], resumo: '' };
-  try {
-    const { system, user } = buildBlueprintAuditPrompt(bp);
-    const resp = await callAI(system, user, { model: p.modelo }, 7000, { taskKey: 'blueprint_audit', empresaId: p.empresaId, colaboradorId: p.colaboradorId, timeoutMs: 300000 });
-    const parsed = await extractJSON(resp);
-    if (parsed) semantico = parseAuditResponse(parsed);
-  } catch { /* sem o semântico o relatório sai parcial, e parcial não é adotável */ }
+  const semantico = await auditarSemanticoEmRodadas(bp, { empresaId: p.empresaId, colaboradorId: p.colaboradorId, modelo: p.modelo });
   return montarRelatorioAuditoria(estrutural, semantico, new Date().toISOString());
 }
 
-export interface TentativaCorrecao { rodada1: BlueprintAuditReport; rodada2: BlueprintAuditReport | null; adotavel: boolean }
+export interface TentativaCorrecao { relatorio: BlueprintAuditReport | null; adotavel: boolean }
 export interface ResultadoCorrecaoBlueprint {
   error?: string;
   /** A candidata adotável (estrutura travada), quando houver. */
@@ -127,16 +125,16 @@ export async function corrigirBlueprintCore(
       ].join('\n\n');
       const bruto = await callAI(SYSTEM_CORRECAO, user, { model: modeloGerar }, 64000, { taskKey: 'blueprint_gerar', empresaId, colaboradorId, timeoutMs: 300000, locale });
       const doModelo = await extractJSON(bruto);
-      if (!doModelo || typeof doModelo !== 'object') { tentativas.push({ rodada1: null as any, rodada2: null, adotavel: false }); continue; }
+      if (!doModelo || typeof doModelo !== 'object') { tentativas.push({ relatorio: null, adotavel: false }); continue; }
       // A estrutura trava contra a ORIGINAL (não contra a tentativa anterior): nenhuma volta pode mexer nos descritores.
-      const candidata = mesclarBlueprintCorrigido(original, unmaskDeepPII(doModelo, pii));
-      const r1 = await auditarEmMemoria(candidata, { empresaId, colaboradorId, sysConfig: emp?.sys_config, modelo: modeloAuditar });
-      const r2 = r1.ok && !r1.parcial ? await auditarEmMemoria(candidata, { empresaId, colaboradorId, sysConfig: emp?.sys_config, modelo: modeloAuditar }) : null;
-      const adotavel = aprovadoNasDuas(r1, r2);
-      tentativas.push({ rodada1: r1, rodada2: r2, adotavel });
-      if (adotavel) return { blueprint: candidata, relatorio: r1, tentativas };
+      // A avaliação final é montada em código depois da mescla, como na geração (`persistBlueprintFromText`).
+      const candidata = montarSemanasDeAvaliacao(mesclarBlueprintCorrigido(original, unmaskDeepPII(doModelo, pii)));
+      const rel = await auditarEmMemoria(candidata, { empresaId, colaboradorId, sysConfig: emp?.sys_config, modelo: modeloAuditar });
+      const ok = adotavel(rel);
+      tentativas.push({ relatorio: rel, adotavel: ok });
+      if (ok) return { blueprint: candidata, relatorio: rel, tentativas };
       base = candidata;
-      apontamentos = [...(r1.checks || []), ...((r2?.checks) || [])].filter((c: any) => c.status !== 'pass');
+      apontamentos = (rel.checks || []).filter((c: any) => c.status !== 'pass');
     }
     return { tentativas };
   } catch (e: any) {

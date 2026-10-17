@@ -244,6 +244,60 @@ export function buildBlueprintAuditPrompt(bp: DevelopmentBlueprint): { system: s
 
 const IDS_SEMANTICOS = ['cobre-o-que-promete', 'missao-evidencia', 'exigencia-nivel', 'avaliacao-mede', 'generico', 'tom-saude'];
 
+/** Quantas rodadas do auditor semântico por blueprint (decisão do dono, 16/10/2026: a régua do PDI). */
+export const RODADAS_SEMANTICAS_BLUEPRINT = 2;
+
+const PESO: Record<AuditStatus, number> = { pass: 0, warn: 1, fail: 2 };
+
+/**
+ * Junta as rodadas do auditor semântico com a MESMA régua do PDI (`combinarRodadasSemanticas`, 25/09/2026):
+ * reprovação só quando TODAS as rodadas válidas reprovam; reprovação que não se repete vira alerta; alerta de uma
+ * rodada com a outra limpa não vale. Rodada que não rodou não vota (com uma só válida, vale ela, com o aviso).
+ *
+ * Por que (Amazon Bowling, 16/10/2026): o auditor de blueprint de UMA rodada trocava de veredito no mesmo blueprint
+ * (Fernanda e Thiago reprovaram nas 2 auditorias de uma medição e passaram nas 2 da seguinte; 5 de 14 trocaram
+ * entre 3 auditorias). O veredito era decidido pelo ruído. PURO.
+ */
+export function combinarRodadasBlueprint(
+  rodadas: Array<{ checks: BlueprintAuditCheck[]; resumo: string } | null>,
+): { checks: BlueprintAuditCheck[]; resumo: string } {
+  const validas = rodadas.filter((r): r is { checks: BlueprintAuditCheck[]; resumo: string } => !!r && r.checks.length > 0);
+  if (!validas.length) return { checks: [], resumo: '' };
+  if (validas.length === 1) {
+    return rodadas.length === 1 ? validas[0] : {
+      resumo: validas[0].resumo,
+      checks: [...validas[0].checks, {
+        id: 'semantica-rodada-unica', categoria: 'semantica', titulo: 'O auditor rodou uma vez só', status: 'warn',
+        detalhe: `Só 1 de ${rodadas.length} rodadas do auditor devolveu resultado: o veredito não foi confirmado.`,
+      }],
+    };
+  }
+  const comFail = validas.filter((r) => r.checks.some((c) => c.status === 'fail')).length;
+  const comAchado = validas.filter((r) => r.checks.some((c) => c.status !== 'pass')).length;
+  const confirmado = comFail === validas.length;
+  const alertaConfirmado = comFail > 0 || comAchado === validas.length;
+  const porId = new Map<string, BlueprintAuditCheck>();
+  for (const r of validas) {
+    for (const c of r.checks) {
+      const atual = porId.get(c.id);
+      if (!atual) { porId.set(c.id, { ...c, ...(c.itens ? { itens: [...c.itens] } : {}) }); continue; }
+      if (PESO[c.status] > PESO[atual.status]) { atual.status = c.status; atual.detalhe = c.detalhe; atual.itens = c.itens; }
+    }
+  }
+  const checks = [...porId.values()].map((c) => {
+    if (c.status === 'fail' && !confirmado) {
+      return { ...c, status: 'warn' as const, detalhe: `Reprovado em ${comFail} de ${validas.length} rodadas do auditor: fica como alerta. ${c.detalhe}`.slice(0, 600) };
+    }
+    if (c.status === 'warn' && !alertaConfirmado) {
+      return { ...c, status: 'pass' as const, detalhe: `Alerta em ${comAchado} de ${validas.length} rodadas do auditor: não confirmado. ${c.detalhe}`.slice(0, 600) };
+    }
+    return c;
+  });
+  // O resumo de uma rodada reprovada, se houver (é o que explica o veredito); senão o da primeira.
+  const resumo = (validas.find((r) => r.checks.some((c) => c.status === 'fail')) || validas[0]).resumo;
+  return { checks, resumo };
+}
+
 /** Converte a resposta da IA em checks semânticos (tolerante a lixo). */
 export function parseAuditResponse(parsed: any): { checks: BlueprintAuditCheck[]; resumo: string } {
   const raw: any[] = Array.isArray(parsed?.checks) ? parsed.checks : [];
