@@ -3,9 +3,13 @@ import {
   MODELS,
   COST_SIMULATOR_MODEL_IDS,
   OPENAI_WEB_SEARCH_USD_PER_CALL,
+  CALLS,
+  INFRA_FIXA,
+  INFRA_NAO_PRECIFICADA,
   calcCost,
   costFromTokens,
   custoEstimadoPorTask,
+  infraFixaTotal,
   openAIWebSearchToolCost,
 } from '@/lib/ia-cost-catalog';
 
@@ -111,5 +115,32 @@ describe('catálogo de preços de IA', () => {
       ((2_000 * 2) + (4_000 * 10) + (600 * 2 * 0.1) + (800 * 2 * 1.25)) / 1_000_000,
       10,
     );
+  });
+});
+
+describe('infra fixa da plataforma', () => {
+  // O orçamento soma a infra (ponto médio, rateado) À PARTE de "Mensagens" e do custo
+  // de IA do vídeo. Fornecedor cobrado por mensagem, por vídeo ou por chamada que
+  // entra aqui conta duas vezes: até 16/10/2026 o WhatsApp e o HeyGen estavam nas duas.
+  it('não soma o que o orçamento já cobra em outra linha', () => {
+    const naSoma = INFRA_FIXA.map((s) => s.servico).join(' | ');
+    expect(naSoma).not.toMatch(/whatsapp|heygen|tts|z-api/i);
+    const foraDaSoma = INFRA_NAO_PRECIFICADA.map((s) => s.servico).join(' | ');
+    expect(foraDaSoma).toMatch(/WhatsApp/);
+    expect(foraDaSoma).toMatch(/HeyGen/);
+    // E o HeyGen fora da soma só é honesto enquanto o custo de IA do vídeo o cobrar.
+    expect(CALLS.some((c) => c.id === 'video-modulo-avatar')).toBe(true);
+  });
+
+  it('toda linha diz de onde saiu o número, e tudo que fica fora diz por quê', () => {
+    for (const s of INFRA_FIXA) {
+      expect(s.fonte.trim().length, s.servico).toBeGreaterThan(0);
+      expect(s.usdMes[0], s.servico).toBeLessThanOrEqual(s.usdMes[1]);
+    }
+    for (const s of INFRA_NAO_PRECIFICADA) expect(s.motivo.trim().length, s.servico).toBeGreaterThan(0);
+  });
+
+  it('mantém o total conferido no fornecedor em 16-17/10/2026', () => {
+    expect(infraFixaTotal()).toEqual({ min: 52, max: 90 });
   });
 });

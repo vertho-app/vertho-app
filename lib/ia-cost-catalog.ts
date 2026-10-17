@@ -1308,33 +1308,45 @@ export function custoColabNaJornada(cfg, modelFn, opts: { incluirOpcionais?: boo
  * Não entra no custo por empresa nem por colaborador: uma empresa nova de 100
  * pessoas quase não move estes números.
  *
- * Faixas conferidas em 10/09/2026 contra o que o projeto usa hoje. Não saem de
- * fatura: são a ordem de grandeza declarada, e é assim que devem ser lidas.
+ * Conferida em 16-17/10/2026 no próprio fornecedor sempre que havia API ou
+ * fatura; `fonte` diz de onde saiu cada faixa, e o que segue como "faixa
+ * declarada" é ordem de grandeza, não medição. O orçamento rateia o ponto médio
+ * do total entre os clientes ativos (`app/admin/vertho/orcamento/page.tsx`).
+ *
+ * 🔴 Só entra aqui o que NENHUMA outra linha do orçamento cobra. Até 16/10 a
+ * tabela somava o WhatsApp (o orçamento já conta por mensagem, em "Mensagens")
+ * e o HeyGen (já entra por vídeo, em `video-modulo-avatar`), além do Z-API, cuja
+ * assinatura venceu: o ponto médio era US$ 194,50 contra uns US$ 71 medidos.
+ * Detalhe: `docs/CUSTO-QUALIDADE.md` §16-17/10/2026.
  */
 export const INFRA_FIXA = [
-  { servico: 'Vercel', papel: 'Hospedagem Next.js + crons', tipo: 'fixo', usdMes: [20, 20] },
-  { servico: 'Supabase', papel: 'Postgres + Auth + Storage', tipo: 'fixo', usdMes: [25, 25] },
-  { servico: 'WhatsApp Cloud API', papel: 'Cadência oficial (por conversa)', tipo: 'uso', usdMes: [0, 30] },
-  { servico: 'Z-API', papel: 'WhatsApp legado (1 número)', tipo: 'fixo/número', usdMes: [20, 30] },
-  { servico: 'Trigger.dev', papel: 'Jobs de fundo (vídeo, lotes)', tipo: 'uso', usdMes: [0, 20] },
-  { servico: 'Hetzner', papel: 'Render Remotion (CX33 efêmero)', tipo: 'uso', usdMes: [1, 5] },
-  { servico: 'HeyGen', papel: 'Avatar falante (se usar vídeo)', tipo: 'assinatura+uso', usdMes: [29, 89] },
-  { servico: 'Bunny Stream', papel: 'Hosting/CDN de vídeo', tipo: 'uso', usdMes: [1, 10] },
-  { servico: 'Sentry', papel: 'Erros em produção', tipo: 'free/fixo', usdMes: [0, 26] },
-  { servico: 'Upstash QStash', papel: 'Fila de disparos', tipo: 'uso', usdMes: [0, 5] },
-  { servico: 'Amazon SES / Resend', papel: 'E-mail transacional', tipo: 'uso/fallback', usdMes: [0, 20] },
-  { servico: 'Gamma + domínio', papel: 'Site institucional + DNS', tipo: 'fixo', usdMes: [1, 12] },
+  { servico: 'Vercel', papel: 'Hospedagem Next.js + crons', tipo: 'fixo (1 assento Pro)', usdMes: [20, 21], fonte: 'export de uso, ago a out/2026' },
+  { servico: 'Supabase', papel: 'Postgres + Auth + Storage', tipo: 'fixo (Pro + disco)', usdMes: [26, 27], fonte: 'Management API, 16/10/2026' },
+  { servico: 'Trigger.dev', papel: 'Jobs de fundo (vídeo, lotes)', tipo: 'plano + uso', usdMes: [0, 10], fonte: 'uso US$ 3,94 em 30 dias (API de runs); plano não lido' },
+  { servico: 'Hetzner', papel: 'Render Remotion (caixa efêmera)', tipo: 'uso', usdMes: [1, 5], fonte: 'faixa declarada' },
+  { servico: 'Bunny Stream', papel: 'Hosting/CDN de vídeo', tipo: 'uso (armazenamento)', usdMes: [4, 8], fonte: '385 GB em 16/10/2026 × preço de tabela' },
+  { servico: 'Upstash', papel: 'QStash (fila) + Redis', tipo: 'uso', usdMes: [0, 5], fonte: 'faixa declarada' },
+  { servico: 'Amazon SES / Resend', papel: 'E-mail transacional (Resend de reserva)', tipo: 'uso', usdMes: [0, 1], fonte: '1.171 e-mails em 30 dias, cerca de US$ 0,12 no crédito AWS' },
+  { servico: 'Voyage AI', papel: 'Embeddings (RAG e Módulo-Base)', tipo: 'uso', usdMes: [0, 1], fonte: 'fora do ledger; faixa declarada' },
+  { servico: 'Sentry', papel: 'Erros em produção', tipo: 'plano free', usdMes: [0, 0], fonte: 'plano free' },
+  { servico: 'Gamma + domínio', papel: 'Site institucional + DNS', tipo: 'fixo', usdMes: [1, 12], fonte: 'faixa declarada' },
 ];
 
 /**
- * Integrações reais cujo preço depende de plano/fatura/uso ainda não conciliado.
- * Ficam visíveis na tela, mas FORA do total: zero inventado seria tão enganoso
- * quanto omiti-las, e uma faixa sem evidência contaminaria o orçamento inteiro.
+ * Fornecedores reais que ficam FORA da soma, cada um com o motivo: ou são
+ * cobrados em outra linha do orçamento (somá-los aqui contaria duas vezes), ou
+ * não custam nada hoje. Ficam visíveis na tela porque omiti-los parece
+ * esquecimento, e um zero sem motivo ao lado não diz nada.
  */
 export const INFRA_NAO_PRECIFICADA = [
-  { servico: 'Twilio SMS', papel: 'Fallback de OTP por SMS', motivo: 'custo por país/número; conciliar a fatura quando houver envio' },
-  { servico: 'WaSender', papel: 'Failover do WhatsApp legado', motivo: 'assinatura depende da sessão efetivamente habilitada' },
-  { servico: 'Jina / Firecrawl', papel: 'Scraping de PPP e pesquisa pública', motivo: 'free tier + fallback pago; falta conciliação do plano/uso' },
+  { servico: 'WhatsApp Cloud API', papel: 'Cadência oficial', motivo: 'é por mensagem: o orçamento conta em "Mensagens", a R$ 0,035 por utility, o mesmo valor da fatura de set/2026' },
+  { servico: 'HeyGen', papel: 'Avatar falante', motivo: 'é por vídeo e sem assinatura: entra no custo de IA do vídeo (video-modulo-avatar)' },
+  { servico: 'Google Cloud TTS', papel: 'Voz de vídeo e podcast', motivo: 'é por chamada, no custo de IA; a fatura de set/2026 (R$ 234,57) ficou acima da estimativa' },
+  { servico: 'Z-API', papel: 'WhatsApp legado (QR)', motivo: 'assinatura vencida; último envio em 13/08/2026' },
+  { servico: 'Twilio SMS', papel: 'Fallback de OTP por SMS', motivo: 'sem número e US$ 0 em set e out/2026' },
+  { servico: 'WaSender', papel: 'Failover do WhatsApp legado', motivo: 'sem sessão e fora da produção' },
+  { servico: 'Jina / Firecrawl', papel: 'Scraping de PPP e pesquisa pública', motivo: 'sem chave na produção' },
+  { servico: 'Hunter.io', papel: 'Enriquecimento de contatos (Mercado Potencial)', motivo: 'plano Free, 50 créditos; plano pago a decidir' },
 ];
 
 export function infraFixaTotal() {

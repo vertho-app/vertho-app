@@ -125,7 +125,8 @@ export function InfraPanel({ locale }: { locale: AppLocale }) {
       </p>
       <p className="text-[11px] text-gray-400 mt-0.5 mb-3">
         Custo de existir, não por empresa: rateado entre todos os tenants. Uma empresa nova de 100 pessoas quase não move
-        estes números. Faixas declaradas (ordem de grandeza), conferidas em 10/09/2026 — não saem de fatura.
+        estes números. Conferido em 16-17/10/2026: a coluna Fonte separa o que saiu de fatura ou da API do fornecedor do
+        que segue como faixa declarada. Quem é cobrado em outra linha do orçamento fica fora da soma, abaixo.
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -134,6 +135,7 @@ export function InfraPanel({ locale }: { locale: AppLocale }) {
               <th className="py-1.5 pr-3">Serviço</th>
               <th className="py-1.5 pr-3">Papel</th>
               <th className="py-1.5 pr-3">Tipo</th>
+              <th className="py-1.5 pr-3">Fonte</th>
               <th className="py-1.5 text-right">USD/mês</th>
             </tr>
           </thead>
@@ -143,20 +145,21 @@ export function InfraPanel({ locale }: { locale: AppLocale }) {
                 <td className="py-1.5 pr-3 font-medium text-white">{s.servico}</td>
                 <td className="py-1.5 pr-3 text-gray-400">{s.papel}</td>
                 <td className="py-1.5 pr-3 text-gray-500">{s.tipo}</td>
+                <td className="py-1.5 pr-3 text-[10px] text-gray-500">{s.fonte}</td>
                 <td className="py-1.5 text-right">
                   {s.usdMes[0] === s.usdMes[1] ? nf(s.usdMes[0]) : `${nf(s.usdMes[0])}–${nf(s.usdMes[1])}`}
                 </td>
               </tr>
             ))}
             <tr className="border-t border-white/20">
-              <td className="py-1.5 pr-3 font-bold text-white" colSpan={3}>Total da plataforma</td>
+              <td className="py-1.5 pr-3 font-bold text-white" colSpan={4}>Total da plataforma</td>
               <td className="py-1.5 text-right font-bold text-white">{nf(total.min)}–{nf(total.max)}</td>
             </tr>
           </tbody>
         </table>
       </div>
       <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-300">Fora da soma — falta conciliar fatura/uso</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-300">Fora da soma: cobrado em outra linha do orçamento ou sem custo hoje</p>
         <p className="mt-1 text-[10px] leading-relaxed text-gray-400">
           {INFRA_NAO_PRECIFICADA.map((s) => `${s.servico}: ${s.papel} (${s.motivo})`).join(' · ')}
         </p>

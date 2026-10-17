@@ -2979,15 +2979,28 @@ categoria; o valor por cliente sai da contagem de `whatsapp_mensagens_enviadas` 
 fatura, dos quais R$ 232,89 de Cloud TTS. O crédito "GenAI App Builder" (R$ 5.677) não abate TTS. Custo do Google se lê na
 fatura. É a mesma família da seção de 29/08: o ledger mede o que passa pelo instrumento, não o que o fornecedor cobra.
 
-**O `INFRA_FIXA` diverge do medido** (não alterado nesta rodada). Ele alimenta o rateio de infra do orçamento pelo ponto
-médio, US$ 194,50 por mês; os mesmos itens, medidos, ficam entre US$ 69 e 114.
-- Z-API (US$ 20 a 30): a assinatura venceu e o último envio foi em 13/08. A cadência sai pela Cloud API.
-- HeyGen como assinatura (US$ 29 a 89): é crédito de API v3, US$ 13,17 em 30 dias.
-- Sentry (US$ 0 a 26): plano free.
-- WhatsApp em USD (US$ 0 a 30): a conta fatura em BRL, R$ 69,76 em setembro.
-- Trigger.dev (US$ 0 a 20): uso de US$ 3,94.
-- O Google TTS, maior desembolso, fica fora do `INFRA_FIXA` porque é IA por chamada: entra no orçamento pela estimativa
-  por token do catálogo, que é a mesma régua do ledger, e por isso também fica abaixo da fatura.
+**O `INFRA_FIXA` foi ajustado ao medido em 17/10/2026** (pedido do dono). Ele alimenta o rateio de infra do orçamento
+pelo ponto médio: era **US$ 194,50 por mês** (97 a 292) e passou a **US$ 71** (52 a 90), e cada linha ganhou o campo
+`fonte`, que a tela do simulador mostra. 🔴 Dois itens eram contados em DOBRO no orçamento, porque ele já os cobra em
+outra linha:
+- **WhatsApp** (US$ 0 a 30): o orçamento conta por mensagem em "Mensagens", a R$ 0,035 por utility, que é exatamente a
+  tarifa da fatura de setembro.
+- **HeyGen** (US$ 29 a 89, como assinatura): não há assinatura, é crédito de API v3, e o avatar já entra por vídeo no
+  custo de IA (`video-modulo-avatar`, só com "com avatar" ligado).
+
+Saíram também o Z-API (US$ 20 a 30, assinatura vencida, último envio em 13/08) e a faixa paga do Sentry (é plano free).
+Mudaram de faixa Supabase (26 a 27), Vercel (20 a 21), Trigger.dev (0 a 10, uso de US$ 3,94), Bunny (4 a 8, pelos 385
+GB) e SES/Resend (0 a 1); entrou a Voyage (0 a 1, fora do ledger). Quem fica fora da soma aparece na tela com o motivo
+(`INFRA_NAO_PRECIFICADA`): cobrado em outra linha (WhatsApp, HeyGen, Google TTS) ou sem custo hoje (Z-API, Twilio,
+WaSender, Jina/Firecrawl, Hunter no plano Free). Guarda: `tests/unit/ia-cost-catalog.test.ts`, bloco "infra fixa da
+plataforma", validado por mutação (4 de 4: WhatsApp e HeyGen de volta à soma, fonte vazia, total alterado).
+
+Consequência para o orçamento: com 2 clientes ativos, a infra rateada cai de cerca de US$ 97 para US$ 35,50 por cliente
+por mês. Cenário salvo é recalculado ao abrir, então a margem dos orçamentos já salvos sobe; o previsto congelado da DRE
+(`dre_contratos`) não muda.
+
+O Google TTS, maior desembolso, segue fora do `INFRA_FIXA` porque é IA por chamada: entra no orçamento pela estimativa
+por token do catálogo, que é a mesma régua do ledger, e por isso também fica abaixo da fatura.
 
 **Não medido:** os planos do Trigger.dev, do Upstash e do Resend; a Hetzner (o token só está na Vercel); 101domain e
 Gamma; o Google de outubro.
