@@ -1,0 +1,16 @@
+/* Base visual dos filmes da biblioteca v7 (do piloto de 15/10/2026): tokens da marca, palco, tipografia, cartões e camadas. */
+#stage { --ground:#0F2B54; --main:#34C5CC; --second:#F7F7F7; --accent:#9E4EDD; --deep:#06152B; color:var(--second); font-family:var(--sans, system-ui, sans-serif); font-synthesis:none }
+.ground { position:absolute; inset:0; background:linear-gradient(168deg, var(--ground) 0%, color-mix(in srgb, var(--ground) 62%, var(--deep)) 100%) }
+.paper { position:absolute; inset:0; background:var(--second); color:var(--ground) }
+.words { position:absolute; margin:0; display:flex; flex-direction:column; gap:22px } .words > * { margin:0 }
+.line { font-family:"Codec-ExtraBold", var(--display, var(--sans, system-ui, sans-serif)); font-size:104px; line-height:1.08; font-weight:400; letter-spacing:-0.005em }
+.line.s { font-size:76px; line-height:1.12 }
+.sub { font-size:40px; line-height:1.3; font-weight:400; color:color-mix(in srgb, var(--second) 72%, var(--ground)) }
+.over { font-size:26px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--main) }
+.tag { position:absolute; font-size:32px; font-weight:500; white-space:nowrap; color:var(--second) }
+.card { position:absolute; border-radius:24px; background:color-mix(in srgb, var(--ground) 84%, var(--second)); border:1px solid color-mix(in srgb, var(--second) 12%, transparent); box-shadow:0 24px 48px rgba(0,0,0,.25); padding:30px 32px; box-sizing:border-box; display:flex; flex-direction:column; gap:14px }
+.card .tag { position:static; font-weight:700; color:var(--main) }
+.field { height:56px; border-radius:10px; background:color-mix(in srgb, var(--ground) 70%, var(--second)); display:flex; align-items:center; padding:0 20px; font-size:26px; color:color-mix(in srgb, var(--second) 85%, var(--ground)) }
+.block { position:absolute; border-radius:16px; border:3px solid color-mix(in srgb, var(--second) 55%, transparent); box-sizing:border-box }
+.trace, .art { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none }
+.paper .sub { color:color-mix(in srgb, var(--ground) 72%, var(--second)) } .paper .over, .paper .tag { color:var(--ground) }
