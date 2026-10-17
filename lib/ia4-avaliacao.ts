@@ -556,8 +556,9 @@ export async function consolidarEPersistirIA4(
   // O prompt levou o identificador (`buildIA4UserPrompt`); o que se grava é lido
   // pela pessoa e pelo RH, então volta com o nome. O alias sai do mesmo
   // colaborador de forma determinística: o lote, que monta o prompt numa
-  // invocação e grava em outra, desmascara igual ao síncrono.
-  const avaliacao = unmaskDeepPII(avaliacaoDaIA, maskColaborador(colab).map);
+  // invocação e grava em outra, desmascara igual ao síncrono. A MESMA máscara do prompt (com os textos do caso): com o
+  // primeiro nome igual ao de uma personagem, a pessoa volta como nome e sobrenome, e o check a reencontra ao remascarar.
+  const avaliacao = unmaskDeepPII(avaliacaoDaIA, maskColaborador(colab, { textosDoCaso: [ctx.cenarioTexto, ctx.perguntasTexto] }).map);
   const descPorDescritor = avaliacao.avaliacao_por_descritor;
   const cons = consolidarNotasIA4(descPorDescritor);
   const { notasPorDesc, mediaDescritores, nivelGeral } = cons;

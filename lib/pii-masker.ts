@@ -192,13 +192,22 @@ export function maskColaborador(
 
   const ida: PIIMap = {};
   if (email && emailAlias) ida[email] = emailAlias;
+  const colididas = new Set<string>();
   for (const forma of formasDoNome(nome)) {
-    if (caso && regexDoReal(forma).test(caso)) continue;
+    if (caso && regexDoReal(forma).test(caso)) { colididas.add(forma); continue; }
     ida[forma] = alias;
   }
 
+  // Com o primeiro nome colidindo com uma personagem, o texto devolvido chama a pessoa pela forma MAIS CURTA que o caso
+  // não usa (primeiro + último, senão o nome inteiro): "Renata Solera", não "Renata". Assim quem lê não confunde, e o
+  // texto remascarado (o auditor do PDI lê o PDI de volta pela mesma máscara) reencontra o identificador da pessoa. Com
+  // "Renata" de volta, o auditor via o PDI chamando a participante pelo nome da personagem (4Life, 17/10/2026).
+  const voltaColidida = colididas.has(primeiroNome)
+    ? formasDoNome(nome).filter((f) => f !== primeiroNome && !colididas.has(f)).sort((a, b) => a.length - b.length)[0]
+    : undefined;
+
   const volta: PIIMap = {};
-  if (primeiroNome) volta[alias] = nomeParaLeitura(primeiroNome);
+  if (primeiroNome) volta[alias] = nomeParaLeitura(voltaColidida || primeiroNome);
   if (email && emailAlias) volta[emailAlias] = email;
 
   return {

@@ -165,8 +165,17 @@ describe('nome de personagem do caso (4Life, 17/10/2026)', () => {
     expect(maskTextPII('Paula, você disse.', outra.map)).toBe(`${outra.masked!.nome}, você disse.`);
   });
 
-  it('a volta continua devolvendo o primeiro nome da pessoa', () => {
-    expect(unmaskPII(`${RA}, este retorno é seu.`, renata.map)).toBe('Renata, este retorno é seu.');
+  it('com a colisão, a volta chama a pessoa por nome e sobrenome, e o texto remascarado reencontra o identificador dela', () => {
+    // O auditor do PDI lê o PDI de volta pela mesma máscara. Com "Renata" de volta, ele via a participante chamada pelo
+    // nome da personagem e reprovava o PDI (4Life, 17/10/2026).
+    const lido = unmaskPII(`${RA}, este retorno é seu. A Renata do cenário pediu explicações.`, renata.map);
+    expect(lido).toBe('Renata Solera, este retorno é seu. A Renata do cenário pediu explicações.');
+    expect(maskTextPII(lido, renata.map)).toBe(`${RA}, este retorno é seu. A Renata do cenário pediu explicações.`);
+  });
+
+  it('sem colisão, a volta segue sendo só o primeiro nome', () => {
+    const outra = maskColaborador({ id: 'col-paula', nome_completo: 'Paula Cardoso Teste' }, { textosDoCaso: [cenario] });
+    expect(unmaskPII(`${outra.masked!.nome}, este retorno é seu.`, outra.map)).toBe('Paula, este retorno é seu.');
   });
 
   it('sem `textosDoCaso` o comportamento antigo vale (o primeiro nome é mascarado)', () => {
