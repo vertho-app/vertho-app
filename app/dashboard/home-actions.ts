@@ -21,6 +21,7 @@ import { carregarContextoTurma } from '@/lib/turmas';
 import { carregarJornadaAtual } from '@/lib/turmas/jornada-atual';
 import { getDashboardView } from '@/lib/authz';
 import { findReadyPersonalizedVideo, personalizedGreetingCopy } from '@/lib/video/personalized-ready';
+import { pausaDeEnvios } from '@/lib/envios-pausados';
 
 /**
  * Carregamento CONSOLIDADO da home do dashboard.
@@ -82,10 +83,13 @@ export async function loadHomeData() {
     carregarProgressoMapeamento(sb, colabJornada, empresaIsDemo)
       .then((m) => m, (e: any) => { console.error('[home] progresso do mapeamento indisponível:', e?.message || e); return undefined; }),
   ]);
+  // Empresa com os envios pausados (dono, 16/10/2026, "esconder até liberar"): a home recebe a trilha sem data de
+  // início, e sem data nenhuma semana libera (a mesma regra de `loadTemporada`).
+  const inicioPausado = !!pausaDeEnvios(empCfgRes.data?.sys_config);
   const shared: HomeSharedData = {
     // Falha na jornada atual fica `undefined`: cada loader tenta de novo e, se
     // falhar outra vez, a SEÇÃO cai, em vez de a home mandar para a jornada errada.
-    trilha: jornadaR ? jornadaR.trilha : undefined,
+    trilha: jornadaR ? (inicioPausado && jornadaR.trilha ? { ...jornadaR.trilha, data_inicio: null } : jornadaR.trilha) : undefined,
     janela: jornadaR ? jornadaR.janela : undefined,
     sysConfig: ctxTurma.config,
     mapeamento: mapeamentoR,

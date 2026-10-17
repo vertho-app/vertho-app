@@ -70,6 +70,7 @@ describe('a tela do PDI da pessoa', () => {
 describe('a rota de PDF não é porta dos fundos (guard de fonte)', () => {
   it('a própria pessoa não baixa o PDI retido pelo id', () => {
     const f = readFileSync('app/api/relatorios/pdf/route.ts', 'utf8');
-    expect(f).toMatch(/auth\.colaborador\?\.id === rel\.colaborador_id && !auth\.isPlatformAdmin && pdiRetidoPelaAuditoria\(rel\.conteudo, rel\.gerado_em\)/);
+    // Desde 16/10/2026 a mesma porta também fecha com a empresa de envios pausados (`pausaDaEmpresa`).
+    expect(f).toMatch(/auth\.colaborador\?\.id === rel\.colaborador_id && !auth\.isPlatformAdmin\s*&& \(pdiRetidoPelaAuditoria\(rel\.conteudo, rel\.gerado_em\)/);
   });
 });

@@ -1696,7 +1696,8 @@ function SemanaBloqueada({ acesso, semana, colabId, onIr, t }) {
             </h1>
             <p className="mt-2 text-gray-300 leading-relaxed">
               {porData
-                ? t('locked.becauseDate', { date: acesso.liberaEm })
+                // Sem data de liberação (empresa com envios pausados: `loadTemporada` tira a data): "começa em breve".
+                ? (acesso.liberaEm ? t('locked.becauseDate', { date: acesso.liberaEm }) : t('locked.startsSoon'))
                 : t('locked.becausePrevious', { week: pendente })}
             </p>
 

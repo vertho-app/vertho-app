@@ -203,6 +203,12 @@ export default function TemporadaPage() {
           </GlassCard>
         )}
 
+        {data.inicioPausado && (
+          <GlassCard className="mb-4 border-cyan-500/30 bg-cyan-500/5">
+            <div className="text-xs text-cyan-200">{t('startsSoon')}</div>
+          </GlassCard>
+        )}
+
         {/* Temporada anterior concluída (R-16): o relatório dela continua a um
             toque, mesmo com a seguinte em curso. */}
         {!visaoGestor && data.anteriorConcluida && (
@@ -279,7 +285,8 @@ export default function TemporadaPage() {
             const liberada = concluida || (liberadaPorData && (emAndamento || anteriorConcluida));
             const motivoBloqueio = !liberada
               ? (!liberadaPorData
-                  ? t('locked.releaseAt', { date: formatarLiberacao(trilha.data_inicio, semanaCal) })
+                  // Empresa com envios pausados: a trilha vem sem data de início (`loadTemporada`), e não há data a mostrar.
+                  ? (data.inicioPausado ? t('locked.startsSoon') : t('locked.releaseAt', { date: formatarLiberacao(trilha.data_inicio, semanaCal) }))
                   : t('locked.completePrevious'))
               : '';
 

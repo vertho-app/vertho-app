@@ -7,6 +7,7 @@ import { storageSlug } from '@/lib/storage-slug';
 import { totalDoMapeamento } from '@/lib/demo/convidado-demo';
 import { colaboradorEmDegustacao } from '@/lib/demo/degustacao-mapeamento';
 import { pdiRetidoPelaAuditoria } from '@/lib/relatorios/pdi-retido';
+import { pausaDaEmpresa } from '@/lib/envios-pausados';
 import { caminhoDoPdf, idiomaDaPessoa, idiomaDoCaminhoPdf } from '@/lib/pdf-locale';
 
 /**
@@ -63,7 +64,8 @@ export async function loadPDI() {
 
   // Reprovado pela 2ª IA: retido até ser regerado (R-60). A pessoa vê "em
   // preparação", que é o estado verdadeiro dela: o plano vai ser refeito.
-  if (pdiRetidoPelaAuditoria(conteudo, rel.gerado_em)) {
+  // Empresa com os envios pausados (decisão do dono, 16/10/2026, "esconder até liberar"): o mesmo "em preparação".
+  if (pdiRetidoPelaAuditoria(conteudo, rel.gerado_em) || await pausaDaEmpresa(sb, colab.empresa_id)) {
     return { colaborador: colab, pdiAtivo: false, concluiuAvaliacao: true, respondidas: 0, totalAvaliacao: 0, degustacao: false };
   }
 
@@ -106,7 +108,7 @@ export async function baixarMeuPdiPdf() {
       .maybeSingle();
     if (!rel) return { error: 'PDI não encontrado', codigo: 'pdi_nao_encontrado' };
     // O PDF segue a tela: reprovado pela 2ª IA não sai (R-60).
-    if (pdiRetidoPelaAuditoria(rel.conteudo, rel.gerado_em)) return { error: 'PDI não encontrado', codigo: 'pdi_nao_encontrado' };
+    if (pdiRetidoPelaAuditoria(rel.conteudo, rel.gerado_em) || await pausaDaEmpresa(sb, colab.empresa_id)) return { error: 'PDI não encontrado', codigo: 'pdi_nao_encontrado' };
 
     const slug = storageSlug(colab.nome_completo, 'pdi');
     // Resolvido antes do `if (!path)` porque o nome do arquivo também é marca —

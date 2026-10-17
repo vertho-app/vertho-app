@@ -2521,6 +2521,7 @@
     "locked": {
       "title": "Week {week} isn't open yet",
       "becauseDate": "It opens on {date}.",
+      "startsSoon": "Your journey starts soon.",
       "becausePrevious": "Week {week} needs to be completed first.",
       "rule": "The journey is sequential: each week opens only after the previous one is completed. And what completes a week is the evidence conversation, not just opening the content.",
       "missing": "In week {week}, about {count} more replies from you will close the conversation.",
@@ -2701,6 +2702,7 @@
       "subtitle": "{weeks, plural, one {# week} other {# weeks}} to <evolve>evolve</evolve> {count, plural, one {1 skill} other {# skills}} to <level>next level</level>"
     },
     "paused": "Your journey has been paused by the manager. You will be able to continue when it resumes.",
+    "startsSoon": "Your journey starts soon. You will be notified when the first week opens.",
     "viewFullReport": "See full journey report",
     "previousSeason": {
       "title": "Journey {number} completed",
@@ -2713,6 +2715,7 @@
     },
     "locked": {
       "releaseAt": "Release {date}",
+      "startsSoon": "Starts soon",
       "completePrevious": "Complete the previous week"
     },
     "weekShort": "Wk {number}",

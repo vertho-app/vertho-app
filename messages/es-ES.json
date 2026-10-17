@@ -2521,6 +2521,7 @@
     "locked": {
       "title": "La semana {week} aún no está disponible",
       "becauseDate": "Se abre el {date}.",
+      "startsSoon": "Tu recorrido empieza pronto.",
       "becausePrevious": "Antes hay que completar la semana {week}.",
       "rule": "El recorrido es secuencial: cada semana se abre solo después de concluir la anterior. Y lo que concluye una semana es la conversación de evidencias, no solo abrir el contenido.",
       "missing": "En la semana {week}, faltan unas {count} respuestas tuyas para cerrar la conversación.",
@@ -2701,6 +2702,7 @@
       "subtitle": "{weeks, plural, one {# semana} other {# semanas}} para <evolve>evolucionar</evolve> {count, plural, one {1 competencia} other {# competencias}} al <level>siguiente nivel</level>"
     },
     "paused": "Tu recorrido está pausado por el gestor. Podrás continuar cuando se reanude.",
+    "startsSoon": "Tu recorrido empieza pronto. Te avisaremos cuando se abra la primera semana.",
     "viewFullReport": "Ver informe completo del recorrido",
     "previousSeason": {
       "title": "Recorrido {number} concluido",
@@ -2713,6 +2715,7 @@
     },
     "locked": {
       "releaseAt": "Se libera el {date}",
+      "startsSoon": "Empieza pronto",
       "completePrevious": "Completa la semana anterior"
     },
     "weekShort": "Sem {number}",

@@ -11,8 +11,22 @@
  * PAUSA: o aviso de PDI pronto (cron e o botão do painel do cliente), a cadência diária (o despacho e o worker) e o
  * preparo antecipado dela (cron `preparar_desafios`, que gera com IA as tarefas das semanas seguintes).
  * NÃO PAUSA: o envio manual explícito do admin (broadcast), que é decisão de quem clica.
+ * NAS TELAS DA PESSOA (`pausaDaEmpresa`): o PDI fica "em preparação" (tela, download e link do PDF) e a trilha não
+ * libera semana.
  */
 export interface PausaEnvios { motivo: string; desde?: string; ate?: string }
+
+/**
+ * A pausa da empresa, lida do banco, para as telas da PESSOA (decisão do dono, 16/10/2026: "esconder até liberar"):
+ * com a empresa pausada, o PDI aparece como "em preparação" e a trilha como "começa em breve". Falha de leitura NÃO
+ * esconde: um erro passageiro do banco não pode sumir com o PDI de todas as empresas (registra no log e segue).
+ */
+export async function pausaDaEmpresa(sb: any, empresaId: string | null | undefined): Promise<PausaEnvios | null> {
+  if (!empresaId) return null;
+  const { data, error } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+  if (error) { console.error(`[envios-pausados] não li a pausa da empresa ${empresaId}: ${error.message}`); return null; }
+  return pausaDeEnvios(data?.sys_config);
+}
 
 export function pausaDeEnvios(sysConfig: unknown, agoraISO: string = new Date().toISOString()): PausaEnvios | null {
   const p = (sysConfig as any)?.envios_pausados;

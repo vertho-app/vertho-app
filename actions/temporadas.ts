@@ -28,6 +28,7 @@ import { PROGRESSO, TRILHA } from '@/lib/status';
 import { marcarSemanaConsumida } from '@/lib/season-engine/consumo-conteudo';
 import { statusAoTocarSemana } from '@/lib/season-engine/progresso-semana';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
+import { pausaDaEmpresa } from '@/lib/envios-pausados';
 
 interface GerarTemporadaParams {
   colaboradorId?: string;
@@ -1034,13 +1035,21 @@ export async function loadTemporada(colaboradorId: string, opts: { semanaTranscr
       }
     }
 
+    // Empresa com os envios pausados (dono, 16/10/2026, "esconder até liberar"): para a PRÓPRIA pessoa, a trilha sai
+    // sem data de início. Sem data nenhuma semana libera (`semanaLiberadaPorData`), e a tela diz "começa em breve".
+    // Gestor e RH continuam vendo a trilha como ela é.
+    const inicioPausado = ctx.colaborador?.id === colaboradorId && !ctx.isPlatformAdmin
+      && !!(await pausaDaEmpresa(sbRaw, colaborador.empresa_id));
+
     return {
       ok: true,
       viewerRole: ctx.role,
       trilha: {
         ...trilha,
         temporada_plano: plano,
+        ...(inicioPausado ? { data_inicio: null } : {}),
       },
+      inicioPausado,
       progresso: progresso || [],
       colaborador,
       anteriorConcluida,

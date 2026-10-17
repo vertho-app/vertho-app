@@ -2521,6 +2521,7 @@
     "locked": {
       "title": "Semana {week} ainda não liberada",
       "becauseDate": "Ela abre {date}.",
+      "startsSoon": "Sua jornada começa em breve.",
       "becausePrevious": "Antes dela, falta concluir a semana {week}.",
       "rule": "A jornada é sequencial: cada semana só abre depois que a anterior é concluída. E o que conclui uma semana é a conversa de evidências, não só abrir o conteúdo.",
       "missing": "Na semana {week}, faltam cerca de {count} respostas suas na conversa para ela fechar.",
@@ -2701,6 +2702,7 @@
       "subtitle": "{weeks, plural, one {# semana} other {# semanas}} para <evolve>evoluir</evolve> {count, plural, one {1 competência} other {# competências}} ao <level>próximo nível</level>"
     },
     "paused": "Sua jornada está pausada pelo gestor. Você poderá continuar quando for retomada.",
+    "startsSoon": "Sua jornada começa em breve. Você será avisado quando a primeira semana abrir.",
     "viewFullReport": "Ver relatório completo da jornada",
     "previousSeason": {
       "title": "Jornada {number} concluída",
@@ -2713,6 +2715,7 @@
     },
     "locked": {
       "releaseAt": "Libera {date}",
+      "startsSoon": "Começa em breve",
       "completePrevious": "Conclua a semana anterior"
     },
     "weekShort": "Sem {number}",

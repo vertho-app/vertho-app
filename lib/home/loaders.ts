@@ -22,6 +22,8 @@ import { JANELA_ABERTA, trilhaDaParticipacao, type Janela } from '@/lib/turmas/j
 import { artefatoDaJornadaAtual, carregarJornadaAtual } from '@/lib/turmas/jornada-atual';
 import { competenciasParaContagem, progressoDoMapeamento } from '@/lib/assessment/competencias-do-mapeamento';
 import type { EscopoDeLeitura } from '@/lib/turmas/escopo-leitura';
+import { pausaDaEmpresa } from '@/lib/envios-pausados';
+import { pdiRetidoPelaAuditoria } from '@/lib/relatorios/pdi-retido';
 
 /**
  * Loaders da home do dashboard — queries PURAS, sem 'use server' e sem auth
@@ -342,7 +344,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
   // trilha aqui invertia o funil e escondia um PDI que já existia. O PDI de uma
   // jornada ANTERIOR não conta para a atual (nasceu antes do marco da participação).
   const { data: pdiMaisRecente, error: erroPdi } = await sb.from('relatorios')
-    .select('id, gerado_em')
+    .select('id, gerado_em, auditoria_status:conteudo->auditoria->>status')
     .eq('colaborador_id', colab.id)
     .eq('empresa_id', colab.empresa_id)
     .eq('tipo', 'individual')
@@ -351,7 +353,14 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     .maybeSingle();
   // Falha de leitura não vira "sem PDI" (a jornada diria "Aguardando geração").
   if (erroPdi) throw new Error(`PDI: ${erroPdi.message}`);
-  const pdi = pdiMaisRecente && artefatoDaJornadaAtual(pdiMaisRecente.gerado_em, jornadaAtual.janela) ? pdiMaisRecente : null;
+  // O cartão segue a página do PDI: reprovado pela 2ª IA (R-60) ou empresa com os envios pausados (dono, 16/10/2026,
+  // "esconder até liberar") é "aguardando", não "concluído". Antes o cartão dizia concluído para um PDI que a página
+  // mostrava como "em preparação".
+  const pdiEscondido = !!pdiMaisRecente && (
+    pdiRetidoPelaAuditoria({ auditoria: { status: (pdiMaisRecente as any).auditoria_status } }, pdiMaisRecente.gerado_em)
+    || !!(await pausaDaEmpresa(sb, colab.empresa_id))
+  );
+  const pdi = pdiMaisRecente && !pdiEscondido && artefatoDaJornadaAtual(pdiMaisRecente.gerado_em, jornadaAtual.janela) ? pdiMaisRecente : null;
 
   let pdiStatus, pdiDesc;
   if (pdi) {
