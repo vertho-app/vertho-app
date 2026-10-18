@@ -458,14 +458,14 @@ describe('a geração síncrona do autor tem tempo para gerar um módulo (18/10/
     expect(TIMEOUT_AUTOR_MS).toBeGreaterThanOrEqual(5 * 60_000);
   });
 
-  it('toda chamada de IA da task passa pelas mesmas opções (a regeração de bloco vazio inclusive)', async () => {
+  it('toda chamada de IA da task leva o tempo-limite (a regeração de bloco vazio inclusive)', async () => {
     const { readFileSync } = await import('fs');
     const { join } = await import('path');
     const fonte = readFileSync(join(process.cwd(), 'trigger/gerar-modulos-manuscrito.ts'), 'utf-8');
-    const chamadas = fonte.match(/await callAI\(/g) || [];
-    const comOpcoes = fonte.match(/await callAI\([^;]*?\{ taskKey: 'modulo_base_autor', \.\.\.opcoesAutor\('[a-z-]+'\) \}\)/g) || [];
+    const chamadas: string[] = fonte.match(/await callAI\([^;]*?\);/g) ?? [];
     expect(chamadas.length).toBeGreaterThanOrEqual(2);
-    expect(comOpcoes.length, 'há chamada de IA sem `opcoesAutor` (sem o tempo-limite)').toBe(chamadas.length);
-    expect(fonte).toContain("...opcoesAutor('correcao-vazio')");
+    const semTempo = chamadas.filter((c) => !c.includes('timeoutMs: TIMEOUT_AUTOR_MS'));
+    expect(semTempo, 'há chamada de IA sem `timeoutMs: TIMEOUT_AUTOR_MS`').toEqual([]);
+    expect(chamadas.some((c) => c.includes("source: 'correcao-vazio'"))).toBe(true);
   });
 });
