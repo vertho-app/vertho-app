@@ -170,7 +170,8 @@ export const gerarModulosManuscritoTask = task({
       // Opções de TODA chamada síncrona do autor (reserva do lote e regeração de bloco vazio). O tempo-limite padrão do
       // `callAI` é 120 s e um módulo leva ~3 min: as duas morriam no relógio, e a correção automática registrava "0
       // regerados" com 4 módulos vazios (`Medido` 18/10/2026, RH da 4Life; a mesma faixa com 15 min saiu em 3 min).
-      const opcoesAutor = (source: string) => ({ taskKey: 'modulo_base_autor', source, empresaId, timeoutMs: TIMEOUT_AUTOR_MS });
+      // O `taskKey` fica escrito em cada chamada: é o que o guard de ledger (ia-taskkey-guard) lê no call-site.
+      const opcoesAutor = (source: string) => ({ source, empresaId, timeoutMs: TIMEOUT_AUTOR_MS });
       let respostas = new Map<string, string>();
 
       if (pp.pularBatch === true) {
@@ -267,7 +268,7 @@ export const gerarModulosManuscritoTask = task({
         let texto = respostas.get(r.customId);
         if (!texto || !texto.trim()) {
           try {
-            texto = await callAI(r.system, r.user, { model }, MAX_TOKENS, opcoesAutor('batch-sync'));
+            texto = await callAI(r.system, r.user, { model }, MAX_TOKENS, { taskKey: 'modulo_base_autor', ...opcoesAutor('batch-sync') });
           } catch (e: any) {
             resultados.push({ modulo: rotulo, ok: false, error: 'IA falhou: ' + (e?.message || e) });
             done++; await pushProgress(`${rotulo}: erro de IA`);
@@ -373,7 +374,7 @@ export const gerarModulosManuscritoTask = task({
               const req = reqs.find((q) => (q.idsEquivalentes ?? [q.comp.id]).includes(m.competencia_id)
                 && q.nivel_entrada === m.nivel_entrada && q.nivel_destino === m.nivel_destino);
               if (!req) return null;
-              const texto = await callAI(req.system, req.user, { model }, MAX_TOKENS, opcoesAutor('correcao-vazio'));
+              const texto = await callAI(req.system, req.user, { model }, MAX_TOKENS, { taskKey: 'modulo_base_autor', ...opcoesAutor('correcao-vazio') });
               const corpo = extractCorpo(texto);
               if (!corpo || blocoVazio((corpo as any).conteudo_central) || blocoVazio((corpo as any).conteudo_aplicavel)) return null;
               // Obsoleta o vazio ANTES de gravar o novo (a idempotência só conta os não obsoletos); volta se a gravação falhar.

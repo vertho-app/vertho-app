@@ -463,9 +463,9 @@ describe('a geração síncrona do autor tem tempo para gerar um módulo (18/10/
     const { join } = await import('path');
     const fonte = readFileSync(join(process.cwd(), 'trigger/gerar-modulos-manuscrito.ts'), 'utf-8');
     const chamadas = fonte.match(/await callAI\(/g) || [];
-    const comOpcoes = fonte.match(/await callAI\([^;]*?opcoesAutor\('[a-z-]+'\)\)/g) || [];
+    const comOpcoes = fonte.match(/await callAI\([^;]*?\{ taskKey: 'modulo_base_autor', \.\.\.opcoesAutor\('[a-z-]+'\) \}\)/g) || [];
     expect(chamadas.length).toBeGreaterThanOrEqual(2);
     expect(comOpcoes.length, 'há chamada de IA sem `opcoesAutor` (sem o tempo-limite)').toBe(chamadas.length);
-    expect(fonte).toContain("opcoesAutor('correcao-vazio')");
+    expect(fonte).toContain("...opcoesAutor('correcao-vazio')");
   });
 });
