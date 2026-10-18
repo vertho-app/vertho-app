@@ -50,6 +50,8 @@ import { comContexto } from '@/lib/execucao-contexto';
  * Ver os dois blocos marcados 🔑 abaixo.
  */
 const MAX_TENTATIVAS = 3;
+/** Tempo-limite de UMA geração síncrona de módulo (~3 min medidos; folga para fila do fornecedor). Exportado para o teste. */
+export const TIMEOUT_AUTOR_MS = 10 * 60_000;
 
 export const gerarModulosManuscritoTask = task({
   id: 'gerar-modulos-manuscrito',
@@ -165,6 +167,10 @@ export const gerarModulosManuscritoTask = task({
       //    `pularBatch` = botão de emergência manual (vai direto ao síncrono).
       const model = String(pp.model || 'claude-sonnet-4-6');
       const MAX_TOKENS = 64000; // 26/08: unificado com o default de chamarIAComRetry. Teto não é gasto — paga-se o que sai — e as outras 2 chamadas da task já rodavam em 64k. Manter 32k aqui deixava a MESMA taskKey com dois tetos, e era o menor que o auditor reportava.
+      // Opções de TODA chamada síncrona do autor (reserva do lote e regeração de bloco vazio). O tempo-limite padrão do
+      // `callAI` é 120 s e um módulo leva ~3 min: as duas morriam no relógio, e a correção automática registrava "0
+      // regerados" com 4 módulos vazios (`Medido` 18/10/2026, RH da 4Life; a mesma faixa com 15 min saiu em 3 min).
+      const opcoesAutor = (source: string) => ({ taskKey: 'modulo_base_autor', source, empresaId, timeoutMs: TIMEOUT_AUTOR_MS });
       let respostas = new Map<string, string>();
 
       if (pp.pularBatch === true) {
@@ -261,9 +267,7 @@ export const gerarModulosManuscritoTask = task({
         let texto = respostas.get(r.customId);
         if (!texto || !texto.trim()) {
           try {
-            texto = await callAI(r.system, r.user, { model }, MAX_TOKENS, {
-              taskKey: 'modulo_base_autor', source: 'batch-sync', empresaId,
-            });
+            texto = await callAI(r.system, r.user, { model }, MAX_TOKENS, opcoesAutor('batch-sync'));
           } catch (e: any) {
             resultados.push({ modulo: rotulo, ok: false, error: 'IA falhou: ' + (e?.message || e) });
             done++; await pushProgress(`${rotulo}: erro de IA`);
@@ -369,7 +373,7 @@ export const gerarModulosManuscritoTask = task({
               const req = reqs.find((q) => (q.idsEquivalentes ?? [q.comp.id]).includes(m.competencia_id)
                 && q.nivel_entrada === m.nivel_entrada && q.nivel_destino === m.nivel_destino);
               if (!req) return null;
-              const texto = await callAI(req.system, req.user, { model }, MAX_TOKENS, { taskKey: 'modulo_base_autor', source: 'correcao-vazio', empresaId });
+              const texto = await callAI(req.system, req.user, { model }, MAX_TOKENS, opcoesAutor('correcao-vazio'));
               const corpo = extractCorpo(texto);
               if (!corpo || blocoVazio((corpo as any).conteudo_central) || blocoVazio((corpo as any).conteudo_aplicavel)) return null;
               // Obsoleta o vazio ANTES de gravar o novo (a idempotência só conta os não obsoletos); volta se a gravação falhar.

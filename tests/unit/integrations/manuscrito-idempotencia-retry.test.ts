@@ -55,6 +55,8 @@ const mocks = vi.hoisted(() => ({
   erroNoVeredito: false,
   /** Faz a gravacao do `done` falhar (era best-effort; virou checkpoint). */
   matarODone: false,
+  /** Argumentos de cada `callAI` (o 5º são as opções: taskKey, source, timeoutMs). */
+  chamadasIA: [] as any[][],
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -165,7 +167,7 @@ vi.mock('@/lib/modulo-base-autor', () => ({
 vi.mock('@/actions/ai-client', () => ({
   // Sem este mock a task chamava a API de verdade, falhava por credencial e
   // TODO modulo virava 'IA falhou' — de novo com `idsCriados` vazio.
-  callAI: async () => JSON.stringify({ titulo: 'M', conteudo_central: {} }),
+  callAI: async (...args: any[]) => { mocks.chamadasIA.push(args); return JSON.stringify({ titulo: 'M', conteudo_central: {} }); },
 }));
 
 /**
@@ -200,6 +202,7 @@ beforeEach(() => {
   mocks.chamadasPersistir = 0;
   mocks.erroNoVeredito = false;
   mocks.matarODone = false;
+  mocks.chamadasIA = [];
 });
 
 /**
@@ -440,5 +443,29 @@ describe('C3 · manuscrito: os ids atravessam a retomada', () => {
     expect(job.params.batchId, 'o batchId gravado durante a run sumiu no fechamento').toBe('msgbatch_1');
     expect(job.params.modulosCriados).toEqual(['mod-1']);
     expect(job.params.docxBase64, 'o DOCX de 360KB continuou no job').toBeUndefined();
+  });
+});
+
+describe('a geração síncrona do autor tem tempo para gerar um módulo (18/10/2026)', () => {
+  // O `callAI` corta em 120 s por padrão e um módulo leva ~3 min: a reserva do lote e a regeração de bloco vazio morriam
+  // no relógio, e a correção automática registrava "0 regerados" com 4 módulos vazios no RH da 4Life.
+  it('🔴 a reserva do lote (lote sem resposta) chama a IA com o tempo-limite da task, não com o padrão', async () => {
+    const { TIMEOUT_AUTOR_MS } = await import('@/trigger/gerar-modulos-manuscrito');
+    await rodar();
+    const reserva = mocks.chamadasIA.find((a) => a[4]?.source === 'batch-sync');
+    expect(reserva, 'o lote vazio não caiu na reserva síncrona').toBeTruthy();
+    expect(reserva![4]).toMatchObject({ taskKey: 'modulo_base_autor', timeoutMs: TIMEOUT_AUTOR_MS });
+    expect(TIMEOUT_AUTOR_MS).toBeGreaterThanOrEqual(5 * 60_000);
+  });
+
+  it('toda chamada de IA da task passa pelas mesmas opções (a regeração de bloco vazio inclusive)', async () => {
+    const { readFileSync } = await import('fs');
+    const { join } = await import('path');
+    const fonte = readFileSync(join(process.cwd(), 'trigger/gerar-modulos-manuscrito.ts'), 'utf-8');
+    const chamadas = fonte.match(/await callAI\(/g) || [];
+    const comOpcoes = fonte.match(/await callAI\([^;]*?opcoesAutor\('[a-z-]+'\)\)/g) || [];
+    expect(chamadas.length).toBeGreaterThanOrEqual(2);
+    expect(comOpcoes.length, 'há chamada de IA sem `opcoesAutor` (sem o tempo-limite)').toBe(chamadas.length);
+    expect(fonte).toContain("opcoesAutor('correcao-vazio')");
   });
 });

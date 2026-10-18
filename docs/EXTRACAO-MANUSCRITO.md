@@ -320,6 +320,12 @@ antes, porque a idempotência só conta os não obsoletos; volta se a gravação
 **reprovado com conteúdo** é refinado (`refinarModuloCore`, que reverte se a nota cair). Medido na 4Life antes:
 6 de 51 módulos vazios e 11 reprovados por coerência, todos corrigidos à mão. O que sobra fica reprovado e não
 é publicado; o placar sai em `progress.correcao`.
+🔴 Até 18/10/2026 a regeração NUNCA funcionava: ela (e a reserva síncrona do lote) chamava o `callAI` com o
+tempo-limite padrão de 120 s, e um módulo leva ~3 min. Medido no RH da 4Life: 2 jobs com "0 regerados" e 4 vazios; a
+mesma faixa com 15 min saiu válida em 3 min. Hoje as duas chamadas passam por `opcoesAutor` (`TIMEOUT_AUTOR_MS`, 10 min;
+lembrete: o `timeoutMs` vai no 5º argumento do `callAI`, as opções, não no `aiConfig`). Por que o LOTE às vezes devolve
+o central vazio segue sem prova (a resposta crua do lote não fica guardada); `scripts/_diag-bloco-vazio.ts` (fora do
+repo) gera UMA faixa e mostra onde o JSON quebra.
 
 ### 4.7 Bônus: recursos do apêndice
 
