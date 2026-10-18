@@ -473,6 +473,13 @@ export const DEGRADACAO = {
    */
   VIDEO_PLANO_V7_FALHOU: 'video-plano-v7-falhou',
   /**
+   * vídeo (E4): o vídeo tinha `visual_v7` e saiu no formato de HOJE (render Remotion inteiro, com legenda). `detalhe.fase`:
+   * `decisao` (a box sem a configuração da Lambda, ou um invariante da emenda falhou: avatar no meio, plano de outras
+   * cenas, soma dos momentos ≠ miolo, cena sem narração) ou `render` (Lambda, Remotion das pontas ou emenda).
+   * `aviso`: o vídeo sai e é entregue. Chave = id do vídeo. Registrado por `worker-hetzner/worker.mjs` (`miolo-v7.mjs`).
+   */
+  VIDEO_V7_RENDER_FALLBACK: 'video-v7-render-fallback',
+  /**
    * votação: a cédula de um cargo devia ser a Top 10 dele (decisão de 25/09/2026)
    * e, sem Top 10, mostra a matriz inteira. `aviso`: a pessoa vota normalmente,
    * só que numa lista maior que a combinada. Registrado por `loadResultadosVotacao`

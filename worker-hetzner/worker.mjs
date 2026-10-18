@@ -14,6 +14,7 @@
 import pg from 'pg';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readFile, access, rm } from 'node:fs/promises';
 import { ensureBrowser, selectComposition, renderMedia } from '@remotion/renderer';
 import { personalizar, primeiroNome } from './personalizar.mjs';
@@ -21,6 +22,7 @@ import { DEGRADACAO_SAUDACAO_AUSENTE } from './saudacao-audio.mjs';
 import { COLUNAS_PREFERENCIA, destinatariosDaSaudacao } from './saudacao.mjs';
 import { masterizarAudio } from './masterizar-audio.mjs';
 import { registrarPublicacao, confirmarPublicacoes } from './publicacao-bunny.mjs';
+import { decidirMiolo, configLambda, carregarAws, renderizarMioloNaLambda, emendar, DEGRADACAO_V7_FALLBACK } from './miolo-v7.mjs';
 import {
   claim as claimFila, reap as reapFila, reapSemSinalMin, REAP_COM_SINAL_MIN, iniciarSinalDeVida,
   processarJob, preservarDeckNaFalha, registrarDegradacaoVideo,
@@ -240,26 +242,15 @@ function validarInputProps(props) {
   if (erros.length) throw new Error(`render_inputprops inválido: ${erros.slice(0, 6).join('; ')}`);
 }
 
-async function renderOne(job) {
-  const props = job.render_inputprops;
-  validarInputProps(props);
-  const rawScale = job.render_scale != null ? Number(job.render_scale) : Number(VIDEO_RENDER_SCALE);
-  const scale = scaleDimsInteiras(rawScale, props.width, props.height);
-  const bundle = await resolveBundle();
-  const title = job.roteiro?.title || `Vertho · ${job.id}`;
-
-  log(`render ${job.id}: ${props.scenes.length} cenas · ${props.totalFrames} frames · scale ${scale} · concurrency ${CONCURRENCY}`);
-  await ensureBrowser();
+/**
+ * Render Remotion de um trecho (ou do vídeo inteiro) com WATCHDOG: se o render pendurar (OOM/swap silencioso,
+ * frame travado), aborta em vez de segurar a box pra sempre. cancelRender() mata o render; o erro sobe → loop marca
+ * status=error → fila esvazia → self-destruct. Default 40min: um vídeo de ~5,6min levou 32min em cx33 (25min antigo
+ * mataria render VÁLIDO); com vídeos de 3,5–4,5min em cx43 o render cai p/ ~15–26min, então 40min é folga de
+ * segurança contra TRAVA, não teto de render normal. Override por MAX_RENDER_MS.
+ */
+async function renderRemotion({ bundle, props, out, scale, frameRange }) {
   const composition = await selectComposition({ serveUrl: bundle, id: COMPOSITION_ID, inputProps: props });
-
-  const out = `/tmp/${job.id}.mp4`;
-  const t0 = Date.now();
-  // WATCHDOG: se o render pendurar (OOM/swap silencioso, frame travado), aborta
-  // em vez de segurar a box pra sempre. cancelRender() mata o render; o erro sobe
-  // → loop marca status=error → fila esvazia → self-destruct. Default 40min: um
-  // vídeo de ~5,6min levou 32min em cx33 (25min antigo mataria render VÁLIDO);
-  // com vídeos de 3,5–4,5min em cx43 o render cai p/ ~15–26min, então 40min é
-  // folga de segurança contra TRAVA, não teto de render normal. Override por MAX_RENDER_MS.
   const MAX_RENDER_MS = parseInt(process.env.MAX_RENDER_MS || '2400000', 10);
   const { makeCancelSignal } = await import('@remotion/renderer');
   const { cancelSignal, cancel } = makeCancelSignal();
@@ -271,17 +262,89 @@ async function renderOne(job) {
         serveUrl: bundle, composition, codec: 'h264', outputLocation: out,
         concurrency: CONCURRENCY, chromiumOptions: { gl: 'swangle' }, inputProps: props,
         cancelSignal,
+        ...(frameRange ? { frameRange } : {}),
         ...(scale && scale !== 1 ? { scale } : {}),
       }),
       watchdog,
     ]);
   } finally { if (wd) clearTimeout(wd); }
+}
+
+/**
+ * O deck no formato novo: o miolo na Lambda e, AO MESMO TEMPO, a abertura e o fecho no Remotion (só os quadros
+ * deles, sem legenda), emendados no tamanho do render. Lança em qualquer falha (quem chama cai no render de hoje).
+ */
+async function renderizarV7(job, d, cfg, { bundle, scale }) {
+  const props = job.render_inputprops;
+  const semLegenda = { ...props, showBurnedCaptions: false };
+  const aws = await carregarAws(cfg);
+  const pontas = (async () => {
+    const r = {};
+    if (d.de > 0) { r.intro = `/tmp/${job.id}-abertura.mp4`; await renderRemotion({ bundle, props: semLegenda, out: r.intro, scale, frameRange: [0, d.de - 1] }); }
+    if (d.ate < d.total) { r.outro = `/tmp/${job.id}-fecho.mp4`; await renderRemotion({ bundle, props: semLegenda, out: r.outro, scale, frameRange: [d.ate, d.total - 1] }); }
+    return r;
+  })();
+  // allSettled: se a Lambda cair cedo, espera o Remotion das pontas terminar antes de devolver, para o render de
+  // hoje (o fallback) não disputar a CPU com ele.
+  const [miolo, ponta] = await Promise.allSettled([
+    renderizarMioloNaLambda({ job, d, cfg, dir: `/tmp/v7-${job.id}`, aws, log }), pontas,
+  ]);
+  if (miolo.status === 'rejected') throw miolo.reason;
+  if (ponta.status === 'rejected') throw ponta.reason;
+  const s = scale && scale !== 1 ? scale : 1;
+  const out = `/tmp/${job.id}.mp4`;
+  const m = await emendar({
+    partes: [
+      ponta.value.intro && { arquivo: ponta.value.intro, quadros: d.de },
+      { arquivo: miolo.value.arquivo, quadros: d.ate - d.de },
+      ponta.value.outro && { arquivo: ponta.value.outro, quadros: d.total - d.ate },
+    ].filter(Boolean), saida: out,
+    largura: Math.round(props.width * s), altura: Math.round(props.height * s), fps: d.fps, quadrosEsperados: d.total,
+  });
+  log(`deck v7 ${job.id}: ${m.quadros} quadros (${m.largura}×${m.altura}), miolo na Lambda em ${miolo.value.segundos} s por US$ ${miolo.value.custoUsd}`);
+  return out;
+}
+
+async function renderOne(job) {
+  const props = job.render_inputprops;
+  validarInputProps(props);
+  const rawScale = job.render_scale != null ? Number(job.render_scale) : Number(VIDEO_RENDER_SCALE);
+  const scale = scaleDimsInteiras(rawScale, props.width, props.height);
+  const bundle = await resolveBundle();
+  const title = job.roteiro?.title || `Vertho · ${job.id}`;
+
+  log(`render ${job.id}: ${props.scenes.length} cenas · ${props.totalFrames} frames · scale ${scale} · concurrency ${CONCURRENCY}`);
+  await ensureBrowser();
+  const t0 = Date.now();
+
+  // Formato novo (E4, 17/10/2026): miolo da biblioteca v7 na Lambda + abertura e fecho do Remotion sem legenda,
+  // emendados na mesma linha do tempo. Qualquer falha cai no render de hoje inteiro, com a degradação registrada.
+  let deck = null;
+  const d = decidirMiolo(job);
+  const cfgLambda = configLambda(process.env);
+  if (d.ok && cfgLambda) {
+    try {
+      deck = await renderizarV7(job, d, cfgLambda, { bundle, scale });
+    } catch (e) {
+      const erro = String(e?.message || e).slice(0, 400);
+      log(`miolo v7 ${job.id} falhou, render de hoje inteiro:`, erro);
+      await registrarDegradacaoVideo(pool, { tipo: DEGRADACAO_V7_FALLBACK, chave: job.id, empresaId: job.empresa_id || null, severidade: 'aviso', detalhe: { celula: job.id, fase: 'render', erro } }, log);
+    }
+  } else if (job.visual_v7) {
+    const motivo = d.ok ? 'box sem a configuração da Lambda' : d.motivo;
+    log(`miolo v7 não usado em ${job.id}: ${motivo}`);
+    await registrarDegradacaoVideo(pool, { tipo: DEGRADACAO_V7_FALLBACK, chave: job.id, empresaId: job.empresa_id || null, severidade: 'aviso', detalhe: { celula: job.id, fase: 'decisao', motivo } }, log);
+  }
+  if (!deck) {
+    deck = `/tmp/${job.id}.mp4`;
+    await renderRemotion({ bundle, props, out: deck, scale });
+  }
   log(`render ${job.id} OK em ${Math.round((Date.now() - t0) / 1000)}s · masterizando áudio…`);
 
   // Engenharia de áudio (trilha + ducking + master -14 LUFS) — mesmo passo do
   // piloto. O deck masterizado é o que sobe E o que personalizamos (a porção do
   // deck na saudação preserva a trilha).
-  const final = await masterizarSeguro(out, props);
+  const final = await masterizarSeguro(deck, props);
   const buf = await readFile(final);
   log(`áudio pronto · ${(buf.length / 1e6).toFixed(1)}MB · subindo no Bunny…`);
 
@@ -370,4 +433,8 @@ async function main() {
   process.exit(0);
 }
 
-main();
+// O laço da fila só sobe quando este arquivo é o ponto de entrada (`node worker.mjs`, o CMD da imagem). Importado (o
+// ensaio local do formato novo), ele só expõe as funções de render, sem pegar job nenhum.
+if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1] || '')) main();
+
+export { renderRemotion, renderizarV7, masterizarSeguro };

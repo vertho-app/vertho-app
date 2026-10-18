@@ -80,6 +80,24 @@ describe('box nova recebe um reaper compatível com o watchdog e a pull zone', (
     expect(env).toContain('SUPABASE_URL=https://sb.exemplo');
   });
 
+  it('a configuração da Lambda do miolo v7 só vai quando existe, e nenhuma outra chave da AWS vai junto', async () => {
+    ambiente();
+    vi.stubEnv('AWS_ACCESS_KEY_ID', 'chave-de-outro-servico');
+    let posts = provisiona([criada()]);
+    await ensureRenderWorker();
+    expect(String(posts[0].user_data)).not.toMatch(/HF_LAMBDA_|AWS_ACCESS_KEY_ID|chave-de-outro-servico/);
+
+    vi.stubEnv('HF_LAMBDA_ACCESS_KEY_ID', 'AKIATESTE');
+    vi.stubEnv('HF_LAMBDA_SECRET_ACCESS_KEY', 'segredo-teste');
+    vi.stubEnv('HF_LAMBDA_BUCKET', 'bucket-teste');
+    vi.stubEnv('HF_LAMBDA_STATE_MACHINE', 'arn:aws:states:us-east-1:1:stateMachine:x');
+    posts = provisiona([criada()]);
+    await ensureRenderWorker();
+    const env = String(posts[0].user_data);
+    for (const l of ['HF_LAMBDA_ACCESS_KEY_ID=AKIATESTE', 'HF_LAMBDA_SECRET_ACCESS_KEY=segredo-teste', 'HF_LAMBDA_BUCKET=bucket-teste', 'HF_LAMBDA_STATE_MACHINE=arn:aws:states:us-east-1:1:stateMachine:x']) expect(env).toContain(l);
+    expect(env).not.toContain('chave-de-outro-servico');
+  });
+
   it('a fórmula do orquestrador é a mesma do worker', () => {
     for (const ms of [600_000, 2_400_000, 5_400_000, 7_200_000]) {
       expect(reapSemSinalMin(ms)).toBe(reapDoWorker({ MAX_RENDER_MS: String(ms) }));

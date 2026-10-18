@@ -18,8 +18,10 @@ RUN npm install --omit=dev
 
 # Código + bundle Remotion já compilado (mesma composição do app).
 # bed-respiro.mp3 = trilha da masterização de áudio (ffmpeg, fora do bundle Remotion).
-COPY worker.mjs fila.mjs personalizar.mjs masterizar-audio.mjs publicacao-bunny.mjs saudacao.mjs saudacao-audio.mjs bed-respiro.mp3 bed-pico.mp3 ./
+COPY worker.mjs fila.mjs personalizar.mjs masterizar-audio.mjs publicacao-bunny.mjs saudacao.mjs saudacao-audio.mjs miolo-v7.mjs bed-respiro.mp3 bed-pico.mp3 ./
 COPY spike-bundle ./spike-bundle
+# Miolo da biblioteca v7 (composição do HyperFrames, runtime da biblioteca e fontes da marca), renderizado na Lambda.
+COPY video-v7 ./video-v7
 
 # Pré-baixa o Chrome headless do Remotion na imagem (evita baixar a cada boot).
 RUN node -e "import('@remotion/renderer').then(r=>r.ensureBrowser()).then(()=>console.log('chrome ok')).catch(e=>{console.error(e);process.exit(1)})"

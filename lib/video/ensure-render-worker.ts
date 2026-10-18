@@ -148,6 +148,11 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     // Reconciliação baixa o deck já publicado em vez de re-renderizar (fila.mjs).
     `BUNNY_PULL_ZONE=${process.env.BUNNY_PULL_ZONE || ''}`,
     `BUNNY_REFERER=https://www.${ROOT_DOMAIN}/`,
+    // Miolo da biblioteca v7 na Lambda (E4, 17/10/2026; `worker-hetzner/miolo-v7.mjs`): só vai quando o Trigger tem a
+    // configuração. Sem ela, a box renderiza tudo como hoje. Chave do usuário IAM `vertho-render` (só o bucket e a
+    // máquina de estados do render), não a de publicação da pilha.
+    ...['HF_LAMBDA_ACCESS_KEY_ID', 'HF_LAMBDA_SECRET_ACCESS_KEY', 'HF_LAMBDA_REGION', 'HF_LAMBDA_BUCKET', 'HF_LAMBDA_STATE_MACHINE', 'HF_LAMBDA_PARALELOS']
+      .filter((k) => process.env[k]).map((k) => `${k}=${process.env[k]}`),
     `HCLOUD_TOKEN=${token}`,
     `EPHEMERAL=true`,
     `IDLE_SHUTDOWN_MS=${process.env.RENDER_IDLE_SHUTDOWN_MS || '300000'}`,
