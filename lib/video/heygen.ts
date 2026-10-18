@@ -36,7 +36,9 @@ const chave = () => process.env.HEYGEN_API_KEY || '';
 // Avatar da marca "Mentora Vertho" (foto aberta, navy), validado em 17/06. A env só
 // sobrescreve para testar outra foto. Não é segredo (id de asset).
 export const fotoPadraoHeyGen = () => process.env.HEYGEN_TALKING_PHOTO_ID || 'd160ea51f4124514b94aa1cf8e56eb42';
-export const motorHeyGen = () => process.env.HEYGEN_ENGINE || 'avatar_iii';
+// Avatar IV desde 18/10/2026 (decisão do dono, na comparação lado a lado com o mesmo áudio: a boca do IV casa melhor). Ele
+// custa 2,2× por segundo, e o orçamento do vídeo se mantém porque o avatar ficou curto (~13 s, `roteiro-prompt.ts`).
+export const motorHeyGen = () => process.env.HEYGEN_ENGINE || 'avatar_iv';
 
 interface GerarOpts {
   /** Outro look (avatar_id da v3) no lugar da foto padrão. */

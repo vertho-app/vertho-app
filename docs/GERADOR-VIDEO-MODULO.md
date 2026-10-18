@@ -209,8 +209,8 @@ miolo é 100% animação Remotion com voice-over — sem filmagem, câmera ou im
 
 | Template | Peso | Para que serve |
 |---|---|---|
-| `avatar_intro` | ponta | Abre o tema e prende (26-30 palavras, ~15s). **Não cita o descritor no gancho** — prende primeiro, nomeia depois |
-| `avatar_outro` | ponta | Fecha com **pergunta de reflexão acionável** na rotina do cargo (22-26 palavras, ~14s) |
+| `avatar_intro` | ponta | Abre o tema e prende (13-15 palavras, ~7s, desde 18/10/2026). **Não cita o descritor no gancho** — prende primeiro, nomeia depois |
+| `avatar_outro` | ponta | Fecha com **pergunta de reflexão acionável** na rotina do cargo (11-13 palavras, ~6s, desde 18/10/2026; o desafio da semana fica na última cena do miolo) |
 | `concept_reveal` | densa | Conceito ou distinção em 3 pontos |
 | `comparison_motion` | densa | Prática fraca × desejada, lado a lado |
 | `steps_flow` | densa | Método/rotina em passos numerados |

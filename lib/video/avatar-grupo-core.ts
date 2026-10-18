@@ -89,8 +89,8 @@ function promptTextos(m: ModuloParaRoteiro): { system: string; user: string } {
 REGRAS:
 - Português do Brasil, fala natural e oral, frases curtas (até 20 palavras), sem jargão, sem markdown, sem emoji.
 - Tom NEUTRO de mentora calorosa e segura: sem puxar para nenhum estilo comportamental (nem só direto e de resultado, nem só inspirador, nem só acolhedor, nem só analítico).
-- avatar_intro: 30 a 34 palavras (≈15s). NÃO comece com cumprimento (nada de "Oi", "Olá", "Bem-vindo", "Tudo bem"): uma saudação com o nome da pessoa é colocada antes. Abra DIRETO num gancho ligado ao dia a dia real do cargo.
-- avatar_outro: 26 a 30 palavras (≈13s). Feche com UMA pergunta de reflexão prática, aplicável à rotina do cargo, terminando em "?". Não descreva uma tarefa específica: a tarefa da semana aparece logo antes, no miolo.
+- avatar_intro: 13 a 15 palavras (≈7s). NÃO comece com cumprimento (nada de "Oi", "Olá", "Bem-vindo", "Tudo bem"): uma saudação com o nome da pessoa é colocada antes. Abra DIRETO num gancho ligado ao dia a dia real do cargo.
+- avatar_outro: 11 a 13 palavras (≈6s). Feche com UMA pergunta de reflexão prática, aplicável à rotina do cargo, terminando em "?". Não descreva uma tarefa específica: a tarefa da semana aparece logo antes, no miolo.
 - Nada inventado: nenhum número, estudo ou citação que não esteja no módulo.
 - Se houver contexto da instituição, pode ecoar um valor dela, mas NÃO cite o nome.
 - Tela: title com até 8 palavras; subtitle com até 14 palavras.

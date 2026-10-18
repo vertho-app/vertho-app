@@ -5,7 +5,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
  *
  * Por que existe: a HeyGen retira a v1/v2 em 31/10/2026, e a v3 tem duas armadilhas
  * MEDIDAS em 24/09/2026 que não dão erro nenhum na hora:
- *   1. sem `engine` explícito o v3 usa Avatar IV, que custou 2,2× o `avatar_iii` no
+ *   1. sem `engine` explícito o v3 escolhe o motor sozinho, então ele vai SEMPRE explícito. O padrão do código é
+ *      `avatar_iv` desde 18/10/2026 (decisão do dono pela sincronia labial; a env troca). Em 24/09, o Avatar IV custou 2,2× o `avatar_iii` no
  *      mesmo clipe — o vídeo sai igual e a conta dobra calada;
  *   2. `engine` como string devolve 400 (é objeto `{ type }`).
  * E dois buracos antigos que este arquivo fecha: o polling ignorava `r.ok` (um 401
@@ -52,7 +53,7 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('HeyGen v3 · criação do clipe', () => {
-  it('usa /v3/videos com a foto, o motor avatar_iii EXPLÍCITO em objeto e 1080p', async () => {
+  it('usa /v3/videos com a foto, o motor avatar_iv EXPLÍCITO em objeto e 1080p', async () => {
     stubFetch([() => json(200, { data: { video_id: ID, status: 'waiting', output_format: 'mp4' } })]);
     const id = await gerarClipHeyGen('https://x/scene-1.mp3', { width: 1920, height: 1080 });
 
@@ -61,16 +62,16 @@ describe('HeyGen v3 · criação do clipe', () => {
     expect(chamadas[0].init.method).toBe('POST');
     expect(chamadas[0].init.headers['X-Api-Key']).toBe('hk-test');
     expect(JSON.parse(chamadas[0].init.body)).toEqual({
-      type: 'avatar', avatar_id: FOTO, engine: { type: 'avatar_iii' },
+      type: 'avatar', avatar_id: FOTO, engine: { type: 'avatar_iv' },
       audio_url: 'https://x/scene-1.mp3', resolution: '1080p', aspect_ratio: '16:9',
     });
   });
 
   it('a env troca o motor na HORA da chamada (não no carregamento do módulo)', async () => {
-    vi.stubEnv('HEYGEN_ENGINE', 'avatar_iv');
+    vi.stubEnv('HEYGEN_ENGINE', 'avatar_iii');
     stubFetch([() => json(200, { data: { video_id: ID } })]);
     await gerarClipHeyGen('https://x/a.mp3');
-    expect(JSON.parse(chamadas[0].init.body).engine).toEqual({ type: 'avatar_iv' });
+    expect(JSON.parse(chamadas[0].init.body).engine).toEqual({ type: 'avatar_iii' });
   });
 
   it('resposta não-ok falha com o status, sem inventar id', async () => {
@@ -146,12 +147,12 @@ describe('HeyGen v3 · custo no ledger', () => {
     expect(r.duracaoS).toBeCloseTo(7.57658, 5);
     expect(gravadas).toHaveLength(1);
     expect(gravadas[0]).toMatchObject({
-      feature: 'heygen_avatar', empresa_id: 'emp-1', provider: 'heygen', model: 'heygen-avatar_iii',
+      feature: 'heygen_avatar', empresa_id: 'emp-1', provider: 'heygen', model: 'heygen-avatar_iv',
       input_tokens: 0, output_tokens: 0, status: 'ok', source: 'heygen:v3',
     });
-    // 7,57658s × US$ 1,00/min: o saldo medido em 25/09 cobra o segundo exato
+    // 7,57658s × US$ 0,0382/s (Avatar IV): o saldo medido em 25/09 cobra o segundo exato
     // (arredondar para cima ficava 4,6% acima do que a carteira descontou).
-    expect(gravadas[0].cost_usd).toBeCloseTo(7.57658 * (1 / 60), 10);
+    expect(gravadas[0].cost_usd).toBeCloseTo(7.57658 * 0.0382, 10);
     expect(gravadas[0].correlation_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 

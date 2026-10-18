@@ -30,8 +30,8 @@ import { criarSupabaseMock } from '../../helpers/supabase-mock';
 import { prepararGrupoAvatar, despacharGrupoAvatar, avatarGrupoLigado } from '@/lib/video/avatar-grupo-core';
 
 const FIXO = {
-  intro: { title: 'O que decide o seu dia', subtitle: 'Critério antes da urgência', narration: 'Quando tudo chega ao mesmo tempo, quem decide o seu dia é a urgência de outra pessoa. Hoje você vai ver como trocar essa lógica por um critério que é seu, claro e defensável.' },
-  outro: { title: 'Sua próxima escolha', subtitle: 'O que sai da lista primeiro?', narration: 'Você já sabe o que protege o seu planejamento. Olhe para a sua semana com calma. Qual demanda vai sair da lista primeiro, e com que critério?' },
+  intro: { title: 'O que decide o seu dia', subtitle: 'Critério antes da urgência', narration: 'Quando tudo chega junto, quem decide o seu dia é a urgência dos outros.' },
+  outro: { title: 'Sua próxima escolha', subtitle: 'O que sai da lista primeiro?', narration: 'Olhe sua semana com calma: qual demanda sai primeiro, e com que critério?' },
 };
 const MODULO = { titulo: 'Organização · N1→N2', descritor: 'Priorização', nivel_entrada: 'N1', nivel_destino: 'N2', conteudo_central: { ideia_principal: 'Priorizar é decidir o que não fazer.', principios: [] }, competencia_base_id: 'comp-1', locale: 'pt-BR' };
 const P = { empresaId: 'emp-1', moduloBaseId: 'mod-1', cargo: 'Professor(a)', pppBrief: 'Escola integral.' };

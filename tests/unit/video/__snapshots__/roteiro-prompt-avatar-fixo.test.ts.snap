@@ -14,7 +14,7 @@ DURAÇÃO (calibre pela densidade do módulo; não encha com repetição):
 - Miolo: 7 cenas (módulo médio) · 8 (denso) · 6 apenas se o módulo for MUITO enxuto. NUNCA mais de 8 cenas de miolo.
 - Não estique a mesma ideia com outra formulação só pra durar mais — mas também NÃO corte abaixo do alvo: cubra o tema com profundidade suficiente pra chegar a ~4 min. Cada cena traz uma ideia nova.
 - Você NÃO controla o tempo do TTS; calibre por CONTAGEM DE PALAVRAS da narração. A fala roda a ~125 palavras/min, então MIRE ~490 palavras no TOTAL (faixa 440–540: abaixo de 440 o vídeo fica curto demais; acima de 540 estoura o teto de 4,5 min):
-  - avatar_intro: 30–34 palavras (≈15s). · cada cena de miolo: 58–66 palavras. · avatar_outro: 26–30 palavras (≈13s). [Avatar direto: intro+outro somam ~28s — prenda e feche com punch.]
+  - avatar_intro: 13–15 palavras (≈7s). · cada cena de miolo: 63–71 palavras. · avatar_outro: 11–13 palavras (≈6s), terminando numa pergunta. [Avatar curto: intro+outro somam ~13s — um gancho e uma pergunta, o conteúdo fica no miolo.]
   - O avatar_intro NÃO começa com cumprimento (nada de "Oi", "Olá", "Olá pessoal", "Bem-vindo", "Tudo bem"): uma saudação nominal personalizada ("Olá, {nome}") pode ser prependada ao vídeo, então abra DIRETO no gancho/pergunta. Cumprimentar de novo soa repetitivo.
   Inclua em cada cena o campo "estimated_words" (contagem aproximada de palavras da narração).
 
@@ -71,7 +71,7 @@ SEGURANÇA E LGPD:
 - Não mencione pessoas reais (colaboradores, alunos, gestores) nem dados individuais. Não exponha informação sensível. Não faça diagnóstico psicológico. Não estereotipe perfis comportamentais. Use situações sintéticas e plausíveis.
 
 PERSONALIZAÇÃO (adapte exemplos e tom SEM mudar o conteúdo pedagógico nem a fidelidade):
-- DESAFIO DA SEMANA: o avatar_outro deve FECHAR conduzindo a pessoa a ESTE desafio prático (não reescreva, não invente outro): "Liste as três demandas que mais roubaram seu planejamento esta semana.". A pergunta/chamada final deve levar naturalmente a essa ação.
+- DESAFIO DA SEMANA: a ÚLTIMA cena do MIOLO (a que vem logo antes do avatar_outro) deve conduzir a pessoa a ESTE desafio prático, na NARRAÇÃO (não reescreva, não invente outro): "Liste as três demandas que mais roubaram seu planejamento esta semana.". O avatar_outro é curto e fecha com a pergunta de reflexão, sem repetir o desafio.
 - CARGO: ancore os exemplos práticos no dia a dia real do cargo (contexto abaixo), sem repetir a mesma situação em todas as cenas. Inclua pelo menos uma situação típica, um erro/risco comum e uma boa prática DESTE cargo; a pergunta final do avatar_outro deve ser aplicável à rotina dele.
 - INSTITUIÇÃO (PPP): a instituição tem identidade própria — REFLITA ATIVAMENTE seus valores, missão, metodologia e prioridades, tanto na NARRAÇÃO quanto no TEXTO DE TELA (títulos/bullets/items podem ecoar as prioridades da escola). PELO MENOS UMA cena deve conectar o conteúdo a um valor ou prioridade CONCRETO do PPP (marque-a com source_anchor "PPP"), e o vocabulário deve soar DAQUELA instituição, não de uma escola genérica. Priorize os traços DISTINTIVOS — o que torna a instituição única (público atendido, território, cultura local, comunidades, projetos próprios) — em vez de generalidades; mas só se encaixar com naturalidade no conteúdo (não force). SALVAGUARDAS: não cite o NOME da instituição, não faça propaganda nem exponha pessoas reais; as situações são sintéticas e plausíveis, mas reconhecivelmente alinhadas ao PPP.
 - TOM POR PERFIL Conforme (C): Preciso, estruturado, lógico e criterioso; critérios, evidências, organização e clareza. O perfil ajusta APENAS o tom da narração — NUNCA template, ordem ou texto de tela. Nunca diga "pessoas D são...", não rotule nem estereotipe o colaborador.
@@ -96,12 +96,12 @@ FORMATO DE SAÍDA: responda APENAS JSON válido — sem markdown, comentários o
   "audience_context": {"cargo": "cargo ou null", "disc": "D/I/S/C ou null", "maturity_transition": "transição ou null", "institution_context_used": true},
   "estimated_total_words": 490,
   "scenes": [
-    {"id":"scene-1","type":"avatar_intro","key_idea":"...","source_anchor":"IDEIA_PRINCIPAL","estimated_words":28,"title":"2-4 palavras","subtitle":"subtítulo curto","narration":"..."},
+    {"id":"scene-1","type":"avatar_intro","key_idea":"...","source_anchor":"IDEIA_PRINCIPAL","estimated_words":14,"title":"2-4 palavras","subtitle":"subtítulo curto","narration":"..."},
     {"id":"scene-2","type":"scenario_card","key_idea":"...","source_anchor":"SITUACOES_TIPICAS","estimated_words":55,"title":"Imagine","subtitle":"situação curta e plausível","narration":"..."},
     {"id":"scene-3","type":"concept_reveal","key_idea":"...","source_anchor":"PRINCIPIOS:<nome>","estimated_words":55,"title":"título curto","bullets":["item curto","item curto","item curto"],"icons":["nome_icone","nome_icone","nome_icone"],"narration":"..."},
     {"id":"scene-4","type":"comparison_motion","key_idea":"...","source_anchor":"ERROS_COMUNS","estimated_words":58,"title":"A x B","left":{"title":"prática fraca","items":["item curto","item curto","item curto"]},"right":{"title":"prática desejada","items":["item curto","item curto","item curto"]},"narration":"..."},
     {"id":"scene-5","type":"steps_flow","key_idea":"...","source_anchor":"BOAS_PRATICAS","estimated_words":56,"title":"título curto","items":["passo 1","passo 2","passo 3"],"narration":"..."},
-    {"id":"scene-6","type":"avatar_outro","key_idea":"...","source_anchor":"BOAS_PRATICAS","estimated_words":24,"title":"Pergunta prática","subtitle":"pergunta curta e acionável","narration":"... termina com uma pergunta de reflexão prática."}
+    {"id":"scene-6","type":"avatar_outro","key_idea":"...","source_anchor":"BOAS_PRATICAS","estimated_words":12,"title":"Pergunta prática","subtitle":"pergunta curta e acionável","narration":"... termina com uma pergunta de reflexão prática."}
   ]
 }"
 `;

@@ -61,7 +61,7 @@ DURAÇÃO (calibre pela densidade do módulo; não encha com repetição):
 - Miolo: 6–8 cenas (módulo enxuto) · 8–10 (médio) · 10–12 (denso). NUNCA mais de 12 cenas de miolo.
 - SE o módulo render menos de 6 ideias-núcleo distintas, faça MENOS cenas. É melhor um vídeo curto e denso do que esticar a mesma ideia. Nunca repita uma ideia com outra formulação só para aumentar duração.
 - Você NÃO controla o tempo do TTS; calibre por CONTAGEM DE PALAVRAS da narração:
-  - avatar_intro: 26–30 palavras (≈15s). · cada cena de miolo: 45–65 palavras. · avatar_outro: 22–26 palavras (≈14s). [Avatar curto: intro+outro somam ~30s — controla o custo HeyGen.]
+  - avatar_intro: 13–15 palavras (≈7s). · cada cena de miolo: 63–71 palavras. · avatar_outro: 11–13 palavras (≈6s), terminando numa pergunta. [Avatar curto: intro+outro somam ~13s — um gancho e uma pergunta, o conteúdo fica no miolo.] (18/10/2026: avatar curto no motor Avatar IV, ver `lib/video/roteiro-prompt.ts`)
   - O avatar_intro NÃO começa com cumprimento ("Oi", "Olá", "Bem-vindo", "Tudo bem"): uma saudação nominal personalizada ("Olá, {nome}") pode ser prependada ao vídeo, então abre DIRETO no gancho/pergunta. Cumprimentar de novo soa repetitivo.
   Inclua em cada cena o campo "estimated_words" (contagem aproximada de palavras da narração).
 

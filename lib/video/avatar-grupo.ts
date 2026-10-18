@@ -12,8 +12,12 @@ import type { WordTime } from './whisper-align';
 
 interface CenaComNarracao { id: string; narration?: string | null }
 
-/** Muda quando o texto do avatar deixa de ser reaproveitável (prompt dos textos, regras). */
-export const VERSAO_AVATAR_GRUPO = '2026-09-25';
+/**
+ * Muda quando o texto do avatar deixa de ser reaproveitável (prompt dos textos, regras).
+ * 2026-10-18: avatar CURTO (abertura 13-15 e fecho 11-13 palavras, ~13 s) no motor Avatar IV, decisão do dono para ter
+ * a sincronia labial melhor sem passar do orçamento do vídeo. Grupo antigo (texto longo) não é reaproveitado.
+ */
+export const VERSAO_AVATAR_GRUPO = '2026-10-18';
 
 /**
  * `videos_gerados.etapa` da célula inserida SEM disparo, esperando o orquestrador do
@@ -59,8 +63,8 @@ const semAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLo
 export function problemasDosTextosAvatar(t: AvatarFixo): string[] {
   const p: string[] = [];
   const wi = palavras(t.intro.narration), wo = palavras(t.outro.narration);
-  if (wi < 28 || wi > 36) p.push(`intro com ${wi} palavras (30-34)`);
-  if (wo < 24 || wo > 32) p.push(`outro com ${wo} palavras (26-30)`);
+  if (wi < 11 || wi > 17) p.push(`intro com ${wi} palavras (13-15)`);
+  if (wo < 9 || wo > 15) p.push(`outro com ${wo} palavras (11-13)`);
   if (/^(oi|ola|bem-vind|tudo bem)/.test(semAcento(t.intro.narration.trim()))) p.push('intro começa com cumprimento');
   if (!t.outro.narration.trim().endsWith('?')) p.push('outro não termina em pergunta');
   for (const [nome, c] of [['intro', t.intro], ['outro', t.outro]] as const) {
