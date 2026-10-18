@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
  */
 describe('manifesto do bundle de render', () => {
   const manifesto = readFileSync('worker-hetzner/spike-bundle.manifest', 'utf-8');
-  it.each(['public/assets/logo-vertho.png', 'public/assets/avatar-intro.mp4', 'public/assets/avatar-outro.mp4', 'public/assets/mentora.png', 'bundle.js'])('lista %s', (arq) => {
+  it.each(['public/assets/logo-vertho.png', 'public/assets/avatar-intro.mp4', 'public/assets/avatar-outro.mp4', 'public/assets/mentora.png', 'bundle.js', 'public/fontes/codec-cold-extrabold.woff2', 'public/fontes/roboto.woff2'])('lista %s', (arq) => {
     expect(manifesto).toMatch(new RegExp(`^\\d+ ${arq.replace(/\./g, '\\.')}$`, 'm'));
   });
   it('o script de snapshot confere o manifesto ANTES de provisionar a box', () => {

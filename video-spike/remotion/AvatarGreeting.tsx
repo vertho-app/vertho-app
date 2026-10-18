@@ -3,6 +3,7 @@ import { AbsoluteFill, Audio, interpolate, useCurrentFrame, useVideoConfig } fro
 import { Brand, withAlpha } from './theme';
 import { reveal, translateUp } from './utils/timing';
 import { BackgroundV2, BrandMarkV2, EyebrowV2, INK } from './theme-v2';
+import { FONTE_TEXTO, FONTE_TITULO } from './fontes';
 
 /**
  * Cena de SAUDAÇÃO nominal (Rota A) — renderizada POR PESSOA e prependada ao deck.
@@ -20,7 +21,7 @@ export interface GreetingProps {
 
 // Brand de PRODUÇÃO do vídeo (o deck passa o mesmo via props no render; este valor
 // é o default de Studio/preview e a fonte única do brand de saudação).
-export const DEFAULT_BRAND: Brand = { primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: 'Inter, system-ui, sans-serif' };
+export const DEFAULT_BRAND: Brand = { primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: FONTE_TEXTO };
 
 export const AvatarGreeting: React.FC<GreetingProps> = ({ nome, audioSrc, brand = DEFAULT_BRAND }) => {
   const frame = useCurrentFrame();
@@ -33,7 +34,8 @@ export const AvatarGreeting: React.FC<GreetingProps> = ({ nome, audioSrc, brand 
   const ruleIn = reveal(frame, 14, 26);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: brand.background, opacity: out }}>
+    // Sem fontFamily aqui a saudação herdava o padrão do Chrome (serifa na box de render): ver fontes.ts.
+    <AbsoluteFill style={{ backgroundColor: brand.background, opacity: out, fontFamily: FONTE_TEXTO }}>
       <BackgroundV2 brand={brand} tone="deep" />
       <BrandMarkV2 />
 
@@ -41,7 +43,7 @@ export const AvatarGreeting: React.FC<GreetingProps> = ({ nome, audioSrc, brand 
       <div style={{ position: 'absolute', left: 132, top: 0, bottom: 0, width: '52%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div style={{ opacity: nameIn, transform: translateUp(nameIn, 40) }}>
           <EyebrowV2 brand={brand}>Mentoria Vertho</EyebrowV2>
-          <h1 style={{ margin: '28px 0 0', color: INK, fontSize: 104, fontWeight: 800, lineHeight: 1.0, letterSpacing: -2.2 }}>Olá, {nome}</h1>
+          <h1 style={{ margin: '28px 0 0', color: INK, fontFamily: FONTE_TITULO, fontSize: 104, fontWeight: 800, lineHeight: 1.08, letterSpacing: '-0.005em' }}>Olá, {nome}</h1>
           <div style={{ height: 4, width: ruleIn * 150, marginTop: 28, borderRadius: 2, background: `linear-gradient(90deg, ${brand.primary}, ${withAlpha(brand.primary, 0)})` }} />
         </div>
       </div>

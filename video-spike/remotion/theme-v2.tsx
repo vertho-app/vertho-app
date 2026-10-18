@@ -1,6 +1,7 @@
 import React from 'react';
 import { AbsoluteFill, Img, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Brand, withAlpha } from './theme';
+import { FONTE_TEXTO } from './fontes';
 
 // Acentos V2: um ciano um pouco mais claro para destaques/ativos (mais "vivo"
 // que o primário em fundos escuros) sem fugir da paleta.
@@ -8,7 +9,7 @@ export const ACCENT = '#34c5cc';
 export const ACCENT_SOFT = '#62dbe1';
 export const INK = '#F1FAFE';
 export const INK_DIM = 'rgba(241,250,254,0.66)';
-export const FONT = 'Inter, "Segoe UI", system-ui, -apple-system, sans-serif';
+export const FONT = FONTE_TEXTO;
 
 /**
  * Fundo V2: mais limpo e com mais luz que a V1. `tone='soft'` levanta a

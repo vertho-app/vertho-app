@@ -109,7 +109,8 @@ que a Instrument Serif — o `ContentThumb` precisou de número menor e título 
 
 **Superfícies que NÃO migraram** e seguem com a tipografia antiga, de propósito (a Inter, a Instrument Serif, a
 Fraunces, a Jakarta e a Manrope continuam carregadas só para elas): `/radar`, `/radarbett`, `/imprensa`,
-`/proposta` (Space Grotesk + IBM Plex), `/conarh`, `/copiloto`, os vídeos Remotion e `lib/demo/offline`.
+`/proposta` (Space Grotesk + IBM Plex), `/conarh`, `/copiloto` e `lib/demo/offline`. Os vídeos Remotion migraram em
+18/10/2026 (seção "Tema dos vídeos").
 
 **Logo nos PDFs:** o certificado mostra no topo só o V com o ponto na tinta escura do PNG oficial (`vertho-icone-escuro.png`),
 SEM selo ao redor (pedido do dono, 08/10/2026), e o rodapé usa o logo horizontal escuro. A capa dos relatórios (`PdfReportCover`) mostra o
@@ -299,10 +300,17 @@ Na página: variáveis `--font-prop-display/body/mono` (com fallback às famíli
 
 Tema/paleta próprios em `video-spike/remotion/theme.tsx` e `theme-v2.tsx`.
 
+**Fontes dentro do bundle (18/10/2026).** O vídeo pedia Inter por nome e a box de render não tem a Inter: o Chrome caía
+na fonte que sobrasse, e em produção os títulos e as legendas saíam monoespaçados e a saudação "Olá, {nome}" em serifa.
+Agora `video-spike/remotion/fontes.ts` carrega o Codec Extra Bold e o Roboto de `public/video-spike/fontes` antes do
+primeiro quadro (o render aborta se não carregarem): Codec nos títulos do avatar e da saudação, como no miolo da
+biblioteca v7; Roboto no resto. Guard: `tests/unit/video/fontes-da-marca-no-video.test.ts`. Mudou o visual da
+saudação? Suba `VISUAL_SAUDACAO` em `worker-hetzner/saudacao-audio.mjs`, senão o mp4 em cache segue com a cara antiga.
+
 | Elemento | Descrição |
 |----------|-----------|
 | Fundo | Escuro azul-marinho com glow ciano/roxo |
-| Tipografia | Inter |
+| Tipografia | Codec Extra Bold (títulos do avatar e da saudação) e Roboto (resto), carregadas do bundle |
 | Marca | Marca d'água `vertho.ai` |
 | Apoios | Barra de progresso, legendas discretas |
 

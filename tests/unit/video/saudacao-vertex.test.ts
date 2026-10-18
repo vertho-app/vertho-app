@@ -12,7 +12,7 @@ import {
 import { DEGRADACAO } from '@/lib/degradacao';
 import { ELENCO } from '@/lib/tts/elenco';
 // @ts-ignore .mjs puro, compartilhado com a caixa de render
-import { chaveDoAudioDaSaudacao, textoDaSaudacao, primeiroNome, slugSaudacao, DEGRADACAO_SAUDACAO_AUSENTE } from '../../../worker-hetzner/saudacao-audio.mjs';
+import { chaveDoAudioDaSaudacao, chaveDoVideoDaSaudacao, VISUAL_SAUDACAO, textoDaSaudacao, primeiroNome, slugSaudacao, DEGRADACAO_SAUDACAO_AUSENTE } from '../../../worker-hetzner/saudacao-audio.mjs';
 
 /**
  * Saudação nominal em Vertex (B, 07/10/2026). As medidas abaixo são de takes REAIS no Vertex, não inventadas: 54 sínteses,
@@ -35,6 +35,14 @@ describe('a chave do áudio é UMA só, dos dois lados', () => {
     expect(chaveDoAudioDaSaudacao({ ...base, nome: 'Anna' })).not.toBe(chaveDoAudioDaSaudacao(base));
     expect(chaveDoAudioDaSaudacao({ ...base, versao: '2026-11-01' })).not.toBe(chaveDoAudioDaSaudacao(base));
     expect(chaveDoAudioDaSaudacao({ ...base, colaboradorId: 'c-2' })).not.toBe(chaveDoAudioDaSaudacao(base));
+  });
+
+  it('o mp4 da saudação em cache leva a versão do VISUAL: mudar a fonte não serve o vídeo velho a quem já tinha', () => {
+    const k = chaveDoVideoDaSaudacao({ colaboradorId: 'c-1', audioId: 'abc123', nome: 'Elizângela Souza', width: 1920, height: 1080 });
+    expect(k).toBe(`greetings-cache/c-1__vertex-abc123__${VISUAL_SAUDACAO}__elizangela__1920x1080.mp4`);
+    // a chave de antes de 18/10 (sem versão do visual) não pode mais casar
+    expect(k).not.toBe('greetings-cache/c-1__vertex-abc123__elizangela__1920x1080.mp4');
+    expect(VISUAL_SAUDACAO).toBeTruthy();
   });
 
   it('falta de campo LANÇA em vez de montar uma chave que casa com a de outra pessoa', () => {
@@ -354,7 +362,8 @@ describe('a caixa não sintetiza: lê o áudio do app, e a falta deixa rastro', 
 
   it('o cache do vídeo da saudação leva o HASH do áudio: re-sintetizar ou trocar a voz invalida o mp4 antigo', () => {
     expect(personalizar).toMatch(/createHash\('sha1'\)\.update\(wav\)/);
-    expect(personalizar).toContain('vertex-${audioId}');
+    // a chave mora em saudacao-audio.mjs (testada acima com o hash e a versão do visual); aqui, que o worker a usa com o hash
+    expect(personalizar).toMatch(/chaveDoVideoDaSaudacao\(\{[^}]*audioId/);
   });
 
   it('o worker registra a ausência por pessoa e a de configuração como crítica, e não exige mais chave de TTS', () => {

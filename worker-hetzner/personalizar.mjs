@@ -23,7 +23,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { selectComposition, renderMedia, ensureBrowser } from '@remotion/renderer';
-import { BUCKET_SAUDACAO, chaveDoAudioDaSaudacao, primeiroNome, slugSaudacao } from './saudacao-audio.mjs';
+import { BUCKET_SAUDACAO, chaveDoAudioDaSaudacao, chaveDoVideoDaSaudacao, primeiroNome, slugSaudacao } from './saudacao-audio.mjs';
 
 const exec = promisify(execFile);
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
@@ -151,7 +151,7 @@ async function renderGreeting(outMp4, p) {
 async function getOrCreateGreeting(outMp4, p) {
   const wav = await audioDaSaudacao(p);
   const audioId = createHash('sha1').update(wav).digest('hex').slice(0, 10);
-  const key = `greetings-cache/${p.colaboradorId}__vertex-${audioId}__${slug(primeiroNome(p.nome))}__${p.width}x${p.height}.mp4`;
+  const key = chaveDoVideoDaSaudacao({ colaboradorId: p.colaboradorId, audioId, nome: p.nome, width: p.width, height: p.height });
   if (p.colaboradorId) {
     const buf = await downloadFromStorage(key);
     if (buf && buf.length > 2000) { await writeFile(outMp4, buf); return { cached: true, key }; }

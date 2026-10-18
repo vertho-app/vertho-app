@@ -43,3 +43,15 @@ export function chaveDoAudioDaSaudacao({ colaboradorId, nome, versao }) {
   if (!colaboradorId || !nome || !versao) throw new Error('chave da saudação: colaboradorId, nome e versao são obrigatórios');
   return `saudacoes/${colaboradorId}__${slugSaudacao(nome)}__${slugSaudacao(versao)}.mp3`;
 }
+
+/**
+ * Versão do VISUAL da saudação (fonte, layout). Sobe quando a cara do "Olá, {nome}" muda: o mp4 em cache foi renderizado
+ * com a cara antiga e, sem a versão na chave, seguiria sendo servido para sempre a quem já tem saudação. `marca`
+ * (18/10/2026): fontes da marca dentro do bundle; antes, a fonte padrão do Chrome da box (serifa).
+ */
+export const VISUAL_SAUDACAO = 'marca';
+
+/** Chave do mp4 da saudação em cache (`personalizar.mjs`): pessoa × áudio × visual × nome × formato. */
+export function chaveDoVideoDaSaudacao({ colaboradorId, audioId, nome, width, height }) {
+  return `greetings-cache/${colaboradorId}__vertex-${audioId}__${VISUAL_SAUDACAO}__${slugSaudacao(primeiroNome(nome))}__${width}x${height}.mp4`;
+}

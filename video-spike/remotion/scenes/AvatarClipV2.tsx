@@ -3,6 +3,7 @@ import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig } from 'r
 import { Brand, withAlpha } from '../theme';
 import { reveal, fadeInOut, translateUp } from '../utils/timing';
 import { BackgroundV2, EyebrowV2, INK, INK_DIM } from '../theme-v2';
+import { FONTE_TITULO } from '../fontes';
 import type { ComputedScene } from '../data/load-scenes';
 
 // Faixa da direita reservada ao avatar (o resto é coluna de texto à esquerda).
@@ -49,10 +50,12 @@ export const AvatarClipV2: React.FC<{ scene: ComputedScene; brand: Brand; kicker
           style={{
             margin: '28px 0 0',
             color: INK,
+            // Codec Extra Bold como o título do miolo v7 (`.line` de video-v7/base.css): mesma altura, entrelinha e tracking.
+            fontFamily: FONTE_TITULO,
             fontSize: 104,
             fontWeight: 800,
-            lineHeight: 1.0,
-            letterSpacing: -2.2,
+            lineHeight: 1.08,
+            letterSpacing: '-0.005em',
             opacity: tIn,
             transform: translateUp(tIn, 44),
           }}

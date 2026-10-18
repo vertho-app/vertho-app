@@ -1,5 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
+import { FONTE_TEXTO } from './fontes';
 
 export interface Brand {
   primary: string;
@@ -15,7 +16,7 @@ export const BRAND = {
   background: '#071A33',
   ink: '#EAF6FB',
   inkDim: 'rgba(234,246,251,0.60)',
-  font: 'Inter, "Segoe UI", system-ui, -apple-system, sans-serif',
+  font: FONTE_TEXTO,
 };
 
 export function withAlpha(hex: string, a: number): string {
