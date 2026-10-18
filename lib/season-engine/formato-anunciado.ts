@@ -46,6 +46,38 @@ export async function temDeckPronto(
 }
 
 /**
+ * A pessoa pode ver o vídeo deste conteúdo? Kit NOVO (`por_preferencia`): o overlay marca `video_permitido: false` para
+ * quem não tem o vídeo entre os 2 primeiros formatos, e a semana dela o esconde mesmo com o deck pronto. Só `false`
+ * fecha a porta: ausente (kit anterior, ou conteúdo que não passou pelo overlay) segue como sempre foi.
+ */
+export function videoPermitido(conteudo: any): boolean {
+  return conteudo?.video_permitido !== false;
+}
+
+type DeckOuPersonalizado = { bunny_video_id?: string | null; bunny_library?: string | null } | null | undefined;
+
+/**
+ * O vídeo de UMA entrega na tela "o que foi entregue" do admin: o MESMO que a semana da pessoa mostra.
+ *
+ * 18/10/2026, 4Life: a tela ligava o vídeo sempre que a célula (módulo × cargo × DISC) tinha deck pronto. A Eduarda,
+ * com o vídeo em último entre as preferências, aparecia com 3 formatos e o alerta "deck genérico — sem a saudação
+ * nominal", e ela não recebe vídeo nenhum (nem saudação, que segue a mesma regra). `video_fora_da_preferencia` deixa a
+ * tela dizer por que não há vídeo, em vez de "sem vídeo p/ esta célula".
+ */
+export function videoDaEntrega(conteudo: any, deck: DeckOuPersonalizado, personalizado: DeckOuPersonalizado) {
+  const temVideo = !!deck && videoPermitido(conteudo);
+  const fonte = temVideo ? (personalizado || deck) : null; // personalizado (com saudação) > deck da célula
+  return {
+    tem_video: temVideo,
+    video_fora_da_preferencia: !!deck && !temVideo,
+    video_personalizado: temVideo && !!personalizado, // false com vídeo = a pessoa vê o deck SEM o nome dela
+    video_embed: fonte?.bunny_video_id && fonte?.bunny_library
+      ? `https://iframe.mediadelivery.net/embed/${fonte.bunny_library}/${fonte.bunny_video_id}?autoplay=false&responsive=true`
+      : null,
+  };
+}
+
+/**
  * Os formatos que a pessoa consegue MESMO consumir naquele conteúdo.
  *
  * `cache` opcional evita repetir a consulta de deck para o mesmo
@@ -72,7 +104,7 @@ export async function formatosEntregaveis(
   // é vídeo, e o kit novo trata quem não respondeu como texto + caso. Só `false`
   // fecha a porta: ausente (kit anterior, ou conteúdo que não passou pelo overlay)
   // segue como sempre foi.
-  if (conteudo?.video_permitido === false) return formatos;
+  if (!videoPermitido(conteudo)) return formatos;
 
   const coreId = conteudo?.core_id ?? null;
   const chave = `${coreId}|${cargo}|${String(disc || '').charAt(0).toUpperCase()}`;

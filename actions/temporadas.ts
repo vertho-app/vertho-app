@@ -9,6 +9,7 @@ import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada
 import { entregaEhReal } from '@/lib/season-engine/week-gating';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { formatosTop2DaPessoa } from '@/lib/season-engine/kit/formatos-por-preferencia';
+import { videoDaEntrega } from '@/lib/season-engine/formato-anunciado';
 import { getProgramaConfigByModo, getProgramaConfigDaTrilha, normalizarModoPrograma } from '@/lib/season-engine/programa-config';
 import { conteudosServiveisPorCargo } from '@/lib/season-engine/build-season';
 import { carregarConfigsEfetivasEmLote } from '@/lib/turmas';
@@ -783,12 +784,9 @@ async function anotarOrigemDisc(sb: any, items: any[], empresaId: string) {
         e.conteudo.vaza_disc = !!dc && !!disc && dc !== disc;
         const vid = info?.mb && cargo && disc ? vidCell.get(`${info.mb}|${cargo}|${disc}`) : null;
         const perso = vid ? persoBy.get(`${vid.id}|${t.colaborador_id}`) : null;
-        const fonte = perso || vid; // personalizado (com saudação) > deck da célula
-        e.conteudo.tem_video = !!vid;
-        e.conteudo.video_personalizado = !!perso; // false = a pessoa vê o deck SEM o nome dela
-        e.conteudo.video_embed = fonte?.bunny_video_id && fonte?.bunny_library
-          ? `https://iframe.mediadelivery.net/embed/${fonte.bunny_library}/${fonte.bunny_video_id}?autoplay=false&responsive=true`
-          : null;
+        // A régua da semana da pessoa: quem não tem o vídeo entre os 2 formatos preferidos (kit novo) não o vê,
+        // mesmo com o deck da célula pronto. O overlay acima deixou `video_permitido` no conteúdo.
+        Object.assign(e.conteudo, videoDaEntrega(e.conteudo, vid, perso));
       }
     }
   } catch { /* best-effort — nunca quebra a tela */ }

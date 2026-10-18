@@ -576,7 +576,11 @@ function SemanaModal({ det, onClose }) {
                         <span key={f} className={`${cls} opacity-40`} style={style} title="sem link — conteúdo sem id/url"><FIcon size={9} />{f}</span>
                       );
                     }) : <span className="text-[10px] text-gray-600">—</span>}
-                    {!formatos.includes('video') && <span className="text-[10px] text-gray-600 italic">sem vídeo p/ esta célula</span>}
+                    {!formatos.includes('video') && (
+                      <span className="text-[10px] text-gray-600 italic">
+                        {c.video_fora_da_preferencia ? 'sem vídeo: não está entre os 2 formatos preferidos dela' : 'sem vídeo p/ esta célula'}
+                      </span>
+                    )}
                     {/* Só a EXCEÇÃO ganha selo. Vídeo com saudação é o esperado (o chip
                         "video" já abre o personalizado) — sinalizar o normal vira ruído
                         e faz o alerta abaixo se perder no meio. */}
