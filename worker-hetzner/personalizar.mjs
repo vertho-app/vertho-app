@@ -162,6 +162,24 @@ async function getOrCreateGreeting(outMp4, p) {
 }
 
 /**
+ * Argumentos do ffmpeg do crossfade saudação → deck. O `xfade` exige os dois lados com o MESMO formato de pixel, base de
+ * tempo, quadros por segundo e tamanho, então os dois são normalizados antes (e o áudio também, para o `acrossfade`).
+ * `Medido 18/10/2026` no piloto da 4Life: o deck do formato novo (emendado pelo ffmpeg: yuv420p, base 1/15360) não casava
+ * com a saudação do Remotion (yuvj420p, base 1/90000), e os 5 nominais falharam com "First input link main timebase
+ * (1/90000) do not match the corresponding second input link xfade timebase (1/15360)". O deck de hoje sai do Remotion
+ * como a saudação, por isso nunca tinha acontecido.
+ */
+export function argsDoCrossfade({ saudacao, deck, saida, T, offset, fps, largura, altura }) {
+  const video = (i, rot) => `[${i}:v]scale=${largura}:${altura},setsar=1,fps=${fps},format=yuv420p,settb=AVTB,setpts=PTS-STARTPTS[${rot}]`;
+  const audio = (i, rot) => `[${i}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,asetpts=PTS-STARTPTS[${rot}]`;
+  return ['-y', '-i', saudacao, '-i', deck, '-filter_complex',
+    `${video(0, 'gv')};${video(1, 'dv')};${audio(0, 'ga')};${audio(1, 'da')};` +
+    `[gv][dv]xfade=transition=fade:duration=${T}:offset=${offset}[v];[ga][da]acrossfade=d=${T}[a]`,
+    '-map', '[v]', '-map', '[a]',
+    '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(fps), '-c:a', 'aac', '-ar', '48000', '-movflags', '+faststart', saida];
+}
+
+/**
  * Personaliza: obtém a SAUDAÇÃO do usuário (cache → render) e faz crossfade com o
  * avatar_intro do deck. `opts.bundleDir` obrigatório; `opts.brand` casa a marca.
  */
@@ -185,10 +203,7 @@ export async function personalizar(deckPath, nomeCompleto, outPath, opts = {}) {
     const T = 0.3;
     const greetDur = await dur(greetMp4);
     const offset = Math.max(0.1, greetDur - T).toFixed(2);
-    await exec(FFMPEG, ['-y', '-i', greetMp4, '-i', deckPath, '-filter_complex',
-      `[0:v][1:v]xfade=transition=fade:duration=${T}:offset=${offset}[v];[0:a][1:a]acrossfade=d=${T}[a]`,
-      '-map', '[v]', '-map', '[a]',
-      '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-r', String(fps), '-c:a', 'aac', '-ar', '48000', '-movflags', '+faststart', outPath]);
+    await exec(FFMPEG, argsDoCrossfade({ saudacao: greetMp4, deck: deckPath, saida: outPath, T, offset, fps, largura: width, altura: height }));
     return outPath;
   } finally {
     await rm(work, { recursive: true, force: true }).catch(() => {});
