@@ -769,6 +769,9 @@ iniciar a cadência seguem sendo decisão de quem opera.
   `auditoria.correcao_guiada_tentativas`, `conteudo._refazer_tentativas`): nenhuma execução paga a mesma correção sem
   fim. O que não fecha vira falha da etapa, com o motivo, e aparece no painel. Limite conhecido: apontamento sobre a
   NOTA de um descritor (ex.: "D6 em N2 sem evidência") não se corrige pelo texto; fica em "revisar" para decisão humana.
+  A semana de avaliação do blueprint, montada em código (`lib/blueprint/avaliacao-final.ts`), cobra também CADA
+  descritor que declara (ao menos um registro, apontando as semanas que o trabalharam): a semana 7 que listava 6
+  descritores e só verificava os objetivos reprovava em "avaliação mede o que promete", e a correção guiada não alcançava.
 - **Empresa pausada** (`sys_config.envios_pausados`, lida a cada fila): as correções também pegam o que ficou reprovado
   de **rodadas anteriores**, mas só o que nasceu DEPOIS do `desde` da pausa (a pausa esconde o PDI e segura o aviso, então
   ninguém viu; o anterior pode ter sido visto no app) e NUNCA de quem já teve o PDI anunciado (`notification_deliveries`

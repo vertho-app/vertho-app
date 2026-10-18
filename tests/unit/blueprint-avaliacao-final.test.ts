@@ -27,8 +27,8 @@ describe('montarSemanasDeAvaliacao', () => {
     const m: any = montarSemanasDeAvaliacao(bp());
     const s = m.trilha.semanas[1];
     expect(s.conexao_com_pdi).toEqual(['obj-1', 'obj-2']);
-    expect(s.evidencia_esperada).toBe('Apresentar, com os registros das semanas anteriores: (1) Caderno com ao menos oito registros de imprevisto; (2) Checklist com ao menos 20 registros de ação preventiva.');
-    expect(s.criterio_de_sucesso).toBe('A avaliação verifica cada objetivo do PDI, item a item: (1) A chefia identifica o imprevisto e a ação; (2) A chefia verifica as 20 ações.');
+    expect(s.evidencia_esperada).toBe('Apresentar, com os registros das semanas anteriores: (1) Caderno com ao menos oito registros de imprevisto; (2) Checklist com ao menos 20 registros de ação preventiva. E, para cada descritor desta avaliação, ao menos um registro em que ele foi praticado: Iniciativa (ao longo da trilha).');
+    expect(s.criterio_de_sucesso).toBe('A avaliação verifica cada objetivo do PDI, item a item: (1) A chefia identifica o imprevisto e a ação; (2) A chefia verifica as 20 ações. E, por descritor desta avaliação, se há ao menos um registro com a situação, o que a pessoa fez e o que observou: Iniciativa.');
     expect(s.evidencia_esperada).not.toMatch(/12/);
   });
 
@@ -51,11 +51,34 @@ describe('montarSemanasDeAvaliacao', () => {
     expect(m.trilha.semanas[2].evidencia_esperada).toMatch(/\(1\) ao menos 10 registros de horário\.$/);
   });
 
+  // 4Life (17/10/2026): a semana 7 da Caroline listava os 6 descritores e o critério só verificava os 2 objetivos; o
+  // auditor reprovou "declara avaliar seis e mede dois", e a correção guiada não alcançava.
+  it('cada descritor que a semana declara também é cobrado, com as semanas de conteúdo que o trabalharam', () => {
+    const b: any = bp();
+    b.trilha.semanas = [
+      { semana: 1, tipo: 'conteudo', descritores_foco: ['Escuta ativa', 'Clareza na expressão'], conexao_com_pdi: ['obj-1'] },
+      { semana: 2, tipo: 'conteudo', descritores_foco: ['ESCUTA ATIVA', 'Assertividade e respeito'], conexao_com_pdi: ['obj-2'] },
+      { semana: 4, tipo: 'conteudo', descritores_foco: ['Escuta ativa', 'Assertividade e respeito'], conexao_com_pdi: ['obj-2'] },
+      { semana: 7, tipo: 'avaliacao', competencia_foco: ['Agilidade e Flexibilidade'], descritores_foco: ['Escuta ativa', 'Clareza na expressão', 'Assertividade e respeito', 'Adequação da linguagem'] },
+    ];
+    const s: any = montarSemanasDeAvaliacao(b).trilha.semanas[3];
+    expect(s.evidencia_esperada).toMatch(/E, para cada descritor desta avaliação, ao menos um registro em que ele foi praticado: Escuta ativa \(semanas 1, 2 e 4\); Clareza na expressão \(semana 1\); Assertividade e respeito \(semanas 2 e 4\); Adequação da linguagem \(ao longo da trilha\)\.$/);
+    expect(s.criterio_de_sucesso).toMatch(/por descritor desta avaliação, se há ao menos um registro com a situação, o que a pessoa fez e o que observou: Escuta ativa; Clareza na expressão; Assertividade e respeito; Adequação da linguagem\.$/);
+    expect(s.descritores_foco).toHaveLength(4); // os descritores da semana não mudam
+  });
+
+  it('sem descritores na semana, nada é acrescentado', () => {
+    const b: any = bp(); delete b.trilha.semanas[1].descritores_foco;
+    const s: any = montarSemanasDeAvaliacao(b).trilha.semanas[1];
+    expect(s.evidencia_esperada).not.toMatch(/descritor/);
+    expect(s.criterio_de_sucesso).not.toMatch(/descritor/);
+  });
+
   it('objetivo sem evidência ou critério entra com o próprio texto; sem objetivos, a semana fica como veio', () => {
     const b: any = bp();
     delete b.competencias[0].objetivos_30_dias[1].evidencia_de_execucao;
     const m: any = montarSemanasDeAvaliacao(b);
-    expect(m.trilha.semanas[1].evidencia_esperada).toMatch(/\(2\) Vou fazer ações preventivas\.$/);
+    expect(m.trilha.semanas[1].evidencia_esperada).toMatch(/\(2\) Vou fazer ações preventivas\. E, para cada descritor/);
     const vazio: any = bp(); vazio.competencias[0].objetivos_30_dias = [];
     expect(montarSemanasDeAvaliacao(vazio).trilha.semanas[1].evidencia_esperada).toBe('ao menos 12 registros de ação preventiva');
   });
