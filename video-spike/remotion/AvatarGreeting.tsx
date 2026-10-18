@@ -3,7 +3,7 @@ import { AbsoluteFill, Audio, interpolate, useCurrentFrame, useVideoConfig } fro
 import { Brand, withAlpha } from './theme';
 import { reveal, translateUp } from './utils/timing';
 import { BackgroundV2, BrandMarkV2, EyebrowV2, INK } from './theme-v2';
-import { FONTE_TEXTO, FONTE_TITULO } from './fontes';
+import { FONTE_TEXTO, FONTE_TITULO, useFontesDaMarca } from './fontes';
 
 /**
  * Cena de SAUDAÇÃO nominal (Rota A) — renderizada POR PESSOA e prependada ao deck.
@@ -24,6 +24,7 @@ export interface GreetingProps {
 export const DEFAULT_BRAND: Brand = { primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: FONTE_TEXTO };
 
 export const AvatarGreeting: React.FC<GreetingProps> = ({ nome, audioSrc, brand = DEFAULT_BRAND }) => {
+  useFontesDaMarca();
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
 

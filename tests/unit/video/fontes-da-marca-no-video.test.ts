@@ -35,14 +35,23 @@ describe('fontes da marca dentro do bundle do vídeo', () => {
     }
   });
 
-  it('o ponto de entrada carrega as fontes ANTES da composição, e a carga segura o render', () => {
-    const index = readFileSync(`${SRC}/index.ts`, 'utf-8');
-    const imp = (m: string) => index.search(new RegExp(`import[^;]*['"]\\./${m}['"]`));
-    expect(imp('fontes')).toBeGreaterThanOrEqual(0);
-    expect(imp('fontes')).toBeLessThan(imp('Root'));
-    expect(fontes).toMatch(/delayRender\(/);
-    expect(fontes).toMatch(/continueRender\(/);
-    expect(fontes).toMatch(/cancelRender\(/);
+  it('as duas composições que a box renderiza seguram o quadro pelas fontes, na RAIZ do componente', () => {
+    for (const [arq, comp] of [['VideoCompositionV3.tsx', 'VideoCompositionV3'], ['AvatarGreeting.tsx', 'AvatarGreeting']]) {
+      const src = readFileSync(`${SRC}/${arq}`, 'utf-8');
+      expect(src, `${comp} não chama useFontesDaMarca()`).toMatch(new RegExp(`export const ${comp}[^\\n]*=>\\s*\\{\\s*\\n\\s*useFontesDaMarca\\(\\);`));
+    }
+  });
+
+  it('a espera (delayRender) vive DENTRO do hook, nunca no topo do módulo', () => {
+    // `Medido 18/10/2026`: no topo do módulo, o renderStill passava e o renderMedia morria no quadro 152 por tempo-limite.
+    const hook = fontes.slice(fontes.indexOf('export function useFontesDaMarca'));
+    expect(hook).toMatch(/useState\(\(\) => delayRender\(/);
+    expect(hook).toMatch(/continueRender\(/);
+    expect(hook).toMatch(/cancelRender\(/);
+    // a CHAMADA (com o rótulo), não a menção no comentário
+    const chamadas = [...fontes.matchAll(/delayRender\('/g)].map((m) => m.index!);
+    expect(chamadas.length).toBe(1);
+    expect(chamadas[0]).toBeGreaterThan(fontes.indexOf('export function useFontesDaMarca'));
   });
 
   it('nenhum componente declara pilha de fonte própria (Inter, system-ui, Segoe UI): a fonte vem de fontes.ts', () => {

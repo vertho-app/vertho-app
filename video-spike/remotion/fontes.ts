@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { cancelRender, continueRender, delayRender, staticFile } from 'remotion';
 
 /**
@@ -8,6 +9,11 @@ import { cancelRender, continueRender, delayRender, staticFile } from 'remotion'
  * 445078579: títulos e legendas MONOESPAÇADOS e a saudação "Olá, {nome}" em SERIFA; o mesmo bundle no Ubuntu do WSL
  * saía em DejaVu Sans. Ou seja, a cara do vídeo dependia da máquina. Agora são as fontes do brand book (Codec Extra Bold
  * nos títulos, Roboto no resto), as mesmas do miolo da biblioteca v7 (`worker-hetzner/video-v7`).
+ *
+ * A espera vive no CICLO DO COMPONENTE (`useFontesDaMarca`, chamado na raiz das composições), não no topo do módulo.
+ * `Medido 18/10/2026`: com o `delayRender` no topo, o `renderStill` passava (acaba em 5 s) e o `renderMedia` da box
+ * morria no quadro 152 com "delayRender() 'fontes da marca' was called but not cleared", o tempo-limite de ~28 s do
+ * Remotion: a espera criada no carregamento do módulo não era liberada durante o render longo.
  *
  * Falha ao carregar ABORTA o render (cancelRender): seguir renderizaria o vídeo na fonte errada sem ninguém ver.
  */
@@ -20,16 +26,29 @@ export const FACES_DA_MARCA = [
   { familia: 'Roboto', arquivo: 'fontes/roboto.woff2' },
 ] as const;
 
-if (typeof document !== 'undefined' && typeof FontFace !== 'undefined') {
-  const espera = delayRender('fontes da marca');
-  Promise.all(
-    FACES_DA_MARCA.map(async ({ familia, arquivo }) => {
-      // Faixa 100-900 declarada: o Codec tem um peso só, e sem a faixa o fontWeight 800 dos títulos viraria negrito sintético.
-      const face = new FontFace(familia, `url('${staticFile(arquivo)}') format('woff2')`, { weight: '100 900', display: 'block' });
-      await face.load();
-      document.fonts.add(face);
-    }),
-  )
-    .then(() => continueRender(espera))
-    .catch((e) => cancelRender(new Error(`fontes da marca não carregaram: ${e instanceof Error ? e.message : String(e)}`)));
+let carga: Promise<void> | null = null;
+
+/** Carrega e registra as faces UMA vez por página (cada aba do render tem a sua). */
+function carregarFontesDaMarca(): Promise<void> {
+  if (!carga) {
+    carga = Promise.all(
+      FACES_DA_MARCA.map(async ({ familia, arquivo }) => {
+        // Faixa 100-900 declarada: o Codec tem um peso só, e sem a faixa o fontWeight 800 dos títulos viraria negrito sintético.
+        const face = new FontFace(familia, `url('${staticFile(arquivo)}') format('woff2')`, { weight: '100 900', display: 'block' });
+        await face.load();
+        document.fonts.add(face);
+      }),
+    ).then(() => undefined);
+  }
+  return carga;
+}
+
+/** Segura o quadro até as fontes da marca carregarem. Chamar na RAIZ de cada composição que o worker renderiza. */
+export function useFontesDaMarca(): void {
+  const [espera] = useState(() => delayRender('fontes da marca'));
+  useEffect(() => {
+    carregarFontesDaMarca()
+      .then(() => continueRender(espera))
+      .catch((e) => cancelRender(new Error(`fontes da marca não carregaram: ${e instanceof Error ? e.message : String(e)}`)));
+  }, [espera]);
 }

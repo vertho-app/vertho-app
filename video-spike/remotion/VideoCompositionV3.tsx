@@ -18,6 +18,7 @@ import { DataDiagramV2 } from './scenes/DataDiagramV2';
 import { CaptionsV3 } from './scenes/CaptionsV3';
 import { BRAND } from './theme';
 import { BackgroundV2, BrandMarkV2, ProgressBarV2 } from './theme-v2';
+import { useFontesDaMarca } from './fontes';
 
 // VISUAL apenas — o áudio é controlado de forma centralizada por <SceneAudio>.
 // (As cenas de áudio recebem audio={false} para não emitir <Audio> internamente.)
@@ -155,6 +156,7 @@ const SoundLayer: React.FC<{ scenes: ComputedScene[]; fps: number }> = ({ scenes
 
 /** V3 = visual da V2 + legendas sincronizadas por timestamps (CaptionsV3). */
 export const VideoCompositionV3: React.FC<SpikePropsV3> = ({ scenes, captions, brand, fps, showBurnedCaptions, wordHighlight }) => {
+  useFontesDaMarca();
   const b: Brand = { ...BRAND, ...brand };
   return (
     <AbsoluteFill style={{ backgroundColor: b.background, fontFamily: BRAND.font }}>
