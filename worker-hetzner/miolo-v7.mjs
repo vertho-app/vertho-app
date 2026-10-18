@@ -8,8 +8,9 @@
  * início do fecho), a publicação e a saudação nominal seguem iguais.
  *
  * Qualquer falha aqui volta para o render de hoje inteiro (com legenda) e deixa `video-v7-render-fallback` em
- * `degradacao_log`. O `render_fingerprint` é o md5 do `render_inputprops` e não inclui o `visual_v7`: um plano
- * refeito com as mesmas cenas não força re-render na reconciliação.
+ * `degradacao_log`. O `render_fingerprint` inclui a ASSINATURA do plano (mig 291, 18/10/2026): converter um vídeo
+ * pronto para o formato novo muda a revisão do deck, e o worker refaz os nominais (antes pulava os 5 do piloto da 4Life).
+ * Um retry que reaproveita o mesmo plano tem a mesma assinatura e não força nada.
  */
 import fs from 'node:fs';
 import path from 'node:path';
