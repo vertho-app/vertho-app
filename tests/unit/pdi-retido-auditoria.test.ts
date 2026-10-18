@@ -35,6 +35,8 @@ describe('pdiRetidoPelaAuditoria', () => {
 const estado = { rel: null as any };
 const sb = criarSupabaseMock({
   resolver: (tabela) => (tabela === 'relatorios' ? estado.rel : null),
+  // O PDI da jornada é lido como LISTA (linha viva + histórico); sem turma, a linha viva é o PDI atual.
+  lista: (tabela) => (tabela === 'relatorios' && estado.rel ? [estado.rel] : []),
 });
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/authz', () => ({ findColabByEmail: vi.fn(async () => ({ id: 'col', empresa_id: 'emp', nome_completo: 'Ana', cargo: 'Professor' })) }));

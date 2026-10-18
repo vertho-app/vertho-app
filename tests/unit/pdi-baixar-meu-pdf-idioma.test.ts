@@ -41,6 +41,9 @@ import { baixarMeuPdiPdf, loadPDI } from '@/app/dashboard/pdi/pdi-actions';
 const montar = () => {
   h.sb = criarSupabaseMock({
     resolver: (tabela: string) => (tabela === 'relatorios' ? h.rel : tabela === 'empresas' ? { nome: 'Acme' } : null),
+    // O PDI da jornada (`carregarPdisDaJornada`) lê a linha viva como LISTA, junto com o histórico; sem turma, a janela
+    // é aberta e a linha viva é o PDI atual, como antes.
+    lista: (tabela: string) => (tabela === 'relatorios' && h.rel ? [h.rel] : []),
   });
   h.sb.client.storage = {
     from: () => ({

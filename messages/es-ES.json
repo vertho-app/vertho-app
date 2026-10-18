@@ -2759,6 +2759,17 @@
     },
     "eyebrowShort": "MI PDI",
     "eyebrowFull": "PLAN DE DESARROLLO INDIVIDUAL",
+    "previous": {
+      "title": "PDI anteriores",
+      "subtitle": "Los planes de las jornadas que ya hiciste. Quedan aquí para consulta.",
+      "untitled": "Jornada anterior",
+      "view": "Ver",
+      "download": "Descargar PDF",
+      "eyebrow": "PDI ANTERIOR",
+      "back": "Volver",
+      "viewingNotice": "Este es el PDI de una jornada anterior. Queda aquí para consulta y no es el plan de tu jornada actual.",
+      "loadError": "No se pudo abrir este PDI."
+    },
     "generatedAt": "Generado el {date}",
     "priority": "Prioridad",
     "levelValue": "Nivel {n}",

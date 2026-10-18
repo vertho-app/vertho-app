@@ -6,8 +6,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Target, AlertCircle, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, BookOpen, Calendar, Lightbulb, Star, Download } from 'lucide-react';
-import { loadPDI, baixarMeuPdiPdf } from './pdi-actions';
+import { Loader2, Target, AlertCircle, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, BookOpen, Calendar, Lightbulb, Star, Download, History, ArrowLeft } from 'lucide-react';
+import { loadPDI, baixarMeuPdiPdf, loadPdiAnterior, baixarPdiAnteriorPdf } from './pdi-actions';
 import { PageContainer, PageHero } from '@/components/page-shell';
 import FirstViewVideo from '@/components/first-view-video';
 import { nivelOuNull } from '@/lib/nivel-regua';
@@ -176,136 +176,53 @@ function CompetencyBlock({ comp, idx, t }: { comp?: any; idx?: any; t: any }) {
   );
 }
 
-export default function PDIPage() {
-  const t = useTranslations('Pdi');
-  // Erros do carregamento e do download chegam como CÓDIGO estável e são traduzidos aqui.
-  const tPdf = useTranslations('Pdf');
-  const locale = useLocale();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [downloading, setDownloading] = useState(false);
-  const [downloadErr, setDownloadErr] = useState('');
-  const router = useRouter();
-  const supabase = getSupabase();
-
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/login'); return; }
-      const result = await loadPDI();
-      if (result.error) setError(result.codigo ? tPdf(`download.errors.${result.codigo}`) : result.error);
-      else setData(result);
-      setLoading(false);
-    })();
-  }, []);
-
-  async function handleDownloadPdf() {
-    setDownloading(true);
-    setDownloadErr('');
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/login'); return; }
-      const r = await baixarMeuPdiPdf();
-      if (r.error) { setDownloadErr(r.codigo ? tPdf(`download.errors.${r.codigo}`) : r.error); return; }
-      // Download direto via signed URL (sem passar pelo server action)
-      window.location.href = r.url;
-    } catch (e) {
-      setDownloadErr(e?.message || t('download.error'));
-    } finally {
-      setDownloading(false);
-    }
-  }
-
-  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
-  if (error) return <div className="p-6 text-center text-gray-400">{error}</div>;
-  if (!data) return null;
-
-  // Estados sem PDI ativo
-  if (!data.pdiAtivo) {
-    // O convidado da degustação nunca terá PDI: "em preparação" seria promessa
-    // falsa, então a tela diz que ele fica para o programa e leva ao resultado.
-    const degustacao = data.degustacao === true;
-    return (
-      <PageContainer>
-        <PageHero
-          eyebrow={t('eyebrowShort')}
-          title={degustacao
-            ? t('empty.tastingTitle')
-            : data.concluiuAvaliacao ? t('empty.preparingTitle') : t('empty.assessmentTitle')}
-          subtitle={degustacao
-            ? t('empty.tastingSubtitle')
-            : data.concluiuAvaliacao
-              ? t('empty.preparingSubtitle')
-              : data.totalAvaliacao > 0
-                ? t('empty.progressSubtitle', { done: data.respondidas, total: data.totalAvaliacao })
-                : t('empty.notStartedSubtitle')}
-        />
-        <div className="flex justify-center">
-          <div className="rounded-2xl border border-white/[0.06] p-8 text-center max-w-[520px] w-full"
-            style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
-            <AlertCircle size={40} className="text-gray-500 mx-auto mb-4" />
-            {degustacao ? (
-              <button onClick={() => router.push('/dashboard/assessment')}
-                className="px-6 py-3 rounded-full text-sm font-bold text-white"
-                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-                {data.concluiuAvaliacao
-                  ? t('empty.viewResult')
-                  : data.respondidas > 0 ? t('empty.continueAssessment') : t('empty.goAssessment')}
+/**
+ * PDIs de jornadas anteriores (18/10/2026, pedido do dono na 2ª jornada de Ibipeba): um por jornada, o último daquela
+ * turma. Aparece em todos os estados da tela, inclusive com o PDI atual "em preparação": é histórico da pessoa.
+ */
+function PdisAnteriores({ itens, t, locale, onVer, onBaixar, abrindo, baixando }: {
+  itens?: any[]; t: any; locale: string; onVer: (ref: string) => void; onBaixar: (ref: string) => void; abrindo: string; baixando: string;
+}) {
+  if (!itens?.length) return null;
+  return (
+    <div className="rounded-xl p-4 border border-white/[0.06]" style={{ background: '#0F2A4A' }}>
+      <SectionTitle icon={History}>{t('previous.title')}</SectionTitle>
+      <p className="text-xs text-gray-400 leading-relaxed mb-3">{t('previous.subtitle')}</p>
+      <div className="space-y-2">
+        {itens.map((a) => (
+          <div key={a.ref} className="flex flex-wrap items-center justify-between gap-3 rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <div className="min-w-0">
+              <p className="text-sm text-white font-semibold truncate">{a.turma || t('previous.untitled')}</p>
+              <p className="text-[11px] text-gray-400">{t('generatedAt', { date: new Date(a.geradoEm).toLocaleDateString(locale) })}</p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={() => onVer(a.ref)} disabled={!!abrindo}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold text-white border border-white/10 hover:bg-white/[0.04] transition disabled:opacity-60">
+                {abrindo === a.ref && <Loader2 size={12} className="animate-spin" />}
+                {t('previous.view')}
               </button>
-            ) : data.concluiuAvaliacao ? (
-              <button onClick={() => router.push('/dashboard')}
-                className="px-6 py-3 rounded-full text-sm font-bold text-white"
-                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-                {t('empty.backDashboard')}
+              <button onClick={() => onBaixar(a.ref)} disabled={!!baixando}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold text-brand-300 border border-brand-400/30 hover:bg-brand-400/10 transition disabled:opacity-60">
+                {baixando === a.ref ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                {t('previous.download')}
               </button>
-            ) : (
-              <button onClick={() => router.push('/dashboard/assessment')}
-                className="px-6 py-3 rounded-full text-sm font-bold text-white"
-                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
-                {data.respondidas > 0 ? t('empty.continueAssessment') : t('empty.goAssessment')}
-              </button>
-            )}
+            </div>
           </div>
-        </div>
-      </PageContainer>
-    );
-  }
+        ))}
+      </div>
+    </div>
+  );
+}
 
-  const c = data.conteudo || {};
+/** O corpo do PDI (do acolhimento à mensagem final): o mesmo para o PDI atual e para um anterior. */
+function PdiConteudo({ c, t }: { c: any; t: any }) {
   const competencias = c.competencias || [];
   const perfil = c.perfil_comportamental || c.perfil_disc || null;
   const pontosFortes = perfil?.pontos_forca || perfil?.pontos_fortes || [];
   const pontosAtencao = perfil?.pontos_atencao || [];
 
   return (
-    <PageContainer className="space-y-4">
-      <DemoExplorationBeacon alvo="pdi" />
-      <PageHero
-        eyebrow={t('eyebrowFull')}
-        title={data.colaborador.nome_completo}
-        subtitle={[
-          data.colaborador.cargo,
-          data.criadoEm && t('generatedAt', { date: new Date(data.criadoEm).toLocaleDateString(locale) }),
-        ].filter(Boolean).join(' · ')}
-        actions={(
-          <button onClick={handleDownloadPdf} disabled={downloading}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-60"
-            style={{ background: 'linear-gradient(135deg, #34C5CC, #0D9488)', boxShadow: '0 0 20px rgba(52,197,204,0.25)' }}>
-            {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-            {downloading ? t('download.preparing') : t('download.button')}
-          </button>
-        )}
-      />
-
-      <FirstViewVideo videoId={PDI_VIDEO_ID} title={t('video.title')} label={t('video.label')} sectionKey="pdi" colabId={data.colaborador.id} />
-
-      {downloadErr && (
-        <div className="rounded-lg p-2 border border-red-400/30 text-[11px] text-red-400 text-center" style={{ background: 'rgba(239,68,68,0.05)' }}>
-          {downloadErr}
-        </div>
-      )}
-
+    <>
       {/* Acolhimento */}
       {c.acolhimento && (
         <div className="rounded-xl p-4 border border-brand-400/20" style={{ background: 'rgba(52,197,204,0.05)' }}>
@@ -372,7 +289,7 @@ export default function PDIPage() {
                 <div key={i} className="flex items-center justify-between rounded-lg p-2" style={{ background: 'rgba(255,255,255,0.02)' }}>
                   <span className="text-xs text-white font-semibold truncate">{rd.competencia || rd.nome}</span>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ color: n === null ? '#94A3B8' : NIVEL_COR, background: n === null ? 'rgba(148,163,184,0.15)' : NIVEL_BG }}>{n === null ? '\u2014' : t('levelValue', { n })}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ color: n === null ? '#94A3B8' : NIVEL_COR, background: n === null ? 'rgba(148,163,184,0.15)' : NIVEL_BG }}>{n === null ? '—' : t('levelValue', { n })}</span>
                   </div>
                 </div>
               );
@@ -396,6 +313,228 @@ export default function PDIPage() {
           <p className="text-sm text-gray-200 leading-relaxed italic">{c.mensagem_final}</p>
         </div>
       )}
+    </>
+  );
+}
+
+export default function PDIPage() {
+  const t = useTranslations('Pdi');
+  // Erros do carregamento e do download chegam como CÓDIGO estável e são traduzidos aqui.
+  const tPdf = useTranslations('Pdf');
+  const locale = useLocale();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const [downloadErr, setDownloadErr] = useState('');
+  // PDI de jornada anterior aberto na tela (ou null), e as ações em andamento sobre os anteriores.
+  const [anterior, setAnterior] = useState<any>(null);
+  const [abrindoAnterior, setAbrindoAnterior] = useState('');
+  const [baixandoAnterior, setBaixandoAnterior] = useState('');
+  const [anteriorErr, setAnteriorErr] = useState('');
+  const router = useRouter();
+  const supabase = getSupabase();
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.replace('/login'); return; }
+      const result = await loadPDI();
+      if (result.error) setError(result.codigo ? tPdf(`download.errors.${result.codigo}`) : result.error);
+      else setData(result);
+      setLoading(false);
+    })();
+  }, []);
+
+  async function handleDownloadPdf() {
+    setDownloading(true);
+    setDownloadErr('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.replace('/login'); return; }
+      const r: any = await baixarMeuPdiPdf();
+      if (r.error) { setDownloadErr(r.codigo ? tPdf(`download.errors.${r.codigo}`) : r.error); return; }
+      // Download direto via signed URL (sem passar pelo server action)
+      window.location.href = r.url;
+    } catch (e) {
+      setDownloadErr(e?.message || t('download.error'));
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function handleVerAnterior(ref: string) {
+    setAbrindoAnterior(ref);
+    setAnteriorErr('');
+    try {
+      const r: any = await loadPdiAnterior(ref);
+      if (r.error) { setAnteriorErr(r.codigo ? tPdf(`download.errors.${r.codigo}`) : r.error); return; }
+      setAnterior({ ...r, ref });
+      window.scrollTo({ top: 0 });
+    } catch {
+      setAnteriorErr(t('previous.loadError'));
+    } finally {
+      setAbrindoAnterior('');
+    }
+  }
+
+  async function handleBaixarAnterior(ref: string) {
+    setBaixandoAnterior(ref);
+    setAnteriorErr('');
+    try {
+      const r: any = await baixarPdiAnteriorPdf(ref);
+      if (r.error) { setAnteriorErr(r.codigo ? tPdf(`download.errors.${r.codigo}`) : r.error); return; }
+      window.location.href = r.url;
+    } catch (e) {
+      setAnteriorErr(e?.message || t('download.error'));
+    } finally {
+      setBaixandoAnterior('');
+    }
+  }
+
+  if (loading) return <div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>;
+  if (error) return <div className="p-6 text-center text-gray-400">{error}</div>;
+  if (!data) return null;
+
+  const listaAnteriores = (
+    <>
+      {anteriorErr && (
+        <div className="rounded-lg p-2 border border-red-400/30 text-[11px] text-red-400 text-center" style={{ background: 'rgba(239,68,68,0.05)' }}>
+          {anteriorErr}
+        </div>
+      )}
+      <PdisAnteriores itens={data.anteriores} t={t} locale={locale}
+        onVer={handleVerAnterior} onBaixar={handleBaixarAnterior} abrindo={abrindoAnterior} baixando={baixandoAnterior} />
+    </>
+  );
+
+  // Um PDI de jornada anterior aberto: o mesmo corpo do PDI, com o aviso de que não é o plano de agora.
+  if (anterior) {
+    return (
+      <PageContainer className="space-y-4">
+        <PageHero
+          eyebrow={t('previous.eyebrow')}
+          title={anterior.colaborador?.nome_completo}
+          subtitle={[
+            anterior.turma,
+            anterior.criadoEm && t('generatedAt', { date: new Date(anterior.criadoEm).toLocaleDateString(locale) }),
+          ].filter(Boolean).join(' · ')}
+          actions={(
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={() => { setAnterior(null); setAnteriorErr(''); }}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold text-white border border-white/10 hover:bg-white/[0.04] transition">
+                <ArrowLeft size={14} />
+                {t('previous.back')}
+              </button>
+              <button onClick={() => handleBaixarAnterior(anterior.ref)} disabled={!!baixandoAnterior}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, #34C5CC, #0D9488)' }}>
+                {baixandoAnterior ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                {baixandoAnterior ? t('download.preparing') : t('previous.download')}
+              </button>
+            </div>
+          )}
+        />
+        <div className="rounded-lg p-3 border border-amber-400/30 text-xs text-amber-200 leading-relaxed" style={{ background: 'rgba(245,158,11,0.06)' }}>
+          {t('previous.viewingNotice')}
+        </div>
+        {anteriorErr && (
+          <div className="rounded-lg p-2 border border-red-400/30 text-[11px] text-red-400 text-center" style={{ background: 'rgba(239,68,68,0.05)' }}>
+            {anteriorErr}
+          </div>
+        )}
+        <PdiConteudo c={anterior.conteudo || {}} t={t} />
+      </PageContainer>
+    );
+  }
+
+  // Estados sem PDI ativo
+  if (!data.pdiAtivo) {
+    // O convidado da degustação nunca terá PDI: "em preparação" seria promessa
+    // falsa, então a tela diz que ele fica para o programa e leva ao resultado.
+    const degustacao = data.degustacao === true;
+    return (
+      <PageContainer>
+        <PageHero
+          eyebrow={t('eyebrowShort')}
+          title={degustacao
+            ? t('empty.tastingTitle')
+            : data.concluiuAvaliacao ? t('empty.preparingTitle') : t('empty.assessmentTitle')}
+          subtitle={degustacao
+            ? t('empty.tastingSubtitle')
+            : data.concluiuAvaliacao
+              ? t('empty.preparingSubtitle')
+              : data.totalAvaliacao > 0
+                ? t('empty.progressSubtitle', { done: data.respondidas, total: data.totalAvaliacao })
+                : t('empty.notStartedSubtitle')}
+        />
+        <div className="flex justify-center">
+          <div className="rounded-2xl border border-white/[0.06] p-8 text-center max-w-[520px] w-full"
+            style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
+            <AlertCircle size={40} className="text-gray-500 mx-auto mb-4" />
+            {degustacao ? (
+              <button onClick={() => router.push('/dashboard/assessment')}
+                className="px-6 py-3 rounded-full text-sm font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {data.concluiuAvaliacao
+                  ? t('empty.viewResult')
+                  : data.respondidas > 0 ? t('empty.continueAssessment') : t('empty.goAssessment')}
+              </button>
+            ) : data.concluiuAvaliacao ? (
+              <button onClick={() => router.push('/dashboard')}
+                className="px-6 py-3 rounded-full text-sm font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {t('empty.backDashboard')}
+              </button>
+            ) : (
+              <button onClick={() => router.push('/dashboard/assessment')}
+                className="px-6 py-3 rounded-full text-sm font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {data.respondidas > 0 ? t('empty.continueAssessment') : t('empty.goAssessment')}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="max-w-[520px] w-full mx-auto mt-6 space-y-3">
+          {listaAnteriores}
+        </div>
+      </PageContainer>
+    );
+  }
+
+  const c = data.conteudo || {};
+
+  return (
+    <PageContainer className="space-y-4">
+      <DemoExplorationBeacon alvo="pdi" />
+      <PageHero
+        eyebrow={t('eyebrowFull')}
+        title={data.colaborador.nome_completo}
+        subtitle={[
+          data.colaborador.cargo,
+          data.criadoEm && t('generatedAt', { date: new Date(data.criadoEm).toLocaleDateString(locale) }),
+        ].filter(Boolean).join(' · ')}
+        actions={(
+          <button onClick={handleDownloadPdf} disabled={downloading}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-extrabold text-white transition disabled:opacity-60"
+            style={{ background: 'linear-gradient(135deg, #34C5CC, #0D9488)', boxShadow: '0 0 20px rgba(52,197,204,0.25)' }}>
+            {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            {downloading ? t('download.preparing') : t('download.button')}
+          </button>
+        )}
+      />
+
+      <FirstViewVideo videoId={PDI_VIDEO_ID} title={t('video.title')} label={t('video.label')} sectionKey="pdi" colabId={data.colaborador.id} />
+
+      {downloadErr && (
+        <div className="rounded-lg p-2 border border-red-400/30 text-[11px] text-red-400 text-center" style={{ background: 'rgba(239,68,68,0.05)' }}>
+          {downloadErr}
+        </div>
+      )}
+
+      <PdiConteudo c={c} t={t} />
+
+      {listaAnteriores}
     </PageContainer>
   );
 }

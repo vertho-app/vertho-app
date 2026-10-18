@@ -2759,6 +2759,17 @@
     },
     "eyebrowShort": "MY IDP",
     "eyebrowFull": "INDIVIDUAL DEVELOPMENT PLAN",
+    "previous": {
+      "title": "Previous IDPs",
+      "subtitle": "The plans from the journeys you have already completed. They stay here for reference.",
+      "untitled": "Previous journey",
+      "view": "View",
+      "download": "Download PDF",
+      "eyebrow": "PREVIOUS IDP",
+      "back": "Back",
+      "viewingNotice": "This is the IDP from a previous journey. It stays here for reference and is not the plan for your current journey.",
+      "loadError": "This IDP could not be opened."
+    },
     "generatedAt": "Generated in {date}",
     "priority": "Priority",
     "levelValue": "Level {n}",

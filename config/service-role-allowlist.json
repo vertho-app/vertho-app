@@ -83,7 +83,7 @@
     "app/dashboard/gestor/actions.ts": 2,
     "app/dashboard/gestor/equipe-evolucao/actions.ts": 3,
     "app/dashboard/home-actions.ts": 1,
-    "app/dashboard/pdi/pdi-actions.ts": 2,
+    "app/dashboard/pdi/pdi-actions.ts": 1,
     "app/dashboard/perfil/perfil-actions.ts": 5,
     "app/dashboard/perfil-comportamental/mapeamento/mapeamento-actions.ts": 2,
     "app/dashboard/perfil-comportamental/perfil-comportamental-actions.ts": 3,
