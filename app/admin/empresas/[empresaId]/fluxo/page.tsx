@@ -198,6 +198,9 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
           const p = sucesso.previa;
           const prereq = sucesso.prerequisitos;
           const criticos = prereq?.itens.filter((i) => i.gravidade === 'critico') ?? [];
+          // O que a rodada vai fazer, pela prévia (18/10/2026): "vai gerar com IA para 24 pessoas" fazia parecer que tudo
+          // seria refeito, quando cada etapa só toma o que ainda falta.
+          const etapasAFazer = p.etapas.filter((e) => e.prontosAgora + e.aposEtapaAnterior > 0).map((e) => e.titulo);
           return (
             <>
               <div className="rounded-[14px] overflow-hidden mb-5" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.06)' }}>
@@ -377,7 +380,8 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
                   </div>
                 ) : (
                   <div className="rounded-lg px-3 py-3 text-[12.5px]" style={{ background: 'rgba(244,183,64,.08)', border: '1px solid rgba(244,183,64,.3)', color: '#f4b740' }}>
-                    Vai gerar com IA para {p.totalPessoas} pessoa(s) no escopo, e o que for gerado não se desfaz.
+                    Roda só o que falta{etapasAFazer.length ? `: ${etapasAFazer.join(', ')}` : ' (a prévia não vê nada; o fluxo confere as filas reais e pula o que não tiver)'}.
+                    {' '}O que já existe e está aprovado não é refeito; o que for gerado com IA não se desfaz ({p.totalPessoas} pessoa(s) no escopo).
                     {' '}{kitSemanaMax ? `Kit ${rotuloKitSemanas(kitSemanaMax)}.` : 'Kit de todas as semanas.'} Confirmar?
                     {criticos.length > 0 && (
                       <div className="mt-2 rounded-lg px-2.5 py-2 text-[12px]" style={{ background: 'rgba(229,72,77,.1)', border: '1px solid rgba(229,72,77,.35)', color: '#e5484d' }}>

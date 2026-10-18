@@ -19,7 +19,9 @@ import { tenantDb } from '@/lib/tenant-db';
 import { regionOpts } from '@/lib/trigger-region';
 import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { coletarEntradaPrevia, lerTudoPaginado } from '@/lib/pipeline-fluxo/coletar';
-import { montarPreviaFluxo, type PreviaFluxo } from '@/lib/pipeline-fluxo/previa';
+import { montarPreviaFluxo, comCorrecoesNaPrevia, type PreviaFluxo } from '@/lib/pipeline-fluxo/previa';
+import { idsInternos, idsComPdiEntregue, dentroDoEscopo, filaCorrecaoIA4, filaAuditoriaComCorrecao, filaCorrecaoPdi } from '@/lib/pipeline-fluxo/correcoes';
+import { pausaDeEnvios } from '@/lib/envios-pausados';
 import { filaConteudoEscopo } from '@/lib/pipeline-fluxo/conteudo';
 import { coletarPrerequisitos } from '@/lib/pipeline-fluxo/prerequisitos-coleta';
 import { regraFocoIndividual } from '@/lib/foco-individual';
@@ -70,7 +72,23 @@ export async function previaFluxoCompleto(input: z.infer<typeof EntradaSchema>):
     // pode mostrar "0 peças" quando na verdade não conseguiu medir.
     const fila = await filaConteudoEscopo(tenantDb(empresaId), { permitidos, cargos: cargos || undefined, empresaId }, coleta.entrada);
     coleta.entrada.conteudoPlano = { pecas: fila.length, audios: fila.filter((i) => i.formato === 'audio').length };
-    return { success: true, previa: montarPreviaFluxo(coleta.entrada), cargosFiltrados: cargos || [], ...(await pre) };
+    // Correções pendentes de rodadas anteriores (só existem com a empresa pausada), pelas MESMAS filas do fluxo. Falha de
+    // leitura não derruba a prévia: vira `null`, e a prévia avisa em vez de afirmar "nada a fazer".
+    const correcoes = await (async () => {
+      try {
+        const tdb = tenantDb(empresaId);
+        const revisitarDesde = pausaDeEnvios(empCfg?.sys_config)?.desde ?? null;
+        if (!revisitarDesde) return { ia4: 0, auditoria: 0, pdi: 0 };
+        const [internos, entregues] = await Promise.all([idsInternos(tdb, null), idsComPdiEntregue(tdb)]);
+        const o = { dentro: dentroDoEscopo(permitidos, internos), alvo: [] as string[], revisitarDesde, entregues };
+        const [ia4, auditoria, pdi] = await Promise.all([filaCorrecaoIA4(tdb, o), filaAuditoriaComCorrecao(tdb, o), filaCorrecaoPdi(tdb, o)]);
+        return { ia4: ia4.length, auditoria: auditoria.length, pdi: pdi.length };
+      } catch (e: any) {
+        console.warn('[previa-fluxo] correções pendentes não medidas:', e?.message || e);
+        return null;
+      }
+    })();
+    return { success: true, previa: comCorrecoesNaPrevia(montarPreviaFluxo(coleta.entrada), correcoes), cargosFiltrados: cargos || [], ...(await pre) };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Erro ao montar a prévia' };
   }

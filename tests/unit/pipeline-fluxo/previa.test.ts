@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { montarPreviaFluxo, idsTrilhaProntos, type EntradaPrevia, type EtapaId } from '@/lib/pipeline-fluxo/previa';
+import { montarPreviaFluxo, idsTrilhaProntos, comCorrecoesNaPrevia, type EntradaPrevia, type EtapaId } from '@/lib/pipeline-fluxo/previa';
 
 /**
  * A prévia do fluxo completo (IA4 → blueprint → auditoria → PDI → conteúdos → trilha → Kit → Gestor/RH) é uma ESTIMATIVA que
@@ -230,5 +230,28 @@ describe('Conteúdos (biblioteca) na prévia', () => {
   it('a biblioteca vem ANTES da trilha na prévia (mesma ordem do que roda)', () => {
     const ids = montarPreviaFluxo(entrada()).etapas.map((e) => e.id);
     expect(ids.indexOf('conteudo')).toBe(ids.indexOf('trilha') - 1);
+  });
+});
+
+// 18/10/2026: empresa pausada só com correções pendentes dava "nada a fazer" e a tela desabilitava o Rodar.
+describe('correções pendentes na prévia', () => {
+  const vazia = () => montarPreviaFluxo(entrada({ pessoas: [pessoa('a')], cargos: [cargo('CAIXA', ['Rotina'])], blueprints: [{ colaborador_id: 'a' } as any], pdis: ['a'], trilhas: ['a'] }));
+  it('controle: sem correção, a prévia segue "nada a fazer"', () => {
+    const p = comCorrecoesNaPrevia(vazia(), { ia4: 0, auditoria: 0, pdi: 0 });
+    expect(p.nadaAFazer).toBe(true);
+    expect(p.avisos.filter((a) => a.startsWith('Nada a fazer'))).toHaveLength(1);
+  });
+  it('com correções, as etapas contam e o Rodar deixa de ficar travado', () => {
+    const p = comCorrecoesNaPrevia(vazia(), { ia4: 2, auditoria: 1, pdi: 3 });
+    expect(etapa(p, 'ia4_correcao').prontosAgora).toBe(2);
+    expect(etapa(p, 'auditoria').prontosAgora).toBe(1);
+    expect(etapa(p, 'pdi_correcao').prontosAgora).toBe(3);
+    expect(p.nadaAFazer).toBe(false);
+    expect(p.avisos.some((a) => a.startsWith('Nada a fazer'))).toBe(false);
+  });
+  it('sem conseguir medir, não afirma "nada a fazer" e avisa', () => {
+    const p = comCorrecoesNaPrevia(vazia(), null);
+    expect(p.nadaAFazer).toBe(false);
+    expect(p.avisos.some((a) => a.startsWith('Não foi possível medir as correções'))).toBe(true);
   });
 });

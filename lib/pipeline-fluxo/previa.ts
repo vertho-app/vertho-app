@@ -333,3 +333,28 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     pessoas,
   };
 }
+
+/**
+ * As CORREÇÕES pendentes na prévia (18/10/2026). `montarPreviaFluxo` só vê o que falta GERAR; com a empresa pausada e só
+ * correções a fazer (o "revisar" da IA4, o blueprint reprovado, o PDI reprovado ou com alerta, abaixo do teto), a prévia
+ * dizia "nada a fazer" e a tela desabilitava o Rodar: a regra "com a empresa pausada o Rodar corrige o passado" ficava
+ * inalcançável pela tela. As contagens vêm das MESMAS filas do fluxo (`correcoes.ts`); `null` = não foi possível medir,
+ * e aí a prévia não afirma "nada a fazer" (avisa e deixa o Rodar, que confere as filas reais). PURO (devolve cópia).
+ */
+export function comCorrecoesNaPrevia(
+  previa: PreviaFluxo,
+  c: { ia4: number; auditoria: number; pdi: number } | null,
+): PreviaFluxo {
+  const etapas = previa.etapas.map((e) => {
+    if (!c) return e;
+    if (e.id === 'ia4_correcao') return { ...e, prontosAgora: e.prontosAgora + c.ia4 };
+    if (e.id === 'auditoria') return { ...e, prontosAgora: e.prontosAgora + c.auditoria };
+    if (e.id === 'pdi_correcao') return { ...e, prontosAgora: e.prontosAgora + c.pdi };
+    return e;
+  });
+  const nadaAFazer = !!c && etapas.every((e) => e.prontosAgora === 0 && e.aposEtapaAnterior === 0);
+  const avisos = previa.avisos.filter((a) => !a.startsWith('Nada a fazer agora'));
+  if (!c) avisos.push('Não foi possível medir as correções pendentes (IA4, blueprint, PDI): o Rodar confere as filas reais.');
+  if (nadaAFazer) avisos.push('Nada a fazer agora: nenhuma etapa tem pessoa pronta nem projetada. Veja os bloqueios.');
+  return { ...previa, etapas, nadaAFazer, avisos };
+}

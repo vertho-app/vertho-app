@@ -29,3 +29,13 @@ describe('tela do Fluxo completo', () => {
     expect(trecho.slice(0, 700)).toMatch(/rel="noopener noreferrer"/);
   });
 });
+
+// 18/10/2026: "Vai gerar com IA para 24 pessoas" fazia parecer que tudo seria refeito; a confirmação diz o que vai rodar.
+describe('confirmação diz o que a rodada faz', () => {
+  it('lista as etapas com algo a fazer e diz que o aprovado não é refeito', () => {
+    expect(pagina).not.toContain('Vai gerar com IA para');
+    expect(pagina).toContain('Roda só o que falta');
+    expect(pagina).toMatch(/etapasAFazer = p\.etapas\.filter\(\(e\) => e\.prontosAgora \+ e\.aposEtapaAnterior > 0\)/);
+    expect(pagina).toContain('O que já existe e está aprovado não é refeito');
+  });
+});
