@@ -231,6 +231,14 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   muda o vídeo). Troque `RENDER_SNAPSHOT_ID` nos DOIS lados e confira a Vercel por `vercel env pull`
   (o MCP dá 403 em env). CX seca nas 3 localidades (27/09) → `SNAPSHOT_BUILD_TYPE=cpx22`, mesmo
   disco de 80 GB, cabe em toda a escada.
+- 🔴 Snapshot novo (18/10/2026, E4 do vídeo v7, 3 snapshots até acertar): (1) **prove numa box DESCARTÁVEL** criada do
+  snapshot sem `user_data` (o worker não sobe), com `renderMedia` de MAIS de 30 s e um NOMINAL sobre deck do formato novo;
+  `renderStill` passa com `delayRender` no topo do módulo e o render longo morre aos 28 s, e o nominal tinha um defeito
+  de crossfade que nenhum ensaio exercitava (F-V12); (2) a Vercel só lê `RENDER_SNAPSHOT_ID` e `HF_LAMBDA_*` depois de
+  `vercel redeploy` do deploy de produção ATUAL (confira o SHA pelo MCP antes: republicar um deploy velho volta o
+  código); (3) as boxes do snapshot anterior seguem pegando jobs até a fila esvaziar: job que precisa do conserto novo
+  pode cair nelas; (4) `worker-hetzner` sem `package-lock` resolvia a dependência publicada no dia (HyperFrames publicou
+  pela metade e o build quebrou): hoje é `npm ci`. Receitas duráveis: `C:\GAS\backup-render\snapshot-v7\` (fora do repo).
 - 🔴 Subir `MAX_RENDER_BOXES` ou mexer em claim/reaper (`worker-hetzner/fila.mjs`): a duração
   claim → upload no PIOR tipo que a escada entrega tem que caber no limite do reaper, e o limite
   conta do último sinal de vida. 27/09: os 12 renders de 26/09 na cx33 levaram 43-63 min contra um

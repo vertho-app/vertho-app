@@ -52,6 +52,50 @@ Detalhes vivos em [[project_current_work]] (memória) e nos arquivos `lib/video/
 
 ---
 
+## Formato novo: miolo da biblioteca v7 (no ar em TODAS as empresas desde 18/10/2026)
+
+O dono achava que os vídeos "pareciam PPT animado" (15/10). O formato novo troca só o **miolo**: abertura e fecho do
+avatar, narração, masterização, publicação na Bunny e saudação nominal seguem como antes.
+
+| Etapa | Onde | O que faz |
+|---|---|---|
+| Plano visual | `lib/video/v7/no-trigger.ts:37` (`planoVisualV7`), dentro do `gerar-video-modulo`, depois do `montarInputProps` | Opus 5.5 (`video_plano_visual`, pinado) escolhe os momentos da biblioteca (26 modelos, cada um 1× por vídeo) ancorados nas frases do Whisper; 2 ilustrações (`video_ilustracao`); grava em `videos_gerados.visual_v7` (mig 290). Custo no ledger pelo `correlation_id` = id do vídeo |
+| Render do miolo | `worker-hetzner/miolo-v7.mjs` | composição HyperFrames (`worker-hetzner/video-v7/`) renderizada na AWS Lambda (pilha `hyperframes-default`, us-east-1), 4 trechos em paralelo |
+| Pontas | `worker-hetzner/worker.mjs:277` (`renderizarV7`) | abertura e fecho no Remotion (`frameRange`), **sem legenda** (decisão do dono 17/10: o formato novo não tem legenda), em paralelo com a Lambda |
+| Emenda | `argsDaEmenda` / `emendar` (`miolo-v7.mjs`) | `concat` do ffmpeg com cada parte cortada no nº exato de quadros (vídeo E áudio) |
+
+- **Chave por empresa:** `empresas.sys_config.video_biblioteca_v7 = { ligado, contexto }`. `contexto` é uma frase curta do
+  LUGAR de trabalho (espaços e objetos concretos) que vai ao plano e às ilustrações; sem ela o plano de um boliche pediu
+  ilustração de aeroporto. Ligada nas 16 empresas em 18/10/2026; as que não têm PPP extraído (Macaé, Elo, Bett, MEI &
+  Empregabilidade, tenants de teste) ficaram com frase genérica.
+- **Falha nunca derruba o vídeo:** plano que falha → formato de hoje + `VIDEO_PLANO_V7_FALHOU`; miolo que falha → render de
+  hoje inteiro (com legenda) + `video-v7-render-fallback` em `degradacao_log`.
+- **Revisão do deck:** `render_fingerprint` = md5(`render_inputprops` + assinatura do plano) desde a mig 291: converter um
+  vídeo pronto para o formato novo muda a revisão e o worker refaz os nominais (antes pulava, "0 ok, 0 erro").
+- **Avatar curto no Avatar IV** (todas as empresas, 18/10): abertura 13-15 e fecho 11-13 palavras (~13 s), `motorHeyGen()`
+  padrão `avatar_iv` (`lib/video/heygen.ts:41`); o desafio da semana fica na última cena do miolo. Mesmo custo do avatar de
+  antes (2,2× por segundo, menos da metade dos segundos) e boca melhor (comparação lado a lado com o mesmo áudio).
+- **Fontes da marca no bundle** (Codec nos títulos do avatar e da saudação, Roboto no resto): `docs/DESIGN-SYSTEM.md`
+  §Tema dos vídeos.
+- **Infra:** envs `HF_LAMBDA_*` no Trigger E na Vercel (usuário IAM `vertho-render`, só o bucket de render e o disparo e
+  acompanhamento do render); `RENDER_SNAPSHOT_ID` nos dois lados; o worker instala pelo `package-lock.json` com `npm ci`.
+
+**Custo medido em 18/10/2026** (ledger; o avatar atribuído pelo clipe da HeyGen):
+
+| Por vídeo | Formato de hoje (Ibipeba, 40) | Formato de hoje (4Life, 21) | Formato novo (projeção) |
+|---|---|---|---|
+| Roteiro | 0,13 | 0,14 | 0,13-0,14 |
+| Narração | 0,10 | 0,14 | 0,09-0,12 |
+| Avatar | 0,47 (Avatar III, ~32 s) | 0,49 | ~0,44-0,49 (Avatar IV, ~13,5 s) |
+| Textos do grupo | 0,02 | 0,03 | 0,02-0,03 |
+| Plano + 2 ilustrações | não tem | não tem | 0,19 |
+| Fora do ledger (Whisper + máquina) | ~0,04 | ~0,04 | ~0,04 |
+| **Total** | **~0,76** | **~0,84** | **~0,91-1,01** (+ ~0,06 de Lambda, créditos AWS) |
+
+🔴 **O avatar é a maior linha e quase não é dividido** entre os perfis do grupo: ver `docs/FMEA-PIPELINE.md` §F-V11.
+
+---
+
 ## Integração HeyGen v3 (desde 25/09/2026)
 
 A HeyGen retira `/v2/video/generate` e `/v1/video_status.get` em **31/10/2026**. O cliente único

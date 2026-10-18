@@ -1876,6 +1876,43 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
 - **Guarda:** `tests/unit/video/aparar-sopro.test.ts` (os perfis de energia REAIS de 4 aberturas e fechos da Boehringer com a decisão do script validado, os limites estritos do limiar a −55,04 e −54,89 dB, o corte mínimo e a mesma decisão a 16 e 24 kHz) e o bloco "aparo do sopro antes da fala" em `tests/unit/video/gerar-video-modulo-grupo.test.ts` (o que vai à HeyGen, os quadros repostos depois do CFR, o que fica gravado, a chave de desligar, a falha do aparo, a retomada com e sem `aparouQuadros`, o aparo antigo que não vaza para o clipe novo e a irmã). Validado por mutação: 16 de 16 (duas sobreviveram na 1ª rodada e eram asserções fracas minhas: o estado FINAL da cena também tem o id do clipe e os quadros, então a persistência só se prova no patch INTERMEDIÁRIO). Conferido ainda contra áudio real: o módulo de produção (PCM 24 kHz) reproduz os picos e a decisão do script (16 kHz) nas 10 cenas de avatar da Boehringer.
 - **Aberto:** (1) o limiar de −55 dB foi calibrado em 1 cena atrasada (ACME) e 1 cena com sopro limpo (Boehringer), sem prova causal de que o sopro É a causa: a validação foi de ouvido, em clipes isolados. (2) Os vídeos já gerados NÃO são refeitos pelo código; o fecho da `e405782d` (Boehringer) foi aparado à mão e as cenas das escolas e da ACME também. (3) As aberturas medidas ficaram entre −55 e −69 dB; a da S1 das escolas chegou ao limite (−55 dB) e na época foi aparada com o limiar de −56. (4) `Derivado` da tarifa por segundo de áudio (US$ 0,0171/s no `avatar_iii`): o aparo não custa nada a mais, porque o áudio enviado é mais curto; não medido numa fatura.
 
+### F-V11 · O avatar do grupo quase não é dividido: o Kit roda um job POR DISC 🟠 (aberto, medido 18/10/2026)
+- **Gatilho:** o grupo de avatar (`lib/video/avatar-grupo-core.ts`, `trigger/gerar-video-grupo.ts`) foi feito para um job
+  de Kit com todos os DISC de um módulo × cargo juntos (`actions/kits.ts:266-272`, `avatarDoGrupo()`). Com os formatos por
+  preferência, o Kit roda **um `kit_jobs` por DISC** (`params.discs = ["C"]`, `["D"]`, `["I"]` no mesmo minuto), e só um
+  deles cria e entra no grupo; os outros nascem sem `avatar_grupo_id` e pagam o próprio avatar. Somam-se: mãe reprovada no
+  portão de voz derruba o grupo inteiro (`trigger/gerar-video-grupo.ts:196`) e irmã recusada contra a altura da mãe gera o
+  próprio avatar.
+- **Medido 18/10/2026:** Ibipeba, 40 vídeos de Kit, **34 avatares** para 17 módulo × cargo (58 de 68 clipes servindo a 1
+  vídeo); 4Life, 21 vídeos, 20 avatares para 12. Mães reprovadas no portão: 3 de 17 grupos (Ibipeba) e 6 de 12 (4Life, 1
+  deles depois do deploy `20261018.4`, que já tinha a correção da narração `9234cc78`). Irmãs que herdaram: 5 de 14
+  (Ibipeba), 1 de 3 (4Life). Os 16 vídeos "soltos" NÃO eram refação (nenhum original em erro na mesma célula).
+- **Impacto:** ganho realista de consertar ~US$ 4-5 por semana nas duas empresas (~US$ 0,07 por vídeo): grupos de 1 vídeo
+  só não têm com quem dividir, e metade das irmãs cai no portão de voz.
+- **Status:** aberto, por decisão do dono (18/10): medir uma semana de grupos com a correção de narração no ar antes de
+  mexer no Kit ou no orquestrador. Correções estudadas: (1) jobs paralelos do mesmo módulo × cargo entram no grupo que já
+  existe (sem `pendente`: duas rodadas escolheriam duas mães); (2) mãe reprovada → promover a próxima célula (no máximo 1
+  tentativa a mais).
+
+### F-V12 · Nominal sobre deck do formato novo falhava no crossfade 🔴 (corrigido 18/10/2026, `3231ae99`)
+- **Gatilho:** `worker-hetzner/personalizar.mjs:172` (`argsDoCrossfade`). O `xfade` do ffmpeg exige os dois lados iguais;
+  o deck do formato novo é emendado pelo ffmpeg (`yuv420p`, base de tempo 1/15360) e a saudação sai do Remotion
+  (`yuvj420p`, 1/90000). O deck de hoje sai do Remotion, por isso nunca tinha acontecido.
+- **Medido:** os 5 nominais do piloto da 4Life falharam com "First input link main timebase (1/90000) do not match the
+  corresponding second input link xfade timebase (1/15360)"; o nominal anterior ficou no lugar (done preservado + erro).
+- **Correção:** os dois lados normalizados (tamanho, fps, formato de pixel, base de tempo, áudio) antes do `xfade`.
+  Guarda: `tests/unit/video/personalizar-crossfade.test.ts` (com ffmpeg de verdade; sem a normalização, falha com o erro de
+  produção). Lição: o ensaio e a box de teste nunca personalizavam; a prova da box agora tem o passo do nominal.
+- 🔴 **Box antiga continua pegando trabalho:** até a fila esvaziar, as boxes do snapshot anterior seguem vivas e pegam
+  qualquer job (a fila não escolhe box). Em 18/10 os nominais caíram DUAS vezes em boxes antigas depois do conserto.
+
+### F-V13 · Converter vídeo pronto para o formato novo não refazia os nominais 🔴 (corrigido 18/10/2026, mig 291)
+- **Gatilho:** `worker-hetzner/worker.mjs:178` pula o nominal com `deck_fingerprint === render_fingerprint`, e o
+  `render_fingerprint` (mig 247) era md5 do `render_inputprops`, sem o plano visual (a mig 290 o deixou fora de propósito).
+- **Medido:** piloto da 4Life, 2 vídeos convertidos: deck novo publicado e "personalização da célula: 0 ok, 0 erro".
+- **Correção:** mig 291 (`SET EXPRESSION`, Postgres 17): md5(`render_inputprops` || `visual_v7->>'assinatura'`). Conferido
+  no banco: 310 linhas sem plano com o hash de antes, as 3 com plano com o hash novo.
+
 ## 5. Parse de IA / robustez
 
 ### F-P1 · JSON truncado (maxTokens) → falha limpa (blueprint) ou score inflado (auditoria) ✅ (fechado 27/07)
