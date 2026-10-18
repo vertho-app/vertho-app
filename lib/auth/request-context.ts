@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { combineChunks, parseCookieHeader } from '@supabase/ssr';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext, canViewColabJourney } from '@/lib/authz';
 import { can, type PermissionKey } from '@/lib/permissions';
@@ -9,7 +10,8 @@ import type { UserContext, Role } from '@/types';
  *
  * Extrai o usuário autenticado de:
  *   1. Header `Authorization: Bearer <access_token>` (modo preferido — lib/auth/fetch-auth.ts injeta)
- *   2. Cookie Supabase SSR `sb-<project-ref>-auth-token` (fallback pra fetches legados)
+ *   2. Cookie Supabase SSR `sb-<project-ref>-auth-token`, inteiro ou em pedaços `.0`, `.1`… (fallback pra fetches
+ *      legados e para o que o navegador pede sozinho: `<audio src>`, `<iframe src>`, link em aba nova)
  *
  * Depois resolve o contexto multi-tenant via `getUserContext(email)` e expõe
  * guards (`requireUser`, `requireAdmin`, `requireRole`, `assertTenantAccess`,
@@ -36,6 +38,22 @@ async function resolveTokenToUser(
   return { id: data.user.id, email: data.user.email.trim().toLowerCase() };
 }
 
+/**
+ * Valor do cookie de sessão do Supabase SSR, com os PEDAÇOS juntados (já decodificado).
+ *
+ * Sessão acima de ~3,2 KB vira `sb-<ref>-auth-token.0`, `.1`, …: o 2º fator dos admins põe os fatores no objeto do
+ * usuário e passa do limite. O padrão antigo (`sb-…-auth-token=`) só casava o cookie inteiro, e quem abria um link
+ * direto (podcast, PDF, download do vídeo: `<audio src>`, `<iframe src>`, aba nova, sem o Bearer) recebia
+ * "não autenticado" (18/10/2026, sessão do dono em 2 pedaços). A junção é a do próprio @supabase/ssr.
+ */
+export async function valorDoCookieDeSessao(cookieHeader: string): Promise<string | null> {
+  const cookies = parseCookieHeader(cookieHeader);
+  const chave = cookies.map((c) => /^(sb-.+-auth-token)(?:\.\d+)?$/.exec(c.name)?.[1]).find(Boolean);
+  if (!chave) return null;
+  const porNome = new Map(cookies.map((c) => [c.name, c.value ?? '']));
+  return combineChunks(chave, (nome) => porNome.get(nome) || null);
+}
+
 export async function getAuthenticatedUser(
   req: Request,
 ): Promise<AuthenticatedUser | null> {
@@ -46,11 +64,9 @@ export async function getAuthenticatedUser(
     if (user) return user;
   }
   // 2. Cookie Supabase SSR
-  const cookieHeader = req.headers.get('cookie') || '';
-  const match = cookieHeader.match(/sb-[^=]+-auth-token=([^;]+)/);
-  if (match) {
+  const raw = await valorDoCookieDeSessao(req.headers.get('cookie') || '');
+  if (raw) {
     try {
-      const raw = decodeURIComponent(match[1]);
       // Supabase JS client salva como JSON ["access_token","refresh_token", ...]
       // OU base64-<json>
       let token: string | null = null;
