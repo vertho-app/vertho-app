@@ -522,3 +522,71 @@ describe('aparo do sopro antes da fala (avatar)', () => {
     expect(tpads()).toEqual([]);
   });
 });
+
+describe('narração por cena: a cena aprovada fica para a próxima execução (18/10/2026, 4Life)', () => {
+  // Uma cena reprovada no portão derrubava o run com as seguintes sem tentativa, e as já aprovadas não eram gravadas:
+  // cada redisparo sintetizava TUDO de novo. O 557a5359 tinha as 9 cenas aprovadas, em rodadas diferentes, e seguia em erro.
+  const MIOLO_DOIS = 'Miolo dois no tom do perfil.';
+  /** O portão reprova SÓ a cena do texto dado (as 3 tentativas dela), o resto passa. */
+  const reprovar = (texto: string) => tts.mockImplementation(async (t: string) => {
+    if (String(t) === texto) throw new Error(RECUSA);
+    return { buffer: Buffer.alloc(4000), qa: { ok: true, tentativas: 1 } };
+  });
+  const comAssets = () => patches.filter((x) => x.assets && !x.status);
+  const idxErro = () => patches.findIndex((x) => x.status === 'error');
+
+  it('uma cena reprovada: as outras são TODAS tentadas e as aprovadas gravadas ANTES do erro, que sai como veio', async () => {
+    planejar.mockReturnValue({ ok: false, motivo: 'corte sem pausa' });     // take recusado: caminho por cena
+    reprovar(MIOLO_DOIS);
+    await expect(executarGeracaoVideoModulo({ videoId: 'v-1', roteiro: roteiro() })).rejects.toThrow(RECUSA);
+
+    // 1 take + as 4 cenas: a cena 4 é tentada mesmo depois da reprovação da 3.
+    expect(tts.mock.calls.slice(1).map(textoDe).sort()).toEqual([INTRO, 'Miolo dois no tom do perfil.', 'Miolo um no tom do perfil.', OUTRO].sort());
+    expect(comAssets()).toHaveLength(1);
+    const guardado = comAssets()[0].assets;
+    expect(Object.keys(guardado).sort()).toEqual(['scene-1', 'scene-2', 'scene-4']);
+    expect(guardado['scene-2']).toMatchObject({ src: expect.stringMatching(/v-1\/scene-2-.*\.mp3$/), words: dezA2pps() });
+    expect(patches.indexOf(comAssets()[0])).toBeLessThan(idxErro());
+    expect(patches[idxErro()].error).toContain('nenhuma das 3 tentativa');
+    expect(gerarClip).not.toHaveBeenCalled();
+  });
+
+  it('a execução seguinte narra SÓ a cena que faltou e segue para a HeyGen com as que ficaram', async () => {
+    planejar.mockReturnValue({ ok: false, motivo: 'corte sem pausa' });
+    reprovar(MIOLO_DOIS);
+    await expect(executarGeracaoVideoModulo({ videoId: 'v-1', roteiro: roteiro() })).rejects.toThrow(RECUSA);
+    const guardado = comAssets()[0].assets;
+
+    assetsIniciais = guardado; patches = []; tts.mockClear(); reprovar('nenhum texto');
+    await executarGeracaoVideoModulo({ videoId: 'v-1', roteiro: roteiro() });
+    expect(tts.mock.calls.map(textoDe)).toEqual([MIOLO_DOIS]);
+    expect(gerarClip).toHaveBeenCalledTimes(2);
+    const final = patches.at(-1);
+    expect(final.status).toBe('render_queued');
+    expect(final.assets['scene-2'].src).toBe(guardado['scene-2'].src);
+    expect(final.assets['scene-1'].audioSrc).toBe(guardado['scene-1'].src);
+  });
+
+  it('retake (`regerarCenas`) que reprova: os assets do vídeo publicado não são regravados', async () => {
+    assetsIniciais = {
+      'scene-1': { src: 'https://st.test/v-pub/scene-1.mp4', audioSrc: 'https://st.test/v-pub/scene-1.mp3', durationSec: 10, heygenVideoId: 'h1' },
+      'scene-2': { src: 'https://st.test/v-pub/scene-2.mp3', durationSec: 10 },
+      'scene-3': { src: 'https://st.test/v-pub/scene-3.mp3', durationSec: 10 },
+      'scene-4': { src: 'https://st.test/v-pub/scene-4.mp4', audioSrc: 'https://st.test/v-pub/scene-4.mp3', durationSec: 10, heygenVideoId: 'h2' },
+    };
+    reprovar(MIOLO_DOIS);
+    await expect(executarGeracaoVideoModulo({ videoId: 'v-pub', roteiro: roteiro(), regerarCenas: ['scene-3'] })).rejects.toThrow(RECUSA);
+    expect(patches.some((x) => 'assets' in x)).toBe(false);
+  });
+
+  it('irmã do grupo que reprova no miolo cena a cena: o avatar da mãe NÃO entra no que fica gravado', async () => {
+    const ass = await assinaturaDaMae();
+    reprovar(MIOLO_DOIS);
+    await expect(executarGeracaoVideoModulo({
+      videoId: 'v-irma', roteiro: roteiro(),
+      avatarGrupo: payload({ assinatura: ass, referencia: { takeUnico: false, nivelDb: -23, pps: 2 } }),
+    })).rejects.toThrow(RECUSA);
+    expect(comAssets()).toHaveLength(1);
+    expect(Object.keys(comAssets()[0].assets)).toEqual(['scene-2']);
+  });
+});

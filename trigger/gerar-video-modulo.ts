@@ -433,6 +433,8 @@ export async function executarGeracaoVideoModulo(p: {
       // RESUME: parte dos assets já persistidos (retry do Trigger ou re-render de um
       // render_queued que não achou box) → NÃO re-gera narração/avatar/HeyGen.
       const assets: AssetMap = await getVideoAssets(videoId);
+      // O que veio do banco: base do que a narração por cena guarda se parar no meio (`guardarNarracaoAprovada`).
+      const assetsDoBanco: AssetMap = { ...assets };
       for (const id of p.regerarCenas || []) {
         if (!roteiro.scenes.some(s => s.id === id)) throw new Error(`cena inexistente: ${id}`);
         delete assets[id]; // mapa local; só persiste quando a nova composição estiver pronta
@@ -598,32 +600,64 @@ export async function executarGeracaoVideoModulo(p: {
         }
       }
 
+      // 1b) A CENA APROVADA FICA para a próxima execução (18/10/2026, 4Life). Uma cena reprovada no portão derrubava
+      // o mapPool: o run morria com as cenas seguintes sem tentativa, e as já aprovadas ficavam órfãs no Storage,
+      // porque `assets` só era gravado na etapa do avatar. O redisparo sintetizava TUDO de novo e reprovava de novo:
+      // o 557a5359 tinha as 9 cenas aprovadas, em rodadas diferentes, e seguia em erro. Agora toda cena pendente
+      // termina (aprovada ou não), o que passou entra em `assets` só com o lote fechado (F-I32) e, se alguma falhou,
+      // é gravado ANTES de relançar o erro: o RESUME da próxima execução narra só o que faltou. Ficam de fora o retake
+      // (`regerarCenas`: os assets de um vídeo publicado só mudam com a composição nova pronta) e as cenas `fixas` do
+      // grupo (a próxima execução pode não ser do grupo e faria a própria HeyGen sobre o avatar da mãe).
+      const guardarNarracaoAprovada = async (aprovadasAgora: string[]) => {
+        if (p.regerarCenas?.length) return;
+        const guardar: AssetMap = {};
+        for (const [id, a] of Object.entries(assetsDoBanco)) if (assets[id]?.src === a.src) guardar[id] = assets[id];
+        for (const id of aprovadasAgora) guardar[id] = assets[id];
+        try {
+          await patchVideo(videoId, { assets: guardar });
+          console.log(`[narracao] ${videoId}: ${aprovadasAgora.length} cena(s) aprovada(s) guardada(s) para a próxima execução (${Object.keys(guardar).length} no total)`);
+        } catch (e) {
+          // Não troca o erro da cena: sem a gravação, a próxima execução sintetiza tudo de novo, como antes.
+          console.error(`[narracao] ${videoId}: não guardou as cenas aprovadas:`, (e as Error)?.message || e);
+        }
+      };
+
       const narrarPorCena = async () => {
       const comNarracao = cenasComTexto.filter((s) => !assets[s.id]?.src);
+      const prontas: { id: string; asset: AssetMap[string]; dur: number }[] = [];
+      const falhas: unknown[] = [];
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
-        // Dono e artefato explícitos: a auditoria consegue localizar a cena servida.
-        // `segmentar: false`: a cena é curta, cabe numa chamada, e só a chamada única
-        // passa pelo portão de deriva (registro contra o alvo, tem fala?). O caminho
-        // segmentado não tinha portão nenhum (06/09).
-        const audio = await generateNarrationAudio(aplicarPronuncia(s.narration as string), {
-          voice: VOICE,
-          style: styleForScene(s.type),
-          segmentar: false,
-          ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo, artifactKey: `videos_gerados:${videoId}:${s.id}` },
-        });
-        // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
-        // E garante a CABEÇA: a composição pula 33 ms do áudio (trimBefore), então a fala
-        // não pode começar no instante zero (o TTS por cena costuma abrir com respiro, mas
-        // não é garantido).
-        const bruto = await comCabecaSilenciosa(await trimTrailingSilence(audio.buffer));
-        // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
-        // É ele também que acha fala A MAIS no fim (repetição do TTS), cortada ANTES do
-        // upload: a cena de avatar vai para a HeyGen com este mesmo mp3.
-        const { mp3: buf, words, sobraS } = await cortarFalaAMais(bruto, await transcribeWords(bruto), aplicarPronuncia(s.narration as string), `${videoId}/${s.id}`);
-        const src = await storagePut('video-assets', `${videoId}/${s.id}-${GERACAO_TAG()}.mp3`, buf, 'audio/mpeg');
-        duracaoLocal[s.id] = await duracaoDoBuffer(buf, 'mp3');
-        assets[s.id] = { src, durationSec: 0, words: words || undefined, ...(sobraS ? { sobraCortadaS: sobraS } : {}) };
+        try {
+          // Dono e artefato explícitos: a auditoria consegue localizar a cena servida.
+          // `segmentar: false`: a cena é curta, cabe numa chamada, e só a chamada única
+          // passa pelo portão de deriva (registro contra o alvo, tem fala?). O caminho
+          // segmentado não tinha portão nenhum (06/09).
+          const audio = await generateNarrationAudio(aplicarPronuncia(s.narration as string), {
+            voice: VOICE,
+            style: styleForScene(s.type),
+            segmentar: false,
+            ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo, artifactKey: `videos_gerados:${videoId}:${s.id}` },
+          });
+          // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
+          // E garante a CABEÇA: a composição pula 33 ms do áudio (trimBefore), então a fala
+          // não pode começar no instante zero (o TTS por cena costuma abrir com respiro, mas
+          // não é garantido).
+          const bruto = await comCabecaSilenciosa(await trimTrailingSilence(audio.buffer));
+          // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
+          // É ele também que acha fala A MAIS no fim (repetição do TTS), cortada ANTES do
+          // upload: a cena de avatar vai para a HeyGen com este mesmo mp3.
+          const { mp3: buf, words, sobraS } = await cortarFalaAMais(bruto, await transcribeWords(bruto), aplicarPronuncia(s.narration as string), `${videoId}/${s.id}`);
+          const src = await storagePut('video-assets', `${videoId}/${s.id}-${GERACAO_TAG()}.mp3`, buf, 'audio/mpeg');
+          prontas.push({ id: s.id, asset: { src, durationSec: 0, words: words || undefined, ...(sobraS ? { sobraCortadaS: sobraS } : {}) }, dur: await duracaoDoBuffer(buf, 'mp3') });
+        } catch (e) {
+          falhas.push(e);
+        }
       });
+      for (const x of prontas) { assets[x.id] = x.asset; duracaoLocal[x.id] = x.dur; }
+      if (falhas.length) {
+        await guardarNarracaoAprovada(prontas.map((x) => x.id));
+        throw falhas[0];
+      }
       };
       await narrarPorCena();
 
