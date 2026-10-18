@@ -13,8 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Instala deps (npm pega o @remotion/compositor-linux-x64-gnu nativo automaticamente no Linux).
-COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
+# `npm ci` pelo package-lock.json versionado: a árvore da imagem é a testada, e lock fora de sincronia com o
+# package.json FALHA o build em vez de re-resolver. `Medido 18/10/2026`: sem lock, o `^0.8.140` das dependências do
+# @hyperframes/aws-lambda puxou uma versão publicada pela metade (`@hyperframes/core@0.8.171` inexistente) e o build quebrou.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 # Código + bundle Remotion já compilado (mesma composição do app).
 # bed-respiro.mp3 = trilha da masterização de áudio (ffmpeg, fora do bundle Remotion).

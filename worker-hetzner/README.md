@@ -39,6 +39,13 @@ cd video-spike && npx remotion bundle remotion/index.ts --out-dir ../spike-bundl
 # copie nextjs-app/spike-bundle → worker-hetzner/spike-bundle antes de buildar a imagem
 ```
 
+## Dependências travadas (`package-lock.json`)
+
+A imagem instala com `npm ci` pelo `package-lock.json` desta pasta, então o snapshot leva a árvore que foi testada.
+Ao mudar o `package.json`, regenere o lock **em Linux** (Ubuntu do WSL serve: `npm install --omit=dev` numa cópia da
+pasta) e teste o worker com ele antes de buildar o snapshot. `tests/unit/worker-dockerfile-lock.test.ts` falha se o
+lock não acompanhar o `package.json`.
+
 ## Subir na CX33
 
 ```bash
