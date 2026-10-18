@@ -211,16 +211,33 @@ export async function gerarRelatorioGestorCore(
           if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer, locale);
         } catch (e: any) { console.error('[PDF Gestor]', e.message); }
 
-        // empresa_id é injetado pelo tdb.upsert
-        const { error: errGravar } = await tdb.from('relatorios').upsert({
-          colaborador_id: gestorColab?.id || null,
+        const linha = {
           tipo: 'gestor',
           conteudo: { ...relatorio, gestor_email: gestorEmail, gestor_nome: gestorNome },
           pdf_path: pdfPath,
           gerado_em: new Date().toISOString(),
-        }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
-        // Sem checar, a gravação que falhou virava "ok" e o relatório (com a IA já paga) se perdia calado. Caso real:
-        // gestor sem cadastro no tenant tem `colaborador_id` NULL, e o 2º do mesmo tenant bate em `uq_relatorios_agregado`.
+        };
+        let errGravar: { message: string } | null = null;
+        if (gestorColab) {
+          // empresa_id é injetado pelo tdb.upsert
+          ({ error: errGravar } = await tdb.from('relatorios').upsert({ ...linha, colaborador_id: gestorColab.id }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id'));
+        } else {
+          // Gestor SEM cadastro no tenant: `colaborador_id` NULL, que o `onConflict` acima nunca casa (NULL não conflita);
+          // o upsert virava INSERT e batia em `uq_relatorios_agregado` (colab_key) já na 2ª geração do MESMO gestor
+          // (4Life, 17/10/2026: o da Jessica gerou uma vez e não regerou mais). O índice só comporta UM gestor sem
+          // cadastro por tenant: o mesmo gestor (pelo e-mail) é atualizado; outro gestor sem cadastro é erro explícito,
+          // nunca sobrescreve o relatório de quem já está lá.
+          const { data: existente, error: errLer } = await tdb.from('relatorios')
+            .select('id, gestor_email:conteudo->>gestor_email').eq('tipo', 'gestor').is('colaborador_id', null).maybeSingle();
+          if (errLer) errGravar = errLer;
+          else if (!existente) ({ error: errGravar } = await tdb.from('relatorios').insert({ ...linha, colaborador_id: null }));
+          else if (String(existente.gestor_email || '').toLowerCase().trim() === gestorEmail) {
+            ({ error: errGravar } = await tdb.from('relatorios').update(linha).eq('id', existente.id));
+          } else {
+            errGravar = { message: `outro gestor sem cadastro (${existente.gestor_email}) já ocupa o relatório agregado desta empresa; cadastre o gestor ${gestorEmail} como colaborador` };
+          }
+        }
+        // Sem checar, a gravação que falhou virava "ok" e o relatório (com a IA já paga) se perdia calado.
         if (errGravar) return { gestor: gestorNome, erro: `relatório gerado, mas não gravado: ${errGravar.message}` };
 
         return { gestor: gestorNome, equipe: equipe.length, ok: true };

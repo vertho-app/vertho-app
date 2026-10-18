@@ -17,7 +17,7 @@ vi.mock('@/lib/rag', () => ({ retrieveContext: vi.fn(async () => []), formatGrou
 vi.mock('@react-pdf/renderer', async (original) => ({ ...(await original<any>()), renderToBuffer: vi.fn(async () => Buffer.from('%PDF')) }));
 
 const EMPRESA = 'emp-grav-falha';
-let rhExistente: { id: string } | null = null;
+let rhExistente: { id: string; gestor_email?: string } | null = null;
 
 const COLABS_GESTOR = [
   { id: 'c1', nome_completo: 'Caio', email: 'caio@x.test', cargo: 'Professor', gestor_email: 'externo@x.test', gestor_nome: 'Externo', role: 'colaborador', perfil_dominante: 'Alto C' },
@@ -58,8 +58,8 @@ describe('relatório do gestor: gravação que falhou não é "ok"', () => {
     expect(r.detalhes[0].erro).toBeUndefined();
   });
 
-  it('🔴 upsert recusado (23505): o gestor sai com `erro`, sem `ok`, e a mensagem conta o erro', async () => {
-    sb.falharEm({ tabela: 'relatorios', op: 'upsert', mensagem: DUPLICADA });
+  it('🔴 gravação recusada (23505): o gestor sai com `erro`, sem `ok`, e a mensagem conta o erro', async () => {
+    sb.falharEm({ tabela: 'relatorios', op: 'insert', mensagem: DUPLICADA });
     const r: any = await gerarRelatorioGestorCore(sb.client as any, EMPRESA, {});
     expect(r.detalhes).toHaveLength(1);
     expect(r.detalhes[0].ok).toBeUndefined();
@@ -93,5 +93,34 @@ describe('relatório do RH: gravação que falhou não é "Relatório RH gerado"
     expect(r.success).toBe(false);
     expect(r.error).toContain('não gravado');
     expect(r.error).toContain('permission denied');
+  });
+});
+
+// 17/10/2026, 4Life: o gestor SEM cadastro (`colaborador_id` NULL) gerava na 1ª vez e não regerava mais: o upsert com
+// `onConflict: empresa_id,colaborador_id,tipo` nunca casa NULL, virava INSERT e batia em `uq_relatorios_agregado`.
+describe('relatório do gestor sem cadastro no tenant', () => {
+  beforeEach(() => { sb.reset(); rhExistente = null; });
+
+  it('1ª geração: insere (não upsert)', async () => {
+    const r: any = await gerarRelatorioGestorCore(sb.client as any, EMPRESA, {});
+    expect(r.detalhes[0].ok).toBe(true);
+    const gravacoes = sb.escritas.filter((e) => e.tabela === 'relatorios');
+    expect(gravacoes.map((e) => e.op)).toEqual(['insert']);
+    expect(gravacoes[0].payload).toMatchObject({ colaborador_id: null, tipo: 'gestor' });
+  });
+
+  it('regerar o MESMO gestor atualiza o relatório dele (é o que quebrava)', async () => {
+    rhExistente = { id: 'g1', gestor_email: 'Externo@x.test' };
+    const r: any = await gerarRelatorioGestorCore(sb.client as any, EMPRESA, {});
+    expect(r.detalhes[0].ok).toBe(true);
+    expect(sb.escritas.filter((e) => e.tabela === 'relatorios').map((e) => e.op)).toEqual(['update']);
+  });
+
+  it('outro gestor sem cadastro já na vaga: erro explícito e NADA gravado (não sobrescreve o relatório dele)', async () => {
+    rhExistente = { id: 'g1', gestor_email: 'outro@x.test' };
+    const r: any = await gerarRelatorioGestorCore(sb.client as any, EMPRESA, {});
+    expect(r.detalhes[0].ok).toBeUndefined();
+    expect(r.detalhes[0].erro).toMatch(/outro gestor sem cadastro \(outro@x\.test\)/);
+    expect(sb.escritas.filter((e) => e.tabela === 'relatorios')).toEqual([]);
   });
 });
