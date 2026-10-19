@@ -26,6 +26,12 @@ export async function confirmarPublicacoes(pool, opts = {}) {
   const { rows } = await pool.query(`SELECT * FROM video_publicacoes WHERE estado='pendente'
     AND ($2::uuid[] IS NULL OR id=ANY($2::uuid[])) ORDER BY updated_at,id LIMIT $1`, [Math.min(opts.limite || 80,200),opts.ids || null]);
   const resultado = { examinados: rows.length, publicados: 0, pendentes: 0, obsoletos: 0, falhas: 0 };
+  // Girar a fila e fechar o estado vão numa consulta para TODOS no fim, não uma por vídeo: era o N+1
+  // que o Sentry acusou no cron de 5 em 5 minutos (19/10/2026). O UPDATE da mídia continua por vídeo,
+  // porque é ele que valida a revisão (encode antigo nunca substitui deck novo). Morrer no meio deixa a
+  // publicação 'pendente', e a próxima rodada refaz: o UPDATE da mídia é idempotente.
+  const aindaPendentes = [];
+  const decididos = [];
   for (let i = 0; i < rows.length; i += 4) await Promise.all(rows.slice(i,i+4).map(async p => {
     try {
       const r = await (opts.fetchFn || fetch)(`https://video.bunnycdn.com/library/${p.bunny_library}/videos/${p.bunny_video_id}`,
@@ -37,8 +43,8 @@ export async function confirmarPublicacoes(pool, opts = {}) {
         resultado.falhas++; return;
       }
       if (!bunnyPronto(b,p.altura_minima)) {
-        // Rotaciona a próxima página: encodes lentos não bloqueiam todos os novos.
-        await pool.query('UPDATE video_publicacoes SET updated_at=now(),erro=null WHERE id=$1',[p.id]);
+        // Rotaciona a próxima página (no fim, em lote): encodes lentos não bloqueiam todos os novos.
+        aindaPendentes.push(p.id);
         resultado.pendentes++; return;
       }
       // A revisão é validada NO UPDATE: um encode antigo nunca substitui um deck novo.
@@ -49,12 +55,20 @@ export async function confirmarPublicacoes(pool, opts = {}) {
         : await pool.query(`UPDATE videos_gerados SET status='done',etapa='done',video_url=$2,bunny_video_id=$3,bunny_library=$4,error=null,updated_at=now()
             WHERE id=$1 AND render_fingerprint=$5 RETURNING id`,[p.cell_video_id,p.video_url,p.bunny_video_id,p.bunny_library,p.deck_fingerprint]);
       const estado = atualizado.rowCount ? 'publicado' : 'obsoleto';
-      await pool.query('UPDATE video_publicacoes SET estado=$2,erro=null,updated_at=now() WHERE id=$1 AND estado=\'pendente\'',[p.id,estado]);
+      decididos.push([p.id, estado]);
       if (atualizado.rowCount) resultado.publicados++; else resultado.obsoletos++;
     } catch (e) {
       resultado.falhas++;
       await pool.query('UPDATE video_publicacoes SET erro=$2,updated_at=now() WHERE id=$1',[p.id,String(e?.message || e).slice(0,300)]);
     }
   }));
+  if (aindaPendentes.length) {
+    await pool.query('UPDATE video_publicacoes SET updated_at=now(),erro=null WHERE id = ANY($1::uuid[])', [aindaPendentes]);
+  }
+  if (decididos.length) {
+    await pool.query(`UPDATE video_publicacoes v SET estado=x.estado,erro=null,updated_at=now()
+      FROM unnest($1::uuid[],$2::text[]) AS x(id,estado) WHERE v.id=x.id AND v.estado='pendente'`,
+      [decididos.map(([id]) => id), decididos.map(([, estado]) => estado)]);
+  }
   return resultado;
 }
