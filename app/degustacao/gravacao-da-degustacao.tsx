@@ -12,6 +12,7 @@ import {
   redigirEventoDoSentry,
   rotaPermiteGravar,
 } from '@/lib/demo/degustacao-gravacao';
+import { ATRIBUTOS_MASCARADOS, limparEventoDeGravacao, urlTemCredencial } from '@/lib/sentry-replay';
 
 /**
  * Liga a gravação de tela (Sentry Replay) para o lead da versão C.
@@ -36,9 +37,15 @@ import {
  *   texto digitado reaparece na tela como mensagem, e máscara de campo não
  *   cobre o eco. Voltar a uma tela sem conversa retoma.
  * - 🔴 O código do convite (`/c/<código>`) e o ticket da sala viajam em URL, e a
- *   gravação as registra em três lugares: o fluxo do rrweb (`beforeAddRecordingEvent`),
- *   a lista de páginas do resumo e os eventos de erro/transação (os dois últimos
- *   só um processador de eventos alcança). Medido em produção em 03/10/2026.
+ *   gravação as registra: o fluxo do rrweb (`beforeAddRecordingEvent`), a lista de
+ *   páginas do resumo e os eventos de erro/transação (os dois últimos só um
+ *   processador de eventos alcança). Medido em produção em 03/10/2026.
+ * - 🔴 E o `href` da página no evento Meta do rrweb NÃO passa pelo gancho (a revisão
+ *   de segurança de 19/10 apontou, conferido no SDK 10.76: o gancho só recebe eventos
+ *   custom; a redação do `href` em `redigirEventoDeGravacao` nunca rodava). Por isso
+ *   nada grava com credencial na barra (`esperarUrlSemCredencial`): o INÍCIO não é
+ *   gravado desde 19/10, só a sala, depois que o seletor de papel limpa a URL. O
+ *   `<input type="hidden">` com o passe fica coberto por `maskAttributes` (`value`).
  * - Falha de carga (bloqueador de anúncio, rede) é silêncio: gravação nunca
  *   atrapalha a página nem vira erro para o lead.
  */
@@ -50,6 +57,19 @@ async function etiquetaDoConvite(codigo: string): Promise<string> {
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('')
     .slice(0, GRAVACAO_TAMANHO_DA_ETIQUETA);
+}
+
+/**
+ * Espera a URL ficar sem credencial (a sala a limpa logo depois de guardar o ticket), até `ms`.
+ * Devolve se ficou limpa. Ver `urlTemCredencial` em `lib/sentry-replay.ts`.
+ */
+async function esperarUrlSemCredencial(ms = 2000): Promise<boolean> {
+  const fim = Date.now() + ms;
+  while (urlTemCredencial(window.location)) {
+    if (Date.now() >= fim) return false;
+    await new Promise((resolver) => setTimeout(resolver, 200));
+  }
+  return true;
 }
 
 /**
@@ -70,7 +90,12 @@ function prepararReplay() {
           maskAllText: false,
           blockAllMedia: false,
           mask: ['[data-sentry-mask]', 'textarea', '[contenteditable="true"]'],
-          beforeAddRecordingEvent: redigirEventoDeGravacao,
+          // Atributos mascarados como no Replay do app (19/10): `value` cobre o `<input
+          // type="hidden">` com o passe, que a máscara de campo do rrweb NÃO cobre, e
+          // `href` cobre os links com o código do convite.
+          maskAttributes: ATRIBUTOS_MASCARADOS,
+          // As duas redações: a desta degustação e a dos erros (e-mail, telefone, credencial).
+          beforeAddRecordingEvent: (evento) => redigirEventoDeGravacao(limparEventoDeGravacao(evento)),
         }));
         Sentry.addEventProcessor(redigirEventoDoSentry);
         replay = Sentry.getReplay();
@@ -105,6 +130,10 @@ export default function GravacaoDaDegustacao({ codigo, onde }: {
         const permitido = rotaPermiteGravar(pathname);
         // Rota com conversa e nada gravando ainda: não carrega nem o integrador.
         if (!permitido && !Sentry.getReplay()) return;
+        // 🔴 Credencial na barra, NÃO grava (nem carrega: o integrador nasce em buffer e já
+        // grava a página). O início sempre tem (`/c/<código>`, `?passe=`); a sala tem
+        // `?sala=`/`?volta=` só até o seletor de papel limpar a URL, por isso a espera curta.
+        if (permitido && !(await esperarUrlSemCredencial())) return;
 
         const replay = await prepararReplay();
         if (!replay || cancelado) return;

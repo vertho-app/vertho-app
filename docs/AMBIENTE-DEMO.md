@@ -677,7 +677,19 @@ gravações incluídas, excedente ~US$ 0,004, teto de US$ 200/mês). Dois ajuste
 ambos por causa do Replay do app: ele não liga nas telas da degustação (acima), e o componente passou
 a converter o modo buffer em sessão com `replay.flush()`, porque o init agora tem
 `replaysOnErrorSampleRate: 1` e o integrador nasce em buffer, de onde `replay.start()` não sai (a
-degustação gravaria só quando desse erro). Histórico do desligamento:
+degustação gravaria só quando desse erro).
+
+🔴 **E o INÍCIO deixou de ser gravado (19/10/2026, revisão de segurança do `53b7497c`).** O rrweb
+grava o `href` da página no evento Meta, e o gancho `beforeAddRecordingEvent` só recebe eventos
+CUSTOM (conferido no SDK 10.76): a redação do `href` em `redigirEventoDeGravacao` nunca rodava, e o
+código do convite (`/c/<código>`, `?passe=`) ia cru em cada gravação do início, desde 03/10. Além
+disso, o passe fica num `<input type="hidden">`, que a máscara de campo do rrweb não cobre. Agora:
+nada grava com credencial na barra (`urlTemCredencial` + `esperarUrlSemCredencial`, conferido ANTES
+de carregar o integrador, porque ele nasce em buffer e já grava), então grava só a SALA, depois que o
+seletor de papel tira `sala`/`volta` da URL; `maskAttributes` (com `value` e `href`) também na
+degustação; os eventos passam pelas duas redações; e a lista de credenciais da degustação é a do
+scrub geral. Para voltar a gravar o início, a página precisaria tirar o código da barra sem perder o
+acesso no recarregar (decisão de produto, não feita). Histórico do desligamento:
 
 🔴 **DESLIGADA em 03/10/2026, por decisão do dono** (`GRAVACAO_LIGADA = false` em
 `lib/demo/degustacao-gravacao.ts`): ele vai testar a C à mão e cada visita gastaria uma das 50
@@ -692,7 +704,7 @@ interruptor). Gravações já feitas (7, todas de QA) continuam no Sentry.
 🔴 `Medido 03/10/2026` em produção (e apontado pela revisão de segurança do commit): a primeira versão
 deixava o CÓDIGO DO CONVITE inteiro em `urls` e no `page.view` da gravação, porque o gancho só
 olhava campos aninhados do `payload`. Hoje a redação cobre os três lugares: o fluxo do rrweb
-(`redigirEventoDeGravacao`, inclusive o `href` do evento de metadados), o resumo da gravação, o erro e
+(`redigirEventoDeGravacao`; o `href` do evento de metadados NÃO, ver o parágrafo de 19/10 acima), o resumo da gravação, o erro e
 a transação (`redigirEventoDoSentry`, por processador de eventos). E a gravação PAUSA nas rotas onde a
 pessoa escreve (`rotaPermiteGravar`: avaliação, prática, conversa de evidências, simuladores), porque o
 texto digitado reaparece como mensagem e máscara de campo não cobre o eco; o chat do Beto leva

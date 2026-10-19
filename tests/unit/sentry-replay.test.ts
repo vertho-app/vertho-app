@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { podeGravarReplay, opcoesDoReplay, limparEventoDeGravacao, ATRIBUTOS_MASCARADOS } from '@/lib/sentry-replay';
+import { podeGravarReplay, opcoesDoReplay, limparEventoDeGravacao, ATRIBUTOS_MASCARADOS, urlTemCredencial } from '@/lib/sentry-replay';
 import { scrubPII, PARAMETROS_SECRETOS } from '@/lib/sentry-scrub-pii';
 import { listarPapeisDeApresentacao } from '@/lib/demo/presentation';
 
@@ -41,6 +41,15 @@ describe('podeGravarReplay: a URL da página vai crua no evento Meta do rrweb, e
     // tenant de cliente segue gravando em erro
     expect(podeGravarReplay({ hostname: 'macae.vertho.ai', pathname: '/dashboard', search: '' })).toBe(true);
     expect(podeGravarReplay({ hostname: 'app.vertho.ai', pathname: '/admin', search: '' })).toBe(true);
+  });
+
+  it('🔴 urlTemCredencial: código no caminho (/c/), credencial na query ou no fragmento', () => {
+    expect(urlTemCredencial({ pathname: '/c/AbCdEfGhIjKlMnOpQrStUvWx', search: '' })).toBe(true);
+    expect(urlTemCredencial({ pathname: '/degustacao', search: '?passe=abc' })).toBe(true);
+    expect(urlTemCredencial({ pathname: '/dashboard', search: '?volta=abc' })).toBe(true);
+    expect(urlTemCredencial({ pathname: '/dashboard', search: '', hash: '#access_token=x' })).toBe(true);
+    expect(urlTemCredencial({ pathname: '/dashboard/gestor', search: '?aba=2', hash: '#topo' })).toBe(false);
+    expect(urlTemCredencial({ pathname: '/cursos', search: '' })).toBe(false);
   });
 
   it('as telas do produto gravam (só em erro, pela amostragem do client)', () => {

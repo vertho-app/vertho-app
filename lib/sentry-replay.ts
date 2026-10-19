@@ -58,15 +58,26 @@ export function podeGravarReplay(loc: { pathname?: string; search?: string; hash
   if (loc.hostname && getDemoPresentationRoleFromHostname(loc.hostname)) return false;
   const caminho = String(loc.pathname || '/');
   if (ROTAS_SEM_REPLAY.some((r) => caminho === r || caminho.startsWith(`${r}/`))) return false;
+  return !urlTemCredencial(loc);
+}
+
+/**
+ * A URL ATUAL carrega credencial? Query e fragmento (`PARAMETROS_SECRETOS`) ou o código do convite no
+ * caminho (`/c/<código>`). É a régua de QUALQUER gravação, a do app e a da degustação: o rrweb grava o
+ * `href` da página no evento Meta, que não passa por gancho nenhum (medido no SDK 10.76: o
+ * `beforeAddRecordingEvent` só recebe eventos custom), então a única defesa é não gravar enquanto a
+ * credencial estiver na barra.
+ */
+export function urlTemCredencial(loc: { pathname?: string; search?: string; hash?: string } | null | undefined): boolean {
+  if (!loc) return true;
+  if (/^\/c\/[^/]+/.test(String(loc.pathname || ''))) return true;
   const temSegredo = (texto: string) => {
     for (const chave of new URLSearchParams(texto).keys()) {
       if (PARAMETROS_SECRETOS.includes(chave.toLowerCase())) return true;
     }
     return false;
   };
-  if (temSegredo(String(loc.search || ''))) return false;
-  if (temSegredo(String(loc.hash || '').replace(/^#/, ''))) return false;
-  return true;
+  return temSegredo(String(loc.search || '')) || temSegredo(String(loc.hash || '').replace(/^#/, ''));
 }
 
 /** Evento custom da gravação (navegação, rede, console): mesmo scrub dos erros. */

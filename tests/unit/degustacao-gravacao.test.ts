@@ -12,6 +12,8 @@ import {
   rotaPermiteGravar,
 } from '@/lib/demo/degustacao-gravacao';
 import { etiquetaDaGravacao } from '@/lib/demo/degustacao-gravacao-servidor';
+import { ATRIBUTOS_MASCARADOS } from '@/lib/sentry-replay';
+import { PARAMETROS_SECRETOS } from '@/lib/sentry-scrub-pii';
 import { emitirCodigoCurto } from '@/lib/demo/degustacao-link-curto';
 
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'service-role-key-used-only-by-unit-test';
@@ -120,10 +122,35 @@ describe('a cota de 50 gravações por mês (guard estático)', () => {
 
   it('o componente instala os três redatores e pausa nas rotas com conversa', () => {
     const fonte = semComentarios(readFileSync('app/degustacao/gravacao-da-degustacao.tsx', 'utf8'));
-    expect(fonte).toMatch(/beforeAddRecordingEvent: redigirEventoDeGravacao/);
+    expect(fonte).toMatch(/beforeAddRecordingEvent: \(evento\) => redigirEventoDeGravacao\(limparEventoDeGravacao\(evento\)\)/);
     expect(fonte).toMatch(/addEventProcessor\(redigirEventoDoSentry\)/);
     expect(fonte).toMatch(/rotaPermiteGravar\(pathname\)/);
     expect(fonte).toMatch(/replay\.stop\(\)/);
+  });
+
+  it('🔴 credencial na barra: não grava, e a conferência vem ANTES de carregar o integrador (ele nasce em buffer e já grava)', () => {
+    // O `href` da página vai no evento Meta do rrweb, que não passa por gancho nenhum (revisão de
+    // segurança de 19/10, conferido no SDK 10.76). O início sempre tem o código na barra.
+    const fonte = semComentarios(readFileSync('app/degustacao/gravacao-da-degustacao.tsx', 'utf8'));
+    const efeito = fonte.slice(fonte.indexOf('useEffect(() => {'));
+    const guarda = efeito.indexOf('if (permitido && !(await esperarUrlSemCredencial())) return;');
+    expect(guarda).toBeGreaterThan(-1);
+    expect(guarda).toBeLessThan(efeito.indexOf('await prepararReplay()'));
+    expect(fonte).toMatch(/while \(urlTemCredencial\(window\.location\)\)/);
+  });
+
+  it('🔴 atributos mascarados também na degustação: o `<input type="hidden">` com o passe e os links com o código', () => {
+    const fonte = semComentarios(readFileSync('app/degustacao/gravacao-da-degustacao.tsx', 'utf8'));
+    expect(fonte).toMatch(/maskAttributes: ATRIBUTOS_MASCARADOS/);
+    expect(ATRIBUTOS_MASCARADOS).toEqual(expect.arrayContaining(['value', 'href', 'src', 'action']));
+    // e a página de início tem mesmo o passe em campo oculto (o motivo de `value` estar na lista)
+    expect(readFileSync('app/degustacao/pagina-da-degustacao.tsx', 'utf8')).toMatch(/<input type="hidden" name="passe" value=\{passe\} \/>/);
+  });
+
+  it('a lista de credenciais da degustação é a lista geral do scrub (duas listas divergem)', () => {
+    for (const p of PARAMETROS_SECRETOS) {
+      expect(redigirUrlDaGravacao(`https://x/dashboard?${p}=SEGREDO`), p).not.toContain('SEGREDO');
+    }
   });
 
   it('🔴 o modo buffer (init com replaysOnErrorSampleRate: 1, desde 19/10) vira SESSÃO por flush(), não por start()', () => {

@@ -18,7 +18,10 @@
  *    gravação registra navegações. A redação cobre o que passa pelo gancho de
  *    gravação (breadcrumbs e spans de navegação); a lista de URLs do resumo da
  *    gravação não passa por ele (limite conhecido, ver `docs/AMBIENTE-DEMO.md`).
+ *    🔴 Nem o `href` da página (evento Meta do rrweb): por isso, desde 19/10, nada
+ *    grava com credencial na barra (`urlTemCredencial`, `lib/sentry-replay.ts`).
  */
+import { PARAMETROS_SECRETOS } from '@/lib/sentry-scrub-pii';
 
 /**
  * INTERRUPTOR da gravação de tela da degustação C. ✅ RELIGADO em 19/10/2026 (pedido
@@ -74,8 +77,12 @@ export function rotaPermiteGravar(pathname: string): boolean {
   return !ROTAS_COM_CONVERSA.some((rota) => rota.test(caminho));
 }
 
-/** Parâmetros de query que carregam credencial do convite ou da sala. */
-const PARAMETROS_COM_CREDENCIAL = ['sala', 'volta', 'ticket', 'passe'] as const;
+/**
+ * Parâmetros de query que carregam credencial. Desde 19/10/2026 é a lista GERAL do scrub
+ * (`PARAMETROS_SECRETOS`, que já contém sala, volta, ticket e passe, além de `t`, `token`,
+ * `code`, os `*_token` do login...): duas listas para a mesma pergunta divergem.
+ */
+const PARAMETROS_COM_CREDENCIAL = PARAMETROS_SECRETOS;
 
 /**
  * Troca o valor das credenciais por `x`, em URL absoluta, relativa ou fragmento
