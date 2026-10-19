@@ -5910,6 +5910,7 @@
       "inferredInseTitle": "INSE inferred from the School Census (proxy). Private without official Saeb coverage."
     },
     "limitReached": "Showing {shown} of {total} rows (limit reached). The totals below add up only the rows shown. Raise the \"Limit\" or filter by UF, metropolitan region or network to narrow down.",
+    "limitReachedFullTotals": "The table shows {shown} of {total} rows (limit reached); the totals below add up all {total}. Raise the \"Limit\" to see more rows in the table, or filter by UF, metropolitan region or network.",
     "footerNote": "TAM = (profs + managers) × R$/month configured. Pedagogical fit = 0.4 + 0.3×(%without powder) + 0.3×(%young people). Score = TAM × Fit Ped × Fit Fin (INSE-dependent). INSE INEP: 1=lowest, 6=highest. Private ones score high with high INSE (more pocket); Public companies score high with low INSE (more demand). INSE values ​​with <tilde>~</tilde> are <strong>inferred</strong> via School Census (proxy) for private companies without official Saeb coverage."
   },
   "CenarioHipotetico": {

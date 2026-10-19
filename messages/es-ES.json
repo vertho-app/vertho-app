@@ -6040,6 +6040,7 @@
       "inferredInseTitle": "INSE inferido a partir del Censo Escolar (proxy). Privadas sin cobertura Saeb oficial."
     },
     "limitReached": "Mostrando {shown} de {total} filas (límite alcanzado). Los totales de abajo suman solo las filas mostradas. Aumenta el \"Límite\" o filtra por UF, región metropolitana o red para refinar.",
+    "limitReachedFullTotals": "La tabla muestra {shown} de {total} filas (límite alcanzado); los totales de abajo suman las {total}. Aumenta el \"Límite\" para ver más filas en la tabla, o filtra por UF, región metropolitana o red.",
     "footerNote": "TAM = (profs + gestores) × R$/mes configurado. Fit pedagógico = 0.4 + 0.3×(%sin posgrado) + 0.3×(%jóvenes). Score = TAM × Fit Ped × Fit Fin (dependiente de INSE). INSE INEP: 1=más bajo, 6=más alto. Privadas puntúan alto con INSE alto (mayor capacidad de pago); públicas puntúan alto con INSE bajo (mayor demanda). Valores INSE con <tilde>~</tilde> son <strong>inferidos</strong> vía Censo Escolar (proxy) para privadas sin cobertura Saeb oficial."
   },
   "ManagerDashboard": {

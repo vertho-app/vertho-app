@@ -13,6 +13,7 @@ import {
   resumoDaLeitura, termosDeCidade, type ColunaGestores,
 } from '@/lib/mercado-potencial/filtros';
 import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
+import { lerSomasDoFiltro, totaisDaLeitura, type OpcoesDaLeitura } from '@/lib/mercado-potencial/totais';
 import { escaparLike } from '@/lib/sql-like';
 
 /**
@@ -110,20 +111,24 @@ function aplicarFiltrosBase(
 
 // ── 1. Lista por município ──────────────────────────────────────────────────
 
-export async function loadMercadoMunicipios(filtros: MercadoFilters = {}) {
+export async function loadMercadoMunicipios(filtros: MercadoFilters = {}, opcoes: OpcoesDaLeitura = {}) {
   await requireAdminAction();
   const sb = await requireAdminSupabase();
   // ~5.570 municípios no Brasil — default cobre o universo inteiro.
   const limit = limiteDaConsulta(filtros.limit, 6000, 10000);
 
   // Em PÁGINAS, ordenadas pela chave (índice único da MV): o PostgREST corta cada
-  // consulta em 1.000 linhas sem avisar, mesmo com `limit` maior.
-  const { data, error, total } = await lerTudoPaginado((de, ate) => {
-    let q = sb.from('diag_mv_mercado_municipio')
-      .select('municipio_ibge, municipio, uf, microrregiao, qt_escolas, qt_escolas_municipal, qt_escolas_estadual, qt_escolas_federal, qt_escolas_privada, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial, score_conectividade', de === 0 ? { count: 'exact' } : undefined);
-    q = aplicarFiltrosBase(q, filtros);
-    return q.order('municipio_ibge').range(de, ate);
-  }, { max: limit });
+  // consulta em 1.000 linhas sem avisar, mesmo com `limit` maior. Os cartões somam
+  // o filtro inteiro no banco, em paralelo.
+  const [{ data, error, total }, somas] = await Promise.all([
+    lerTudoPaginado((de, ate) => {
+      let q = sb.from('diag_mv_mercado_municipio')
+        .select('municipio_ibge, municipio, uf, microrregiao, qt_escolas, qt_escolas_municipal, qt_escolas_estadual, qt_escolas_federal, qt_escolas_privada, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial, score_conectividade', de === 0 ? { count: 'exact' } : undefined);
+      q = aplicarFiltrosBase(q, filtros);
+      return q.order('municipio_ibge').range(de, ate);
+    }, { max: limit }),
+    lerSomasDoFiltro(sb, 'municipio', filtros, opcoes),
+  ]);
   if (error) return { error };
 
   let rows = (data || []).map((r: any) => ({
@@ -150,25 +155,28 @@ export async function loadMercadoMunicipios(filtros: MercadoFilters = {}) {
   }));
 
   rows = ordenarRows(rows, filtros);
-  return { ok: true, rows, ...resumoDaLeitura(rows.length, total, limit) };
+  return { ok: true, rows, ...resumoDaLeitura(rows.length, total, limit), totais: totaisDaLeitura('municipio', somas, total, filtros) };
 }
 
 // ── 2. Lista por rede (município × rede) ────────────────────────────────────
 
-export async function loadMercadoRedes(filtros: MercadoFilters = {}) {
+export async function loadMercadoRedes(filtros: MercadoFilters = {}, opcoes: OpcoesDaLeitura = {}) {
   await requireAdminAction();
   const sb = await requireAdminSupabase();
   // (5.570 municípios × 4 redes) = ~22k combinações no pior caso — default
   // 8000 cobre maioria; use filtros pra reduzir mais.
   const limit = limiteDaConsulta(filtros.limit, 8000, 25000);
 
-  const { data, error, total } = await lerTudoPaginado((de, ate) => {
-    let q = sb.from('diag_mv_mercado_rede')
-      .select('municipio_ibge, municipio, uf, rede, qt_escolas, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial', de === 0 ? { count: 'exact' } : undefined);
-    q = aplicarFiltrosBase(q, filtros);
-    if (filtros.redes?.length) q = q.in('rede', filtros.redes);
-    return q.order('municipio_ibge').order('rede').range(de, ate);
-  }, { max: limit });
+  const [{ data, error, total }, somas] = await Promise.all([
+    lerTudoPaginado((de, ate) => {
+      let q = sb.from('diag_mv_mercado_rede')
+        .select('municipio_ibge, municipio, uf, rede, qt_escolas, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial', de === 0 ? { count: 'exact' } : undefined);
+      q = aplicarFiltrosBase(q, filtros);
+      if (filtros.redes?.length) q = q.in('rede', filtros.redes);
+      return q.order('municipio_ibge').order('rede').range(de, ate);
+    }, { max: limit }),
+    lerSomasDoFiltro(sb, 'rede', filtros, opcoes),
+  ]);
   if (error) return { error };
 
   let rows = (data || []).map((r: any) => ({
@@ -190,27 +198,31 @@ export async function loadMercadoRedes(filtros: MercadoFilters = {}) {
   }));
 
   rows = ordenarRows(rows, filtros);
-  return { ok: true, rows, ...resumoDaLeitura(rows.length, total, limit) };
+  return { ok: true, rows, ...resumoDaLeitura(rows.length, total, limit), totais: totaisDaLeitura('rede', somas, total, filtros) };
 }
 
 // ── 3. Lista por escola ─────────────────────────────────────────────────────
 
-export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
+export async function loadMercadoEscolas(filtros: MercadoFilters = {}, opcoes: OpcoesDaLeitura = {}) {
   await requireAdminAction();
   const sb = await requireAdminSupabase();
   // ~180k escolas no Brasil — default conservador 1000, force user a filtrar
-  // por UF/rede/INSE pra ver mais. Cap 10000 protege o browser.
+  // por UF/rede/INSE pra ver mais. Cap 10000 protege o browser. Os cartões
+  // somam o filtro inteiro no banco, sem esse teto.
   const limit = limiteDaConsulta(filtros.limit, 1000, 10000);
 
-  const { data, error, total } = await lerTudoPaginado((de, ate) => {
-    let q = sb.from('diag_mv_mercado_escola')
-      .select('codigo_inep, nome, municipio, municipio_ibge, uf, rede, inse_grupo, inse_efetivo, inse_fonte, etapas, qt_professores, qt_doc_0_24, qt_docs_jovens, qt_docs_pos, qt_coord_pedag, qt_diretor_proxy, score_conectividade', de === 0 ? { count: 'exact' } : undefined);
-    // Escola usa `inse_efetivo` (oficial OR proxy) pra filtros — pra que privadas
-    // sem INSE oficial ainda apareçam quando o range cobrir o proxy.
-    q = aplicarFiltrosBase(q, filtros, 'inse_efetivo', GESTORES_NA_ESCOLA);
-    if (filtros.redes?.length) q = q.in('rede', filtros.redes);
-    return q.order('codigo_inep').range(de, ate);
-  }, { max: limit });
+  const [{ data, error, total }, somas] = await Promise.all([
+    lerTudoPaginado((de, ate) => {
+      let q = sb.from('diag_mv_mercado_escola')
+        .select('codigo_inep, nome, municipio, municipio_ibge, uf, rede, inse_grupo, inse_efetivo, inse_fonte, etapas, qt_professores, qt_doc_0_24, qt_docs_jovens, qt_docs_pos, qt_coord_pedag, qt_diretor_proxy, score_conectividade', de === 0 ? { count: 'exact' } : undefined);
+      // Escola usa `inse_efetivo` (oficial OR proxy) pra filtros — pra que privadas
+      // sem INSE oficial ainda apareçam quando o range cobrir o proxy.
+      q = aplicarFiltrosBase(q, filtros, 'inse_efetivo', GESTORES_NA_ESCOLA);
+      if (filtros.redes?.length) q = q.in('rede', filtros.redes);
+      return q.order('codigo_inep').range(de, ate);
+    }, { max: limit }),
+    lerSomasDoFiltro(sb, 'escola', filtros, opcoes),
+  ]);
   if (error) return { error };
 
   let rows = (data || []).map((r: any) => {
@@ -250,7 +262,7 @@ export async function loadMercadoEscolas(filtros: MercadoFilters = {}) {
   });
 
   rows = ordenarRows(rows, filtros);
-  return { ok: true, rows, ...resumoDaLeitura(rows.length, total, limit) };
+  return { ok: true, rows, ...resumoDaLeitura(rows.length, total, limit), totais: totaisDaLeitura('escola', somas, total, filtros) };
 }
 
 // ── Ordenação universal ─────────────────────────────────────────────────────
@@ -307,7 +319,7 @@ export async function exportarMercadoXLSX(visao: VisaoMercado, filtros: MercadoF
   if (visao !== 'municipio' && visao !== 'rede' && visao !== 'escola') return { ok: false, error: 'Visão inválida.' };
 
   const carregar = visao === 'municipio' ? loadMercadoMunicipios : visao === 'rede' ? loadMercadoRedes : loadMercadoEscolas;
-  const r: any = await carregar({ ...filtros, limit: LIMITE_EXPORTACAO });
+  const r: any = await carregar({ ...filtros, limit: LIMITE_EXPORTACAO }, { totais: false });
   if (r.error) return { ok: false, error: r.error };
   if (!r.rows?.length) return { ok: false, error: 'Nenhuma linha para exportar com estes filtros.' };
 
@@ -361,7 +373,7 @@ export async function planejarEnriquecimento(filtros: MercadoFilters = {}): Prom
   const gate = await gateEquipe('mercado.contatos.enrich', RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
   if (gate.ok === false) return { ok: false, error: gate.error };
   // Lê o filtro inteiro (até o teto da exportação) e só então ordena: cortar antes pegaria as primeiras por INEP.
-  const r: any = await loadMercadoEscolas({ ...filtros, limit: LIMITE_EXPORTACAO });
+  const r: any = await loadMercadoEscolas({ ...filtros, limit: LIMITE_EXPORTACAO }, { totais: false });
   if (r.error) return { ok: false, error: r.error };
   if (!r.rows?.length) return { ok: false, error: 'Nenhuma escola com estes filtros.' };
   const sb = await requireAdminSupabase();

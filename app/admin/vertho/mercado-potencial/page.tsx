@@ -19,6 +19,7 @@ import EnriquecerPainel from './_components/enriquecer-painel';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 import { secoesDoMercado, secaoInicialDoMercado, type SecaoMercado } from '@/lib/mercado-potencial/secoes';
 import { REGIOES_METROPOLITANAS } from '@/lib/mercado-potencial/regioes-metropolitanas';
+import type { TotaisDoFiltro } from '@/lib/mercado-potencial/totais';
 
 type Tab = 'municipio' | 'rede' | 'escola';
 
@@ -112,6 +113,9 @@ function MercadoTab() {
   const [rows, setRows] = useState<any[]>([]);
   // O que o servidor leu: total no banco para estes filtros e se o limite CORTOU linhas.
   const [leitura, setLeitura] = useState<{ totalNoBanco: number | null; truncado: boolean }>({ totalNoBanco: null, truncado: false });
+  // Cartões somados no banco sobre o filtro INTEIRO (não só as linhas da tabela). `null` = não vieram
+  // ou não bateram com a contagem da tabela: aí a tela soma o que mostra e o aviso diz isso.
+  const [totaisDoFiltro, setTotaisDoFiltro] = useState<TotaisDoFiltro | null>(null);
   const pedido = useRef(0);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -182,6 +186,7 @@ function MercadoTab() {
       else {
         setRows(r.rows || []);
         setLeitura({ totalNoBanco: r.totalNoBanco ?? null, truncado: !!r.truncado });
+        setTotaisDoFiltro(r.totais ?? null);
       }
     } catch (e: any) {
       if (meu === pedido.current) setError(e.message);
@@ -234,12 +239,15 @@ function MercadoTab() {
     setRedes(prev => prev.includes(rede) ? prev.filter(r => r !== rede) : [...prev, rede]);
   }
 
-  // Totais agregados das rows visíveis.
+  // Totais do filtro inteiro, somados no banco. Sem eles (RPC fora do ar ou contagem
+  // divergente), soma das rows visíveis, e o aviso de corte diz que é parcial.
   // `qt_jovens_efetivo` é setado pelo backend conforme idade-corte selecionada
   // (24 ou 29). Fallback pra qt_docs_jovens caso o backend antigo não envie.
   const totais = useMemo(() => {
     if (!rows.length) return null;
+    if (totaisDoFiltro) return totaisDoFiltro;
     return {
+      linhas: rows.length,
       qt_escolas: rows.reduce((a, r) => a + (r.qt_escolas || 0), 0),
       qt_professores_total: rows.reduce((a, r) => a + (r.qt_professores_total ?? r.qt_professores ?? 0), 0),
       qt_professores_onboarding: rows.reduce((a, r) => a + (r.qt_professores_onboarding ?? r.qt_jovens_efetivo ?? r.qt_docs_jovens ?? 0), 0),
@@ -248,7 +256,7 @@ function MercadoTab() {
       tam_mensal_mentor_ia: rows.reduce((a, r) => a + (r.tam_mensal_mentor_ia || 0), 0),
       tam_mensal_onboarding: rows.reduce((a, r) => a + (r.tam_mensal_onboarding || 0), 0),
     };
-  }, [rows]);
+  }, [rows, totaisDoFiltro]);
   const idadeLabel = idadeOnboarding <= 24 ? t('age.until24') : t('age.until29');
 
   return (
@@ -395,7 +403,9 @@ function MercadoTab() {
             style={{ background: 'rgba(244,183,64,0.06)' }}>
             <AlertTriangle size={14} className="text-amber-300 mt-0.5 shrink-0" />
             <p className="text-xs text-amber-200/90">
-              {t('limitReached', { shown: fmt.int(rows.length, locale), total: fmt.int(leitura.totalNoBanco ?? rows.length, locale) })}
+              {totaisDoFiltro
+                ? t('limitReachedFullTotals', { shown: fmt.int(rows.length, locale), total: fmt.int(leitura.totalNoBanco ?? totaisDoFiltro.linhas, locale) })
+                : t('limitReached', { shown: fmt.int(rows.length, locale), total: fmt.int(leitura.totalNoBanco ?? rows.length, locale) })}
             </p>
           </div>
         )}
@@ -403,7 +413,7 @@ function MercadoTab() {
         {/* Totais */}
         {totais && !loading && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-            <KPI label={t('kpis.rows')} value={fmt.int(rows.length, locale)} cor="#34c5cc" />
+            <KPI label={t('kpis.rows')} value={fmt.int(totais.linhas, locale)} cor="#34c5cc" />
             <KPI label={t('kpis.schools')} value={fmt.int(totais.qt_escolas, locale)} cor="#A78BFA" />
             <KPI label={t('kpis.teachers', { age: idadeLabel })} value={fmt.int(totais.qt_professores_onboarding, locale)} cor="#F4B740" />
             <KPI label={t('kpis.share')} value={t('kpis.shareValue', { total: fmt.int(totais.qt_professores_total, locale), pct: fmt.pct(totais.qt_professores_onboarding / Math.max(1, totais.qt_professores_total)) })} cor="#2ECC71" />
