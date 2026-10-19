@@ -201,13 +201,26 @@ describe('renderizarMioloNaLambda (AWS e downloads dublados)', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('render que falha ou planeja outro número de quadros lança, e o projeto é apagado do mesmo jeito', async () => {
-    for (const progresso of [fim('FAILED', { errors: [{ state: 'RenderChunk', error: 'x', cause: 'y' }] }), fim('SUCCEEDED', { totalFrames: 749 })]) {
+  it('render que falha ou planeja 2+ quadros a mais ou a menos lança, e o projeto é apagado do mesmo jeito', async () => {
+    for (const progresso of [fim('FAILED', { errors: [{ state: 'RenderChunk', error: 'x', cause: 'y' }] }), fim('SUCCEEDED', { totalFrames: 748 }), fim('SUCCEEDED', { totalFrames: 752 })]) {
       const { dir, j, d } = preparar();
       const a = aws([progresso]);
       try {
-        await expect(renderizarMioloNaLambda({ job: j, d, cfg, dir, aws: a })).rejects.toThrow(/FAILED|749/);
+        await expect(renderizarMioloNaLambda({ job: j, d, cfg, dir, aws: a })).rejects.toThrow(/FAILED|748|752/);
         expect(a.comandos.filter((c) => c[0] === 'delete')).toHaveLength(1);
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    }
+  });
+
+  // `Medido 18-19/10/2026`: 7 de ~24 renders da 4Life voltaram ao formato de hoje com "Lambda planejou N+1 quadros
+  // (miolo tem N)". A soma dos segundos do plano arredonda para 1 quadro a mais ou a menos, e a emenda corta ou completa.
+  it('1 quadro a mais ou a menos da Lambda é aceito (a emenda leva o miolo ao tamanho exato)', async () => {
+    for (const totalFrames of [749, 751]) {
+      const { dir, j, d } = preparar();
+      const a = aws([fim('SUCCEEDED', { totalFrames, framesRendered: totalFrames })]);
+      try {
+        const r = await renderizarMioloNaLambda({ job: j, d, cfg, dir, aws: a });
+        expect(fs.readFileSync(r.arquivo, 'utf8')).toBe('mp4');
       } finally { fs.rmSync(dir, { recursive: true, force: true }); }
     }
   });

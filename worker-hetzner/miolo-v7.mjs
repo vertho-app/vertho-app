@@ -193,7 +193,11 @@ export async function renderizarMioloNaLambda({ job, d, cfg, dir, aws, log = () 
     if (p.status !== 'SUCCEEDED' || !p.outputFile?.s3Uri) {
       throw new Error(`Lambda ${p.status}: ${JSON.stringify(p.errors || []).slice(0, 300)}`);
     }
-    if (p.totalFrames != null && p.totalFrames !== d.ate - d.de) throw new Error(`Lambda planejou ${p.totalFrames} quadros (miolo tem ${d.ate - d.de})`);
+    // A composição dura a SOMA dos momentos do plano em segundos, que `decidirMiolo` já aceita com até 1 quadro de
+    // diferença do miolo; a emenda corta ou completa cada parte no quadro exato (`argsDaEmenda`). Exigir o número
+    // EXATO aqui derrubava o miolo novo: `Medido 18-19/10/2026`, 7 de ~24 renders da 4Life voltaram ao formato de hoje
+    // com "Lambda planejou N+1 quadros (miolo tem N)".
+    if (p.totalFrames != null && Math.abs(p.totalFrames - (d.ate - d.de)) > 1) throw new Error(`Lambda planejou ${p.totalFrames} quadros (miolo tem ${d.ate - d.de})`);
     const semEsquema = p.outputFile.s3Uri.replace(/^s3:\/\//, '');
     const bucket = semEsquema.slice(0, semEsquema.indexOf('/'));
     const chave = semEsquema.slice(semEsquema.indexOf('/') + 1);
