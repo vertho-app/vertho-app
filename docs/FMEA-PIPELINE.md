@@ -798,6 +798,14 @@ Vizinho do F-I43 (o mesmo aviso, do lado da idempotência) e da etapa 2 da jorna
   Prévia real depois: Ibipeba 34 (13 fora), 4Life 21.
 - **Guarda:** `tests/unit/avisar-plano-jornada.test.ts` (banco falso: T2, só T1, sem turma, falha de leitura),
   4 mutações mortas.
+- ⚠️ **O botão não está em tela nenhuma (medido 19/10/2026):** `PlanosPanel` só é montado por
+  `app/admin-v2/cliente/ClienteWorkspace.tsx`, e nenhuma página renderiza o `ClienteWorkspace` desde o "admin por
+  fluxo" (`6a937d0f`, 10/09/2026; `/admin-v2/cliente` só redireciona para `/admin-v2/clientes/<id>`). O caminho
+  vivo do aviso é o cron `avisar_planos` (9h BRT), que aceita `slug`, `corte`, `teto` e `dry`
+  (`app/api/cron/route.ts:249`). Para avisar UMA empresa em outro horário, a saída usada na estreia da 4Life
+  (19/10, 7h30) foi uma entrada avulsa no `vercel.json` com `&slug=` e data fixa, removida depois.
+  Enfileirar o template pelo QStash (`publicarTemplateCloudCis`) NÃO serve: o worker grava o `kind` com o NOME do
+  template (`app/api/webhooks/qstash/whatsapp-cis/route.ts:308`), não `plano`, e o cron das 9h reenviaria a todos.
 
 ### F-I43 · A idempotência do aviso de plano não tem janela de jornada: a próxima temporada não é avisada 🟡 (aberto, medido 18/10/2026)
 - **Gatilho:** "já avisado" é qualquer `notification_deliveries` com `kind='plano'` e `status='sucesso'` da

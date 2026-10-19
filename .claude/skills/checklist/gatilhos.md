@@ -1689,3 +1689,13 @@ Padrão que casa: `lib/ai-provedores.ts` · `actions/ai-client.ts` · qualquer `
 - [ ] **A env do Trigger.dev é outra e não sobe no push.** O valor secreto volta `<redacted>` pela API: a prova é o 1º run (ledger `provider` sem `gpt-bedrock-para-openai`). Deploy das tasks antes da env manda a chamada ao caminho pago em dinheiro.
 
 **Consequência medida (15/10/2026):** o `AI_FALLBACK_MODEL` (Sensitive na Vercel, valor ilegível) ia ao `dispatch` sem `gptAtual`: um `gpt-5.4` ali sairia pela OpenAI direta sem linha no `degradacao_log`, justo num outage da Anthropic (`76f7f4bb`). E a `AWS_BEARER_TOKEN_BEDROCK` faltava no Trigger.dev com o deploy das tasks já feito por outra sessão. Memória `reference_aws_credits`.
+
+## § Vou mandar alguém CLICAR num botão (ou prometer que uma mensagem sai num horário)
+
+Padrão que casa: "clica em…", "pelo botão…", "pela tela de…" numa resposta ao dono · "sai às Xh" · `vercel.json` · `envios_pausados` · `fase4_envios`.
+
+- [ ] **Siga o componente até uma `page.tsx` que o renderiza.** Arquivo de painel e server action existindo não prova tela: `grep -rn "<NomeDoPainel"` em `app/` até chegar numa página montada, e abra a URL. O painel "Avisar plano pronto" (`app/admin-v2/cliente/PlanosPanel.tsx`) existe, compila e tem guard, e nenhuma página o monta desde 10/09/2026.
+- [ ] **Horário de envio é a soma de quatro coisas, confira as quatro:** o `schedule` do cron no `vercel.json` (UTC; BRT = UTC−3); a pausa da empresa (`sys_config.envios_pausados`, que aceita `ate` para acabar sozinha); a inscrição na cadência (`fase4_envios` ativo: sem linha, a pílula não sai e o pré-voo fica mudo, F-I44); e, se depende de um clique, que o botão está numa tela (item acima).
+- [ ] **Antes de propor um caminho alternativo de envio, confira o `kind` que ele grava.** A idempotência do aviso de PDI conta `notification_deliveries.kind = 'plano'`; o QStash grava o nome do template, e o cron das 9h reenviaria.
+
+**Consequência medida (18-19/10/2026):** na véspera da estreia da 4Life eu disse ao dono que bastava clicar em "Avisar plano pronto" às 7h30; o botão não está em tela nenhuma, e a 4Life tinha 0 inscritos em `fase4_envios` (a pílula das 8h não sairia para ninguém). Resolvido com inscrição por script, pausa com `ate` às 7h20 e uma entrada avulsa no `vercel.json` (`&slug=4life-educacao`, 19/10 10:30 UTC). `docs/FMEA-PIPELINE.md` F-I42 e F-I44; memória `feedback_componente_existe_nao_e_tela`.
