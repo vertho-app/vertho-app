@@ -98,6 +98,10 @@ da projeção porque a abertura saiu com 13-18 palavras e o avatar ficou com ~15
 metade. O portão de voz reprovou 3 de 19 na 1ª vez e os 3 passaram no redisparo, que retoma pelas cenas aprovadas
 (`9234cc78`); o fecho termina em pergunta, que reprova mais. O plano v7 falhou em 1 ("plano sem momentos para scene-6"),
 o vídeo saiu no formato de hoje e converteu na 2ª tentativa. Render na box com a Lambda e os nominais: 15-25 min por vídeo.
+🔴 **E 7 das 22 células tinham caído no formato de hoje NO RENDER** (1 quadro a mais da Lambda, `docs/FMEA-PIPELINE.md`
+§F-V14), sem ninguém ver: `visual_v7` preenchido não prova o render. Corrigido em 19/10 (`2838b178`, snapshot `445483505`)
+e os 7 renderizados de novo (US$ 0,64 de plano regerado em 3; 0 fallback). Para conferir um lote: célula done E sem
+`video-v7-render-fallback` no `degradacao_log`.
 
 🔴 **O avatar é a maior linha e quase não é dividido** entre os perfis do grupo: ver `docs/FMEA-PIPELINE.md` §F-V11.
 

@@ -1982,6 +1982,22 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
 - **Correção:** mig 291 (`SET EXPRESSION`, Postgres 17): md5(`render_inputprops` || `visual_v7->>'assinatura'`). Conferido
   no banco: 310 linhas sem plano com o hash de antes, as 3 com plano com o hash novo.
 
+### F-V14 · 1 quadro a mais da Lambda jogava o miolo novo fora 🔴 (corrigido 19/10/2026, `2838b178`, snapshot `445483505`)
+- **Gatilho:** `worker-hetzner/miolo-v7.mjs:200` exigia que a Lambda renderizasse o número EXATO de quadros do miolo. A
+  composição dura a SOMA dos segundos dos momentos do plano, que `decidirMiolo` (linha 83) já aceitava com até 1 quadro de
+  diferença; o arredondamento leva a Lambda a N+1. A checagem lançava, e o worker refazia o vídeo inteiro no formato de
+  hoje (com legenda), registrando `video-v7-render-fallback` (`worker.mjs:331`).
+- **Medido 18-19/10/2026:** **7 de ~24** renders v7 da 4Life caíram assim ("Lambda planejou 6566 quadros (miolo tem
+  6565)"), inclusive o canário do lote. 🔴 **O sinal que enganou:** `visual_v7` preenchido e "done" pareciam formato novo,
+  e o vigia e o canário só olharam o plano; o que prova o render é a AUSÊNCIA de `video-v7-render-fallback` da célula.
+- **Correção:** aceitar ±1 quadro (a emenda corta ou completa cada parte no quadro exato, `argsDaEmenda`); ±2 continua no
+  fallback. Teste `tests/unit/video/miolo-v7.test.ts` validado por mutação. Snapshot `445483505` provado em box descartável
+  com a célula que dava N+1 (6566 para 6565, aceito, deck no tamanho exato) e no Trigger + Vercel (com redeploy).
+  Rerender dos 7: 0 fallback, 21/21 nominais refeitos (com o `deck_fingerprint` zerado antes, porque o hash não muda).
+- **Junto, sem correção:** (1) o plano só é reaproveitado com as MESMAS frases (vêm da transcrição, que varia): 3 dos 7
+  regeraram o plano, US$ 0,64; (2) plano que volta com JSON quebrado mantém o `visual_v7` anterior e o vídeo sai com ele,
+  embora o log diga "segue no formato de hoje" (`lib/video/v7/no-trigger.ts`).
+
 ## 5. Parse de IA / robustez
 
 ### F-P1 · JSON truncado (maxTokens) → falha limpa (blueprint) ou score inflado (auditoria) ✅ (fechado 27/07)
