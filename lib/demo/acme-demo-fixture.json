@@ -19,7 +19,11 @@
       "programa_modo": "regular",
       "fase_carreira_default": null,
       "mapeamento_cenarios_liberado": true,
-      "perfil_comportamental_liberado": true
+      "perfil_comportamental_liberado": true,
+      "video_biblioteca_v7": {
+        "ligado": true,
+        "contexto": "ACME Demo, empresa B2B de tecnologia e serviços consultivos: times comercial, financeiro e de operações; reuniões de planejamento, visitas a clientes, painéis de metas e fechamento financeiro."
+      }
     },
     "ui_config": {
       "labels": {},

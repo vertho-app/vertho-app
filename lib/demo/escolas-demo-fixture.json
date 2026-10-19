@@ -16,7 +16,11 @@
       "programa_modo": "regular",
       "allow_open_signup": true,
       "mapeamento_cenarios_liberado": true,
-      "perfil_comportamental_liberado": true
+      "perfil_comportamental_liberado": true,
+      "video_biblioteca_v7": {
+        "ligado": true,
+        "contexto": "Rede de Escolas ACME, três escolas privadas de educação básica: salas de aula da educação infantil ao ensino médio, sala dos professores, coordenação pedagógica, pátio e a entrada e saída de famílias."
+      }
     },
     "ui_config": {
       "login_subtitle": "Ambiente de demonstração da jornada Vertho para redes de ensino"
