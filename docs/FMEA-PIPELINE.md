@@ -834,6 +834,22 @@ Vizinho do F-I43 (o mesmo aviso, do lado da idempotência) e da etapa 2 da jorna
 - **Conferência manual até lá:** "ok" do pré-voo prova só que houve ao menos uma entrega e nenhum achado. Conte
   `coletarEntregasPrevistas(...).entregas.length` contra o número de trilhas que começam.
 
+### F-I45 · Estreia com a pausa terminando no próprio dia: os desafios integrados da semana 1 não são preparados 🟡 (aberto, medido 19/10/2026)
+- **Gatilho:** o cron `preparar_desafios` (05:15 UTC) pula a empresa pausada (`app/api/cron/route.ts:284`, regra em
+  `lib/envios-pausados.ts:12`) e, quando roda, gera no máximo 12 pares por empresa por noite
+  (`app/api/cron/route.ts:285`, `lib/season-engine/kit/plano-desafios.ts:91`). Uma estreia com `envios_pausados.ate`
+  no próprio dia (às 07h20, antes da pílula das 08h) chega à 1ª pílula sem o par de nenhuma pessoa. Sem o par, a
+  semana entrega a tarefa de UM descritor só (`lib/season-engine/kit/entrega-semana.ts:331`, degradação registrada).
+- **Efeito medido (19/10/2026, estreia de 4Life e Ibipeba T2):** Ibipeba amanheceu com **0 de 31 pares** da semana 1
+  (34 pessoas, todos com brief); a 4Life só tinha os 16 porque outra sessão os gerou à mão na véspera. O pré-voo das
+  duas deu "ok" (ele não confere pares), e o horizonte de segunda (`horizonte_kits`) misturava a semana 1 com as
+  seguintes no mesmo alerta ("47 combinações"). Pelo cron, os 31 levariam 3 noites.
+- **Conserto aplicado:** `prepararDesafiosDaCoorte(sb, empresaId, { limite: 40, semanasAdiante: 0 })` às 07h25: 31
+  gerados, US$ 0,32 (`kit_desafio_semana`, Sonnet), `levantarPlanoDesafios(sb, id, 0)` = 0 faltando.
+- **Correção proposta (não feita):** o cron não pular a empresa cuja pausa termina em menos de 24 h (ou o "Iniciar
+  envios" disparar o preparo da semana 1), e o horizonte separar a distância 0 das demais. Até lá, o gatilho §15 da
+  skill `checklist` manda conferir à mão antes da pílula.
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md

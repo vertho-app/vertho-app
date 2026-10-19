@@ -92,6 +92,13 @@ avatar, narração, masterização, publicação na Bunny e saudação nominal s
 | Fora do ledger (Whisper + máquina) | ~0,04 | ~0,04 | ~0,04 |
 | **Total** | **~0,76** | **~0,84** | **~0,91-1,01** (+ ~0,06 de Lambda, créditos AWS) |
 
+**Medido em 19/10/2026** (semana 1 da 4Life, 19 vídeos regerados no formato novo, vídeo a vídeo, roteiro síncrono):
+**US$ 20,28** no ledger, **~1,07 por vídeo** (avatar 0,58 · roteiro 0,22 · plano + ilustrações 0,17 · voz 0,10), acima
+da projeção porque a abertura saiu com 13-18 palavras e o avatar ficou com ~15-17 s; o roteiro em lote (o do Kit) sai pela
+metade. O portão de voz reprovou 3 de 19 na 1ª vez e os 3 passaram no redisparo, que retoma pelas cenas aprovadas
+(`9234cc78`); o fecho termina em pergunta, que reprova mais. O plano v7 falhou em 1 ("plano sem momentos para scene-6"),
+o vídeo saiu no formato de hoje e converteu na 2ª tentativa. Render na box com a Lambda e os nominais: 15-25 min por vídeo.
+
 🔴 **O avatar é a maior linha e quase não é dividido** entre os perfis do grupo: ver `docs/FMEA-PIPELINE.md` §F-V11.
 
 ---

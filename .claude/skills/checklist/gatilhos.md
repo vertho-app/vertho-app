@@ -284,6 +284,10 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   previsto", F-I44). Conte `fase4_envios` ativo × trilhas que começam e `coletarEntregasPrevistas(...).entregas.length`;
   confira a pausa (`envios_pausados.ate`) e quem o botão de aviso alcança. Medido 18/10/2026: Amazon com 14 trilhas
   começando e 0 inscritos.
+  E se a pausa termina no PRÓPRIO dia: o cron `preparar_desafios` pulou a empresa (F-I45). Antes da pílula, rode
+  `levantarPlanoDesafios(sb, id, 0)` e, faltando par na distância 0, `prepararDesafiosDaCoorte(sb, id, { limite: 40,
+  semanasAdiante: 0 })`; o pré-voo do dia (`rodarPreflight`, só leitura) também à mão, porque o automático roda na
+  véspera às 07h e não vê quem foi inscrito depois. Medido 19/10/2026: Ibipeba com 0 de 31 pares às 07h20.
 
 ## 16. Gate ou pré-requisito novo
 
