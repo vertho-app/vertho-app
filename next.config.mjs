@@ -1,4 +1,4 @@
-import { withSentryConfig } from '@sentry/nextjs';
+import { withSentryConfig } from '@sentry/nextjs/config';
 import createNextIntlPlugin from 'next-intl/plugin';
 import { rewritesDaMidiaOffline } from './lib/demo/offline/midia-rewrites.mjs';
 import { CSP_RELATORIO } from './lib/csp-politica.mjs';
@@ -122,11 +122,30 @@ const nextConfig = {
   },
 };
 
+/**
+ * Source maps no Sentry (19/10/2026). Sem eles o erro de tela chegava ilegível
+ * (`13oot4tdui6__.js:20:67180 (uq)`, VERTHO-APP-7). No build Turbopack o SDK gera os
+ * mapas do navegador sozinho, casa cada um com o chunk pelo `debugId` e envia DEPOIS do
+ * build (`runAfterProductionCompile`), com o `SENTRY_AUTH_TOKEN` da Vercel (Sensitive,
+ * Production e Preview). Os mapas são apagados depois do envio: o site não os serve.
+ * Sem o token (build local), o envio é pulado e o build segue.
+ *
+ * (As antigas `disableServerWebpackPlugin`/`disableClientWebpackPlugin` não existem mais
+ * no SDK 10 e não faziam nada; o que impedia o envio era a falta de token, org e projeto.)
+ */
 export default withSentryConfig(withNextIntl(nextConfig), {
-  // Silencia logs do Sentry no build
-  silent: true,
+  org: 'vertho',
+  project: 'vertho-app',
 
-  // Não faz upload de source maps (mantém simples)
-  disableServerWebpackPlugin: true,
-  disableClientWebpackPlugin: true,
+  // Log do envio só no build da Vercel, onde ele prova que os mapas subiram.
+  silent: !process.env.VERCEL,
+
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
+
+  // Falha no envio NUNCA derruba o deploy: vira aviso no log do build.
+  errorHandler: (err) => {
+    console.warn('[sentry] envio de source maps falhou (o build segue):', err?.message);
+  },
 });
