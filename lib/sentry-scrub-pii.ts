@@ -43,9 +43,20 @@ function redigirTokensDeUrl(s) {
   return s.replace(RE_URL, '$1[REDACTED]');
 }
 
+/**
+ * Par chave/valor com chave sensível DENTRO de texto (19/10/2026, achado da revisão de segurança do
+ * `817a2da7`): `console.warn('falhou', { token: 'abc' })` limpa o objeto nos atributos do log, mas a
+ * mensagem formatada leva `{ token: 'abc' }` impresso. Cobre o formato do `util.inspect`
+ * (`token: 'abc'`), JSON (`"token":"abc"`), `chave=valor` e `Authorization: Bearer xyz`.
+ * `\b` dos dois lados da chave: `input_tokens`, `max_tokens` e "Secretaria" NÃO casam. Valor já
+ * `[REDACTED]` (pela regra de URL, que roda antes) não é redigido de novo.
+ */
+const RE_CHAVE_SENSIVEL = /(["']?\b(?:authorization|cookie|set-cookie|password|senha|secret|client_secret|api[_-]?key|service[_-]?role(?:[_-]?key)?|[a-z_]*token(?:_hash)?)\b["']?\s*[:=]\s*)(?:(?:Bearer|Basic)\s+)?(?!\[REDACTED\])("[^"]*"|'[^']*'|[^\s,;}\]&]+)/gi;
+
 function scrubTexto(s) {
   if (typeof s !== 'string') return s;
   return redigirTokensDeUrl(s)
+    .replace(RE_CHAVE_SENSIVEL, '$1[REDACTED]')
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
     .replace(/\(?\d{2,3}\)?\s?9?\d{4,5}[-\s]?\d{4}/g, '[telefone]')
     .replace(/\d{3}\.\d{3}\.\d{3}-\d{2}/g, '[cpf]');

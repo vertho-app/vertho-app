@@ -27,6 +27,27 @@ describe('scrubLog: o aviso e o erro do servidor passam pela limpeza dos eventos
     expect(log.level).toBe('warn');
   });
 
+  it('🔴 objeto impresso na MENSAGEM também é limpo (inspect, JSON, chave=valor, Bearer)', () => {
+    // O console formata o objeto dentro da mensagem: limpar só os atributos deixava o token no texto.
+    const casos = [
+      "falhou { token: 'SEGREDO1', etapa: 'x' }",
+      'resposta {"access_token":"SEGREDO2","ok":false}',
+      'chamada com api_key=SEGREDO3 e password: "SEGREDO4"',
+      'headers: Authorization: Bearer SEGREDO5',
+      "erro { service_role_key: 'SEGREDO6', token_hash: 'SEGREDO7' }",
+    ];
+    for (const message of casos) {
+      const log = scrubLog({ level: 'warn', message });
+      expect(log.message, message).not.toMatch(/SEGREDO\d/);
+      expect(log.message).toContain('[REDACTED]');
+    }
+  });
+
+  it('não confunde contagem e nome com segredo: input_tokens, max_tokens e Secretaria passam', () => {
+    const msg = '[ia-ledger] input_tokens=1200 output_tokens=300 max_tokens: 4096 · Secretaria: Educação';
+    expect(scrubLog({ level: 'warn', message: msg }).message).toBe(msg);
+  });
+
   it('mensagem em objeto String (ParameterizedString) vira texto simples, já limpo', () => {
     const msg: any = new String('erro com ana@z.com');
     msg.__sentry_template_string__ = 'erro com %s';
