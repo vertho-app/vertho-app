@@ -8,6 +8,8 @@
 import { tasks } from '@trigger.dev/sdk';
 import { iniciarSentryNoTrigger, reportarFalhaDaTask } from '@/lib/sentry-trigger';
 
-iniciarSentryNoTrigger();
+// Assíncrono e sem rejeição: falha do Sentry nunca pode impedir este arquivo de carregar (o
+// worker relança erro do init e derrubaria todas as tasks).
+void iniciarSentryNoTrigger();
 
 tasks.onFailure(({ error, ctx }) => reportarFalhaDaTask({ error, ctx }));

@@ -31,7 +31,7 @@ describe('sentry no Trigger.dev', () => {
 
   it('sem DSN não liga e não captura nada (e avisa no log)', async () => {
     const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(iniciarSentryNoTrigger(undefined)).toBe(false);
+    expect(await iniciarSentryNoTrigger(undefined)).toBe(false);
     await reportarFalhaDaTask({ error: new Error('x'), ctx: CTX });
     expect(h.init).not.toHaveBeenCalled();
     expect(h.captureException).not.toHaveBeenCalled();
@@ -39,8 +39,24 @@ describe('sentry no Trigger.dev', () => {
     aviso.mockRestore();
   });
 
-  it('🔴 liga sem integrações padrão e sem OpenTelemetry (o Trigger tem a telemetria dele), com o scrub de PII', () => {
-    iniciarSentryNoTrigger('https://chave@o1.ingest.us.sentry.io/1');
+  it('🔴 Sentry que quebra ao ligar NÃO lança (o worker relança erro do init.ts e derrubaria todas as tasks)', async () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
+    h.init.mockImplementationOnce(() => { throw new Error('OpenTelemetry quebrado'); });
+    await expect(iniciarSentryNoTrigger('https://chave@o1.ingest.us.sentry.io/1')).resolves.toBe(false);
+    await reportarFalhaDaTask({ error: new Error('x'), ctx: CTX });
+    expect(h.captureException).not.toHaveBeenCalled();
+    expect(erro).toHaveBeenCalledWith(expect.stringContaining('não consegui ligar o Sentry'), 'OpenTelemetry quebrado');
+    erro.mockRestore();
+  });
+
+  it('🔴 o @sentry/node não é importado no topo do módulo (só sob demanda, dentro do try)', () => {
+    const codigo = readFileSync('lib/sentry-trigger.ts', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(codigo).not.toMatch(/^import\s+[^'"]*from\s+'@sentry\/node'/m);
+    expect(codigo).toMatch(/await import\('@sentry\/node'\)/);
+  });
+
+  it('🔴 liga sem integrações padrão e sem OpenTelemetry (o Trigger tem a telemetria dele), com o scrub de PII', async () => {
+    await iniciarSentryNoTrigger('https://chave@o1.ingest.us.sentry.io/1');
     const opcoes = h.init.mock.calls[0][0];
     expect(opcoes).toMatchObject({ defaultIntegrations: false, skipOpenTelemetrySetup: true, sendDefaultPii: false, tracesSampleRate: 0 });
     // o beforeSend é o scrub: credencial de URL sai redigida
@@ -49,7 +65,7 @@ describe('sentry no Trigger.dev', () => {
   });
 
   it('🔴 a falha vai SEM o payload: só task, run, tentativa e máquina', async () => {
-    iniciarSentryNoTrigger('https://chave@o1.ingest.us.sentry.io/1');
+    await iniciarSentryNoTrigger('https://chave@o1.ingest.us.sentry.io/1');
     const payload = { nome: 'Maria Souza', respostas: ['texto da pessoa'] };
     await reportarFalhaDaTask({ error: new Error('render falhou'), ctx: { ...CTX, payload } as any });
     expect(h.captureException).toHaveBeenCalledTimes(1);
@@ -64,7 +80,7 @@ describe('sentry no Trigger.dev', () => {
   });
 
   it('ambiente que não é produção (o `trigger dev` local) não vai ao Sentry', async () => {
-    iniciarSentryNoTrigger('https://chave@o1.ingest.us.sentry.io/1');
+    await iniciarSentryNoTrigger('https://chave@o1.ingest.us.sentry.io/1');
     await reportarFalhaDaTask({ error: new Error('x'), ctx: { ...CTX, environment: { type: 'DEVELOPMENT' } } });
     expect(h.captureException).not.toHaveBeenCalled();
   });

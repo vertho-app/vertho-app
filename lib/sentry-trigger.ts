@@ -18,33 +18,50 @@
  *
  * Sem `SENTRY_DSN` no ambiente do Trigger, tudo vira no-op, avisado UMA vez no log: ausência de
  * captura não pode parecer ausência de falha.
+ *
+ * 🔴 O `@sentry/node` é carregado sob demanda, dentro de try/catch, e NUNCA no topo do módulo. O
+ * worker do Trigger importa o `init.ts` antes de CADA task e relança qualquer erro dele ("Failed
+ * to load init file"): um Sentry que quebrasse ao carregar derrubaria todas as tasks. Assim, o
+ * pior caso é ficar sem captura, avisado no log.
  */
-import * as Sentry from '@sentry/node';
 import { scrubPII } from './sentry-scrub-pii';
+
+type SentryNode = typeof import('@sentry/node');
 
 const FLUSH_MS = 2000;
 
-let ligado = false;
+let sentry: SentryNode | null = null;
+let preparo: Promise<boolean> | null = null;
 
-/** Liga o Sentry no worker. Devolve se ligou. */
-export function iniciarSentryNoTrigger(dsn: string | undefined = process.env.SENTRY_DSN): boolean {
-  if (ligado) return true;
-  if (!dsn) {
-    console.warn('[sentry-trigger] SENTRY_DSN ausente no ambiente do Trigger: falhas de task NÃO vão ao Sentry');
-    return false;
+/** Liga o Sentry no worker (uma vez). Resolve se ligou; nunca rejeita. */
+export function iniciarSentryNoTrigger(dsn: string | undefined = process.env.SENTRY_DSN): Promise<boolean> {
+  if (!preparo) {
+    preparo = (async () => {
+      if (!dsn) {
+        console.warn('[sentry-trigger] SENTRY_DSN ausente no ambiente do Trigger: falhas de task NÃO vão ao Sentry');
+        return false;
+      }
+      try {
+        const S = await import('@sentry/node');
+        S.init({
+          dsn,
+          defaultIntegrations: false,
+          skipOpenTelemetrySetup: true,
+          tracesSampleRate: 0,
+          sendDefaultPii: false,
+          environment: 'production',
+          beforeSend: (event, hint) => scrubPII(event, hint),
+          initialScope: { tags: { origem: 'trigger.dev' } },
+        });
+        sentry = S;
+        return true;
+      } catch (e: any) {
+        console.error('[sentry-trigger] não consegui ligar o Sentry (as tasks seguem sem captura):', e?.message);
+        return false;
+      }
+    })();
   }
-  Sentry.init({
-    dsn,
-    defaultIntegrations: false,
-    skipOpenTelemetrySetup: true,
-    tracesSampleRate: 0,
-    sendDefaultPii: false,
-    environment: 'production',
-    beforeSend: (event, hint) => scrubPII(event, hint),
-    initialScope: { tags: { origem: 'trigger.dev' } },
-  });
-  ligado = true;
-  return true;
+  return preparo;
 }
 
 /** O pedaço do contexto do run que sai para o Sentry. O payload não entra aqui, de propósito. */
@@ -58,11 +75,11 @@ export interface ContextoDaFalha {
 
 /** Registra a falha final da task. Só ambiente de PRODUÇÃO: o `trigger dev` local não polui o painel. */
 export async function reportarFalhaDaTask({ error, ctx }: { error: unknown; ctx: ContextoDaFalha }): Promise<void> {
-  if (!ligado) return;
+  if (!preparo || !(await preparo) || !sentry) return;
   const ambiente = ctx.environment?.type;
   if (ambiente && ambiente !== 'PRODUCTION') return;
   try {
-    Sentry.captureException(error, {
+    sentry.captureException(error, {
       tags: { origem: 'trigger.dev', task: ctx.task.id },
       contexts: {
         trigger: {
@@ -72,7 +89,7 @@ export async function reportarFalhaDaTask({ error, ctx }: { error: unknown; ctx:
         },
       },
     });
-    await Sentry.flush(FLUSH_MS);
+    await sentry.flush(FLUSH_MS);
   } catch (e: any) {
     console.warn('[sentry-trigger] não consegui registrar a falha:', e?.message);
   }
@@ -80,5 +97,6 @@ export async function reportarFalhaDaTask({ error, ctx }: { error: unknown; ctx:
 
 /** Só para os testes: volta ao estado inicial. */
 export function __reiniciarParaTeste(): void {
-  ligado = false;
+  sentry = null;
+  preparo = null;
 }
