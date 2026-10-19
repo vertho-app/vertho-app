@@ -1,34 +1,47 @@
 'use client';
 
-// Ambiente de Demonstração — o RC entra no tenant de treino (acme-demo) COMO
-// uma persona, em nova aba (host separado), para treinar e apresentar a um
-// prospect. A sessão do portal continua ativa aqui. Envios reais ficam
-// desligados no demo (gate de tenant-demo).
+// Ambiente de Demonstração — o RC escolhe o ambiente (empresa ou rede de
+// escolas) e entra nele COMO uma persona, em nova aba (host separado), para
+// treinar e apresentar a um prospect. A sessão do portal continua ativa aqui.
+// Envios reais ficam desligados no demo (gate de tenant-demo).
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { MonitorPlay, Loader2, ExternalLink, ShieldCheck, Info } from 'lucide-react';
 import { listarPersonasDemo, entrarNoDemoComoPersona } from '@/actions/sales/demo-access';
+import { AMBIENTES_DEMO_DO_RC } from '@/lib/sales/demo-personas';
 
 type Persona = { key: string; nome: string; papel: string; cenario: string; disc: string | null; hint: string };
+type AmbienteSlug = typeof AMBIENTES_DEMO_DO_RC[number]['slug'];
 
 const DISC_COR: Record<string, string> = { D: '#EF4444', I: '#F59E0B', S: '#22C55E', C: '#3B82F6' };
 
 export default function DemoPage() {
+  const [ambiente, setAmbiente] = useState<AmbienteSlug>(AMBIENTES_DEMO_DO_RC[0].slug);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
   const [abrindo, setAbrindo] = useState<string | null>(null);
 
   useEffect(() => {
-    listarPersonasDemo()
-      .then((r) => { if (r.success) setPersonas(r.personas); })
-      .catch(() => toast.error('Não foi possível carregar o ambiente de demonstração'))
-      .finally(() => setLoading(false));
-  }, []);
+    // Troca rápida de ambiente: a resposta de um pedido antigo não pode
+    // pintar o elenco do outro ambiente.
+    let atual = true;
+    setLoading(true);
+    setPersonas([]);
+    listarPersonasDemo(ambiente)
+      .then((r) => {
+        if (!atual) return;
+        if (r.success) setPersonas(r.personas);
+        else toast.error(r.error || 'Não foi possível carregar o ambiente de demonstração');
+      })
+      .catch(() => { if (atual) toast.error('Não foi possível carregar o ambiente de demonstração'); })
+      .finally(() => { if (atual) setLoading(false); });
+    return () => { atual = false; };
+  }, [ambiente]);
 
   async function abrir(key: string) {
     setAbrindo(key);
     try {
-      const r = await entrarNoDemoComoPersona(key);
+      const r = await entrarNoDemoComoPersona(key, ambiente);
       if (r.success) {
         // Nova aba no host do demo — a sessão do portal (host do app) permanece.
         window.open(r.url, '_blank', 'noopener');
@@ -52,6 +65,30 @@ export default function DemoPage() {
         <p className="text-xs text-gray-500 mt-0.5">
           Entre como uma persona para treinar o produto ou apresentar ao vivo. Abre em nova aba — seu portal continua aqui.
         </p>
+      </div>
+
+      {/* Ambiente: a empresa e a rede de escolas têm elencos diferentes. */}
+      <div className="grid sm:grid-cols-2 gap-3 mb-6" role="group" aria-label="Ambiente de demonstração">
+        {AMBIENTES_DEMO_DO_RC.map((a) => {
+          const ativo = a.slug === ambiente;
+          return (
+            <button
+              key={a.slug}
+              type="button"
+              onClick={() => setAmbiente(a.slug)}
+              aria-pressed={ativo}
+              disabled={!!abrindo}
+              className="text-left rounded-xl p-3 transition-colors disabled:opacity-40"
+              style={{
+                background: ativo ? 'rgba(52,197,204,.12)' : 'rgba(255,255,255,.03)',
+                border: `1px solid ${ativo ? 'rgba(52,197,204,.5)' : 'rgba(255,255,255,.08)'}`,
+              }}
+            >
+              <span className={`block text-sm font-bold ${ativo ? 'text-cyan-300' : 'text-white'}`}>{a.rotulo}</span>
+              <span className="block text-[11px] text-gray-400 mt-0.5">{a.descricao}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Avisos */}

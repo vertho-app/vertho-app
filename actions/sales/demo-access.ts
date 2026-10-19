@@ -2,16 +2,17 @@
 
 // Portal do Representante — acesso ao Ambiente de Demonstração (modo apresentação).
 //
-// Como funciona (sem "impersonation token" inventado): o RC entra no tenant de
-// demonstração (acme-demo) COMO uma persona, num host separado
-// (acme-demo.vertho.ai) — os cookies de auth são host-scoped, então a sessão do
-// portal do RC (host do app) permanece intacta em outra aba.
+// Como funciona (sem "impersonation token" inventado): o RC entra num tenant de
+// demonstração (acme-demo, a empresa, ou escolas-acme, a rede de escolas) COMO
+// uma persona, num host separado (<slug>.vertho.ai) — os cookies de auth são
+// host-scoped, então a sessão do portal do RC (host do app) permanece intacta
+// em outra aba.
 //
 // O acesso reutiliza o fluxo de magic link já existente: geramos um token_hash
 // para a persona (server-side, SEM enviar nada) e devolvemos a URL de callback
 // no host do demo. O /auth/callback verifica o token e cria a sessão da persona.
 //
-// Segurança: só RC ativo; só as personas ALLOWLISTADAS do acme-demo; o gate de
+// Segurança: só RC ativo; só as personas ALLOWLISTADAS de cada ambiente; o gate de
 // envio (empresas.is_demo) garante que nenhuma mensagem real sai enquanto o RC
 // navega/interage como persona.
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -49,7 +50,7 @@ export async function entrarNoDemoComoPersona(personaKey: string, slug: string =
   const sb = createSupabaseAdmin();
 
   // Confirma que o tenant de demo existe e É demo (defesa: nunca minta sessão
-  // fora do acme-demo).
+  // fora de um ambiente de demonstração).
   const { data: empresa, error: erroEmpresa } = await sb.from('empresas')
     .select('id, is_demo').eq('slug', slug).maybeSingle();
   // Falha de leitura não pode virar "não existe": sem checar o `error`, uma
@@ -63,14 +64,16 @@ export async function entrarNoDemoComoPersona(personaKey: string, slug: string =
     await (sb as any).auth.admin.createUser({ email: persona.email, email_confirm: true });
   } catch { /* já existe → segue */ }
 
-  // Confirma que a persona é colaboradora do acme-demo (senão o dashboard não
+  // Confirma que a persona é colaboradora do ambiente (senão o dashboard não
   // teria contexto). Se o demo ainda não foi semeado, orienta o reset.
   const { data: colab, error: erroColab } = await sb.from('colaboradores')
     .select('id').eq('empresa_id', empresa.id).eq('email', persona.email).maybeSingle();
   if (erroColab) return { success: false as const, error: `Falha ao carregar a persona ${persona.key}: ${erroColab.message}` };
   if (!colab) return { success: false as const, error: 'Personas do demo não encontradas — rode o reset do ambiente (admin).' };
 
-  const nextPath = persona.papel === 'Gestora' ? '/dashboard/gestor' : '/dashboard';
+  // A casa vem do PAPEL declarado na persona, não do rótulo: "Coordenação" é
+  // gestor na escola e cairia em /dashboard se o teste fosse o texto "Gestora".
+  const nextPath = persona.nextPath;
   const redirectTo = tenantUrl(slug, nextPath);
 
   const { data: link, error } = await (sb as any).auth.admin.generateLink({

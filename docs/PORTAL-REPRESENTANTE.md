@@ -28,6 +28,20 @@ segmento `fundacao` (hoje herda os gerais).
 O RC acessa o tenant de demonstração (`acme-demo`) pelo item **"Ambiente de
 Demonstração"** no portal. Decisões:
 
+> **Desde 19/10/2026 são dois ambientes**, escolhidos num seletor no topo da
+> página: **Empresa** (`acme-demo`, o elenco abaixo) e **Escolas**
+> (`escolas-acme`, Rede de Escolas ACME), para os RCs focados em escola privada.
+> O elenco da escola usa o vocabulário da sala de apresentação: Marina, Paula e
+> Tiago (Professor(a), jornada completa, parcial e início), Renata e Sérgio
+> (Coordenação, visão de equipe; o Sérgio mostra o "Não recomendado" por
+> premissa no ranking) e Cláudia (Direção, visão da rede). A casa de cada
+> persona é declarada (`nextPath`), não deduzida do rótulo: a regra antiga
+> (`papel === 'Gestora'`) mandaria a coordenação para a tela do professor.
+> Lista em `lib/sales/demo-personas.ts`; o teste
+> `tests/unit/sales-demo-personas-ambientes.test.ts` confere cada e-mail e cada
+> casa contra o elenco que o reset semeia. O reset noturno (cron `reset_demo`,
+> 04h BRT) percorre os dois ambientes.
+
 1. **Entra COMO uma persona**, não como um colaborador-sombra. O RC escolhe
    Bruna (jornada completa), Ana (início), Paulo (parcial) ou Carla (gestora)
    e abre a demo **em nova aba**. Como os cookies de auth são **host-scoped**
