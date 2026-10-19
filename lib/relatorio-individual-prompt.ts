@@ -66,10 +66,10 @@ PRINCÍPIOS INEGOCIÁVEIS:
 2. Nunca mencione scores DISC numéricos. Descreva em linguagem acessível.
 3. DISC/CIS deve aparecer como leitura contextual, não como diagnóstico fechado.
 4. SEMPRE inclua TODAS as competências do input. O gerador só é chamado depois que todas estiverem avaliadas.
-5. Competências com nível < 3 devem ter um sprint de 30 dias enxuto e executável (no máximo 4 ações prioritárias).
+5. Competências com nível < 3 devem ter um plano da jornada (campo "sprint") enxuto e executável (no máximo 4 ações prioritárias).
 6. Se CONTEÚDOS RECOMENDADOS forem fornecidos, inclua-os conectados ao gap.
 7. Scripts prontos são bem-vindos quando aumentam a aplicabilidade.
-8. Metas em primeira pessoa e com horizonte claro.
+8. Metas em primeira pessoa e com horizonte claro: o horizonte é a JORNADA (ver PRAZO DO PLANO).
 9. Não invente comportamento, resultado ou contexto que não esteja sustentado.
 10. O perfil comportamental é HIPÓTESE, não observação. Afirmação sobre dificuldade, desconforto ou limitação da pessoa só entra se houver evidência NAS RESPOSTAS — score DISC não é evidência de comportamento. Na dúvida, escreva a tendência e o que ela sugere TESTAR, não o que a pessoa "é".
 11. A evidência sobre o COMPORTAMENTO da pessoa é o bloco CENÁRIO E RESPOSTAS (e a avaliação dele). É UMA situação respondida por escrito, não o dia a dia dela:
@@ -80,9 +80,10 @@ PRINCÍPIOS INEGOCIÁVEIS:
    - O cenário é HIPOTÉTICO: fale da RESPOSTA, nunca da prática real dela. Proibido: "na sua prática...", "no seu dia a dia...", "já está consolidado", "a base já está construída". E não dê à resposta qualidades que o texto não mostra ("decisão rápida", "com método"): diga o que ela escreveu.
    - Se as respostas não tratam de um comportamento, diga que ele NÃO APARECEU nas respostas, sem concluir que a pessoa não o tem.
 
-REGRAS PARA O SPRINT DE 30 DIAS:
+REGRAS PARA O PLANO DA JORNADA (campo "sprint"):
+- PRAZO DO PLANO: o plano vale para a JORNADA da pessoa, cuja duração vem em DURAÇÃO DA JORNADA no pedido. Ao falar do horizonte do plano (no acolhimento, no resumo, no sprint, nas dicas e na mensagem final), fale em semanas da jornada ("ao longo das 7 semanas da jornada", "até o fim da jornada"), NUNCA em dias: nada de "próximos 30 dias", "ao longo dos 30 dias", "plano de 30 dias". Se um objetivo, evidência ou critério do blueprint trouxer prazo em dias, troque pelo horizonte da jornada ao escrevê-lo. Prazo que está no CENÁRIO ou nas RESPOSTAS pode ser citado como está.
 - O sprint é ENXUTO e executável: no máximo 4 ações prioritárias (1 principal + 1 de apoio + 1 evidência + 1 ritual). NUNCA 8 ações, nem 4 semanas de tarefas.
-- "foco_30_dias": 1 frase com o movimento central dos 30 dias (ex.: transformar sinais de desgaste em decisão).
+- "foco_30_dias" (o nome do campo é antigo; o conteúdo é da jornada): 1 frase com o movimento central da jornada (ex.: transformar sinais de desgaste em decisão).
 - "acao_principal" e "acao_apoio": concretas, realistas, que cabem na rotina. Evitar ações vagas ("refletir mais") sem comportamento observável.
 - "evidencia_esperada": 1 evidência observável, com marco temporal quando fizer sentido (ex.: antes do próximo conselho, a pessoa usa pelo menos 1 sinal para renegociar prioridade).
 - "ritual": 1 ritual de acompanhamento curto (ex.: revisão semanal de 10 minutos).
@@ -128,7 +129,7 @@ FORMATO OBRIGATÓRIO:
       "melhorar": ["1 a 3 pontos, cada um ligado a algo que FALTOU nas respostas"],
       "feedback": "Parágrafo que parte do que a pessoa respondeu (cite 1 ou 2 trechos curtos entre aspas) e diz o que faltou para o próximo nível. Descreve a RESPOSTA, não o dia a dia dela.",
       "sprint": {
-        "foco_30_dias": "1 frase com o movimento central dos 30 dias",
+        "foco_30_dias": "1 frase com o movimento central da jornada",
         "acao_principal": "1 ação concreta e realista",
         "acao_apoio": "1 ação de apoio",
         "evidencia_esperada": "1 evidência observável",
@@ -459,7 +460,7 @@ export async function buildRelatorioIndividualPrompt(
       .eq('colaborador_id', colaboradorId)
       .maybeSingle();
     if (trilha?.cursos?.length) {
-      trilhaTexto = `\n\nCONTEÚDOS RECOMENDADOS (catálogo Vertho — usar no plano de 30 dias e estudo recomendado):\n${trilha.cursos.map((c: any) => `- ${c.nome} (${c.competencia || ''}, ${c.formato || 'texto'}, N${c.nivel || '?'}) — ${c.url || ''}`).join('\n')}`;
+      trilhaTexto = `\n\nCONTEÚDOS RECOMENDADOS (catálogo Vertho — usar no plano da jornada e no estudo recomendado):\n${trilha.cursos.map((c: any) => `- ${c.nome} (${c.competencia || ''}, ${c.formato || 'texto'}, N${c.nivel || '?'}) — ${c.url || ''}`).join('\n')}`;
     }
   } catch {}
 
@@ -475,7 +476,7 @@ export async function buildRelatorioIndividualPrompt(
       const objs = (comp.objetivos_30_dias || []).map((o) =>
         `    • [${o.id}] objetivo: ${o.objetivo}\n      acao_principal: ${o.acao_principal}\n      acao_apoio: ${o.acao_apoio || '—'}\n      evidencia_de_execucao: ${o.evidencia_de_execucao}\n      ritual: ${o.ritual || '—'}\n      criterio_de_sucesso: ${o.criterio_de_sucesso}`,
       ).join('\n');
-      return `COMPETÊNCIA: ${comp.nome} (nível atual ${comp.nivel_atual})\n  Leitura: ${comp.leitura}\n  Descritores foco:\n${descr || '    (nenhum)'}\n  Objetivos de 30 dias:\n${objs || '    (nenhum)'}`;
+      return `COMPETÊNCIA: ${comp.nome} (nível atual ${comp.nivel_atual})\n  Leitura: ${comp.leitura}\n  Descritores foco:\n${descr || '    (nenhum)'}\n  Objetivos da jornada:\n${objs || '    (nenhum)'}`;
     }).join('\n\n');
     blueprintBlock = `\n\n=== BLUEPRINT (fonte única do plano — NÃO invente ações novas) ===\n${compBlocos}\n\nINSTRUÇÕES DE USO DO BLUEPRINT (obrigatórias):\n- O array 'competencias' do output DEVE conter EXATAMENTE as competências acima, com os MESMOS nomes e na MESMA ordem. NÃO crie competências fora do blueprint.\n- O 'sprint' de cada competência DEVE ser DERIVADO do PRIMEIRO objetivo listado da MESMA competência no blueprint (o do 1º ciclo), e TODOS os campos do sprint saem desse MESMO objetivo, sem misturar com os seguintes: sprint.foco_30_dias ← objetivo; sprint.acao_principal ← acao_principal (igual); sprint.acao_apoio ← acao_apoio (igual); sprint.ritual ← ritual (igual); sprint.evidencia_esperada ← evidencia_de_execucao; sprint.checklist = EXATAMENTE 3 itens curtos e verificáveis derivados do criterio_de_sucesso/evidência. NÃO invente ações fora do blueprint.\n- Você AINDA escreve, com a sua voz humana: o acolhimento, o resumo_geral, o perfil_comportamental, e por competência a análise (feedback, fez_bem, melhorar), as dicas e o tom. Apenas as AÇÕES (sprint) são fixadas pelo blueprint.`;
   }
@@ -535,15 +536,7 @@ export async function buildRelatorioIndividualPrompt(
     ? `\n\n=== CENÁRIO E RESPOSTAS (evidência PRIMÁRIA: o que a pessoa de fato escreveu) ===\n${blocosResposta.join('\n\n')}`
     : '';
 
-  const totalComps = dadosComps.length;
-  // O nome sai como identificador; o parecer da IA4 e o blueprint estão GRAVADOS
-  // com o nome (são textos que a pessoa lê) e passam pela máscara. `dadosComps`
-  // volta intacto para o pós-processo, que só lê competência, nível e nota.
-  const user = `COLABORADOR: ${colabMasked?.nome} (identificador da pessoa: ao chamá-la pelo nome, escreva exatamente ${colabMasked?.nome})\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) avaliadas. Todos os níveis são inteiros válidos entre N1 e N4. O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(maskDeepPII(dadosComps, pii), null, 2)}${respostasTexto}${trilhaTexto}${maskTextPII(blueprintBlock, pii)}`;
-
-  // `cenarioERespostas` sai à parte para a auditoria estrutural: jargão que a
-  // fonte já usa (o "feedback escrito" do cenário) não é jargão do gerador.
-  // Só quem não tem blueprint precisa do número no PDI: com blueprint, a duração é
+  // Só quem não tem blueprint precisa do número GRAVADO no PDI: com blueprint, a duração é
   // a do mapa da trilha dele, que o PDF lê. Poupa a leitura da turma no caso comum.
   const duracaoSemanas = blueprint ? null : await duracaoDoProgramaDaPessoa(sbRaw, {
     empresaId, colaboradorId,
@@ -551,6 +544,25 @@ export async function buildRelatorioIndividualPrompt(
     sysConfigEmpresa: empresa.sys_config,
     trilha: trilhaColab,
   });
+  // O horizonte do plano é a JORNADA, em semanas (19/10/2026). O prompt dizia "sprint de 30 dias" e a IA escrevia
+  // "plano para os próximos 30 dias" em 29 de 59 PDIs de cliente, numa jornada de 7 semanas. A IA recebe a duração
+  // real; sem ela, a regra manda falar em "jornada" sem número.
+  const semanasDoMapaBp = (blueprint?.trilha?.semanas || []).map((s: any) => Number(s?.semana) || 0);
+  const semanasDaJornada = blueprint
+    ? (Number(blueprint.trilha?.duracao_semanas) || (semanasDoMapaBp.length ? Math.max(...semanasDoMapaBp) : 0) || null)
+    : duracaoSemanas;
+  const duracaoTexto = semanasDaJornada
+    ? `DURAÇÃO DA JORNADA: ${semanasDaJornada} semanas (é o horizonte do plano; nunca escreva o prazo do plano em dias).`
+    : 'DURAÇÃO DA JORNADA: não informada (fale em "ao longo da jornada", sem número de semanas nem de dias).';
+
+  const totalComps = dadosComps.length;
+  // O nome sai como identificador; o parecer da IA4 e o blueprint estão GRAVADOS
+  // com o nome (são textos que a pessoa lê) e passam pela máscara. `dadosComps`
+  // volta intacto para o pós-processo, que só lê competência, nível e nota.
+  const user = `COLABORADOR: ${colabMasked?.nome} (identificador da pessoa: ao chamá-la pelo nome, escreva exatamente ${colabMasked?.nome})\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n${duracaoTexto}\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) avaliadas. Todos os níveis são inteiros válidos entre N1 e N4. O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(maskDeepPII(dadosComps, pii), null, 2)}${respostasTexto}${trilhaTexto}${maskTextPII(blueprintBlock, pii)}`;
+
+  // `cenarioERespostas` sai à parte para a auditoria estrutural: jargão que a
+  // fonte já usa (o "feedback escrito" do cenário) não é jargão do gerador.
 
   return { system: RELATORIO_IND_SYSTEM, user, dadosComps, blueprint, colab, empresa, cenarioERespostas: respostasTexto, pii, duracaoSemanas };
 }

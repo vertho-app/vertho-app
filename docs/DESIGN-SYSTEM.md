@@ -170,7 +170,7 @@ V cyan (`#34C5CC`) sobre navy (`#0F2B54`) — `app/icon.svg`
 | O chat sobre o tema da semana | **Tira-Dúvidas** | Tira-Dúvidas | Tira-Dúvidas | Tira-Dúvidas | "Tutor", "tutor 10" |
 | Quem faz o programa | colaborador | colaborador | colaborador | Employee | User |
 | Experiência real e limitada de um lead | **degustação** | degustação | prueba | trial | demo, demonstração |
-| O plano de 30 dias do PDI | **Plano de 30 dias** | igual | Plan de 30 días | 30-day plan | Sprint de 30 dias |
+| O plano do PDI (vale para a jornada) | **Plano da jornada** | igual | Plan del recorrido | Journey plan | Plano de 30 dias, Sprint de 30 dias (o plano não tem prazo em dias, desde 19/10/2026) |
 | O PDI | Plano de Desenvolvimento Individual (PDI) | igual | Plan de Desarrollo Individual (PDI) | Individual Development Plan (PDI) | "Individualizado" |
 | Relatório da liderança | **Relatório do Gestor** | igual | Informe del Gestor | Manager Report | "Relatório da Liderança" |
 | Volta ao começo | início | início | inicio | home | dashboard |

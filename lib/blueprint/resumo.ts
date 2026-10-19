@@ -2,7 +2,7 @@
  * Resumo compacto do Development Blueprint para injetar no contexto dos
  * assistentes (Beto, Tira-Dúvidas). O blueprint inteiro é grande (geração usa
  * 64k tokens); aqui extraímos só o que personaliza a orientação: o foco geral +
- * os objetivos de 30 dias das competências. A trilha de 14 semanas fica de fora.
+ * os objetivos da jornada das competências. A trilha semana a semana fica de fora.
  *
  * Leitura SERVICE-ROLE por colaborador_id — SEM o gate de admin do `getBlueprint`.
  * Seguro porque os assistentes já resolveram e validaram o colaborador da sessão
@@ -32,7 +32,7 @@ const norm = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[�
  * Bloco de prompt com o plano de desenvolvimento do colaborador.
  *
  * `competenciaFoco`: quando informado (Tira-Dúvidas, escopo travado na semana),
- * restringe aos objetivos de 30 dias daquela competência — não despeja o plano
+ * restringe aos objetivos da jornada daquela competência — não despeja o plano
  * inteiro. Sem ele (Beto, mentor aberto), traz o foco geral + todas as competências.
  */
 export function formatBlueprintResumo(
@@ -53,12 +53,14 @@ export function formatBlueprintResumo(
     return [
       `  ▸ ${c.nome} — nível atual ${c.nivel_atual}, prioridade ${c.prioridade}`,
       c.leitura ? `    ${c.leitura}` : '',
-      objs.length ? `    Objetivos de 30 dias:` : '',
+      objs.length ? `    Objetivos da jornada:` : '',
       ...objs,
     ].filter(Boolean).join('\n');
   };
 
-  return `PLANO DE DESENVOLVIMENTO DO COLABORADOR (use para personalizar — conecte a orientação ao foco e aos objetivos de 30 dias dele; não recite o plano inteiro):
+  // "objetivos da jornada" (19/10/2026): era "objetivos de 30 dias", e o assistente repetia um prazo que a jornada
+  // de 7 semanas não tem. Blueprints antigos ainda trazem "30 dias" no texto do objetivo; daí a instrução de traduzir.
+  return `PLANO DE DESENVOLVIMENTO DO COLABORADOR (use para personalizar — conecte a orientação ao foco e aos objetivos da jornada dele; não recite o plano inteiro. O horizonte do plano é a jornada, em semanas: se um objetivo citar prazo em dias, fale em semanas da jornada):
 ${bp.foco_geral ? `Foco: ${bp.foco_geral.tese_de_desenvolvimento}
 ${bp.foco_geral.mensagem_central ? `Mensagem central: ${bp.foco_geral.mensagem_central}` : ''}` : ''}
 ${comps.length ? `Competências em desenvolvimento:

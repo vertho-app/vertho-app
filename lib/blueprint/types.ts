@@ -26,7 +26,9 @@ export interface BlueprintDescritorFoco {
 }
 
 /**
- * Um objetivo de 30 dias — a unidade acionável do SPRINT do PDI. Cada semana da
+ * Um objetivo da jornada — a unidade acionável do SPRINT do PDI. O nome
+ * `objetivos_30_dias` é histórico: o horizonte é a jornada inteira, em semanas
+ * (19/10/2026), e o texto nunca fala em "30 dias". Cada semana da
  * trilha (`conexao_com_pdi`) referencia o `id` de um destes.
  */
 export interface BlueprintObjetivo30Dias {

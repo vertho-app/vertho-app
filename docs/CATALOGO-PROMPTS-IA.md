@@ -1358,7 +1358,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
   5. 🔑 Regra 11: a evidência de comportamento é o bloco CENÁRIO E RESPOSTAS, UMA situação hipotética respondida por escrito. Descrever a RESPOSTA; nunca virar hábito ou padrão ("você costuma", "o padrão observado é"); nunca acrescentar detalhe ao cenário; quando há PERSONAGEM, a resposta é o que a pessoa PROPÔS para ela ("você propôs que Alessandra...", nunca "você levou..."); o que não apareceu é dito como ausência nas respostas
   6. Sem cota que obrigue a inventar: `fez_bem` e `principais_forcas` aceitam 0 itens
   7. Campos de resumo com exemplo ancorado (26/09): `resumo_desempenho.leitura` começa por "Nas respostas"; `resumo_geral.leitura` e `fez_bem` proíbem a ação feita ("você levou/fez/negociou")
-  8. Sprint de 30 dias enxuto (1 ação principal + 1 de apoio + 1 evidência + 1 ritual + checklist de 3), DERIVADO do PRIMEIRO objetivo (1º ciclo) da competência no blueprint
+  8. Plano da jornada (campo `sprint`) enxuto (1 ação principal + 1 de apoio + 1 evidência + 1 ritual + checklist de 3), DERIVADO do PRIMEIRO objetivo (1º ciclo) da competência no blueprint. Desde 19/10/2026 o pedido leva `DURAÇÃO DA JORNADA: N semanas` e a regra PRAZO DO PLANO proíbe prazo em dias ("próximos 30 dias"); prazo citado do cenário ou das respostas fica como está
   9. Sobrecarga sem linguagem clínica; N3-N4 com manutenção, não plano pesado
 
 - **Output**: JSON `{ acolhimento, resumo_geral:{leitura, principais_forcas, principal_ponto_de_atencao}, perfil_comportamental:{descricao, pontos_forca, pontos_atencao}, resumo_desempenho[{competencia, nivel, nota_decimal, leitura}], competencias[{nome, nivel, nota_decimal, flag, descritores_desenvolvimento, fez_bem, melhorar, feedback, sprint:{foco_30_dias, acao_principal, acao_apoio, evidencia_esperada, ritual, checklist[3]}, dicas_desenvolvimento, estudo_recomendado[{titulo, formato, por_que_ajuda, url}]}], mensagem_final, alertas_metodologicos }`.
@@ -2198,9 +2198,9 @@ Cinco prompts migrados do simulador RNaves, sem alteração intencional do texto
 - **Arquivo**: `lib/blueprint/prompt.ts::BLUEPRINT_SYSTEM` + `buildBlueprintPrompt`; núcleo em `lib/blueprint/core.ts`; lote em `trigger/gerar-blueprint-batch.ts`.
 - **Modelo default**: `claude-sonnet-4-6` (configurável). **Max tokens**: 64000.
 - **Trigger**: geração individual/headless ou lote de colaboradores com 100% das competências foco mapeadas.
-- **Tarefa**: gerar uma única estrutura JSON da qual derivam PDI e trilha, mantendo ligação nominal entre objetivo de 30 dias, semanas, missões, evidência esperada e critério de sucesso.
+- **Tarefa**: gerar uma única estrutura JSON da qual derivam PDI e trilha, mantendo ligação nominal entre objetivo da jornada (campo `objetivos_30_dias`, nome histórico; desde 19/10/2026 o prompt proíbe prazo em dias no texto), semanas, missões, evidência esperada e critério de sucesso.
 - **Regras centrais**: não inventar comportamento; ações ancoradas em artefatos/rotinas reais do cargo; evidência **contável** (quantificador explícito); carga compatível com nível; calendário parametrizado pelo programa da empresa; níveis finais sobrescritos pelos cálculos autoritativos em código.
-- **Output**: `DevelopmentBlueprint` com colaborador, foco geral, competências, objetivos de 30 dias e `trilha.semanas[]`; validações duras rejeitam semana sem `conexao_com_pdi`.
+- **Output**: `DevelopmentBlueprint` com colaborador, foco geral, competências, objetivos da jornada e `trilha.semanas[]`; validações duras rejeitam semana sem `conexao_com_pdi`.
 
 ### 17.2 Auditor semântico de Blueprint
 > `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**

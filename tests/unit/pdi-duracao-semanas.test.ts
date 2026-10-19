@@ -178,6 +178,47 @@ describe('geração: o PDI sem blueprint grava a duração do programa da pessoa
   });
 });
 
+/**
+ * O horizonte do plano é a JORNADA, em semanas (19/10/2026). O prompt chamava o plano de "sprint de 30 dias" e a IA
+ * escrevia "plano para os próximos 30 dias" em 29 de 59 PDIs de cliente, numa jornada de 7 semanas. O pedido passou a
+ * levar a duração real, e o `duracaoSemanas` devolvido (o que é GRAVADO) não muda.
+ */
+describe('o pedido do PDI leva a duração da jornada', () => {
+  const linhaDuracao = (user: string) => user.split('\n').find((l) => l.startsWith('DURAÇÃO DA JORNADA:'));
+
+  it('com blueprint: a duração do blueprint, e nada gravado', async () => {
+    blueprint = { competencias: [{ nome: COMP, objetivos_30_dias: [] }], trilha: { duracao_semanas: 7, semanas: [{ semana: 1, conexao_com_pdi: ['x'] }] } };
+    montar();
+    const built: any = await buildRelatorioIndividualPrompt(h.sb.client as any, { empresaId: 'e1', colaboradorId: 'c1' });
+    expect(built.error, built.error).toBeUndefined();
+    expect(linhaDuracao(built.user)).toContain('7 semanas');
+    expect(built.duracaoSemanas).toBeNull();
+  });
+
+  it('blueprint sem `duracao_semanas`: a maior semana do mapa', async () => {
+    blueprint = { competencias: [{ nome: COMP, objetivos_30_dias: [] }], trilha: { semanas: [6, 7, 5].map((semana) => ({ semana, conexao_com_pdi: ['x'] })) } };
+    montar();
+    const built: any = await buildRelatorioIndividualPrompt(h.sb.client as any, { empresaId: 'e1', colaboradorId: 'c1' });
+    expect(linhaDuracao(built.user)).toContain('7 semanas');
+  });
+
+  it('sem blueprint: a duração do programa da pessoa (Ibipeba encerrada, 9)', async () => {
+    trilha = { competencia_foco: COMP, competencias_foco: [COMP], programa_modo: 'regular_duo', programa_config: SNAPSHOT_IBIPEBA };
+    montar();
+    const built: any = await buildRelatorioIndividualPrompt(h.sb.client as any, { empresaId: 'e1', colaboradorId: 'c1' });
+    expect(linhaDuracao(built.user)).toContain('9 semanas');
+  });
+
+  it('os prompts do PDI e do blueprint não chamam o plano de "30 dias"', async () => {
+    const { RELATORIO_IND_SYSTEM } = await import('@/lib/relatorio-individual-prompt');
+    const { BLUEPRINT_SYSTEM } = await import('@/lib/blueprint/prompt');
+    expect(RELATORIO_IND_SYSTEM).toContain('PRAZO DO PLANO');
+    for (const sys of [RELATORIO_IND_SYSTEM, BLUEPRINT_SYSTEM]) {
+      expect(sys).not.toMatch(/sprint de 30 dias|movimento central dos 30 dias|objetivo de 30 dias do PDI/i);
+    }
+  });
+});
+
 describe('duracaoDoProgramaDaPessoa', () => {
   it('🔴 falha ao ler a turma NÃO derruba o PDI: devolve null e o PDF omite o número', async () => {
     const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {});

@@ -256,9 +256,18 @@ describe('PDFs, certificado e proposta (R-52, R-120, R-122)', () => {
     // Desde a onda D o texto fixo do PDI mora no catálogo `Pdf` (4 idiomas): o nome do plano e o
     // vocabulário se travam lá, e o código só aponta para a chave.
     expect(visivel('components/pdf/CompetencyBlock.tsx')).toContain("t('competency.plan30')");
-    expect(ptBR.Pdf.competency.plan30).toBe('Plano de 30 dias');
-    expect(esES.Pdf.competency.plan30).toBe('Plan de 30 días');
-    expect(enUS.Pdf.competency.plan30).toBe('30-day plan');
+    // 19/10/2026: o plano vale para a JORNADA (7 semanas no programa atual), não para 30 dias. A chave
+    // segue `plan30` por compatibilidade; o texto não pode voltar a prometer um prazo em dias.
+    expect(ptBR.Pdf.competency.plan30).toBe('Plano da jornada');
+    expect(esES.Pdf.competency.plan30).toBe('Plan del recorrido');
+    expect(enUS.Pdf.competency.plan30).toBe('Journey plan');
+  });
+
+  it('nenhum rótulo do PDI promete prazo em dias, nos quatro idiomas', () => {
+    for (const [idioma, cat] of Object.entries({ 'pt-BR': ptBR, 'pt-PT': ptPT, 'es-ES': esES, 'en-US': enUS })) {
+      const rotulos = [cat.Pdf.competency.plan30, cat.Pdf.competency.focus30];
+      for (const r of rotulos) expect(r, idioma).not.toMatch(/\d+\s*(dias|días|day)/i);
+    }
   });
 
   it('o catálogo dos PDFs (Pdf) diz Jornada/Recorrido/Journey e não usa os termos vetados, nos quatro idiomas', () => {

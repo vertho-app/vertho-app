@@ -110,8 +110,8 @@
 ### Passo 14 — PDI individual (opcional)
 - [ ] PDI gera sem erro
 - [ ] PDF abre corretamente
-- [ ] Conteúdo do PDI faz sentido (acolhimento, perfil, competências, plano 30 dias)
-- [ ] Plano de 30 dias tem ações concretas por semana
+- [ ] Conteúdo do PDI faz sentido (acolhimento, perfil, competências, plano da jornada)
+- [ ] Plano da jornada tem ações concretas e fala em semanas da jornada, nunca em "30 dias"
 
 ---
 

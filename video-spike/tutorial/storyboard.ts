@@ -308,8 +308,8 @@ export const PDI: Flow = {
     },
     {
       id: 'plano-acao', title: 'Plano de ação', cuts: FULL, captureId: 'plano',
-      narration: 'E pra cada competência, um plano prático de 30 dias, com ações, dicas e estudos. Os conteúdos e as tarefas das suas jornadas semanais seguem esse plano, sempre em linha com o seu desenvolvimento.',
-      highlight: { label: 'Plano de 30 dias' },
+      narration: 'E pra cada competência, um plano prático para a jornada, com ações, dicas e estudos. Os conteúdos e as tarefas das suas jornadas semanais seguem esse plano, sempre em linha com o seu desenvolvimento.',
+      highlight: { label: 'Plano da jornada' },
     },
     {
       id: 'baixar', title: 'Leve com você', cuts: FULL, captureId: 'baixar',
