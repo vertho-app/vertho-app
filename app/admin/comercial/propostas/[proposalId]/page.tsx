@@ -183,7 +183,7 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
                     ? `${proposal.contract_duration_months} ${proposal.representante_id ? 'meses' : 'parcelas'}`
                     : '—'}
                 />
-                <Field label="Desconto solicitado" value={proposal.discount_requested != null ? `${proposal.discount_requested}%` : '—'} />
+                <Field label="Desconto informado pelo RC" value={proposal.discount_requested != null ? `${proposal.discount_requested}%` : '—'} />
                 <Field label="Condições de pagamento" value={proposal.payment_terms || '—'} />
                 <Field label="Criada em" value={fmtDateTime(proposal.created_at)} />
                 <Field label="Atualizada em" value={fmtDateTime(proposal.updated_at)} />

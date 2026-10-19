@@ -191,8 +191,8 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
               <input type="text" readOnly value={brlDisplay(mensalComDesconto)}
                 className={`${INPUT_CLS} text-gray-300 cursor-default`} />
             </Field>
-            <Field label="Desconto solicitado (%)" error={fieldErrors.discount_requested}
-              hint="Acima de 15% passa por análise de margem">
+            <Field label="Desconto aprovado pela vertho.ai (%)" error={fieldErrors.discount_requested}
+              hint="Deixe em branco. Só recebe o desconto que a vertho.ai negociou e aprovou; o pedido do cliente vai na próxima ação da oportunidade.">
               <input type="number" min={0} max={100} step="0.1" value={values.discount_requested}
                 onChange={(e) => set('discount_requested', e.target.value)} className={INPUT_CLS} />
             </Field>

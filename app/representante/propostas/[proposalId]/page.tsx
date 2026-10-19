@@ -479,7 +479,7 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
                 <Info label="Vigência">
                   {p.contract_duration_months ? `${p.contract_duration_months} meses` : '—'}
                 </Info>
-                <Info label="Desconto solicitado">
+                <Info label="Desconto aprovado pela vertho.ai">
                   {p.discount_requested != null ? `${p.discount_requested}%` : '—'}
                 </Info>
               </div>
