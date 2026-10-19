@@ -22,7 +22,7 @@ A seção "Estado atual" de `docs/GERADOR-VIDEO-MODULO.md` é autoritativa (o re
 4. **Render (Remotion, comp `VerthoVideo`)** — recebe tudo via `inputProps` (`lib/video/montar-inputprops.ts`). Dois backends (`RENDER_BACKEND`):
    - **`hetzner`** (default/produção): enfileira `render_queued`; box **efêmera** (`worker-hetzner/worker.mjs`, modelo PULL) renderiza, até `MAX_RENDER_BOXES` (4). Tipo pela escada `RENDER_SERVER_TYPES` do Trigger (`cx43,cx53,cx33,cpx32,cpx22,ccx13`, começando em `nbg1`). ~**$0,18/vídeo**. ⚠️ **CX** (shared, barato) primeiro; **CCX** (dedicado) só no fim da escada.
    - **`trigger`** (override de teste): render em chunks paralelos (`trigger/render-chunk.ts`). ~$5–6/vídeo em 1080p.
-5. **SFX por template** — pacote sonoro embutido na composição (`VideoCompositionV3`), volumes calibrados, gatilhado pela fala. Cortes secos entre cenas (só fade de abertura/fechamento do vídeo via `FilmFade`).
+5. **SFX por template: DESLIGADOS desde 22/06/2026** (`1a230929`). O pacote existe na composição (`VideoCompositionV3`, `SoundLayer`), mas a camada está comentada (`VideoCompositionV3.tsx:174`), e o miolo da biblioteca v7 não tem efeito sonoro: tocam só a voz e a trilha. Cortes secos entre cenas (só fade de abertura/fechamento do vídeo via `FilmFade`).
 6. **Masterização de áudio** — `worker-hetzner/masterizar-audio.mjs` (ffmpeg): trilha (bed) + **ducking sidechain** + **−14 LUFS / −1 dBTP** (loudnorm 2-pass). Degrada p/ áudio cru se faltar o bed.
 7. **Upload** → Bunny Stream (lib `636615`) → grava `videos_gerados` (status/etapa/urls/srt/vtt).
 

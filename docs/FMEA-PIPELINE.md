@@ -1889,8 +1889,10 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   (Ibipeba), 1 de 3 (4Life). Os 16 vídeos "soltos" NÃO eram refação (nenhum original em erro na mesma célula).
 - **Impacto:** ganho realista de consertar ~US$ 4-5 por semana nas duas empresas (~US$ 0,07 por vídeo): grupos de 1 vídeo
   só não têm com quem dividir, e metade das irmãs cai no portão de voz.
-- **Status:** aberto, por decisão do dono (18/10): medir uma semana de grupos com a correção de narração no ar antes de
-  mexer no Kit ou no orquestrador. Correções estudadas: (1) jobs paralelos do mesmo módulo × cargo entram no grupo que já
+- **Status:** aberto, SEM decisão do dono. Em 18/10 ele aprovou os consertos (1) e (2) sobre um diagnóstico meu que estava
+  errado (eu tinha lido os vídeos soltos como refação); refeita a conta, recomendei medir uma semana de grupos com a correção
+  de narração no ar antes de mexer no Kit ou no orquestrador e perguntei se ele preferia fazer já a (2), a mais contida. A
+  pergunta ficou sem resposta. Correções estudadas: (1) jobs paralelos do mesmo módulo × cargo entram no grupo que já
   existe (sem `pendente`: duas rodadas escolheriam duas mães); (2) mãe reprovada → promover a próxima célula (no máximo 1
   tentativa a mais).
 
