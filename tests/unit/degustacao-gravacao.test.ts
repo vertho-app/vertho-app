@@ -133,10 +133,20 @@ describe('a cota de 50 gravações por mês (guard estático)', () => {
     // segurança de 19/10, conferido no SDK 10.76). O início sempre tem o código na barra.
     const fonte = semComentarios(readFileSync('app/degustacao/gravacao-da-degustacao.tsx', 'utf8'));
     const efeito = fonte.slice(fonte.indexOf('useEffect(() => {'));
-    const guarda = efeito.indexOf('if (permitido && !(await esperarUrlSemCredencial())) return;');
+    const guarda = efeito.indexOf('if (permitido && !(await esperarUrlSemCredencial())) {');
     expect(guarda).toBeGreaterThan(-1);
     expect(guarda).toBeLessThan(efeito.indexOf('await prepararReplay()'));
     expect(fonte).toMatch(/while \(urlTemCredencial\(window\.location\)\)/);
+    // 🔴 com credencial na barra, a gravação que já estava em curso PARA (só retornar deixaria gravar)
+    expect(efeito.slice(guarda, efeito.indexOf('await prepararReplay()'))).toMatch(/await pararSeGravando\(\);\s*return;/);
+  });
+
+  it('🔴 credencial que volta à barra sem trocar de rota (voltar/avançar, fragmento) também para a gravação', () => {
+    const fonte = semComentarios(readFileSync('app/degustacao/gravacao-da-degustacao.tsx', 'utf8'));
+    expect(fonte).toMatch(/if \(urlTemCredencial\(window\.location\)\) void pararSeGravando\(\);/);
+    expect(fonte).toMatch(/addEventListener\('popstate', vigiar\)/);
+    expect(fonte).toMatch(/addEventListener\('hashchange', vigiar\)/);
+    expect(fonte).toMatch(/if \(replay\?\.getRecordingMode\(\)\) await replay\.stop\(\);/);
   });
 
   it('🔴 atributos mascarados também na degustação: o `<input type="hidden">` com o passe e os links com o código', () => {

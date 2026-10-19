@@ -72,6 +72,16 @@ async function esperarUrlSemCredencial(ms = 2000): Promise<boolean> {
   return true;
 }
 
+/** Para a gravação, se houver uma em curso (sessão ou buffer). Nunca lança. */
+async function pararSeGravando(): Promise<void> {
+  try {
+    const replay = Sentry.getReplay();
+    if (replay?.getRecordingMode()) await replay.stop();
+  } catch {
+    /* parar é o melhor esforço; a guarda de carga continua valendo */
+  }
+}
+
 /**
  * Carrega e instala o replay UMA vez por página, mesmo com várias montagens do
  * componente (início e sala rodam em hosts diferentes, mas a sala re-renderiza a
@@ -133,7 +143,11 @@ export default function GravacaoDaDegustacao({ codigo, onde }: {
         // 🔴 Credencial na barra, NÃO grava (nem carrega: o integrador nasce em buffer e já
         // grava a página). O início sempre tem (`/c/<código>`, `?passe=`); a sala tem
         // `?sala=`/`?volta=` só até o seletor de papel limpar a URL, por isso a espera curta.
-        if (permitido && !(await esperarUrlSemCredencial())) return;
+        // E se já estava gravando (a credencial apareceu depois), PARA: só retornar deixaria gravar.
+        if (permitido && !(await esperarUrlSemCredencial())) {
+          await pararSeGravando();
+          return;
+        }
 
         const replay = await prepararReplay();
         if (!replay || cancelado) return;
@@ -153,6 +167,23 @@ export default function GravacaoDaDegustacao({ codigo, onde }: {
     })();
     return () => { cancelado = true; };
   }, [codigo, onde, pathname]);
+
+  // A credencial pode voltar à barra sem trocar de rota (voltar/avançar do navegador, fragmento):
+  // o efeito acima só reage ao `pathname`, então aqui a gravação PARA se a URL ganhar credencial.
+  // (Mudança só de query pelo roteador não dispara evento; na sala nenhuma navegação interna põe
+  // credencial na URL: o ticket e o código entram por carga de página, que passa pela guarda.)
+  useEffect(() => {
+    if (!GRAVACAO_LIGADA) return;
+    const vigiar = () => {
+      if (urlTemCredencial(window.location)) void pararSeGravando();
+    };
+    window.addEventListener('popstate', vigiar);
+    window.addEventListener('hashchange', vigiar);
+    return () => {
+      window.removeEventListener('popstate', vigiar);
+      window.removeEventListener('hashchange', vigiar);
+    };
+  }, []);
 
   return null;
 }
