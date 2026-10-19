@@ -43,6 +43,7 @@ import { modeloNaReguaDePrivacidade } from '@/lib/ai-regua-privacidade';
 import { buildGeminiGenerationConfig, type GeminiThinkingLevel } from '@/lib/gemini-generation-config';
 import { origemDaChamada } from '@/lib/origem-chamada';
 import { schemaEstruturadoClaude, schemaEstruturadoBedrock, type StructuredOutput } from '@/lib/ai-structured-output';
+import { registrarSpanDeIA } from '@/lib/sentry-ia';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -480,6 +481,13 @@ async function registrarUsoIA(
     const custoTotal = custoTokens === null
       ? (custoExtraUsd > 0 ? custoExtraUsd : null)
       : custoTokens + custoExtraUsd;
+    // Span `gen_ai.chat` no Sentry (19/10/2026): mesmos números do ledger, só metadados, nunca o
+    // texto. Nunca lança; sem tracing ativo (Trigger, dev) é no-op. Ver `lib/sentry-ia.ts`.
+    registrarSpanDeIA({
+      provider, model, latencyMs,
+      inTokens: u.inTokens, outTokens: u.outTokens, cacheRead: read, cacheWrite: write,
+      truncou: u.truncou, taskKey: options.taskKey, custoUsd: custoTotal, source: options.source,
+    });
     const { gravarLinhaLedger } = await import('@/lib/ia-ledger');
     await gravarLinhaLedger({
       feature: options.taskKey || 'untagged',

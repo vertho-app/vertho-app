@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
-import { scrubPII } from './lib/sentry-scrub-pii';
+import { scrubPII, scrubLog } from './lib/sentry-scrub-pii';
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -17,4 +17,9 @@ Sentry.init({
   },
   beforeSendTransaction: scrubPII,
   sendDefaultPii: false,
+
+  // Logs como o servidor (19/10/2026): só aviso e erro, com a mesma limpeza. Ver sentry.server.config.js.
+  enableLogs: true,
+  integrations: [Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] })],
+  beforeSendLog: scrubLog,
 });

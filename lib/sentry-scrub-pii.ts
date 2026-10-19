@@ -71,6 +71,25 @@ export function scrubDados(obj) {
   return scrubRecursivo(obj);
 }
 
+/**
+ * Hook `beforeSendLog` (Sentry Logs, 19/10/2026): o aviso e o erro do servidor passam pela MESMA
+ * limpeza dos eventos. O `console.warn`/`error` chega com a mensagem formatada e os argumentos em
+ * atributos (`sentry.message.parameter.N`): os dois lados. Se a limpeza falhar, o log não sai.
+ */
+export function scrubLog(log) {
+  try {
+    if (!log) return log;
+    return {
+      ...log,
+      // `ParameterizedString` pode ser um objeto String: vai como texto simples, já limpo.
+      message: scrubTexto(String(log.message ?? '')),
+      ...(log.attributes ? { attributes: scrubRecursivo(log.attributes) } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function scrubRecursivo(obj, depth = 0) {
   if (depth > 6) return obj; // evita loop em estruturas circulares
   if (obj == null) return obj;

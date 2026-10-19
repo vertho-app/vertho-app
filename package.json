@@ -44,6 +44,7 @@
     "@breezystack/lamejs": "^1.2.7",
     "@google/genai": "^2.13.0",
     "@react-pdf/renderer": "^4.4.0",
+    "@sentry/core": "10.76.1",
     "@sentry/nextjs": "10.76.1",
     "@sentry/node": "10.76.1",
     "@supabase/ssr": "^0.10.2",

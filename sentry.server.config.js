@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
-import { scrubPII } from './lib/sentry-scrub-pii';
+import { scrubPII, scrubLog } from './lib/sentry-scrub-pii';
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -22,4 +22,12 @@ Sentry.init({
   },
   beforeSendTransaction: scrubPII,
   sendDefaultPii: false,
+
+  // Logs no Sentry (19/10/2026): só AVISO e ERRO do console do servidor, ligados ao trace da
+  // requisição e guardados por semanas (a Vercel guarda pouco e corta na leitura). Medido antes:
+  // ~9,3 mil avisos e 390 erros em 7 dias, longe dos 5 GB incluídos. Passam pela mesma limpeza
+  // dos erros (`scrubLog`); `info`/`log` não saem.
+  enableLogs: true,
+  integrations: [Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] })],
+  beforeSendLog: scrubLog,
 });
