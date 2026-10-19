@@ -72,11 +72,14 @@ async function esperarUrlSemCredencial(ms = 2000): Promise<boolean> {
   return true;
 }
 
-/** Para a gravação, se houver uma em curso (sessão ou buffer). Nunca lança. */
+/**
+ * Para a gravação por CREDENCIAL na barra, se houver uma em curso (sessão ou buffer), SEM enviar o
+ * trecho pendente (`flush: false`): ele pode ter a página com a credencial. Nunca lança.
+ */
 async function pararSeGravando(): Promise<void> {
   try {
     const replay = Sentry.getReplay();
-    if (replay?.getRecordingMode()) await replay.stop();
+    if (replay?.getRecordingMode()) await replay.stop({ flush: false });
   } catch {
     /* parar é o melhor esforço; a guarda de carga continua valendo */
   }
@@ -159,6 +162,11 @@ export default function GravacaoDaDegustacao({ codigo, onde }: {
         Sentry.setTag(GRAVACAO_TAG, await etiquetaDoConvite(codigo));
         Sentry.setTag('demo_versao', 'C');
         Sentry.setTag('demo_onde', onde);
+        // Reconfere DEPOIS das esperas (integrador, etiqueta): a credencial pode ter voltado à barra.
+        if (cancelado || urlTemCredencial(window.location)) {
+          await pararSeGravando();
+          return;
+        }
         // buffer (só em erro) ou parado viram SESSÃO: ver o topo.
         if (replay.getRecordingMode() !== 'session') await replay.flush();
       } catch {

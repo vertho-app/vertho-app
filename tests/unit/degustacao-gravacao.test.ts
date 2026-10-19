@@ -146,7 +146,17 @@ describe('a cota de 50 gravações por mês (guard estático)', () => {
     expect(fonte).toMatch(/if \(urlTemCredencial\(window\.location\)\) void pararSeGravando\(\);/);
     expect(fonte).toMatch(/addEventListener\('popstate', vigiar\)/);
     expect(fonte).toMatch(/addEventListener\('hashchange', vigiar\)/);
-    expect(fonte).toMatch(/if \(replay\?\.getRecordingMode\(\)\) await replay\.stop\(\);/);
+    // parar por credencial não envia o trecho pendente (ele pode ter a página com a credencial)
+    expect(fonte).toMatch(/if \(replay\?\.getRecordingMode\(\)\) await replay\.stop\(\{ flush: false \}\);/);
+  });
+
+  it('🔴 a URL é reconferida DEPOIS das esperas e logo antes do flush (a credencial pode voltar no meio)', () => {
+    const fonte = semComentarios(readFileSync('app/degustacao/gravacao-da-degustacao.tsx', 'utf8'));
+    const flush = fonte.indexOf("if (replay.getRecordingMode() !== 'session') await replay.flush();");
+    const reconfere = fonte.lastIndexOf('if (cancelado || urlTemCredencial(window.location)) {', flush);
+    expect(reconfere).toBeGreaterThan(-1);
+    expect(reconfere).toBeGreaterThan(fonte.indexOf('await etiquetaDoConvite(codigo)'));
+    expect(fonte.slice(reconfere, flush)).toMatch(/await pararSeGravando\(\);\s*return;/);
   });
 
   it('🔴 atributos mascarados também na degustação: o `<input type="hidden">` com o passe e os links com o código', () => {
