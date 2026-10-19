@@ -1,5 +1,5 @@
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
-import { computeDna, type DnaAggregate, type DnaPorCargo, type NBucket } from '@/lib/dna-organizacional/aggregate';
+import { computeDna, recortePorCargoDna, type DnaAggregate, type DnaPorCargo, type NBucket } from '@/lib/dna-organizacional/aggregate';
 import type { DnaNarrative } from '@/lib/dna-organizacional/narrative';
 import {
   COMP_LABEL,
@@ -175,25 +175,7 @@ export function criarDnaOrganizacionalAcmeDemo(
       const role = String(person.cargo || '').trim() || '(sem cargo)';
       totalPeopleByRole.set(role, (totalPeopleByRole.get(role) || 0) + 1);
     }
-    const assessmentsByRole = new Map<string, any[]>();
-    for (const assessment of assessments) {
-      const group = assessmentsByRole.get(assessment.cargo) || [];
-      group.push(assessment);
-      assessmentsByRole.set(assessment.cargo, group);
-    }
-    porCargo = [...assessmentsByRole.entries()]
-      .map(([cargo, rows]) => ({
-        cargo,
-        avaliados: new Set(rows.map((row) => row.colaborador_id)).size,
-        rows,
-      }))
-      .filter((group) => group.avaliados >= 3)
-      .sort((a, b) => b.avaliados - a.avaliados || a.cargo.localeCompare(b.cargo, 'pt-BR'))
-      .map((group) => ({
-        cargo: group.cargo,
-        avaliados: group.avaliados,
-        dna: computeDna(group.rows, totalPeopleByRole.get(group.cargo) || group.avaliados),
-      }));
+    porCargo = recortePorCargoDna(assessments, (assessment) => assessment.cargo, totalPeopleByRole);
   }
   const referencias = [...referencePeople.entries()]
     .map(([key, ids]) => {

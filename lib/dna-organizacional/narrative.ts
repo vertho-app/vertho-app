@@ -49,7 +49,7 @@ function resumoDados(dna: DnaAggregate, empresaNome: string, segmento: string | 
     `\nCompetências (ordenadas por prioridade):\n${comps}`,
     `\nMaiores gaps: ${dna.topGaps.slice(0, 5).map((g) => `${g.descritor} (${g.competencia}, ${g.n1pct}% em N1)`).join(' · ')}`,
     `Forças (presença de N3/N4): ${dna.forcas.slice(0, 5).map((f) => `${f.descritor} (${f.competencia}, ${f.pct}%)`).join(' · ') || 'praticamente ausentes'}`,
-    `\nPROFISSIONAIS REFERÊNCIA (agregado anônimo — pessoas distintas em N3/N4 por cargo e competência):\n${
+    `\nPROFISSIONAIS REFERÊNCIA (agregado sem nomes — pessoas distintas em N3/N4 por cargo e competência):\n${
       (dna.referencias || []).length
         ? (dna.referencias || []).map((r) => `- ${r.pessoas} ${r.pessoas === 1 ? 'profissional' : 'profissionais'} de ${r.cargo} em ${r.competencia} (topo: ${r.bucketTopo.toUpperCase()})`).join('\n')
         : 'NENHUM profissional atingiu N3 ou N4.'
@@ -58,12 +58,13 @@ function resumoDados(dna: DnaAggregate, empresaNome: string, segmento: string | 
   ].join('\n');
 }
 
-const SYSTEM = `Você é um consultor sênior de desenvolvimento organizacional da Vertho. Escreve o "Retrato de Competências" (DNA Organizacional): um diagnóstico COLETIVO, ANÔNIMO e MOBILIZADOR de uma equipe, em português do Brasil.
+const SYSTEM = `Você é um consultor sênior de desenvolvimento organizacional da Vertho. Escreve o "Retrato de Competências" (DNA Organizacional): um diagnóstico COLETIVO e MOBILIZADOR de uma equipe, em português do Brasil.
 
 REGRAS INVIOLÁVEIS:
 - NUNCA invente números. Use APENAS as estatísticas fornecidas. Pode citar percentuais e níveis (N1 a N4) que estão nos dados.
 - NUNCA escreva média, nota decimal, pontuação nem "X de 4": o leitor vê o nível mais frequente e a distribuição por nível.
-- NUNCA identifique pessoas. O tom é coletivo ("nosso grupo", "a equipe"). Reconhecer quem já chegou ao nível é feito por CONTAGEM + cargo + competência ("3 profissionais de Gestão Escolar em Planejamento e Organização"), nunca por nome.
+- NUNCA cite nomes de pessoas. O tom é coletivo ("nosso grupo", "a equipe"). Reconhecer quem já chegou ao nível é feito por CONTAGEM + cargo + competência ("3 profissionais de Gestão Escolar em Planejamento e Organização"), nunca por nome.
+- NUNCA diga que o documento é anônimo, sigiloso ou confidencial, nem que ninguém é identificado: o relatório traz um recorte por cargo, e um cargo pode ter uma pessoa só.
 - NUNCA afirme que existem profissionais num nível que os dados não mostram. Se N4=0%, não cite N4 como algo já alcançado.
 - Tom: encorajador, honesto, profissional — celebra forças reais e nomeia gaps sem culpar. Gaps são "degraus", não fracassos.
 - Adapte o vocabulário ao SEGMENTO informado (educação: escola/professores/alunos; corporativo: organização/times/clientes).

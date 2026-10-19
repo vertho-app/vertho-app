@@ -2305,7 +2305,7 @@ Cinco prompts migrados do simulador RNaves, sem alteração intencional do texto
 
 - **Arquivo**: `lib/dna-organizacional/narrative.ts::gerarNarrativaDna`.
 - **Modelo default**: `claude-sonnet-4-6`; max tokens 4096; temperatura 0,6.
-- **Tarefa/output**: transforma agregado anônimo de competências em intro, 3 forças, leitura geral, padrões, 3 prioridades, 3 ações de 30 dias, referências por contagem/cargo e fecho. Nunca inventa números nem identifica pessoas. Desde 04/10/2026 (lote 5b) recebe o nível mais frequente por competência, não a média, e a regra proíbe média, nota decimal e "X de 4" no texto, que vai para o PDF do cliente (o PDF também não imprime mais a média da competência).
+- **Tarefa/output**: transforma o agregado de competências (sem nomes) em intro, 3 forças, leitura geral, padrões, 3 prioridades, 3 ações de 30 dias, referências por contagem/cargo e fecho. Nunca inventa números nem cita nomes. Desde 19/10/2026 o recorte por cargo não tem piso (um cargo pode ter uma pessoa só) e a regra proíbe chamar o documento de anônimo, sigiloso ou confidencial. Desde 04/10/2026 (lote 5b) recebe o nível mais frequente por competência, não a média, e a regra proíbe média, nota decimal e "X de 4" no texto, que vai para o PDF do cliente (o PDF também não imprime mais a média da competência).
 
 ### 20.4 Narrativas de adequação pessoa-cargo
 > `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**

@@ -400,12 +400,14 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   pessoa (R-07, 03/10/2026: virou "o RH e a sua liderança veem seu nível em cada competência", nos
   4 idiomas, com teste em `tests/unit/mapeamento-promessa-visibilidade.test.ts`). A lição de
   tamanho segue valendo para qualquer promessa verdadeira só com N grande: agregado de 2 não
-  anonimiza ninguém, e o único piso do código é por RECORTE, não por promessa (`MIN_POR_CARGO_DNA`:
-  cargo com menos de 3 avaliados não vira seção, em `lib/dna-organizacional/aggregate.ts`; o
-  Perfil Organizacional NÃO tem piso desde 08/10/2026 (`recortePorCargo`), porque o PDF dele já lista
-  nome e DISC de cada pessoa na página "Gráficos Individuais" e um piso por cargo prometeria
-  anonimato que ele não entrega; o `N_MINIMO`, 10, de `lib/scoring/colinearidade.ts:18` é de outra
-  medida). Medido em 06/08 numa demo de 2
+  anonimiza ninguém. Os dois relatórios organizacionais recortam por cargo SEM piso, e por isso
+  nenhum dos dois promete anonimato: o Perfil Organizacional desde 08/10/2026 (`recortePorCargo`),
+  porque o PDF dele já lista nome e DISC de cada pessoa na página "Gráficos Individuais"; o DNA
+  Organizacional desde 19/10/2026 (`recortePorCargoDna`, Amazon Bowling: 14 avaliados em 11
+  cargos, 10 com uma pessoa, e o piso de 3 deixava 1 cargo no PDF), quando o PDF e a narrativa
+  deixaram de dizer "anônimo" e "nenhum profissional é identificado" (o piso antigo não cobria as
+  referências: "1 profissional de Caixa" saía no texto de um documento que se dizia anônimo). O
+  `N_MINIMO`, 10, de `lib/scoring/colinearidade.ts:18` é de outra medida. Medido em 06/08 numa demo de 2
   participantes, a frase tinha sido copiada da tela para a mensagem de convite antes de alguém
   perceber. Antes de repetir uma promessa de confidencialidade em piloto/demo, ou ela vale para o
   menor N em uso (piso de N) ou troque a frase. Vale pra qualquer garantia cuja validade some

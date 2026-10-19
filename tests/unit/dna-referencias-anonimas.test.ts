@@ -2,12 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { aggregateDna } from '@/lib/dna-organizacional/aggregate';
 
 /**
- * "Profissionais referência" agregados e ANÔNIMOS (opção escolhida em 20/07/2026).
+ * "Profissionais referência" agregados e SEM NOME (opção escolhida em 20/07/2026).
  *
- * O Retrato de Competências imprime "Nenhum profissional é identificado" no
- * próprio corpo, então o reconhecimento de quem já está em N3/N4 é por
- * CONTAGEM + cargo + competência. Este teste existe para que uma refatoração
- * futura não transforme isso numa lista nominal sem alguém perceber.
+ * O reconhecimento de quem já está em N3/N4 é por CONTAGEM + cargo +
+ * competência, nunca por lista nominal. Desde 19/10/2026 o recorte por cargo
+ * não tem piso e o PDF não promete mais anonimato (ver
+ * `dna-por-cargo-sem-piso.test.ts`), mas o nome continua fora: este teste
+ * existe para que uma refatoração futura não transforme a contagem numa lista
+ * nominal sem alguém perceber.
  */
 
 // Mock encadeável mínimo do supabase-js (padrão de tests/unit/piloto/).

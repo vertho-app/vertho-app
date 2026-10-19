@@ -1,6 +1,6 @@
 'use server';
 /**
- * DNA Organizacional — gera o "Retrato de Competências" (PDF coletivo anônimo)
+ * DNA Organizacional — gera o "Retrato de Competências" (PDF coletivo, sem nomes)
  * de uma empresa a partir do diagnóstico de competências (descriptor_assessments).
  * Agrega (lib/dna-organizacional/aggregate) → narrativa IA (segment-aware) →
  * PDF premium (lib/dna-organizacional-pdf) → bucket PRIVADO → caminho + link

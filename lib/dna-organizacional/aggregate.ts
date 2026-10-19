@@ -1,8 +1,9 @@
 /**
  * DNA Organizacional — agregação do diagnóstico coletivo de competências.
  *
- * Consolida `descriptor_assessments` de uma empresa num retrato anônimo:
- * distribuição N1-N4 por competência/descritor, médias, gaps e forças.
+ * Consolida `descriptor_assessments` de uma empresa num retrato coletivo, sem
+ * nomes: distribuição N1-N4 por competência/descritor, médias, gaps e forças.
+ * Não é anônimo: o recorte por cargo não tem piso (`recortePorCargoDna`).
  * Puro (sem IA, sem Next) — recebe um SupabaseClient. A camada narrativa
  * (lib/dna-organizacional/narrative) e o PDF consomem este output.
  *
@@ -45,10 +46,11 @@ export interface DnaAggregate {
   /** Recorte por cargo (só no agregado da REDE; os DNAs aninhados não o têm). */
   porCargo?: DnaPorCargo[];
   /**
-   * "Profissionais referência" AGREGADOS e ANÔNIMOS: quantas pessoas distintas
-   * atingiram N3/N4, por (cargo × competência). Existe para o relatório poder
-   * reconhecer quem já está no nível SEM identificar ninguém — o documento
-   * promete, no próprio corpo, que "nenhum profissional é identificado".
+   * "Profissionais referência" AGREGADOS e SEM NOME: quantas pessoas distintas
+   * atingiram N3/N4, por (cargo × competência). Existe para o relatório
+   * reconhecer quem já está no nível por contagem, nunca por lista nominal.
+   * Num cargo de 1 pessoa a contagem aponta essa pessoa, e por isso o PDF não
+   * promete anonimato desde 19/10/2026 (ver `recortePorCargoDna`).
    * Contagem de PESSOAS distintas, não de avaliações.
    */
   referencias?: { cargo: string; competencia: string; pessoas: number; bucketTopo: NBucket }[];
@@ -84,7 +86,38 @@ function pct(d: Dist): Dist {
   return { n1: Math.round((d.n1 / t) * 100), n2: Math.round((d.n2 / t) * 100), n3: Math.round((d.n3 / t) * 100), n4: Math.round((d.n4 / t) * 100) };
 }
 
-const MIN_POR_CARGO_DNA = 3; // cargos com menos avaliados que isso não viram seção
+/**
+ * Recorte POR CARGO: uma seção por cargo com avaliação, do maior para o menor
+ * (empate: ordem alfabética, para o PDF não mudar de ordem entre duas gerações).
+ * Regra única, usada também pela demo da ACME.
+ *
+ * SEM piso de N (19/10/2026, Amazon Bowling: 14 avaliados em 11 cargos, 10 com
+ * uma pessoa, e o PDF só trazia 1). O piso de 3 existia para o documento poder
+ * se dizer anônimo; o dono preferiu o recorte completo, como no Perfil
+ * Organizacional desde 08/10 (`recortePorCargo`). O preço é a promessa: o PDF e
+ * a narrativa deixaram de dizer "anônimo" e "nenhum profissional é
+ * identificado", e o texto avisa que um cargo de 1 ou 2 pessoas descreve essas
+ * pessoas, não uma tendência do grupo.
+ *
+ * @param cargoDe cargo já normalizado da avaliação ('(sem cargo)' quando vazio).
+ * @param totalPorCargo pessoas do cargo (denominador da participação do cargo).
+ */
+export function recortePorCargoDna(
+  assess: any[],
+  cargoDe: (a: any) => string,
+  totalPorCargo: Map<string, number>,
+): DnaPorCargo[] {
+  const porGrupo = new Map<string, any[]>();
+  for (const a of assess) {
+    const cg = cargoDe(a);
+    if (!porGrupo.has(cg)) porGrupo.set(cg, []);
+    porGrupo.get(cg)!.push(a);
+  }
+  return [...porGrupo.entries()]
+    .map(([cargo, arr]) => ({ cargo, avaliados: new Set(arr.map((a) => a.colaborador_id)).size, arr }))
+    .sort((a, b) => b.avaliados - a.avaliados || a.cargo.localeCompare(b.cargo, 'pt-BR'))
+    .map((g) => ({ cargo: g.cargo, avaliados: g.avaliados, dna: computeDna(g.arr, totalPorCargo.get(g.cargo) || g.avaliados) }));
+}
 
 /**
  * @param colaboradorIds recorte OPCIONAL de população (turma, mig 210). Ausente
@@ -151,19 +184,13 @@ export async function aggregateDna(
     cargoById.set((col as any).id, cg);
     totalPorCargo.set(cg, (totalPorCargo.get(cg) || 0) + 1);
   }
-  const porGrupo = new Map<string, any[]>();
-  for (const a of assess) {
-    const cg = cargoById.get(a.colaborador_id) || '(sem cargo)';
-    if (!porGrupo.has(cg)) porGrupo.set(cg, []);
-    porGrupo.get(cg)!.push(a);
-  }
-  const porCargo: DnaPorCargo[] = [...porGrupo.entries()]
-    .map(([cargo, arr]) => ({ cargo, avaliados: new Set(arr.map((a) => a.colaborador_id)).size, arr }))
-    .filter((g) => g.avaliados >= MIN_POR_CARGO_DNA)
-    .sort((a, b) => b.avaliados - a.avaliados)
-    .map((g) => ({ cargo: g.cargo, avaliados: g.avaliados, dna: computeDna(g.arr, totalPorCargo.get(g.cargo) || g.avaliados) }));
+  const porCargo = recortePorCargoDna(
+    assess,
+    (a) => cargoById.get(a.colaborador_id) || '(sem cargo)',
+    totalPorCargo,
+  );
 
-  // Referências anônimas: pessoas DISTINTAS em N3/N4 por (cargo × competência).
+  // Referências: pessoas DISTINTAS em N3/N4 por (cargo × competência).
   // Agregado, nunca nominal — ver o comentário de `referencias` na interface.
   const refPessoas = new Map<string, Set<string>>();
   const refTopo = new Map<string, NBucket>();

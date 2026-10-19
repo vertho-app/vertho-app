@@ -1,7 +1,10 @@
 /**
  * DNA Organizacional — "Retrato de Competências" (PDF premium branded).
  * Consome o agregado (lib/dna-organizacional/aggregate) + a narrativa IA
- * (lib/dna-organizacional/narrative) e renderiza o relatório coletivo anônimo.
+ * (lib/dna-organizacional/narrative) e renderiza o relatório coletivo, sem
+ * nomes. O recorte por cargo não tem piso desde 19/10/2026 (ver
+ * `recortePorCargoDna`), então o texto não promete que ninguém é reconhecível
+ * (o teste `dna-por-cargo-sem-piso` barra a palavra neste arquivo).
  * Reusa a infra premium (paleta Vertho + NotoSans). Sem emoji (NotoSans não
  * cobre) — usa barras/cores e marcadores textuais.
  */
@@ -211,7 +214,7 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
         </View>
 
         <View style={s.body}>
-          <Text style={s.anon}>Diagnóstico coletivo e anônimo para desenvolvimento da equipe. Nenhum profissional é identificado.</Text>
+          <Text style={s.anon}>Diagnóstico coletivo de competências para o desenvolvimento da equipe.</Text>
           <Text style={s.intro}>{narrativa.intro}</Text>
 
           <SecTitle>NOSSAS FORÇAS</SecTitle>
@@ -249,7 +252,7 @@ function DnaDoc({ empresaNome, dataRef, segmento, dna, narrativa }: Params) {
                 idx === 0 ? (
                   <View key="sec-cargo" break>
                     <SecTitle>DESCRITORES POR COMPETÊNCIA, POR CARGO</SecTitle>
-                    <Text style={s.anon}>A distribuição de níveis e os descritores de cada competência, recortados por cargo. Cada cargo abre em página própria. Cargos com menos de 3 pessoas com avaliação iniciada não aparecem.</Text>
+                    <Text style={s.anon}>A distribuição de níveis e os descritores de cada competência, recortados por cargo. Cada cargo abre em página própria. Em cargos com 1 ou 2 pessoas, o recorte descreve essas pessoas, não uma tendência do grupo.</Text>
                   </View>
                 ) : null,
                 <View key={pc.cargo} break={idx > 0}>

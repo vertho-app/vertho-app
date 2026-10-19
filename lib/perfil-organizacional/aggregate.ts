@@ -279,8 +279,9 @@ export function computePerfilOrg(R: any[]): PerfilOrg {
  * entrega: a página "Gráficos Individuais" já lista nome e DISC de cada pessoa.
  * O `n` de cada seção vai no cabeçalho do bloco, e o texto do PDF avisa que um
  * cargo de 1 ou 2 pessoas descreve essas pessoas, não uma tendência do grupo.
- * O DNA organizacional (`MIN_POR_CARGO_DNA`) mantém o piso: ele NÃO lista o nível
- * de cada pessoa. Quem mostra a pessoa não pode prometer o recorte anônimo.
+ * O DNA organizacional também ficou sem piso em 19/10/2026 (`recortePorCargoDna`)
+ * e, pelo mesmo motivo, deixou de prometer anonimato. Quem recorta sem piso não
+ * pode prometer o recorte anônimo.
  */
 export function recortePorCargo(rows: any[]): PerfilPorCargo[] {
   const grupos = new Map<string, any[]>();
