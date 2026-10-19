@@ -36,6 +36,36 @@ describe('IP no Sentry', () => {
     expect(scrubPII({ message: msg }, {}).message).toBe(msg);
   });
 
+  it('🔴 IP no fim de frase (com ponto final) e IPv6 em texto também saem', () => {
+    expect(scrubPII({ message: 'acesso de 200.0.203.206.' }, {}).message).toBe('acesso de [ip].');
+    for (const ip of ['2804:14c:5b:8000::1', 'fe80::1', '2001:db8:85a3:0:0:8a2e:370:7334']) {
+      expect(scrubPII({ message: `cliente ${ip} bloqueado` }, {}).message, ip).toBe('cliente [ip] bloqueado');
+    }
+  });
+
+  it('não confunde horário nem carimbo de data com IPv6', () => {
+    const msg = 'às 21:12:27, em 2026-10-19T21:12:27+00:00 (duração 00:01:30)';
+    expect(scrubPII({ message: msg }, {}).message).toBe(msg);
+  });
+
+  it('🔴 atributos do OpenTelemetry com o IP do cliente (client.address, network.peer.address, net.peer.ip) são zerados', () => {
+    const ev: any = scrubPII({ contexts: { trace: { data: {
+      'client.address': '200.0.203.206', 'network.peer.address': '2804:14c::1', 'net.peer.ip': '200.0.203.206',
+      'http.route': '/dashboard',
+    } } } }, {});
+    expect(JSON.stringify(ev)).not.toMatch(/200\.0\.203\.206|2804:14c/);
+    expect(ev.contexts.trace.data['http.route']).toBe('/dashboard');
+  });
+
+  it('🔴 a regra de CHAVE vale sozinha: valor que a regra de texto não reconheceria também some', () => {
+    // Sentinela que não parece IP: prova a regra de chave isolada (o IPv6 em formato raro cairia aqui).
+    const chaves = ['client.address', 'network.peer.address', 'net.peer.ip', 'http.request.header.x_vercel_proxied_for',
+      'http.request.header.x_forwarded_for', 'http.request.header.x_real_ip', 'user_ip', 'ip_address'];
+    const data = Object.fromEntries(chaves.map((k) => [k, 'SENTINELA-NAO-IP']));
+    const ev: any = scrubPII({ contexts: { trace: { data } } }, {});
+    for (const k of chaves) expect(ev.contexts.trace.data[k], k).toBe('[REDACTED]');
+  });
+
   it('a regex do IP não usa lookbehind (roda no navegador; Safari antigo quebraria o bundle)', () => {
     const fonte = readFileSync('lib/sentry-scrub-pii.ts', 'utf8');
     expect(fonte).not.toMatch(/\(\?<[=!]/);

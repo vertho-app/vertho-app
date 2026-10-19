@@ -70,10 +70,24 @@ const RE_CODIGO_NO_CAMINHO = /(\/c\/)[A-Za-z0-9_-]{24}(?![A-Za-z0-9_-])/g;
  * entende lookbehind (a regex quebraria o bundle inteiro).
  */
 const OCTETO = '(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)';
-const RE_IPV4 = new RegExp(`(^|[^\\d.])${OCTETO}(?:\\.${OCTETO}){3}(?![\\d.])`, 'g');
+// O ponto final de frase ("acesso de 1.2.3.4.") não pode salvar o IP: só barra dígito ou ".dígito".
+const RE_IPV4 = new RegExp(`(^|[^\\d.])${OCTETO}(?:\\.${OCTETO}){3}(?!\\d|\\.\\d)`, 'g');
 
-/** Chave que carrega IP de quem acessa (cabeçalho de proxy, IP do cliente): o valor é zerado. */
-const RE_CHAVE_DE_IP = /forwarded|proxied|real[_-]?ip|client[_-]?ip|connecting[_-]?ip|vercel[_-]ip|remote[_-]?addr/i;
+/**
+ * IPv6 em texto (revisão de segurança do `38acc9a1`). Conservador para não pegar horário: exige `::`
+ * ou pelo menos 4 dois-pontos (5 grupos); `21:12:27` (2 dois-pontos) passa. Sem lookbehind.
+ */
+const HEX = '[0-9A-Fa-f]{1,4}';
+const RE_IPV6 = new RegExp(
+  `(^|[^0-9A-Fa-f:])((?:${HEX}:){4,7}${HEX}|(?:${HEX}:){1,7}:(?:${HEX}(?::${HEX}){0,6})?|::${HEX}(?::${HEX}){0,6})(?![0-9A-Fa-f:])`,
+  'g',
+);
+
+/**
+ * Chave que carrega IP de quem acessa: o valor é zerado (cobre o IPv6 que o texto não pegar). Cabeçalhos
+ * de proxy e os atributos do OpenTelemetry (`client.address`, `network.peer.address`, `net.peer.ip`).
+ */
+const RE_CHAVE_DE_IP = /forwarded|proxied|real[._-]?ip|client[._-]?(?:ip|addr(?:ess)?)|connecting[._-]?ip|vercel[._-]ip|remote[._-]?addr|peer[._-]?(?:ip|addr(?:ess)?)|user[._-]?ip|ip[._-]?addr(?:ess)?/i;
 
 function scrubTexto(s) {
   if (typeof s !== 'string') return s;
@@ -81,6 +95,7 @@ function scrubTexto(s) {
     .replace(RE_CODIGO_NO_CAMINHO, '$1[REDACTED]')
     .replace(RE_CHAVE_SENSIVEL, '$1[REDACTED]')
     .replace(RE_IPV4, '$1[ip]')
+    .replace(RE_IPV6, '$1[ip]')
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
     .replace(/\(?\d{2,3}\)?\s?9?\d{4,5}[-\s]?\d{4}/g, '[telefone]')
     .replace(/\d{3}\.\d{3}\.\d{3}-\d{2}/g, '[cpf]');
