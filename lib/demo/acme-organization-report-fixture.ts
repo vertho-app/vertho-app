@@ -199,7 +199,7 @@ export function criarNarrativaDnaAcmeDemo(dna: DnaAggregate): DnaNarrative {
   const references = (dna.referencias || []).slice(0, 3);
 
   return {
-    intro: `Este retrato consolida ${dna.totalAvaliacoes} evidências de ${dna.avaliados} profissionais da ACME Demo. A leitura é coletiva e anônima: mostra padrões que ajudam a organização a decidir onde preservar forças e onde concentrar desenvolvimento. Os dados simulam um ciclo real de demonstração e são coerentes com o panorama executivo do tenant.`,
+    intro: `Este retrato consolida ${dna.totalAvaliacoes} evidências de ${dna.avaliados} profissionais da ACME Demo. A leitura é coletiva: mostra padrões que ajudam a organização a decidir onde preservar forças e onde concentrar desenvolvimento. Os dados simulam um ciclo real de demonstração e são coerentes com o panorama executivo do tenant.`,
     forcas: strengths.map((strength, index) => ({
       titulo: index === 0 ? 'Base consistente para evoluir' : index === 1 ? 'Comportamento já observável' : 'Referências internas disponíveis',
       destaque: `${strength.pct}% em N3/N4`,
