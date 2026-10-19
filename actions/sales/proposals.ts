@@ -19,7 +19,7 @@ import {
   assertRepresentativeOwnership,
 } from '@/lib/sales/permissions';
 import { validateProposalDraft, validateProposalForSubmission, numOrNull } from '@/lib/sales/validation';
-import { calculateProposalFinancials, draftAcquisitionEvent, expandRecurringMonthly } from '@/lib/sales/commissions';
+import { calculateProposalFinancials, dataPrevistaPagamentoComissao, draftAcquisitionEvent, expandRecurringMonthly } from '@/lib/sales/commissions';
 import type { SalesProposal } from '@/lib/sales/types';
 
 const PROPOSAL_SELECT = `*,
@@ -344,7 +344,9 @@ export async function markProposalAccepted(proposalId: string) {
   const start = new Date();
   const base = { representante_id: p.representante_id, proposal_id: p.id, account_id: p.account_id };
   const acq = draftAcquisitionEvent(Number(p.total_contract_value) || 0, 'forecast');
-  const acqExpected = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
+  // A aquisição sai inteira no 1º pagamento do cliente, suposto no mês do aceite:
+  // mesma regra do recorrente (dia 10 do mês seguinte).
+  const acqExpected = dataPrevistaPagamentoComissao(start);
   // Recorrente sobre o mensal LÍQUIDO (valor final ÷ vigência), não o bruto.
   const meses = Number(p.contract_duration_months) || 0;
   const mensalLiquido = meses ? (Number(p.total_contract_value) || 0) / meses : (Number(p.monthly_value) || 0);

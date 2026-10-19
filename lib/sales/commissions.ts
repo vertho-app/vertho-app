@@ -99,11 +99,26 @@ export function draftChargebackEvent(amount: number, notes?: string): Commission
   return { type: 'chargeback', status: 'accrued', base_value: Math.abs(amount), percent: 0, amount: -Math.abs(round2(amount)), ...(notes ? { notes } : {}) };
 }
 
+/** Dia do mês em que a comissão é paga (política do canal, decisão do dono em 08/10/2026). */
+export const DIA_PAGAMENTO_COMISSAO = 10;
+
+/**
+ * Data prevista de pagamento da comissão de uma competência: dia 10 do mês
+ * SEGUINTE ao pagamento do cliente. Na previsão (`forecast`) o pagamento do
+ * cliente é suposto dentro do próprio mês da competência; a data real só existe
+ * quando o financeiro marca o evento como pago.
+ */
+export function dataPrevistaPagamentoComissao(competencia: Date): string {
+  return new Date(Date.UTC(competencia.getUTCFullYear(), competencia.getUTCMonth() + 1, DIA_PAGAMENTO_COMISSAO))
+    .toISOString().slice(0, 10);
+}
+
 /**
  * Expande a comissão recorrente da vigência inicial em UM evento por competência
  * (mês) — granularidade que o financeiro precisa para reconhecer/pagar mês a mês.
  * Cada mês: 12% da mensalidade recebida, status 'forecast', reference_month no
- * 1º dia e expected_payment_date ~30 dias depois (política simples do MVP).
+ * 1º dia e expected_payment_date no dia 10 do mês seguinte
+ * (`dataPrevistaPagamentoComissao`).
  */
 export function expandRecurringMonthly(
   monthlyValue: number,
@@ -117,12 +132,11 @@ export function expandRecurringMonthly(
   const amount = round2(monthly * COMMISSION_RATES.recurring);
   for (let i = 0; i < n; i++) {
     const ref = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1));
-    const pay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i + 1, 1)); // ~mês seguinte
     events.push({
       type: 'recorrente', status: 'forecast',
       base_value: monthly, percent: COMMISSION_RATES.recurring * 100, amount,
       reference_month: ref.toISOString().slice(0, 10),
-      expected_payment_date: pay.toISOString().slice(0, 10),
+      expected_payment_date: dataPrevistaPagamentoComissao(ref),
     });
   }
   return events;
