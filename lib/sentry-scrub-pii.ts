@@ -53,9 +53,18 @@ function redigirTokensDeUrl(s) {
  */
 const RE_CHAVE_SENSIVEL = /(["']?\b(?:authorization|cookie|set-cookie|password|senha|secret|client_secret|api[_-]?key|service[_-]?role(?:[_-]?key)?|[a-z_]*token(?:_hash)?)\b["']?\s*[:=]\s*)(?:(?:Bearer|Basic)\s+)?(?!\[REDACTED\])("[^"]*"|'[^']*'|[^\s,;}\]&]+)/gi;
 
+/**
+ * Código do convite da degustação NO CAMINHO (`/c/<24 caracteres>`, 19/10/2026). Até aqui só o
+ * processador da gravação da degustação o redigia, e ele só é instalado quando a gravação carrega:
+ * desde que o início deixou de ser gravado, um erro ou a transação de pageload do início iriam com o
+ * código. Aqui vale para todo evento, log e replay.
+ */
+const RE_CODIGO_NO_CAMINHO = /(\/c\/)[A-Za-z0-9_-]{24}(?![A-Za-z0-9_-])/g;
+
 function scrubTexto(s) {
   if (typeof s !== 'string') return s;
   return redigirTokensDeUrl(s)
+    .replace(RE_CODIGO_NO_CAMINHO, '$1[REDACTED]')
     .replace(RE_CHAVE_SENSIVEL, '$1[REDACTED]')
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
     .replace(/\(?\d{2,3}\)?\s?9?\d{4,5}[-\s]?\d{4}/g, '[telefone]')

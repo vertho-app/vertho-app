@@ -84,6 +84,24 @@ describe('opcoesDoReplay: tela mascarada', () => {
   });
 });
 
+describe('código do convite no CAMINHO (/c/<código>): todo evento, não só o da gravação', () => {
+  it('🔴 erro e transação do início levam a URL redigida (o processador da degustação não está instalado ali)', () => {
+    const codigo = 'AbCdEfGhIjKlMnOpQrStUvWx';
+    const ev: any = scrubPII({
+      message: `falhou em https://acme-demo.vertho.ai/c/${codigo}`,
+      request: { url: `https://acme-demo.vertho.ai/c/${codigo}?aviso=x` },
+      spans: [{ description: `GET /c/${codigo}` }],
+    }, {});
+    expect(JSON.stringify(ev)).not.toContain(codigo);
+    expect(ev.request.url).toBe('https://acme-demo.vertho.ai/c/[REDACTED]?aviso=x');
+  });
+
+  it('não confunde com caminho comum que começa com /c (tamanho e caracteres do código)', () => {
+    const ev: any = scrubPII({ message: 'em /cursos/abc e /c/curto' }, {});
+    expect(ev.message).toBe('em /cursos/abc e /c/curto');
+  });
+});
+
 describe('replay_event: a lista de URLs da sessão', () => {
   it('🔴 o scrubPII limpa `urls` (o replay_event não passa pelo beforeSend)', () => {
     const ev: any = scrubPII({ type: 'replay_event', urls: ['https://app.vertho.ai/dashboard', 'https://app.vertho.ai/x?code=SEGREDO'] }, {});
