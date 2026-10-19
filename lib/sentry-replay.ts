@@ -40,15 +40,23 @@ export const ATRIBUTOS_MASCARADOS = [
   'href', 'src', 'srcset', 'action', 'value', 'content',
 ];
 
-/** Esta página pode ligar o Replay? Lido no carregamento, a partir de `window.location`. */
-export function podeGravarReplay(loc: { pathname?: string; search?: string } | null | undefined): boolean {
+/**
+ * Esta página pode ligar o Replay? Lido no carregamento, a partir de `window.location`, ANTES de o
+ * cliente do Supabase limpar a URL. Confere a query E o fragmento: o login por link do Supabase
+ * entrega `#access_token=...&refresh_token=...`, e o `href` gravado pelo rrweb leva o fragmento.
+ */
+export function podeGravarReplay(loc: { pathname?: string; search?: string; hash?: string } | null | undefined): boolean {
   if (!loc) return false;
   const caminho = String(loc.pathname || '/');
   if (ROTAS_SEM_REPLAY.some((r) => caminho === r || caminho.startsWith(`${r}/`))) return false;
-  const params = new URLSearchParams(String(loc.search || ''));
-  for (const chave of params.keys()) {
-    if (PARAMETROS_SECRETOS.includes(chave.toLowerCase())) return false;
-  }
+  const temSegredo = (texto: string) => {
+    for (const chave of new URLSearchParams(texto).keys()) {
+      if (PARAMETROS_SECRETOS.includes(chave.toLowerCase())) return true;
+    }
+    return false;
+  };
+  if (temSegredo(String(loc.search || ''))) return false;
+  if (temSegredo(String(loc.hash || '').replace(/^#/, ''))) return false;
   return true;
 }
 

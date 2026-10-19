@@ -25,13 +25,17 @@
  * evento no Sentry entrava como a pessoa. Os demais são os outros portões que
  * aceitam segredo pela URL (`/auth/callback`, webhooks, degustação). `sala` e `volta` (19/10/2026)
  * são o ticket da sala e o código de volta da degustação, que até aqui só a gravação da degustação
- * redigia (`lib/demo/degustacao-gravacao.ts`); o erro comum os mandava crus.
+ * redigia (`lib/demo/degustacao-gravacao.ts`); o erro comum os mandava crus. Os `*_token` são os
+ * que o Supabase põe no FRAGMENTO (`#access_token=...&refresh_token=...`) no login por link.
  */
-export const PARAMETROS_SECRETOS = ['t', 'token', 'token_hash', 'codigo', 'code', 'ticket', 'passe', 'key', 'secret', 'sala', 'volta'];
+export const PARAMETROS_SECRETOS = [
+  't', 'token', 'token_hash', 'codigo', 'code', 'ticket', 'passe', 'key', 'secret', 'sala', 'volta',
+  'access_token', 'refresh_token', 'provider_token', 'provider_refresh_token',
+];
 
 const LISTA = PARAMETROS_SECRETOS.join('|');
-// Em texto livre só depois de `?` ou `&` (uma URL); no query_string cru, também no início.
-const RE_URL = new RegExp(`([?&](?:${LISTA})=)[^&#\\s"'<>]*`, 'gi');
+// Em texto livre só depois de `?`, `&` ou `#` (uma URL, com o fragmento); no query_string cru, também no início.
+const RE_URL = new RegExp(`([?&#](?:${LISTA})=)[^&#\\s"'<>]*`, 'gi');
 const RE_QUERY = new RegExp(`(^|[?&;])((?:${LISTA})=)[^&#;\\s"'<>]*`, 'gi');
 
 function redigirTokensDeUrl(s) {

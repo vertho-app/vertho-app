@@ -21,6 +21,9 @@ describe('podeGravarReplay: a URL da página vai crua no evento Meta do rrweb, e
       expect(podeGravarReplay({ pathname: '/dashboard', search: `?${p}=abc` }), p).toBe(false);
     }
     expect(podeGravarReplay({ pathname: '/dashboard', search: '?aba=1&TOKEN_HASH=x' })).toBe(false);
+    // 🔴 o fragmento também: o login por link do Supabase entrega os tokens em `#access_token=...`
+    expect(podeGravarReplay({ pathname: '/', search: '', hash: '#access_token=eyJ&refresh_token=abc&type=magiclink' })).toBe(false);
+    expect(podeGravarReplay({ pathname: '/dashboard', search: '', hash: '#secao-2' })).toBe(true);
     // o ticket da sala e o código de volta da degustação
     expect(podeGravarReplay({ pathname: '/dashboard', search: '?sala=abc' })).toBe(false);
     expect(podeGravarReplay({ pathname: '/dashboard', search: '?volta=abc' })).toBe(false);
@@ -63,6 +66,13 @@ describe('replay_event: a lista de URLs da sessão', () => {
     const ev: any = scrubPII({ type: 'replay_event', urls: ['https://app.vertho.ai/dashboard', 'https://app.vertho.ai/x?code=SEGREDO'] }, {});
     expect(JSON.stringify(ev.urls)).not.toContain('SEGREDO');
     expect(ev.urls[0]).toBe('https://app.vertho.ai/dashboard');
+  });
+
+  it('🔴 token no FRAGMENTO também é redigido (erro e replay)', () => {
+    const ev: any = scrubPII({ message: 'falhou em https://app.vertho.ai/#access_token=SEGREDO1&refresh_token=SEGREDO2&type=magiclink' }, {});
+    expect(ev.message).not.toContain('SEGREDO1');
+    expect(ev.message).not.toContain('SEGREDO2');
+    expect(ev.message).toContain('type=magiclink');
   });
 });
 
