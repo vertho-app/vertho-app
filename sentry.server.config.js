@@ -4,7 +4,11 @@ import { scrubPII } from './lib/sentry-scrub-pii';
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  tracesSampleRate: 0.1,
+  // 100% no servidor desde 19/10/2026 (plano Team, teto de US$ 200/mês): todo cron, webhook e
+  // chamada de IA com o caminho completo. Medido antes: 1,29M spans de servidor em 30 dias a 10%,
+  // então o teto é ~13M/mês (~US$ 17 acima da cota). Pedido vindo do navegador segue a decisão
+  // dele (10%, no client), porque a amostragem respeita o trace pai.
+  tracesSampleRate: 1.0,
 
   enabled: process.env.NODE_ENV === 'production',
 

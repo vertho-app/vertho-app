@@ -4,7 +4,8 @@ import { scrubPII } from './lib/sentry-scrub-pii';
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  tracesSampleRate: 0.1,
+  // 100% como o servidor (19/10/2026): o motivo e a conta estão em sentry.server.config.js.
+  tracesSampleRate: 1.0,
 
   enabled: process.env.NODE_ENV === 'production',
 
