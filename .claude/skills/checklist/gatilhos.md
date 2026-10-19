@@ -41,6 +41,18 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   CHECK que muda DEPOIS de aplicada (tabela vazia) vira bloco reaplicável na própria migration: `DROP CONSTRAINT IF EXISTS` +
   `ADD`, e um teste que compara os valores do CHECK com o tipo do código (mig 288, 16/10/2026: `pendente` → `a_completar`,
   barrado pelo `status-literal-guard` só no push).
+- 🔴 **`CREATE FUNCTION` em `public` nasce executável por QUALQUER UM** (o Postgres dá EXECUTE a PUBLIC, e o
+  PostgREST a expõe em `/rest/v1/rpc/<nome>` para a chave anon do navegador). Na mesma migration:
+  `REVOKE ALL ON FUNCTION … FROM PUBLIC; … FROM anon; … FROM authenticated;` + `GRANT EXECUTE … TO service_role`,
+  salvo quando o navegador precisa chamar (helper de policy de RLS). Depois de aplicar, prove pelo MCP com
+  `has_function_privilege('anon', '<assinatura>', 'EXECUTE')` = falso. O MCP do Supabase NÃO executa função só de
+  service_role (dá `permission denied`, o que prova o REVOKE); para conferir o RESULTADO dela, script com a chave de
+  serviço. Medido 19/10/2026: `refresh_mv_mercado_potencial()` (mig 093) estava aberta a anon e authenticated desde o
+  nascimento (fechada na mig 294). O INV5 do
+  `rls-posture` só confere `search_path` das `SECURITY DEFINER`; quem executa, nenhum guard confere.
+- 🔴 **Função que devolve CONJUNTO (`RETURNS TABLE`/`SETOF`) também é cortada pelo `max-rows` do PostgREST (1.000),
+  sem aviso**, como uma consulta comum. Lista longa sai num `jsonb` só (`jsonb_build_object('total', n, 'linhas',
+  jsonb_agg(...))`), com o `to_jsonb` feito só nas linhas escolhidas (mig 293).
 - Coluna nova "para corrigir algo": conferir o **schema atual** antes — a especificação do FMEA
   também envelhece (F-I4 pedia coluna que já existia).
 - Antes de **deletar** conteúdo/linha: varrer referências **JSONB** (`temporada_plano`: `core_id`,
