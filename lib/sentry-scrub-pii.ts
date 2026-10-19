@@ -61,11 +61,26 @@ const RE_CHAVE_SENSIVEL = /(["']?\b(?:authorization|cookie|set-cookie|password|s
  */
 const RE_CODIGO_NO_CAMINHO = /(\/c\/)[A-Za-z0-9_-]{24}(?![A-Za-z0-9_-])/g;
 
+/**
+ * IPv4 em texto (19/10/2026): o rastreamento do servidor grava os cabeçalhos da requisição, e o
+ * `x-vercel-proxied-for` levava o IP de quem acessa (medido: `200.0.203.206` num GET de usuário),
+ * fora do filtro padrão do Sentry e desta limpeza. IP é dado pessoal. Os octetos são validados
+ * (0-255) e o número não pode estar colado em dígito ou ponto: versão `10.76.1` e data `19.10.2026`
+ * passam. SEM lookbehind de propósito: esta limpeza também roda no navegador, e Safari antigo não
+ * entende lookbehind (a regex quebraria o bundle inteiro).
+ */
+const OCTETO = '(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)';
+const RE_IPV4 = new RegExp(`(^|[^\\d.])${OCTETO}(?:\\.${OCTETO}){3}(?![\\d.])`, 'g');
+
+/** Chave que carrega IP de quem acessa (cabeçalho de proxy, IP do cliente): o valor é zerado. */
+const RE_CHAVE_DE_IP = /forwarded|proxied|real[_-]?ip|client[_-]?ip|connecting[_-]?ip|vercel[_-]ip|remote[_-]?addr/i;
+
 function scrubTexto(s) {
   if (typeof s !== 'string') return s;
   return redigirTokensDeUrl(s)
     .replace(RE_CODIGO_NO_CAMINHO, '$1[REDACTED]')
     .replace(RE_CHAVE_SENSIVEL, '$1[REDACTED]')
+    .replace(RE_IPV4, '$1[ip]')
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
     .replace(/\(?\d{2,3}\)?\s?9?\d{4,5}[-\s]?\d{4}/g, '[telefone]')
     .replace(/\d{3}\.\d{3}\.\d{3}-\d{2}/g, '[cpf]');
@@ -118,8 +133,9 @@ function scrubRecursivo(obj, depth = 0) {
   if (typeof obj === 'object') {
     const out = {};
     for (const [k, v] of Object.entries(obj)) {
-      // Chaves sensíveis são zeradas direto (authorization, cookie, etc.)
-      if (/authorization|cookie|password|token|api[_-]?key|secret/i.test(k)) {
+      // Chaves sensíveis são zeradas direto (authorization, cookie, etc.). As de IP também
+      // (`http.request.header.x_vercel_proxied_for`...): cobre o IPv6, que a regex de texto não pega.
+      if (/authorization|cookie|password|token|api[_-]?key|secret/i.test(k) || RE_CHAVE_DE_IP.test(k)) {
         out[k] = '[REDACTED]';
       } else {
         out[k] = scrubRecursivo(v, depth + 1);
