@@ -33,8 +33,8 @@ Demonstração"** no portal. Decisões:
 > (`escolas-acme`, Rede de Escolas ACME), para os RCs focados em escola privada.
 > O elenco da escola usa o vocabulário da sala de apresentação: Marina, Paula e
 > Tiago (Professor(a), jornada completa, parcial e início), Renata e Sérgio
-> (Coordenação, visão de equipe; o Sérgio mostra o "Não recomendado" por
-> premissa no ranking) e Cláudia (Direção, visão da rede). A casa de cada
+> (Coordenação, visão de equipe de duas unidades) e Cláudia (Direção, visão
+> da rede). A casa de cada
 > persona é declarada (`nextPath`), não deduzida do rótulo: a regra antiga
 > (`papel === 'Gestora'`) mandaria a coordenação para a tela do professor.
 > Lista em `lib/sales/demo-personas.ts`; o teste

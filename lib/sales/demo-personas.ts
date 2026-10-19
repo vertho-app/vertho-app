@@ -50,7 +50,7 @@ const ESCOLAS_ACME_PERSONAS: readonly DemoPersona[] = [
   { key: 'paula', email: 'paula.demo@vertho.ai', nome: 'Paula Nakamura', papel: 'Professor(a)', cenario: 'Jornada parcial', disc: 'SC', nextPath: '/dashboard', hint: 'Meio da jornada: bom para mostrar diagnóstico e progresso.' },
   { key: 'tiago', email: 'tiago.demo@vertho.ai', nome: 'Tiago Andrade', papel: 'Professor(a)', cenario: 'Início da jornada', disc: 'D', nextPath: '/dashboard', hint: 'Ainda no começo: ideal para mostrar os primeiros passos do professor.' },
   { key: 'renata', email: 'renata.demo@vertho.ai', nome: 'Renata Coelho', papel: 'Coordenação', cenario: 'Visão de equipe', disc: 'SC', nextPath: '/dashboard/gestor', hint: 'A coordenação acompanha os professores da escola: engajamento, evolução de cada um e o desenvolvimento da Marina.' },
-  { key: 'sergio', email: 'sergio.demo@vertho.ai', nome: 'Sérgio Bastos', papel: 'Coordenação', cenario: 'Visão de equipe', disc: 'IC', nextPath: '/dashboard/gestor', hint: 'Coordenação de outra unidade da rede. No ranking de aderência ele aparece como "Não recomendado" por uma premissa do cargo, mesmo com aderência alta: explique a régua antes de mostrar.' },
+  { key: 'sergio', email: 'sergio.demo@vertho.ai', nome: 'Sérgio Bastos', papel: 'Coordenação', cenario: 'Visão de equipe', disc: 'IC', nextPath: '/dashboard/gestor', hint: 'Coordenação de outra unidade da rede: a visão de equipe de uma segunda escola, com o Tiago no início da jornada.' },
   { key: 'claudia', email: 'claudia.demo@vertho.ai', nome: 'Cláudia Amorim', papel: 'Direção', cenario: 'Visão da rede', disc: null, nextPath: '/dashboard', hint: 'A direção administra o programa: engajamento dos professores, evolução, aderência a cada função e a cultura da rede.' },
 ];
 
