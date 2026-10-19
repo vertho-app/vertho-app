@@ -1,6 +1,7 @@
 /**
  * Hook beforeSend do Sentry: remove PII e credenciais de erros antes do envio.
- * Aplicado em client/server/edge configs (erros e transações).
+ * Aplicado em client/server/edge configs (erros e transações), no `replay_event` do Replay e,
+ * via `scrubDados`, nos eventos de gravação dele (`lib/sentry-replay.ts`).
  *
  * Estratégia:
  *   - Emails → [email]
@@ -22,9 +23,11 @@
  * acesso do WhatsApp (`/entrar?t=`), que até 03/10/2026 ia inteiro no
  * `request.url`, no `query_string` e no breadcrumb de navegação; quem lesse o
  * evento no Sentry entrava como a pessoa. Os demais são os outros portões que
- * aceitam segredo pela URL (`/auth/callback`, webhooks, degustação).
+ * aceitam segredo pela URL (`/auth/callback`, webhooks, degustação). `sala` e `volta` (19/10/2026)
+ * são o ticket da sala e o código de volta da degustação, que até aqui só a gravação da degustação
+ * redigia (`lib/demo/degustacao-gravacao.ts`); o erro comum os mandava crus.
  */
-export const PARAMETROS_SECRETOS = ['t', 'token', 'token_hash', 'codigo', 'code', 'ticket', 'passe', 'key', 'secret'];
+export const PARAMETROS_SECRETOS = ['t', 'token', 'token_hash', 'codigo', 'code', 'ticket', 'passe', 'key', 'secret', 'sala', 'volta'];
 
 const LISTA = PARAMETROS_SECRETOS.join('|');
 // Em texto livre só depois de `?` ou `&` (uma URL); no query_string cru, também no início.
@@ -57,6 +60,11 @@ function scrubQueryString(qs) {
     return out;
   }
   return qs;
+}
+
+/** O scrub de estrutura, exposto para os eventos de gravação do Replay (`lib/sentry-replay.ts`). */
+export function scrubDados(obj) {
+  return scrubRecursivo(obj);
 }
 
 function scrubRecursivo(obj, depth = 0) {
@@ -112,6 +120,8 @@ export function scrubPII(event, hint) {
         data: scrubRecursivo(s.data),
       }));
     }
+    // Replay (`replay_event`): a lista das páginas por onde a sessão passou (19/10/2026).
+    if (Array.isArray(event.urls)) event.urls = event.urls.map(scrubTexto);
     // User: remove email, preserva ID opaco
     if (event.user) {
       delete event.user.email;

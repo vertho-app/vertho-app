@@ -32,7 +32,7 @@ const EMPRESA = {
   emailEncarregado: 'rodrigo@vertho.ai',
 };
 
-const ATUALIZACAO = '15 de outubro de 2026';
+const ATUALIZACAO = '19 de outubro de 2026';
 
 export const metadata: Metadata = {
   title: 'Termos de Uso e Política de Privacidade | Vertho',
@@ -296,7 +296,7 @@ export default function PoliticaPrivacidadePage() {
               'Hetzner, servidores que montam os vídeos personalizados (recebem o primeiro nome usado na saudação);',
               'Trigger.dev, execução de tarefas em segundo plano, como avaliações e planos gerados em lote e a produção de vídeos (processa os mesmos dados dessas etapas);',
               'Upstash, fila de mensagens e controle de limite de acessos (a fila transporta nome, telefone e link das mensagens enviadas em lote; o controle de limite usa o e-mail da sessão como chave);',
-              'Sentry, monitoramento de erros técnicos (e-mail, telefone, CPF e credenciais de acesso presentes em endereços são removidos antes do envio).',
+              'Sentry, monitoramento de erros técnicos da aplicação e das tarefas em segundo plano (e-mail, telefone, CPF e credenciais de acesso presentes em endereços são removidos antes do envio; das tarefas vai só o identificador técnico, sem o conteúdo processado). Quando ocorre um erro na tela, o Sentry recebe também a reconstrução da interação dos instantes anteriores, com todo o texto e os campos mascarados e imagens, vídeos e áudios bloqueados; essa reconstrução só existe quando há erro e não é feita nas telas de acesso.',
             ]}
           />
 

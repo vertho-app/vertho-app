@@ -19,8 +19,9 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'service-role-key-used-only-by-unit-te
 /**
  * Gravação de tela da degustação C (Sentry Replay, plano de 50 por mês).
  *
- * O que custa caro e não falha sozinho: ligar o replay para o app inteiro (gasta
- * a cota no primeiro dia, e o mesmo código atende clientes reais), mandar o
+ * O que custa caro e não falha sozinho: gravar SESSÃO no app inteiro (gasta a
+ * cota no primeiro dia, e o mesmo código atende clientes reais; desde 19/10 o app
+ * grava só a sessão com erro, `lib/sentry-replay.ts`), mandar o
  * código do convite para um terceiro, e a etiqueta do painel não bater com a do
  * navegador (a gravação existe e ninguém acha).
  */
@@ -89,18 +90,22 @@ describe('a cota de 50 gravações por mês (guard estático)', () => {
     expect(rastreados().length).toBeGreaterThan(100);
   });
 
-  it('o init do Sentry NÃO liga replay para o app inteiro', () => {
+  it('o init do Sentry grava o app inteiro SÓ EM ERRO (nenhuma sessão por padrão) e com a tela mascarada', () => {
+    // Até 19/10/2026 o init não podia ligar replay nenhum: a cota de 50 era da degustação. Desde
+    // então (pedido do dono), o app grava só a sessão que tem erro, com o texto mascarado
+    // (lib/sentry-replay.ts). Taxa de SESSÃO acima de zero continua proibida: gastaria a cota com
+    // cliente real sem erro nenhum.
     const fonte = semComentarios(readFileSync('sentry.client.config.js', 'utf8'));
-    expect(fonte).not.toMatch(/replayIntegration/);
-    // taxa de sessão ou de erro acima de zero gastaria a cota com cliente real
-    for (const taxa of fonte.matchAll(/replays(?:Session|OnError)SampleRate\s*:\s*([^,}\n]+)/g)) {
-      expect(Number(taxa[1].trim()), taxa[0]).toBe(0);
-    }
+    const sessao = [...fonte.matchAll(/replaysSessionSampleRate\s*:\s*([^,}\n]+)/g)];
+    expect(sessao).toHaveLength(1);
+    expect(Number(sessao[0][1].trim())).toBe(0);
+    expect(fonte).toMatch(/replayIntegration\(opcoesDoReplay\(\)\)/);
+    expect(fonte).toMatch(/podeGravarReplay\(window\.location\)/);
   });
 
-  it('só o componente da degustação referencia o replay (ninguém liga por outro caminho)', () => {
+  it('só o componente da degustação e o init do Sentry referenciam o replay (ninguém liga por outro caminho)', () => {
     const usam = rastreados().filter((arquivo) => /replayIntegration|lazyLoadIntegration|getReplay\(/.test(semComentarios(readFileSync(arquivo, 'utf8'))));
-    expect(usam).toEqual(['app/degustacao/gravacao-da-degustacao.tsx']);
+    expect(usam.sort()).toEqual(['app/degustacao/gravacao-da-degustacao.tsx', 'sentry.client.config.js']);
   });
 
   it('o componente só roda para convidado (precisa do código) e recusa navegador automatizado', () => {

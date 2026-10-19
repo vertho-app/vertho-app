@@ -31,6 +31,14 @@
  * Para religar: troque para `true`, confira a cota (`docs/AMBIENTE-DEMO.md`) e
  * suba. Tipado como `boolean` para o interruptor não virar código morto aos olhos
  * do compilador e do lint.
+ *
+ * ⚠️ ANTES DE RELIGAR (desde 19/10/2026): o app inteiro passou a carregar o Replay
+ * só em erro e com TODO o texto mascarado (`lib/sentry-replay.ts`). Na sala da
+ * degustação (`/dashboard`), o componente encontra essa integração já carregada
+ * (`Sentry.getReplay()`), reaproveita e chama `start()`: a gravação sairia com a
+ * máscara total do app, e não com `maskAllText: false` daqui, e sem o
+ * `redigirEventoDoSentry`. As gravações em erro do app também dividem a mesma
+ * cota de 50. Resolva as duas coisas antes de trocar o interruptor.
  */
 export const GRAVACAO_LIGADA: boolean = false;
 

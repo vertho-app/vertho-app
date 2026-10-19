@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario, conarhFollowup, conarhReenvioT0 } from '@/actions/cron-jobs';
 import { safeSecretEqual } from '@/lib/secure-compare';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { comMonitorDeCron } from '@/lib/sentry-cron';
 
 function clienteCron() { return createSupabaseAdmin(); }
 
@@ -77,6 +78,13 @@ export async function GET(req) {
     return NextResponse.json({ error: 'Cron não configurado' }, { status: 503 });
   }
 
+  // Monitor de cron no Sentry, só DEPOIS da autenticação (lib/sentry-cron.ts): pedido falso não
+  // vira check-in de erro, e um CRON_SECRET quebrado aparece lá como "missed".
+  return comMonitorDeCron(req, () => executarAcao(req, authHeader, cronSecret));
+}
+
+/** O corpo da rota, já autenticado. Separado do GET só para o monitor do Sentry embrulhar. */
+async function executarAcao(req, authHeader, cronSecret) {
   const { searchParams } = new URL(req.url);
   const action = searchParams.get('action');
 
