@@ -42,7 +42,7 @@ Proceda **sem perguntar** — deploy é autorizado de forma durável.
 
 ## ⚠️ Trigger.dev NÃO sobe no push
 
-Se algum arquivo em **`trigger/`** mudou, o `git push` **NÃO** deploya as tasks (só a Vercel). Elas precisam de **deploy MANUAL**: `npx trigger.dev deploy` pela receita da memória `reference_trigger_deploy` (o path "Vertho App" tem espaço e quebra o CLI → robocopy pra `C:\vertho-deploy2` + junction node_modules). Avise o usuário se detectar mudança em `trigger/`.
+Se algum arquivo em **`trigger/`** mudou, **ou um arquivo de `lib/`/`actions/` que uma task importa** (19/10/2026: os prompts do PDI e do blueprint em `lib/` chegam a `gerar-relatorios-batch`, `gerar-blueprint-batch` e `fluxo-completo`), o `git push` **NÃO** deploya as tasks (só a Vercel). Elas precisam de **deploy MANUAL** do COMMIT, pela receita da skill `trigger-dev` (`git archive` do SHA para pasta sem espaço + junção para `C:\vertho-nm-master\node_modules`). 🔴 Nunca `robocopy` do disco: ele está atrás do master e sobe código velho para todas as tasks. Avise o usuário se detectar a mudança.
 
 ## Nunca
 

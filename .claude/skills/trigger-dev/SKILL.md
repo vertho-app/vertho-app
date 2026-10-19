@@ -34,32 +34,34 @@ export const minhaTask = task({
 
 O repo está em `C:\GAS\Vertho App` (espaço). O builder remoto do Trigger transforma o espaço em `Vertho%20App` → **"Cannot find module '.../trigger.config.mjs'"**. `--force-local-build` exigiria Docker (indisponível nesta máquina).
 
-**Solução**: deployar a partir de um **path sem espaço**:
-1. `robocopy` do repo para `C:\vertho-deploy2` com a lista de exclusão **inteira** — sem ela a cópia
-   passa de 12 GB e o comando estoura o timeout:
-   ```powershell
-   robocopy "C:\GAS\Vertho App\nextjs-app" "C:\vertho-deploy2" /E `
-     /XD node_modules .next .git .vercel data-pipeline outputs spike-bundle build .claude video-spike `
-     /XF *.tsbuildinfo /NFL /NDL /NJH /NJS
-   ```
-2. Criar um **junction** de `node_modules` (ou reinstalar) para não duplicar.
-3. Rodar o deploy dali.
+**Solução**: deployar o **COMMIT** (não o disco) a partir de um **path sem espaço**.
 
-⚠️ **`/XD` não apaga o que já está lá.** `/E` copia por cima; diretório excluído que sobrou de uma
-cópia ANTIGA fica intacto para sempre. Medido 16/08/2026: `data-pipeline` já estava na lista de
-exclusão e mesmo assim havia **8,4 GB** dele em `C:\vertho-deploy2` — CAGED/RAIS descompactados e
-`br/out/base`, resto de um robocopy anterior à exclusão. Ao mudar a lista, apagar à mão o que ela
-passou a excluir.
+🔴 **Nunca copie o disco (`robocopy` de `C:\GAS\Vertho App\nextjs-app`).** O checkout principal fica
+atrás do master (19/10/2026: mais de 100 commits) e tem trabalho não commitado de outras sessões; a
+cópia subiria código velho, ou pela metade, para TODAS as tasks. O espelho antigo `C:\vertho-deploy2`
+tinha o mesmo defeito (parado em 14/08 enquanto o repo andava). Receita (deploys de 16/09 a 19/10):
 
-⚠️ **Espelho velho deploya código velho, sem avisar.** `C:\vertho-deploy2` é CÓPIA, não link:
-`npx trigger.dev deploy` sem re-sincronizar sobe as tasks do dia em que o robocopy rodou (a cópia
-estava parada em 14/08 enquanto o repo andava). Refazer o passo 1 SEMPRE antes de deployar.
-
-```bash
-npx trigger.dev@4.7.3 deploy
+```powershell
+git -C "C:\GAS\Vertho App\nextjs-app" fetch origin master
+git -C "C:\GAS\Vertho App\nextjs-app" archive --format=tar -o <scratchpad>\src.tar <SHA>
+New-Item -ItemType Directory C:\vertho-deploy-<sha>; tar -xf <scratchpad>\src.tar -C C:\vertho-deploy-<sha>
+New-Item -ItemType Junction -Path C:\vertho-deploy-<sha>\node_modules -Target "C:\vertho-nm-master\node_modules"
+Set-Location C:\vertho-deploy-<sha>; npx --yes trigger.dev@<versão do package.json DO COMMIT> deploy
 ```
 
-- CLI precisa casar com os packages pinados (`@4.7.3`).
+1. **`node_modules`:** `C:\vertho-nm-master\node_modules` (instalado do `package.json`/lock do master). O do
+   disco estava com `@trigger.dev` 4.4.6 e `@sentry` 10.53 contra 4.7.3/10.76 do commit (19/10/2026).
+2. **CLI = versão do commit:** `git show <SHA>:package.json`. Versão diferente aborta com "Version mismatch".
+3. **Carona:** o deploy leva TUDO que outras sessões subiram até o `<SHA>` e que chega às tasks
+   (`git log --since=<deployedAt da versão no ar> <SHA> -- trigger lib actions trigger.config.ts package.json`).
+   Diga ao dono o que vai junto ANTES. Qual task usa um arquivo de `lib/`: pergunte ao bundler (memória).
+4. **Commit que não é o topo do master:** só se a versão no ar for ANTERIOR a ele
+   (`GET https://api.trigger.dev/api/v1/deployments?limit=2`, Bearer `TRIGGER_SECRET_KEY`); senão você
+   desfaz o deploy de outra sessão.
+5. **Limpeza:** tire a junção com `[IO.Directory]::Delete(<pasta>\node_modules, $false)` (não segue o link).
+   A trava do ambiente não deixa apagar `C:\vertho-deploy-*`: sem a junção a pasta é inofensiva, e o dono apaga.
+
+- CLI precisa casar com os packages pinados (hoje `@4.7.3`).
 - Trigger project: `proj_wunoneqnozqrfzlvpqjv`.
 - Receita detalhada: memória `reference_trigger_deploy` e skill `deploy`.
 
@@ -74,6 +76,7 @@ npx trigger.dev@4.7.3 deploy
 - Pressumir que editar `trigger/` + `git push` atualiza a task em produção (não atualiza).
 - Rodar `npx trigger.dev deploy` (sem `@4.7.3`) — pode divergir dos packages pinados.
 - Deployar a partir de `C:\GAS\Vertho App` direto (espaço quebra o builder).
+- Copiar o DISCO para deployar (robocopy): sobe código velho ou pela metade. Deploye o COMMIT (`git archive`).
 
 ## Fontes
 
