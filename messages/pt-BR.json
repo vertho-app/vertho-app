@@ -5911,6 +5911,7 @@
     },
     "limitReached": "Mostrando {shown} de {total} linhas (limite atingido). Os totais abaixo somam só as linhas mostradas. Aumente o \"Limite\" ou filtre por UF, região metropolitana ou rede para refinar.",
     "limitReachedFullTotals": "A tabela mostra {shown} de {total} linhas (limite atingido); os totais abaixo somam as {total}. Aumente o \"Limite\" para ver mais linhas na tabela, ou filtre por UF, região metropolitana ou rede.",
+    "partialOrder": "Atenção: a ordenação vale só entre essas {shown} linhas, não sobre as {total} do filtro.",
     "footerNote": "TAM = (profs + gestores) × R$/mês configurado. Fit pedagógico = 0.4 + 0.3×(%sem pós) + 0.3×(%jovens). Score = TAM × Fit Ped × Fit Fin (INSE-dependente). INSE INEP: 1=mais baixo, 6=mais alto. Privadas pontuam alto com INSE alto (mais bolso); públicas pontuam alto com INSE baixo (mais demanda). Valores INSE com <tilde>~</tilde> são <strong>inferidos</strong> via Censo Escolar (proxy) para privadas sem cobertura Saeb oficial."
   },
   "CenarioHipotetico": {

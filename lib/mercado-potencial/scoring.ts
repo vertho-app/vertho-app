@@ -20,10 +20,24 @@ export type MercadoScoreResult = {
 
 const DEFAULTS = { precoProf: 100, precoGestor: 100, idadeOnboarding: 29 };
 
+/**
+ * Preços e idade de corte efetivos. Os padrões vivem só aqui: a ordenação em SQL
+ * (`mercado_potencial_linhas`, mig 293) recebe estes MESMOS valores.
+ *
+ * 🔴 A conta de `calcularMercadoScores` está espelhada naquela função SQL, que ordena a
+ * tabela sobre o filtro inteiro. Mudou a fórmula aqui, mude lá: o guard
+ * `mercado-potencial-ordem-global.test.ts` falha até as duas serem revistas juntas.
+ */
+export function parametrosDoScore(filtros: MercadoScoringFilters) {
+  return {
+    precoProf: filtros.precoProf ?? DEFAULTS.precoProf,
+    precoGestor: filtros.precoGestor ?? DEFAULTS.precoGestor,
+    idadeCorte: filtros.idadeOnboarding ?? DEFAULTS.idadeOnboarding,
+  };
+}
+
 export function calcularMercadoScores(row: any, filtros: MercadoScoringFilters): MercadoScoreResult {
-  const precoProf = filtros.precoProf ?? DEFAULTS.precoProf;
-  const precoGestor = filtros.precoGestor ?? DEFAULTS.precoGestor;
-  const idadeCorte = filtros.idadeOnboarding ?? DEFAULTS.idadeOnboarding;
+  const { precoProf, precoGestor, idadeCorte } = parametrosDoScore(filtros);
   const profs = Number(row.qt_professores || 0);
 
   const jovens = idadeCorte <= 24

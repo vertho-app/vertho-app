@@ -16,10 +16,10 @@ import { escaparLike } from '@/lib/sql-like';
  * Vive aqui, e não no `actions.ts`, porque um arquivo `'use server'` só exporta ação.
  */
 
-export type VisaoDosTotais = 'municipio' | 'rede' | 'escola';
+export type VisaoDoFiltro = 'municipio' | 'rede' | 'escola';
 
 /** Os filtros que restringem as LINHAS (preço, idade e ordem não restringem nada). */
-export interface FiltrosDosTotais {
+export interface FiltrosDoBanco {
   uf?: string[];
   regioesMetropolitanas?: unknown;
   redes?: string[];
@@ -31,12 +31,13 @@ export interface FiltrosDosTotais {
 }
 
 /**
- * Parâmetros do RPC. Cada um sai do MESMO helper que o `aplicarFiltrosBase` da action
- * usa, com a mesma regra de "ligado": a soma tem que ser do conjunto que o `count` da
- * tabela conta, e `totaisDaLeitura` confere as duas contagens antes de mostrar.
+ * Parâmetros do filtro para os RPCs (`mercado_potencial_totais` e `mercado_potencial_linhas`,
+ * que filtram pela mesma `mercado_potencial_base`, mig 293). Cada um sai do MESMO helper que
+ * o `aplicarFiltrosBase` da action usa, com a mesma regra de "ligado": o conjunto tem que ser
+ * o que o `count` do PostgREST conta, e a action confere as contagens antes de usar.
  * `null` = não filtra; região desconhecida vira `[]` (nenhuma linha), como na tabela.
  */
-export function argsDosTotais(visao: VisaoDosTotais, filtros: FiltrosDosTotais) {
+export function argsDoFiltro(visao: VisaoDoFiltro, filtros: FiltrosDoBanco) {
   const gestores = visao === 'escola' ? GESTORES_NA_ESCOLA : GESTORES_NA_MV;
   const gestMin = corteDeMinimo(filtros.gestoresMin);
   const cidades = termosDeCidade(filtros.municipioBusca);
@@ -127,11 +128,11 @@ export interface OpcoesDaLeitura { totais?: boolean }
  * O log leva só a mensagem do banco, sem filtro nem linha.
  */
 export async function lerSomasDoFiltro(
-  sb: any, visao: VisaoDosTotais, filtros: FiltrosDosTotais, opcoes: OpcoesDaLeitura = {},
+  sb: any, visao: VisaoDoFiltro, filtros: FiltrosDoBanco, opcoes: OpcoesDaLeitura = {},
 ): Promise<SomasDoFiltro | null> {
   if (opcoes.totais === false) return null;
   try {
-    const { data, error } = await sb.rpc('mercado_potencial_totais', argsDosTotais(visao, filtros));
+    const { data, error } = await sb.rpc('mercado_potencial_totais', argsDoFiltro(visao, filtros));
     if (error) {
       console.error('[mercado-potencial] totais do filtro falharam:', error.message);
       return null;
@@ -145,7 +146,7 @@ export async function lerSomasDoFiltro(
 
 /** Cartões do filtro inteiro, só se a soma for do MESMO conjunto que a tabela contou. */
 export function totaisDaLeitura(
-  visao: VisaoDosTotais, somas: SomasDoFiltro | null, totalNoBanco: number | null | undefined, filtros: MercadoScoringFilters,
+  visao: VisaoDoFiltro, somas: SomasDoFiltro | null, totalNoBanco: number | null | undefined, filtros: MercadoScoringFilters,
 ): TotaisDoFiltro | null {
   const totais = consolidarTotais(somas, totalNoBanco, filtros);
   if (somas && !totais) {

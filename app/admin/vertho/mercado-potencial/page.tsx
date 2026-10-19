@@ -112,7 +112,8 @@ function MercadoTab() {
   const [tab, setTab] = useState<Tab>('municipio');
   const [rows, setRows] = useState<any[]>([]);
   // O que o servidor leu: total no banco para estes filtros e se o limite CORTOU linhas.
-  const [leitura, setLeitura] = useState<{ totalNoBanco: number | null; truncado: boolean }>({ totalNoBanco: null, truncado: false });
+  // `ordemGlobal`: a tabela traz as primeiras do filtro INTEIRO na ordem pedida (senão, só as lidas foram ordenadas).
+  const [leitura, setLeitura] = useState<{ totalNoBanco: number | null; truncado: boolean; ordemGlobal: boolean }>({ totalNoBanco: null, truncado: false, ordemGlobal: true });
   // Cartões somados no banco sobre o filtro INTEIRO (não só as linhas da tabela). `null` = não vieram
   // ou não bateram com a contagem da tabela: aí a tela soma o que mostra e o aviso diz isso.
   const [totaisDoFiltro, setTotaisDoFiltro] = useState<TotaisDoFiltro | null>(null);
@@ -185,7 +186,7 @@ function MercadoTab() {
       if (r.error) setError(r.error);
       else {
         setRows(r.rows || []);
-        setLeitura({ totalNoBanco: r.totalNoBanco ?? null, truncado: !!r.truncado });
+        setLeitura({ totalNoBanco: r.totalNoBanco ?? null, truncado: !!r.truncado, ordemGlobal: r.ordemGlobal !== false });
         setTotaisDoFiltro(r.totais ?? null);
       }
     } catch (e: any) {
@@ -406,6 +407,8 @@ function MercadoTab() {
               {totaisDoFiltro
                 ? t('limitReachedFullTotals', { shown: fmt.int(rows.length, locale), total: fmt.int(leitura.totalNoBanco ?? totaisDoFiltro.linhas, locale) })
                 : t('limitReached', { shown: fmt.int(rows.length, locale), total: fmt.int(leitura.totalNoBanco ?? rows.length, locale) })}
+              {/* A ordem não veio do banco (falhou ou divergiu): as linhas são as primeiras pela chave, ordenadas entre si */}
+              {!leitura.ordemGlobal && <> {t('partialOrder', { shown: fmt.int(rows.length, locale), total: fmt.int(leitura.totalNoBanco ?? rows.length, locale) })}</>}
             </p>
           </div>
         )}

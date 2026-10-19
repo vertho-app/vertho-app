@@ -12,8 +12,11 @@ import {
   GESTORES_NA_ESCOLA, GESTORES_NA_MV, corteDeMinimo, limiteDaConsulta, municipiosDasRegioes, orDeCidades,
   resumoDaLeitura, termosDeCidade, type ColunaGestores,
 } from '@/lib/mercado-potencial/filtros';
-import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
-import { lerSomasDoFiltro, totaisDaLeitura, type OpcoesDaLeitura } from '@/lib/mercado-potencial/totais';
+import { linhaDeEscola, linhaDeMunicipio, linhaDeRede } from '@/lib/mercado-potencial/linhas';
+import {
+  contagemConfere, lerLinhasOrdenadas, normalizarOrdem, ordemConfere, ordenarLinhas,
+} from '@/lib/mercado-potencial/ordem-global';
+import { lerSomasDoFiltro, totaisDaLeitura, type OpcoesDaLeitura, type VisaoDoFiltro } from '@/lib/mercado-potencial/totais';
 import { escaparLike } from '@/lib/sql-like';
 
 /**
@@ -109,6 +112,59 @@ function aplicarFiltrosBase(
   return query;
 }
 
+interface ConsultaDaVisao {
+  tabela: string;
+  colunas: string;
+  /** Chave única da MV, na ordem: é a ordem da leitura em páginas e o desempate do sort. */
+  chaves: string[];
+  /** `aplicarFiltrosBase` + o que mais a visão filtra (redes). */
+  filtrar: (q: any) => any;
+}
+
+/**
+ * Lê as linhas de uma visão. Caminho normal: as N primeiras do FILTRO INTEIRO na ordem da
+ * tela, ordenadas no banco (mig 293), com a contagem conferida pelo PostgREST (o filtro do SQL
+ * tem que ser o deste arquivo). Se o RPC falhar ou a contagem não bater, lê em PÁGINAS pela
+ * chave (o PostgREST corta cada consulta em 1.000 linhas sem avisar) e a ordem só vale entre
+ * as linhas lidas. Os cartões somam o filtro inteiro no banco, em paralelo.
+ */
+async function lerVisao(sb: any, visao: VisaoDoFiltro, filtros: MercadoFilters, limit: number, opcoes: OpcoesDaLeitura, consulta: ConsultaDaVisao) {
+  const ordem = normalizarOrdem(filtros);
+  const [ordenadas, somas] = await Promise.all([
+    lerLinhasOrdenadas(sb, visao, filtros, ordem, limit),
+    lerSomasDoFiltro(sb, visao, filtros, opcoes),
+  ]);
+  if (ordenadas) {
+    const { count, error } = await consulta.filtrar(sb.from(consulta.tabela).select(consulta.chaves[0], { count: 'exact', head: true }));
+    if (contagemConfere(visao, ordenadas.total, count ?? null, error?.message)) {
+      return { ordem, somas, data: ordenadas.linhas, total: ordenadas.total, doBanco: true };
+    }
+  }
+  const r = await lerTudoPaginado((de, ate) => {
+    let q = consulta.filtrar(sb.from(consulta.tabela).select(consulta.colunas, de === 0 ? { count: 'exact' } : undefined));
+    for (const chave of consulta.chaves) q = q.order(chave);
+    return q.range(de, ate);
+  }, { max: limit });
+  return { ordem, somas, data: r.data, total: r.total, error: r.error, doBanco: false };
+}
+
+/**
+ * Ordena e monta a resposta. `ordemGlobal`: a tabela traz as N primeiras do filtro inteiro na
+ * ordem pedida. Vale quando a ordem veio do banco e bate com os valores do TS, ou quando a
+ * leitura por chave não cortou nada.
+ */
+function fecharLeitura(visao: VisaoDoFiltro, rows: any[], leitura: Awaited<ReturnType<typeof lerVisao>>, limit: number, filtros: MercadoFilters) {
+  const resumo = resumoDaLeitura(rows.length, leitura.total, limit);
+  const ordemGlobal = leitura.doBanco ? ordemConfere(rows, leitura.ordem, visao) : !resumo.truncado;
+  return {
+    ok: true as const,
+    rows: ordenarLinhas(rows, leitura.ordem),
+    ...resumo,
+    totais: totaisDaLeitura(visao, leitura.somas, leitura.total, filtros),
+    ordemGlobal,
+  };
+}
+
 // ── 1. Lista por município ──────────────────────────────────────────────────
 
 export async function loadMercadoMunicipios(filtros: MercadoFilters = {}, opcoes: OpcoesDaLeitura = {}) {
@@ -117,45 +173,17 @@ export async function loadMercadoMunicipios(filtros: MercadoFilters = {}, opcoes
   // ~5.570 municípios no Brasil — default cobre o universo inteiro.
   const limit = limiteDaConsulta(filtros.limit, 6000, 10000);
 
-  // Em PÁGINAS, ordenadas pela chave (índice único da MV): o PostgREST corta cada
-  // consulta em 1.000 linhas sem avisar, mesmo com `limit` maior. Os cartões somam
-  // o filtro inteiro no banco, em paralelo.
-  const [{ data, error, total }, somas] = await Promise.all([
-    lerTudoPaginado((de, ate) => {
-      let q = sb.from('diag_mv_mercado_municipio')
-        .select('municipio_ibge, municipio, uf, microrregiao, qt_escolas, qt_escolas_municipal, qt_escolas_estadual, qt_escolas_federal, qt_escolas_privada, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial, score_conectividade', de === 0 ? { count: 'exact' } : undefined);
-      q = aplicarFiltrosBase(q, filtros);
-      return q.order('municipio_ibge').range(de, ate);
-    }, { max: limit }),
-    lerSomasDoFiltro(sb, 'municipio', filtros, opcoes),
-  ]);
-  if (error) return { error };
+  const leitura = await lerVisao(sb, 'municipio', filtros, limit, opcoes, {
+    tabela: 'diag_mv_mercado_municipio',
+    colunas: 'municipio_ibge, municipio, uf, microrregiao, qt_escolas, qt_escolas_municipal, qt_escolas_estadual, qt_escolas_federal, qt_escolas_privada, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial, score_conectividade',
+    chaves: ['municipio_ibge'],
+    filtrar: (q) => aplicarFiltrosBase(q, filtros),
+  });
+  if (leitura.error) return { error: leitura.error };
 
-  let rows = (data || []).map((r: any) => ({
-    id: r.municipio_ibge,
-    nome: r.municipio,
-    uf: r.uf,
-    microrregiao: r.microrregiao,
-    qt_escolas: Number(r.qt_escolas),
-    qt_escolas_breakdown: {
-      municipal: Number(r.qt_escolas_municipal || 0),
-      estadual: Number(r.qt_escolas_estadual || 0),
-      federal: Number(r.qt_escolas_federal || 0),
-      privada: Number(r.qt_escolas_privada || 0),
-    },
-    qt_professores: Number(r.qt_professores || 0),
-    qt_docs_0_24: Number(r.qt_docs_0_24 || 0),
-    qt_docs_jovens: Number(r.qt_docs_jovens || 0),
-    qt_docs_pos: Number(r.qt_docs_pos || 0),
-    qt_gestores: Number(r.qt_gestores || 0),
-    inse_medio: r.inse_medio != null ? Number(r.inse_medio) : null,
-    pct_inse_oficial: r.pct_inse_oficial != null ? Number(r.pct_inse_oficial) : null,
-    score_conectividade: r.score_conectividade,
-    ...calcularMercadoScores(r, filtros),
-  }));
+  const rows = (leitura.data || []).map((r: any) => linhaDeMunicipio(r, filtros));
 
-  rows = ordenarRows(rows, filtros);
-  return { ok: true, rows, ...resumoDaLeitura(rows.length, total, limit), totais: totaisDaLeitura('municipio', somas, total, filtros) };
+  return fecharLeitura('municipio', rows, leitura, limit, filtros);
 }
 
 // ── 2. Lista por rede (município × rede) ────────────────────────────────────
@@ -167,38 +195,20 @@ export async function loadMercadoRedes(filtros: MercadoFilters = {}, opcoes: Opc
   // 8000 cobre maioria; use filtros pra reduzir mais.
   const limit = limiteDaConsulta(filtros.limit, 8000, 25000);
 
-  const [{ data, error, total }, somas] = await Promise.all([
-    lerTudoPaginado((de, ate) => {
-      let q = sb.from('diag_mv_mercado_rede')
-        .select('municipio_ibge, municipio, uf, rede, qt_escolas, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial', de === 0 ? { count: 'exact' } : undefined);
+  const leitura = await lerVisao(sb, 'rede', filtros, limit, opcoes, {
+    tabela: 'diag_mv_mercado_rede',
+    colunas: 'municipio_ibge, municipio, uf, rede, qt_escolas, qt_professores, qt_docs_0_24, qt_docs_jovens, qt_docs_pos, qt_gestores, inse_medio, pct_inse_oficial',
+    chaves: ['municipio_ibge', 'rede'],
+    filtrar: (q) => {
       q = aplicarFiltrosBase(q, filtros);
-      if (filtros.redes?.length) q = q.in('rede', filtros.redes);
-      return q.order('municipio_ibge').order('rede').range(de, ate);
-    }, { max: limit }),
-    lerSomasDoFiltro(sb, 'rede', filtros, opcoes),
-  ]);
-  if (error) return { error };
+      return filtros.redes?.length ? q.in('rede', filtros.redes) : q;
+    },
+  });
+  if (leitura.error) return { error: leitura.error };
 
-  let rows = (data || []).map((r: any) => ({
-    id: `${r.municipio_ibge}::${r.rede}`,
-    nome: `${r.municipio} — ${r.rede}`,
-    uf: r.uf,
-    rede: r.rede,
-    municipio: r.municipio,
-    municipio_ibge: r.municipio_ibge,
-    qt_escolas: Number(r.qt_escolas),
-    qt_professores: Number(r.qt_professores || 0),
-    qt_docs_0_24: Number(r.qt_docs_0_24 || 0),
-    qt_docs_jovens: Number(r.qt_docs_jovens || 0),
-    qt_docs_pos: Number(r.qt_docs_pos || 0),
-    qt_gestores: Number(r.qt_gestores || 0),
-    inse_medio: r.inse_medio != null ? Number(r.inse_medio) : null,
-    pct_inse_oficial: r.pct_inse_oficial != null ? Number(r.pct_inse_oficial) : null,
-    ...calcularMercadoScores(r, filtros),
-  }));
+  const rows = (leitura.data || []).map((r: any) => linhaDeRede(r, filtros));
 
-  rows = ordenarRows(rows, filtros);
-  return { ok: true, rows, ...resumoDaLeitura(rows.length, total, limit), totais: totaisDaLeitura('rede', somas, total, filtros) };
+  return fecharLeitura('rede', rows, leitura, limit, filtros);
 }
 
 // ── 3. Lista por escola ─────────────────────────────────────────────────────
@@ -207,76 +217,26 @@ export async function loadMercadoEscolas(filtros: MercadoFilters = {}, opcoes: O
   await requireAdminAction();
   const sb = await requireAdminSupabase();
   // ~180k escolas no Brasil — default conservador 1000, force user a filtrar
-  // por UF/rede/INSE pra ver mais. Cap 10000 protege o browser. Os cartões
-  // somam o filtro inteiro no banco, sem esse teto.
+  // por UF/rede/INSE pra ver mais. Cap 10000 protege o browser. A ordem e os
+  // cartões cobrem o filtro inteiro no banco, sem esse teto.
   const limit = limiteDaConsulta(filtros.limit, 1000, 10000);
 
-  const [{ data, error, total }, somas] = await Promise.all([
-    lerTudoPaginado((de, ate) => {
-      let q = sb.from('diag_mv_mercado_escola')
-        .select('codigo_inep, nome, municipio, municipio_ibge, uf, rede, inse_grupo, inse_efetivo, inse_fonte, etapas, qt_professores, qt_doc_0_24, qt_docs_jovens, qt_docs_pos, qt_coord_pedag, qt_diretor_proxy, score_conectividade', de === 0 ? { count: 'exact' } : undefined);
+  const leitura = await lerVisao(sb, 'escola', filtros, limit, opcoes, {
+    tabela: 'diag_mv_mercado_escola',
+    colunas: 'codigo_inep, nome, municipio, municipio_ibge, uf, rede, inse_grupo, inse_efetivo, inse_fonte, etapas, qt_professores, qt_doc_0_24, qt_docs_jovens, qt_docs_pos, qt_coord_pedag, qt_diretor_proxy, score_conectividade',
+    chaves: ['codigo_inep'],
+    filtrar: (q) => {
       // Escola usa `inse_efetivo` (oficial OR proxy) pra filtros — pra que privadas
       // sem INSE oficial ainda apareçam quando o range cobrir o proxy.
       q = aplicarFiltrosBase(q, filtros, 'inse_efetivo', GESTORES_NA_ESCOLA);
-      if (filtros.redes?.length) q = q.in('rede', filtros.redes);
-      return q.order('codigo_inep').range(de, ate);
-    }, { max: limit }),
-    lerSomasDoFiltro(sb, 'escola', filtros, opcoes),
-  ]);
-  if (error) return { error };
-
-  let rows = (data || []).map((r: any) => {
-    const qt_gestores = Number(r.qt_coord_pedag || 0) + Number(r.qt_diretor_proxy || 0);
-    // Pra escola, score usa inse_efetivo (oficial OR proxy do Censo).
-    const enriched = {
-      ...r,
-      qt_professores: Number(r.qt_professores || 0),
-      qt_docs_0_24: Number(r.qt_doc_0_24 || 0),   // escola tem qt_doc_0_24 singular
-      qt_docs_jovens: Number(r.qt_docs_jovens || 0),
-      qt_docs_pos: Number(r.qt_docs_pos || 0),
-      qt_gestores,
-      inse_medio: r.inse_efetivo != null ? Number(r.inse_efetivo) : null,
-      qt_escolas: 1,
-    };
-    return {
-      id: r.codigo_inep,
-      nome: r.nome,
-      uf: r.uf,
-      rede: r.rede,
-      municipio: r.municipio,
-      municipio_ibge: r.municipio_ibge,
-      codigo_inep: r.codigo_inep,
-      etapas: r.etapas,
-      qt_escolas: 1,
-      qt_professores: enriched.qt_professores,
-      qt_docs_0_24: enriched.qt_docs_0_24,
-      qt_docs_jovens: enriched.qt_docs_jovens,
-      qt_docs_pos: enriched.qt_docs_pos,
-      qt_gestores: enriched.qt_gestores,
-      inse_medio: enriched.inse_medio,
-      inse_fonte: r.inse_fonte || null,             // 'oficial' | 'inferido'
-      inse_grupo_oficial: r.inse_grupo != null ? Number(r.inse_grupo) : null,
-      score_conectividade: r.score_conectividade,
-      ...calcularMercadoScores(enriched, filtros),
-    };
+      return filtros.redes?.length ? q.in('rede', filtros.redes) : q;
+    },
   });
+  if (leitura.error) return { error: leitura.error };
 
-  rows = ordenarRows(rows, filtros);
-  return { ok: true, rows, ...resumoDaLeitura(rows.length, total, limit), totais: totaisDaLeitura('escola', somas, total, filtros) };
-}
+  const rows = (leitura.data || []).map((r: any) => linhaDeEscola(r, filtros));
 
-// ── Ordenação universal ─────────────────────────────────────────────────────
-
-function ordenarRows(rows: any[], filtros: MercadoFilters): any[] {
-  const orderBy = filtros.orderBy || 'score_completo';
-  const orderDir = filtros.orderDir || 'desc';
-  const mult = orderDir === 'asc' ? 1 : -1;
-  return rows.sort((a, b) => {
-    const av = a[orderBy] ?? -Infinity;
-    const bv = b[orderBy] ?? -Infinity;
-    if (av === bv) return 0;
-    return av < bv ? -1 * mult : 1 * mult;
-  });
+  return fecharLeitura('escola', rows, leitura, limit, filtros);
 }
 
 // ── Exportação em XLSX (template fixo) ──────────────────────────────────────
@@ -308,7 +268,8 @@ async function gateEquipe(
  *
  * Gate: `exports.run` + conta da equipe vertho.ai. Lê TODAS as linhas do filtro até
  * `LIMITE_EXPORTACAO`, sem o "Limite" da tela (ele existe para proteger o navegador, e
- * quem exporta quer a base inteira). Na visão Escola, anexa o contato enriquecido VIGENTE
+ * quem exporta quer a base inteira); acima do teto, vão as primeiras do filtro inteiro na
+ * ordem da tela. Na visão Escola, anexa o contato enriquecido VIGENTE
  * de cada escola (só e-mail verificado; quem pediu para sair fica de fora). Cada exportação
  * vai para a auditoria.
  */
@@ -372,7 +333,7 @@ const RECUSA_FORA_DA_EQUIPE = 'O enriquecimento de contatos é só da equipe ver
 export async function planejarEnriquecimento(filtros: MercadoFilters = {}): Promise<{ ok: true; plano: PlanoEnriquecimento } | { ok: false; error: string }> {
   const gate = await gateEquipe('mercado.contatos.enrich', RECUSA_SEM_PERMISSAO, RECUSA_FORA_DA_EQUIPE);
   if (gate.ok === false) return { ok: false, error: gate.error };
-  // Lê o filtro inteiro (até o teto da exportação) e só então ordena: cortar antes pegaria as primeiras por INEP.
+  // As N primeiras do filtro INTEIRO na ordem da tela (até o teto da exportação), ordenadas no banco.
   const r: any = await loadMercadoEscolas({ ...filtros, limit: LIMITE_EXPORTACAO }, { totais: false });
   if (r.error) return { ok: false, error: r.error };
   if (!r.rows?.length) return { ok: false, error: 'Nenhuma escola com estes filtros.' };

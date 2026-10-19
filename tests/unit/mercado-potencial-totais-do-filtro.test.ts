@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { criarSupabaseMock, type Chamada } from '../helpers/supabase-mock';
 import { municipiosDasRegioes } from '@/lib/mercado-potencial/filtros';
-import { argsDosTotais, consolidarTotais, somasDoRpc, type SomasDoFiltro } from '@/lib/mercado-potencial/totais';
+import { argsDoFiltro, consolidarTotais, somasDoRpc, type SomasDoFiltro } from '@/lib/mercado-potencial/totais';
 import { REGIOES_METROPOLITANAS } from '@/lib/mercado-potencial/regioes-metropolitanas';
 import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
 
@@ -36,7 +36,9 @@ function novoBanco(n: number, rpc?: (args: any) => any) {
     },
     contagem: () => banco.length,
   });
-  if (rpc) sb.client.rpc.mockImplementation(async (_nome: string, args: any) => rpc(args));
+  // Só o RPC dos totais responde aqui; o das linhas ordenadas (mig 293) devolve nada e a
+  // action lê em páginas pela chave (o caminho dele tem teste próprio).
+  if (rpc) sb.client.rpc.mockImplementation(async (nome: string, args: any) => (nome === 'mercado_potencial_totais' ? rpc(args) : { data: null, error: null }));
 }
 
 /** O que o banco somaria para o filtro, linha a linha (as linhas do banco fingido não são filtradas). */
@@ -112,32 +114,32 @@ describe('somasDoRpc', () => {
   });
 });
 
-describe('argsDosTotais', () => {
+describe('argsDoFiltro', () => {
   it('sem filtro, nada filtra', () => {
-    expect(argsDosTotais('escola', {})).toEqual({
+    expect(argsDoFiltro('escola', {})).toEqual({
       p_visao: 'escola', p_ufs: null, p_municipios_ibge: null, p_inse_min: null, p_inse_max: null,
       p_professores_min: null, p_gestores_coluna_min: null, p_cidades: null, p_redes: null,
     });
   });
 
   it('região que não existe vira lista VAZIA (nenhuma linha), não "sem filtro"', () => {
-    expect(argsDosTotais('rede', { regioesMetropolitanas: ['nao-existe'] }).p_municipios_ibge).toEqual([]);
-    expect(argsDosTotais('rede', { regioesMetropolitanas: [] }).p_municipios_ibge).toBeNull();
+    expect(argsDoFiltro('rede', { regioesMetropolitanas: ['nao-existe'] }).p_municipios_ibge).toEqual([]);
+    expect(argsDoFiltro('rede', { regioesMetropolitanas: [] }).p_municipios_ibge).toBeNull();
   });
 
   it('gestores: na escola desconta o diretor proxy (coord >= N - 1); nas MVs, não', () => {
-    expect(argsDosTotais('escola', { gestoresMin: 6 }).p_gestores_coluna_min).toBe(5);
-    expect(argsDosTotais('rede', { gestoresMin: 6 }).p_gestores_coluna_min).toBe(6);
-    expect(argsDosTotais('municipio', { gestoresMin: 0 }).p_gestores_coluna_min).toBeNull();
+    expect(argsDoFiltro('escola', { gestoresMin: 6 }).p_gestores_coluna_min).toBe(5);
+    expect(argsDoFiltro('rede', { gestoresMin: 6 }).p_gestores_coluna_min).toBe(6);
+    expect(argsDoFiltro('municipio', { gestoresMin: 0 }).p_gestores_coluna_min).toBeNull();
   });
 
   it('redes não valem na visão município (a lista também ignora)', () => {
-    expect(argsDosTotais('municipio', { redes: ['PRIVADA'] }).p_redes).toBeNull();
-    expect(argsDosTotais('escola', { redes: ['PRIVADA'] }).p_redes).toEqual(['PRIVADA']);
+    expect(argsDoFiltro('municipio', { redes: ['PRIVADA'] }).p_redes).toBeNull();
+    expect(argsDoFiltro('escola', { redes: ['PRIVADA'] }).p_redes).toEqual(['PRIVADA']);
   });
 
   it('cidade: padrão ILIKE com % e _ escapados, um por cidade', () => {
-    expect(argsDosTotais('escola', { municipioBusca: 'campinas, sta_maria' }).p_cidades).toEqual(['%campinas%', '%sta\\_maria%']);
+    expect(argsDoFiltro('escola', { municipioBusca: 'campinas, sta_maria' }).p_cidades).toEqual(['%campinas%', '%sta\\_maria%']);
   });
 });
 
@@ -218,7 +220,7 @@ describe('as três visões devolvem os cartões do filtro inteiro', () => {
     it(`${v.nome}: quem pede só as linhas (exportação, plano) não paga a soma`, async () => {
       novoBanco(30, () => ({ data: [somasDe(banco, v.visao)], error: null }));
       const r: any = await v.carregar({}, { totais: false });
-      expect(sb.client.rpc).not.toHaveBeenCalled();
+      expect(sb.client.rpc).not.toHaveBeenCalledWith('mercado_potencial_totais', expect.anything());
       expect(r.totais).toBeNull();
       expect(r.rows).toHaveLength(30);
     });
