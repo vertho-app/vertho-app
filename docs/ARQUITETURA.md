@@ -57,7 +57,7 @@
 | **Testes** | **vitest** (**3.365 testes / 331 arquivos**, medido 31/08/2026 — roda no CI) + Playwright + smoke-test.js. ⚠️ `npm run lint` quebrado desde o Next 16 | 4.1 | ✅ |
 | **i18n** | next-intl (pt-BR / pt-PT / es-ES) | — | ✅ |
 | **Hospedagem** | Vercel (Serverless) | — | ✅ |
-| **DNS/CDN** | Cloudflare (Full Strict SSL) | — | ✅ |
+| **DNS** | 101domain; sem Cloudflare e sem CDN na frente: a Vercel serve direto (medido 19/10/2026, ver §15) | — | ✅ |
 | **Dominio** | vertho.ai (apex no Gamma) + app.vertho.ai (auth/admin) + *.vertho.ai (tenants) + radar.vertho.ai + imprensa.vertho.ai. **radarbett.vertho.ai DESCONTINUADO** (301 → radar/vertho.ai). vertho.com.br legado, mantido no proxy so por compat de DNS antigo. | — | ✅ |
 | **Pipeline de dados** | DuckDB + Parquet + Python (RadarEmpresas, local) | — | ✅ |
 | **CI/CD** | GitHub Actions (smoke test no push) | — | ✅ |
@@ -1957,7 +1957,12 @@ Dois mecanismos que fazem coisas diferentes (conferido em 22/09/2026):
 ```
 GitHub: vertho-app/vertho-app (publico)
 Vercel: vertho-app (deploy via git push)
-Cloudflare: DNS + CDN (CNAME @ e * → cname.vercel-dns.com, SSL Full Strict)
+DNS: 101domain (ns1/ns2/ns5.101domain.com). SEM Cloudflare e sem CDN/proxy na frente: a Vercel
+  serve direto e emite o certificado (medido 19/10/2026: app e tenants respondem `Server: Vercel`,
+  sem `cf-ray`). Os nameservers da 101domain rodam em IPs da Cloudflare, mas isso é só a
+  resolução de nome deles, não um serviço nosso.
+  Registros: A @ → Gamma (3.136.232.26, 3.137.108.170) · CNAME www → sites.gamma.app ·
+  CNAME * → 037a0d14647497b5.vercel-dns-017.com · A academia → 170.187.201.120 (Moodle)
   - vertho.ai (apex — home institucional no Gamma)
   - app.vertho.ai (auth/admin/dashboard)
   - *.vertho.ai (tenants — vincular manualmente em /admin/empresas/{id}/configuracoes)
