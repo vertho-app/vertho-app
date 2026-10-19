@@ -107,8 +107,11 @@ export interface ResumoEmpresaDiario {
    * a recuperação ESTÁ rodando, e que ela não passou a pegar gente demais.
    */
   recuperacoes: number;
-  /** Atrasados que receberam a pendência de pós-fim do plano (a cada quinzena, R-94). */
-  pendenciasPosFim: number;
+  /**
+   * Atrasados que passaram do fim do plano e seguem com o envio ativo SEM mensagem automática
+   * (19/10/2026: depois do fim, só o disparo manual). Contado na quinta, a cada quinta.
+   */
+  atrasadosPosFim: number;
 }
 
 /**
@@ -133,14 +136,14 @@ export async function processarEmpresaDiario(
   let cobrancasPuladas = 0;
   /** Envios cuja trilha ainda não começou: pulados sem enviar e sem avançar o relógio. */
   let aguardandoInicio = 0;
-  let recuperacoes = 0, pendenciasPosFim = 0;
+  let recuperacoes = 0, atrasadosPosFim = 0;
 
   // Envios pausados pelo dono (`lib/envios-pausados.ts`): nada sai e nenhum relógio anda. O despacho já filtra; isto
   // cobre a task que já estava na fila do QStash quando a pausa entrou, e qualquer outro chamador do worker.
   const pausa = pausaDeEnvios((empresa as any).sys_config);
   if (pausa) {
     console.log(`[triggerDiario] ${(empresa as any).slug}: envios pausados (${pausa.motivo}), nada enviado`);
-    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, pendenciasPosFim };
+    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, atrasadosPosFim };
   }
 
   const cadencia = (empresa as any).sys_config?.cadencia || {};
@@ -169,7 +172,7 @@ export async function processarEmpresaDiario(
    */
   const janela = janelasDoDia(cadencia, hojeUTC, hoje);
   if (!janela.agendados.length && !janela.recuperando.length) {
-    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, pendenciasPosFim }; // empresa sem nada hoje
+    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, atrasadosPosFim }; // empresa sem nada hoje
   }
   const agendado = (slot: SlotCadencia) => janela.agendados.includes(slot);
   const recSlot = (slot: SlotCadencia) => janela.recuperando.find((r) => r.slot === slot);
@@ -210,7 +213,7 @@ export async function processarEmpresaDiario(
   const { data: envios } = await tdb.from('fase4_envios')
     .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_evidencia_whatsapp_em, ultima_evidencia_email_em, ultima_evidencia_push_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
     .eq('status', ENVIO.ATIVO);
-  if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, pendenciasPosFim };
+  if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, atrasadosPosFim };
 
   /**
    * IDIOMA DO E-MAIL (Onda D, 04/10/2026): o do DESTINATÁRIO, não o do tenant. Lido
@@ -602,12 +605,12 @@ export async function processarEmpresaDiario(
     // Fim da temporada é do CALENDÁRIO: usar a semana de entrega aqui deixaria
     // quem está travado na 1 rodando para sempre, sem nunca concluir o envio.
     //
-    // 🔴 MAS QUEM FICOU ATRASADO NÃO PODE RECEBER "CONCLUÍDO" E SILÊNCIO (R-94). O relógio passa do
-    // fim do plano mesmo para quem tem semanas por fazer, e a quinta em que isso acontecia fechava o
-    // envio: nenhuma mensagem mais, por mais que faltasse. Agora quem a leitura confirma atrasado
-    // (trilha ativa, com semanas por concluir) recebe a pendência a cada quinzena, por até 8 semanas
-    // depois do fim do plano, e só então é concluído. Sem leitura confiável a decisão é a de antes.
-    let posFimPendencia = false;
+    // 🔴 DEPOIS DO FIM DO PLANO NADA SAI AUTOMATICAMENTE (decisão do dono, 19/10/2026: "se precisar,
+    // o envio deve ser feito de forma manual"). De 04/10 a 19/10 o atrasado recebia a pendência a cada
+    // quinzena (R-94). Agora quem a leitura confirma atrasado (trilha ativa, com semanas por concluir)
+    // segue com o envio ATIVO e em silêncio por até 8 semanas depois do fim do plano, só para o disparo
+    // manual da tela de Envios o encontrar (`carregarCadenciaManual` lê só envio ativo), e então é
+    // concluído. Sem leitura confiável, concluído na hora. Ver `decidirPosFim`.
     if (semanaCalendario > totalSemanas) {
       // Só a quinta decide, como sempre; nos outros dias não há nada a fazer aqui.
       if (!agendado('ev')) continue;
@@ -620,8 +623,6 @@ export async function processarEmpresaDiario(
         semanasConcluidas,
         totalSemanas,
         semanaPelaData: semanaDaTrilha,
-        ultimoAvisoEm: envio.ultima_evidencia_em ? new Date(envio.ultima_evidencia_em).getTime() : null,
-        agora: Date.now(),
       });
       if (decisaoFim === 'concluir') {
         const { error: errConclusao } = await tdb.from('fase4_envios').update({ status: ENVIO.CONCLUIDO }).eq('id', envio.id);
@@ -639,8 +640,9 @@ export async function processarEmpresaDiario(
         }
         continue;
       }
-      if (decisaoFim === 'aguardar') continue;
-      posFimPendencia = true; // a pendência sai adiante, depois de os remetentes existirem
+      // 'aguardar': o silêncio é contado, para que "ninguém recebe nada depois do fim" seja observável no resumo.
+      atrasadosPosFim++;
+      continue;
     }
     const nome = envio.colaboradores.nome_completo || 'Colaborador';
     // Telefone: coluna `whatsapp` ou, no fallback, `telefone` (muitos tenants só têm este).
@@ -917,10 +919,8 @@ export async function processarEmpresaDiario(
      * na semana 1, e a semana 6 continua pendente" e o botão leva de volta para
      * a porta fechada. Travado em `tests/unit/p2-semana-pendente.test.ts`.
      */
-    const enviarSemanaPendente = async (semanaDoRelogioNaMensagem: number = semanaCalendario) => {
-      // `semanaDoRelogioNaMensagem`: depois do fim do plano o relógio passa do total, e "sua trilha está na
-      // semana 9" numa jornada de 7 não faz sentido; a pendência de pós-fim manda o teto do plano (R-94).
-      const opts = { semana: semanaDoRelogioNaMensagem, semanaPendente: semana, baseUrl, locale: idioma };
+    const enviarSemanaPendente = async () => {
+      const opts = { semana: semanaCalendario, semanaPendente: semana, baseUrl, locale: idioma };
       const agora = new Date().toISOString();
       const stamp: Record<string, string> = {};
 
@@ -934,7 +934,7 @@ export async function processarEmpresaDiario(
           const viaTemplate = await enviarPorTemplate('pendencia', {
             telefone, nome,
             // `semana` = calendário e `semanaPendente` = acessível: ver acima.
-            semana: semanaDoRelogioNaMensagem, semanaPendente: semana,
+            semana: semanaCalendario, semanaPendente: semana,
             tema: '',
             slug: (empresa as any).slug, baseUrl,
             // Sem formato: a mensagem não anuncia conteúdo, anuncia pendência.
@@ -1096,30 +1096,6 @@ export async function processarEmpresaDiario(
      * duas metades da semana passam a discordar sobre quem está travado.
      */
     const bloqueadaNaAnterior = semana < semanaCalendario;
-
-    // ── PENDÊNCIA DE PÓS-FIM DO PLANO (R-94): o atrasado depois do último dia do calendário ──
-    // Sai ANTES de qualquer outro bloco e encerra o laço da pessoa: passado o fim, não há pílula nem
-    // cobrança da semana, e a quinta NÃO avança mais o relógio (o relógio está além do plano). O aviso
-    // seguinte só vem daqui a 14 dias, medido pelo carimbo da evidência, que esta quinta atualiza.
-    if (posFimPendencia) {
-      pendenciasPosFim++;
-      await enviarSemanaPendente(Math.min(semanaCalendario, totalSemanas));
-      const { error: errAviso } = await tdb.from('fase4_envios')
-        .update({ ultima_evidencia_em: new Date().toISOString() }).eq('id', envio.id);
-      if (errAviso) {
-        // Sem o carimbo o aviso repetiria na quinta seguinte (e não a cada quinzena).
-        erros++;
-        await registrarDegradacao({
-          fluxo: 'envio',
-          tipo: DEGRADACAO.TELEMETRIA_ENTREGA_FALHOU,
-          chave: `carimbo-pendencia-pos-fim:${empresa.id}`,
-          empresaId: empresa.id,
-          severidade: 'aviso',
-          detalhe: { motivo: errAviso.message, envioId: envio.id },
-        });
-      }
-      continue;
-    }
 
     // ── 1ª PÍLULA (com a PENDÊNCIA embutida, para quem está travado) ──
     if (slotAtivo('p1') && !ehAvaliacaoFinal && !ehImpl(semana, plan) && conteudosDia[0] && pendente('p1', 'ultima_pilula1_whatsapp_em', 'ultima_pilula1_email_em', 'ultima_pilula1_push_em')) {
@@ -1473,7 +1449,7 @@ export async function processarEmpresaDiario(
     });
   }
 
-  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, pendenciasPosFim };
+  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas, aguardandoInicio, recuperacoes, atrasadosPosFim };
 }
 
 /**

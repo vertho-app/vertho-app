@@ -19,8 +19,16 @@
  *     janela de 24 h a Meta só entrega template). Falha de template vira tentativa de
  *     novo, dentro da janela, e fica visível (postflight R6/R7, degradação).
  *  3. FIM DO CALENDÁRIO. Passado o último dia do plano, quem concluiu tudo ou não está
- *     mais ativo é concluído, como sempre; quem ficou ATRASADO recebe a pendência a cada
- *     quinzena, por até `SEMANAS_DE_PENDENCIA_POS_FIM` semanas, e depois é concluído.
+ *     mais ativo é concluído, como sempre; quem ficou ATRASADO segue com o envio ATIVO, sem
+ *     mensagem automática nenhuma, por até `SEMANAS_ABERTO_POS_FIM` semanas, e depois é
+ *     concluído.
+ *
+ * 🔑 SEM ENVIO AUTOMÁTICO DEPOIS DO FIM DO PLANO (decisão do dono, 19/10/2026: "cancelar os
+ * envios automáticos após a semana 7; se precisar, o envio deve ser feito de forma manual").
+ * Até então o atrasado recebia a pendência a cada quinzena (R-94, 04/10). O envio continua
+ * ATIVO na janela de propósito: o disparo manual da tela de Envios só enxerga quem tem
+ * `fase4_envios` ativo (`carregarCadenciaManual`), e concluir no fim do plano deixaria o
+ * atrasado sem canal nenhum, nem o manual.
  *
  * Puro de propósito: é o que o teste precisa exercitar sem montar o disparo.
  */
@@ -31,11 +39,8 @@ export type SlotCadencia = 'p1' | 'p2' | 'ev';
 /** Quantos dias depois do dia agendado um papel ainda pode ser refeito. */
 export const JANELA_RECUPERACAO_DIAS = 2;
 
-/** De quantas em quantas semanas o atrasado recebe a pendência depois do fim do plano. */
-export const INTERVALO_PENDENCIA_POS_FIM_DIAS = 14;
-
-/** Por quantas semanas depois do fim do plano a pendência segue antes de concluir. */
-export const SEMANAS_DE_PENDENCIA_POS_FIM = 8;
+/** Por quantas semanas depois do fim do plano o envio do atrasado segue ativo (só para o manual) antes de concluir. */
+export const SEMANAS_ABERTO_POS_FIM = 8;
 
 export interface RecuperacaoDoDia {
   slot: SlotCadencia;
@@ -99,15 +104,15 @@ export function temTrabalhoHoje(cadencia: any, hojeUTC: string, hoje: number): b
   return j.agendados.length > 0 || j.recuperando.length > 0;
 }
 
-export type DecisaoPosFim = 'concluir' | 'pendencia' | 'aguardar';
+export type DecisaoPosFim = 'concluir' | 'aguardar';
 
 /**
- * Passado o fim do calendário (`semana_atual > total`), na quinta: concluir o envio, mandar
- * a pendência ao atrasado, ou esperar a próxima quinzena.
+ * Passado o fim do calendário (`semana_atual > total`), na quinta: concluir o envio ou
+ * mantê-lo ativo, em silêncio, para o disparo manual.
  *
- * Só fica ativo quem a LEITURA confirma atrasado: trilha ativa, com semanas por concluir.
- * Sem leitura confiável a decisão é a de antes (concluir), porque pendência por um
- * progresso que não se leu seria cobrar de quem pode ter terminado.
+ * Não existe mais a opção de mandar algo (19/10/2026, ver o topo): nenhuma das duas
+ * decisões envia mensagem. Só fica ativo quem a LEITURA confirma atrasado: trilha ativa,
+ * com semanas por concluir. Sem leitura confiável a decisão é concluir.
  */
 export function decidirPosFim(args: {
   progressoConfiavel: boolean;
@@ -116,15 +121,10 @@ export function decidirPosFim(args: {
   totalSemanas: number;
   /** Semana da trilha PELA DATA (`semanaPorData`), e não o relógio da cadência. */
   semanaPelaData: number | null;
-  /** Último aviso de pós-fim (ou a última quinta do plano), em ms. */
-  ultimoAvisoEm: number | null;
-  agora: number;
 }): DecisaoPosFim {
   if (!args.progressoConfiavel || !args.trilhaAtiva) return 'concluir';
   if (args.semanasConcluidas >= args.totalSemanas) return 'concluir';
   if (args.semanaPelaData == null) return 'concluir';
-  if (args.semanaPelaData > args.totalSemanas + SEMANAS_DE_PENDENCIA_POS_FIM) return 'concluir';
-  const intervaloMs = INTERVALO_PENDENCIA_POS_FIM_DIAS * DIA_MS - DIA_MS; // 13 dias: quinta a quinta, com folga de relógio
-  if (args.ultimoAvisoEm == null || args.agora - args.ultimoAvisoEm >= intervaloMs) return 'pendencia';
+  if (args.semanaPelaData > args.totalSemanas + SEMANAS_ABERTO_POS_FIM) return 'concluir';
   return 'aguardar';
 }

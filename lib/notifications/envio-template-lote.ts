@@ -33,7 +33,7 @@ import { enviarTemplateCloud, cloudApiConfigurada } from '@/lib/whatsapp/cloud-a
 import { aplicarTetoLote, criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
 import { tenantUrl } from '@/lib/domain';
 import { primeiraSemanaAcessivel } from '@/lib/season-engine/week-gating';
-import { ehSemanaDeImplementacao, semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { ehSemanaDeImplementacao, semanaCenarioBDoPlano, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { duracaoDaTrilha } from '@/lib/season-engine/duracao-trilha';
 import { estadoDoFechamento, type EstadoFechamento } from '@/lib/season-engine/estado-fechamento';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
@@ -928,9 +928,13 @@ async function carregarCadenciaManual(
 
     const plano = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
     const semanaCalendarioBruta = Number(envio.semana_atual || 1);
-    const semanaCalendario = Number.isFinite(semanaCalendarioBruta) && semanaCalendarioBruta > 0
+    const semanaDoRelogio = Number.isFinite(semanaCalendarioBruta) && semanaCalendarioBruta > 0
       ? semanaCalendarioBruta
       : 1;
+    // Depois do fim do plano o relógio fica além do total (8 numa jornada de 7), e é só pelo manual
+    // que essas pessoas recebem algo desde 19/10/2026. Sem o teto, o `semana_pendente_v2` dizia "sua
+    // trilha está na semana 8" (medido na prévia de Macaé, 33 de 33). Dentro do plano não muda nada.
+    const semanaCalendario = Math.min(semanaDoRelogio, totalSemanasDoPlano(plano, semanaDoRelogio));
     const semanaAcessivel = primeiraSemanaAcessivel({
       dataInicio: trilha.data_inicio,
       plano,

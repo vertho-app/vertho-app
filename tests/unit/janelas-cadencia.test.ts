@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   janelasDoDia, temTrabalhoHoje, decidirPosFim, diasBaseDaCadencia,
-  JANELA_RECUPERACAO_DIAS, SEMANAS_DE_PENDENCIA_POS_FIM,
+  JANELA_RECUPERACAO_DIAS, SEMANAS_ABERTO_POS_FIM,
 } from '@/lib/fase4/janelas';
 import { carimboDesde, canalPendente, pilulaPendente } from '@/lib/notifications/carimbo-canal';
 
@@ -106,24 +106,19 @@ describe('carimboDesde / canalPendente / pilulaPendente: "já saiu" é desde a d
 });
 
 describe('decidirPosFim: o atrasado depois do fim do calendário', () => {
-  const AGORA = Date.parse('2026-11-26T11:00:00Z');
-  const dias = (n: number) => AGORA - n * 86_400_000;
   const base = {
     progressoConfiavel: true, trilhaAtiva: true, semanasConcluidas: 3, totalSemanas: 7,
-    semanaPelaData: 9, ultimoAvisoEm: dias(14), agora: AGORA,
+    semanaPelaData: 9,
   };
 
-  it('🔴 atrasado com trilha ativa e último aviso há 14 dias: pendência (antes era "concluído" e silêncio)', () => {
-    expect(decidirPosFim(base)).toBe('pendencia');
-  });
-
-  it('entre as quinzenas espera, sem concluir', () => {
-    expect(decidirPosFim({ ...base, ultimoAvisoEm: dias(7) })).toBe('aguardar');
-    expect(decidirPosFim({ ...base, ultimoAvisoEm: dias(12) })).toBe('aguardar');
-  });
-
-  it('nunca avisado (sem carimbo): pendência na primeira quinta', () => {
-    expect(decidirPosFim({ ...base, ultimoAvisoEm: null })).toBe('pendencia');
+  it('🔴 atrasado com trilha ativa: aguarda em silêncio, NUNCA manda nada (decisão do dono, 19/10/2026: depois do fim, só manual)', () => {
+    expect(decidirPosFim(base)).toBe('aguardar');
+    // De 04/10 a 19/10 existia a 'pendencia' a cada quinzena (R-94). Nenhuma combinação devolve mais algo que envie.
+    for (const semanaPelaData of [8, 9, 12, 15]) {
+      for (const semanasConcluidas of [0, 3, 6]) {
+        expect(decidirPosFim({ ...base, semanaPelaData, semanasConcluidas })).toBe('aguardar');
+      }
+    }
   });
 
   it('quem concluiu tudo é concluído, como sempre', () => {
@@ -134,14 +129,14 @@ describe('decidirPosFim: o atrasado depois do fim do calendário', () => {
     expect(decidirPosFim({ ...base, trilhaAtiva: false })).toBe('concluir');
   });
 
-  it('🔴 sem leitura confiável do progresso a decisão é a de antes: concluir (pendência por dado não lido é cobrar quem pode ter terminado)', () => {
+  it('🔴 sem leitura confiável do progresso a decisão é concluir', () => {
     expect(decidirPosFim({ ...base, progressoConfiavel: false })).toBe('concluir');
     expect(decidirPosFim({ ...base, semanaPelaData: null })).toBe('concluir');
   });
 
-  it('depois de 8 semanas além do plano o envio é concluído (a pendência não é eterna)', () => {
-    expect(SEMANAS_DE_PENDENCIA_POS_FIM).toBe(8);
-    expect(decidirPosFim({ ...base, semanaPelaData: 15 })).toBe('pendencia');
+  it('o envio do atrasado fica ativo (para o manual o achar) até 8 semanas além do plano, e então é concluído', () => {
+    expect(SEMANAS_ABERTO_POS_FIM).toBe(8);
+    expect(decidirPosFim({ ...base, semanaPelaData: 15 })).toBe('aguardar');
     expect(decidirPosFim({ ...base, semanaPelaData: 16 })).toBe('concluir');
   });
 });

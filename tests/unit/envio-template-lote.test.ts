@@ -555,6 +555,21 @@ describe('prepararLoteTemplate', () => {
     });
   });
 
+  it('🔴 depois do fim do plano a semana do calendário para no total: nada de "semana 4" num plano de 3 (19/10/2026)', async () => {
+    // Relógio em 4 num plano de 3 semanas: é o atrasado que passou do fim e que, desde 19/10, só
+    // recebe algo pelo disparo manual. Em Macaé a prévia deu "semana 8" para 33 de 33 numa jornada de 7.
+    const sb = mock(contextoCadencia({ semanaAtual: 4 }));
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'semana_pendente_v2', colabs: [professor()],
+    });
+
+    expect(lote.alvos[0]).toMatchObject({
+      params: ['Maria', '3', '2'],
+      botaoParam: 'macae/2',
+      dedupeKey: 'semana_pendente_v2:c1:calendario:3:pendente:2',
+    });
+  });
+
   it('semana pendente exclui quem está em dia, em vez de inventar uma pendência', async () => {
     const sb = mock(contextoCadencia({ semanaAtual: 2 }));
     const lote = await prepararLoteTemplate(sb.client, {

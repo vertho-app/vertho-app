@@ -426,7 +426,7 @@ export async function triggerDiario() {
   // FALLBACK sem QSTASH (dev local — mesmo padrão de app/radar/actions.ts):
   // processa as empresas inline em loop, como antes do fan-out.
   console.warn('[triggerDiario] QSTASH_TOKEN ausente — processando INLINE (sem fan-out)');
-  let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0, adiadosPorTeto = 0, recuperacoes = 0, pendenciasPosFim = 0;
+  let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0, adiadosPorTeto = 0, recuperacoes = 0, atrasadosPosFim = 0;
   // Empresas cujo processamento explodiu — reportadas no retorno em vez de sumirem.
   const empresasComFalha: string[] = [];
 
@@ -439,7 +439,7 @@ export async function triggerDiario() {
       const r = await processarEmpresaDiario(empresa, { hoje, hojeUTC });
       pilulas += r.pilulas; emails += r.emails; evidencias += r.evidencias;
       nudges += r.nudges; erros += r.erros; adiadosPorTeto += r.adiadosPorTeto;
-      recuperacoes += r.recuperacoes; pendenciasPosFim += r.pendenciasPosFim;
+      recuperacoes += r.recuperacoes; atrasadosPosFim += r.atrasadosPosFim;
     } catch (e: any) {
       erros++;
       empresasComFalha.push((empresa as any).slug || (empresa as any).id);
@@ -451,11 +451,11 @@ export async function triggerDiario() {
   // Adiados aparecem no texto do lock: "12 pílulas" com 200 na coorte só é lido
   // corretamente ao lado de "188 adiados pelo teto".
   const adiadoTxt = adiadosPorTeto ? ` · ${adiadosPorTeto} adiados pelo teto` : '';
-  // Recuperações e pendências de pós-fim (R-94) aparecem para que "está rodando" seja observável.
-  const recTxt = recuperacoes || pendenciasPosFim ? ` · ${recuperacoes} recuperações, ${pendenciasPosFim} pendências de pós-fim` : '';
+  // Recuperações (R-94) e atrasados em silêncio depois do fim do plano (19/10/2026) aparecem para que "está rodando" seja observável.
+  const recTxt = recuperacoes || atrasadosPosFim ? ` · ${recuperacoes} recuperações, ${atrasadosPosFim} atrasados após o fim do plano (sem envio automático)` : '';
   const message = `Diário (inline): ${pilulas} pílulas WhatsApp, ${emails} e-mails, ${evidencias} evidências, ${nudges} nudges${adiadoTxt}${recTxt}${alerta}`;
   await lock.liberar(message);
-  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, recuperacoes, pendenciasPosFim, empresasComFalha, message };
+  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, recuperacoes, atrasadosPosFim, empresasComFalha, message };
   } catch (err: any) {
     // Marca a execução como encerrada mesmo em falha global — senão o lock ficaria
     // pendurado e o retry de hoje seria recusado como "execução em andamento".

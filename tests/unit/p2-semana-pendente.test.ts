@@ -142,10 +142,9 @@ describe('call-site da cadência', () => {
   });
 
   it('manda o CALENDÁRIO em `semana` e a ACESSÍVEL em `semanaPendente`', () => {
-    // Desde 04/10/2026 (R-94) o relógio vai por `semanaDoRelogioNaMensagem`, que por padrão É
-    // `semanaCalendario` (a pendência de pós-fim manda o teto do plano). A inversão continua proibida.
-    expect(corpoDaFuncao).toContain('semanaDoRelogioNaMensagem: number = semanaCalendario');
-    expect(corpoDaFuncao).toContain('semana: semanaDoRelogioNaMensagem, semanaPendente: semana');
+    // De 04/10 a 19/10/2026 o relógio passava por `semanaDoRelogioNaMensagem` (a pendência de
+    // pós-fim, que saiu: depois do fim do plano só há disparo manual). Voltou a ser `semanaCalendario`.
+    expect(corpoDaFuncao).toContain('semana: semanaCalendario, semanaPendente: semana');
     // A inversão exata que o arquivo inteiro existe para impedir.
     expect(corpoDaFuncao).not.toContain('semana: semana, semanaPendente: semanaCalendario');
   });

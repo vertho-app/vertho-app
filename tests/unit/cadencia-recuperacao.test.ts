@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 /**
- * R-94 (04/10/2026): o cron diário recupera o que falhou e não larga o atrasado.
+ * R-94 (04/10/2026): o cron diário recupera o que falhou. O pós-fim (o atrasado depois do fim do plano)
+ * deixou de receber mensagem automática em 19/10/2026, por decisão do dono: só o disparo manual.
  *
  * O cron só agia no dia exato de cada papel: template recusado, SES caído ou cron perdido
  * nunca eram refeitos (no dia seguinte ele olhava OUTRO papel), e quem ficava atrasado
@@ -223,54 +224,54 @@ describe('cron diário: recuperação e pós-fim', () => {
     });
   });
 
-  describe('fim do calendário: o atrasado não fica em silêncio', () => {
+  describe('fim do calendário: nada sai automaticamente (só o manual, decisão do dono 19/10/2026)', () => {
     // Plano de 7 semanas começou em 28/9: em 26/11 a trilha está na semana 9 PELA DATA (2 além do fim).
     const POS_FIM = { semanaAtual: 8, dataInicio: '2026-09-28', concluidas: [1, 2, 3] };
     const QUINTA_POS = dia('2026-11-26', 4);
     const segunda_pos = dia('2026-11-23', 1);
+    const nadaSaiu = () => {
+      expect(h.envioTemplate).not.toHaveBeenCalled();
+      expect(h.envioPilula).not.toHaveBeenCalled();
+      expect(h.email).not.toHaveBeenCalled();
+      expect(h.push).not.toHaveBeenCalled();
+      expect(h.fila).not.toHaveBeenCalled();
+    };
 
-    it('🔴 a pendência sai na quinta (14 dias do último aviso), o envio NÃO é concluído e o relógio não anda', async () => {
+    it('🔴 atrasado na quinta, 14 dias depois do último contato (onde saía a pendência do R-94): NADA sai, o envio segue ATIVO e o relógio não anda', async () => {
       vi.setSystemTime(new Date(QUINTA_POS.agora));
       cron({ ...POS_FIM, stamps: { ultima_evidencia_em: '2026-11-12T11:05:00Z' } });
       const r = await processarEmpresaDiario(EMPRESA, QUINTA_POS);
-      expect(r.pendenciasPosFim).toBe(1);
-      expect(h.envioTemplate).toHaveBeenCalledTimes(1);
-      const [papel, args] = h.envioTemplate.mock.calls[0];
-      expect(papel).toBe('pendencia');
-      // A mensagem diz o teto do plano, não "semana 9" numa jornada de 7.
-      expect(args.semana).toBe(7);
-      expect(h.email).toHaveBeenCalledTimes(1);
-      expect(atualizacoes().some((p: any) => p.status === 'concluido')).toBe(false);
-      expect(atualizacoes().some((p: any) => 'semana_atual' in p)).toBe(false);
-      // O carimbo do aviso renova o prazo de 14 dias.
-      expect(atualizacoes().some((p: any) => p.ultima_evidencia_em && p.ultima_evidencia_em.startsWith('2026-11-26'))).toBe(true);
+      nadaSaiu();
+      // Ativo de propósito: o disparo manual só enxerga envio ativo (`carregarCadenciaManual`).
+      expect(atualizacoes()).toHaveLength(0);
+      // O silêncio é contado no resumo.
+      expect(r.atrasadosPosFim).toBe(1);
     });
 
-    it('🔴 entre as quinzenas espera, sem concluir e sem mandar nada', async () => {
+    it('🔴 atrasado nunca avisado (sem carimbo nenhum): também nada sai', async () => {
       vi.setSystemTime(new Date(QUINTA_POS.agora));
-      cron({ ...POS_FIM, stamps: { ultima_evidencia_em: '2026-11-19T11:05:00Z' } });
+      cron({ ...POS_FIM, stamps: {} });
       const r = await processarEmpresaDiario(EMPRESA, QUINTA_POS);
-      expect(r.pendenciasPosFim).toBe(0);
-      expect(h.envioTemplate).not.toHaveBeenCalled();
+      nadaSaiu();
       expect(atualizacoes()).toHaveLength(0);
+      expect(r.atrasadosPosFim).toBe(1);
     });
 
     it('fora da quinta, passado o fim, nada acontece (como antes)', async () => {
       vi.setSystemTime(new Date(segunda_pos.agora));
       cron({ ...POS_FIM, stamps: { ultima_evidencia_em: '2026-11-12T11:05:00Z' } });
       const r = await processarEmpresaDiario(EMPRESA, segunda_pos);
-      expect(r.pendenciasPosFim).toBe(0);
-      expect(h.envioTemplate).not.toHaveBeenCalled();
-      expect(h.email).not.toHaveBeenCalled();
+      nadaSaiu();
+      expect(r.atrasadosPosFim).toBe(0);
     });
 
-    it('quem concluiu as 7 semanas é concluído, sem pendência', async () => {
+    it('quem concluiu as 7 semanas é concluído, sem mensagem', async () => {
       vi.setSystemTime(new Date(QUINTA_POS.agora));
       cron({ ...POS_FIM, concluidas: [1, 2, 3, 4, 5, 6, 7], stamps: { ultima_evidencia_em: '2026-11-12T11:05:00Z' } });
       const r = await processarEmpresaDiario(EMPRESA, QUINTA_POS);
-      expect(r.pendenciasPosFim).toBe(0);
+      expect(r.atrasadosPosFim).toBe(0);
       expect(atualizacoes().some((p: any) => p.status === 'concluido')).toBe(true);
-      expect(h.envioTemplate).not.toHaveBeenCalled();
+      nadaSaiu();
     });
 
     it('trilha pausada ou sem leitura do progresso: concluído, como antes (não se cobra quem pausou nem por dado não lido)', async () => {
@@ -288,13 +289,14 @@ describe('cron diário: recuperação e pós-fim', () => {
       expect(h.envioTemplate).not.toHaveBeenCalled();
     });
 
-    it('8 semanas depois do fim a pendência acaba: o envio é concluído', async () => {
+    it('8 semanas depois do fim o envio do atrasado é concluído (o manual deixa de achá-lo), sem mensagem', async () => {
       const tarde = dia('2027-01-14', 4);
       vi.setSystemTime(new Date(tarde.agora));
       cron({ ...POS_FIM, stamps: { ultima_evidencia_em: '2026-12-31T11:05:00Z' } });
       const r = await processarEmpresaDiario(EMPRESA, tarde);
-      expect(r.pendenciasPosFim).toBe(0);
+      expect(r.atrasadosPosFim).toBe(0);
       expect(atualizacoes().some((p: any) => p.status === 'concluido')).toBe(true);
+      nadaSaiu();
     });
 
     it('a conclusão que não gravou é registrada (antes era um update sem checar o erro)', async () => {
