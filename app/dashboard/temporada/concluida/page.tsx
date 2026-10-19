@@ -7,6 +7,7 @@ import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, Trophy, Target, Download, Award } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
+import AvisoCenarioHipotetico from '@/components/aviso-cenario-hipotetico';
 import ReactMarkdown from 'react-markdown';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { descritorParaHumano } from '@/lib/descritor-humano';
@@ -228,6 +229,7 @@ export default function TemporadaConcluidaPage() {
               {sem14.cenario && (
                 <details className="mb-3">
                   <summary className="text-xs text-brand-400 cursor-pointer">{t('final.viewScenario')}</summary>
+                  <AvisoCenarioHipotetico semInstrucao className="mt-2" />
                   <div className="prose prose-invert prose-sm max-w-none mt-2 text-xs text-gray-300">
                     <ReactMarkdown>{sem14.cenario}</ReactMarkdown>
                   </div>

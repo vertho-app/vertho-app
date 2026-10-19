@@ -4956,6 +4956,10 @@
       ]
     }
   },
+  "CenarioHipotetico": {
+    "rotulo": "Cenário hipotético.",
+    "instrucao": "Responda como agiria se esta situação acontecesse no seu quotidiano."
+  },
   "Assessment": {
     "emptyServer": "Resposta vazia do servidor",
     "loadError": "Erro ao carregar",
@@ -4967,7 +4971,7 @@
       "paceTitle": "Ao seu ritmo",
       "paceText": "~10 min por competência",
       "questionsTitle": "4 perguntas",
-      "questionsText": "cenário real, responda como agiria",
+      "questionsText": "cenário hipotético, responda como agiria",
       "confidentialTitle": "Quem acompanha",
       "confidentialText": "o RH e a sua liderança veem o seu nível em cada competência",
       "authenticTitle": "Seja autêntico(a)",

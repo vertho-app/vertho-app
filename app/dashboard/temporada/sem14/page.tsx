@@ -9,6 +9,7 @@ import BackButton from '@/components/back-button';
 import { loadTemporadaPorEmail } from '@/actions/temporadas';
 import ReactMarkdown from 'react-markdown';
 import MicInput from '@/components/mic-input';
+import AvisoCenarioHipotetico from '@/components/aviso-cenario-hipotetico';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { PROGRESSO } from '@/lib/status';
 import { formatarAvanco } from '@/lib/season-engine/convergencia';
@@ -677,6 +678,7 @@ export default function Sem14Page() {
             </div>
           )}
           <p className="text-xs uppercase tracking-widest text-brand-400 font-bold mb-3">{t('context')}</p>
+          <AvisoCenarioHipotetico className="mb-3" />
           <div className="prose prose-invert prose-sm max-w-none text-gray-200 mb-5">
             <ReactMarkdown>{cenario}</ReactMarkdown>
           </div>

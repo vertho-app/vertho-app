@@ -5912,6 +5912,10 @@
     "limitReached": "Mostrando {shown} de {total} linhas (limite atingido). Os totais abaixo somam só as linhas mostradas. Aumente o \"Limite\" ou filtre por UF, região metropolitana ou rede para refinar.",
     "footerNote": "TAM = (profs + gestores) × R$/mês configurado. Fit pedagógico = 0.4 + 0.3×(%sem pós) + 0.3×(%jovens). Score = TAM × Fit Ped × Fit Fin (INSE-dependente). INSE INEP: 1=mais baixo, 6=mais alto. Privadas pontuam alto com INSE alto (mais bolso); públicas pontuam alto com INSE baixo (mais demanda). Valores INSE com <tilde>~</tilde> são <strong>inferidos</strong> via Censo Escolar (proxy) para privadas sem cobertura Saeb oficial."
   },
+  "CenarioHipotetico": {
+    "rotulo": "Cenário hipotético.",
+    "instrucao": "Responda como você agiria se essa situação acontecesse no seu dia a dia."
+  },
   "Assessment": {
     "emptyServer": "Resposta vazia do servidor",
     "loadError": "Erro ao carregar",
@@ -5923,7 +5927,7 @@
       "paceTitle": "No seu ritmo",
       "paceText": "~10 min por competência",
       "questionsTitle": "4 perguntas",
-      "questionsText": "cenário real, responda como você agiria",
+      "questionsText": "cenário hipotético, responda como você agiria",
       "confidentialTitle": "Quem acompanha",
       "confidentialText": "o RH e a sua liderança veem seu nível em cada competência",
       "authenticTitle": "Seja autêntico(a)",

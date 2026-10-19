@@ -4956,6 +4956,10 @@
       ]
     }
   },
+  "CenarioHipotetico": {
+    "rotulo": "Escenario hipotético.",
+    "instrucao": "Responde cómo actuarías si esta situación ocurriera en tu día a día."
+  },
   "Assessment": {
     "emptyServer": "Respuesta vacía del servidor",
     "loadError": "Error al cargar",
@@ -4967,7 +4971,7 @@
       "paceTitle": "A tu ritmo",
       "paceText": "~10 min por competencia",
       "questionsTitle": "4 preguntas",
-      "questionsText": "escenario real, responde cómo actuarías",
+      "questionsText": "escenario hipotético, responde cómo actuarías",
       "confidentialTitle": "Quién lo sigue",
       "confidentialText": "RR. HH. y tu liderazgo ven tu nivel en cada competencia",
       "authenticTitle": "Sé auténtico(a)",

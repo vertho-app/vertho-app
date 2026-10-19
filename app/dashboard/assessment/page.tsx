@@ -9,6 +9,7 @@ import { Loader2, CheckCircle, ArrowRight, Target, Calendar, FileText, Trophy } 
 import BackButton from '@/components/back-button';
 import { getDiagnosticoDoDia, salvarRespostaDiagnostico, salvarRascunhoDiagnostico } from './assessment-actions';
 import MicInput from '@/components/mic-input';
+import AvisoCenarioHipotetico from '@/components/aviso-cenario-hipotetico';
 import { respostaDiagnosticoTemTexto } from '@/lib/assessment/resposta-texto';
 
 const PHASE = {
@@ -412,6 +413,7 @@ function AssessmentInner() {
             </p>
           )}
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-brand-400 mb-2">{t('intro.context')}</p>
+          <AvisoCenarioHipotetico className="mb-3" />
           <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap mb-5">{data.cenarioDoDia.contexto}</p>
           {/* Com rascunho, volta na pergunta em que a pessoa parou. */}
           <button onClick={() => { if (!rascunhoRecuperado) setPergIdx(0); setPhase(PHASE.PERGUNTAS); }}

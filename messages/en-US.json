@@ -5912,6 +5912,10 @@
     "limitReached": "Showing {shown} of {total} rows (limit reached). The totals below add up only the rows shown. Raise the \"Limit\" or filter by UF, metropolitan region or network to narrow down.",
     "footerNote": "TAM = (profs + managers) × R$/month configured. Pedagogical fit = 0.4 + 0.3×(%without powder) + 0.3×(%young people). Score = TAM × Fit Ped × Fit Fin (INSE-dependent). INSE INEP: 1=lowest, 6=highest. Private ones score high with high INSE (more pocket); Public companies score high with low INSE (more demand). INSE values ​​with <tilde>~</tilde> are <strong>inferred</strong> via School Census (proxy) for private companies without official Saeb coverage."
   },
+  "CenarioHipotetico": {
+    "rotulo": "Hypothetical scenario.",
+    "instrucao": "Answer how you would act if this situation happened in your day-to-day work."
+  },
   "Assessment": {
     "emptyServer": "Empty response from server",
     "loadError": "Error loading",
@@ -5923,7 +5927,7 @@
       "paceTitle": "At your pace",
       "paceText": "~10 min per skill",
       "questionsTitle": "4 questions",
-      "questionsText": "real scenario, answer how you would act",
+      "questionsText": "hypothetical scenario, answer how you would act",
       "confidentialTitle": "Who follows it",
       "confidentialText": "HR and your manager see your level in each skill",
       "authenticTitle": "Be authentic",

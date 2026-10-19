@@ -16,6 +16,7 @@ import { useBunnyTracking } from '@/lib/use-bunny-tracking';
 import { eOrigemDoPlayerBunny } from '@/lib/conteudo/bunny-embed';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
+import AvisoCenarioHipotetico from '@/components/aviso-cenario-hipotetico';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { registrarEventoTrilha, jaAbriuConteudoDaSemana } from '@/actions/engajamento';
 import { consumiuConteudo, estadoDoPrimeiroPasso } from '@/lib/season-engine/consumo-conteudo';
@@ -1105,6 +1106,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               <Target size={16} className="text-amber-400" />
               <span className="text-xs uppercase text-amber-400 font-bold">{t('context')}</span>
             </div>
+            <AvisoCenarioHipotetico className="mb-3" />
             <div className="prose prose-invert prose-sm max-w-none">
               <ReactMarkdown>{stripCenarioTitulo(cenario?.texto || '')}</ReactMarkdown>
             </div>
@@ -1149,9 +1151,12 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
               <span className="text-xs uppercase text-amber-400 font-bold">{t('finalScenario.title')}</span>
             </div>
             {cenarioTexto ? (
-              <div className="prose prose-invert prose-sm max-w-none">
-                <ReactMarkdown>{stripCenarioTitulo(cenarioTexto)}</ReactMarkdown>
-              </div>
+              <>
+                <AvisoCenarioHipotetico className="mb-3" />
+                <div className="prose prose-invert prose-sm max-w-none">
+                  <ReactMarkdown>{stripCenarioTitulo(cenarioTexto)}</ReactMarkdown>
+                </div>
+              </>
             ) : (
               <p className="text-sm text-gray-300">
                 {t.rich('finalScenario.description', { action: (chunks) => <span className="text-purple-400">{chunks}</span> })}
