@@ -79,7 +79,11 @@ async function esperarUrlSemCredencial(ms = 2000): Promise<boolean> {
 async function pararSeGravando(): Promise<void> {
   try {
     const replay = Sentry.getReplay();
-    if (replay?.getRecordingMode()) await replay.stop({ flush: false });
+    if (!replay?.getRecordingMode()) return;
+    // `stop({ flush })` existe no SDK de produção (10.76); o `node_modules` do disco, que a catraca
+    // usa para o typecheck, ainda está na 10.53 e tipa `stop()` sem argumento.
+    const parar = replay.stop as (opcoes?: { flush?: boolean }) => Promise<void>;
+    await parar.call(replay, { flush: false });
   } catch {
     /* parar é o melhor esforço; a guarda de carga continua valendo */
   }

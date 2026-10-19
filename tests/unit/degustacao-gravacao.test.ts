@@ -147,7 +147,7 @@ describe('a cota de 50 gravações por mês (guard estático)', () => {
     expect(fonte).toMatch(/addEventListener\('popstate', vigiar\)/);
     expect(fonte).toMatch(/addEventListener\('hashchange', vigiar\)/);
     // parar por credencial não envia o trecho pendente (ele pode ter a página com a credencial)
-    expect(fonte).toMatch(/if \(replay\?\.getRecordingMode\(\)\) await replay\.stop\(\{ flush: false \}\);/);
+    expect(fonte).toMatch(/await parar\.call\(replay, \{ flush: false \}\);/);
   });
 
   it('🔴 a URL é reconferida DEPOIS das esperas e logo antes do flush (a credencial pode voltar no meio)', () => {
