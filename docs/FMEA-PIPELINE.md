@@ -783,6 +783,49 @@ consumo gravado ao entrar na conversa, que é o que deixa o flag da tela velho).
   - a nota de representatividade tem efeito de ORDEM (o primeiro cenário recebe nota mais alta) e só
     o formulário a pergunta: o chat do assessment não.
 
+### F-I42 · O aviso de plano pronto anunciava o PDI de OUTRA jornada ✅ (fechado 18/10/2026, `06535ad3`)
+Vizinho do F-I43 (o mesmo aviso, do lado da idempotência) e da etapa 2 da jornada (`lib/turmas/jornada-atual.ts`).
+- **Gatilho:** o botão "Avisar plano pronto" (`app/admin-v2/cliente/planos-actions.ts:27`, `SEM_CORTE`) alcança
+  todo `relatorios` individual vivo do tenant. Quem entrou numa turma nova e não respondeu segue com o PDI da
+  jornada anterior vivo, e a tela do PDI já o mostra como "anterior".
+- **Efeito medido (18/10/2026, véspera do início da Temporada 2 de Ibipeba):** a prévia do botão daria 47 =
+  34 PDIs da T2 + **13 PDIs de julho** de quem não respondeu a T2. Os 13 receberiam "seu plano está pronto" sobre
+  um plano velho. O cron das 9h escapava pelo corte de 16/08, mas só por acaso de data.
+- **Correção:** `avisarPlanosProntos` lê as participações (`carregarJornadasAtuais`,
+  `lib/notifications/avisar-plano-pronto.ts:162`) e marca cada PDI com `artefatoValeNaJornada`; `decidirAvisos`
+  tira o de outra jornada no balde `deOutraJornada` (linha 94). Sem conseguir ler as participações, a empresa fica
+  fora da rodada (não adivinha qual PDI é o de agora). Quem não tem participação com corte segue como sempre.
+  Prévia real depois: Ibipeba 34 (13 fora), 4Life 21.
+- **Guarda:** `tests/unit/avisar-plano-jornada.test.ts` (banco falso: T2, só T1, sem turma, falha de leitura),
+  4 mutações mortas.
+
+### F-I43 · A idempotência do aviso de plano não tem janela de jornada: a próxima temporada não é avisada 🟡 (aberto, medido 18/10/2026)
+- **Gatilho:** "já avisado" é qualquer `notification_deliveries` com `kind='plano'` e `status='sucesso'` da
+  pessoa, em qualquer data (`lib/notifications/avisar-plano-pronto.ts:176`, `jaAvisados.has` na linha 96), e a
+  chave de envio é `plano:<colaborador>` (linha 214), sem a jornada.
+- **Efeito:** quem foi avisado na jornada 1 é contado como `repetidos` na jornada 2 e nunca recebe o aviso do
+  PDI novo. Não afetou a T2 de Ibipeba (zero avisos de plano no tenant, medido 18/10); vai afetar a próxima
+  jornada da 4Life e da Amazon, que recebem o primeiro aviso agora.
+- **Correção proposta (não feita):** contar como avisado só o envio com `created_at` dentro da janela da
+  participação ativa (a mesma régua do F-I42) e pôr a jornada na `dedupeKey`. Conferir antes se a camada de envio
+  bloqueia `dedupeKey` repetida para sempre.
+
+### F-I44 · O pré-voo é MUDO para empresa com trilha começando e sem inscrição na cadência 🟡 (aberto, medido 18/10/2026)
+- **Gatilho:** a pílula só sai para quem tem `fase4_envios` com `status='ativo'`
+  (`lib/fase4/trigger-diario-empresa.ts:212`), e quem cria a linha é o "Iniciar envios"
+  (`lib/envios/inscricao-core.ts`), um passo à parte da geração da trilha. O pré-voo coleta as entregas pela MESMA
+  tabela (`lib/pipeline-health/coleta.ts:112`) e, sem linha nenhuma, a empresa sai da varredura calada
+  (`lib/pipeline-health/core.ts:109`: "nada sai nesse dia").
+- **Efeito medido (18/10/2026, 20:50 BRT):** a Amazon tinha **14 trilhas ativas com início 19/10 e zero
+  `fase4_envios`**: nenhuma pílula sairia na segunda, e o pré-voo respondia "nada previsto", o mesmo resultado de
+  uma empresa sem envio no dia. Só a leitura direta da tabela mostrou. (A Amazon acabou adiada pelo dono; a 4Life
+  tinha sido inscrita às 20:49 e Ibipeba foi inscrita às 21:20.)
+- **Correção proposta (não feita):** uma regra do pré-voo que cruza trilhas `ativa` com `data_inicio` ≤ data alvo
+  contra `fase4_envios` ativo da pessoa e acusa as que faltam, por empresa (empresa pausada como aviso, não
+  crítico).
+- **Conferência manual até lá:** "ok" do pré-voo prova só que houve ao menos uma entrega e nenhum achado. Conte
+  `coletarEntregasPrevistas(...).entregas.length` contra o número de trilhas que começam.
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md

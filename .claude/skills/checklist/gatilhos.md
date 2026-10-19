@@ -279,6 +279,11 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - 🔴 Cron que não rodou = **1 semana de atraso, sem catch-up**. Prova: `cron_execucoes`;
   entrega: carimbo por canal.
 - Alarme conta **ocorrências**, não pessoas — varredura de tela infla o número ("578 fallbacks/24h").
+- 🔴 Vou dizer que uma turma/empresa **começa amanhã** (pílula, aviso de PDI): a pílula só sai com
+  `fase4_envios` ativo ("Iniciar envios", `lib/envios/inscricao-core.ts`) e o pré-voo CALA sem ele ("nada
+  previsto", F-I44). Conte `fase4_envios` ativo × trilhas que começam e `coletarEntregasPrevistas(...).entregas.length`;
+  confira a pausa (`envios_pausados.ate`) e quem o botão de aviso alcança. Medido 18/10/2026: Amazon com 14 trilhas
+  começando e 0 inscritos.
 
 ## 16. Gate ou pré-requisito novo
 
