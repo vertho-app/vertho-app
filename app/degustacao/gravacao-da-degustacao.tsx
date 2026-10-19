@@ -16,15 +16,19 @@ import {
 /**
  * Liga a gravação de tela (Sentry Replay) para o lead da versão C.
  *
- * Existe porque o plano do Sentry dá 50 gravações por mês: gravar o app inteiro
- * as gastaria no primeiro dia, já que o mesmo código atende clientes reais. Por
- * isso `sentry.client.config.js` NÃO liga replay (taxas em 0) e este componente
- * é o único ponto que o liga, só onde monta: o início da C e a sala com um
- * desafio escolhido. O mapeamento (DISC) fica de fora de propósito.
+ * Grava a SESSÃO inteira, só onde monta: o início da C e a sala com um desafio
+ * escolhido. O mapeamento (DISC) fica de fora de propósito. Desde 19/10/2026 o
+ * app inteiro também tem Replay, mas só em ERRO e todo mascarado
+ * (`lib/sentry-replay.ts`), e ele NÃO liga nas telas de início nem nos hosts da
+ * sala: aqui quem grava é este componente, com a configuração dele.
  *
  * - Carrega o integrador da CDN do Sentry (`lazyLoadIntegration`), em vez de
  *   importá-lo: importar colocaria o replay no bundle de TODAS as telas.
- * - `replay.start()` grava em modo sessão independentemente das taxas.
+ * - 🔴 Desde 19/10 o init tem `replaysOnErrorSampleRate: 1`, então o integrador
+ *   nasce em modo BUFFER (só em erro). `replay.start()` não sai dele; o que
+ *   converte é `flush()`: envia o que estava guardado e segue gravando a sessão
+ *   (sem gravação nenhuma, ele começa uma). Antes era `if (!modo) start()`, que no
+ *   modo buffer pularia e a degustação só gravaria quando desse erro.
  * - Campos de texto ficam mascarados e o que for da pessoa leva
  *   `data-sentry-mask` (nome no início, conversa do Beto). O conteúdo das telas é
  *   de demonstração, então o texto delas fica visível.
@@ -112,7 +116,8 @@ export default function GravacaoDaDegustacao({ codigo, onde }: {
         Sentry.setTag(GRAVACAO_TAG, await etiquetaDoConvite(codigo));
         Sentry.setTag('demo_versao', 'C');
         Sentry.setTag('demo_onde', onde);
-        if (!replay.getRecordingMode()) replay.start();
+        // buffer (só em erro) ou parado viram SESSÃO: ver o topo.
+        if (replay.getRecordingMode() !== 'session') await replay.flush();
       } catch {
         /* sem gravação, a experiência segue igual */
       }

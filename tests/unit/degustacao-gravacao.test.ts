@@ -125,6 +125,15 @@ describe('a cota de 50 gravações por mês (guard estático)', () => {
     expect(fonte).toMatch(/rotaPermiteGravar\(pathname\)/);
     expect(fonte).toMatch(/replay\.stop\(\)/);
   });
+
+  it('🔴 o modo buffer (init com replaysOnErrorSampleRate: 1, desde 19/10) vira SESSÃO por flush(), não por start()', () => {
+    // `start()` não sai do buffer: com `if (!modo) start()` a degustação só gravaria quando desse erro.
+    const fonte = semComentarios(readFileSync('app/degustacao/gravacao-da-degustacao.tsx', 'utf8'));
+    expect(fonte).toMatch(/if \(replay\.getRecordingMode\(\) !== 'session'\) await replay\.flush\(\);/);
+    expect(fonte).not.toMatch(/replay\.start\(\)/);
+    const init = semComentarios(readFileSync('sentry.client.config.js', 'utf8'));
+    expect(init).toMatch(/replaysOnErrorSampleRate:\s*1(\.0)?\s*,/);
+  });
 });
 
 describe('o código do convite não vai para o Sentry em nenhum dos três lugares', () => {
@@ -210,12 +219,12 @@ describe('a gravação pausa onde a pessoa escreve', () => {
   });
 });
 
-describe('o interruptor da gravação (desligada em 03/10/2026 para não gastar a cota nos testes do dono)', () => {
+describe('o interruptor da gravação (desligada de 03/10 a 19/10/2026; religada com o plano Team)', () => {
   it('existe, é booleano e a decisão está escrita ao lado dele', () => {
     expect(typeof GRAVACAO_LIGADA).toBe('boolean');
     const fonte = readFileSync('lib/demo/degustacao-gravacao.ts', 'utf8');
     expect(fonte).toMatch(/export const GRAVACAO_LIGADA: boolean =/);
-    expect(fonte).toMatch(/Para religar: troque para `true`/);
+    expect(fonte).toMatch(/Para desligar ou religar: troque o valor/);
   });
 
   it('🔴 o componente confere o interruptor ANTES de qualquer coisa do Sentry, então desligado nem o integrador carrega', () => {

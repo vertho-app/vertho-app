@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { podeGravarReplay, opcoesDoReplay, limparEventoDeGravacao, ATRIBUTOS_MASCARADOS } from '@/lib/sentry-replay';
 import { scrubPII, PARAMETROS_SECRETOS } from '@/lib/sentry-scrub-pii';
+import { listarPapeisDeApresentacao } from '@/lib/demo/presentation';
 
 /**
  * Session Replay só em erro e com a tela mascarada (19/10/2026, lib/sentry-replay.ts). O que estes
@@ -27,6 +28,19 @@ describe('podeGravarReplay: a URL da página vai crua no evento Meta do rrweb, e
     // o ticket da sala e o código de volta da degustação
     expect(podeGravarReplay({ pathname: '/dashboard', search: '?sala=abc' })).toBe(false);
     expect(podeGravarReplay({ pathname: '/dashboard', search: '?volta=abc' })).toBe(false);
+  });
+
+  it('🔴 nos hosts das salas de demonstração quem grava é a degustação: o Replay do app não liga (todas as salas, inclusive as futuras)', () => {
+    // O SDK aceita UM Replay por página: se o do app carregasse, a degustação o reaproveitaria e
+    // a gravação dela sairia toda em asteriscos.
+    const papeis = listarPapeisDeApresentacao();
+    expect(papeis.length).toBeGreaterThanOrEqual(9);
+    for (const papel of papeis) {
+      expect(podeGravarReplay({ hostname: `${papel.hostSlug}.vertho.ai`, pathname: '/dashboard', search: '' }), papel.hostSlug).toBe(false);
+    }
+    // tenant de cliente segue gravando em erro
+    expect(podeGravarReplay({ hostname: 'macae.vertho.ai', pathname: '/dashboard', search: '' })).toBe(true);
+    expect(podeGravarReplay({ hostname: 'app.vertho.ai', pathname: '/admin', search: '' })).toBe(true);
   });
 
   it('as telas do produto gravam (só em erro, pela amostragem do client)', () => {

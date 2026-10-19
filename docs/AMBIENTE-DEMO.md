@@ -661,15 +661,23 @@ que `'C'` era recusada (`acme-prospect-experience.test.ts`) foi atualizado de pr
 nos 5 convites B o primeiro clique foi sempre o primeiro item, então com ordem fixa o clique mede
 posição e não prioridade.
 
-**Gravação (Sentry Replay, plano free de 50 por mês).** O init do Sentry NÃO liga replay
-(`sentry.client.config.js`, com guard estático): o mesmo código atende clientes reais e a cota
-acabaria no primeiro dia. Só o início da C e a sala com um desafio escolhido ligam a gravação,
+**Gravação (Sentry Replay, plano Team desde 19/10/2026).** Desde 19/10 o init do Sentry liga o
+Replay do app inteiro SÓ EM ERRO e com todo o texto mascarado (`lib/sentry-replay.ts`), mas ele NÃO
+liga nas telas de início da C (`/degustacao`, `/c`) nem nos hosts da sala (`getDemoPresentationRoleFromHostname`):
+o SDK aceita um Replay por página, e o da degustação precisa ser o daqui. Só o início da C e a sala com um desafio escolhido ligam a gravação da degustação,
 carregando o integrador da CDN do Sentry (`lazyLoadIntegration`) para não pesar o bundle de todas as
 telas. O mapeamento (DISC) fica de fora. A etiqueta de busca é `demo_chave:<hash>`: `sha256("degustacao:"
 + código do convite)`, 12 hex, igual no navegador e no painel (`etiquetaDaGravacao`); o código do
 convite, o nome e o e-mail NUNCA vão como tag. Campos de texto mascarados, conteúdo de demonstração
 visível. Cada host abre outra sessão de gravação (confirmado em produção: 2 gravações para início +
 sala). A página avisa que registra telas e cliques.
+
+✅ **RELIGADA em 19/10/2026, a pedido do dono** (`GRAVACAO_LIGADA = true`), com o plano Team (50
+gravações incluídas, excedente ~US$ 0,004, teto de US$ 200/mês). Dois ajustes antes de religar,
+ambos por causa do Replay do app: ele não liga nas telas da degustação (acima), e o componente passou
+a converter o modo buffer em sessão com `replay.flush()`, porque o init agora tem
+`replaysOnErrorSampleRate: 1` e o integrador nasce em buffer, de onde `replay.start()` não sai (a
+degustação gravaria só quando desse erro). Histórico do desligamento:
 
 🔴 **DESLIGADA em 03/10/2026, por decisão do dono** (`GRAVACAO_LIGADA = false` em
 `lib/demo/degustacao-gravacao.ts`): ele vai testar a C à mão e cada visita gastaria uma das 50

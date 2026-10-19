@@ -21,26 +21,26 @@
  */
 
 /**
- * INTERRUPTOR da gravação de tela da degustação C. 🔴 DESLIGADO em 03/10/2026 por
- * decisão do dono: ele vai testar a C à mão, e cada visita gastaria uma das 50
- * gravações do mês do plano gratuito do Sentry (não há pagamento de excedente
- * nesse plano). Desligado, nada carrega o replay, a página não diz que registra
- * telas e cliques e o painel não mostra a etiqueta da gravação. A captura de ERROS
- * do Sentry é outra coisa e segue ligada.
+ * INTERRUPTOR da gravação de tela da degustação C. ✅ RELIGADO em 19/10/2026 (pedido
+ * do dono, plano Team do Sentry: 50 gravações incluídas e excedente a ~US$ 0,004,
+ * com teto de US$ 200/mês). Ficou desligado de 03/10 a 19/10 porque no plano
+ * gratuito cada teste do dono gastaria uma das 50 gravações do mês, sem excedente.
+ * Desligado, nada carrega o replay, a página não diz que registra telas e cliques e
+ * o painel não mostra a etiqueta da gravação. A captura de ERROS segue ligada.
  *
- * Para religar: troque para `true`, confira a cota (`docs/AMBIENTE-DEMO.md`) e
- * suba. Tipado como `boolean` para o interruptor não virar código morto aos olhos
+ * Para desligar ou religar: troque o valor, confira a cota (`docs/AMBIENTE-DEMO.md`)
+ * e suba. Tipado como `boolean` para o interruptor não virar código morto aos olhos
  * do compilador e do lint.
  *
- * ⚠️ ANTES DE RELIGAR (desde 19/10/2026): o app inteiro passou a carregar o Replay
- * só em erro e com TODO o texto mascarado (`lib/sentry-replay.ts`). Na sala da
- * degustação (`/dashboard`), o componente encontra essa integração já carregada
- * (`Sentry.getReplay()`), reaproveita e chama `start()`: a gravação sairia com a
- * máscara total do app, e não com `maskAllText: false` daqui, e sem o
- * `redigirEventoDoSentry`. As gravações em erro do app também dividem a mesma
- * cota de 50. Resolva as duas coisas antes de trocar o interruptor.
+ * 🔑 Convivência com o Replay do app (só em erro, todo mascarado, desde 19/10,
+ * `lib/sentry-replay.ts`), resolvida antes de religar: (1) ele NÃO liga nas telas de
+ * início nem nos hosts da sala, então aqui o integrador é sempre o deste componente,
+ * com `maskAllText: false` e o `redigirEventoDoSentry`; (2) como o init tem
+ * `replaysOnErrorSampleRate: 1`, o integrador nasce em buffer, e o componente
+ * converte em sessão com `flush()` (o `start()` não sai do buffer). Guards em
+ * `degustacao-gravacao.test.ts` e `sentry-replay.test.ts`.
  */
-export const GRAVACAO_LIGADA: boolean = false;
+export const GRAVACAO_LIGADA: boolean = true;
 
 /** Prefixo do que entra no hash: separa esta etiqueta de qualquer outro uso do código. */
 export const GRAVACAO_PREFIXO_DA_ETIQUETA = 'degustacao:';
