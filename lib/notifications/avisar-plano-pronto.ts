@@ -37,6 +37,8 @@ import { enviarPorTemplate } from '@/lib/notifications/pilula-template';
 import { tenantUrl } from '@/lib/domain';
 import { criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
 import { pausaDeEnvios } from '@/lib/envios-pausados';
+import { tenantDb } from '@/lib/tenant-db';
+import { carregarJornadasAtuais, artefatoValeNaJornada } from '@/lib/turmas/jornada-atual';
 
 /**
  * Momento em que o aviso foi ligado. Relatório mais antigo que isto é passado —
@@ -57,35 +59,45 @@ export interface CandidatoPlano {
   geradoEm: string;
   /** Veredito da 2ª IA sobre o PDI (`conteudo.auditoria.status`: pass, warn, fail). */
   auditoriaStatus?: string | null;
+  /**
+   * O PDI nasceu na jornada ATUAL da pessoa (`artefatoValeNaJornada`)? `false` = é de uma jornada anterior. Ausente
+   * conta como da jornada (quem não tem participação com corte segue como sempre).
+   */
+  daJornadaAtual?: boolean;
 }
 
 /**
  * Quem deve ser avisado, decidido em CÓDIGO PURO (testável sem banco).
  *
  * As exclusões são diferentes e por isso contadas separadamente: passado
- * (corte), REPROVADO pela 2ª IA, já avisado (idempotência) e sem telefone
- * (lacuna de cadastro, que não é sucesso nem falha de envio).
+ * (corte), de OUTRA JORNADA, REPROVADO pela 2ª IA, já avisado (idempotência) e
+ * sem telefone (lacuna de cadastro, que não é sucesso nem falha de envio).
  *
  * 🔴 PDI reprovado pela auditoria não é anunciado (R-60, 03/10/2026): até então
  * o veredito ficava só no admin, e a mensagem chamava a pessoa para ler um plano
  * que a 2ª IA tinha reprovado. Regerado e aprovado, ele volta a ser elegível.
+ *
+ * 🔴 PDI de jornada anterior não é anunciado (18/10/2026, Ibipeba Temporada 2): o botão do painel não tem corte de
+ * data, e os 13 que não responderam a T2 seguem com o PDI vivo de julho. Receberiam "seu plano está pronto" sobre um
+ * plano que a tela já mostra como anterior.
  */
 export function decidirAvisos(
   candidatos: CandidatoPlano[],
   jaAvisados: Set<string>,
   corteIso: string = CORTE_ISO,
-): { enviar: CandidatoPlano[]; antigos: number; repetidos: number; semTelefone: number; reprovados: number } {
-  let antigos = 0, repetidos = 0, semTelefone = 0, reprovados = 0;
+): { enviar: CandidatoPlano[]; antigos: number; deOutraJornada: number; repetidos: number; semTelefone: number; reprovados: number } {
+  let antigos = 0, deOutraJornada = 0, repetidos = 0, semTelefone = 0, reprovados = 0;
   const enviar: CandidatoPlano[] = [];
 
   for (const c of candidatos || []) {
     if (!c.geradoEm || c.geradoEm <= corteIso) { antigos++; continue; }
+    if (c.daJornadaAtual === false) { deOutraJornada++; continue; }
     if (c.auditoriaStatus === 'fail') { reprovados++; continue; }
     if (jaAvisados.has(c.colaboradorId)) { repetidos++; continue; }
     if (!c.telefone) { semTelefone++; continue; }
     enviar.push(c);
   }
-  return { enviar, antigos, repetidos, semTelefone, reprovados };
+  return { enviar, antigos, deOutraJornada, repetidos, semTelefone, reprovados };
 }
 
 /**
@@ -118,7 +130,7 @@ export async function avisarPlanosProntos(opts: {
     throw new Error('corteIso exige apenasSlug: reanúncio em massa sem escopo alcançaria outros tenants.');
   }
   const sb = createSupabaseAdmin();
-  const resumo = { elegiveis: 0, enviados: 0, falhas: 0, antigos: 0, repetidos: 0, semTelefone: 0, reprovados: 0, pausadas: 0 };
+  const resumo = { elegiveis: 0, enviados: 0, falhas: 0, antigos: 0, deOutraJornada: 0, repetidos: 0, semTelefone: 0, reprovados: 0, pausadas: 0 };
 
   let q = sb.from('empresas')
     .select('id, slug, nome, is_demo, sys_config').or('is_demo.is.null,is_demo.eq.false');
@@ -143,6 +155,16 @@ export async function avisarPlanosProntos(opts: {
     if (eR) { console.error(`[avisar-plano] relatorios ${emp.slug}:`, eR.message); continue; }
     if (!rels?.length) continue;
 
+    // A jornada de cada pessoa (participação ativa na turma). Sem ela não dá para saber qual PDI é o de agora, e
+    // anunciar o de outra jornada é mensagem que não volta: a empresa fica de fora desta rodada.
+    let jornadas: Awaited<ReturnType<typeof carregarJornadasAtuais>>;
+    try {
+      jornadas = await carregarJornadasAtuais(tenantDb(emp.id));
+    } catch (e: any) {
+      console.error(`[avisar-plano] jornadas ${emp.slug}:`, e?.message || e);
+      continue;
+    }
+
     const ids = [...new Set(rels.map((r: any) => r.colaborador_id))];
     const { data: colabs } = await sb.from('colaboradores')
       .select('id, nome_completo, whatsapp, telefone')
@@ -162,11 +184,13 @@ export async function avisarPlanosProntos(opts: {
         telefone: c?.whatsapp || c?.telefone || null,
         geradoEm: r.gerado_em,
         auditoriaStatus: r.auditoria_status ?? null,
+        daJornadaAtual: artefatoValeNaJornada(jornadas, r.colaborador_id, r.gerado_em),
       };
     });
 
     const d = decidirAvisos(candidatos, avisados, corte);
     resumo.antigos += d.antigos;
+    resumo.deOutraJornada += d.deOutraJornada;
     resumo.repetidos += d.repetidos;
     resumo.semTelefone += d.semTelefone;
     resumo.reprovados += d.reprovados;

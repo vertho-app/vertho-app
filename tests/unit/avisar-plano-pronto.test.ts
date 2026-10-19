@@ -79,7 +79,7 @@ describe('o corte publicado', () => {
 
   it('entrada vazia não quebra', () => {
     const r = decidirAvisos([], new Set());
-    expect(r).toEqual({ enviar: [], antigos: 0, repetidos: 0, semTelefone: 0, reprovados: 0 });
+    expect(r).toEqual({ enviar: [], antigos: 0, deOutraJornada: 0, repetidos: 0, semTelefone: 0, reprovados: 0 });
   });
 
   it('🔴 corte alternativo SEM escopo é recusado — reanúncio não pode vazar para outro tenant', async () => {
