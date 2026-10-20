@@ -849,6 +849,39 @@ Vizinho do F-I43 (o mesmo aviso, do lado da idempotência) e da etapa 2 da jorna
 - **Correção proposta (não feita):** o cron não pular a empresa cuja pausa termina em menos de 24 h (ou o "Iniciar
   envios" disparar o preparo da semana 1), e o horizonte separar a distância 0 das demais. Até lá, o gatilho §15 da
   skill `checklist` manda conferir à mão antes da pílula.
+- **O alarme do mesmo cron fica vermelho por DESENHO (medido 20/10/2026, Sentry `VERTHO-APP-1B`):** ele lança quando
+  sobra qualquer par sem brief nas próximas 4 semanas (`app/api/cron/route.ts:296`), depois de gerar os que pode. Na
+  1ª noite com monitor: 24 gerados e 21 sem brief, 15 na 4Life (4 pessoas: Liderança do Diretor Escolar,
+  Coordenação Pedagógica, Recreacionista e RH) e 6 em Ibipeba (Gestão Educacional, "Adequação ao público e ao
+  contexto"), todos da semana 2 em diante. O brief só nasce quando o Kit daquela semana roda
+  (`resolverOuCriarBrief`, `lib/season-engine/kit/brief.ts:230`), e o Kit da 4Life foi gerado só para a semana 1. Os
+  4 pares do RH nunca terão brief (sem módulo-base, por decisão do dono): o e-mail se repete toda madrugada.
+  **Pendente (decisão do dono):** alarmar só o que ainda depende de decisão (distância 0-1, ou excluir lacuna
+  decidida).
+
+### F-I46 · A rotação da credencial do Google quebrou o TTS SÓ na Vercel, e três camadas engoliram o erro 🔴 (fechado 20/10/2026, `c3c2c552`)
+- **Gatilho:** em 17/10/2026, às 08h38 BRT, a chave da conta de serviço `vertho-tts` foi trocada (a antiga vazou num
+  log de sessão). O valor gravado na Vercel (Sensitive, ilegível de volta) não era lido: `lib/tts/google-token.ts:29`
+  lançava "GOOGLE_SERVICE_ACCOUNT_JSON inválido". O Trigger e o `.env.local` estavam bons, e foi só neles que a troca
+  foi conferida.
+- **Por que ninguém viu (as três camadas):** (1) o podcast personalizado sob demanda
+  (`app/api/conteudo/[id]/podcast/route.ts`) pega o erro, entrega o áudio-base e só escreve `console.error`; (2) o
+  `canario_tts` devolvia 200 com "ERRO" no texto da mensagem, então para a Vercel e para o Sentry o cron funcionou; (3) a R19 do health só
+  acusa a FALTA de canário bom em 8 dias, contados do último bom (12/10), e chamou de "não rodou" o que era credencial
+  quebrada.
+- **Efeito medido:** 7 pedidos de podcast personalizado em 4 conteúdos (18 e 19/10, app e Macaé) saíram sem o nome
+  da pessoa, e o canário de 19/10 deu ERRO nas 2 vozes. Nenhuma pessoa real fez o DISC no período (a devolutiva em
+  voz, que também roda na Vercel, não foi atingida). A IA (Claude) não depende dessa credencial.
+- **Conserto do dado (20/10, 07h3x BRT):** `vercel env rm` + `vercel env add … production --sensitive` com o valor por
+  stdin a partir do `.env.local` (o `vercel env update` recusa Sensitive: "You cannot change the key of a Sensitive
+  Environment Variable"), `vercel redeploy <dpl> --target production --scope <team>` no mesmo commit, e o canário
+  disparado por `vercel crons run`: Aoede 0,11σ e Algieba 0,15σ, sem erro.
+- **Correção (`c3c2c552`):** cron `credencial_google` a cada 6 h (troca por token NOVO, sem cache, com uma 2ª
+  tentativa contra soluço de rede; falha = 500 = check-in de erro no Sentry, monitor ligado ao alerta); `canario_tts`
+  responde 500 quando alguma voz dá ERRO; `podcast-personalizado-sem-nome` e `devolutiva-audio-falhou` em
+  `degradacao_log`, que a R10 lê. 8 mutações pegas.
+- **Regra que fica:** trocou segredo na Vercel, a prova é um uso que roda NA Vercel (o canário à mão), não o
+  `.env.local` nem o Trigger. Fallback que entrega algo à pessoa é o mais calado de todos: ninguém reclama.
 
 ---
 

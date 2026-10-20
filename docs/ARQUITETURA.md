@@ -1669,8 +1669,9 @@ e todo `case` declara um lado (agendado ou `ACOES_SO_MANUAIS`).
 | `reset_demo` | Reseta o tenant `acme-demo` |
 | `avisar_planos` | Aviso de plano |
 | `horizonte_kits` | Semanal — horizonte de kits |
-| `reconciliar_videos` | Semanal — reconcilia vídeos personalizados (F-V1) |
-| `canario_tts` | Semanal (segunda, 06:20 UTC) — sintetiza o MESMO texto de 4 min em cada voz do elenco e grava o veredito em `tts_qa_log`. O modelo GA do Gemini é atualizado in-place: sem o canário, a voz muda por baixo e o único sinal seria reclamação de ouvinte. Quem alarma é a R19 |
+| `reconciliar_videos` | Diário (03:00 UTC): reconcilia vídeos personalizados (F-V1) |
+| `canario_tts` | Semanal (segunda, 06:20 UTC): sintetiza o MESMO texto de 4 min em cada voz do elenco e grava o veredito em `tts_qa_log`. O modelo GA do Gemini é atualizado in-place: sem o canário, a voz muda por baixo e o único sinal seria reclamação de ouvinte. Voz que REPROVA, quem alarma é a R19; voz que nem chegou a ser medida (credencial, rede) faz o cron responder 500 desde 20/10/2026 (F-I46) |
+| `credencial_google` | A cada 6 h (`45 */6 * * *`): troca a credencial do Google (TTS pelo Vertex) por um token NOVO, sem cache, DENTRO da Vercel, e falha alto (`lib/tts/google-token.ts`, `verificarCredencialGoogle`). O Trigger tem cópia própria da env; esta prova é a da Vercel (F-I46) |
 
 **Só manuais** (`ACOES_SO_MANUAIS`, sem entrada no `vercel.json`): `trigger_segunda`,
 `trigger_quinta`, `recalcular_taxa` — e, desde 31/08, `conarh-followup` e
@@ -2899,9 +2900,16 @@ entrou naquele dia, camada por camada:
   avulsa (`&slug=` da 4Life) ou forjada não cria monitor. O horário vem do cabeçalho `x-vercel-cron-schedule`, que a
   Vercel manda em toda chamada de cron; o monitor nasce no 1º check-in (upsert pela `configDoMonitor`).
 - **Monitor nasce SEM alerta** (`workflowIds: []`): a regra padrão só olha erro. O alerta "Monitores: cron parado e
-  cliente fora do ar" está ligado a 16 crons e 8 uptimes (`https://<slug>.vertho.ai/login`). 🔴 **Cron novo no
+  cliente fora do ar" está ligado a 17 crons e 8 uptimes (`https://<slug>.vertho.ai/login`). 🔴 **Cron novo no
   `vercel.json` ou tenant novo: ligar o monitor ao alerta** (`update_alert_rule addDetectorIds` no MCP do Sentry),
   senão a falha fica calada. O monitor do `trigger_diario` mede só o despacho, não as tasks que ele dispara.
+- 🔴 **Ligado ao alerta não quer dizer LIGADO.** `Medido: 20/10/2026`: `cron-canario-tts` e `cron-reconciliar-videos`
+  estavam `disabled`, sem nenhum check-in desde 19/10, mesmo constando no alerta. Monitor desligado recusa o check-in,
+  e a falha não vira e-mail. O dono ligou os dois no painel; a faixa "Errors were encountered while ingesting
+  check-ins" que fica neles é dessas recusas. O MCP do Sentry não liga monitor de cron (só uptime e metric): ao criar
+  ou conferir, olhe o `status` em `find_monitors`. Para fazer o monitor nascer na hora:
+  `vercel crons run "/api/cron?action=<x>" --scope <team>` faz check-in, e o monitor leva alguns segundos para
+  aparecer na busca.
 - 🔴 **O `trigger/init.ts` roda antes de CADA task e o worker relança o erro dele**: um import que quebre ali derruba
   todas as tasks. Por isso o `@sentry/node` entra sob demanda, em try/catch (`iniciarSentryNoTrigger`).
 - **Span de IA feito à mão** (via `@sentry/core`, porque o wrapper também roda no Trigger): a instrumentação

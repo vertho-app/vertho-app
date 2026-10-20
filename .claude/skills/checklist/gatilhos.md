@@ -388,6 +388,15 @@ Casa: `vercel env add/rm`, leitura nova de `process.env.*` que muda entrega, cus
   MARKETING (6× o custo, ~R$ 180 contra ~R$ 25 por semana em 400 pessoas). Aprovado, enviado,
   entregue — nada quebrou. Fechado com a **R13** do health (`checarTemplatesLigados`) e
   `scripts/_testar-template.ts`, que imprime o template resolvido **antes** de enviar.
+- 🔴 **Rotação de credencial: a Vercel e o Trigger têm cópias SEPARADAS, e a prova é um uso que roda
+  NA Vercel.** Medido 17-20/10/2026: a chave do Google foi trocada, conferida no `.env.local` e no
+  Trigger, e o valor colado na Vercel não era lido. O TTS de lá falhou 3 dias sem aviso (F-I46 do
+  `docs/FMEA-PIPELINE.md`). Receita que funcionou: conferir o valor do arquivo pelo id da chave, sem
+  imprimir o segredo; `vercel env rm` seguido de `vercel env add <NOME> production --sensitive` com o valor por
+  stdin (o `vercel env update` recusa Sensitive); `vercel redeploy <dpl> --target production --scope <team>`
+  no mesmo commit (nunca `vercel --prod`); e rodar o uso real na Vercel (`vercel crons run
+  "/api/cron?action=credencial_google"` e `canario_tts`). Valor de segredo NUNCA em parâmetro de
+  ferramenta (fica no transcript).
 
 ## 25. Lote de Módulo-Base / manuscrito (`trigger/gerar-modulos-manuscrito`, `scripts/_extrair-manuscrito-*`)
 
@@ -1721,6 +1730,7 @@ Padrão que casa: "clica em…", "pelo botão…", "pela tela de…" numa respos
 Padrão que casa: entrada nova em `vercel.json` · tenant novo no ar · `trigger/init.ts` · parâmetro novo de token/código na URL · rota nova de acesso por link.
 
 - [ ] **Cron novo: o monitor do Sentry nasce sozinho no 1º check-in, mas SEM alerta** (`workflowIds: []`). Ligue-o ao alerta "Monitores: cron parado e cliente fora do ar" (`update_alert_rule addDetectorIds` no MCP do Sentry, ids em `get_alert_options section=sources`). Só entra a chamada cujo ÚNICO parâmetro é `action`: a entrada avulsa com `&slug=` não tem monitor.
+- [ ] **E confira o `status` do monitor (`find_monitors`): ligado ao alerta pode estar `disabled`.** Medido 20/10/2026: `cron-canario-tts` e `cron-reconciliar-videos` estavam no alerta e desligados, recusando todo check-in. O MCP não liga monitor de cron: peça ao dono (Crons > monitor > Enable). Para o monitor nascer na hora, `vercel crons run "/api/cron?action=<x>" --scope <team>` faz check-in (o monitor demora alguns segundos para aparecer na busca).
 - [ ] **Tenant novo: crie o uptime** em `https://<slug>.vertho.ai/login` (`create_uptime_monitor`) e ligue-o ao mesmo alerta.
 - [ ] **`trigger/init.ts` roda antes de CADA task e o worker relança o erro dele:** import novo ali entra sob demanda, em try/catch, senão uma falha derruba todas as tasks.
 - [ ] **Credencial nova na URL (nome de parâmetro ou caminho):** entra em `PARAMETROS_SECRETOS` (`lib/sentry-scrub-pii.ts`) e, se for tela de acesso, em `ROTAS_SEM_REPLAY` (`lib/sentry-replay.ts`). O Replay grava o `href` da página no evento Meta do rrweb, que não passa por gancho nenhum: limpar depois não existe, só não ligar.

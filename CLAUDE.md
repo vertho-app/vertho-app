@@ -552,7 +552,9 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   *Sensitive* na Vercel volta `[SENSITIVE]` e você não prova o que gravou (16/08:
   `WHATSAPP_TEMPLATE_PILULA` num template reclassificado MARKETING, 6× o custo, sem sintoma). O
   observável existe ANTES de considerar feito: health (R13), script que imprime o valor resolvido
-  (`scripts/_testar-template.ts`) ou log. Gravar com `printf '%s' … | vercel env add`, **nunca
+  (`scripts/_testar-template.ts`) ou log. Rotação de credencial também: em 17/10/2026 a chave do
+  Google ficou ilegível SÓ na Vercel e o TTS de lá falhou 3 dias calado; hoje o cron
+  `credencial_google` prova a cada 6 h (§F-I46). Gravar com `printf '%s' … | vercel env add`, **nunca
   `echo`** (injeta `\n`). Gatilhos §23-24 da skill `checklist`.
 - NÃO escrever filtro de retomada sobre uma propriedade qualquer do alvo — ele tem que descrever **o
   que a rodada corrige**. Três vezes em 14-15/08: o de blueprint via semanas quando o que mudara eram
