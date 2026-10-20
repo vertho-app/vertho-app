@@ -10,10 +10,20 @@ import OpportunityStageBadge from '@/components/sales/opportunity-stage-badge';
 import ProposalApprovalPanel from '@/components/sales/proposal-approval-panel';
 import ProposalDealDeskPanel from '@/components/sales/proposal-deal-desk-panel';
 import {
-  COMMISSION_RATES, CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGE_LABELS,
+  CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGE_LABELS,
 } from '@/lib/sales/constants';
 import { fmtBRL, fmtBRLExact, fmtDateTime, fmtPercent } from '@/lib/sales/formatters';
 import type { SalesAdminComment, SalesProposal } from '@/lib/sales/types';
+
+/**
+ * Taxa com que a estimativa foi GRAVADA (estimativa ÷ valor final). Depende do
+ * modelo de remuneração do RC (9% + 12% sem ajuda de custo; 0 + 10% com ajuda),
+ * então não pode vir de uma constante única.
+ */
+function taxaGravada(estimativa: number | null | undefined, total: number | null | undefined): number | null {
+  const t = Number(total) || 0;
+  return t > 0 ? (Number(estimativa) || 0) / t : null;
+}
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -100,13 +110,13 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
                   <>
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-gray-500">
-                        Comissão aquisição ({fmtPercent(COMMISSION_RATES.acquisition)})
+                        Comissão aquisição{taxaGravada(proposal.estimated_acquisition_commission, proposal.total_contract_value) != null && ` (${fmtPercent(taxaGravada(proposal.estimated_acquisition_commission, proposal.total_contract_value))})`}
                       </p>
                       <p className="text-lg font-bold text-amber-300 mt-0.5">{fmtBRL(proposal.estimated_acquisition_commission)}</p>
                     </div>
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-gray-500">
-                        Comissão recorrente ({fmtPercent(COMMISSION_RATES.recurring)})
+                        Comissão recorrente{taxaGravada(proposal.estimated_recurring_commission, proposal.total_contract_value) != null && ` (${fmtPercent(taxaGravada(proposal.estimated_recurring_commission, proposal.total_contract_value))})`}
                       </p>
                       <p className="text-lg font-bold text-amber-300 mt-0.5">{fmtBRL(proposal.estimated_recurring_commission)}</p>
                     </div>

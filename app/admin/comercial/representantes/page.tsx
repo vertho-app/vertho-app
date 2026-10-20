@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Plus, Users, X } from 'lucide-react';
 import {
-  createRepresentative, listRepresentativesForAdmin, updateRepresentativeStatus,
+  createRepresentative, listRepresentativesForAdmin, updateRepresentativeCompensationModel, updateRepresentativeStatus,
 } from '@/actions/sales/representatives';
+import { COMPENSATION_MODELS, COMPENSATION_MODEL_LABELS, type CompensationModel } from '@/lib/sales/constants';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { fmtDate } from '@/lib/sales/formatters';
@@ -27,6 +28,7 @@ const STATUS_COLOR: Record<RepStatus, string> = {
 
 const EMPTY_FORM = {
   email: '', name: '', company_name: '', cnpj: '', core_registration: '', phone: '', region: '',
+  compensation_model: 'sem_ajuda' as CompensationModel,
 };
 
 export default function RepresentantesAdminPage() {
@@ -48,7 +50,7 @@ export default function RepresentantesAdminPage() {
 
   useEffect(() => { carregar(); }, []);
 
-  function setField(k: keyof typeof EMPTY_FORM, v: string) {
+  function setField(k: Exclude<keyof typeof EMPTY_FORM, 'compensation_model'>, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
@@ -66,6 +68,7 @@ export default function RepresentantesAdminPage() {
       core_registration: form.core_registration.trim() || null,
       phone: form.phone.trim() || null,
       region: form.region.trim() || null,
+      compensation_model: form.compensation_model,
     });
     setSaving(false);
     if (!r.success) {
@@ -75,6 +78,25 @@ export default function RepresentantesAdminPage() {
     toast.success(`Representante ${r.data.name} criado`);
     setForm({ ...EMPTY_FORM });
     setShowForm(false);
+    await carregar();
+  }
+
+  async function handleModelChange(rep: SalesRepresentative, model: CompensationModel) {
+    if (model === rep.compensation_model) return;
+    const ok = await confirmDialog({
+      title: 'Trocar o modelo de remuneração',
+      message: `${rep.name} passa a "${COMPENSATION_MODEL_LABELS[model]}" nas próximas propostas e aceites. Propostas e comissões já lançadas não mudam.`,
+      confirmLabel: 'Trocar',
+    });
+    if (!ok) return;
+    setBusyId(rep.id);
+    const r = await updateRepresentativeCompensationModel(rep.id, model);
+    setBusyId(null);
+    if (!r.success) {
+      toast.error(r.error || 'Falha ao trocar o modelo');
+      return;
+    }
+    toast.success(`Modelo de ${rep.name} atualizado`);
     await carregar();
   }
 
@@ -155,6 +177,16 @@ export default function RepresentantesAdminPage() {
                 <label className="block text-[10px] uppercase text-gray-500 mb-1">Região</label>
                 <input value={form.region} onChange={(e) => setField('region', e.target.value)} className={inputCls} style={inputStyle} placeholder="Ex.: SP capital, Sul, Nordeste" />
               </div>
+              <div>
+                <label className="block text-[10px] uppercase text-gray-500 mb-1">Remuneração</label>
+                <select
+                  value={form.compensation_model}
+                  onChange={(e) => setForm((f) => ({ ...f, compensation_model: e.target.value as CompensationModel }))}
+                  className={`${inputCls} bg-[#091D35]`} style={inputStyle}
+                >
+                  {COMPENSATION_MODELS.map((m) => <option key={m} value={m}>{COMPENSATION_MODEL_LABELS[m]}</option>)}
+                </select>
+              </div>
             </div>
             <div className="mt-3 flex justify-end">
               <button
@@ -183,6 +215,7 @@ export default function RepresentantesAdminPage() {
                   <th className="px-3 py-2">E-mail</th>
                   <th className="px-3 py-2">Empresa / CNPJ</th>
                   <th className="px-3 py-2">Região</th>
+                  <th className="px-3 py-2">Remuneração</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Criado em</th>
                 </tr>
@@ -197,6 +230,16 @@ export default function RepresentantesAdminPage() {
                       {r.cnpj && <span className="block text-[10px] text-gray-500 font-mono">{r.cnpj}</span>}
                     </td>
                     <td className="px-3 py-2 text-gray-400">{r.region || '—'}</td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={r.compensation_model}
+                        disabled={busyId === r.id}
+                        onChange={(e) => handleModelChange(r, e.target.value as CompensationModel)}
+                        className="px-2 py-1 rounded-lg text-[11px] font-semibold border border-white/15 bg-[#091D35] text-gray-200 disabled:opacity-50"
+                      >
+                        {COMPENSATION_MODELS.map((m) => <option key={m} value={m}>{COMPENSATION_MODEL_LABELS[m]}</option>)}
+                      </select>
+                    </td>
                     <td className="px-3 py-2">
                       <select
                         value={r.status}

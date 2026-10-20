@@ -120,7 +120,18 @@ Demonstração"** no portal. Decisões:
   origem 10, necessidade 15, produto 10, estágio 10, próxima ação 15,
   evidência 10. Persistido e recalculado a cada update.
 - **Comissões** (`lib/sales/commissions.ts`): aquisição 9% do contrato inicial;
-  recorrente 12% na vigência; renovação 6%; expansão 9%+12%. MVP = estimativa
+  recorrente 12% na vigência; renovação 6%; expansão 9%+12%.
+  **Desde 19/10/2026 (mig 295) são DOIS modelos por RC**, em
+  `sales_representatives.compensation_model`: `sem_ajuda` (as taxas acima, o
+  padrão) e `com_ajuda` (recorrente 10% ao mês, sem aquisição, renovação 5%,
+  expansão 10% ao mês do incremental; a ajuda de custo em si fica fora do
+  portal). As taxas vivem em `commissionRatesFor` (`lib/sales/constants.ts`) e
+  entram na estimativa da proposta, no resumo que o RC vê, no extrato e nos
+  eventos do aceite (o modelo com ajuda não lança evento de aquisição). O
+  modelo se escolhe ao criar o RC em `/admin/comercial/representantes` e pode
+  ser trocado lá; a troca vale para as propostas e aceites seguintes (extrato e
+  aprovação leem a taxa da própria estimativa gravada). Teste:
+  `tests/unit/sales-comissao-modelos.test.ts`. MVP = estimativa
   na proposta; aceite do cliente materializa eventos `forecast` em
   `sales_commission_events` (hook MVP 2: accrued/paid/chargeback prontos).
   Esta é a política do ledger financeiro. Não confundir com o seletor de custo

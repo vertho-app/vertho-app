@@ -1,5 +1,5 @@
 // Portal do Representante — tipos de domínio (espelham as tabelas sales_*).
-import type { PipelineStage, ProposalStatus } from './constants';
+import type { CompensationModel, PipelineStage, ProposalStatus } from './constants';
 
 export type SalesRepresentative = {
   id: string;
@@ -12,6 +12,8 @@ export type SalesRepresentative = {
   phone: string | null;
   region: string | null;
   status: 'active' | 'inactive' | 'suspended';
+  /** Modelo de remuneração (mig 295). Decide as taxas de comissão: `commissionRatesFor`. */
+  compensation_model: CompensationModel;
   created_at: string;
   updated_at: string;
 };

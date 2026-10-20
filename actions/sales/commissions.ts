@@ -10,7 +10,7 @@ import {
   requireRepresentativeAction,
   requireRepresentativeOrAdminAction,
 } from '@/lib/sales/permissions';
-import { COMMISSION_RATES, COMMISSION_STATUS_LABELS, COMMISSION_TYPE_LABELS } from '@/lib/sales/constants';
+import { COMMISSION_STATUS_LABELS, COMMISSION_TYPE_LABELS, commissionRatesFor } from '@/lib/sales/constants';
 import type { SalesCommissionEvent, SalesProposal } from '@/lib/sales/types';
 
 export type CommissionRow = {
@@ -24,6 +24,14 @@ export type CommissionRow = {
 };
 
 type AccountJoin = { legal_name: string | null; trade_name: string | null } | null;
+
+/**
+ * Percentual de uma ESTIMATIVA gravada na proposta: lido do próprio valor
+ * (estimativa ÷ base), e não da taxa do modelo atual do RC. Se o admin trocar o
+ * modelo depois, a proposta antiga continua dizendo a taxa com que foi calculada.
+ */
+const percentDaEstimativa = (valor: number, base: number | null, taxaAtual: number) =>
+  base && base > 0 ? Math.round((valor / base) * 1000) / 10 : taxaAtual * 100;
 const clienteDe = (account: AccountJoin) => account?.trade_name || account?.legal_name || '—';
 
 /** Tabela de comissões do dashboard do RC (estimativas + eventos, deduplicado). */
@@ -55,29 +63,35 @@ export async function getCommissionSummary() {
       .map((e) => `${e.proposal_id}:${e.type}`),
   );
 
-  // (a) Estimativas das propostas vivas: aquisição 9% + recorrente 12%.
+  // (a) Estimativas das propostas vivas, nas taxas do modelo do RC (sem ajuda:
+  // aquisição 9% + recorrente 12%; com ajuda: só o recorrente de 10%).
+  const rates = commissionRatesFor(ctx.rep.compensation_model);
   for (const p of (proposals || []) as (SalesProposal & { account: AccountJoin })[]) {
     const cliente = clienteDe(p.account);
     const status = p.status === 'accepted' ? 'Prevista' : 'Potencial';
-    if (!eventKeys.has(`${p.id}:aquisicao`)) {
+    const base = p.total_contract_value != null ? Number(p.total_contract_value) : null;
+    const aquisicao = Number(p.estimated_acquisition_commission) || 0;
+    // Modelo sem aquisição: a linha de R$ 0 só confundiria o extrato.
+    if (!eventKeys.has(`${p.id}:aquisicao`) && (rates.acquisition > 0 || aquisicao > 0)) {
       rows.push({
         cliente,
         tipo: COMMISSION_TYPE_LABELS.aquisicao,
-        base: p.total_contract_value != null ? Number(p.total_contract_value) : null,
-        percent: COMMISSION_RATES.acquisition * 100,
+        base,
+        percent: percentDaEstimativa(aquisicao, base, rates.acquisition),
         status,
-        valor: Number(p.estimated_acquisition_commission) || 0,
+        valor: aquisicao,
         previsao: null, // MVP: sem previsão de pagamento para estimativas
       });
     }
     if (!eventKeys.has(`${p.id}:recorrente`)) {
+      const recorrente = Number(p.estimated_recurring_commission) || 0;
       rows.push({
         cliente,
         tipo: COMMISSION_TYPE_LABELS.recorrente,
-        base: p.total_contract_value != null ? Number(p.total_contract_value) : null,
-        percent: COMMISSION_RATES.recurring * 100,
+        base,
+        percent: percentDaEstimativa(recorrente, base, rates.recurring),
         status,
-        valor: Number(p.estimated_recurring_commission) || 0,
+        valor: recorrente,
         previsao: null,
       });
     }

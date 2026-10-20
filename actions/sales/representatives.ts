@@ -6,7 +6,11 @@ import {
   getRepresentativeContext as getRepCtx,
   requireCommercialAdminAction,
 } from '@/lib/sales/permissions';
+import { COMPENSATION_MODELS, type CompensationModel } from '@/lib/sales/constants';
 import type { SalesRepresentative } from '@/lib/sales/types';
+
+const modeloValido = (m: unknown): m is CompensationModel =>
+  typeof m === 'string' && (COMPENSATION_MODELS as readonly string[]).includes(m);
 
 /** Perfil do RC logado (null se o usuário não é representante). */
 export async function getRepresentativeContext(): Promise<{ success: boolean; rep: SalesRepresentative | null }> {
@@ -29,12 +33,17 @@ export async function listRepresentativesForAdmin() {
 export async function createRepresentative(input: {
   email: string; name: string; company_name?: string | null; cnpj?: string | null;
   core_registration?: string | null; phone?: string | null; region?: string | null;
+  compensation_model?: CompensationModel | null;
 }) {
   const admin = await requireCommercialAdminAction();
   const email = String(input.email || '').trim().toLowerCase();
   const name = String(input.name || '').trim();
   if (!email || !email.includes('@')) return { success: false as const, error: 'E-mail inválido' };
   if (!name) return { success: false as const, error: 'Nome é obrigatório' };
+  // O modelo decide as taxas de comissão (commissionRatesFor). Valor fora da
+  // lista é recusado, e não trocado pelo padrão em silêncio.
+  const compensationModel = input.compensation_model ?? 'sem_ajuda';
+  if (!modeloValido(compensationModel)) return { success: false as const, error: 'Modelo de remuneração inválido' };
 
   const sb = createSupabaseAdmin();
   const { data: existing } = await sb.from('sales_representatives').select('id').eq('email', email).maybeSingle();
@@ -54,12 +63,30 @@ export async function createRepresentative(input: {
     core_registration: input.core_registration?.trim() || null,
     phone: input.phone?.trim() || null,
     region: input.region?.trim() || null,
+    compensation_model: compensationModel,
     status: 'active',
   }).select('*').single();
   if (error) return { success: false as const, error: error.message };
 
   console.log(`[sales] RC criado por ${admin.email}: ${email}`);
   return { success: true as const, data: data as SalesRepresentative };
+}
+
+/**
+ * Troca o modelo de remuneração do RC. Vale para as propostas e aceites
+ * SEGUINTES: estimativas já gravadas e eventos de comissão já lançados não são
+ * recalculados (o extrato e a aprovação leem a taxa da própria estimativa).
+ */
+export async function updateRepresentativeCompensationModel(repId: string, model: CompensationModel) {
+  const admin = await requireCommercialAdminAction();
+  if (!modeloValido(model)) return { success: false as const, error: 'Modelo de remuneração inválido' };
+  const sb = createSupabaseAdmin();
+  const { error } = await sb.from('sales_representatives')
+    .update({ compensation_model: model, updated_at: new Date().toISOString() })
+    .eq('id', repId);
+  if (error) return { success: false as const, error: error.message };
+  console.log(`[sales] RC ${repId} → modelo ${model} por ${admin.email}`);
+  return { success: true as const };
 }
 
 export async function updateRepresentativeStatus(repId: string, status: 'active' | 'inactive' | 'suspended') {

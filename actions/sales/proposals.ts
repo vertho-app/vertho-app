@@ -20,6 +20,7 @@ import {
 } from '@/lib/sales/permissions';
 import { validateProposalDraft, validateProposalForSubmission, numOrNull } from '@/lib/sales/validation';
 import { calculateProposalFinancials, dataPrevistaPagamentoComissao, draftAcquisitionEvent, expandRecurringMonthly } from '@/lib/sales/commissions';
+import { commissionRatesFor, type CommissionRates } from '@/lib/sales/constants';
 import type { SalesProposal } from '@/lib/sales/types';
 
 const PROPOSAL_SELECT = `*,
@@ -28,7 +29,13 @@ const PROPOSAL_SELECT = `*,
 
 const RC_EDITABLE_STATUSES = ['draft', 'changes_requested'];
 
-function proposalPatchFromInput(input: Record<string, any>): Record<string, any> {
+/**
+ * `rates` vem do modelo de remuneração do RC dono da proposta
+ * (`commissionRatesFor(ctx.rep.compensation_model)`): o RC com ajuda de custo
+ * não tem comissão de aquisição e recebe 10% ao mês, e a estimativa gravada na
+ * proposta tem que dizer isso.
+ */
+function proposalPatchFromInput(input: Record<string, any>, rates: CommissionRates): Record<string, any> {
   const patch: Record<string, any> = {
     customer_type: input.customer_type || null,
     number_of_users: numOrNull(input.number_of_users),
@@ -46,7 +53,7 @@ function proposalPatchFromInput(input: Record<string, any>): Record<string, any>
     monthly_value: patch.monthly_value,
     contract_duration_months: patch.contract_duration_months,
     discount_requested: patch.discount_requested,
-  });
+  }, rates);
   return { ...patch, ...fin };
 }
 
@@ -123,7 +130,7 @@ export async function createProposalDraft(input: Record<string, any>) {
     account_id: opp.account_id,
     proposal_number: num as string,
     status: 'draft',
-    ...proposalPatchFromInput(input),
+    ...proposalPatchFromInput(input, commissionRatesFor(ctx.rep.compensation_model)),
   }).select('id').single();
   if (error) return { success: false as const, error: error.message };
   return { success: true as const, id: data.id };
@@ -142,7 +149,7 @@ export async function updateProposalDraft(proposalId: string, input: Record<stri
   if (!v.valid) return { success: false as const, error: 'Dados inválidos', fieldErrors: v.errors };
 
   const { error } = await sb.from('sales_proposals')
-    .update({ ...proposalPatchFromInput(input), updated_at: new Date().toISOString() })
+    .update({ ...proposalPatchFromInput(input, commissionRatesFor(ctx.rep.compensation_model)), updated_at: new Date().toISOString() })
     .eq('id', proposalId);
   if (error) return { success: false as const, error: error.message };
   return { success: true as const };
@@ -268,7 +275,7 @@ export async function revisarProposta(proposalId: string) {
     monthly_value: p.monthly_value,
     contract_duration_months: p.contract_duration_months,
     discount_requested: p.discount_requested,
-  });
+  }, commissionRatesFor(ctx.rep.compensation_model));
 
   const { data: nova, error } = await sb.from('sales_proposals').insert({
     representante_id: p.representante_id,
@@ -338,21 +345,24 @@ export async function markProposalAccepted(proposalId: string) {
     await sb.from('sales_accounts').update(patch).eq('id', p.account_id);
   }
 
-  // Eventos de comissão (forecast): aquisição única (9%) + recorrente mês a mês
-  // (12%/mês da vigência). A granularidade mensal permite ao financeiro
-  // reconhecer/pagar cada competência e o RC emitir NF por parcela (MVP 2).
+  // Eventos de comissão (forecast): aquisição única + recorrente mês a mês, nas
+  // taxas do modelo do RC (sem ajuda: 9% + 12%; com ajuda: só 10% ao mês). A
+  // granularidade mensal permite ao financeiro reconhecer/pagar cada
+  // competência e o RC emitir NF por parcela (MVP 2).
+  const rates = commissionRatesFor(ctx.rep.compensation_model);
   const start = new Date();
   const base = { representante_id: p.representante_id, proposal_id: p.id, account_id: p.account_id };
-  const acq = draftAcquisitionEvent(Number(p.total_contract_value) || 0, 'forecast');
+  const acq = draftAcquisitionEvent(Number(p.total_contract_value) || 0, 'forecast', rates);
   // A aquisição sai inteira no 1º pagamento do cliente, suposto no mês do aceite:
   // mesma regra do recorrente (dia 10 do mês seguinte).
   const acqExpected = dataPrevistaPagamentoComissao(start);
   // Recorrente sobre o mensal LÍQUIDO (valor final ÷ vigência), não o bruto.
   const meses = Number(p.contract_duration_months) || 0;
   const mensalLiquido = meses ? (Number(p.total_contract_value) || 0) / meses : (Number(p.monthly_value) || 0);
-  const mensais = expandRecurringMonthly(mensalLiquido, meses, start);
+  const mensais = expandRecurringMonthly(mensalLiquido, meses, start, rates);
   await sb.from('sales_commission_events').insert([
-    { ...base, ...acq, expected_payment_date: acqExpected },
+    // Sem aquisição no modelo (com ajuda de custo): nenhum evento de R$ 0 no extrato.
+    ...(rates.acquisition > 0 ? [{ ...base, ...acq, expected_payment_date: acqExpected }] : []),
     ...mensais.map((m) => ({ ...base, ...m })),
   ]);
 

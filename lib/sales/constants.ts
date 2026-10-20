@@ -154,12 +154,39 @@ export const CONTRACT_DURATIONS: readonly number[] = Array.from(
 );
 
 // ── Comissão (política vigente do canal) ────────────────────────────────────
-export const COMMISSION_RATES = {
-  acquisition: 0.09,   // 9% do valor inicial do contrato
-  recurring: 0.12,     // 12% da receita recebida durante a vigência inicial
-  renewal: 0.06,       // 6% após a vigência inicial
-  expansion: 0.09,     // 9% sobre valor incremental (+12% recorrente incremental)
-} as const;
+// Dois modelos de remuneração por RC (decisão do dono, 08/10 e 19/10/2026),
+// gravados em `sales_representatives.compensation_model` (mig 295):
+//   • sem_ajuda: aquisição 9% (inteira no 1º pagamento) + recorrente 12% na
+//     vigência inicial; renovação 6%; expansão 9% + 12% do incremental.
+//   • com_ajuda: recorrente 10% ao mês + ajuda de custo (valor por região, fora
+//     do portal); SEM aquisição; renovação 5%; expansão 10% ao mês do
+//     incremental, sem aquisição.
+export const COMPENSATION_MODELS = ['sem_ajuda', 'com_ajuda'] as const;
+export type CompensationModel = typeof COMPENSATION_MODELS[number];
+export const COMPENSATION_MODEL_LABELS: Record<CompensationModel, string> = {
+  sem_ajuda: 'Sem ajuda de custo',
+  com_ajuda: 'Com ajuda de custo',
+};
+
+export type CommissionRates = {
+  acquisition: number; // sobre o valor inicial do contrato (0 = não há)
+  recurring: number;   // sobre a receita recebida na vigência inicial
+  renewal: number;     // após a vigência inicial
+  expansion: number;   // parte única sobre o incremental (o recorrente do incremental usa `recurring`)
+};
+
+export const COMMISSION_RATES_BY_MODEL: Record<CompensationModel, CommissionRates> = {
+  sem_ajuda: { acquisition: 0.09, recurring: 0.12, renewal: 0.06, expansion: 0.09 },
+  com_ajuda: { acquisition: 0, recurring: 0.10, renewal: 0.05, expansion: 0 },
+};
+
+/** Taxas do modelo pedido. Valor ausente ou desconhecido cai no padrão do canal (sem ajuda). */
+export function commissionRatesFor(model: string | null | undefined): CommissionRates {
+  return model === 'com_ajuda' ? COMMISSION_RATES_BY_MODEL.com_ajuda : COMMISSION_RATES_BY_MODEL.sem_ajuda;
+}
+
+/** Taxas do modelo padrão (sem ajuda de custo). Para um RC, use `commissionRatesFor(rep.compensation_model)`. */
+export const COMMISSION_RATES = COMMISSION_RATES_BY_MODEL.sem_ajuda;
 
 export const COMMISSION_TYPE_LABELS: Record<string, string> = {
   aquisicao: 'Aquisição', recorrente: 'Recorrente', renovacao: 'Renovação',
