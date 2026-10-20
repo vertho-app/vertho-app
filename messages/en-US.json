@@ -327,6 +327,7 @@
     "messagePlaceholder": "Lead the conversation with the client…",
     "send": "Send",
     "composerHelp": "Enter sends · Shift + Enter adds a line. Review dictated text before sending.",
+    "composerHelpTouch": "The message goes out with the Send button · Enter adds a line. Review dictated text before sending.",
     "piiHelp": "Use fictional data. Detected phone numbers, emails and personal identifiers are masked before saving and sending to AI.",
     "piiApplied": "Detected personal data was masked in your messages.",
     "finish": "Finish and get feedback",

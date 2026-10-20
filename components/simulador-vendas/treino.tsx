@@ -34,6 +34,7 @@ import Configuracao from './configuracao';
 import Processamento from './processamento';
 import Ditado from './ditado';
 import { lerResposta } from '@/lib/simuladores/ler-resposta';
+import { enterEnvia, useTecladoDeToque } from '@/lib/enter-envia';
 import { CODIGO_LIMITE_INICIOS_VENDAS, INICIOS_POR_HORA_VENDAS } from '@/lib/simulador-vendas/limite-inicios';
 import styles from './treino.module.css';
 import ReferenciasVertho from './referencias-vertho';
@@ -94,6 +95,8 @@ export default function TreinoVendas({
   });
   const t = useTranslations('SimuladorVendas'),
     locale = useLocale();
+  // No celular o Enter quebra a linha e o envio é só pelo botão (ver `enterEnvia`).
+  const tecladoDeToque = useTecladoDeToque();
   const empresaUrl = useSearchParams().get('empresa');
   const [empresas, setEmpresas] = useState<
     Array<{ id: string; nome: string; slug: string }>
@@ -1152,11 +1155,7 @@ export default function TreinoVendas({
                           }
                           onChange={(e) => setTexto(e.target.value)}
                           onKeyDown={(e) => {
-                            if (
-                              e.key === 'Enter' &&
-                              !e.shiftKey &&
-                              !e.nativeEvent.isComposing
-                            ) {
+                            if (enterEnvia(e, tecladoDeToque)) {
                               e.preventDefault();
                               if (
                                 !travado &&
@@ -1200,7 +1199,7 @@ export default function TreinoVendas({
                         </div>
                       </form>
                       <p className={`${styles.muted} mt-2`}>
-                        {t('composerHelp')}
+                        {t(tecladoDeToque ? 'composerHelpTouch' : 'composerHelp')}
                       </p>
                       <p className={`${styles.muted} mt-2`}>{t('piiHelp')}</p>
                     </>

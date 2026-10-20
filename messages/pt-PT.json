@@ -327,6 +327,7 @@
     "messagePlaceholder": "Conduza a conversa com o cliente…",
     "send": "Enviar",
     "composerHelp": "Enter envia · Shift + Enter muda de linha. Reveja o texto ditado antes de enviar.",
+    "composerHelpTouch": "A mensagem sai pelo botão Enviar · Enter muda de linha. Reveja o texto ditado antes de enviar.",
     "piiHelp": "Use dados fictícios. Telefones, e-mails e identificadores pessoais detetados são ocultados antes de guardar e enviar à IA.",
     "piiApplied": "Os dados pessoais detetados foram ocultados nas suas mensagens.",
     "finish": "Terminar e receber devolutiva",

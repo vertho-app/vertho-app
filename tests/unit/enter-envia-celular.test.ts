@@ -114,3 +114,24 @@ describe('tela da semana: os dois chats seguem a regra', () => {
     }
   });
 });
+
+describe('simulador de vendas: a mensagem ao cliente segue a regra', () => {
+  const treino = readFileSync('components/simulador-vendas/treino.tsx', 'utf8');
+
+  it('o envio decide por enterEnvia, e não sobra Enter cru', () => {
+    expect(treino).toContain('const tecladoDeToque = useTecladoDeToque();');
+    expect(treino).toMatch(/onKeyDown=\{\(e\) => \{\s*if \(enterEnvia\(e, tecladoDeToque\)\) \{/);
+    expect(treino).not.toMatch(/key === 'Enter'/);
+  });
+
+  it('no celular a ajuda do campo não manda usar Shift + Enter', () => {
+    expect(treino).toContain("t(tecladoDeToque ? 'composerHelpTouch' : 'composerHelp')");
+  });
+
+  it.each(['pt-BR', 'pt-PT', 'es-ES', 'en-US'])('%s: a ajuda do celular existe, cita o botão e não cita Shift', (locale) => {
+    const vendas = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8')).SimuladorVendas;
+    expect(typeof vendas.composerHelpTouch).toBe('string');
+    expect(vendas.composerHelpTouch).toContain(vendas.send);
+    expect(vendas.composerHelpTouch).not.toMatch(/shift|mayús/i);
+  });
+});
