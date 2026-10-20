@@ -48,9 +48,10 @@ const st = criarStorageFalso();
 sb.client.storage = st.storage;
 const cliente = sb.client;
 
-const { ttsMock, downloadMock } = vi.hoisted(() => ({
+const { ttsMock, downloadMock, degradacaoMock } = vi.hoisted(() => ({
   ttsMock: vi.fn(async (_n: string, _nome: string) => ({ buffer: Buffer.from('mp3-novo'), contentType: 'audio/mpeg' })),
   downloadMock: vi.fn(async (url: string) => new Response(`baixado:${url}`, { status: 200 })),
+  degradacaoMock: vi.fn(async (..._a: any[]) => {}),
 }));
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => cliente }));
@@ -65,6 +66,10 @@ vi.mock('@/lib/gemini-tts', () => ({
   generatePersonalizedPodcastAudio: ttsMock,
 }));
 vi.mock('@/lib/repositories/conteudos-repo', () => ({ escopoTenantDaLinha: (q: any) => q }));
+vi.mock('@/lib/degradacao', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/degradacao')>()),
+  registrarDegradacao: degradacaoMock,
+}));
 
 import { GET } from '@/app/api/conteudo/[id]/podcast/route';
 import { POST as PREGERAR } from '@/app/api/internal/pregerar-podcast/route';
@@ -89,6 +94,7 @@ beforeEach(() => {
   estado.negarColab = false;
   ttsMock.mockClear();
   downloadMock.mockClear();
+  degradacaoMock.mockClear();
 });
 
 describe('leitura do podcast personalizado: só link assinado', () => {
@@ -154,6 +160,35 @@ describe('geração sob demanda: grava no bucket privado', () => {
     expect(res.status).toBe(503);
     expect(ttsMock).not.toHaveBeenCalled();
     expect(uploads()).toHaveLength(0);
+  });
+
+  it('🔴 TTS que falha (a credencial de 18-19/10): entrega o áudio-base E registra a degradação', async () => {
+    const fetchBase = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
+    try {
+      ttsMock.mockRejectedValueOnce(new Error('GOOGLE_SERVICE_ACCOUNT_JSON inválido (não é JSON nem base64-JSON)'));
+      estado.ctx = sessao(ANA);
+      const res = await pedir(CONT_A);
+      expect(res.status).toBe(200);
+      expect(fetchBase).toHaveBeenCalledWith('https://cdn/base-A.mp3');
+      expect(degradacaoMock).toHaveBeenCalledTimes(1);
+      expect(degradacaoMock.mock.calls[0][0]).toEqual({
+        fluxo: 'build',
+        tipo: 'podcast-personalizado-sem-nome',
+        chave: `${CONT_A}:${ANA.id}`,
+        empresaId: EMP_A,
+        colaboradorId: ANA.id,
+        detalhe: { erro: 'GOOGLE_SERVICE_ACCOUNT_JSON inválido (não é JSON nem base64-JSON)' },
+      });
+    } finally {
+      fetchBase.mockRestore();
+    }
+  });
+
+  it('podcast servido do cache não registra nada', async () => {
+    st.semear('relatorios-pdf', novo(EMP_A, CONT_A, ANA.id));
+    estado.ctx = sessao(ANA);
+    await pedir(CONT_A);
+    expect(degradacaoMock).not.toHaveBeenCalled();
   });
 
   it('upload que falha não vira link: cai no áudio-base, sem nome', async () => {

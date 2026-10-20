@@ -107,19 +107,35 @@ export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb, sobDem
   // pelo portão de deriva com alvo de F0 (Iapetus 144 Hz ± 1 st, ~21% de retake).
   const { extractNarration, generateNarrationAudio } = await import('@/lib/gemini-tts');
   const narracao = extractNarration(roteiro);
-  const audio = await generateNarrationAudio(narracao, {
-    voice: process.env.GEMINI_TTS_DEVOLUTIVA_VOICE || ELENCO.beto.voz,
-    // A direção vem do ELENCO: produção e canário falam com a MESMA voz e o
-    // mesmo estilo, senão o canário mede um take que ninguém ouve.
-    style: direcaoDoPersonagem('beto'),
-    ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id, artifactKey: `colaboradores:${colab.id}:devolutiva` },
-    segmentar: false,
-    // Série nos dois casos; sob demanda o relógio limita o retake (ver
-    // `PRAZO_SOB_DEMANDA_MS`), no fundo não há relógio. Até 10/09/2026 o botão
-    // disparava os takes todos em paralelo e pagava K× mesmo quando o primeiro
-    // passava — a mesma correção feita no podcast.
-    ...(sobDemanda ? { prazoAteMs: Date.now() + PRAZO_SOB_DEMANDA_MS } : {}),
-  });
+  let audio: Awaited<ReturnType<typeof generateNarrationAudio>>;
+  try {
+    audio = await generateNarrationAudio(narracao, {
+      voice: process.env.GEMINI_TTS_DEVOLUTIVA_VOICE || ELENCO.beto.voz,
+      // A direção vem do ELENCO: produção e canário falam com a MESMA voz e o
+      // mesmo estilo, senão o canário mede um take que ninguém ouve.
+      style: direcaoDoPersonagem('beto'),
+      ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id, artifactKey: `colaboradores:${colab.id}:devolutiva` },
+      segmentar: false,
+      // Série nos dois casos; sob demanda o relógio limita o retake (ver
+      // `PRAZO_SOB_DEMANDA_MS`), no fundo não há relógio. Até 10/09/2026 o botão
+      // disparava os takes todos em paralelo e pagava K× mesmo quando o primeiro
+      // passava — a mesma correção feita no podcast.
+      ...(sobDemanda ? { prazoAteMs: Date.now() + PRAZO_SOB_DEMANDA_MS } : {}),
+    });
+  } catch (e: any) {
+    // Os dois chamadores só logam (a pré-geração do DISC com `console.warn`): sem este
+    // registro, uma credencial quebrada deixaria cada DISC novo sem voz, calado.
+    const { registrarDegradacao, DEGRADACAO } = await import('@/lib/degradacao');
+    await registrarDegradacao({
+      fluxo: 'build',
+      tipo: DEGRADACAO.DEVOLUTIVA_AUDIO_FALHOU,
+      chave: colab.id,
+      empresaId: colab.empresa_id,
+      colaboradorId: colab.id,
+      detalhe: { erro: String(e?.message || e).slice(0, 300), sobDemanda },
+    }, sb);
+    throw e;
+  }
   if (audio.qa && !audio.qa.ok) console.warn(`[devolutiva-audio] publicada com ressalva do portão de deriva: ${audio.qa.motivos.join('; ')}`);
 
   const slug = storageSlug(colab.nome_completo, 'colab');

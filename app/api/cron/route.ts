@@ -352,7 +352,9 @@ async function executarAcao(req, authHeader, cronSecret) {
       // CANÁRIO DO TTS (fase 4 do plano de deriva, 06/09): o modelo GA do Gemini TTS é
       // atualizado in-place; toda semana o mesmo texto é sintetizado em cada voz do
       // elenco e o portão grava F0, deriva e distância à assinatura em tts_qa_log.
-      // Quem alarma é a R19 do health estrutural — aqui só se mede.
+      // Voz que REPROVA quem alarma é a R19 do health estrutural. Voz que nem chegou a
+      // ser medida (credencial, rede, modelo fora) derruba o cron: em 19/10/2026 as duas
+      // deram ERRO de credencial, a rota devolveu 200 e o Sentry teria marcado "ok".
       case 'canario_tts': {
         const { rodarCanarioTts } = await import('@/lib/tts/canario');
         const vozes = searchParams.get('vozes')?.split(',').map((v) => v.trim()).filter(Boolean);
@@ -361,6 +363,18 @@ async function executarAcao(req, authHeader, cronSecret) {
           canarios: r,
           message: `Canário TTS: ${r.map((c) => `${c.voz} ${c.erro ? 'ERRO ' + c.erro : c.ok ? 'ok' : 'REPROVA'}${c.timbreVsRefSigma != null ? ` (${c.timbreVsRefSigma.toFixed(2)}σ da assinatura)` : ''}`).join(' · ')}`,
         };
+        if (r.some((c) => c.erro)) throw new Error(result.message);
+        break;
+      }
+
+      // CREDENCIAL DO GOOGLE (TTS pelo Vertex) lida NESTA Vercel, a cada 6 h. O Trigger tem
+      // cópia própria da env, então a prova tem que rodar aqui. Em 17/10/2026 a rotação
+      // gravou um valor ilegível só na Vercel e o TTS daqui falhou 3 dias sem aviso
+      // (`lib/tts/google-token.ts`, `verificarCredencialGoogle`). Lança = check-in de erro.
+      case 'credencial_google': {
+        const { verificarCredencialGoogle } = await import('@/lib/tts/google-token');
+        const r = await verificarCredencialGoogle();
+        result = { ...r, message: `Credencial do Google ok: ${r.clientEmail} (chave ${r.chave})` };
         break;
       }
       case 'custo_ia_semanal': {

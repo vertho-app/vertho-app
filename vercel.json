@@ -67,6 +67,10 @@
     {
       "path": "/api/cron?action=canario_tts",
       "schedule": "20 6 * * 1"
+    },
+    {
+      "path": "/api/cron?action=credencial_google",
+      "schedule": "45 */6 * * *"
     }
   ]
 }

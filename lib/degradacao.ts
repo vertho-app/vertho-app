@@ -340,6 +340,22 @@ export const DEGRADACAO = {
    */
   TTS_QA_REPROVADO_PUBLICADO: 'tts-qa-reprovado-publicado',
   /**
+   * build: o podcast personalizado ("Olá, {nome}") não saiu na hora e a rota entregou o
+   * áudio-base, sem o nome (`app/api/conteudo/[id]/podcast/route.ts`). Chave:
+   * `<conteúdo>:<pessoa>`. `aviso`: a pessoa ouve o episódio, só não o dela.
+   *
+   * Existe por causa de 18-19/10/2026: com a credencial do Google ilegível na Vercel, 7
+   * pedidos em 4 conteúdos caíram aqui e o único rastro era um `console.error`.
+   */
+  PODCAST_PERSONALIZADO_SEM_NOME: 'podcast-personalizado-sem-nome',
+  /**
+   * build: a devolutiva do perfil em voz (Beto) não saiu porque o TTS falhou
+   * (`lib/relatorio-comportamental/devolutiva-audio.ts`). Vale para o botão "Ouvir
+   * devolutiva" e para a pré-geração do DISC. Chave: `colaboradorId`. `aviso`: o relatório
+   * escrito segue no ar, e o botão tenta de novo.
+   */
+  DEVOLUTIVA_AUDIO_FALHOU: 'devolutiva-audio-falhou',
+  /**
    * fechamento-core: a nota do Cenário B não saiu (scorer abortado, parse
    * vazio ou gravação falhou). `critico`: a pessoa fez tudo e ficou sem nota.
    *

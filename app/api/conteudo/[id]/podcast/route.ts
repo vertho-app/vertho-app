@@ -12,6 +12,7 @@ import {
   type ChaveAudioPersonalizado,
 } from '@/lib/conteudo/audio-personalizado';
 import { extractNarration, generatePersonalizedPodcastAudio } from '@/lib/gemini-tts';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // fallback on-demand p/ colab sem cache pré-aquecido
@@ -174,8 +175,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       await registrarAuditoria(auth, alvo, content.id, req);
       return entregar(assinado.url, req);
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('[podcast personalizado]', err);
+    // O fallback abaixo entrega o áudio-base: a pessoa ouve, e por isso ninguém reclama.
+    // Sem este registro, as falhas de 18 e 19/10/2026 (credencial quebrada) foram só log.
+    await registrarDegradacao({
+      fluxo: 'build',
+      tipo: DEGRADACAO.PODCAST_PERSONALIZADO_SEM_NOME,
+      chave: `${content.id}:${alvo!.id}`,
+      empresaId: empresaDaPessoa,
+      colaboradorId: alvo!.id,
+      detalhe: { erro: String(err?.message || err).slice(0, 300) },
+    }, sb);
   }
 
   const base = await downloadBaseAudio(sb, content);

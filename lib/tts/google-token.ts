@@ -10,7 +10,7 @@
  */
 import crypto from 'node:crypto';
 
-interface ServiceAccount { client_email: string; private_key: string; token_uri: string; project_id: string }
+interface ServiceAccount { client_email: string; private_key: string; token_uri: string; project_id: string; private_key_id?: string }
 
 let tokenCache: { token: string; exp: number } | null = null;
 
@@ -34,6 +34,7 @@ function loadServiceAccount(): ServiceAccount {
     private_key: String(json.private_key).replace(/\\n/g, '\n'), // tolera \n escapado
     token_uri: json.token_uri || 'https://oauth2.googleapis.com/token',
     project_id: json.project_id,
+    private_key_id: json.private_key_id,
   };
 }
 
@@ -49,7 +50,37 @@ export async function getGoogleAccessToken(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   if (tokenCache && tokenCache.exp - 60 > now) return tokenCache.token;
 
+  tokenCache = await trocarPorToken(loadServiceAccount(), now);
+  return tokenCache.token;
+}
+
+/**
+ * Prova a credencial NESTE runtime, de ponta a ponta: lê a env e troca por um token NOVO,
+ * sem o cache (um token vivo no cache esconderia uma chave já revogada). Lança se não der.
+ *
+ * Existe por causa de 17/10/2026: a chave foi rotacionada, o valor gravado na Vercel não
+ * era legível, e o Trigger e o `.env.local` estavam bons. Três dias de TTS falhando na
+ * Vercel sem aviso: o podcast caía no áudio-base, o canário devolvia 200 e o health só
+ * percebeu a falta de canário 8 dias depois do último bom. O cron `credencial_google`
+ * chama esta função e a falha vira check-in de erro no Sentry.
+ *
+ * Devolve só o que não é segredo: o e-mail da conta e os 8 primeiros caracteres do id da
+ * chave, que é como a rotação a identifica.
+ */
+export async function verificarCredencialGoogle(): Promise<{ clientEmail: string; chave: string }> {
   const sa = loadServiceAccount();
+  try {
+    await trocarPorToken(sa, Math.floor(Date.now() / 1000));
+  } catch {
+    // Uma segunda tentativa: um soluço de rede no endpoint do Google não é credencial
+    // quebrada, e o alarme dispara na 1ª falha. Credencial ruim falha as duas vezes.
+    await new Promise((r) => setTimeout(r, 3000));
+    await trocarPorToken(sa, Math.floor(Date.now() / 1000));
+  }
+  return { clientEmail: sa.client_email, chave: String(sa.private_key_id || '').slice(0, 8) || '(sem id)' };
+}
+
+async function trocarPorToken(sa: ServiceAccount, now: number): Promise<{ token: string; exp: number }> {
   const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const claims = b64url(JSON.stringify({
     iss: sa.client_email,
@@ -70,6 +101,5 @@ export async function getGoogleAccessToken(): Promise<string> {
   if (!res.ok) throw new Error(`Google token ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
   if (!data?.access_token) throw new Error('Google token: resposta sem access_token');
-  tokenCache = { token: data.access_token, exp: now + (Number(data.expires_in) || 3600) };
-  return tokenCache.token;
+  return { token: data.access_token, exp: now + (Number(data.expires_in) || 3600) };
 }
