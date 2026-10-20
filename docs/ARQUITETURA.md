@@ -52,7 +52,7 @@
 | **Email** | Resend SDK | 6.12 | 🔑 |
 | **Scraping Primario** | Jina AI Reader | — | ✅ |
 | **Scraping Fallback** | Firecrawl | — | 🔑 |
-| **Error Tracking** | Sentry | — | 🔑 |
+| **Error Tracking** | Sentry (Team): erros, rastreamento, monitores de cron e uptime, logs, Replay só em erro (§28) | — | 🔑 |
 | **TypeScript** | tsc --noEmit (strict: false) | 5.9 | ✅ |
 | **Testes** | **vitest** (**3.365 testes / 331 arquivos**, medido 31/08/2026 — roda no CI) + Playwright + smoke-test.js. ⚠️ `npm run lint` quebrado desde o Next 16 | 4.1 | ✅ |
 | **i18n** | next-intl (pt-BR / pt-PT / es-ES) | — | ✅ |
@@ -2876,6 +2876,47 @@ no código, mas é rota de API e pode ter chamador externo que o repositório n�
 de um legado em Apps Script). `/api/internal/pregerar-podcast` é chamada por
 `scripts/_prewarm-podcast-dia.ts` e `/api/copiloto/clientes/[accountId]/conversas` por
 `app/copiloto/clients-workspace.tsx`.
+
+## 28. Monitoramento no Sentry (19/10/2026)
+
+Plano **Team** com teto de pay-as-you-go de US$ 200/mês, pago pelo crédito do Sentry for Startups (US$ 5 mil, vence
+~19/10/2027). Org `vertho`, projeto `vertho-app`. Antes de 19/10 o Sentry só recebia erro e 10% dos spans; o que
+entrou naquele dia, camada por camada:
+
+| Camada | Onde | O que vai | O que NUNCA vai |
+|---|---|---|---|
+| Erros (navegador, servidor, edge) | `sentry.*.config.js` | stack trace, release, tenant | PII de texto e URL (`lib/sentry-scrub-pii.ts`) |
+| Rastreamento | `tracesSampleRate` 1,0 no servidor e no edge, 0,1 no navegador | spans de request, banco, fetch | IP de quem acessa (chaves de cabeçalho de IP zeradas, IPv4/IPv6 em texto viram `[ip]`) |
+| Monitor de cron | `lib/sentry-cron.ts:83` (`comMonitorDeCron`), chamado em `app/api/cron/route.ts:83` | slug `cron-<action>`, status, duração | parâmetros da chamada |
+| Falha final de task do Trigger.dev | `trigger/init.ts:15` → `lib/sentry-trigger.ts:77` | id da task e do run, tentativa, máquina | o payload |
+| Logs | `enableLogs` + `consoleLoggingIntegration` só `warn`/`error`, servidor e edge, `beforeSendLog: scrubLog` | a mensagem limpa | par chave/valor sensível (`token: 'x'`, `Authorization: Bearer`) |
+| IA | `lib/sentry-ia.ts:61`, chamado no `registrarUsoIA` (`actions/ai-client.ts:486`) | span `gen_ai.chat`: modelo, tokens, custo, `taskKey` | system, prompt e resposta |
+| Replay | `lib/sentry-replay.ts`: sessão 0, erro 100%, tudo mascarado | os ~60 s antes do erro | telas de acesso (`ROTAS_SEM_REPLAY`), hosts da sala de demo, URL com credencial |
+| Source maps | `withSentryConfig` em `next.config.mjs:136` | mapas casados por `debugId`, apagados do deploy depois do envio | os `.map` no site (seguem 404) |
+
+**Por que cada escolha:**
+- **O monitor de cron mora DEPOIS da autenticação** e só entra a chamada cujo ÚNICO parâmetro é `action`: chamada
+  avulsa (`&slug=` da 4Life) ou forjada não cria monitor. O horário vem do cabeçalho `x-vercel-cron-schedule`, que a
+  Vercel manda em toda chamada de cron; o monitor nasce no 1º check-in (upsert pela `configDoMonitor`).
+- **Monitor nasce SEM alerta** (`workflowIds: []`): a regra padrão só olha erro. O alerta "Monitores: cron parado e
+  cliente fora do ar" está ligado a 16 crons e 8 uptimes (`https://<slug>.vertho.ai/login`). 🔴 **Cron novo no
+  `vercel.json` ou tenant novo: ligar o monitor ao alerta** (`update_alert_rule addDetectorIds` no MCP do Sentry),
+  senão a falha fica calada. O monitor do `trigger_diario` mede só o despacho, não as tasks que ele dispara.
+- 🔴 **O `trigger/init.ts` roda antes de CADA task e o worker relança o erro dele**: um import que quebre ali derruba
+  todas as tasks. Por isso o `@sentry/node` entra sob demanda, em try/catch (`iniciarSentryNoTrigger`).
+- **Span de IA feito à mão** (via `@sentry/core`, porque o wrapper também roda no Trigger): a instrumentação
+  automática do SDK não pegava nada (0 spans `gen_ai` em 30 dias antes de 19/10).
+- **Replay: a regra é não LIGAR onde há credencial, não "limpar depois".** O evento Meta do rrweb grava o `href` da
+  página sem passar por gancho nenhum (`beforeAddRecordingEvent` só vê evento custom), e o Replay envia direto pelo
+  transporte, sem `beforeEnvelope`. O SDK aceita UM Replay por página: na sala de demo quem grava é o componente da
+  degustação (`docs/AMBIENTE-DEMO.md`).
+- **N+1 que o rastreamento achou:** o cron `publicar_videos` abria um pool por rodada e fazia um UPDATE por vídeo
+  (VERTHO-APP-1A). Agora gira a fila e fecha o estado numa consulta só, com pool único por instância
+  (`lib/video/publicacoes-bunny.ts:18`, `attachDatabasePool` + ouvinte de `error`). O UPDATE da mídia segue por vídeo,
+  porque é a guarda de revisão.
+
+Dado pessoal que vai a cada camada: `docs/FLUXO-DE-DADOS-PESSOAIS.md` (linha do Sentry). Custo: estimativa de cerca
+de US$ 41/mês (plano mais monitores de cron; **não medido**), `docs/CUSTO-QUALIDADE.md`.
 
 ---
 

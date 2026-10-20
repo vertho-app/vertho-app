@@ -2988,7 +2988,12 @@ outra linha:
 - **HeyGen** (US$ 29 a 89, como assinatura): não há assinatura, é crédito de API v3, e o avatar já entra por vídeo no
   custo de IA (`video-modulo-avatar`, só com "com avatar" ligado).
 
-Saíram também o Z-API (US$ 20 a 30, assinatura vencida, último envio em 13/08) e a faixa paga do Sentry (é plano free).
+Saíram também o Z-API (US$ 20 a 30, assinatura vencida, último envio em 13/08) e a faixa paga do Sentry (era plano free).
+⚠️ **Atualização de 19/10/2026:** o Sentry passou ao plano **Team**, com teto de pay-as-you-go de US$ 200/mês, pago pelo
+crédito do Sentry for Startups (US$ 5 mil, vence ~19/10/2027). Estimativa de cerca de US$ 41/mês (US$ 29 do plano, uns
+US$ 12 de monitores de cron e centavos de Replay; **não medido**). Caixa zero enquanto o crédito cobrir; falta confirmar com
+o suporte se ele cobre o pay-as-you-go. O `INFRA_FIXA` segue sem o Sentry: reavaliar quando o crédito acabar
+(`docs/ARQUITETURA.md` §28).
 Mudaram de faixa Supabase (26 a 27), Vercel (20 a 21), Trigger.dev (0 a 10, uso de US$ 3,94), Bunny (4 a 8, pelos 385
 GB) e SES/Resend (0 a 1); entrou a Voyage (0 a 1, fora do ledger). Quem fica fora da soma aparece na tela com o motivo
 (`INFRA_NAO_PRECIFICADA`): cobrado em outra linha (WhatsApp, HeyGen, Google TTS) ou sem custo hoje (Z-API, Twilio,

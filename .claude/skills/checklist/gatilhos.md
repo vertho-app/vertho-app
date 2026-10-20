@@ -1715,3 +1715,14 @@ Padrão que casa: "clica em…", "pelo botão…", "pela tela de…" numa respos
 - [ ] **Antes de propor um caminho alternativo de envio, confira o `kind` que ele grava.** A idempotência do aviso de PDI conta `notification_deliveries.kind = 'plano'`; o QStash grava o nome do template, e o cron das 9h reenviaria.
 
 **Consequência medida (18-19/10/2026):** na véspera da estreia da 4Life eu disse ao dono que bastava clicar em "Avisar plano pronto" às 7h30; o botão não está em tela nenhuma, e a 4Life tinha 0 inscritos em `fase4_envios` (a pílula das 8h não sairia para ninguém). Resolvido com inscrição por script, pausa com `ate` às 7h20 e uma entrada avulsa no `vercel.json` (`&slug=4life-educacao`, 19/10 10:30 UTC). `docs/FMEA-PIPELINE.md` F-I42 e F-I44; memória `feedback_componente_existe_nao_e_tela`.
+
+## § Vou criar cron, tenant, task do Trigger ou rota com credencial na URL (monitoramento no Sentry)
+
+Padrão que casa: entrada nova em `vercel.json` · tenant novo no ar · `trigger/init.ts` · parâmetro novo de token/código na URL · rota nova de acesso por link.
+
+- [ ] **Cron novo: o monitor do Sentry nasce sozinho no 1º check-in, mas SEM alerta** (`workflowIds: []`). Ligue-o ao alerta "Monitores: cron parado e cliente fora do ar" (`update_alert_rule addDetectorIds` no MCP do Sentry, ids em `get_alert_options section=sources`). Só entra a chamada cujo ÚNICO parâmetro é `action`: a entrada avulsa com `&slug=` não tem monitor.
+- [ ] **Tenant novo: crie o uptime** em `https://<slug>.vertho.ai/login` (`create_uptime_monitor`) e ligue-o ao mesmo alerta.
+- [ ] **`trigger/init.ts` roda antes de CADA task e o worker relança o erro dele:** import novo ali entra sob demanda, em try/catch, senão uma falha derruba todas as tasks.
+- [ ] **Credencial nova na URL (nome de parâmetro ou caminho):** entra em `PARAMETROS_SECRETOS` (`lib/sentry-scrub-pii.ts`) e, se for tela de acesso, em `ROTAS_SEM_REPLAY` (`lib/sentry-replay.ts`). O Replay grava o `href` da página no evento Meta do rrweb, que não passa por gancho nenhum: limpar depois não existe, só não ligar.
+
+**Consequência medida (19/10/2026):** os 16 monitores de cron e os 8 de uptime nasceram sem alerta (a regra padrão só olha erro); 15 crons nem tinham monitor até o 1º check-in. Na gravação da degustação, a redação do `href` escrita em 03/10 nunca tinha rodado (o gancho só vê evento custom), e o código do convite ia cru em cada gravação do início. `docs/ARQUITETURA.md` §28; memória `project_sentry_creditos_monitoramento_1910`.
