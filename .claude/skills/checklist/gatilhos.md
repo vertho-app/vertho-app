@@ -193,6 +193,9 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 
 ## 9. Campo de formulário / UI (remover, renomear, trocar mecanismo)
 
+- 🔴 **Área de texto em que o Enter envia?** Decida por `enterEnvia` (`lib/enter-envia.ts`): no celular não existe
+  Shift+Enter e a quebra de linha mandava a resposta pela metade (`Medido: 20/10/2026`, Ibipeba, F-I48).
+
 - 🔴 **Que régua do servidor lê esse campo?** Tirar um toggle pode tornar uma classe
   **inalcançável** e matar um alerta em silêncio — nada no typecheck acusa (04/08).
 - Trocar o mecanismo de uma tela **obriga a renomear a métrica**: manter o nome antigo medindo outra

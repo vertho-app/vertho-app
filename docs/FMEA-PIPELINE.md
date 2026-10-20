@@ -918,6 +918,25 @@ Vizinho do F-I43 (o mesmo aviso, do lado da idempotência) e da etapa 2 da jorna
   iguais. Macaé também não tem PPP (`ppp_escolas` vazio), e o gerador dos micro-conteúdos situou a escola no
   interior paulista e repetiu o nome "Renata" em 58 de 80 peças.
 
+### F-I48 · No celular, a tecla de quebra de linha enviava a evidência pela metade, e o pedaço contava como resposta 🟡 (corrigido 20/10/2026, `d0f7b915`; não visto em celular real)
+- **Gatilho:** os dois chats da semana (Evidências e Tira-Dúvidas) enviavam no `Enter` e só quebravam a linha com
+  Shift+Enter, que o teclado da tela não tem. Cada envio vira turno (`app/api/temporada/reflection/route.ts:304`
+  conta os turnos da IA), então o fragmento consome uma das respostas e a conversa fecha sem o relato inteiro.
+- **Efeito medido (20/10/2026, queixa de Ibipeba: "não conseguem registrar as evidências em texto, só em áudio"):**
+  numa pessoa, a 1ª resposta saiu cortada ("...uma turma de 7÷"), a seguinte começou por "Eu ia comentar que...",
+  a conversa fechou sobre fragmentos (`degradacao_log` `conversa-fechamento-seguro`) e ela foi ao Tira-Dúvidas
+  escrever "Não terminei de digitar", esgotando o teto de 10 perguntas/dia (os três 429 do dia). Quem dita por voz
+  envia pelo botão e não sofre: daí o "só em áudio". O servidor não distingue texto digitado de ditado, nem havia
+  erro em log, Sentry ou `degradacao_log`: quem denunciou foi o transcript do Tira-Dúvidas.
+- **Correção (`d0f7b915`):** `enterEnvia` (`lib/enter-envia.ts:23`): com ponteiro principal grosso
+  (`MIDIA_TECLADO_DE_TOQUE`, `:34`) o Enter só quebra a linha e o envio é pelo botão; Enter em composição nunca
+  envia; sem `matchMedia` fica como computador. Usado em `app/dashboard/temporada/semana/[week]/page.tsx:1292` e
+  `:1384`; texto de exemplo `*Touch` sem Shift+Enter nos 4 idiomas. Teste `tests/unit/enter-envia-celular.test.ts`
+  (4 mutações pegas).
+- **Aberto:** o chat da Ipi (`components/ipi/ipi-chat.tsx:121`) e o simulador de vendas
+  (`components/simulador-vendas/treino.tsx:1156`) têm a mesma área de texto com Enter que envia, sem a regra do
+  celular. Uma 2ª pessoa que reclamou NÃO é este caso: nenhum pedido à rota da conversa saiu do aparelho dela.
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md
