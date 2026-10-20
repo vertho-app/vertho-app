@@ -246,6 +246,11 @@ export const PERSONAS_ESCOLARES = [
     // ZERO premissas reprovadas: o papel não existia de fato. A busca em grade
     // varreu os perfis que somam 200 e perguntou ao `calcularFitUnificado`;
     // este é o de maior aderência entre os que bloqueiam e preservam o IC.
+    // ⚠️ `Medido 19/10/2026` no `escolas-acme` (fit gravado pelo reset do dia):
+    // 79,3, "Aderente com ressalvas", `knockouts: []`. As premissas do cargo
+    // gravadas hoje são empatia e paciência, as duas aprovadas; a de persistência
+    // não está mais entre elas, então o papel de régua eliminatória NÃO aparece.
+    // Recalibrar é decisão do dono; até lá, não prometa o "Não recomendado".
     perfil_dominante: 'IC',
     d_natural: 24, i_natural: 74, s_natural: 30, c_natural: 72,
     scenario: 'gestor',
