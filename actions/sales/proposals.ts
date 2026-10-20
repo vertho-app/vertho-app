@@ -360,11 +360,16 @@ export async function markProposalAccepted(proposalId: string) {
   const meses = Number(p.contract_duration_months) || 0;
   const mensalLiquido = meses ? (Number(p.total_contract_value) || 0) / meses : (Number(p.monthly_value) || 0);
   const mensais = expandRecurringMonthly(mensalLiquido, meses, start, rates);
-  await sb.from('sales_commission_events').insert([
+  const { error: erroEventos } = await sb.from('sales_commission_events').insert([
     // Sem aquisição no modelo (com ajuda de custo): nenhum evento de R$ 0 no extrato.
     ...(rates.acquisition > 0 ? [{ ...base, ...acq, expected_payment_date: acqExpected }] : []),
     ...mensais.map((m) => ({ ...base, ...m })),
   ]);
+  // O aceite já foi gravado; sem os eventos o extrato do RC e o financeiro
+  // ficariam sem a comissão, então a falha volta como erro e não como sucesso.
+  if (erroEventos) {
+    return { success: false as const, error: `Proposta aceita, mas a previsão de comissão não foi gravada: ${erroEventos.message}. Avise a vertho.ai.` };
+  }
 
   return { success: true as const };
 }

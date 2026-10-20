@@ -134,7 +134,7 @@
     "actions/sales/opportunities.ts": 8,
     "actions/sales/proposal-share.ts": 3,
     "actions/sales/proposals.ts": 13,
-    "actions/sales/representatives.ts": 3,
+    "actions/sales/representatives.ts": 4,
     "app/api/sales/materials/[id]/download/route.ts": 1,
     "app/proposta/[token]/pdf/route.ts": 1,
     "lib/demo/envio-guard.ts": 1,

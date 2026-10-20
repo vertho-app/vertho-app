@@ -103,6 +103,14 @@ describe('aceite da proposta grava os eventos no modelo do RC', () => {
     expect(mensais.every((e) => e.percent === 10 && e.amount === 200)).toBe(true);
   });
 
+  it('falha ao gravar os eventos volta como erro, e não como sucesso', async () => {
+    modelo = 'com_ajuda';
+    sb.falharEm({ tabela: 'sales_commission_events', op: 'insert', mensagem: 'timeout no pool' });
+    const r = await markProposalAccepted('prop-1');
+    expect(r.success).toBe(false);
+    expect((r as { error?: string }).error).toMatch(/previsão de comissão não foi gravada/);
+  });
+
   it('sem ajuda de custo: aquisição de 9% e mensais de 12%', async () => {
     modelo = 'sem_ajuda';
     expect((await markProposalAccepted('prop-1')).success).toBe(true);
