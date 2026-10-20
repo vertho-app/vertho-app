@@ -883,6 +883,41 @@ Vizinho do F-I43 (o mesmo aviso, do lado da idempotência) e da etapa 2 da jorna
 - **Regra que fica:** trocou segredo na Vercel, a prova é um uso que roda NA Vercel (o canário à mão), não o
   `.env.local` nem o Trigger. Fallback que entrega algo à pessoa é o mais calado de todos: ninguém reclama.
 
+### F-I47 · A tarefa da semana pressupunha o acontecimento: sem conflito na semana, só inventando 🔴 (fechado 20/10/2026, `ad6ebe7c` + regeração)
+- **Gatilho:** o prompt do desafio em par (`lib/season-engine/kit/desafio-par.ts:176`) pede "UMA situação real ... ao
+  longo da semana" e não dizia o que fazer quando a situação não acontece. Para competência que depende de um fato
+  (Gerenciamento de Conflitos), o modelo escrevia o fato como dado: "Há um conflito em andamento na escola", e uma
+  justificativa chegou a dizer que "conflitos em direção escolar são semanais por natureza".
+- **Efeito medido (19/10/2026, queixa de uma diretora de macae por WhatsApp: "não tenho estes conflitos aqui, só se
+  for fictício"):** 58 dos 75 desafios de Conflitos de macae pressupunham o conflito, e dos 12 lidos só 1 dava saída.
+  A conversa da semana 1 dela ficou 2 meses parada na primeira pergunta ("Conseguiu colocar isso em prática?"). Pelos
+  resumos dos 26 diretores que conversaram, 3 outros relataram semanas "sem conflito" (5 semanas): a competência
+  serve à maioria, mas a tarefa dependia de um acontecimento que nem toda escola tem toda semana.
+- **Correção (`ad6ebe7c`):** bloco `BLOCO_ACAO_QUE_DEPENDE_DE_EVENTO` (`desafio-par.ts:115`): primeira frase
+  condicional, uma frase "Se não surgir..." com os MESMOS dois assuntos, nunca pedir caso inventado, justificativa
+  só com o ESFORÇO da ação (a lista de frases proibidas só fez o modelo parafrasear), critério com uma parte "No
+  caminho alternativo, conta:", teto de 650 caracteres, sem travessão, e nada a acrescentar quando a ação não
+  depende de fato. Trava em código `problemasDoDesafio` (`desafio-par.ts:290`): recusa o nome interno "caminho
+  alternativo" no texto da pessoa (o rótulo exigido no critério VAZOU para o desafio em 2 de 6 numa rodada), travessão
+  e mais de 700 caracteres; a nova tentativa diz o motivo (`desafio-par.ts:214`). Teste
+  `tests/unit/desafio-par-trava.test.ts` (5 de 7 falham com a trava desligada).
+- **Prova (replay sem gravar, 6 pares reais + 4 controles de ibipeba, 3 rodadas, US$ 0,24):** na 3ª, 6 de 6 com
+  abertura condicional e alternativa, 0 vazamento, 0 frase de frequência; 3 de 4 controles sem alternativa (o 4º leu
+  "ter dados em mãos" como fato, inofensivo).
+- 🔴 **Mudar o prompt não muda o que está no ar:** a célula publicada é reaproveitada por chave (`desafio-par.ts:137`)
+  e lida na hora da tela (`resolverDesafioDaSemana`, `desafio-par.ts:64`). Os 162 do alcance (macae inteira +
+  ibipeba e 4life só em semana não iniciada) foram refeitos em 2 fases: gerar para arquivo com checagens de leitura,
+  refazer os que caem nelas, e só então snapshot + UPDATE por id. A 1ª passada PIOROU o alcance ("membros da equipe"
+  de 17 para 29 dos 75) e só a comparação atual × novo pegou; o refazer trouxe para 13. Efeito provado pela leitura
+  de produção: 356 de 356 semanas não concluídas de macae servem o texto novo. E a `gerar-kit` do Trigger também gera
+  desafios (`trigger/gerar-kit.ts:23` → `gerarKitSemanal` → `prepararDesafiosDaCoorte`): prompt de desafio exige o
+  deploy manual do Trigger além do push (versão `20261020.1`).
+- **Limite conhecido (decisão do dono de 20/10 não mexer):** quem decide "realizado/parcial/não" lê só a conversa,
+  não a tarefa (`app/api/temporada/reflection/route.ts:142`); quem seguir a alternativa ainda pode sair "parcial". E
+  quando a pessoa traz um problema de chefia (professora que "não se dedica"), a conversa o lê como mediação entre
+  iguais. Macaé também não tem PPP (`ppp_escolas` vazio), e o gerador dos micro-conteúdos situou a escola no
+  interior paulista e repetiu o nome "Renata" em 58 de 80 peças.
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md

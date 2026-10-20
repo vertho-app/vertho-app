@@ -1795,6 +1795,17 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Output**: JSON `{desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana}`.
 - **Inputs user**: o núcleo (12.1), competência, descritor, cargo, contexto, nível, `pppBrief` e a **ficha do cargo** (12.6).
 - ⚠️ **É este desafio que a pessoa vê** — o `conteudo.desafio_texto` gravado na semana é placeholder, substituído na leitura pelo overlay do kit.
+- Quando a semana entrega DOIS descritores da mesma competência (o caso da Jornada), a pessoa vê a tarefa integrada do par (12.2b), e este desafio é a reserva quando a peça do par ainda não existe.
+
+### 12.2b Kit: tarefa integrada do par (dois descritores)
+> `ATIVO` · Prompt documentado como: `literal`
+
+- **Arquivo**: `lib/season-engine/kit/desafio-par.ts::gerarDesafioDaSemana` (persistido em `kit_desafios_semana`, uma linha por competência × par ordenado × cargo × DISC). Leitura só por `resolverDesafioDaSemana`, que escolhe a do cargo e cai na `todos`.
+- **Caller**: `lib/season-engine/kit/plano-desafios.ts::prepararDesafiosDaCoorte`, chamado pelo cron `preparar_desafios` (Vercel) e pelo fim do `gerarKitSemanal` (também na task `gerar-kit` do Trigger, que só muda com deploy manual). Tarefa no ledger: `kit_desafio_semana`.
+- **System prompt**: UMA micro-ação que exercita os DOIS assuntos como facetas da mesma situação; 2-4 frases (até 5 com o caminho alternativo); `LENTE_DISC`; o bloco de evidência por relato (`regra-evidencia.ts`); e, desde 20/10/2026, o bloco **QUANDO A AÇÃO DEPENDE DE ALGO ACONTECER**: se a ação só existe com um fato (conflito, reclamação, erro), a 1ª frase é condicional e vem uma frase "Se não surgir..." com os mesmos dois assuntos; nunca pedir caso inventado; justificativa só com o esforço da ação, nunca com a frequência do fato; critério com uma parte "No caminho alternativo, conta:"; até 650 caracteres; sem travessão. Ação que não depende de fato não ganha alternativa.
+- **Validação em código**: `parseDesafio` + `problemasDoDesafio` (recusa "caminho alternativo" no texto, travessão em qualquer campo, mais de 700 caracteres). Até 3 tentativas, e a nova diz ao modelo o motivo da recusa; três recusas lançam.
+- **Output**: JSON `{desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana}`. A conversa da semana recebe o texto e o critério (`prompts/socratic.ts`, "O QUE CONTA COMO FEITO").
+- 🔴 Célula publicada é **reaproveitada**: mudar este prompt não altera o que está no ar. Refazer em lote com snapshot (receita e números em `docs/FMEA-PIPELINE.md` §F-I47).
 
 ### 12.3 Kit — Appendix de enriquecimento por formato
 > `ATIVO` · Prompt documentado como: `appendix`

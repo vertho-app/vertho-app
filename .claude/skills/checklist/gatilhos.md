@@ -136,6 +136,9 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   para mudar a TAXA de reprovação/alerta:** confira 3-6 achados CONTRA A FONTE no banco (não contra
   a acusação) e meça 2×2 gerador × auditor, 2 rodadas, antes de subir. 25/09: o auditor sozinho não
   mexeu a taxa (4/20 × 4/20); o gerador, sim (100% → 20%). `docs/CUSTO-QUALIDADE.md`, seções de 25/09.
+- 🔴 **Mexeu no prompt de peça REAPROVEITADA por chave (`kit/desafio-par.ts`, `kit/brief.ts`, cenários):** o que está no ar
+  só muda com regeração (2 fases + snapshot), compare atual × novo antes de gravar, e a `gerar-kit` pede deploy do Trigger. 20/10:
+  a 1ª passada piorou o alcance de 17 para 29 de 75. `docs/FMEA-PIPELINE.md` §F-I47.
 
 ## 5. `trigger/**`
 
