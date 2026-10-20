@@ -68,8 +68,8 @@ códigos inválidos, saída do iframe e retorno do DISC sem o ciclo do perfil va
 
 | Demo | Endereço | Pacote inicial |
 | --- | --- | --- |
-| Rede de escolas | `https://professor-escolas.vertho.ai/apresentacao-offline/index.html` | Cerca de 41 MB |
-| ACME empresarial | `https://usuario-demo.vertho.ai/apresentacao-offline-acme/index.html` | Cerca de 16 MB |
+| Rede de escolas | `https://professor-escolas.vertho.ai/apresentacao-offline/index.html` | Cerca de 50 MB |
+| ACME empresarial | `https://usuario-demo.vertho.ai/apresentacao-offline-acme/index.html` | Cerca de 21 MB |
 
 Também disponível pelo botão **Preparar offline** em cada card de ambiente na seção
 **Apresentação** da tela administrativa `/admin/demo`. Prepare pelo Wi-Fi, no mesmo
@@ -208,6 +208,19 @@ usa as mesmas constantes. **Desde 06/10/2026** o deck é gerado pelo pipeline do
 única em Aoede/Vertex, avatar `avatar_iii`, 3,3 min) e o nominal é o do próprio pipeline em
 cima dele. Antes era o mp4 da pílula do CONARH (31/08, Vindemiatrix, 97 s).
 
+**Desde 20/10/2026** o deck é do formato novo (v7: plano visual + miolo HyperFrames, 3,7 min),
+gerado numa prévia na própria empresa e aprovado pelo dono antes da troca. Nenhum quadro mostra
+"ACME" (conferido um a cada 5 s), então o Sinal segue com ele. Os anteriores (deck `70334028`,
+nominal `528ba53a`) continuam no Bunny para rollback.
+
+Como a troca foi feita, sem renderizar de novo o deck aprovado: a célula real recebeu da prévia
+roteiro, plano, propriedades e o deck publicado, com o mesmo `render_fingerprint`; o registro
+do deck em `video_publicacoes` foi **transferido** para ela (`bunny_video_id` é único ali, então
+não dá para duplicar); e a célula foi para a fila com `etapa='personalizar'`. A box só faz os
+nominais sobre o deck publicado (`provarDeckPublicado`, `worker-hetzner/fila.mjs`), para todas
+as pessoas da célula (cargo e 1ª letra do DISC, inclusive convidados), e o cron `publicar_videos`
+grava cada nominal quando o Bunny termina de codificar.
+
 Para trocar de novo: gere deck e nominal pelo pipeline; reponha as duas constantes e a
 `duracao_min`; no pacote offline, suba o `play_720p.mp4` do nominal para
 `conteudos/demo-offline/acme/<sha256>.mp4` e atualize a entrada `media/urgencia-video.mp4` de
@@ -252,6 +265,15 @@ AI Studio era um sorteio guardado por pessoa e saía em tom diferente do corpo; 
 seguem no Bunny para rollback (`rollback-6-personas.txt` em `Downloadsstaging-escolas-backup`). Marina: S3 está no roster; S1 e S2 também estão no banco e no
 pacote offline (`media/semana-1-video.mp4` e `media/semana-2-video.mp4`, `play_720p` do
 nominal em `conteudos/demo-offline/escolas/<sha256>.mp4`).
+
+**Decks de 20/10/2026 (formato novo).** As três semanas passaram ao v7 (S1 `851710a0`, 3,35 min;
+S2 `5028f57a`, 4,08 min; S3 `ccf7d63b`, 3,5 min), aprovados pelo dono em prévias e trocados pela
+mesma receita da Bruna (seção acima). A saudação da Marina continua a candidata 6: o áudio fica
+em `video-assets/saudacoes/{id}__marina__2026-09-05.mp3`, a chave leva o id da persona e o reset
+troca esse id toda noite, então a candidata foi reposta na chave do id do dia antes dos nominais
+(a box não sintetiza). As outras personas usam a saudação do Vertex gerada por
+`gerar-saudacoes-celula`. Os nominais foram refeitos para todas as pessoas de cada célula, não só
+para a Marina. Os decks e nominais de 07/10 seguem no Bunny para rollback.
 
 Para trocar de novo: gere deck e nominais pelo pipeline; reponha `bunnyVideoId` e `duracaoMin`
 no JSON (S1 e S2) ou no roster (S3), o nominal da Marina S3, e a entrada da mídia no

@@ -29,12 +29,12 @@ describe('experiência de mídia na apresentação', () => {
 
   it('usa conteúdo editorial com saudação nominal da Bruna na mesma voz', () => {
     expect(DEMO_PRESENTATION_VIDEO.bunny_video_id)
-      .toBe('70334028-7673-4741-9495-ee9a0e0ca5b8');
+      .toBe('384c7caa-63b3-4bfa-8078-4be5465a4cbe');
     expect(DEMO_PRESENTATION_VIDEO.titulo).not.toMatch(/jornada semanal|tutorial/i);
-    // O deck de 3,3 min (195,7 s): a duração do slot acompanha o arquivo, não o vídeo antigo de 1,7 min.
-    expect(DEMO_PRESENTATION_VIDEO.duracao_min).toBeGreaterThan(3);
+    // O deck v7 de 20/10/2026 tem 222 s: a duração do slot acompanha o arquivo (a de 06/10 era 3,3 min).
+    expect(DEMO_PRESENTATION_VIDEO.duracao_min).toBe(3.7);
     expect(DEMO_PRESENTATION_WEEK_VIDEO.personalizedBunnyVideoId)
-      .toBe('528ba53a-1822-41f3-aa49-a3263798ab20');
+      .toBe('10fc070c-588f-4ef0-a412-e7a2fefbcf34');
   });
 });
 

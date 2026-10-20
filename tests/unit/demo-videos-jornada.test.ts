@@ -62,22 +62,20 @@ describe('vídeos de várias semanas da demo', () => {
     }
   });
 
-  it('as três semanas usam os decks do pipeline de 07/10/2026 (narração única Aoede), não os de 3.1', () => {
-    // Os de antes tinham F0 de 168 a 258 Hz entre cenas (S3, gerado em 3.1) e quedas de 4 dB (S1): a queixa era "variação na voz".
-    // O comentário do fixture dizia o contrário sem o arquivo ter sido regerado, então os ids ficam fixados aqui.
+  it('as três semanas usam os decks do formato novo (v7) de 20/10/2026, não os de 07/10', () => {
+    // Os de 07/10 (88170e79, fc050c58, a601ca7e) eram do formato anterior ao v7; os de 3.1 antes deles variavam a voz entre cenas.
+    // O comentário do fixture já disse o contrário sem o arquivo ter sido regerado, então os ids ficam fixados aqui.
     const [s1, s2] = ROSTER_ESCOLAR.videosDaJornada || [];
     const s3 = ROSTER_ESCOLAR.videoDaJornada!;
     expect([s1.bunnyVideoId, s2.bunnyVideoId, s3.bunnyVideoId]).toEqual([
-      '88170e79-1125-4763-bae4-83da09caade4',
-      'fc050c58-0e0d-419c-81ba-78896118a668',
-      'a601ca7e-3faa-424e-87ca-339a1c6e4298',
+      '851710a0-631a-4bf5-8931-ca3c8cd25213',
+      '5028f57a-1ecd-4bf5-b870-a2089b9a0d5a',
+      'ccf7d63b-dd56-4dc5-93a8-d701007dc084',
     ]);
-    expect(s3.nominal?.bunnyVideoId).toBe('10c3bb83-26b9-4031-9466-6cfe6f9c702f');
-    // A duração do catálogo vem do deck (203, 202 e 182 s): o antigo da semana 1 dizia 4,13 min.
-    for (const video of [s1, s2, s3]) {
-      expect(video.duracaoMin).toBeGreaterThan(3);
-      expect(video.duracaoMin).toBeLessThan(3.5);
-    }
+    expect(s3.nominal?.bunnyVideoId).toBe('7ada533d-a34f-4c08-a96f-30387ef97263');
+    // A duração do catálogo vem do deck (201, 245 e 210 s no Bunny): fixada, porque uma faixa deixaria passar a
+    // duração do deck anterior, que é o defeito que este teste existe para barrar (a semana 1 já disse 4,13 min).
+    expect([s1.duracaoMin, s2.duracaoMin, s3.duracaoMin]).toEqual([3.35, 4.08, 3.5]);
   });
 
   it('restaura cada tema, todos os formatos e o nominal sem duplicar no próximo reset', async () => {

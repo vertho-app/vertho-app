@@ -169,13 +169,18 @@ const DEMO_JOURNEY_CONTENT_KIND = 'conteudo' as const;
  * de staging, removida depois: narração única em Aoede/Vertex, avatar `avatar_iii`, 195,7 s). Até
  * então era o mp4 da pílula do CONARH (31/08, Vindemiatrix, 97 s), que tinha salto de registro
  * (5,6 st) e voz diferente dos demais vídeos em Aoede.
+ *
+ * `Medido 20/10/2026`: o deck passou ao formato novo (v7: plano visual + miolo HyperFrames, 222 s),
+ * gerado na própria célula do acme-demo e aprovado pelo dono numa prévia. Nenhum quadro mostra
+ * "ACME" (conferido um a cada 5 s), então o Grupo Sinal segue com o mesmo deck. O anterior
+ * (70334028) continua no Bunny para rollback.
  */
 export const DEMO_PRESENTATION_VIDEO = {
   titulo: 'Senso de urgência legítimo',
   descricao: 'Urgência legítima nasce do contexto do cliente, não da pressa: como achar o motivo real de decidir agora e levá-lo à proposta, sem pressão artificial.',
   formato: 'video',
-  duracao_min: 3.3,
-  bunny_video_id: '70334028-7673-4741-9495-ee9a0e0ca5b8',
+  duracao_min: 3.7,
+  bunny_video_id: '384c7caa-63b3-4bfa-8078-4be5465a4cbe',
   competencia: REPRESENTANTE_FOCO[0],
   descritor: 'Criação de senso de urgência',
   nivel_min: 1,
@@ -196,7 +201,9 @@ export const DEMO_PRESENTATION_WEEK_VIDEO = {
   // Nominal "Olá, Bruna" montado pelo pipeline (`worker-hetzner/personalizar.mjs`) em cima do deck
   // `DEMO_PRESENTATION_VIDEO` (06/10/2026). Saudação e corpo em Aoede. O 8c3fd9f0 anterior era de 31/08
   // (Vindemiatrix), e o comentário daqui dizia Aoede sem que o arquivo tivesse sido regerado.
-  personalizedBunnyVideoId: '528ba53a-1822-41f3-aa49-a3263798ab20',
+  // Desde 20/10/2026 é o nominal sobre o deck v7 (226 s = deck + saudação, -14 LUFS medidos); o 528ba53a
+  // de 06/10 segue no Bunny para rollback.
+  personalizedBunnyVideoId: '10fc070c-588f-4ef0-a412-e7a2fefbcf34',
   byTenant: {
     'acme-demo': {
       moduleId: '5faaf43b-8b80-4bd7-aab1-204fa83dad56',

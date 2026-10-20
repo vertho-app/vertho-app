@@ -469,13 +469,13 @@ export const ROSTER_ESCOLAR: DemoRoster = {
     moduloId: 'b7e4c1a2-3d5f-4e88-9a10-6c2f8d3b7e41',
     celulaId: '58df245a-f782-415b-a0fb-1eaf9003ac26',
     competenciaBaseId: 'c9a7f3d1-25b8-4c6e-9f04-3ab1d7e58c62',
-    bunnyVideoId: 'a601ca7e-3faa-424e-87ca-339a1c6e4298',
-    duracaoMin: 3.03,
+    bunnyVideoId: 'ccf7d63b-dd56-4dc5-93a8-d701007dc084',
+    duracaoMin: 3.5,
     // Mesmo conteúdo, aberto por "Olá, Marina" com a arte da marca. Desde
-    // 07/10/2026 o deck é do pipeline (narração única Aoede/Vertex, avatar_iii)
-    // e a saudação é a candidata 6 do Vertex, a que o dono escolheu de ouvido:
-    // a do AI Studio é um sorteio por pessoa e saía em tom diferente do corpo.
-    nominal: { bunnyVideoId: '10c3bb83-26b9-4031-9466-6cfe6f9c702f', personaKey: 'marina' },
+    // 20/10/2026 o deck é do formato novo (v7, aprovado pelo dono numa prévia;
+    // o a601ca7e de 07/10 segue no Bunny para rollback) e a saudação continua
+    // a candidata 6 do Vertex, a que o dono escolheu de ouvido em 07/10.
+    nominal: { bunnyVideoId: '7ada533d-a34f-4c08-a96f-30387ef97263', personaKey: 'marina' },
     competencia: TOP5_DOCENCIA[0],
     descritor: 'Recursos didáticos',
     cargo: DOCENCIA,
