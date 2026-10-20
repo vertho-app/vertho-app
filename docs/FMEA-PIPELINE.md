@@ -933,9 +933,11 @@ Vizinho do F-I43 (o mesmo aviso, do lado da idempotência) e da etapa 2 da jorna
   envia; sem `matchMedia` fica como computador. Usado em `app/dashboard/temporada/semana/[week]/page.tsx:1292` e
   `:1384`; texto de exemplo `*Touch` sem Shift+Enter nos 4 idiomas. Teste `tests/unit/enter-envia-celular.test.ts`
   (4 mutações pegas).
-- **Aberto:** o chat da Ipi (`components/ipi/ipi-chat.tsx:121`) e o simulador de vendas
-  (`components/simulador-vendas/treino.tsx:1156`) têm a mesma área de texto com Enter que envia, sem a regra do
-  celular. Uma 2ª pessoa que reclamou NÃO é este caso: nenhum pedido à rota da conversa saiu do aparelho dela.
+- **Mesma regra no simulador de vendas (`35785697`, 20/10/2026):** a conversa com o cliente
+  (`components/simulador-vendas/treino.tsx:1158`) e a ajuda sob o campo (`composerHelpTouch`, que aponta o botão
+  Enviar) seguem `enterEnvia`.
+- **Aberto:** o chat da Ipi (`components/ipi/ipi-chat.tsx:121`) tem a mesma área de texto com Enter que envia, sem a
+  regra do celular. Uma 2ª pessoa que reclamou NÃO é este caso: nenhum pedido à rota da conversa saiu do aparelho dela.
 
 ---
 
