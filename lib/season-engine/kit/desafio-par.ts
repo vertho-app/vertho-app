@@ -100,6 +100,32 @@ const LENTE_DISC: Record<string, { perfil: string; engaja: string }> = {
 };
 
 /**
+ * Tarefa que só existe se algo ACONTECER na semana.
+ *
+ * 🔴 Queixa de 19/10/2026 (diretora de macae): "não tenho estes conflitos aqui,
+ * só se for fictício". Os desafios de Gerenciamento de Conflitos abriam com "Há
+ * um conflito em andamento na escola" e um deles afirmava que "conflitos em
+ * direção escolar são semanais por natureza". Quem não tinha o acontecimento na
+ * semana ficava sem caminho honesto: ou não cumpria, ou inventava o caso.
+ *
+ * Fica AQUI e não em `BLOCO_EVIDENCIA_E_RELATO`: o desafio de um assunto só
+ * (`gerarKitDesafio`) parte de uma âncora fixa que não pode ser alterada e conta
+ * o cumprimento em dias, e "se surgir um conflito" não cabe nessa contagem.
+ */
+const BLOCO_ACAO_QUE_DEPENDE_DE_EVENTO = `QUANDO A AÇÃO DEPENDE DE ALGO ACONTECER:
+- Algumas ações só existem se um fato surgir na semana: um conflito, uma reclamação, um erro, uma crise. Nem toda pessoa vive isso toda semana, e quem não vive fica sem caminho honesto para cumprir a tarefa.
+- Nesse caso, a PRIMEIRA frase é condicional ("Se surgir um conflito na escola..."). Ela não pode pressupor que o fato existe nem que ele se repete: nada de "Há um conflito em andamento", "Escolha um conflito que voltou a aparecer", "o próximo conflito que surgir".
+- Depois vem UMA frase com o caminho alternativo, para quem não teve o fato: uma tensão pequena que ainda não virou problema, ou um combinado feito antes para evitar que ela vire. Revisitar um caso real já vivido também vale, mas não como primeira opção.
+- No desafio_texto, essa frase SEMPRE começa com a condição ("Se não surgir...", "Se nenhum conflito surgir..."). "Caminho alternativo" é só o nome desta instrução: a expressão NUNCA aparece no desafio_texto.
+- O caminho alternativo exercita os MESMOS dois assuntos do principal, com o que cada um exige: se um assunto pede ouvir os dois lados, a alternativa também envolve as duas partes; se pede chegar à causa, a alternativa também chega a uma causa.
+- NUNCA peça para imaginar, simular ou inventar um caso.
+- NÃO afirme frequência no desafio_texto. O por_que_cabe_na_semana descreve SÓ o esforço da ação (quanto tempo leva, que a pessoa decide sozinha, que não depende de aprovação), nunca com que frequência o fato acontece na rotina.
+- Não estreite o alcance além do que os conteúdos da semana estreitam: se eles falam de conflito na escola, não troque por "entre membros da equipe".
+- O criterio_de_execucao tem DUAS partes: o que a pessoa conta no caminho principal e, numa frase que começa com "No caminho alternativo, conta:", o que ela conta se o fato não aconteceu. Cada parte só pede detalhes que aquele caminho produz: se a tarefa da alternativa não pede um combinado, o critério dela não cobra combinado.
+- Tamanho: o desafio_texto inteiro tem no máximo 650 caracteres, já contando o caminho alternativo.
+- Se a ação não depende de nada acontecer (planejar, revisar um registro, combinar algo com a equipe), não acrescente caminho alternativo nem a segunda parte do critério.`;
+
+/**
  * Escreve a tarefa do par por IA e persiste. Idempotente por SELECT-então-INSERT
  * — o mesmo padrão de `resolverOuCriarBrief`, e não `upsert`: o ON CONFLICT via
  * PostgREST já quebrou nesta base com índice que ele não consegue expressar
@@ -153,16 +179,19 @@ O QUE "INTEGRAR" SIGNIFICA AQUI:
 
 PRINCÍPIOS INEGOCIÁVEIS:
 - UMA ação principal, observável, que cabe na rotina da semana, coerente com cargo/contexto.
-- Curto (2–4 frases), concreto, viável (sem grande projeto/autorização).
+- Curto (2–4 frases; até 5 só com o caminho alternativo descrito abaixo), concreto, viável (sem grande projeto/autorização).
 - Sem "Esta semana...", sem jargão, sem tom professoral, sem slogan.
+- Sem travessão (— ou –) em nenhum campo: use vírgula, dois-pontos ou ponto.
 - NÃO cite os nomes técnicos dos descritores nem códigos de matriz no texto.
 
 ${BLOCO_EVIDENCIA_E_RELATO}
 
+${BLOCO_ACAO_QUE_DEPENDE_DE_EVENTO}
+
 LENTE DE PERFIL (${disc} · ${lente.perfil}): a AÇÃO deve ENGAJAR este perfil por: ${lente.engaja}. NUNCA cite DISC, siglas (D/I/S/C) nem o nome do perfil no texto.
 
 RETORNE APENAS JSON VÁLIDO:
-{"desafio_texto":"2-4 frases","acao_observavel":"a ação principal observável","criterio_de_execucao":"o que a pessoa vai conseguir CONTAR que prova que fez — e que os DOIS assuntos apareceram","por_que_cabe_na_semana":"viabilidade curta"}`;
+{"desafio_texto":"2-4 frases (até 5 com o caminho alternativo)","acao_observavel":"a ação principal observável","criterio_de_execucao":"o que a pessoa vai conseguir CONTAR que prova que fez — e que os DOIS assuntos apareceram","por_que_cabe_na_semana":"viabilidade curta"}`;
 
   const user = `OS DOIS ASSUNTOS DA SEMANA (a ação deve aterrar os dois):
 
@@ -177,15 +206,24 @@ CONTEXTO:
 
   const sysJson = `${system}\n\nIMPORTANTE: responda SOMENTE com o objeto JSON, sem texto antes ou depois, sem markdown.`;
   let desafio: DesafioDoPar | null = null;
+  let recusa = '';
   for (let i = 0; i < 3 && !desafio; i++) {
     const ai = i === 0 && args.aiRun ? args.aiRun : callAI;
-    const raw = (await ai(i === 0 ? system : sysJson, user, args.aiConfig || {}, 800, {
+    // Na nova tentativa o modelo fica sabendo POR QUE a anterior caiu: repetir o
+    // mesmo prompt costuma repetir o mesmo deslize.
+    const sys = i === 0 ? system : `${sysJson}${recusa ? `\n\nA resposta anterior foi recusada: ${recusa}. Corrija isso.` : ''}`;
+    const raw = (await ai(sys, user, args.aiConfig || {}, 800, {
       taskKey: 'kit_desafio_semana', empresaId: args.empresaId,
     })).trim();
-    desafio = parseDesafio(raw);
-    if (!desafio) console.warn(`[desafio-par] inválido DISC ${disc} (tentativa ${i + 1}/3): ${raw.slice(0, 120)}`);
+    const lido = parseDesafio(raw);
+    const problemas = lido ? problemasDoDesafio(lido) : ['JSON inválido'];
+    if (lido && !problemas.length) desafio = lido;
+    else {
+      recusa = problemas.join('; ');
+      console.warn(`[desafio-par] recusado DISC ${disc} (tentativa ${i + 1}/3): ${recusa} | ${raw.slice(0, 120)}`);
+    }
   }
-  if (!desafio) throw new Error(`desafio do par inválido retornado pela IA (DISC ${disc})`);
+  if (!desafio) throw new Error(`desafio do par inválido retornado pela IA (DISC ${disc}): ${recusa}`);
 
   const { error } = await sb.from('kit_desafios_semana').insert({
     empresa_id: args.empresaId,
@@ -235,6 +273,31 @@ function parseDesafio(raw: string): DesafioDoPar | null {
   } catch {
     return null;
   }
+}
+
+/** Teto do `desafio_texto`. O prompt pede 650; a folga evita recusar por um punhado de caracteres. */
+export const TETO_DESAFIO_PAR = 700;
+
+/**
+ * O que o prompt pede e o modelo às vezes ignora, conferido em CÓDIGO.
+ *
+ * 🔴 Replay de 20/10/2026 com os 6 pares de uma diretora de macae: mesmo com a
+ * regra escrita, uma geração levou o nome interno "caminho alternativo" para o
+ * texto que a pessoa lê, outra passou do teto e outra trouxe travessão. Cada
+ * célula é gerada uma vez e reaproveitada por todo mundo daquele par, então um
+ * deslize de amostra vira o texto de todas essas pessoas. Lista vazia = aceito.
+ */
+export function problemasDoDesafio(d: DesafioDoPar): string[] {
+  const problemas: string[] = [];
+  if (/caminho alternativo/i.test(d.desafio_texto)) {
+    problemas.push('o desafio_texto usa a expressão "caminho alternativo", que é só o nome da instrução');
+  }
+  if (d.desafio_texto.length > TETO_DESAFIO_PAR) {
+    problemas.push(`o desafio_texto tem ${d.desafio_texto.length} caracteres (teto ${TETO_DESAFIO_PAR})`);
+  }
+  const campos = [d.desafio_texto, d.acao_observavel, d.criterio_de_execucao, d.por_que_cabe_na_semana];
+  if (campos.some((c) => c && /[—–]/.test(c))) problemas.push('há travessão (— ou –) em algum campo');
+  return problemas;
 }
 
 /** Chave de comparação de competência — a mesma régua de igualdade da casa. */
