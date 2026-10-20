@@ -2461,6 +2461,7 @@
       "unlockAfterContent": "Se libera cuando abras el contenido",
       "empty": "Pregunta lo que quieras sobre <strong>{descriptor}</strong>.",
       "placeholder": "Tu pregunta... (Shift+Enter para nueva línea)",
+      "placeholderTouch": "Tu pregunta...",
       "notSaved": "Tu respuesta llegó, pero no pudimos guardarla en el historial de esta conversación. Si la necesitas después, cópiala ahora."
     },
     "chatError": {
@@ -2509,6 +2510,9 @@
       "placeholderPractice": "Relata lo que ocurrió... (Shift+Enter para nueva línea)",
       "placeholderScenario": "Describe cómo lo conducirías... (Shift+Enter para nueva línea)",
       "placeholderDefault": "Tu respuesta... (Shift+Enter para nueva línea)",
+      "placeholderPracticeTouch": "Relata lo que ocurrió...",
+      "placeholderScenarioTouch": "Describe cómo lo conducirías...",
+      "placeholderDefaultTouch": "Tu respuesta...",
       "doneSeason": "Conversación concluida · Recorrido finalizado",
       "doneNextWeek": "Conversación concluida · Próxima semana se libera el {date}",
       "remaining": "Faltan {count} respuestas tuyas para completar la semana {week}.",

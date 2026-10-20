@@ -16,6 +16,7 @@ import { useBunnyTracking } from '@/lib/use-bunny-tracking';
 import { eOrigemDoPlayerBunny } from '@/lib/conteudo/bunny-embed';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import MicInput from '@/components/mic-input';
+import { enterEnvia, useTecladoDeToque } from '@/lib/enter-envia';
 import AvisoCenarioHipotetico from '@/components/aviso-cenario-hipotetico';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { registrarEventoTrilha, jaAbriuConteudoDaSemana } from '@/actions/engajamento';
@@ -82,6 +83,8 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const [chatBusy, setChatBusy] = useState(false);
   const [chatFinished, setChatFinished] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
+  // No celular o Enter quebra a linha e o envio é só pelo botão (ver `enterEnvia`).
+  const tecladoDeToque = useTecladoDeToque();
 
   /**
    * ONDE FICAM AS SEMANAS DE AVALIAÇÃO NESTE PLANO.
@@ -1286,13 +1289,13 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                     <textarea
                       value={chatInput}
                       onChange={e => setChatInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                      onKeyDown={e => { if (enterEnvia(e, tecladoDeToque)) { e.preventDefault(); sendMessage(); } }}
                       placeholder={
                         isAplicacao
                           ? (progressoSemana?.feedback?.modo === 'pratica'
-                              ? t('evidence.placeholderPractice')
-                              : t('evidence.placeholderScenario'))
-                          : t('evidence.placeholderDefault')
+                              ? t(tecladoDeToque ? 'evidence.placeholderPracticeTouch' : 'evidence.placeholderPractice')
+                              : t(tecladoDeToque ? 'evidence.placeholderScenarioTouch' : 'evidence.placeholderScenario'))
+                          : t(tecladoDeToque ? 'evidence.placeholderDefaultTouch' : 'evidence.placeholderDefault')
                       }
                       rows={2}
                       className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500 resize-none"
@@ -1378,8 +1381,8 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                 <div className="flex gap-2">
                   <textarea value={tdInput}
                     onChange={e => setTdInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTiraDuvida(); } }}
-                    placeholder={t('qa.placeholder')}
+                    onKeyDown={e => { if (enterEnvia(e, tecladoDeToque)) { e.preventDefault(); sendTiraDuvida(); } }}
+                    placeholder={t(tecladoDeToque ? 'qa.placeholderTouch' : 'qa.placeholder')}
                     rows={2}
                     className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500 resize-none"
                     disabled={tdBusy} />

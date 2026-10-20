@@ -2461,6 +2461,7 @@
       "unlockAfterContent": "Unlocks once you open the content",
       "empty": "Ask anything you want about <strong>{descriptor}</strong>.",
       "placeholder": "Your question... (Shift+Enter to new line)",
+      "placeholderTouch": "Your question...",
       "notSaved": "Your answer arrived, but we could not save it to this conversation's history. If you need it later, copy it now."
     },
     "chatError": {
@@ -2509,6 +2510,9 @@
       "placeholderPractice": "Describe what happened... (Shift+Enter for a new line)",
       "placeholderScenario": "Describe how you would conduct... (Shift+Enter to new line)",
       "placeholderDefault": "Your answer... (Shift+Enter to new line)",
+      "placeholderPracticeTouch": "Describe what happened...",
+      "placeholderScenarioTouch": "Describe how you would conduct...",
+      "placeholderDefaultTouch": "Your answer...",
       "doneSeason": "Conversation completed · Journey finished",
       "doneNextWeek": "Conversation completed · Next week releases {date}",
       "remaining": "{count} more replies to complete week {week}.",
