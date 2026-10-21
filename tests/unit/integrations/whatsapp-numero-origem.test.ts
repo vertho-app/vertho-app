@@ -17,7 +17,7 @@ vi.mock('@/lib/degradacao', async (orig) => ({
   registrarDegradacao: async () => undefined,
 }));
 
-const { resolverNumeroParaEnvio, rotuloDoNumero } = await import('@/lib/whatsapp/numeros');
+const { resolverNumeroParaEnvio, rotuloDoNumero, empresasDoNumero } = await import('@/lib/whatsapp/numeros');
 const { enviarTextoCloud, enviarTemplateCloud, enviarTemplateOtp, inspecionarCloudApi } = await import('@/lib/whatsapp/cloud-api');
 const { checarCanalEntradaWhatsapp } = await import('@/lib/pipeline-health/regras');
 
@@ -276,6 +276,28 @@ describe('saúde: todos os números, e HTTP 200 não é "ok"', () => {
 
     expect(saude.extras).toEqual([]);
     expect(checarCanalEntradaWhatsapp(saude)).toEqual([]);
+  });
+});
+
+describe('empresasDoNumero: o que desempata o dono de uma mensagem recebida', () => {
+  it('número próprio devolve as empresas ligadas a ele', () => {
+    process.env.WHATSAPP_NUMEROS_EXTRA = EXTRA_COM_EMPRESAS;
+    expect(empresasDoNumero('222')).toEqual(['emp-4life', 'emp-amazon']);
+    expect(empresasDoNumero(' 222 ')).toEqual(['emp-4life', 'emp-amazon']);
+  });
+
+  it('🔴 o inicial NÃO desempata: ele atende todo mundo que não tem número próprio', () => {
+    process.env.WHATSAPP_NUMEROS_EXTRA = EXTRA_COM_EMPRESAS;
+    expect(empresasDoNumero('111')).toEqual([]);
+  });
+
+  it('sem número, número desconhecido ou variável torta: vazio, nunca exceção', () => {
+    process.env.WHATSAPP_NUMEROS_EXTRA = EXTRA_COM_EMPRESAS;
+    expect(empresasDoNumero(null)).toEqual([]);
+    expect(empresasDoNumero('')).toEqual([]);
+    expect(empresasDoNumero('999')).toEqual([]);
+    process.env.WHATSAPP_NUMEROS_EXTRA = 'não-é-json';
+    expect(empresasDoNumero('222')).toEqual([]);
   });
 });
 

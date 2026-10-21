@@ -5,6 +5,7 @@ import { safeSecretEqual } from '@/lib/secure-compare';
 import { interpretarPayload, camposDoStatus, encareceu } from '@/lib/whatsapp/cloud-webhook';
 import { reabrirEnvioPorFalha } from '@/lib/whatsapp/reabrir-envio';
 import { decidirDono, filtroDeTelefone } from '@/lib/whatsapp/resolver-dono';
+import { empresasDoNumero } from '@/lib/whatsapp/numeros';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { fanoutInboxPush } from '@/lib/notifications/inbox-push';
 import { ehPedidoDeResumo, ehRecusa, responderPedidoDeResumo, TEXTO_RECUSA } from '@/lib/notifications/ver-gestor';
@@ -215,7 +216,7 @@ export async function POST(req: Request) {
   }> = [];
   for (const m of mensagens) {
     try {
-      const { empresaId, colaboradorId, ambiguidade } = await resolverDono(sb, m.fromPhone);
+      const { empresaId, colaboradorId, ambiguidade } = await resolverDono(sb, m.fromPhone, m.toPhoneId);
       // upsert por wa_message_id: a Meta reentrega o mesmo evento.
       const { error } = await sb.from('whatsapp_mensagens_recebidas')
         .upsert({
@@ -442,8 +443,11 @@ export async function POST(req: Request) {
  * — que não tinha `ORDER BY` para obedecer — devolver cinco da mesma empresa
  * para a mensagem ser carimbada com o TENANT ERRADO. Um telefone casa com um
  * punhado de linhas; trazer todas custa nada e é o que torna a conclusão válida.
+ *
+ * `numeroId` é o número para o qual a pessoa escreveu (`to_phone_id`): com o
+ * telefone em várias empresas, o número próprio de uma delas desempata.
  */
-async function resolverDono(sb: any, telefone: string) {
+async function resolverDono(sb: any, telefone: string, numeroId: string | null) {
   const filtro = filtroDeTelefone(telefone);
   // Sem dígitos não há o que casar — e um `.or('')` não filtraria nada,
   // devolvendo a tabela inteira como se fosse candidata.
@@ -454,5 +458,5 @@ async function resolverDono(sb: any, telefone: string) {
     .or(filtro);
 
   if (error) return { empresaId: null, colaboradorId: null, ambiguidade: `erro-na-resolucao: ${error.message}` };
-  return decidirDono((data || []) as { id: string; empresa_id: string | null }[]);
+  return decidirDono((data || []) as { id: string; empresa_id: string | null }[], empresasDoNumero(numeroId));
 }

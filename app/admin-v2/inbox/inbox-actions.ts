@@ -5,7 +5,8 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { montarCaixaGlobal, resumoDaCaixa, type LinhaConversa } from '@/lib/inbox/caixa';
-import { decidirDono, filtroDeTelefone, variantesDoTelefone } from '@/lib/whatsapp/resolver-dono';
+import { decidirDono, filtroDeTelefone, variantesDoTelefone, type DonoResolvido } from '@/lib/whatsapp/resolver-dono';
+import { empresasDoNumero } from '@/lib/whatsapp/numeros';
 import type {
   ConversaGlobal, ResumoCaixa, CandidatoDono, FilaNaoIdentificada, ResultadoAssociacao,
 } from '@/lib/inbox/tipos';
@@ -315,14 +316,15 @@ export async function reprocessarNaoIdentificadas(): Promise<{ resolvidas: numbe
   const sb = await requireAdminSupabase();
 
   const { data, error } = await sb.from('whatsapp_conversas')
-    .select('from_phone')
+    .select('from_phone, numeros_ids')
     .is('empresa_id', null)
     .gt('total', 0)
     .order('ultima_em', { ascending: false })
     .limit(TETO_FILA);
   if (error) throw new Error(`reprocessar: ${error.message}`);
 
-  const telefones = (data || []).map((l: any) => l.from_phone as string);
+  const fila = (data || []) as Array<{ from_phone: string; numeros_ids?: string[] | null }>;
+  const telefones = fila.map((l) => l.from_phone);
   if (!telefones.length) return { resolvidas: 0, mensagens: 0, restantes: 0 };
 
   const { data: empresasData } = await sb.from('empresas').select('id, nome').order('nome');
@@ -331,36 +333,58 @@ export async function reprocessarNaoIdentificadas(): Promise<{ resolvidas: numbe
 
   let resolvidas = 0;
   let mensagens = 0;
+  let restantes = 0;
 
-  for (const telefone of telefones) {
-    const lista = candidatos.get(telefone) ?? [];
+  for (const { from_phone: telefone, numeros_ids } of fila) {
+    const linhas = (candidatos.get(telefone) ?? []).map((c) => ({ id: c.colaboradorId, empresa_id: c.empresaId }));
     // MESMA decisão do webhook — uma segunda régua aqui seria uma segunda
     // verdade sobre "de quem é este telefone".
-    const dono = decidirDono(lista.map((c) => ({ id: c.colaboradorId, empresa_id: c.empresaId })));
-    if (!dono.empresaId) continue;
+    const peloTelefone = decidirDono(linhas);
+    // Telefone ambíguo: como no webhook, o número que RECEBEU desempata, e cada número decide só as mensagens
+    // dele. Mensagem sem `to_phone_id` é do número inicial, que não desempata: fica na fila.
+    const decisoes: Array<{ numeroId: string | null; dono: DonoResolvido }> = peloTelefone.empresaId
+      ? [{ numeroId: null, dono: peloTelefone }]
+      : (numeros_ids || []).map((numeroId) => ({ numeroId, dono: decidirDono(linhas, empresasDoNumero(numeroId)) }));
 
-    const { data: att, error: eU } = await sb.from('whatsapp_mensagens_recebidas')
-      .update({ empresa_id: dono.empresaId, colaborador_id: dono.colaboradorId, ambiguidade: dono.ambiguidade })
-      .eq('from_phone', telefone)
-      .is('empresa_id', null)
-      .select('id');
-    if (eU) {
-      console.error('[inbox-global] reprocessar:', telefone, eU.message);
+    let doTelefone = 0;
+    for (const { numeroId, dono } of decisoes) {
+      if (!dono.empresaId) continue;
+      let q = sb.from('whatsapp_mensagens_recebidas')
+        .update({ empresa_id: dono.empresaId, colaborador_id: dono.colaboradorId, ambiguidade: dono.ambiguidade })
+        .eq('from_phone', telefone);
+      if (numeroId) q = q.eq('to_phone_id', numeroId);
+      const { data: att, error: eU } = await q.is('empresa_id', null).select('id');
+      if (eU) {
+        console.error('[inbox-global] reprocessar:', telefone, eU.message);
+        continue;
+      }
+      doTelefone += att?.length || 0;
+    }
+    if (doTelefone) {
+      resolvidas++;
+      mensagens += doTelefone;
+    }
+
+    // Resolvido pelo telefone, todas as mensagens dele saíram da fila (a régua de sempre). Resolvido por número,
+    // pode sobrar mensagem de outro número no mesmo telefone: conta o que ficou, em vez de supor.
+    if (peloTelefone.empresaId || !doTelefone) {
+      if (!doTelefone) restantes++;
       continue;
     }
-    if (att?.length) {
-      resolvidas++;
-      mensagens += att.length;
-    }
+    const { count, error: eC } = await sb.from('whatsapp_mensagens_recebidas')
+      .select('id', { count: 'exact', head: true })
+      .eq('from_phone', telefone)
+      .is('empresa_id', null);
+    if (eC || (count ?? 1) > 0) restantes++;
   }
 
   await logAdminAction({
     adminEmail: email,
     acao: 'inbox.reprocessar',
     alvo: `${telefones.length} telefone(s)`,
-    detalhes: { resolvidas, mensagens, restantes: telefones.length - resolvidas },
+    detalhes: { resolvidas, mensagens, restantes },
     resultado: resolvidas > 0 ? 'ok' : 'parcial',
   });
 
-  return { resolvidas, mensagens, restantes: telefones.length - resolvidas };
+  return { resolvidas, mensagens, restantes };
 }

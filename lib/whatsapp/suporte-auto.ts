@@ -12,7 +12,10 @@
  *  - Sem empresa (número desconhecido ou em várias empresas sem ser da equipe):
  *    NÃO há resposta automática. A mensagem fica na fila de não identificados
  *    da inbox. Medido em 22/09: 2 mensagens de 2 números em 30 dias; os 3
- *    números em várias empresas eram todos da equipe.
+ *    números em várias empresas eram todos da equipe. Desde 21/10/2026, quem
+ *    está em várias empresas e escreve para o número PRÓPRIO de uma delas
+ *    resolve para ela (`decidirDono` com as empresas do número) e é atendido
+ *    como colaborador dela. Medido no dia: 0 telefones fora da equipe nesse caso.
  *  - `SUPORTE_AUTO_ESCOPO` é o freio: `interno` volta ao piloto (só a equipe),
  *    `desligado` cala o Beto. Ausente = `todos`. Lido em runtime.
  *

@@ -263,7 +263,8 @@ O que a fase 2 exige, e não é pouco:
    empresa na própria rota.
 6. 🔴 **Conversa ambígua NÃO pode ter resposta.** Um telefone em vários tenants (caso real: 7
    cadastros em 6 empresas) não tem contexto definido; responder ali é mandar mensagem no contexto
-   errado. O painel de §5.2 é read-only por construção.
+   errado. O painel de §5.2 é read-only por construção. (Desde 21/10/2026, o número próprio de
+   empresa que recebeu a mensagem pode definir o contexto: ver §5.2.)
 
 ### 3.3 O que continua fora
 
@@ -344,6 +345,14 @@ resposta na própria tela.
 - **`telefone-em-multiplas-empresas`** — a mesma pessoa cadastrada em mais de um tenant. Não é
   hipótese: no primeiro evento real de teste, o telefone do dono resolveu para **7 cadastros em
   6 tenants**. Um professor que atue em duas escolas da rede cai no mesmo caso.
+  🔑 **Desde 21/10/2026 o número que RECEBEU desempata** (`decidirDono(linhas, empresasDoNumero(to_phone_id))`):
+  se a pessoa escreveu para o número próprio de uma empresa (o `empresas` do extra em
+  `WHATSAPP_NUMEROS_EXTRA`) e, entre as empresas do telefone, só UMA está ligada a esse número, a
+  mensagem é dela. Caso que motivou: uma professora (conta interna) em 6 empresas recebia as pílulas
+  da 4Life na conversa da 4Life, e as respostas dela iam para esta fila, partindo a conversa em duas.
+  O filtro só estreita (nunca atribui empresa em que o telefone não está); sobrando 0 ou 2+ empresas,
+  segue ambíguo; o número inicial (lista vazia) não desempata. O "reprocessar" da fila aplica a mesma
+  régua, número a número. Medido no dia: 2 telefones nesse caso, ambos da equipe.
 
 Há um terceiro caso desde 15/08: **`telefone-em-multiplas-pessoas`** — uma empresa só, duas pessoas
 com o mesmo número. Aí o **tenant** é inequívoco (a conversa aparece na caixa daquele cliente) e a

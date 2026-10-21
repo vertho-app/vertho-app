@@ -106,6 +106,41 @@ describe('de quem é o telefone — a decisão sobre TODAS as linhas', () => {
   });
 });
 
+describe('o número que RECEBEU desempata o telefone em várias empresas (21/10/2026)', () => {
+  // A professora em 6 empresas respondia à pílula da 4Life pelo número da 4Life, e a
+  // resposta ia para a fila sem dono: a conversa ficava partida em duas.
+  const emDuas = [{ id: 'c1', empresa_id: 'e1' }, { id: 'c2', empresa_id: 'e2' }];
+
+  it('🔴 escreveu para o número próprio de UMA das empresas: é dela, com a pessoa', () => {
+    expect(decidirDono(emDuas, ['e1', 'e-outra'])).toEqual({ empresaId: 'e1', colaboradorId: 'c1', ambiguidade: null });
+  });
+
+  it('número ligado a DUAS das empresas do telefone: segue ambíguo (não sorteia)', () => {
+    expect(decidirDono(emDuas, ['e1', 'e2']).ambiguidade).toBe('telefone-em-multiplas-empresas');
+  });
+
+  it('número de empresas em que o telefone NÃO está: não atribui nada', () => {
+    const d = decidirDono(emDuas, ['e9']);
+    expect(d.empresaId).toBeNull();
+    expect(d.ambiguidade).toBe('telefone-em-multiplas-empresas');
+  });
+
+  it('número inicial (lista vazia) e sem número: comportamento de sempre', () => {
+    expect(decidirDono(emDuas, []).empresaId).toBeNull();
+    expect(decidirDono(emDuas, null).empresaId).toBeNull();
+    expect(decidirDono(emDuas).empresaId).toBeNull();
+  });
+
+  it('desempatada a empresa, duas pessoas DELA no mesmo telefone: empresa sim, pessoa não', () => {
+    const d = decidirDono([...emDuas, { id: 'c3', empresa_id: 'e1' }], ['e1']);
+    expect(d).toEqual({ empresaId: 'e1', colaboradorId: null, ambiguidade: 'telefone-em-multiplas-pessoas' });
+  });
+
+  it('telefone de UMA empresa resolve sem olhar o número, mesmo que o número seja de outra', () => {
+    expect(decidirDono([{ id: 'c1', empresa_id: 'e1' }], ['e2'])).toEqual({ empresaId: 'e1', colaboradorId: 'c1', ambiguidade: null });
+  });
+});
+
 const AGORA = Date.UTC(2026, 7, 15, 12, 0, 0); // meio-dia UTC: longe das duas bordas da janela
 const H = 3600_000;
 

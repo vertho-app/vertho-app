@@ -146,6 +146,18 @@ export function resolverNumeroParaEnvio(pedido?: string | null, empresaId?: stri
   return { id: inicial, caiuNoInicial: true };
 }
 
+/**
+ * As empresas ligadas a um número (o `empresas` do extra). É o que desempata o DONO de uma mensagem recebida
+ * quando o telefone está em várias empresas (`decidirDono`): quem escreveu para o número da 4Life está falando
+ * com a 4Life. Vazio no inicial (ele atende quem não está ligado a nenhum, então não estreita nada), em número
+ * desconhecido e sem número: vazio = não desempata, e a mensagem segue sem dono como sempre.
+ */
+export function empresasDoNumero(numeroId?: string | null): string[] {
+  const id = (numeroId || '').trim();
+  if (!id) return [];
+  return lerExtras().find((n) => n.id === id)?.empresas ?? [];
+}
+
 /** Rótulo para a tela: "+55 11 … (Atendimento)" ou o id cru quando desconhecido. */
 export function rotuloDoNumero(id: string | null | undefined, catalogo?: NumeroRemetente[]): string {
   const cat = catalogo ?? listarNumeros();

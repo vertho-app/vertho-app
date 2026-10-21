@@ -1,9 +1,11 @@
 /**
  * De quem é este telefone? — a DECISÃO, separada da consulta.
  *
- * O número da Cloud API é único para todos os tenants, então quem escreve chega
- * sem tenant. A resolução é pelo telefone, e ela pode ser ambígua: a mesma
- * pessoa (ou o mesmo aparelho) pode estar cadastrada em duas empresas.
+ * Quem escreve chega sem tenant: o número inicial da Cloud API atende todos os
+ * tenants que não têm número próprio. A resolução é pelo telefone, e ela pode
+ * ser ambígua: a mesma pessoa (ou o mesmo aparelho) pode estar cadastrada em
+ * duas empresas. Desde 21/10/2026 o NÚMERO QUE RECEBEU desempata, quando é um
+ * número próprio de empresa (ver `decidirDono`).
  *
  * 🔴 POR QUE ISTO VIROU FUNÇÃO PURA (15/08/2026)
  * ──────────────────────────────────────────────
@@ -92,14 +94,28 @@ export function filtroDeTelefone(telefone: string): string {
  * duas pessoas do mesmo tenant que compartilham o número; a versão anterior
  * pegava `data[0]`, isto é, sorteava. Carimbar a pessoa errada numa thread é
  * afirmar um fato que ninguém verificou, e ele vira histórico.
+ *
+ * 🔑 O NÚMERO QUE RECEBEU DESEMPATA (21/10/2026). `empresasDoNumero` são as
+ * empresas ligadas ao número para o qual a pessoa escreveu (a função de mesmo
+ * nome em `numeros.ts`, a partir do `to_phone_id`). Com o telefone em 2+ empresas,
+ * a decisão fica só com as linhas dessas empresas: sobrando UMA, é dela (quem
+ * responde à pílula da 4Life pelo número da 4Life está falando com a 4Life).
+ * Caso medido: uma professora interna em 6 empresas tinha as pílulas na conversa
+ * da 4Life e as próprias respostas na fila sem dono. O que NÃO muda: o filtro só
+ * estreita, nunca atribui empresa em que o telefone não está; sobrando 0 ou 2+,
+ * segue ambíguo; o número inicial (lista vazia) não desempata; e telefone de uma
+ * empresa só resolve como antes, sem olhar o número.
  */
-export function decidirDono(linhas: CandidatoDono[]): DonoResolvido {
+export function decidirDono(linhas: CandidatoDono[], empresasDoNumero?: readonly string[] | null): DonoResolvido {
   if (!linhas?.length) {
     return { empresaId: null, colaboradorId: null, ambiguidade: 'telefone-desconhecido' };
   }
 
   const empresas = new Set(linhas.map((c) => c.empresa_id));
   if (empresas.size > 1) {
+    const doNumero = new Set(empresasDoNumero ?? []);
+    const daquelas = doNumero.size ? linhas.filter((c) => c.empresa_id !== null && doNumero.has(c.empresa_id)) : [];
+    if (daquelas.length && new Set(daquelas.map((c) => c.empresa_id)).size === 1) return decidirDono(daquelas);
     return { empresaId: null, colaboradorId: null, ambiguidade: 'telefone-em-multiplas-empresas' };
   }
 

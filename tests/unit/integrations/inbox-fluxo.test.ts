@@ -214,6 +214,35 @@ describe('webhook: resposta automática sai pelo número que recebeu', () => {
     expect(envios.some((u) => u.includes('/222/messages'))).toBe(true);
     expect(envios.some((u) => u.includes('/111/messages'))).toBe(false);
   });
+
+  // 21/10/2026: telefone em duas empresas, escrito para o número PRÓPRIO de uma delas.
+  const emDuasEmpresas = () => novoMock({
+    lista: (t) => (t === 'colaboradores' ? [{ id: 'c1', empresa_id: 'e1' }, { id: 'c2', empresa_id: 'e2' }] : []),
+  });
+
+  it('🔴 telefone em duas empresas, escrito para o número da e1: a mensagem é da e1', async () => {
+    process.env.WHATSAPP_NUMEROS_EXTRA = JSON.stringify([{ id: '222', rotulo: '+55 11 5199-1865', empresas: ['e1'] }]);
+    const sb = emDuasEmpresas();
+    const payload = payloadMensagem();
+    payload.entry[0].changes[0].value.metadata.phone_number_id = '222';
+
+    await POST(requisicao(payload));
+
+    const gravada = sb.escritas.find((e) => e.tabela === 'whatsapp_mensagens_recebidas');
+    expect(gravada?.payload).toMatchObject({ empresa_id: 'e1', colaborador_id: 'c1', ambiguidade: null, to_phone_id: '222' });
+  });
+
+  it('o mesmo telefone escrevendo para o número INICIAL continua sem dono', async () => {
+    process.env.WHATSAPP_NUMEROS_EXTRA = JSON.stringify([{ id: '222', rotulo: '+55 11 5199-1865', empresas: ['e1'] }]);
+    const sb = emDuasEmpresas();
+    const payload = payloadMensagem();
+    payload.entry[0].changes[0].value.metadata.phone_number_id = '111';
+
+    await POST(requisicao(payload));
+
+    const gravada = sb.escritas.find((e) => e.tabela === 'whatsapp_mensagens_recebidas');
+    expect(gravada?.payload).toMatchObject({ empresa_id: null, colaborador_id: null, ambiguidade: 'telefone-em-multiplas-empresas' });
+  });
 });
 
 describe('thread — o limite tem que cair sobre a cauda da conversa', () => {
@@ -403,6 +432,47 @@ describe('reprocessar a fila', () => {
     expect(r).toEqual({ resolvidas: 1, mensagens: 2, restantes: 0 });
     const escrita = sb.escritas.find((e) => e.tabela === 'whatsapp_mensagens_recebidas');
     expect(escrita?.payload).toEqual({ empresa_id: 'e1', colaborador_id: 'c1', ambiguidade: null });
+  });
+
+  describe('o número que recebeu desempata, como no webhook (21/10/2026)', () => {
+    beforeEach(() => {
+      process.env.PHONE_NUMBER_ID = '111';
+      process.env.WHATSAPP_NUMEROS_EXTRA = JSON.stringify([{ id: '222', rotulo: '+55 11 5199-1865', empresas: ['e1'] }]);
+    });
+    afterEach(() => {
+      delete process.env.PHONE_NUMBER_ID;
+      delete process.env.WHATSAPP_NUMEROS_EXTRA;
+    });
+
+    /** Telefone em e1 e e2 (a mesma linha volta na consulta de cada empresa), com mensagens para os dois números. */
+    const filaEmDuas = (sobra: number) => novoMock({
+      lista: (t) => {
+        if (t === 'whatsapp_conversas') return [{ from_phone: '5511999998888', numeros_ids: ['222', '111'] }];
+        if (t === 'empresas') return [{ id: 'e1', nome: 'Alfa' }, { id: 'e2', nome: 'Beta' }];
+        if (t === 'colaboradores') return [{ id: 'c1', nome_completo: 'Ana', email: null, whatsapp: '5511999998888', telefone: null }];
+        return [];
+      },
+      escrita: (t) => (t === 'whatsapp_mensagens_recebidas' ? [{ id: 'm1' }] : null),
+      contagem: (t) => (t === 'whatsapp_mensagens_recebidas' ? sobra : null),
+    });
+
+    it('🔴 só as mensagens do número da e1 vão para a e1; as do inicial ficam na fila', async () => {
+      const sb = filaEmDuas(1);
+
+      const r = await reprocessarNaoIdentificadas();
+
+      const escritas = sb.escritas.filter((e) => e.tabela === 'whatsapp_mensagens_recebidas');
+      expect(escritas).toHaveLength(1);
+      expect(escritas[0].payload).toEqual({ empresa_id: 'e1', colaborador_id: 'c1', ambiguidade: null });
+      expect(sb.chamadas.some((c) => c.tabela === 'whatsapp_mensagens_recebidas' && c.metodo === 'eq' && c.args[0] === 'to_phone_id' && c.args[1] === '222')).toBe(true);
+      // Resolveu uma parte e sobrou outra: conta nas duas colunas, porque a conversa sem dono continua na fila.
+      expect(r).toEqual({ resolvidas: 1, mensagens: 1, restantes: 1 });
+    });
+
+    it('sem sobra depois do número, o telefone sai da fila', async () => {
+      filaEmDuas(0);
+      expect(await reprocessarNaoIdentificadas()).toEqual({ resolvidas: 1, mensagens: 1, restantes: 0 });
+    });
   });
 });
 
