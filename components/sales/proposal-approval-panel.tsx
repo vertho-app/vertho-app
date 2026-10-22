@@ -2,17 +2,24 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Check, Loader2, MessageSquareWarning, X } from 'lucide-react';
-import { approveProposal, rejectProposal, requestProposalChanges } from '@/actions/sales/proposals';
+import { Check, CheckCircle2, Loader2, MessageSquareWarning, X } from 'lucide-react';
+import { approveProposal, registrarAceitePropostaDoRC, rejectProposal, requestProposalChanges } from '@/actions/sales/proposals';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { fmtDateTime } from '@/lib/sales/formatters';
-import type { ProposalStatus } from '@/lib/sales/constants';
+import { COMPENSATION_MODEL_LABELS, type CompensationModel, type ProposalStatus } from '@/lib/sales/constants';
 import ProposalStatusBadge from './proposal-status-badge';
 
 /**
- * Painel de decisão do admin sobre uma proposta submetida.
- * Renderiza os botões de decisão só quando status === 'submitted_for_approval';
- * nos demais estados mostra o estado atual (badge + metadados da decisão).
+ * Painel de decisão do admin sobre uma proposta de RC.
+ *
+ * Em `submitted_for_approval`: aprovar, pedir ajustes ou recusar. A aprovação
+ * grava o modelo de remuneração do RC (contrato, 10.5) e a classificação de
+ * cliente da carteira (10.6), que vem calculada e o admin confirma ou corrige
+ * (grupo econômico e mantenedora só ele enxerga). A classificação é controlada
+ * pela página, para o resumo financeiro mudar junto.
+ *
+ * Em `sent_to_client`: registrar o aceite do cliente pela vertho.ai, o caminho
+ * da cláusula 18.7 quando o RC já saiu do canal.
  */
 export default function ProposalApprovalPanel({
   proposalId,
@@ -20,6 +27,12 @@ export default function ProposalApprovalPanel({
   approvedBy,
   approvedAt,
   rejectionReason,
+  modeloDoRc,
+  rcInativo,
+  carteiraAutomatica,
+  carteiraMotivo,
+  carteira,
+  onCarteiraChange,
   onDone,
 }: {
   proposalId: string;
@@ -27,12 +40,74 @@ export default function ProposalApprovalPanel({
   approvedBy?: string | null;
   approvedAt?: string | null;
   rejectionReason?: string | null;
+  modeloDoRc?: CompensationModel | null;
+  rcInativo?: boolean;
+  carteiraAutomatica: boolean;
+  carteiraMotivo?: string | null;
+  carteira: boolean;
+  onCarteiraChange: (v: boolean) => void;
   onDone?: () => void;
 }) {
   const confirmDialog = useConfirm();
   const [mode, setMode] = useState<'idle' | 'changes' | 'reject'>('idle');
   const [text, setText] = useState('');
+  const [motivoCarteira, setMotivoCarteira] = useState('');
   const [busy, setBusy] = useState(false);
+
+  async function run(fn: () => Promise<{ success: boolean; error?: string }>, okMsg: string) {
+    setBusy(true);
+    const r = await fn();
+    setBusy(false);
+    if (!r.success) {
+      toast.error(r.error || 'Falha na operação');
+      return;
+    }
+    toast.success(okMsg);
+    setMode('idle');
+    setText('');
+    onDone?.();
+  }
+
+  async function handleAceite() {
+    const ok = await confirmDialog({
+      title: 'Registrar o aceite do cliente',
+      message: rcInativo
+        ? 'O representante já saiu do canal. A comissão só é lançada se a proposta foi enviada antes do término do contrato dele e está dentro da validade (cláusula 18.7).'
+        : 'A oportunidade fecha como ganha, a conta entra na carteira do representante e a comissão prevista é lançada.',
+      severity: 'normal',
+      confirmLabel: 'Registrar aceite',
+    });
+    if (!ok) return;
+    setBusy(true);
+    const r = await registrarAceitePropostaDoRC(proposalId);
+    setBusy(false);
+    if (!r.success) { toast.error(r.error || 'Falha ao registrar o aceite'); return; }
+    toast.success(r.comComissao ? 'Aceite registrado, com a comissão prevista lançada' : `Aceite registrado sem comissão. ${r.motivo ?? ''}`);
+    onDone?.();
+  }
+
+  if (status === 'sent_to_client') {
+    return (
+      <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-sm font-bold text-white">Decisão</h2>
+            <ProposalStatusBadge status={status} size="md" />
+          </div>
+          <button
+            onClick={handleAceite}
+            disabled={busy}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/10 disabled:opacity-50"
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Registrar aceite do cliente
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-gray-500">
+          Use quando o cliente aceitou por fora ou o representante não pode registrar.
+        </p>
+      </div>
+    );
+  }
 
   if (status !== 'submitted_for_approval') {
     return (
@@ -56,29 +131,24 @@ export default function ProposalApprovalPanel({
     );
   }
 
-  async function run(fn: () => Promise<{ success: boolean; error?: string }>, okMsg: string) {
-    setBusy(true);
-    const r = await fn();
-    setBusy(false);
-    if (!r.success) {
-      toast.error(r.error || 'Falha na operação');
-      return;
-    }
-    toast.success(okMsg);
-    setMode('idle');
-    setText('');
-    onDone?.();
-  }
+  const carteiraMudou = carteira !== carteiraAutomatica;
 
   async function handleApprove() {
+    if (carteiraMudou && !motivoCarteira.trim()) {
+      toast.error('Explique a classificação de carteira antes de aprovar');
+      return;
+    }
     const ok = await confirmDialog({
       title: 'Aprovar proposta',
-      message: 'A proposta será liberada para o representante enviar ao cliente.',
+      message: `A proposta será liberada para o representante enviar ao cliente. Ficam gravados o modelo ${modeloDoRc ? `"${COMPENSATION_MODEL_LABELS[modeloDoRc]}"` : 'atual do representante'} e a classificação ${carteira ? 'de cliente da carteira (50%)' : 'de cliente novo'}.`,
       severity: 'normal',
       confirmLabel: 'Aprovar',
     });
     if (!ok) return;
-    await run(() => approveProposal(proposalId), 'Proposta aprovada');
+    await run(
+      () => approveProposal(proposalId, { carteira, motivo: carteiraMudou ? motivoCarteira.trim() : null }),
+      'Proposta aprovada',
+    );
   }
 
   async function handleRequestChanges() {
@@ -109,6 +179,40 @@ export default function ProposalApprovalPanel({
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <h2 className="text-sm font-bold text-white">Decisão de aprovação</h2>
         <ProposalStatusBadge status={status} />
+      </div>
+
+      {/* Regras de comissão que a aprovação grava (contrato, 10.5 e 10.6) */}
+      <div className="mb-3 rounded-lg bg-white/[0.03] border border-white/10 p-3 text-[11px] text-gray-300 space-y-2">
+        <p>
+          Modelo do representante: <strong className="text-white">{modeloDoRc ? COMPENSATION_MODEL_LABELS[modeloDoRc] : '—'}</strong>
+          <span className="text-gray-500"> (fica gravado nesta proposta)</span>
+        </p>
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={carteira}
+            onChange={(e) => onCarteiraChange(e.target.checked)}
+            className="mt-0.5 accent-cyan-400"
+          />
+          <span>
+            Cliente da carteira do representante: 50% dos percentuais (cláusula 10.6)
+            <span className="block text-gray-500">
+              {carteiraAutomatica
+                ? (carteiraMotivo || 'A conta já tem proposta aceita deste representante.')
+                : 'Pela conta, é cliente novo. Marque se for do mesmo grupo econômico ou da mesma mantenedora de um cliente dele.'}
+            </span>
+          </span>
+        </label>
+        {carteiraMudou && (
+          <textarea
+            value={motivoCarteira}
+            onChange={(e) => setMotivoCarteira(e.target.value)}
+            rows={2}
+            className="w-full rounded-lg px-3 py-2 text-xs text-white outline-none resize-y"
+            style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.14)' }}
+            placeholder={carteira ? 'Ex.: mesma mantenedora do Colégio X, cliente do representante' : 'Ex.: a proposta aceita anterior era de outra unidade, sem relação'}
+          />
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">

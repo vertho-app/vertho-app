@@ -9,6 +9,7 @@ import {
   marcarComissaoAReceber,
   marcarComissaoPaga,
   cancelarComissao,
+  registrarNotaFiscalPeloAdmin,
   registrarEstorno,
   exportComissoesCSV,
 } from '@/actions/sales/commissions-admin';
@@ -85,6 +86,7 @@ export default function ComissoesAdminPage() {
   const paidAtRef = useRef<HTMLInputElement>(null);
   const receiveDateRef = useRef<HTMLInputElement>(null);
   const cancelMotivoRef = useRef<HTMLTextAreaElement>(null);
+  const notaFiscalRef = useRef<HTMLInputElement>(null);
 
   // Competência do input month vira o 1º dia do mês (reference_month é DATE).
   const mesToRef = (m: string) => (m ? `${m}-01` : undefined);
@@ -188,6 +190,38 @@ export default function ComissoesAdminPage() {
     setBusyId(null);
     if (r.success) { toast.success('Comissão marcada como paga'); reloadAll(); }
     else toast.error(r.error || 'Falha ao pagar');
+  }
+
+  // RC que saiu do canal não tem mais o portal (18.4) e manda a NF por fora; a
+  // comissão segue devida (11.2 e 18.7).
+  async function handleNotaFiscal(ev: SalesCommissionEvent) {
+    const ok = await confirm({
+      title: 'Registrar nota fiscal do RC',
+      message: (
+        <div>
+          <p>Use quando o representante enviou a NF por fora, por exemplo depois de sair do canal.</p>
+          <label className="block mt-3 text-[11px] text-gray-400">
+            Número da nota fiscal
+            <input
+              ref={notaFiscalRef}
+              type="text"
+              className="mt-1 w-full rounded-lg px-3 py-2 text-sm text-white outline-none"
+              style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.14)' }}
+            />
+          </label>
+        </div>
+      ),
+      severity: 'normal',
+      confirmLabel: 'Registrar NF',
+    });
+    if (!ok) return;
+    const numero = notaFiscalRef.current?.value?.trim() || '';
+    if (!numero) { toast.error('Informe o número da nota fiscal'); return; }
+    setBusyId(ev.id);
+    const r = await registrarNotaFiscalPeloAdmin(ev.id, numero);
+    setBusyId(null);
+    if (r.success) { toast.success('Nota fiscal registrada'); reloadAll(); }
+    else toast.error(r.error || 'Falha ao registrar a nota fiscal');
   }
 
   async function handleCancelar(ev: SalesCommissionEvent) {
@@ -381,7 +415,7 @@ export default function ComissoesAdminPage() {
                       <td className="px-3 py-2 text-gray-400">{COMMISSION_TYPE_LABELS[ev.type] || ev.type}</td>
                       <td className="px-3 py-2 text-gray-400">{fmtDate(ev.reference_month)}</td>
                       <td className="px-3 py-2 text-right text-gray-400">{ev.base_value != null ? fmtBRL(ev.base_value) : '—'}</td>
-                      <td className="px-3 py-2 text-right text-gray-400">{ev.percent != null ? fmtPercent(ev.percent) : '—'}</td>
+                      <td className="px-3 py-2 text-right text-gray-400">{ev.percent != null ? fmtPercent(Number(ev.percent) / 100, Number(ev.percent) % 1 === 0 ? 0 : 1) : '—'}</td>
                       <td className="px-3 py-2 text-right font-semibold" style={{ color: neg ? '#F87171' : '#FFFFFF' }}>
                         {fmtBRLExact(ev.amount)}
                       </td>
@@ -405,6 +439,14 @@ export default function ComissoesAdminPage() {
                                 className="px-2 py-1 rounded-md text-[10px] font-bold text-cyan-300 border border-cyan-400/30 hover:bg-cyan-400/10"
                               >
                                 A receber
+                              </button>
+                            )}
+                            {canPagar && !ev.invoice_number && (
+                              <button
+                                onClick={() => handleNotaFiscal(ev)}
+                                className="px-2 py-1 rounded-md text-[10px] font-bold text-amber-300 border border-amber-400/30 hover:bg-amber-400/10"
+                              >
+                                Registrar NF
                               </button>
                             )}
                             {canPagar && (

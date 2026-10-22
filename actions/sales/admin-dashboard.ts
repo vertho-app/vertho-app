@@ -15,7 +15,7 @@ import {
   protecoesVencendo,
 } from '@/lib/sales/kpis';
 import { protectionDaysLeft } from '@/lib/sales/protection';
-import { gruposEmMaisDeUmRc, type ContaComparavel } from '@/lib/sales/duplicidade';
+import { coincidenciasDeOutrosRcs, gruposEmMaisDeUmRc, type ContaComparavel } from '@/lib/sales/duplicidade';
 import type { SalesOpportunity, SalesProposal, SalesRepresentative } from '@/lib/sales/types';
 
 export type RepDashboardRow = {
@@ -40,7 +40,8 @@ export async function getCommercialAdminDashboard() {
   ] = await Promise.all([
     sb.from('sales_representatives').select('*').order('name'),
     sb.from('sales_opportunities')
-      .select('*, account:sales_accounts (id, legal_name, trade_name, segment, city, state)')
+      .select(`*, account:sales_accounts (id, legal_name, trade_name, segment, city, state, cnpj),
+        primary_contact:sales_contacts!sales_opportunities_primary_contact_id_fkey (id, name, role)`)
       .order('updated_at', { ascending: false }),
     sb.from('sales_proposals')
       .select('*, account:sales_accounts (id, legal_name, trade_name)')
@@ -97,9 +98,38 @@ export async function getCommercialAdminDashboard() {
     daysLeft: protectionDaysLeft(o.protection_end_date),
   }));
 
+  // Registros aguardando a validação da vertho.ai (contrato, 7.1 a 7.5), os
+  // mais antigos primeiro. O admin confere a 7.3 (cliente já ativo ou em
+  // negociação com a vertho.ai, lead próprio, indicação de terceiro) e a 7.4
+  // (outro RC registrou antes): o aviso de coincidência vem da mesma régua do
+  // painel de duplicidade abaixo.
+  const contasComparaveis = (accounts || []) as ContaComparavel[];
+  const pendingRegistrations = allOpps
+    .filter((o) => o.attribution_status === 'aguardando' && o.status === 'open')
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    .map((o) => {
+      const conta = contasComparaveis.find((c) => c.id === o.account_id);
+      const coincidencias = conta ? coincidenciasDeOutrosRcs(conta, contasComparaveis) : [];
+      const acc = o.account as (SalesOpportunity['account'] & { cnpj?: string | null }) | null | undefined;
+      return {
+        id: o.id,
+        nome: o.opportunity_name,
+        repName: repName.get(o.representante_id) || '—',
+        cliente: acc?.trade_name || acc?.legal_name || '—',
+        cnpj: acc?.cnpj ?? null,
+        cidade: acc?.city ?? null,
+        contato: o.primary_contact ? `${o.primary_contact.name}${o.primary_contact.role ? ` (${o.primary_contact.role})` : ''}` : null,
+        origem: o.origin,
+        necessidade: o.identified_need,
+        evidencia: o.interaction_evidence,
+        created_at: o.created_at,
+        outrosRcs: coincidencias.map((c) => (c.representante_id && repName.get(c.representante_id)) || '—'),
+      };
+    });
+
   // A mesma instituição com mais de um RC (regra de 08/10: vale o primeiro
   // registro válido, e a vertho.ai decide). Ordem de cadastro dentro do grupo.
-  const contasEmMaisDeUmRc = gruposEmMaisDeUmRc((accounts || []) as ContaComparavel[]).map((grupo) =>
+  const contasEmMaisDeUmRc = gruposEmMaisDeUmRc(contasComparaveis).map((grupo) =>
     grupo.map((c) => ({
       id: c.id,
       nome: c.trade_name || c.legal_name || '—',
@@ -112,6 +142,7 @@ export async function getCommercialAdminDashboard() {
     success: true as const,
     byRep,
     pendingProposals,
+    pendingRegistrations,
     expiringProtections,
     contasEmMaisDeUmRc,
     totals: {
@@ -119,6 +150,7 @@ export async function getCommercialAdminDashboard() {
       pipelineQualificado: pipelineQualificado(allOpps),
       commissionExposure: comissaoEstimada(allProposals),
       pendingCount: pendingProposals.length,
+      pendingRegistrationsCount: pendingRegistrations.length,
     },
   };
 }

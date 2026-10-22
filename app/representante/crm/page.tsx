@@ -102,7 +102,7 @@ export default function CrmPage() {
       ) : opps.length === 0 ? (
         <div className="text-center py-16 rounded-xl bg-white/[0.03] border border-white/10">
           <p className="text-sm text-gray-400 max-w-md mx-auto">
-            Registre sua primeira oportunidade — o registro formal inicia a proteção comercial de 90 dias.
+            Registre sua primeira oportunidade. Depois que a vertho.ai validar o registro, ela fica protegida por 90 dias.
           </p>
           <button
             onClick={() => router.push('/representante/crm/nova')}
@@ -152,7 +152,7 @@ export default function CrmPage() {
                     ) : '—'}
                   </td>
                   <td className="px-3 py-2.5">
-                    <ProtectionStatusBadge status={o.protection_status} protectionEnd={o.protection_end_date} />
+                    <ProtectionStatusBadge status={o.protection_status} protectionEnd={o.protection_end_date} attribution={o.attribution_status} />
                   </td>
                   <td className="px-3 py-2.5 text-center font-bold tabular-nums" style={{ color: qualityScoreColor(o.quality_score || 0) }}>
                     {o.quality_score ?? 0}

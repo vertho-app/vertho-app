@@ -10,14 +10,16 @@ import {
   requireRepresentativeAction,
   requireRepresentativeOrAdminAction,
 } from '@/lib/sales/permissions';
-import { COMMISSION_STATUS_LABELS, COMMISSION_TYPE_LABELS, commissionRatesFor } from '@/lib/sales/constants';
+import { COMMISSION_STATUS_LABELS, COMMISSION_TYPE_LABELS } from '@/lib/sales/constants';
+import { planoDeComissao } from '@/lib/sales/commissions';
+import { termosDaProposta } from '@/lib/sales/aceite-rc';
 import type { SalesCommissionEvent, SalesProposal } from '@/lib/sales/types';
 
 export type CommissionRow = {
   cliente: string;
-  tipo: string;      // rótulo comercial (Aquisição, Recorrente, ...)
+  tipo: string;      // rótulo comercial (Aquisição, Sobre parcelas, ...)
   base: number | null;
-  percent: number | null; // em % (9, 12, ...)
+  percent: number | null; // em % (8, 10, 4, 5...)
   status: string;    // Potencial | Prevista | A receber | Paga
   valor: number;
   previsao: string | null; // previsão de pagamento (null no MVP p/ estimativas)
@@ -25,13 +27,6 @@ export type CommissionRow = {
 
 type AccountJoin = { legal_name: string | null; trade_name: string | null } | null;
 
-/**
- * Percentual de uma ESTIMATIVA gravada na proposta: lido do próprio valor
- * (estimativa ÷ base), e não da taxa do modelo atual do RC. Se o admin trocar o
- * modelo depois, a proposta antiga continua dizendo a taxa com que foi calculada.
- */
-const percentDaEstimativa = (valor: number, base: number | null, taxaAtual: number) =>
-  base && base > 0 ? Math.round((valor / base) * 1000) / 10 : taxaAtual * 100;
 const clienteDe = (account: AccountJoin) => account?.trade_name || account?.legal_name || '—';
 
 /** Tabela de comissões do dashboard do RC (estimativas + eventos, deduplicado). */
@@ -63,35 +58,36 @@ export async function getCommissionSummary() {
       .map((e) => `${e.proposal_id}:${e.type}`),
   );
 
-  // (a) Estimativas das propostas vivas, nas taxas do modelo do RC (sem ajuda:
-  // aquisição 8% + recorrente 10%; com ajuda: só o recorrente de 10%).
-  const rates = commissionRatesFor(ctx.rep.compensation_model);
+  // (a) Estimativas das propostas vivas, pelo MESMO plano que o aceite lança
+  // (contrato, 10ª): modelo gravado na proposta, carteira a 50%, aquisição
+  // limitada aos 12 primeiros meses e parcelas a partir da 2ª no modelo sem
+  // ajuda. Base, percentual e valor saem juntos do plano; dividir a estimativa
+  // pelo total daria percentuais que o contrato não tem (4%, 9,2%).
   for (const p of (proposals || []) as (SalesProposal & { account: AccountJoin })[]) {
     const cliente = clienteDe(p.account);
     const status = p.status === 'accepted' ? 'Prevista' : 'Potencial';
-    const base = p.total_contract_value != null ? Number(p.total_contract_value) : null;
-    const aquisicao = Number(p.estimated_acquisition_commission) || 0;
+    const { rates, carteira } = termosDaProposta(p, ctx.rep.compensation_model);
+    const plano = planoDeComissao(Number(p.total_contract_value) || 0, Number(p.contract_duration_months) || 0, rates, carteira);
     // Modelo sem aquisição: a linha de R$ 0 só confundiria o extrato.
-    if (!eventKeys.has(`${p.id}:aquisicao`) && (rates.acquisition > 0 || aquisicao > 0)) {
+    if (!eventKeys.has(`${p.id}:aquisicao`) && plano.aquisicao.percent > 0) {
       rows.push({
         cliente,
         tipo: COMMISSION_TYPE_LABELS.aquisicao,
-        base,
-        percent: percentDaEstimativa(aquisicao, base, rates.acquisition),
+        base: plano.aquisicao.base,
+        percent: plano.aquisicao.percent,
         status,
-        valor: aquisicao,
+        valor: plano.aquisicao.valor,
         previsao: null, // MVP: sem previsão de pagamento para estimativas
       });
     }
     if (!eventKeys.has(`${p.id}:recorrente`)) {
-      const recorrente = Number(p.estimated_recurring_commission) || 0;
       rows.push({
         cliente,
         tipo: COMMISSION_TYPE_LABELS.recorrente,
-        base,
-        percent: percentDaEstimativa(recorrente, base, rates.recurring),
+        base: plano.sobreParcelas.base,
+        percent: plano.sobreParcelas.percent,
         status,
-        valor: recorrente,
+        valor: plano.sobreParcelas.valor,
         previsao: null,
       });
     }

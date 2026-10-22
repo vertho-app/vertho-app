@@ -10,20 +10,11 @@ import OpportunityStageBadge from '@/components/sales/opportunity-stage-badge';
 import ProposalApprovalPanel from '@/components/sales/proposal-approval-panel';
 import ProposalDealDeskPanel from '@/components/sales/proposal-deal-desk-panel';
 import {
-  CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGE_LABELS,
+  CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGE_LABELS, commissionRatesFor,
 } from '@/lib/sales/constants';
+import { planoDeComissao } from '@/lib/sales/commissions';
 import { fmtBRL, fmtBRLExact, fmtDateTime, fmtPercent } from '@/lib/sales/formatters';
 import type { SalesAdminComment, SalesProposal } from '@/lib/sales/types';
-
-/**
- * Taxa com que a estimativa foi GRAVADA (estimativa ÷ valor final). Depende do
- * modelo de remuneração do RC (8% + 10% sem ajuda de custo; 0 + 10% com ajuda),
- * então não pode vir de uma constante única.
- */
-function taxaGravada(estimativa: number | null | undefined, total: number | null | undefined): number | null {
-  const t = Number(total) || 0;
-  return t > 0 ? (Number(estimativa) || 0) / t : null;
-}
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -42,11 +33,15 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
   const [error, setError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
   const [sending, setSending] = useState(false);
+  // Classificação de carteira em decisão (10.6): começa na calculada pelo
+  // servidor e muda o resumo financeiro na hora, antes de aprovar.
+  const [carteira, setCarteira] = useState(false);
 
   const carregar = useCallback(async () => {
     const r = await getProposal(proposalId);
     if (r.success) {
       setProposal(r.data);
+      setCarteira(!!r.data.carteira);
       setComments((r.comments || []) as SalesAdminComment[]);
       setError(null);
     } else {
@@ -106,26 +101,41 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
                     {fmtBRLExact(proposal.monthly_value)}/{proposal.representante_id ? 'mês' : 'parcela'} · {proposal.contract_duration_months ?? '—'} {proposal.representante_id ? 'meses' : 'parcelas'}
                   </p>
                 </div>
-                {proposal.representante_id ? (
-                  <>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-500">
-                        Comissão aquisição{taxaGravada(proposal.estimated_acquisition_commission, proposal.total_contract_value) != null && ` (${fmtPercent(taxaGravada(proposal.estimated_acquisition_commission, proposal.total_contract_value))})`}
-                      </p>
-                      <p className="text-lg font-bold text-amber-300 mt-0.5">{fmtBRL(proposal.estimated_acquisition_commission)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-500">
-                        Comissão recorrente{taxaGravada(proposal.estimated_recurring_commission, proposal.total_contract_value) != null && ` (${fmtPercent(taxaGravada(proposal.estimated_recurring_commission, proposal.total_contract_value))})`}
-                      </p>
-                      <p className="text-lg font-bold text-amber-300 mt-0.5">{fmtBRL(proposal.estimated_recurring_commission)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-500">Comissão total estimada</p>
-                      <p className="text-lg font-bold text-amber-400 mt-0.5">{fmtBRL(proposal.estimated_total_commission)}</p>
-                    </div>
-                  </>
-                ) : (
+                {proposal.representante_id ? (() => {
+                  // O mesmo plano que o aceite lança (contrato, 10ª): modelo
+                  // gravado na proposta e a carteira em decisão.
+                  const emDecisao = proposal.status === 'submitted_for_approval';
+                  const modelo = (emDecisao ? proposal.representante?.compensation_model : null)
+                    ?? proposal.compensation_model ?? proposal.representante?.compensation_model ?? null;
+                  const plano = planoDeComissao(
+                    Number(proposal.total_contract_value) || 0,
+                    Number(proposal.contract_duration_months) || 0,
+                    commissionRatesFor(modelo),
+                    emDecisao ? carteira : !!proposal.carteira,
+                  );
+                  const s = plano.sobreParcelas;
+                  return (
+                    <>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                          Comissão aquisição ({fmtPercent(plano.aquisicao.percent / 100)}{plano.aquisicao.limitadaA12Meses ? ', 12 meses' : ''})
+                        </p>
+                        <p className="text-lg font-bold text-amber-300 mt-0.5">{fmtBRL(plano.aquisicao.valor)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                          Sobre parcelas ({fmtPercent(s.percent / 100)} × {s.quantidade}{s.primeira === 2 ? ', da 2ª' : ''})
+                        </p>
+                        <p className="text-lg font-bold text-amber-300 mt-0.5">{fmtBRL(s.valor)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-gray-500">Comissão total estimada</p>
+                        <p className="text-lg font-bold text-amber-400 mt-0.5">{fmtBRL(plano.total)}</p>
+                        {plano.carteira && <p className="text-[10px] text-gray-500">cliente da carteira (50%)</p>}
+                      </div>
+                    </>
+                  );
+                })() : (
                   // R$ 0,00 pareceria bug. Sem RC não há quem receba — dizer isso
                   // é diferente de mostrar zero.
                   <div className="col-span-3">
@@ -148,6 +158,12 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
                 approvedBy={proposal.approved_by}
                 approvedAt={proposal.approved_at}
                 rejectionReason={proposal.rejection_reason}
+                modeloDoRc={proposal.representante?.compensation_model ?? null}
+                rcInativo={proposal.representante?.status === 'inactive'}
+                carteiraAutomatica={!!proposal.carteira}
+                carteiraMotivo={proposal.carteira_motivo}
+                carteira={carteira}
+                onCarteiraChange={setCarteira}
                 onDone={carregar}
               />
             ) : (

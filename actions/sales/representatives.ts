@@ -89,12 +89,25 @@ export async function updateRepresentativeCompensationModel(repId: string, model
   return { success: true as const };
 }
 
+/**
+ * Desativar = encerrar o contrato de representação: grava `contract_ended_at`,
+ * o marco da cláusula 18.7 (depois dele só geram comissão as propostas aceitas
+ * antes, ou enviadas antes e aceitas dentro da validade). Reativar apaga o
+ * marco: é um contrato novo. Suspender não encerra nada.
+ */
 export async function updateRepresentativeStatus(repId: string, status: 'active' | 'inactive' | 'suspended') {
   const admin = await requireCommercialAdminAction();
   if (!['active', 'inactive', 'suspended'].includes(status)) return { success: false as const, error: 'Status inválido' };
   const sb = createSupabaseAdmin();
+  const { data: atual, error: erroLeitura } = await sb.from('sales_representatives').select('status, contract_ended_at').eq('id', repId).maybeSingle();
+  if (erroLeitura) return { success: false as const, error: erroLeitura.message };
+  if (!atual) return { success: false as const, error: 'Representante não encontrado' };
+  const agora = new Date().toISOString();
+  const patch: Record<string, unknown> = { status, updated_at: agora };
+  if (status === 'inactive' && !atual.contract_ended_at) patch.contract_ended_at = agora;
+  if (status === 'active') patch.contract_ended_at = null;
   const { error } = await sb.from('sales_representatives')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update(patch)
     .eq('id', repId);
   if (error) return { success: false as const, error: error.message };
   console.log(`[sales] RC ${repId} → ${status} por ${admin.email}`);

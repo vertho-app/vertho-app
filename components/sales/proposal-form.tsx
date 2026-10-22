@@ -225,6 +225,7 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
             contract_duration_months: num(values.contract_duration_months),
             discount_requested: num(values.discount_requested),
           }}
+          opportunityId={opportunityId}
         />
       </div>
     </form>

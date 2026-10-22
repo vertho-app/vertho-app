@@ -1,6 +1,7 @@
 'use client';
 
-// Portal do Representante — registro formal de oportunidade (inicia proteção de 90 dias).
+// Portal do Representante — registro formal de oportunidade. A proteção de 90 dias
+// começa quando a vertho.ai valida o registro (contrato do RC, 7.5).
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -20,7 +21,7 @@ export default function NovaOportunidadePage() {
       toast.error(r.error);
       return;
     }
-    toast.success('Oportunidade registrada — proteção comercial de 90 dias iniciada.');
+    toast.success('Oportunidade registrada. A proteção de 90 dias começa quando a vertho.ai validar o registro.');
     router.push(`/representante/crm/${r.id}`);
   }
 
@@ -30,7 +31,7 @@ export default function NovaOportunidadePage() {
       <div className="mb-5">
         <h1 className="text-xl font-bold">Registrar oportunidade</h1>
         <p className="text-xs text-gray-500 mt-0.5">
-          O registro formal valida a oportunidade e inicia a proteção comercial de 90 dias.
+          Com os dados completos, a vertho.ai valida o registro e a proteção comercial de 90 dias começa na validação.
         </p>
       </div>
       <OpportunityForm onSubmit={handleSubmit} submitting={submitting} />

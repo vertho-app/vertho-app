@@ -486,8 +486,9 @@ const ACEITAVEIS = ['approved', 'sent_to_client'];
  * carteira e o RC sem comissão de um negócio fechado, sem nada acusando.
  *
  * Então a página oferece o aceite onde ele é completo, e manda falar com o
- * contato onde não é. Reabrir isto exige extrair o núcleo de `markProposalAccepted`
- * para `lib/` e chamá-lo daqui — não basta afrouxar a condição.
+ * contato onde não é. O núcleo do aceite já está em `lib/sales/aceite-rc.ts`
+ * (`concluirAceiteDoRC`, 22/10/2026): reabrir isto é chamá-lo daqui, com a regra
+ * da 18.7 (`comissaoDevidaNoAceite`), e não afrouxar a condição.
  */
 export function aceitePublicoPermitido(proposal: Pick<SalesProposal, 'status' | 'representante_id'>): boolean {
   return ACEITAVEIS.includes(proposal.status) && proposal.representante_id == null;

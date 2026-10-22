@@ -293,6 +293,16 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
               Aprovada em {fmtDateTime(p.approved_at)}
             </p>
           )}
+          {editable && p.opportunity?.attribution_status === 'aguardando' && (
+            <p className="text-[11px] text-amber-300 mt-1.5">
+              A vertho.ai ainda está validando o registro desta oportunidade. Você pode preparar a proposta, e a submissão fica liberada depois da validação.
+            </p>
+          )}
+          {p.carteira && (
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              Cliente da carteira: a comissão desta proposta é 50% dos percentuais do seu modelo (cláusula 10.6 do contrato).
+            </p>
+          )}
         </div>
 
         {/* Ações por status */}
@@ -309,7 +319,8 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
           {editable && (
             <button
               onClick={handleSubmitForApproval}
-              disabled={acting}
+              disabled={acting || p.opportunity?.attribution_status === 'aguardando' || p.opportunity?.attribution_status === 'recusada'}
+              title={p.opportunity?.attribution_status === 'aguardando' ? 'Aguardando a validação do registro pela vertho.ai' : undefined}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold text-[#04121F] bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50"
             >
               {acting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
@@ -513,6 +524,9 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
               contract_duration_months: p.contract_duration_months,
               discount_requested: p.discount_requested,
             }}
+            compensationModel={p.compensation_model}
+            carteira={p.carteira}
+            opportunityId={p.opportunity_id}
             className="lg:sticky lg:top-6"
           />
         </div>

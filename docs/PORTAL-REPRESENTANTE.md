@@ -4,6 +4,35 @@
 > comerciais autônomos): CRM/pipeline, proteção de oportunidade, propostas com
 > aprovação interna Vertho, comissão estimada, carteira e materiais aprovados.
 
+## Estado em 22/10/2026 — o contrato de representação v5 é a régua
+
+O dono entregou o contrato de representação comercial autônoma (Lei 4.886/65,
+`Contrato_RC_Vertho_v5`), e o portal passou a refletir o que ele diz (mig 296).
+Onde a regra mora e o que mudou:
+
+| Cláusula | Regra | No portal |
+|---|---|---|
+| 7.1, 7.3, 7.5 | Só é comissionável a oportunidade que a vertho.ai aceita, e os 90 dias de proteção contam do aceite | Registro nasce `attribution_status='aguardando'`, sem proteção. Fila "Registros aguardando validação" em `/admin/comercial` (`validarRegistroOportunidade`, `recusarRegistroOportunidade`, com aviso de outro RC pela régua da duplicidade). Proposta só é submetida e aprovada com o registro `validada`. Recusado sai do funil (`expired`) e o RC lê o motivo |
+| 7.2, Anexo III | Registro com CNPJ e cargo do contato | `createOpportunity` recusa conta sem CNPJ de 14 dígitos e contato sem cargo |
+| 10.2, 10.3a | Aquisição (sem ajuda) de 8% sobre o Valor Total, limitada às parcelas dos 12 primeiros meses, paga com o 1º pagamento | `planoDeComissao` em `lib/sales/commissions.ts` |
+| 10.3b, 10.4 | 10% por parcela paga: a partir da 2ª no modelo sem ajuda; desde a 1ª no com ajuda | `firstCommissionedInstallment` em `COMMISSION_RATES_BY_MODEL` |
+| 10.5 | Vale o modelo do RC na aprovação da proposta | `approveProposal` grava `sales_proposals.compensation_model`; o aceite lê o gravado |
+| 10.6 | Cliente da carteira (renovação, nova Jornada, ampliação) paga 50% dos percentuais | `classificarCarteira` (conta com proposta aceita do mesmo RC) no rascunho e na aprovação; o admin confirma ou corrige com motivo (grupo econômico, mantenedora). Acabou a taxa própria de renovação (5%) e de expansão |
+| 11.2 | Pagamento até o dia 15 do mês seguinte ao pagamento do cliente | `DIA_PAGAMENTO_COMISSAO = 15` (era 10, decisão de 08/10 anterior ao contrato) |
+| 18.7 | Com o contrato do RC encerrado, só gera comissão a proposta enviada antes do término e aceita na validade | `contract_ended_at` gravado ao desativar o RC; `sent_to_client_at` no envio; `registrarAceitePropostaDoRC` (admin) aplica `comissaoDevidaNoAceite`; o admin registra a NF do ex-RC (`registrarNotaFiscalPeloAdmin`) |
+
+O núcleo do aceite saiu de `actions/sales/proposals.ts` para `lib/sales/aceite-rc.ts`
+(`concluirAceiteDoRC`): o RC e o admin usam o mesmo, e o update condicional
+(`status = sent_to_client`) impede lançar a comissão duas vezes. Testes:
+`sales-comissao-modelos`, `sales-comissao-data-pagamento` e `sales-contrato-rc-v5`.
+
+Fora do portal, de propósito: a ajuda de custo (valor por região, decisão do dono
+de 08/10) e as metas do Anexo IV com a prorrogação automática da 9.11 (decisão de
+22/10: fica para depois). O deal desk segue simulando o custo de RC a 18%, um teto
+acima do que o contrato paga (no modelo sem ajuda, de 13,6% a 17,2% do contrato,
+conforme a vigência). Os dados de demonstração (`scripts/seed-comercial-demo.mjs`)
+ainda geram eventos na regra antiga.
+
 ## Estado em 12/09/2026 — fluxo preservado, régua comercial compartilhada
 
 Os MVPs 1-4, o kit e o versionamento continuam fechados, sem nova migration
@@ -111,7 +140,8 @@ Demonstração"** no portal. Decisões:
 
 ## Regras de negócio implementadas
 
-- **Proteção de oportunidade**: 90 dias do registro validado
+- **Proteção de oportunidade**: 90 dias contados da VALIDAÇÃO do registro pela
+  vertho.ai (desde 22/10/2026, contrato 7.5; antes contava do registro)
   (`lib/sales/protection.ts`); status derivado active/expiring (≤15d)/expired;
   alertas em 15/10/5 dias e vencida. `extended` reservado para prorrogação
   manual pela Vertho (MVP 2).
@@ -127,21 +157,20 @@ Demonstração"** no portal. Decisões:
   (`lib/sales/quality-score.ts`) — conta 10, contato 10, cargo do contato 10,
   origem 10, necessidade 15, produto 10, estágio 10, próxima ação 15,
   evidência 10. Persistido e recalculado a cada update.
-- **Comissões** (`lib/sales/commissions.ts`): desde 21/10/2026 (decisão do dono,
-  "fixo + 10% mensal ou 8% do contrato total + 10% mensal") aquisição 8% do
-  contrato; recorrente 10% ao mês na vigência; renovação 5%; expansão 8%+10%.
-  Até 20/10 eram 9% + 12%, renovação 6%.
+- **Comissões** (`lib/sales/commissions.ts`): desde 22/10/2026 a régua é o
+  contrato de representação v5 (tabela no topo deste doc). `planoDeComissao` é a
+  fonte única da estimativa gravada, do resumo que o RC vê, do extrato e dos
+  eventos do aceite. Histórico: 21/10 aquisição 8% do contrato inteiro + 10% de
+  todas as parcelas, renovação 5%, expansão 8%+10%; até 20/10, 9% + 12%.
   **Desde 19/10/2026 (mig 295) são DOIS modelos por RC**, em
-  `sales_representatives.compensation_model`: `sem_ajuda` (as taxas acima, o
-  padrão) e `com_ajuda` (a ajuda de custo é o "fixo") (recorrente 10% ao mês, sem aquisição, renovação 5%,
-  expansão 10% ao mês do incremental; a ajuda de custo em si fica fora do
-  portal). As taxas vivem em `commissionRatesFor` (`lib/sales/constants.ts`) e
-  entram na estimativa da proposta, no resumo que o RC vê, no extrato e nos
-  eventos do aceite (o modelo com ajuda não lança evento de aquisição). O
-  modelo se escolhe ao criar o RC em `/admin/comercial/representantes` e pode
-  ser trocado lá; a troca vale para as propostas e aceites seguintes (extrato e
-  aprovação leem a taxa da própria estimativa gravada). Teste:
-  `tests/unit/sales-comissao-modelos.test.ts`. MVP = estimativa
+  `sales_representatives.compensation_model`: `sem_ajuda` (o padrão) e
+  `com_ajuda` (ajuda de custo fixa fora do portal + 10% por parcela, sem
+  aquisição). As taxas vivem em `commissionRatesFor` (`lib/sales/constants.ts`).
+  O modelo se escolhe ao criar o RC em `/admin/comercial/representantes` e pode
+  ser trocado lá (no contrato, por aditivo, 10.5); a troca vale para as
+  propostas APROVADAS depois dela, porque a aprovação grava o modelo na
+  proposta (mig 296). Testes: `tests/unit/sales-comissao-modelos.test.ts`,
+  `tests/unit/sales-contrato-rc-v5.test.ts`. MVP = estimativa
   na proposta; aceite do cliente materializa eventos `forecast` em
   `sales_commission_events` (hook MVP 2: accrued/paid/chargeback prontos).
   Esta é a política do ledger financeiro. Não confundir com o seletor de custo
@@ -184,10 +213,13 @@ Ciclo de vida completo em `sales_commission_events`:
 **forecast (previsto) → accrued (a receber) → paid (pago)**, + `cancelled` e
 `chargeback` (estorno, valor negativo).
 
-- **Expansão mensal**: ao aceitar a proposta (`markProposalAccepted`), além da
-  comissão de aquisição (9%, evento único), a recorrente (12%) é expandida em
-  **UM evento por competência (mês)** da vigência (`expandRecurringMonthly`) —
-  granularidade que o financeiro precisa para reconhecer/pagar mês a mês.
+- **Um evento por fato**: ao aceitar a proposta (`concluirAceiteDoRC`, chamado
+  por `markProposalAccepted` e por `registrarAceitePropostaDoRC`), a aquisição
+  vira um evento ligado ao 1º pagamento e cada parcela comissionada vira **UM
+  evento por competência (mês)** (`eventosDoPlano`) — granularidade que o
+  financeiro precisa para reconhecer/pagar mês a mês, conforme o cliente paga
+  (11.1). (Antes de 22/10: `expandRecurringMonthly`, com aquisição de 9% e
+  depois 8% sobre o contrato inteiro.)
 - **Nota fiscal do RC** (mig 161: `invoice_number`, `invoice_issued_at`): o RC
   emite NF numa comissão "a receber" (`marcarNotaFiscalEmitida`) para agilizar o
   pagamento; "emitida" = `invoice_issued_at` preenchido.
@@ -216,11 +248,12 @@ Gestão dos clientes ativos depois do fechamento.
   `getPortfolio` enriquecido (expansion/next_followup/days_to_renewal),
   `getPortfolioAdmin` (visão de canal: ativos, renovações ≤90d, risco alto, expansão).
 - **Telas**: `/representante/carteira` (faixa "Renovações próximas" + linhas
-  clicáveis) → `/representante/carteira/[accountId]` (contrato, fase 12%/6%,
+  clicáveis) → `/representante/carteira/[accountId]` (contrato; fase "10% por
+  parcela" na vigência inicial e "Renovação a 50%" depois dela, desde 22/10;
   gestão de risco/renovação/próxima-ação, oportunidades + "Nova expansão",
   timeline de acompanhamento). Admin: `/admin/comercial/carteira` (visão de canal,
   read-mostly) + atalho no dashboard.
-- Visão 12%/6% já existia na carteira; MVP 3 adiciona a operação em volta.
+- A visão por fase já existia na carteira; MVP 3 adiciona a operação em volta.
 
 ## MVP 4 — Assistente Comercial (IA) (IMPLEMENTADO 04/07)
 

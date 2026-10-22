@@ -16,6 +16,8 @@ import {
 import { numOrNull } from '@/lib/sales/validation';
 import { logAdminAction } from '@/lib/audit';
 import { coincidenciasDeOutrosRcs, type ContaComparavel } from '@/lib/sales/duplicidade';
+import { termosDaProposta } from '@/lib/sales/aceite-rc';
+import { planoDeComissao } from '@/lib/sales/commissions';
 import type { SalesAccount, SalesProposal } from '@/lib/sales/types';
 
 const ACCOUNT_STATUSES = ['prospect', 'active_client', 'inactive', 'lost'] as const;
@@ -401,7 +403,9 @@ export async function definirRiscoChurn(accountId: string, risco: 'baixo' | 'med
 /**
  * Cria uma oportunidade de EXPANSÃO a partir de uma conta ativa (upsell). Nova
  * oportunidade no funil (origem 'expansao'), pré-ligada à conta e ao contato
- * principal. Ao fechar/aceitar, segue a política de comissão do canal.
+ * principal. Como todo registro, nasce aguardando a validação da vertho.ai
+ * (contrato, 7.1). A proposta que sair dela é de cliente da carteira (10.6):
+ * 50% dos percentuais do modelo.
  */
 export async function criarOportunidadeExpansao(accountId: string, nome?: string) {
   const ctx = await requireRepresentativeAction();
@@ -416,8 +420,6 @@ export async function criarOportunidadeExpansao(accountId: string, nome?: string
     sb.from('sales_proposals').select('product_package').eq('account_id', accountId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ]);
 
-  const { computeProtectionWindow } = await import('@/lib/sales/protection');
-  const protection = computeProtectionWindow(new Date());
   const nomeConta = account.trade_name || account.legal_name;
   const { data, error } = await sb.from('sales_opportunities').insert({
     representante_id: ctx.rep.id,
@@ -428,8 +430,10 @@ export async function criarOportunidadeExpansao(accountId: string, nome?: string
     product_interest: prop?.product_package ?? null,
     identified_need: 'Expansão/upsell de cliente ativo.',
     stage: 'lead_identificado',
-    protection_start_date: protection.start,
-    protection_end_date: protection.end,
+    // Proteção só depois da validação do registro (contrato, 7.5).
+    attribution_status: 'aguardando',
+    protection_start_date: null,
+    protection_end_date: null,
     protection_status: 'active',
     status: 'open',
   }).select('id').single();
@@ -452,8 +456,14 @@ export type PortfolioRow = {
   contract_duration_months: number | null;
   contract_start_date: string | null;
   renewal_date: string | null;
-  /** 12% durante a vigência inicial; 6% após (manutenção/renovação). */
-  commission_phase: 'recorrente_12' | 'renovacao_6';
+  /**
+   * Vigência inicial: o RC recebe o percentual do modelo sobre cada parcela
+   * paga. Depois dela não há comissão automática: a renovação é uma nova
+   * proposta, de cliente da carteira, a 50% (contrato, 10.6).
+   */
+  commission_phase: 'vigencia_inicial' | 'apos_vigencia';
+  /** Percentual sobre parcelas do modelo do RC (10 nos dois modelos em 22/10/2026). */
+  recurring_percent: number;
   churn_risk: SalesAccount['churn_risk'];
   expansion_potential: boolean;
   next_followup_date: string | null;
@@ -491,13 +501,16 @@ export async function getPortfolio() {
     const startDate = account.contract_start_date;
     const months = proposal?.contract_duration_months != null ? Number(proposal.contract_duration_months) : null;
 
-    // Fase de comissão: 12% enquanto hoje < início + vigência; depois 6%.
-    let phase: PortfolioRow['commission_phase'] = 'recorrente_12';
+    // Fase de comissão: parcelas da vigência inicial enquanto hoje < início +
+    // vigência; depois, só uma nova proposta (renovação a 50%) gera comissão.
+    // O percentual sai do modelo gravado na proposta (10.5), não do atual do RC.
+    let phase: PortfolioRow['commission_phase'] = 'vigencia_inicial';
     if (startDate && months) {
       const end = new Date(`${startDate.slice(0, 10)}T00:00:00Z`);
       end.setUTCMonth(end.getUTCMonth() + months);
-      if (today.getTime() >= end.getTime()) phase = 'renovacao_6';
+      if (today.getTime() >= end.getTime()) phase = 'apos_vigencia';
     }
+    const { rates, carteira } = termosDaProposta(proposal ?? {}, ctx.rep.compensation_model);
 
     return {
       account,
@@ -507,6 +520,7 @@ export async function getPortfolio() {
       contract_start_date: startDate,
       renewal_date: account.renewal_date,
       commission_phase: phase,
+      recurring_percent: planoDeComissao(0, 0, rates, carteira).sobreParcelas.percent,
       churn_risk: account.churn_risk,
       expansion_potential: !!account.expansion_potential,
       next_followup_date: account.next_followup_date,

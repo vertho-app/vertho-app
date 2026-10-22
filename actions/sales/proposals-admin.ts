@@ -590,8 +590,9 @@ export async function marcarPropostaEnviadaAdmin(proposalId: string): Promise<Ac
  * Aceite do cliente.
  *
  * ⚠️ NÃO materializa `sales_commission_events`: sem RC não há quem receba, e a
- * coluna `representante_id` daquela tabela é NOT NULL. O fluxo do RC materializa
- * aquisição (9%) + recorrente (12%) aqui; este caminho salta de propósito.
+ * coluna `representante_id` daquela tabela é NOT NULL. O fluxo do RC lança a
+ * comissão pelo núcleo `concluirAceiteDoRC` (lib/sales/aceite-rc.ts); este
+ * caminho salta de propósito.
  */
 export async function marcarPropostaAceitaAdmin(proposalId: string): Promise<ActionResult<void>> {
   const sb = await requirePlataformaSupabase('sales_channel.manage');

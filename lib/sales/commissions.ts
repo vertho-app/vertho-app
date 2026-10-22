@@ -1,15 +1,15 @@
 // Cálculo de comissão do canal — NUNCA dentro de componentes React.
 //
-// Política vigente: as taxas dependem do MODELO de remuneração do RC
-// (`commissionRatesFor(rep.compensation_model)`, em constants.ts). Sem ajuda de
-// custo: aquisição 8%, recorrente 10%, renovação 5%, expansão 8% + 10%. Com
-// ajuda de custo: recorrente 10%, renovação 5%, expansão 10% ao mês, sem
-// aquisição. Toda função abaixo recebe as taxas; o padrão é o modelo sem ajuda.
-//
-// MVP 1 = ESTIMATIVA a partir da proposta. Pontos de extensão (MVP 2) marcados
-// abaixo: forecast, accrued, paid, chargeback, renovação e expansão viram
-// eventos em sales_commission_events.
-import { COMMISSION_RATES, type CommissionRates } from './constants';
+// Régua: o contrato de representação comercial v5 (cláusulas 10ª e 11ª, Anexo
+// II). As taxas dependem do MODELO de remuneração do RC
+// (`commissionRatesFor(model)`, em constants.ts) e de a proposta ser de cliente
+// da carteira (50% dos percentuais, 10.6). `planoDeComissao` é a fonte ÚNICA:
+// a estimativa gravada na proposta, o resumo que o RC vê enquanto digita e os
+// eventos lançados no aceite saem dela, então a soma dos eventos é sempre a
+// estimativa.
+import {
+  ACQUISITION_CAP_MONTHS, CARTEIRA_FACTOR, COMMISSION_RATES, type CommissionRates,
+} from './constants';
 
 export type ProposalFinancialInput = {
   monthly_value: number | null | undefined;      // mensalidade de tabela (bruta)
@@ -28,6 +28,74 @@ export type ProposalFinancials = {
 };
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Percentual em pontos (0.04 → 4), sem o ruído do ponto flutuante (0.05 × 100). */
+const emPontos = (fracao: number) => Math.round(fracao * 10000) / 100;
+
+/**
+ * Comissão de UMA proposta segundo o contrato.
+ *
+ * - Aquisição (só no modelo sem ajuda): percentual sobre o Valor Total do
+ *   Contrato, limitado à soma das parcelas dos primeiros 12 meses (10.3a).
+ * - Parcelas: percentual sobre cada parcela, a partir da 2ª no modelo sem ajuda
+ *   (a 1ª dispara a aquisição, 10.3b) e desde a 1ª no modelo com ajuda (10.4).
+ * - Carteira: os dois percentuais caem à metade (10.6), mesma mecânica.
+ *
+ * As parcelas são a vigência em meses, cada uma valendo total ÷ vigência.
+ */
+export type PlanoComissao = {
+  carteira: boolean;
+  parcelas: number;
+  valorParcela: number;
+  aquisicao: { percent: number; base: number; valor: number; limitadaA12Meses: boolean };
+  sobreParcelas: {
+    percent: number;
+    primeira: number;
+    quantidade: number;
+    valorPorParcela: number;
+    base: number;
+    valor: number;
+  };
+  total: number;
+};
+
+export function planoDeComissao(
+  totalContrato: number,
+  meses: number | null | undefined,
+  rates: CommissionRates = COMMISSION_RATES,
+  carteira = false,
+): PlanoComissao {
+  const total = Math.max(0, Number(totalContrato) || 0);
+  const n = Math.max(0, Math.floor(Number(meses) || 0));
+  const fator = carteira ? CARTEIRA_FACTOR : 1;
+  const pctAquisicao = rates.acquisition * fator;
+  const pctParcela = rates.recurring * fator;
+  const valorParcela = n > 0 ? total / n : 0;
+
+  const limitada = n > ACQUISITION_CAP_MONTHS;
+  const baseAquisicao = limitada ? round2(valorParcela * ACQUISITION_CAP_MONTHS) : total;
+  const aquisicao = round2(baseAquisicao * pctAquisicao);
+
+  const primeira = rates.firstCommissionedInstallment;
+  const quantidade = Math.max(0, n - (primeira - 1));
+  const valorPorParcela = round2(valorParcela * pctParcela);
+  const sobreParcelas = round2(valorPorParcela * quantidade);
+
+  return {
+    carteira,
+    parcelas: n,
+    valorParcela: round2(valorParcela),
+    aquisicao: { percent: emPontos(pctAquisicao), base: baseAquisicao, valor: aquisicao, limitadaA12Meses: limitada },
+    sobreParcelas: {
+      percent: emPontos(pctParcela),
+      primeira,
+      quantidade,
+      valorPorParcela,
+      base: round2(valorParcela * quantidade),
+      valor: sobreParcelas,
+    },
+    total: round2(aquisicao + sobreParcelas),
+  };
+}
 
 /**
  * Deriva os valores financeiros da proposta a partir de mensalidade × vigência.
@@ -37,6 +105,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export function calculateProposalFinancials(
   input: ProposalFinancialInput,
   rates: CommissionRates = COMMISSION_RATES,
+  carteira = false,
 ): ProposalFinancials {
   const monthly = Math.max(0, Number(input.monthly_value) || 0);
   const months = Number(input.contract_duration_months) || 0;
@@ -45,24 +114,21 @@ export function calculateProposalFinancials(
   const gross = round2(monthly * months);
   const total = round2(gross * (1 - discount / 100)); // valor final (após desconto)
 
-  // Comissões incidem sobre o valor final do contrato.
-  const acquisition = round2(total * rates.acquisition);
-  const recurring = round2(total * rates.recurring);
+  // Comissões incidem sobre o valor final do contrato (10.2: já deduzidos os descontos).
+  const plano = planoDeComissao(total, months, rates, carteira);
 
   return {
     contract_value_gross: gross,
     discount_amount: round2(gross - total),
     total_contract_value: total,
-    estimated_acquisition_commission: acquisition,
-    estimated_recurring_commission: recurring,
-    estimated_total_commission: round2(acquisition + recurring),
+    estimated_acquisition_commission: plano.aquisicao.valor,
+    estimated_recurring_commission: plano.sobreParcelas.valor,
+    estimated_total_commission: plano.total,
     margin_alert: discount > 15,
   };
 }
 
-// ── Pontos de extensão (MVP 2+) ─────────────────────────────────────────────
-// Cada função abaixo materializa um EVENTO de comissão (sales_commission_events),
-// mantendo a estimativa da proposta intocada como referência.
+// ── Eventos (sales_commission_events) ───────────────────────────────────────
 
 export type CommissionEventDraft = {
   type: 'aquisicao' | 'recorrente' | 'renovacao' | 'expansao' | 'chargeback';
@@ -71,78 +137,70 @@ export type CommissionEventDraft = {
   percent: number;
   amount: number;
   reference_month?: string;
+  notes?: string;
 };
 
-/** Aquisição: evento único sobre o valor total do contrato inicial. */
-export function draftAcquisitionEvent(totalContractValue: number, status: CommissionEventDraft['status'] = 'potencial', rates: CommissionRates = COMMISSION_RATES): CommissionEventDraft {
-  const base = Math.max(0, totalContractValue);
-  return { type: 'aquisicao', status, base_value: base, percent: rates.acquisition * 100, amount: round2(base * rates.acquisition) };
-}
-
-/** Recorrente: um evento por competência (mês) sobre a receita RECEBIDA. */
-export function draftRecurringEvent(receivedMonthlyRevenue: number, referenceMonth: string, status: CommissionEventDraft['status'] = 'forecast', rates: CommissionRates = COMMISSION_RATES): CommissionEventDraft {
-  const base = Math.max(0, receivedMonthlyRevenue);
-  return { type: 'recorrente', status, base_value: base, percent: rates.recurring * 100, amount: round2(base * rates.recurring), reference_month: referenceMonth };
-}
-
-/** Renovação (pós-vigência inicial): 6% (sem ajuda) ou 5% (com ajuda) da receita recebida. */
-export function draftRenewalEvent(receivedMonthlyRevenue: number, referenceMonth: string, status: CommissionEventDraft['status'] = 'forecast', rates: CommissionRates = COMMISSION_RATES): CommissionEventDraft {
-  const base = Math.max(0, receivedMonthlyRevenue);
-  return { type: 'renovacao', status, base_value: base, percent: rates.renewal * 100, amount: round2(base * rates.renewal), reference_month: referenceMonth };
-}
-
-/** Expansão: parte única sobre o incremental (9% sem ajuda; 0 com ajuda); o recorrente incremental usa draftRecurringEvent. */
-export function draftExpansionEvent(incrementalContractValue: number, status: CommissionEventDraft['status'] = 'potencial', rates: CommissionRates = COMMISSION_RATES): CommissionEventDraft {
-  const base = Math.max(0, incrementalContractValue);
-  return { type: 'expansao', status, base_value: base, percent: rates.expansion * 100, amount: round2(base * rates.expansion) };
-}
-
-/** Estorno/compensação (chargeback): valor negativo compensa eventos futuros. */
+/** Estorno/compensação (chargeback): valor negativo compensa eventos futuros (11.4). */
 export function draftChargebackEvent(amount: number, notes?: string): CommissionEventDraft & { notes?: string } {
   return { type: 'chargeback', status: 'accrued', base_value: Math.abs(amount), percent: 0, amount: -Math.abs(round2(amount)), ...(notes ? { notes } : {}) };
 }
 
-/** Dia do mês em que a comissão é paga (política do canal, decisão do dono em 08/10/2026). */
-export const DIA_PAGAMENTO_COMISSAO = 10;
+/** Dia do mês em que a comissão é paga: até o dia 15 do mês seguinte ao pagamento do cliente (contrato, 11.2). */
+export const DIA_PAGAMENTO_COMISSAO = 15;
 
 /**
- * Data prevista de pagamento da comissão de uma competência: dia 10 do mês
- * SEGUINTE ao pagamento do cliente. Na previsão (`forecast`) o pagamento do
- * cliente é suposto dentro do próprio mês da competência; a data real só existe
- * quando o financeiro marca o evento como pago.
+ * Data prevista de pagamento da comissão de uma competência: dia 15 do mês
+ * SEGUINTE ao pagamento do cliente (11.2). Na previsão (`forecast`) o pagamento
+ * do cliente é suposto dentro do próprio mês da competência; a data real só
+ * existe quando o financeiro marca o evento como pago.
  */
 export function dataPrevistaPagamentoComissao(competencia: Date): string {
   return new Date(Date.UTC(competencia.getUTCFullYear(), competencia.getUTCMonth() + 1, DIA_PAGAMENTO_COMISSAO))
     .toISOString().slice(0, 10);
 }
 
+const NOTA_CARTEIRA = 'Cliente da carteira (cláusula 10.6): 50% dos percentuais do modelo.';
+
 /**
- * Expande a comissão recorrente da vigência inicial em UM evento por competência
- * (mês) — granularidade que o financeiro precisa para reconhecer/pagar mês a mês.
- * Cada mês: a taxa recorrente do modelo (12% sem ajuda, 10% com ajuda) sobre a
- * mensalidade recebida, status 'forecast', reference_month no
- * 1º dia e expected_payment_date no dia 10 do mês seguinte
- * (`dataPrevistaPagamentoComissao`).
+ * Eventos previstos (`forecast`) que o aceite lança, um por fato que gera
+ * comissão: a aquisição, ligada ao 1º pagamento, e uma linha por parcela
+ * comissionada, na competência do mês em que a parcela vence. A parcela k
+ * (1 = a do mês do aceite) cai em início + (k − 1) meses. O direito nasce com o
+ * pagamento do cliente (11.1): o financeiro passa cada evento para "a receber"
+ * quando a parcela é paga.
  */
-export function expandRecurringMonthly(
-  monthlyValue: number,
-  months: number,
-  startDate: Date | string,
-  rates: CommissionRates = COMMISSION_RATES,
+export function eventosDoPlano(
+  plano: PlanoComissao,
+  inicio: Date | string,
 ): Array<CommissionEventDraft & { reference_month: string; expected_payment_date: string }> {
-  const monthly = Math.max(0, Number(monthlyValue) || 0);
-  const n = Math.max(0, Number(months) || 0);
-  const start = typeof startDate === 'string' ? new Date(`${startDate.slice(0, 10)}T00:00:00Z`) : startDate;
-  const events: Array<CommissionEventDraft & { reference_month: string; expected_payment_date: string }> = [];
-  const amount = round2(monthly * rates.recurring);
-  for (let i = 0; i < n; i++) {
-    const ref = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1));
-    events.push({
-      type: 'recorrente', status: 'forecast',
-      base_value: monthly, percent: rates.recurring * 100, amount,
+  const start = typeof inicio === 'string' ? new Date(`${inicio.slice(0, 10)}T00:00:00Z`) : inicio;
+  const competencia = (k: number) => new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + k - 1, 1));
+  const notas = plano.carteira ? { notes: NOTA_CARTEIRA } : {};
+  const eventos: Array<CommissionEventDraft & { reference_month: string; expected_payment_date: string }> = [];
+
+  if (plano.aquisicao.valor > 0) {
+    const ref = competencia(1);
+    eventos.push({
+      type: 'aquisicao', status: 'forecast',
+      base_value: plano.aquisicao.base, percent: plano.aquisicao.percent, amount: plano.aquisicao.valor,
       reference_month: ref.toISOString().slice(0, 10),
       expected_payment_date: dataPrevistaPagamentoComissao(ref),
+      ...notas,
     });
   }
-  return events;
+
+  const p = plano.sobreParcelas;
+  if (p.valorPorParcela > 0) {
+    for (let k = p.primeira; k <= plano.parcelas; k++) {
+      const ref = competencia(k);
+      eventos.push({
+        type: 'recorrente', status: 'forecast',
+        base_value: plano.valorParcela, percent: p.percent, amount: p.valorPorParcela,
+        reference_month: ref.toISOString().slice(0, 10),
+        expected_payment_date: dataPrevistaPagamentoComissao(ref),
+        ...notas,
+      });
+    }
+  }
+  return eventos;
 }

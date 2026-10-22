@@ -214,8 +214,8 @@ async function run() {
           const protEnd = o.protD != null ? ymd(daysFromNow(o.protD)) : null;
           const protStatus = o.protD != null ? (o.protD <= 15 ? 'expiring' : 'active') : 'active';
           oppId = (await client.query(
-            `INSERT INTO sales_opportunities (representante_id,account_id,primary_contact_id,opportunity_name,origin,product_interest,identified_need,stage,status,estimated_value,quality_score,protection_start_date,protection_end_date,protection_status,competitors,objections,loss_reason)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+            `INSERT INTO sales_opportunities (representante_id,account_id,primary_contact_id,opportunity_name,origin,product_interest,identified_need,stage,status,estimated_value,quality_score,protection_start_date,protection_end_date,protection_status,competitors,objections,loss_reason,attribution_status)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'validada') RETURNING id`,
             [repId, acc.id, contactId, o.name, o.st === 'won' ? 'indicacao' : 'prospeccao', resolvePkg(o.product, o.name), o.need ?? null, o.stage, o.st, o.value ?? null, o.score ?? 100, protStart, protEnd, protStatus, o.competitors ?? null, o.objections ?? null, o.loss ?? null])).rows[0].id;
           oppN++;
         }

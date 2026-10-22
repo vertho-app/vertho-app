@@ -34,6 +34,7 @@ export default function OpportunityCard({ opportunity }: { opportunity: SalesOpp
         <ProtectionStatusBadge
           status={opportunity.protection_status}
           protectionEnd={opportunity.protection_end_date}
+          attribution={opportunity.attribution_status}
         />
       </div>
     </Link>

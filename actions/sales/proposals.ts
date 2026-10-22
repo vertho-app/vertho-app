@@ -10,6 +10,11 @@
 // Regras: RC cria/edita rascunho e submete; NUNCA aprova a própria proposta.
 // Só admin (sales_channel.manage) aprova/recusa/pede ajustes. Financeiro é
 // SEMPRE recalculado no server (lib/sales/commissions) — nunca confiamos no valor do client.
+//
+// Contrato de representação v5 (22/10/2026): a proposta só é submetida depois
+// que a vertho.ai valida o registro da oportunidade (7.1); a aprovação grava o
+// modelo de remuneração que vale para ela (10.5) e a classificação de cliente
+// da carteira (10.6); o aceite lança a comissão nas regras gravadas.
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { isPlatformAdmin } from '@/lib/authz';
 import {
@@ -19,23 +24,32 @@ import {
   assertRepresentativeOwnership,
 } from '@/lib/sales/permissions';
 import { validateProposalDraft, validateProposalForSubmission, numOrNull } from '@/lib/sales/validation';
-import { calculateProposalFinancials, dataPrevistaPagamentoComissao, draftAcquisitionEvent, expandRecurringMonthly } from '@/lib/sales/commissions';
-import { commissionRatesFor, type CommissionRates } from '@/lib/sales/constants';
+import { calculateProposalFinancials } from '@/lib/sales/commissions';
+import { commissionRatesFor, type CompensationModel } from '@/lib/sales/constants';
+import { classificarCarteira, comissaoDevidaNoAceite, concluirAceiteDoRC } from '@/lib/sales/aceite-rc';
 import type { SalesProposal } from '@/lib/sales/types';
 
 const PROPOSAL_SELECT = `*,
   account:sales_accounts (id, legal_name, trade_name),
-  opportunity:sales_opportunities (id, opportunity_name, stage)`;
+  opportunity:sales_opportunities (id, opportunity_name, stage, attribution_status),
+  representante:sales_representatives (id, name, status, compensation_model, contract_ended_at)`;
 
 const RC_EDITABLE_STATUSES = ['draft', 'changes_requested'];
 
+const MSG_REGISTRO_NAO_VALIDADO =
+  'A vertho.ai ainda não validou o registro desta oportunidade (cláusula 7.1 do contrato). A proposta pode ser submetida depois da validação.';
+
 /**
- * `rates` vem do modelo de remuneração do RC dono da proposta
- * (`commissionRatesFor(ctx.rep.compensation_model)`): o RC com ajuda de custo
- * não tem comissão de aquisição e recebe 10% ao mês, e a estimativa gravada na
- * proposta tem que dizer isso.
+ * Financeiro e regras de comissão que a proposta grava. `modelo` é o do RC dono
+ * da proposta e `carteira` a classificação da 10.6: o RC com ajuda de custo não
+ * tem comissão de aquisição, o cliente da carteira paga a metade, e a estimativa
+ * gravada tem que dizer isso.
  */
-function proposalPatchFromInput(input: Record<string, any>, rates: CommissionRates): Record<string, any> {
+function proposalPatchFromInput(
+  input: Record<string, any>,
+  modelo: CompensationModel,
+  carteira: { carteira: boolean; motivo: string | null },
+): Record<string, any> {
   const patch: Record<string, any> = {
     customer_type: input.customer_type || null,
     number_of_users: numOrNull(input.number_of_users),
@@ -53,8 +67,38 @@ function proposalPatchFromInput(input: Record<string, any>, rates: CommissionRat
     monthly_value: patch.monthly_value,
     contract_duration_months: patch.contract_duration_months,
     discount_requested: patch.discount_requested,
-  }, rates);
-  return { ...patch, ...fin };
+  }, commissionRatesFor(modelo), carteira.carteira);
+  return { ...patch, ...fin, compensation_model: modelo, carteira: carteira.carteira, carteira_motivo: carteira.motivo };
+}
+
+/**
+ * O registro da oportunidade foi validado pela vertho.ai (7.1)? Devolve o
+ * motivo de NÃO seguir, ou `null` quando pode. Sem oportunidade, não pode; falha
+ * de leitura também não vira "validado".
+ */
+async function bloqueioDoRegistro(sb: ReturnType<typeof createSupabaseAdmin>, opportunityId: string | null | undefined): Promise<string | null> {
+  if (!opportunityId) return MSG_REGISTRO_NAO_VALIDADO;
+  const { data, error } = await sb.from('sales_opportunities').select('attribution_status').eq('id', opportunityId).maybeSingle();
+  if (error) return `Não foi possível conferir o registro da oportunidade: ${error.message}`;
+  return data?.attribution_status === 'validada' ? null : MSG_REGISTRO_NAO_VALIDADO;
+}
+
+/**
+ * Modelo e carteira que o resumo financeiro do RC deve usar enquanto ele digita
+ * a proposta de uma oportunidade. A fonte de verdade continua sendo o servidor
+ * no salvamento e, de vez, na aprovação.
+ */
+export async function getTermosDeComissao(opportunityId: string | null) {
+  const ctx = await requireRepresentativeAction();
+  const modelo = (ctx.rep.compensation_model || 'sem_ajuda') as CompensationModel;
+  if (!opportunityId) return { success: true as const, modelo, carteira: false, motivo: null };
+  const sb = createSupabaseAdmin();
+  const { data: opp, error } = await sb.from('sales_opportunities').select('representante_id, account_id').eq('id', opportunityId).maybeSingle();
+  if (error) return { success: false as const, error: error.message };
+  if (!opp) return { success: false as const, error: 'Oportunidade não encontrada' };
+  assertRepresentativeOwnership(ctx, opp.representante_id);
+  const c = await classificarCarteira(sb, { representanteId: ctx.rep.id, accountId: opp.account_id });
+  return { success: true as const, modelo, carteira: c.carteira, motivo: c.motivo };
 }
 
 export async function listProposals(
@@ -121,6 +165,7 @@ export async function createProposalDraft(input: Record<string, any>) {
   assertRepresentativeOwnership(ctx, opp.representante_id);
   if (opp.status !== 'open') return { success: false as const, error: 'Oportunidade fechada não recebe novas propostas' };
 
+  const carteira = await classificarCarteira(sb, { representanteId: ctx.rep.id, accountId: opp.account_id });
   const { data: num, error: numErr } = await sb.rpc('sales_next_proposal_number');
   if (numErr) return { success: false as const, error: `Falha ao gerar número: ${numErr.message}` };
 
@@ -130,7 +175,7 @@ export async function createProposalDraft(input: Record<string, any>) {
     account_id: opp.account_id,
     proposal_number: num as string,
     status: 'draft',
-    ...proposalPatchFromInput(input, commissionRatesFor(ctx.rep.compensation_model)),
+    ...proposalPatchFromInput(input, ctx.rep.compensation_model, carteira),
   }).select('id').single();
   if (error) return { success: false as const, error: error.message };
   return { success: true as const, id: data.id };
@@ -139,7 +184,8 @@ export async function createProposalDraft(input: Record<string, any>) {
 export async function updateProposalDraft(proposalId: string, input: Record<string, any>) {
   const ctx = await requireRepresentativeAction();
   const sb = createSupabaseAdmin();
-  const { data: existing } = await sb.from('sales_proposals').select('id, representante_id, status').eq('id', proposalId).maybeSingle();
+  const { data: existing, error: erroLeitura } = await sb.from('sales_proposals').select('id, representante_id, account_id, status').eq('id', proposalId).maybeSingle();
+  if (erroLeitura) return { success: false as const, error: erroLeitura.message };
   if (!existing) return { success: false as const, error: 'Proposta não encontrada' };
   assertRepresentativeOwnership(ctx, existing.representante_id);
   if (!RC_EDITABLE_STATUSES.includes(existing.status)) {
@@ -148,8 +194,9 @@ export async function updateProposalDraft(proposalId: string, input: Record<stri
   const v = validateProposalDraft({ ...input, opportunity_id: 'ok' });
   if (!v.valid) return { success: false as const, error: 'Dados inválidos', fieldErrors: v.errors };
 
+  const carteira = await classificarCarteira(sb, { representanteId: ctx.rep.id, accountId: existing.account_id, excluirProposalId: proposalId });
   const { error } = await sb.from('sales_proposals')
-    .update({ ...proposalPatchFromInput(input, commissionRatesFor(ctx.rep.compensation_model)), updated_at: new Date().toISOString() })
+    .update({ ...proposalPatchFromInput(input, ctx.rep.compensation_model, carteira), updated_at: new Date().toISOString() })
     .eq('id', proposalId);
   if (error) return { success: false as const, error: error.message };
   return { success: true as const };
@@ -158,13 +205,16 @@ export async function updateProposalDraft(proposalId: string, input: Record<stri
 export async function submitProposalForApproval(proposalId: string) {
   const ctx = await requireRepresentativeAction();
   const sb = createSupabaseAdmin();
-  const { data: p } = await sb.from('sales_proposals').select('*').eq('id', proposalId).maybeSingle();
+  const { data: p, error: erroLeitura } = await sb.from('sales_proposals').select('*').eq('id', proposalId).maybeSingle();
+  if (erroLeitura) return { success: false as const, error: erroLeitura.message };
   if (!p) return { success: false as const, error: 'Proposta não encontrada' };
   assertRepresentativeOwnership(ctx, p.representante_id);
   if (!RC_EDITABLE_STATUSES.includes(p.status)) return { success: false as const, error: 'Proposta não está em estado submetível' };
 
   const v = validateProposalForSubmission(p);
   if (!v.valid) return { success: false as const, error: 'Complete a proposta antes de submeter', fieldErrors: v.errors };
+  const bloqueio = await bloqueioDoRegistro(sb, p.opportunity_id);
+  if (bloqueio) return { success: false as const, error: bloqueio };
 
   const { error } = await sb.from('sales_proposals')
     .update({ status: 'submitted_for_approval', rejection_reason: null, updated_at: new Date().toISOString() })
@@ -182,16 +232,49 @@ export async function submitProposalForApproval(proposalId: string) {
 
 // ── Ações do admin (aprovação interna) ──────────────────────────────────────
 
-export async function approveProposal(proposalId: string) {
+/**
+ * Aprova e CONGELA as regras de comissão da proposta: o modelo de remuneração
+ * do RC neste momento (10.5: vale o modelo vigente na aprovação) e a
+ * classificação de cliente da carteira (10.6). A carteira vem calculada (a conta
+ * já tem proposta aceita do RC); o admin confirma ou corrige, com motivo,
+ * porque grupo econômico e mantenedora só ele enxerga.
+ */
+export async function approveProposal(proposalId: string, decisao?: { carteira?: boolean; motivo?: string | null }) {
   const admin = await requireCommercialAdminAction();
   const sb = createSupabaseAdmin();
-  const { data: p } = await sb.from('sales_proposals').select('id, status').eq('id', proposalId).maybeSingle();
+  const { data: p, error: erroLeitura } = await sb.from('sales_proposals').select('*').eq('id', proposalId).maybeSingle();
+  if (erroLeitura) return { success: false as const, error: erroLeitura.message };
   if (!p) return { success: false as const, error: 'Proposta não encontrada' };
   if (p.status !== 'submitted_for_approval') return { success: false as const, error: 'Só propostas aguardando aprovação podem ser aprovadas' };
+  if (!p.representante_id) return { success: false as const, error: 'Proposta sem representante segue o fluxo do deal desk' };
+  const bloqueio = await bloqueioDoRegistro(sb, p.opportunity_id);
+  if (bloqueio) return { success: false as const, error: bloqueio };
+
+  const { data: rep, error: erroRc } = await sb.from('sales_representatives').select('compensation_model').eq('id', p.representante_id).maybeSingle();
+  if (erroRc) return { success: false as const, error: erroRc.message };
+  if (!rep) return { success: false as const, error: 'Representante da proposta não encontrado' };
+
+  const automatica = await classificarCarteira(sb, { representanteId: p.representante_id, accountId: p.account_id, excluirProposalId: p.id });
+  const carteira = typeof decisao?.carteira === 'boolean' ? decisao.carteira : automatica.carteira;
+  const observacao = decisao?.motivo?.trim() || null;
+  if (carteira !== automatica.carteira && !observacao) {
+    return {
+      success: false as const,
+      error: carteira
+        ? 'Explique por que o cliente é da carteira (grupo econômico, mantenedora ou cliente já atribuído ao RC).'
+        : 'Explique por que esta proposta não é de cliente da carteira, se a conta já tem proposta aceita do RC.',
+    };
+  }
+  const motivo = observacao
+    ? `Classificação do admin (${admin.email}): ${observacao}`
+    : automatica.motivo;
+
+  const agora = new Date().toISOString();
   const { error } = await sb.from('sales_proposals').update({
-    status: 'approved', approved_by: admin.email, approved_at: new Date().toISOString(),
-    rejection_reason: null, updated_at: new Date().toISOString(),
-  }).eq('id', proposalId);
+    ...proposalPatchFromInput(p, rep.compensation_model as CompensationModel, { carteira, motivo }),
+    status: 'approved', approved_by: admin.email, approved_at: agora,
+    rejection_reason: null, updated_at: agora,
+  }).eq('id', proposalId).eq('status', 'submitted_for_approval');
   if (error) return { success: false as const, error: error.message };
   return { success: true as const };
 }
@@ -243,7 +326,10 @@ export async function markProposalSentToClient(proposalId: string) {
   if (!p) return { success: false as const, error: 'Proposta não encontrada' };
   assertRepresentativeOwnership(ctx, p.representante_id);
   if (p.status !== 'approved') return { success: false as const, error: 'Só propostas aprovadas pela Vertho podem ser enviadas ao cliente' };
-  const { error } = await sb.from('sales_proposals').update({ status: 'sent_to_client', updated_at: new Date().toISOString() }).eq('id', proposalId);
+  // `sent_to_client_at` é o marco da 18.7: proposta enviada antes do término do
+  // contrato do RC e aceita dentro da validade continua comissionada.
+  const agora = new Date().toISOString();
+  const { error } = await sb.from('sales_proposals').update({ status: 'sent_to_client', sent_to_client_at: agora, updated_at: agora }).eq('id', proposalId);
   if (error) return { success: false as const, error: error.message };
   if (p.opportunity_id) {
     await sb.from('sales_opportunities').update({ stage: 'contrato_enviado', updated_at: new Date().toISOString() })
@@ -260,7 +346,8 @@ export async function markProposalSentToClient(proposalId: string) {
 export async function revisarProposta(proposalId: string) {
   const ctx = await requireRepresentativeAction();
   const sb = createSupabaseAdmin();
-  const { data: p } = await sb.from('sales_proposals').select('*').eq('id', proposalId).maybeSingle();
+  const { data: p, error: erroLeitura } = await sb.from('sales_proposals').select('*').eq('id', proposalId).maybeSingle();
+  if (erroLeitura) return { success: false as const, error: erroLeitura.message };
   if (!p) return { success: false as const, error: 'Proposta não encontrada' };
   assertRepresentativeOwnership(ctx, p.representante_id);
   if (!['approved', 'sent_to_client'].includes(p.status)) {
@@ -271,11 +358,15 @@ export async function revisarProposta(proposalId: string) {
   const base = String(p.proposal_number).replace(/-R\d+$/, '');
   const newNumber = `${base}-R${newVersion}`;
 
+  // A nova versão volta a ser estimativa: modelo atual do RC e carteira
+  // recalculada. A aprovação dela congela de novo (10.5).
+  const carteira = await classificarCarteira(sb, { representanteId: ctx.rep.id, accountId: p.account_id, excluirProposalId: p.id });
+  const modelo = (ctx.rep.compensation_model || 'sem_ajuda') as CompensationModel;
   const fin = calculateProposalFinancials({
     monthly_value: p.monthly_value,
     contract_duration_months: p.contract_duration_months,
     discount_requested: p.discount_requested,
-  }, commissionRatesFor(ctx.rep.compensation_model));
+  }, commissionRatesFor(modelo), carteira.carteira);
 
   const { data: nova, error } = await sb.from('sales_proposals').insert({
     representante_id: p.representante_id,
@@ -295,6 +386,9 @@ export async function revisarProposta(proposalId: string) {
     commercial_notes: p.commercial_notes,
     monthly_value: p.monthly_value,
     ...fin,
+    compensation_model: modelo,
+    carteira: carteira.carteira,
+    carteira_motivo: carteira.motivo,
     status: 'draft',
   }).select('id').single();
   if (error) return { success: false as const, error: error.message };
@@ -305,73 +399,56 @@ export async function revisarProposta(proposalId: string) {
 }
 
 /**
- * Aceite do cliente: fecha a oportunidade como ganha, ativa a conta na carteira
- * e materializa os eventos de comissão estimada (hook do MVP 2 — status forecast).
+ * Aceite do cliente, registrado pelo RC: fecha a oportunidade como ganha, ativa
+ * a conta na carteira e lança a comissão prevista nas regras GRAVADAS na
+ * proposta (modelo da aprovação e carteira), pelo núcleo `concluirAceiteDoRC`.
  */
 export async function markProposalAccepted(proposalId: string) {
   const ctx = await requireRepresentativeAction();
   const sb = createSupabaseAdmin();
-  const { data: p } = await sb.from('sales_proposals').select('*').eq('id', proposalId).maybeSingle();
+  const { data: p, error: erroLeitura } = await sb.from('sales_proposals').select('*').eq('id', proposalId).maybeSingle();
+  if (erroLeitura) return { success: false as const, error: erroLeitura.message };
   if (!p) return { success: false as const, error: 'Proposta não encontrada' };
   assertRepresentativeOwnership(ctx, p.representante_id);
   if (p.status !== 'sent_to_client') return { success: false as const, error: 'Só propostas enviadas ao cliente podem ser marcadas como aceitas' };
 
-  const { error } = await sb.from('sales_proposals').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', proposalId);
-  if (error) return { success: false as const, error: error.message };
+  const r = await concluirAceiteDoRC(sb, p, { modeloAtualDoRc: ctx.rep.compensation_model, comComissao: true });
+  return 'error' in r ? { success: false as const, error: r.error } : { success: true as const };
+}
 
-  if (p.opportunity_id) {
-    await sb.from('sales_opportunities').update({ stage: 'fechado_ganho', status: 'won', updated_at: new Date().toISOString() })
-      .eq('id', p.opportunity_id).eq('status', 'open');
-  }
-  if (p.account_id) {
-    // Expansão (upsell em cliente já ativo) NÃO reseta o contrato-base: preserva
-    // início e renovação vigentes. Negócio novo ou renovação carimba as datas.
-    let ehExpansao = false;
-    if (p.opportunity_id) {
-      const { data: opp } = await sb.from('sales_opportunities').select('origin').eq('id', p.opportunity_id).maybeSingle();
-      ehExpansao = opp?.origin === 'expansao';
-    }
-    const { data: acc } = await sb.from('sales_accounts').select('contract_start_date').eq('id', p.account_id).maybeSingle();
-    const preservarContrato = ehExpansao && !!acc?.contract_start_date;
+/**
+ * Aceite de proposta de RC registrado pela vertho.ai: o cliente aceitou por
+ * fora (e-mail, assinatura) ou o RC não está mais no canal. É o caminho que a
+ * cláusula 18.7 precisa: com o contrato do RC encerrado, a proposta ENVIADA
+ * antes do término e aceita dentro da validade continua comissionada; a que
+ * não cumpre isso é aceita sem comissão, e o motivo fica registrado.
+ */
+export async function registrarAceitePropostaDoRC(proposalId: string) {
+  const admin = await requireCommercialAdminAction();
+  const sb = createSupabaseAdmin();
+  const { data: p, error: erroLeitura } = await sb.from('sales_proposals').select('*').eq('id', proposalId).maybeSingle();
+  if (erroLeitura) return { success: false as const, error: erroLeitura.message };
+  if (!p) return { success: false as const, error: 'Proposta não encontrada' };
+  if (!p.representante_id) return { success: false as const, error: 'Proposta sem representante: use o aceite do deal desk' };
+  if (p.status !== 'sent_to_client') return { success: false as const, error: 'Só propostas enviadas ao cliente podem ser marcadas como aceitas' };
 
-    const patch: Record<string, any> = { status: 'active_client', updated_at: new Date().toISOString() };
-    if (!preservarContrato) {
-      const start = new Date();
-      const renewal = new Date(start);
-      renewal.setMonth(renewal.getMonth() + (Number(p.contract_duration_months) || 12));
-      patch.contract_start_date = start.toISOString().slice(0, 10);
-      patch.renewal_date = renewal.toISOString().slice(0, 10);
-    }
-    await sb.from('sales_accounts').update(patch).eq('id', p.account_id);
-  }
+  const { data: rep, error: erroRc } = await sb.from('sales_representatives')
+    .select('status, compensation_model, contract_ended_at').eq('id', p.representante_id).maybeSingle();
+  if (erroRc) return { success: false as const, error: erroRc.message };
+  if (!rep) return { success: false as const, error: 'Representante da proposta não encontrado' };
 
-  // Eventos de comissão (forecast): aquisição única + recorrente mês a mês, nas
-  // taxas do modelo do RC (sem ajuda: 8% + 10%; com ajuda: só 10% ao mês). A
-  // granularidade mensal permite ao financeiro reconhecer/pagar cada
-  // competência e o RC emitir NF por parcela (MVP 2).
-  const rates = commissionRatesFor(ctx.rep.compensation_model);
-  const start = new Date();
-  const base = { representante_id: p.representante_id, proposal_id: p.id, account_id: p.account_id };
-  const acq = draftAcquisitionEvent(Number(p.total_contract_value) || 0, 'forecast', rates);
-  // A aquisição sai inteira no 1º pagamento do cliente, suposto no mês do aceite:
-  // mesma regra do recorrente (dia 10 do mês seguinte).
-  const acqExpected = dataPrevistaPagamentoComissao(start);
-  // Recorrente sobre o mensal LÍQUIDO (valor final ÷ vigência), não o bruto.
-  const meses = Number(p.contract_duration_months) || 0;
-  const mensalLiquido = meses ? (Number(p.total_contract_value) || 0) / meses : (Number(p.monthly_value) || 0);
-  const mensais = expandRecurringMonthly(mensalLiquido, meses, start, rates);
-  const { error: erroEventos } = await sb.from('sales_commission_events').insert([
-    // Sem aquisição no modelo (com ajuda de custo): nenhum evento de R$ 0 no extrato.
-    ...(rates.acquisition > 0 ? [{ ...base, ...acq, expected_payment_date: acqExpected }] : []),
-    ...mensais.map((m) => ({ ...base, ...m })),
-  ]);
-  // O aceite já foi gravado; sem os eventos o extrato do RC e o financeiro
-  // ficariam sem a comissão, então a falha volta como erro e não como sucesso.
-  if (erroEventos) {
-    return { success: false as const, error: `Proposta aceita, mas a previsão de comissão não foi gravada: ${erroEventos.message}. Avise a vertho.ai.` };
-  }
+  const direito = comissaoDevidaNoAceite(rep, p);
+  const r = await concluirAceiteDoRC(sb, p, { modeloAtualDoRc: rep.compensation_model, comComissao: direito.devida });
+  if ('error' in r) return { success: false as const, error: r.error };
 
-  return { success: true as const };
+  // A nota é rastro: o aceite já foi gravado, a falha dela vai para o log.
+  const { error: erroNota } = await sb.from('sales_activity_notes').insert({
+    representante_id: p.representante_id, opportunity_id: p.opportunity_id, account_id: p.account_id,
+    note: `Aceite da proposta ${p.proposal_number} registrado pela vertho.ai. ${direito.devida ? 'Comissão prevista lançada.' : 'Sem comissão.'}${direito.motivo ? ` ${direito.motivo}` : ''}`,
+    created_by_email: admin.email,
+  });
+  if (erroNota) console.error('[sales] nota do aceite não gravada:', erroNota.message);
+  return { success: true as const, comComissao: direito.devida, motivo: direito.motivo };
 }
 
 /** Proposta perdida (aceita/enviada que não evoluiu). */

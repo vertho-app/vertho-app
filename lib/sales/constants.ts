@@ -123,6 +123,8 @@ export const OPPORTUNITY_ORIGINS = ['indicacao', 'prospeccao', 'evento', 'inboun
 export const ORIGIN_LABELS: Record<string, string> = {
   indicacao: 'Indicação', prospeccao: 'Prospecção ativa', evento: 'Evento',
   inbound: 'Inbound', rede_relacionamento: 'Rede de relacionamento', outro: 'Outro',
+  // Só nasce pela carteira (`criarOportunidadeExpansao`), fora do dropdown.
+  expansao: 'Expansão de cliente da carteira',
 };
 
 export const ACCOUNT_STATUS_LABELS: Record<string, string> = {
@@ -153,16 +155,21 @@ export const CONTRACT_DURATIONS: readonly number[] = Array.from(
   (_, i) => CONTRACT_DURATION_MIN + i,
 );
 
-// ── Comissão (política vigente do canal) ────────────────────────────────────
+// ── Comissão (contrato de representação comercial v5, 22/10/2026) ───────────
 // Dois modelos de remuneração por RC, gravados em
-// `sales_representatives.compensation_model` (mig 295). Taxas da decisão do
-// dono de 21/10/2026 ("fixo + 10% mensal ou 8% do contrato total + 10% mensal"):
-//   • sem_ajuda: aquisição 8% do contrato total (inteira no 1º pagamento) +
-//     recorrente 10% ao mês na vigência inicial; renovação 5%; expansão
-//     8% + 10% do incremental. (Até 20/10 eram 9% + 12%, renovação 6%.)
-//   • com_ajuda: recorrente 10% ao mês + ajuda de custo fixa (valor por região,
-//     fora do portal); SEM aquisição; renovação 5%; expansão 10% ao mês do
-//     incremental, sem aquisição.
+// `sales_representatives.compensation_model` (mig 295). Cláusula 10ª e Anexo II:
+//   • sem_ajuda: Comissão de Aquisição de 8% sobre o Valor Total do Contrato,
+//     limitada às parcelas dos primeiros 12 meses e paga inteira após o 1º
+//     pagamento do cliente (10.3a), mais 10% sobre cada parcela paga a partir da
+//     SEGUNDA (10.3b). (Até 21/10 o portal cobrava 8% sobre o contrato inteiro e
+//     10% de todas as parcelas.)
+//   • com_ajuda: ajuda de custo fixa mensal (valor por região, fora do portal) e
+//     10% sobre cada parcela paga, desde a primeira; sem aquisição (10.4).
+//   • Cliente da carteira (10.6): toda proposta posterior de cliente que já
+//     contratou pelo RC, seja renovação, nova Jornada ou ampliação, paga 50% dos
+//     percentuais do modelo, com a mesma mecânica. Não existe mais taxa própria
+//     de renovação ou de expansão.
+// O modelo que vale é o da APROVAÇÃO da proposta (10.5), gravado nela (mig 296).
 export const COMPENSATION_MODELS = ['sem_ajuda', 'com_ajuda'] as const;
 export type CompensationModel = typeof COMPENSATION_MODELS[number];
 export const COMPENSATION_MODEL_LABELS: Record<CompensationModel, string> = {
@@ -171,16 +178,24 @@ export const COMPENSATION_MODEL_LABELS: Record<CompensationModel, string> = {
 };
 
 export type CommissionRates = {
-  acquisition: number; // sobre o valor inicial do contrato (0 = não há)
-  recurring: number;   // sobre a receita recebida na vigência inicial
-  renewal: number;     // após a vigência inicial
-  expansion: number;   // parte única sobre o incremental (o recorrente do incremental usa `recurring`)
+  /** Sobre o Valor Total do Contrato, limitado a `ACQUISITION_CAP_MONTHS` (0 = não há). */
+  acquisition: number;
+  /** Sobre cada parcela paga pelo cliente. */
+  recurring: number;
+  /** Primeira parcela que paga comissão: no modelo sem ajuda é a 2ª, porque a 1ª dispara a aquisição. */
+  firstCommissionedInstallment: 1 | 2;
 };
 
 export const COMMISSION_RATES_BY_MODEL: Record<CompensationModel, CommissionRates> = {
-  sem_ajuda: { acquisition: 0.08, recurring: 0.10, renewal: 0.05, expansion: 0.08 },
-  com_ajuda: { acquisition: 0, recurring: 0.10, renewal: 0.05, expansion: 0 },
+  sem_ajuda: { acquisition: 0.08, recurring: 0.10, firstCommissionedInstallment: 2 },
+  com_ajuda: { acquisition: 0, recurring: 0.10, firstCommissionedInstallment: 1 },
 };
+
+/** A aquisição incide só sobre as parcelas dos primeiros 12 meses (cláusula 10.3a). */
+export const ACQUISITION_CAP_MONTHS = 12;
+
+/** Cliente da carteira paga esta fração dos percentuais do modelo (cláusula 10.6). */
+export const CARTEIRA_FACTOR = 0.5;
 
 /** Taxas do modelo pedido. Valor ausente ou desconhecido cai no padrão do canal (sem ajuda). */
 export function commissionRatesFor(model: string | null | undefined): CommissionRates {
@@ -190,9 +205,18 @@ export function commissionRatesFor(model: string | null | undefined): Commission
 /** Taxas do modelo padrão (sem ajuda de custo). Para um RC, use `commissionRatesFor(rep.compensation_model)`. */
 export const COMMISSION_RATES = COMMISSION_RATES_BY_MODEL.sem_ajuda;
 
+// `renovacao` e `expansao` só existem em eventos antigos: desde o contrato v5 a
+// proposta de cliente da carteira gera aquisição e parcelas a 50%.
 export const COMMISSION_TYPE_LABELS: Record<string, string> = {
-  aquisicao: 'Aquisição', recorrente: 'Recorrente', renovacao: 'Renovação',
+  aquisicao: 'Aquisição', recorrente: 'Sobre parcelas', renovacao: 'Renovação',
   expansao: 'Expansão', chargeback: 'Estorno',
+};
+
+// Validação do registro da oportunidade pela vertho.ai (contrato, 7.1 e 7.5; mig 296).
+export const ATTRIBUTION_STATUSES = ['aguardando', 'validada', 'recusada'] as const;
+export type AttributionStatus = typeof ATTRIBUTION_STATUSES[number];
+export const ATTRIBUTION_STATUS_LABELS: Record<AttributionStatus, string> = {
+  aguardando: 'Aguardando validação', validada: 'Registro validado', recusada: 'Registro recusado',
 };
 
 export const COMMISSION_STATUS_LABELS: Record<string, string> = {

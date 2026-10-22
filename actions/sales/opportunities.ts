@@ -2,15 +2,18 @@
 
 // Portal do Representante — oportunidades (núcleo do CRM).
 //
-// Regras de canal:
+// Regras de canal (contrato de representação v5, cláusula 7ª):
 //   • RC só enxerga/edita as PRÓPRIAS oportunidades (isolamento por representante_id).
-//   • Registro formal validado → inicia proteção de 90 dias.
+//   • O registro exige os campos do Anexo III, inclusive CNPJ da conta e cargo do contato (7.2).
+//   • O registro nasce 'aguardando': a vertho.ai valida ou recusa no /admin/comercial
+//     (7.1, 7.3) e a proteção de 90 dias conta da VALIDAÇÃO (7.5).
 //   • Edição só enquanto aberta; fechamento via moveOpportunityStage.
 //   • quality_score persiste a completude (base do pipeline qualificado).
 import { createSupabaseAdmin } from '@/lib/supabase';
 import {
   requireRepresentativeAction,
   requireRepresentativeOrAdminAction,
+  requireCommercialAdminAction,
   assertRepresentativeOwnership,
 } from '@/lib/sales/permissions';
 import { validateOpportunityInput, numOrNull } from '@/lib/sales/validation';
@@ -18,6 +21,7 @@ import { calculateQualityScore } from '@/lib/sales/quality-score';
 import { computeProtectionWindow, computeProtectionStatus, protectionAlertLabel } from '@/lib/sales/protection';
 import { groupByStage, oportunidadesSemProximaAcao, pipelinePonderado, pipelineQualificado, pipelineTotal, protecoesVencendo } from '@/lib/sales/kpis';
 import { PIPELINE_STAGES, type PipelineStage } from '@/lib/sales/constants';
+import { normalizarCnpj } from '@/lib/sales/duplicidade';
 import type { SalesOpportunity } from '@/lib/sales/types';
 import { escaparLike } from '@/lib/sql-like';
 
@@ -95,14 +99,17 @@ export async function createOpportunity(input: Record<string, any>) {
   const sb = createSupabaseAdmin();
 
   // Conta e contato precisam ser do próprio RC (anti-IDOR).
-  const { data: account } = await sb.from('sales_accounts').select('id, representante_id').eq('id', input.account_id).maybeSingle();
+  const { data: account, error: erroConta } = await sb.from('sales_accounts').select('id, representante_id, cnpj').eq('id', input.account_id).maybeSingle();
+  if (erroConta) return { success: false as const, error: erroConta.message };
   if (!account) return { success: false as const, error: 'Conta não encontrada' };
   assertRepresentativeOwnership(ctx, account.representante_id);
-  const { data: contact } = await sb.from('sales_contacts').select('id, representante_id, account_id').eq('id', input.primary_contact_id).maybeSingle();
+  const { data: contact, error: erroContato } = await sb.from('sales_contacts').select('id, representante_id, account_id, role').eq('id', input.primary_contact_id).maybeSingle();
+  if (erroContato) return { success: false as const, error: erroContato.message };
   if (!contact || contact.account_id !== input.account_id) return { success: false as const, error: 'Contato inválido para esta conta' };
   assertRepresentativeOwnership(ctx, contact.representante_id);
+  const faltando = camposDoRegistroNaConta(account, contact);
+  if (faltando) return { success: false as const, error: faltando.error, fieldErrors: faltando.fieldErrors };
 
-  const protection = computeProtectionWindow(new Date());
   const row = {
     representante_id: ctx.rep.id,
     account_id: input.account_id,
@@ -117,8 +124,10 @@ export async function createOpportunity(input: Record<string, any>) {
     next_action: input.next_action?.trim() || null,
     next_action_date: input.next_action_date || null,
     interaction_evidence: input.interaction_evidence?.trim() || null,
-    protection_start_date: protection.start,
-    protection_end_date: protection.end,
+    // Sem proteção até a vertho.ai validar o registro (7.5).
+    attribution_status: 'aguardando' as const,
+    protection_start_date: null,
+    protection_end_date: null,
     protection_status: 'active' as const,
     probability: numOrNull(input.probability),
     competitors: input.competitors?.trim() || null,
@@ -130,13 +139,114 @@ export async function createOpportunity(input: Record<string, any>) {
   const { data, error } = await sb.from('sales_opportunities').insert({ ...row, quality_score }).select('id').single();
   if (error) return { success: false as const, error: error.message };
 
-  await sb.from('sales_activity_notes').insert({
+  await registrarNota(sb, {
     representante_id: ctx.rep.id, opportunity_id: data.id, account_id: input.account_id,
-    note: `Oportunidade registrada — proteção comercial até ${protection.end}.`,
+    note: 'Oportunidade registrada. Aguardando a validação da vertho.ai: a proteção de 90 dias começa na validação.',
     created_by_email: ctx.email,
   });
 
   return { success: true as const, id: data.id };
+}
+
+/**
+ * Nota do histórico da oportunidade. É rastro, não a decisão: a falha não
+ * desfaz o que já foi gravado, mas fica no log em vez de sumir.
+ */
+async function registrarNota(sb: ReturnType<typeof createSupabaseAdmin>, nota: Record<string, unknown>): Promise<void> {
+  const { error } = await sb.from('sales_activity_notes').insert(nota);
+  if (error) console.error('[sales] nota da oportunidade não gravada:', error.message);
+}
+
+/**
+ * Campos do registro que moram na conta e no contato (cláusula 7.2 e Anexo III:
+ * CNPJ do cliente e cargo do contato). `null` = completo.
+ */
+function camposDoRegistroNaConta(
+  account: { cnpj?: string | null },
+  contact: { role?: string | null },
+): { error: string; fieldErrors: Record<string, string> } | null {
+  const fieldErrors: Record<string, string> = {};
+  if (!normalizarCnpj(account.cnpj)) fieldErrors.account_id = 'Cadastre o CNPJ da conta (14 dígitos): o contrato exige o CNPJ no registro.';
+  if (!contact.role?.trim()) fieldErrors.primary_contact_id = 'Cadastre o cargo do contato principal: o contrato exige o cargo no registro.';
+  if (Object.keys(fieldErrors).length === 0) return null;
+  return { error: 'O registro precisa do CNPJ da conta e do cargo do contato (cláusula 7.2 do contrato).', fieldErrors };
+}
+
+// ── Validação do registro pela vertho.ai (cláusulas 7.1, 7.3 e 7.5) ─────────
+
+/**
+ * Valida o registro: a oportunidade passa a ser atribuída ao RC e a proteção de
+ * 90 dias começa agora (7.5). Só registro aguardando e oportunidade aberta.
+ */
+export async function validarRegistroOportunidade(opportunityId: string, observacao?: string) {
+  const admin = await requireCommercialAdminAction();
+  const sb = createSupabaseAdmin();
+  const { data: opp, error: erroLeitura } = await sb.from('sales_opportunities')
+    .select('id, representante_id, account_id, status, attribution_status').eq('id', opportunityId).maybeSingle();
+  if (erroLeitura) return { success: false as const, error: erroLeitura.message };
+  if (!opp) return { success: false as const, error: 'Oportunidade não encontrada' };
+  if (opp.attribution_status !== 'aguardando') return { success: false as const, error: 'Este registro já foi decidido' };
+  if (opp.status !== 'open') return { success: false as const, error: 'A oportunidade não está mais aberta' };
+
+  const agora = new Date();
+  const protection = computeProtectionWindow(agora);
+  const nota = observacao?.trim() || null;
+  const { data: mudou, error } = await sb.from('sales_opportunities').update({
+    attribution_status: 'validada',
+    attribution_decided_at: agora.toISOString(),
+    attribution_decided_by: admin.email,
+    attribution_note: nota,
+    protection_start_date: protection.start,
+    protection_end_date: protection.end,
+    protection_status: 'active',
+    updated_at: agora.toISOString(),
+  }).eq('id', opportunityId).eq('attribution_status', 'aguardando').select('id');
+  if (error) return { success: false as const, error: error.message };
+  if (!mudou || mudou.length === 0) return { success: false as const, error: 'Este registro já foi decidido' };
+
+  await registrarNota(sb, {
+    representante_id: opp.representante_id, opportunity_id: opportunityId, account_id: opp.account_id,
+    note: `Registro validado pela vertho.ai: proteção comercial até ${protection.end}.${nota ? ` ${nota}` : ''}`,
+    created_by_email: admin.email,
+  });
+  return { success: true as const, protecaoAte: protection.end };
+}
+
+/**
+ * Recusa o registro (7.3: cliente já ativo ou em negociação com a vertho.ai,
+ * lead próprio, indicação de terceiro; 7.4: outro RC registrou antes). A
+ * oportunidade sai do funil como "sem avanço" e não gera comissão. O RC lê o motivo.
+ */
+export async function recusarRegistroOportunidade(opportunityId: string, motivo: string) {
+  const admin = await requireCommercialAdminAction();
+  const texto = motivo?.trim();
+  if (!texto) return { success: false as const, error: 'Informe o motivo da recusa: o representante vai ler' };
+  const sb = createSupabaseAdmin();
+  const { data: opp, error: erroLeitura } = await sb.from('sales_opportunities')
+    .select('id, representante_id, account_id, attribution_status').eq('id', opportunityId).maybeSingle();
+  if (erroLeitura) return { success: false as const, error: erroLeitura.message };
+  if (!opp) return { success: false as const, error: 'Oportunidade não encontrada' };
+  if (opp.attribution_status !== 'aguardando') return { success: false as const, error: 'Este registro já foi decidido' };
+
+  const agora = new Date().toISOString();
+  const { data: mudou, error } = await sb.from('sales_opportunities').update({
+    attribution_status: 'recusada',
+    attribution_decided_at: agora,
+    attribution_decided_by: admin.email,
+    attribution_note: texto,
+    status: 'expired',
+    stage: 'sem_avanco_expirado',
+    updated_at: agora,
+  }).eq('id', opportunityId).eq('attribution_status', 'aguardando').select('id');
+  if (error) return { success: false as const, error: error.message };
+  if (!mudou || mudou.length === 0) return { success: false as const, error: 'Este registro já foi decidido' };
+
+  await registrarNota(sb, {
+    representante_id: opp.representante_id, opportunity_id: opportunityId, account_id: opp.account_id,
+    note: `Registro recusado pela vertho.ai: ${texto}`,
+    created_by_email: admin.email,
+  });
+  return { success: true as const };
 }
 
 export async function updateOpportunity(opportunityId: string, input: Record<string, any>) {

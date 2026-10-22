@@ -1,5 +1,5 @@
 // Portal do Representante — tipos de domínio (espelham as tabelas sales_*).
-import type { CompensationModel, PipelineStage, ProposalStatus } from './constants';
+import type { AttributionStatus, CompensationModel, PipelineStage, ProposalStatus } from './constants';
 
 export type SalesRepresentative = {
   id: string;
@@ -14,6 +14,8 @@ export type SalesRepresentative = {
   status: 'active' | 'inactive' | 'suspended';
   /** Modelo de remuneração (mig 295). Decide as taxas de comissão: `commissionRatesFor`. */
   compensation_model: CompensationModel;
+  /** Término do contrato de representação, gravado ao desativar o RC (mig 296, cláusula 18.7). */
+  contract_ended_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -74,6 +76,14 @@ export type SalesOpportunity = {
   protection_start_date: string | null;
   protection_end_date: string | null;
   protection_status: ProtectionStatus;
+  /**
+   * Validação do registro pela vertho.ai (mig 296; contrato, 7.1 e 7.5). Enquanto
+   * 'aguardando' não há proteção (as datas ficam nulas) e a proposta não é submetida.
+   */
+  attribution_status: AttributionStatus;
+  attribution_decided_at: string | null;
+  attribution_decided_by: string | null;
+  attribution_note: string | null;
   quality_score: number;
   probability: number | null;
   status: OpportunityStatus;
@@ -125,6 +135,17 @@ export type SalesProposal = {
   estimated_recurring_commission: number | null;
   estimated_total_commission: number | null;
   margin_alert: boolean;
+  /**
+   * Regras de comissão gravadas na proposta (mig 296): o modelo do RC na
+   * aprovação (10.5; antes dela, a estimativa com o modelo atual) e a
+   * classificação de cliente da carteira (10.6, 50% dos percentuais). NULL no
+   * deal desk, que não tem RC.
+   */
+  compensation_model: CompensationModel | null;
+  carteira: boolean;
+  carteira_motivo: string | null;
+  /** Quando o RC marcou como enviada ao cliente (marco da cláusula 18.7). */
+  sent_to_client_at: string | null;
   status: ProposalStatus;
   /**
    * Admin que criou (mig 254, só no caminho do deal desk). Preenchido junto com
@@ -144,7 +165,8 @@ export type SalesProposal = {
   created_at: string;
   updated_at: string;
   account?: Pick<SalesAccount, 'id' | 'legal_name' | 'trade_name'> | null;
-  opportunity?: Pick<SalesOpportunity, 'id' | 'opportunity_name' | 'stage'> | null;
+  opportunity?: (Pick<SalesOpportunity, 'id' | 'opportunity_name' | 'stage'> & Partial<Pick<SalesOpportunity, 'attribution_status'>>) | null;
+  representante?: Pick<SalesRepresentative, 'id' | 'name' | 'status' | 'compensation_model' | 'contract_ended_at'> | null;
 };
 
 export type CommissionType = 'aquisicao' | 'recorrente' | 'renovacao' | 'expansao' | 'chargeback';

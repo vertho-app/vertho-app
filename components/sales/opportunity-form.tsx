@@ -394,7 +394,7 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
             {isEdit ? 'Salvar alterações' : 'Registrar oportunidade'}
           </button>
           {!isEdit && (
-            <p className="text-[11px] text-gray-500">O registro formal inicia a proteção comercial de 90 dias.</p>
+            <p className="text-[11px] text-gray-500">A vertho.ai valida o registro; a proteção comercial de 90 dias começa na validação.</p>
           )}
         </div>
       </div>

@@ -216,8 +216,8 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
           <h1 className="text-xl font-bold truncate">{opp.opportunity_name}</h1>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <OpportunityStageBadge stage={opp.stage} size="md" />
-            <ProtectionStatusBadge status={opp.protection_status} protectionEnd={opp.protection_end_date} size="md" />
-            {!isOpen && (
+            <ProtectionStatusBadge status={opp.protection_status} protectionEnd={opp.protection_end_date} attribution={opp.attribution_status} size="md" />
+            {!isOpen && opp.attribution_status !== 'recusada' && (
               <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold bg-white/10 text-gray-300">
                 {OPPORTUNITY_STATUS_LABELS[opp.status] || opp.status}
               </span>
@@ -225,6 +225,16 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
           </div>
           {opp.status === 'lost' && opp.loss_reason && (
             <p className="mt-2 text-[11px] text-red-300">Motivo da perda: {opp.loss_reason}</p>
+          )}
+          {opp.attribution_status === 'aguardando' && (
+            <p className="mt-2 text-[11px] text-amber-300">
+              A vertho.ai está conferindo este registro. A proteção de 90 dias começa na validação, e a proposta só pode ser submetida depois dela.
+            </p>
+          )}
+          {opp.attribution_status === 'recusada' && (
+            <p className="mt-2 text-[11px] text-red-300">
+              Registro recusado pela vertho.ai{opp.attribution_note ? `: ${opp.attribution_note}` : '.'}
+            </p>
           )}
         </div>
         {!editing && (
@@ -444,10 +454,16 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
               <h3 className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2 flex items-center gap-1.5">
                 <Shield size={12} /> Proteção comercial
               </h3>
-              <p className="text-sm text-white">
-                {fmtDate(opp.protection_start_date)} → {fmtDate(opp.protection_end_date)}
-              </p>
-              {daysLeft != null && (
+              {opp.attribution_status === 'aguardando' ? (
+                <p className="text-xs text-amber-300">Começa quando a vertho.ai validar o registro.</p>
+              ) : opp.attribution_status === 'recusada' ? (
+                <p className="text-xs text-red-300">Sem proteção: o registro foi recusado.</p>
+              ) : (
+                <p className="text-sm text-white">
+                  {fmtDate(opp.protection_start_date)} → {fmtDate(opp.protection_end_date)}
+                </p>
+              )}
+              {opp.attribution_status === 'validada' && daysLeft != null && (
                 <p className={`text-[11px] mt-1 font-semibold ${daysLeft < 0 ? 'text-red-400' : daysLeft <= 15 ? 'text-amber-400' : 'text-emerald-400'}`}>
                   {daysLeft < 0
                     ? 'Proteção vencida'

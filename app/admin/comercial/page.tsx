@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Briefcase, Coins, FileText, FolderOpen, Loader2, ShieldAlert, Users,
+  Briefcase, ClipboardCheck, Coins, FileText, FolderOpen, Loader2, ShieldAlert, Users,
 } from 'lucide-react';
 import { getCommercialAdminDashboard } from '@/actions/sales/admin-dashboard';
 import AdminPageHeader from '@/components/admin/page-header';
 import RepresentativePerformanceTable from '@/components/sales/representative-performance-table';
 import PendingProposalsTable from '@/components/sales/pending-proposals-table';
+import PendingRegistrationsTable from '@/components/sales/pending-registrations-table';
 import CommissionExposureTable from '@/components/sales/commission-exposure-table';
 import { fmtBRL, fmtDate } from '@/lib/sales/formatters';
 
@@ -42,15 +43,14 @@ export default function ComercialDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const r = await getCommercialAdminDashboard();
-      if (r.success) setData(r);
-      else setError(r.error || 'Falha ao carregar o dashboard comercial');
-      setLoading(false);
-    })();
+  const carregar = useCallback(async () => {
+    const r = await getCommercialAdminDashboard();
+    if (r.success) { setData(r); setError(null); }
+    else setError(r.error || 'Falha ao carregar o dashboard comercial');
+    setLoading(false);
   }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
 
   return (
     <div className="min-h-full text-white">
@@ -92,6 +92,22 @@ export default function ComercialDashboardPage() {
                 href="/admin/comercial/propostas"
               />
             </div>
+
+            {/* Validação do registro (contrato do RC, 7.1 a 7.5): a proteção só começa aqui */}
+            <section className="mb-6">
+              <h2 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+                <ClipboardCheck size={15} className="text-amber-400" /> Registros aguardando validação
+                {data.totals.pendingRegistrationsCount > 0 && (
+                  <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-500/15 text-amber-300">
+                    {data.totals.pendingRegistrationsCount}
+                  </span>
+                )}
+              </h2>
+              <p className="text-[11px] text-gray-500 mb-2">
+                Só a oportunidade validada é comissionável, e os 90 dias de proteção contam da validação. Recuse cliente já ativo ou em negociação com a vertho.ai, lead próprio ou indicação de terceiro (7.3), e o registro que outro representante fez antes (7.4).
+              </p>
+              <PendingRegistrationsTable rows={data.pendingRegistrations} onDone={carregar} />
+            </section>
 
             {/* Performance por representante */}
             <section className="mb-6">

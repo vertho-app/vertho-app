@@ -17,14 +17,13 @@ import {
 } from '@/actions/sales/accounts';
 import BackButton from '@/components/back-button';
 import OpportunityStageBadge from '@/components/sales/opportunity-stage-badge';
-import { daysToRenewal } from '@/components/sales/portfolio-table';
+import { daysToRenewal, faseDeComissao } from '@/components/sales/portfolio-table';
 import {
   ACCOUNT_STATUS_LABELS,
   ACTIVITY_KIND_COLORS,
   ACTIVITY_KIND_LABELS,
   CHURN_RISK_COLORS,
   CHURN_RISK_LABELS,
-  COMMISSION_RATES,
   PRODUCT_PACKAGE_LABELS,
   type PipelineStage,
 } from '@/lib/sales/constants';
@@ -44,20 +43,14 @@ type ContractInfo = {
   product_package: string | null;
   monthly_value: number | null;
   contract_duration_months: number | null;
-  commission_phase: 'recorrente_12' | 'renovacao_6';
+  commission_phase: 'vigencia_inicial' | 'apos_vigencia';
+  recurring_percent: number;
   days_to_renewal: number | null;
 };
 
 const SELECT_CLS = 'px-3 py-2 rounded-lg text-xs text-white border border-white/10 bg-[#091D35] outline-none focus:border-cyan-400/60';
 const INPUT_CLS = 'w-full rounded-lg px-3 py-2 text-sm text-white outline-none bg-white/5 border border-white/10 focus:border-cyan-400/60 placeholder:text-gray-600';
 const DATE_CLS = 'rounded-lg px-3 py-2 text-xs text-white outline-none bg-white/5 border border-white/10 focus:border-cyan-400/60 [color-scheme:dark]';
-
-const PHASE_CFG: Record<ContractInfo['commission_phase'], { label: string; color: string }> = {
-  // Rótulo das taxas, não do nome da chave (a chave é histórica): os dois
-  // modelos de remuneração têm hoje 10% recorrente e 5% de renovação (21/10/2026).
-  recorrente_12: { label: `${Math.round(COMMISSION_RATES.recurring * 100)}% recorrente`, color: '#34c5cc' },
-  renovacao_6: { label: `${Math.round(COMMISSION_RATES.renewal * 100)}% renovação`, color: '#8B5CF6' },
-};
 
 function Pill({ label, color }: { label: string; color: string }) {
   return (
@@ -137,6 +130,7 @@ export default function ContaDetalhePage({ params }: { params: Promise<{ account
           monthly_value: row.monthly_value,
           contract_duration_months: row.contract_duration_months,
           commission_phase: row.commission_phase,
+          recurring_percent: row.recurring_percent,
           days_to_renewal: row.days_to_renewal,
         });
       } else {
@@ -224,7 +218,7 @@ export default function ContaDetalhePage({ params }: { params: Promise<{ account
 
   const nome = account.trade_name || account.legal_name;
   const risk = account.churn_risk ? { label: CHURN_RISK_LABELS[account.churn_risk], color: CHURN_RISK_COLORS[account.churn_risk] } : null;
-  const phase = contract ? (PHASE_CFG[contract.commission_phase] || PHASE_CFG.recorrente_12) : null;
+  const phase = contract ? faseDeComissao(contract.commission_phase, contract.recurring_percent) : null;
   const dias = contract?.days_to_renewal ?? daysToRenewal(account.renewal_date);
 
   return (

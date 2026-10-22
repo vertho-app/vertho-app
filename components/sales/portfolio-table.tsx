@@ -3,7 +3,7 @@
 // Tabela da carteira ativa do RC (contas com contrato vigente).
 import { useRouter } from 'next/navigation';
 import { TrendingUp } from 'lucide-react';
-import { COMMISSION_RATES, PRODUCT_PACKAGE_LABELS } from '@/lib/sales/constants';
+import { PRODUCT_PACKAGE_LABELS } from '@/lib/sales/constants';
 import { fmtBRL, fmtDate } from '@/lib/sales/formatters';
 import type { SalesAccount } from '@/lib/sales/types';
 
@@ -15,7 +15,8 @@ export type PortfolioEntry = {
   contract_duration_months: number | null;
   contract_start_date: string | null;
   renewal_date: string | null;
-  commission_phase: 'recorrente_12' | 'renovacao_6';
+  commission_phase: 'vigencia_inicial' | 'apos_vigencia';
+  recurring_percent: number;
   churn_risk: 'baixo' | 'medio' | 'alto' | null;
   expansion_potential?: boolean;
   next_followup_date?: string | null;
@@ -30,12 +31,16 @@ export function daysToRenewal(renewalDate: string | null | undefined, today = ne
   return Math.ceil((end.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
 }
 
-const PHASE_CFG: Record<PortfolioEntry['commission_phase'], { label: string; color: string }> = {
-  // Rótulo das taxas, não do nome da chave (a chave é histórica): os dois
-  // modelos de remuneração têm hoje 10% recorrente e 5% de renovação (21/10/2026).
-  recorrente_12: { label: `${Math.round(COMMISSION_RATES.recurring * 100)}% recorrente`, color: '#34c5cc' },
-  renovacao_6: { label: `${Math.round(COMMISSION_RATES.renewal * 100)}% renovação`, color: '#8B5CF6' },
-};
+/**
+ * Selo da fase de comissão da conta (contrato do RC, 10ª). Na vigência inicial,
+ * o percentual do modelo sobre cada parcela paga. Depois dela não há comissão
+ * automática: a renovação é uma nova proposta, de cliente da carteira, a 50%.
+ */
+export function faseDeComissao(phase: PortfolioEntry['commission_phase'], recurringPercent: number): { label: string; color: string } {
+  return phase === 'apos_vigencia'
+    ? { label: 'Renovação a 50%', color: '#8B5CF6' }
+    : { label: `${String(recurringPercent).replace('.', ',')}% por parcela`, color: '#34c5cc' };
+}
 
 const RISK_CFG: Record<string, { label: string; color: string }> = {
   baixo: { label: 'Baixo', color: '#22C55E' },
@@ -84,7 +89,7 @@ export default function PortfolioTable({ data }: { data: PortfolioEntry[] }) {
           <tbody>
             {data.map((row, i) => {
               const cliente = row.account.trade_name || row.account.legal_name;
-              const phase = PHASE_CFG[row.commission_phase] || PHASE_CFG.recorrente_12;
+              const phase = faseDeComissao(row.commission_phase, row.recurring_percent);
               const risk = row.churn_risk ? RISK_CFG[row.churn_risk] : null;
               const dias = daysToRenewal(row.renewal_date);
               const renovacaoProxima = dias !== null && dias >= 0 && dias <= 90;

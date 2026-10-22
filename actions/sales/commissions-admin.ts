@@ -93,6 +93,28 @@ export async function marcarComissaoPaga(eventId: string, paidAt?: string) {
   return { success: true as const };
 }
 
+/**
+ * A vertho.ai registra a nota fiscal que o RC enviou por fora. Existe para o RC
+ * que já saiu do canal: ele perde o portal (18.4), mas as comissões das
+ * propostas aceitas seguem devidas mediante NF (11.2 e 18.7). Mesma regra da
+ * emissão pelo RC: só em comissão "a receber".
+ */
+export async function registrarNotaFiscalPeloAdmin(eventId: string, invoiceNumber: string) {
+  const admin = await requireCommercialAdminAction();
+  const num = String(invoiceNumber || '').trim();
+  if (!num) return { success: false as const, error: 'Informe o número da nota fiscal' };
+  const sb = createSupabaseAdmin();
+  const ev = await guardEvent(sb, eventId);
+  if (!ev) return { success: false as const, error: 'Comissão não encontrada' };
+  if (ev.status !== 'accrued') return { success: false as const, error: 'Só é possível registrar NF de comissões "a receber"' };
+  const agora = new Date().toISOString();
+  const { error } = await sb.from('sales_commission_events')
+    .update({ invoice_number: num, invoice_issued_at: agora, updated_at: agora }).eq('id', eventId);
+  if (error) return { success: false as const, error: error.message };
+  console.log(`[commissions] NF ${num} do evento ${eventId} registrada por ${admin.email}`);
+  return { success: true as const };
+}
+
 /** Cancela um evento previsto/a receber (proposta caiu, não é mais devida). */
 export async function cancelarComissao(eventId: string, motivo?: string) {
   await requireCommercialAdminAction();
