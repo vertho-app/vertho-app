@@ -157,6 +157,47 @@ export default function ComercialDashboardPage() {
               )}
             </section>
 
+            {/* Mesma instituição em mais de um RC (regra de 08/10: vale o primeiro registro válido) */}
+            <section className="mb-6">
+              <h2 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+                <ShieldAlert size={15} className="text-amber-400" /> Mesma instituição em mais de um representante
+              </h2>
+              <p className="text-[11px] text-gray-500 mb-2">
+                Comparação por CNPJ ou por nome e cidade. Vale o primeiro registro válido (conta, contato e evidência de interação, dentro dos 90 dias): confira e decida.
+              </p>
+              {data.contasEmMaisDeUmRc.length === 0 ? (
+                <p className="text-xs text-gray-500 py-4 text-center rounded-xl bg-white/[0.03] border border-white/10">
+                  Nenhuma instituição registrada por mais de um representante.
+                </p>
+              ) : (
+                <div className="rounded-xl bg-white/[0.03] border border-white/10 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-white/[0.04]">
+                      <tr className="text-left text-[10px] uppercase text-gray-500">
+                        <th className="px-3 py-2">Instituição</th>
+                        <th className="px-3 py-2">Cidade</th>
+                        <th className="px-3 py-2">Representante</th>
+                        <th className="px-3 py-2 text-right">Cadastrada em</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {data.contasEmMaisDeUmRc.map((grupo) => grupo.map((c, i) => (
+                        <tr key={c.id} className={i === 0 ? 'border-t border-white/15' : ''}>
+                          <td className="px-3 py-2 font-semibold text-white">
+                            {c.nome}
+                            {i === 0 && <span className="ml-2 text-[10px] font-semibold text-emerald-400">cadastrada primeiro</span>}
+                          </td>
+                          <td className="px-3 py-2 text-gray-400">{c.cidade || '—'}</td>
+                          <td className="px-3 py-2 text-gray-300">{c.repName}</td>
+                          <td className="px-3 py-2 text-right text-gray-400">{c.created_at ? fmtDate(c.created_at) : '—'}</td>
+                        </tr>
+                      )))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
             {/* Exposição de comissão */}
             <section className="mb-6">
               <h2 className="text-sm font-bold text-white mb-2">Exposição de comissão por representante</h2>

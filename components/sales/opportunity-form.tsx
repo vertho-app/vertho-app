@@ -126,7 +126,8 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
     setValues((prev) => ({ ...prev, account_id: r.data.id, primary_contact_id: '' }));
     setShowNewAccount(false);
     setNewAccount({ legal_name: '', trade_name: '', segment: '', city: '', state: '' });
-    toast.success('Conta criada');
+    if (r.aviso) toast.warning(r.aviso, { duration: 10000 });
+    else toast.success('Conta criada');
   }
 
   async function handleCreateContact() {

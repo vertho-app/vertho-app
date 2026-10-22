@@ -15,6 +15,7 @@ import {
 } from '@/lib/sales/permissions';
 import { numOrNull } from '@/lib/sales/validation';
 import { logAdminAction } from '@/lib/audit';
+import { coincidenciasDeOutrosRcs, type ContaComparavel } from '@/lib/sales/duplicidade';
 import type { SalesAccount, SalesProposal } from '@/lib/sales/types';
 
 const ACCOUNT_STATUSES = ['prospect', 'active_client', 'inactive', 'lost'] as const;
@@ -100,7 +101,22 @@ export async function createSalesAccount(input: Record<string, any>) {
     ...parsed.patch,
   }).select('*').single();
   if (error) return { success: false as const, error: error.message };
-  return { success: true as const, data: data as SalesAccount };
+
+  // Mesma instituição com outro RC: avisa e segue (a vertho.ai decide pela regra
+  // do primeiro registro válido; o caso aparece em /admin/comercial). O nome do
+  // outro RC NÃO vai no aviso. Se a conferência falhar, a conta já existe: o
+  // RC é avisado de que ela não rodou, em vez de receber um "sem conflito".
+  let aviso: string | null = null;
+  const { data: outras, error: erroOutras } = await sb.from('sales_accounts')
+    .select('id, representante_id, legal_name, trade_name, cnpj, city')
+    .neq('representante_id', ctx.rep.id)
+    .limit(5000);
+  if (erroOutras) {
+    aviso = 'Conta criada, mas não foi possível conferir se outro representante já registrou esta instituição.';
+  } else if (coincidenciasDeOutrosRcs(data as ContaComparavel, (outras || []) as ContaComparavel[]).length) {
+    aviso = 'Esta instituição já está registrada por outro representante. A conta foi criada, e a vertho.ai vai decidir pela regra do primeiro registro válido.';
+  }
+  return { success: true as const, data: data as SalesAccount, aviso };
 }
 
 export async function updateSalesAccount(accountId: string, input: Record<string, any>) {

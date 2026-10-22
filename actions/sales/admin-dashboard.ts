@@ -15,6 +15,7 @@ import {
   protecoesVencendo,
 } from '@/lib/sales/kpis';
 import { protectionDaysLeft } from '@/lib/sales/protection';
+import { gruposEmMaisDeUmRc, type ContaComparavel } from '@/lib/sales/duplicidade';
 import type { SalesOpportunity, SalesProposal, SalesRepresentative } from '@/lib/sales/types';
 
 export type RepDashboardRow = {
@@ -35,6 +36,7 @@ export async function getCommercialAdminDashboard() {
     { data: reps, error: repErr },
     { data: opps, error: oppErr },
     { data: proposals, error: propErr },
+    { data: accounts, error: accErr },
   ] = await Promise.all([
     sb.from('sales_representatives').select('*').order('name'),
     sb.from('sales_opportunities')
@@ -43,10 +45,14 @@ export async function getCommercialAdminDashboard() {
     sb.from('sales_proposals')
       .select('*, account:sales_accounts (id, legal_name, trade_name)')
       .order('created_at', { ascending: false }),
+    sb.from('sales_accounts')
+      .select('id, representante_id, legal_name, trade_name, cnpj, city, created_at')
+      .limit(5000),
   ]);
   if (repErr) return { success: false as const, error: repErr.message };
   if (oppErr) return { success: false as const, error: oppErr.message };
   if (propErr) return { success: false as const, error: propErr.message };
+  if (accErr) return { success: false as const, error: accErr.message };
 
   const allReps = (reps || []) as SalesRepresentative[];
   const allOpps = (opps || []) as SalesOpportunity[];
@@ -91,11 +97,23 @@ export async function getCommercialAdminDashboard() {
     daysLeft: protectionDaysLeft(o.protection_end_date),
   }));
 
+  // A mesma instituição com mais de um RC (regra de 08/10: vale o primeiro
+  // registro válido, e a vertho.ai decide). Ordem de cadastro dentro do grupo.
+  const contasEmMaisDeUmRc = gruposEmMaisDeUmRc((accounts || []) as ContaComparavel[]).map((grupo) =>
+    grupo.map((c) => ({
+      id: c.id,
+      nome: c.trade_name || c.legal_name || '—',
+      cidade: c.city,
+      repName: (c.representante_id && repName.get(c.representante_id)) || '—',
+      created_at: c.created_at ?? null,
+    })));
+
   return {
     success: true as const,
     byRep,
     pendingProposals,
     expiringProtections,
+    contasEmMaisDeUmRc,
     totals: {
       pipelineTotal: pipelineTotal(allOpps),
       pipelineQualificado: pipelineQualificado(allOpps),

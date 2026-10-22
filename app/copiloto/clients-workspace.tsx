@@ -265,7 +265,9 @@ export default function ClientsWorkspace({
       setSelectedId(account.id);
       setNewCompanyName('');
       setAddingCompany(false);
-      setNotice('Empresa adicionada. Você já pode criar o primeiro planejamento.');
+      setNotice(result.aviso
+        ? `Empresa adicionada. ${result.aviso}`
+        : 'Empresa adicionada. Você já pode criar o primeiro planejamento.');
     } catch (err: any) {
       setError(err?.message || 'Não foi possível adicionar a empresa');
     } finally {

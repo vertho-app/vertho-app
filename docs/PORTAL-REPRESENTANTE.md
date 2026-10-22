@@ -115,15 +115,25 @@ Demonstração"** no portal. Decisões:
   (`lib/sales/protection.ts`); status derivado active/expiring (≤15d)/expired;
   alertas em 15/10/5 dias e vencida. `extended` reservado para prorrogação
   manual pela Vertho (MVP 2).
+- **Mesma instituição em mais de um RC** (desde 21/10/2026, `lib/sales/duplicidade.ts`):
+  regra do dono de 08/10, vale o primeiro registro válido e a vertho.ai decide.
+  O portal NÃO bloqueia (decisão de 21/10): `createSalesAccount` compara a conta
+  nova com as de outros RCs (CNPJ quando as duas têm; senão razão social ou nome
+  fantasia, com 8+ caracteres, e a mesma cidade quando as duas informam) e
+  devolve um `aviso` sem citar o outro RC; o formulário de oportunidade e o
+  Copiloto mostram. `/admin/comercial` lista os grupos em ordem de cadastro.
+  Teste: `tests/unit/sales-duplicidade.test.ts`.
 - **Score de qualidade (0-100)**: completude do registro
   (`lib/sales/quality-score.ts`) — conta 10, contato 10, cargo do contato 10,
   origem 10, necessidade 15, produto 10, estágio 10, próxima ação 15,
   evidência 10. Persistido e recalculado a cada update.
-- **Comissões** (`lib/sales/commissions.ts`): aquisição 9% do contrato inicial;
-  recorrente 12% na vigência; renovação 6%; expansão 9%+12%.
+- **Comissões** (`lib/sales/commissions.ts`): desde 21/10/2026 (decisão do dono,
+  "fixo + 10% mensal ou 8% do contrato total + 10% mensal") aquisição 8% do
+  contrato; recorrente 10% ao mês na vigência; renovação 5%; expansão 8%+10%.
+  Até 20/10 eram 9% + 12%, renovação 6%.
   **Desde 19/10/2026 (mig 295) são DOIS modelos por RC**, em
   `sales_representatives.compensation_model`: `sem_ajuda` (as taxas acima, o
-  padrão) e `com_ajuda` (recorrente 10% ao mês, sem aquisição, renovação 5%,
+  padrão) e `com_ajuda` (a ajuda de custo é o "fixo") (recorrente 10% ao mês, sem aquisição, renovação 5%,
   expansão 10% ao mês do incremental; a ajuda de custo em si fica fora do
   portal). As taxas vivem em `commissionRatesFor` (`lib/sales/constants.ts`) e
   entram na estimativa da proposta, no resumo que o RC vê, no extrato e nos
@@ -135,7 +145,7 @@ Demonstração"** no portal. Decisões:
   na proposta; aceite do cliente materializa eventos `forecast` em
   `sales_commission_events` (hook MVP 2: accrued/paid/chargeback prontos).
   Esta é a política do ledger financeiro. Não confundir com o seletor de custo
-  do deal desk — RC 20%, consultor parceiro 10% ou integrador 0% — que apenas
+  do deal desk — RC 18% (era 20% até 21/10), indicação 10%, indicador 12% ou venda direta 0% — que apenas
   simula a margem do projeto e não grava eventos de comissão.
 - **Máquina de estados da proposta**: draft → submitted_for_approval →
   approved|changes_requested|rejected; approved → sent_to_client → accepted|lost.
