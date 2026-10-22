@@ -177,7 +177,8 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   inicial **sem erro nenhum**. Desde 16/09/2026 a 4Life está no +55 11 5199-1865 e a Amazon Bowling
   deve entrar lá quando for criada: editar a variável + deploy, e confirmar pelo `from_phone_id` do
   primeiro envio. Envio novo que não passar `empresaId` no `meta` cai no inicial pelo mesmo motivo.
-  Receita de número novo: `docs/INBOX-WHATSAPP.md` §7.1.
+  Receita de número novo: `docs/INBOX-WHATSAPP.md` §7.1. Desde 21/10/2026 a mesma lista também decide o DONO
+  do que chega (`decidirDono`): mexer nela muda a empresa de quem está em várias (§5.2 do mesmo doc).
 
 ## 8. Auth, sessão, login
 
@@ -235,6 +236,10 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 
 - `@react-pdf`: `rgba` em `borderColor` vira laranja; `<Image>` só PNG/JPEG. Corpo sempre Inter.
 - Fonte registrada sob `tsx` cai em **outra instância** do módulo. `docs/` do report system.
+- 🔴 **Corrigir à mão um PDI (ou outro artefato auditado):** reaudite com o MESMO instrumento do núcleo antes
+  do envio automático, e anule o `pdf_path`. 20/10/2026: corrigir só o trecho do alerta expôs o erro vizinho, o
+  PDI foi de `warn` a `fail`, e `fail` RETÉM o aviso das 9h; a 2ª correção passou. Instrumento: o bloco AUDITORIA
+  de `lib/relatorios/individual-core.ts` (evidência = o `user` do gerador, estrutural + 2 rodadas `pdi_check`).
 
 ## 13. Vídeo
 
@@ -306,6 +311,10 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   `levantarPlanoDesafios(sb, id, 0)` e, faltando par na distância 0, `prepararDesafiosDaCoorte(sb, id, { limite: 40,
   semanasAdiante: 0 })`; o pré-voo do dia (`rodarPreflight`, só leitura) também à mão, porque o automático roda na
   véspera às 07h e não vê quem foi inscrito depois. Medido 19/10/2026: Ibipeba com 0 de 31 pares às 07h20.
+- 🔴 Vou **pôr alguém numa coorte que JÁ começou** (conta interna, atrasado): o Fluxo exclui `@vertho.ai` salvo
+  `excecaoInternos` (só por script, `scripts/_fluxo-teste-conta.ts`); PDI reprovado de rodada antiga não é refeito
+  sem pausa; sem turma a trilha nasce na PRÓXIMA segunda (alinhe `data_inicio` ANTES de inscrever); inscreva com
+  `colabIds`; e o pré-voo não vê a recuperação nem o avanço da quinta (F-I44). Medido 20-21/10/2026 (4Life).
 
 ## 16. Gate ou pré-requisito novo
 

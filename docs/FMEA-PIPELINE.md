@@ -833,6 +833,15 @@ Vizinho do F-I43 (o mesmo aviso, do lado da idempotência) e da etapa 2 da jorna
   crítico).
 - **Conferência manual até lá:** "ok" do pré-voo prova só que houve ao menos uma entrega e nenhum achado. Conte
   `coletarEntregasPrevistas(...).entregas.length` contra o número de trilhas que começam.
+- **O mesmo silêncio no dia da RECUPERAÇÃO (medido 21/10/2026).** O pré-voo só conhece o dia AGENDADO da pílula
+  (`lib/pipeline-health/coleta.ts:106-107`: `pilulaDoDia` nulo devolve zero entregas), mas a cadência, num dia livre,
+  refaz o papel que caiu 1 ou 2 dias antes para quem não tem carimbo desde ele (`lib/fase4/janelas.ts:83`, R-94). Uma
+  professora inscrita na 4Life na terça à noite, com a semana 1 aberta desde segunda: o pré-voo de quarta respondia
+  "nenhuma entrega", e às 8h saíram as DUAS pílulas da semana para ela (WhatsApp e e-mail). Saiu certo, mas sem
+  medição: um kit faltando numa recuperação passaria sem achado. E a semana que ele mede é o `semana_atual` gravado
+  (`coleta.ts:131`), que a evidência de quinta avança (`lib/fase4/trigger-diario-empresa.ts:1428`): o pré-voo de
+  quarta para a segunda seguinte mostra a semana 1, e sai a 2. Para incluir alguém numa coorte já iniciada, a
+  conferência é a da recuperação, não a do pré-voo: depois das 8h, leia `ultima_pilula1_em`/`ultima_pilula2_em` dela.
 
 ### F-I45 · Estreia com a pausa terminando no próprio dia: os desafios integrados da semana 1 não são preparados 🟡 (aberto, medido 19/10/2026)
 - **Gatilho:** o cron `preparar_desafios` (05:15 UTC) pula a empresa pausada (`app/api/cron/route.ts:284`, regra em
