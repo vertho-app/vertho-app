@@ -17,7 +17,7 @@ import type { SalesAdminComment, SalesProposal } from '@/lib/sales/types';
 
 /**
  * Taxa com que a estimativa foi GRAVADA (estimativa ÷ valor final). Depende do
- * modelo de remuneração do RC (9% + 12% sem ajuda de custo; 0 + 10% com ajuda),
+ * modelo de remuneração do RC (8% + 10% sem ajuda de custo; 0 + 10% com ajuda),
  * então não pode vir de uma constante única.
  */
 function taxaGravada(estimativa: number | null | undefined, total: number | null | undefined): number | null {

@@ -3,7 +3,7 @@
 // Portal do Representante — resumo financeiro da proposta, recalculado AO VIVO
 // com calculateProposalFinancials (a fonte de verdade continua no server).
 // As taxas de comissão são as do MODELO de remuneração do RC logado (mig 295):
-// sem ajuda de custo, aquisição 9% + recorrente 12%; com ajuda, só 10% ao mês.
+// sem ajuda de custo, aquisição 8% + recorrente 10%; com ajuda, só 10% ao mês.
 import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { calculateProposalFinancials, type ProposalFinancialInput } from '@/lib/sales/commissions';

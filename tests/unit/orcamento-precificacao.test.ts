@@ -68,7 +68,7 @@ describe('premissas comerciais do orçamento', () => {
 
   it('oferece as quatro políticas de comissão aprovadas', () => {
     expect(OPCOES_COMISSAO_ORCAMENTO.map(({ key, percentual }) => ({ key, percentual }))).toEqual([
-      { key: 'rc', percentual: 20 },
+      { key: 'rc', percentual: 18 },
       { key: 'indicacao', percentual: 10 },
       { key: 'indicador', percentual: 12 },
       { key: 'venda_direta', percentual: 0 },

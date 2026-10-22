@@ -64,7 +64,7 @@ export async function getCommissionSummary() {
   );
 
   // (a) Estimativas das propostas vivas, nas taxas do modelo do RC (sem ajuda:
-  // aquisição 9% + recorrente 12%; com ajuda: só o recorrente de 10%).
+  // aquisição 8% + recorrente 10%; com ajuda: só o recorrente de 10%).
   const rates = commissionRatesFor(ctx.rep.compensation_model);
   for (const p of (proposals || []) as (SalesProposal & { account: AccountJoin })[]) {
     const cliente = clienteDe(p.account);

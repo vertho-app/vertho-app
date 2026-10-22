@@ -346,7 +346,7 @@ export async function markProposalAccepted(proposalId: string) {
   }
 
   // Eventos de comissão (forecast): aquisição única + recorrente mês a mês, nas
-  // taxas do modelo do RC (sem ajuda: 9% + 12%; com ajuda: só 10% ao mês). A
+  // taxas do modelo do RC (sem ajuda: 8% + 10%; com ajuda: só 10% ao mês). A
   // granularidade mensal permite ao financeiro reconhecer/pagar cada
   // competência e o RC emitir NF por parcela (MVP 2).
   const rates = commissionRatesFor(ctx.rep.compensation_model);

@@ -1,7 +1,7 @@
 /**
  * Modelo de remuneração por RC (mig 295, decisão do dono em 08/10 e 19/10/2026).
  *
- * Sem ajuda de custo: aquisição 9% + recorrente 12%, renovação 6%, expansão 9% + 12%.
+ * Sem ajuda de custo (21/10/2026): aquisição 8% + recorrente 10%, renovação 5%, expansão 8% + 10%.
  * Com ajuda de custo: recorrente 10% ao mês, SEM aquisição, renovação 5%, expansão
  * 10% ao mês do incremental. Até 19/10 o portal usava 9% + 12% para todo RC, e o
  * RC com ajuda de custo veria (e o ledger lançaria) uma aquisição que ele não tem.
@@ -43,7 +43,7 @@ describe('taxas por modelo', () => {
   });
 
   it('sem ajuda de custo é o padrão, inclusive para valor ausente ou desconhecido', () => {
-    expect(commissionRatesFor('sem_ajuda')).toEqual({ acquisition: 0.09, recurring: 0.12, renewal: 0.06, expansion: 0.09 });
+    expect(commissionRatesFor('sem_ajuda')).toEqual({ acquisition: 0.08, recurring: 0.10, renewal: 0.05, expansion: 0.08 });
     expect(commissionRatesFor(null)).toBe(COMMISSION_RATES);
     expect(commissionRatesFor('outro')).toBe(COMMISSION_RATES);
   });
@@ -59,10 +59,10 @@ describe('taxas por modelo', () => {
 describe('estimativa da proposta', () => {
   const input = { monthly_value: 2000, contract_duration_months: 24, discount_requested: 0 };
 
-  it('sem ajuda: 9% + 12% do valor final (48.000)', () => {
+  it('sem ajuda: 8% + 10% do valor final (48.000)', () => {
     const fin = calculateProposalFinancials(input, commissionRatesFor('sem_ajuda'));
     expect([fin.estimated_acquisition_commission, fin.estimated_recurring_commission, fin.estimated_total_commission])
-      .toEqual([4320, 5760, 10080]);
+      .toEqual([3840, 4800, 8640]);
   });
 
   it('com ajuda: aquisição zero e 10% do valor final', () => {
@@ -111,11 +111,11 @@ describe('aceite da proposta grava os eventos no modelo do RC', () => {
     expect((r as { error?: string }).error).toMatch(/previsão de comissão não foi gravada/);
   });
 
-  it('sem ajuda de custo: aquisição de 9% e mensais de 12%', async () => {
+  it('sem ajuda de custo: aquisição de 8% e mensais de 10%', async () => {
     modelo = 'sem_ajuda';
     expect((await markProposalAccepted('prop-1')).success).toBe(true);
     const ev = eventos();
-    expect(ev.filter((e) => e.type === 'aquisicao').map((e) => e.amount)).toEqual([2160]);
-    expect(ev.filter((e) => e.type === 'recorrente').every((e) => e.percent === 12 && e.amount === 240)).toBe(true);
+    expect(ev.filter((e) => e.type === 'aquisicao').map((e) => e.amount)).toEqual([1920]);
+    expect(ev.filter((e) => e.type === 'recorrente').every((e) => e.percent === 10 && e.amount === 200)).toBe(true);
   });
 });

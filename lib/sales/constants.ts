@@ -154,12 +154,14 @@ export const CONTRACT_DURATIONS: readonly number[] = Array.from(
 );
 
 // ── Comissão (política vigente do canal) ────────────────────────────────────
-// Dois modelos de remuneração por RC (decisão do dono, 08/10 e 19/10/2026),
-// gravados em `sales_representatives.compensation_model` (mig 295):
-//   • sem_ajuda: aquisição 9% (inteira no 1º pagamento) + recorrente 12% na
-//     vigência inicial; renovação 6%; expansão 9% + 12% do incremental.
-//   • com_ajuda: recorrente 10% ao mês + ajuda de custo (valor por região, fora
-//     do portal); SEM aquisição; renovação 5%; expansão 10% ao mês do
+// Dois modelos de remuneração por RC, gravados em
+// `sales_representatives.compensation_model` (mig 295). Taxas da decisão do
+// dono de 21/10/2026 ("fixo + 10% mensal ou 8% do contrato total + 10% mensal"):
+//   • sem_ajuda: aquisição 8% do contrato total (inteira no 1º pagamento) +
+//     recorrente 10% ao mês na vigência inicial; renovação 5%; expansão
+//     8% + 10% do incremental. (Até 20/10 eram 9% + 12%, renovação 6%.)
+//   • com_ajuda: recorrente 10% ao mês + ajuda de custo fixa (valor por região,
+//     fora do portal); SEM aquisição; renovação 5%; expansão 10% ao mês do
 //     incremental, sem aquisição.
 export const COMPENSATION_MODELS = ['sem_ajuda', 'com_ajuda'] as const;
 export type CompensationModel = typeof COMPENSATION_MODELS[number];
@@ -176,7 +178,7 @@ export type CommissionRates = {
 };
 
 export const COMMISSION_RATES_BY_MODEL: Record<CompensationModel, CommissionRates> = {
-  sem_ajuda: { acquisition: 0.09, recurring: 0.12, renewal: 0.06, expansion: 0.09 },
+  sem_ajuda: { acquisition: 0.08, recurring: 0.10, renewal: 0.05, expansion: 0.08 },
   com_ajuda: { acquisition: 0, recurring: 0.10, renewal: 0.05, expansion: 0 },
 };
 

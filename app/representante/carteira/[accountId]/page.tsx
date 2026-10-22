@@ -24,6 +24,7 @@ import {
   ACTIVITY_KIND_LABELS,
   CHURN_RISK_COLORS,
   CHURN_RISK_LABELS,
+  COMMISSION_RATES,
   PRODUCT_PACKAGE_LABELS,
   type PipelineStage,
 } from '@/lib/sales/constants';
@@ -52,8 +53,10 @@ const INPUT_CLS = 'w-full rounded-lg px-3 py-2 text-sm text-white outline-none b
 const DATE_CLS = 'rounded-lg px-3 py-2 text-xs text-white outline-none bg-white/5 border border-white/10 focus:border-cyan-400/60 [color-scheme:dark]';
 
 const PHASE_CFG: Record<ContractInfo['commission_phase'], { label: string; color: string }> = {
-  recorrente_12: { label: '12% recorrente', color: '#34c5cc' },
-  renovacao_6: { label: '6% renovação', color: '#8B5CF6' },
+  // Rótulo das taxas, não do nome da chave (a chave é histórica): os dois
+  // modelos de remuneração têm hoje 10% recorrente e 5% de renovação (21/10/2026).
+  recorrente_12: { label: `${Math.round(COMMISSION_RATES.recurring * 100)}% recorrente`, color: '#34c5cc' },
+  renovacao_6: { label: `${Math.round(COMMISSION_RATES.renewal * 100)}% renovação`, color: '#8B5CF6' },
 };
 
 function Pill({ label, color }: { label: string; color: string }) {

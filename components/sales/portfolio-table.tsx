@@ -3,7 +3,7 @@
 // Tabela da carteira ativa do RC (contas com contrato vigente).
 import { useRouter } from 'next/navigation';
 import { TrendingUp } from 'lucide-react';
-import { PRODUCT_PACKAGE_LABELS } from '@/lib/sales/constants';
+import { COMMISSION_RATES, PRODUCT_PACKAGE_LABELS } from '@/lib/sales/constants';
 import { fmtBRL, fmtDate } from '@/lib/sales/formatters';
 import type { SalesAccount } from '@/lib/sales/types';
 
@@ -31,8 +31,10 @@ export function daysToRenewal(renewalDate: string | null | undefined, today = ne
 }
 
 const PHASE_CFG: Record<PortfolioEntry['commission_phase'], { label: string; color: string }> = {
-  recorrente_12: { label: '12% recorrente', color: '#34c5cc' },
-  renovacao_6: { label: '6% renovação', color: '#8B5CF6' },
+  // Rótulo das taxas, não do nome da chave (a chave é histórica): os dois
+  // modelos de remuneração têm hoje 10% recorrente e 5% de renovação (21/10/2026).
+  recorrente_12: { label: `${Math.round(COMMISSION_RATES.recurring * 100)}% recorrente`, color: '#34c5cc' },
+  renovacao_6: { label: `${Math.round(COMMISSION_RATES.renewal * 100)}% renovação`, color: '#8B5CF6' },
 };
 
 const RISK_CFG: Record<string, { label: string; color: string }> = {

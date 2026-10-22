@@ -45,7 +45,7 @@ Representante, e as diferenças são decisões, não omissões:
 | Oportunidade | Exigida e aberta | Nenhuma (o deal desk orça antes do CRM) |
 | Nome do cliente | Vem de `sales_accounts` | `cliente_nome`, texto livre do orçamento |
 | Vigência | 6 a 24 meses (`CONTRACT_DURATIONS`, desde 08/10/2026) | **As parcelas do projeto** (`ciclos × 2 + 1`) |
-| Comissão | 9% aquisição + 12% recorrente no aceite | **Nenhuma** — sem RC não há quem receba |
+| Comissão | Pelo modelo do RC (sem ajuda: 8% aquisição + 10% recorrente; com ajuda: 10% recorrente), no aceite | **Nenhuma** — sem RC não há quem receba |
 | Quatro olhos | RC submete, admin aprova | Quem cria aprova; `created_by_email` + `approved_by` registram |
 | Autor | O RC | O platform admin |
 
@@ -211,11 +211,14 @@ As opções são mutuamente exclusivas e incidem sobre a receita final:
 
 | Canal | Percentual |
 |---|---:|
-| RC | 20% |
-| Consultor parceiro | 10% |
-| Consultor integrador | 0% |
+| RC | 18% (era 20% até 21/10/2026) |
+| Indicação | 10% |
+| Indicador | 12% |
+| Venda direta | 0% |
 
-O padrão conservador é RC, 20%. Trocar o canal recalcula custo all-in, margem,
+RC = 8% do contrato + 10% ao mês, o modelo sem ajuda de custo (decisão do dono,
+21/10/2026). O cenário salvo guarda só a chave do canal, então reabrir um
+orçamento com RC recalcula com o percentual vigente. O padrão conservador é RC, 18%. Trocar o canal recalcula custo all-in, margem,
 desconto máximo e custo por pessoa.
 
 > Esta escolha pertence ao **cenário do deal desk**. Ela não altera o ledger
@@ -439,7 +442,7 @@ O card mostra, por simulador, o custo por treino, o custo por pessoa/ciclo, o
 **preço mínimo** para o markup-alvo (`precoMinimoSimuladorBrl`: (1 + markup) ×
 custo × (1 + contingência) ÷ (1 − (1 + markup) × (impostos + comissão)), antes de
 desconto) e o markup no preço informado (`markupSimuladorPct`, a inversa). Com
-impostos de 20%, RC de 20% e markup de 50%, o mínimo é 4,1× o custo de IA; na
+impostos de 20%, RC de 18% e markup de 50%, o mínimo é 3,8× o custo de IA (era 4,1× com o RC a 20%); na
 Indicação (10%), 3×. Na régua antiga (margem sobre o preço, até 09/10/2026) eram
 11× e 5,5×: R$ 3,38 de custo pedia R$ 18,59, e hoje pede R$ 10,14. A folha
 de decisão ganhou a linha "Simuladores" na composição do valor, que antes somava

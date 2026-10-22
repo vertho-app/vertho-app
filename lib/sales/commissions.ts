@@ -2,7 +2,7 @@
 //
 // Política vigente: as taxas dependem do MODELO de remuneração do RC
 // (`commissionRatesFor(rep.compensation_model)`, em constants.ts). Sem ajuda de
-// custo: aquisição 9%, recorrente 12%, renovação 6%, expansão 9% + 12%. Com
+// custo: aquisição 8%, recorrente 10%, renovação 5%, expansão 8% + 10%. Com
 // ajuda de custo: recorrente 10%, renovação 5%, expansão 10% ao mês, sem
 // aquisição. Toda função abaixo recebe as taxas; o padrão é o modelo sem ajuda.
 //

@@ -336,7 +336,7 @@ Dá ao RC um funil próprio de ponta a ponta: registra e qualifica oportunidades
 | **Funil de oportunidades** | Registro e qualificação com score 0-100, proteção de 90 dias, pipeline por estágio e KPIs (qualificado = em aberto, score ≥ 70 e já fora do estágio de lead). |
 | **Proposta comercial** | Documento público (`/proposta/[token]`) e PDF em tema claro da marca: capa sem preço, escopo antes do investimento, números do programa, seção de simuladores incluídos, **investimento total em destaque** com parcela e valor por participante, e aceite pelo próprio link nas propostas do deal desk da Vertho, sem RC; nas de RC o link não aceita e o cliente fala com o contato na Vertho. |
 | **Versionamento** | De uma proposta enviada ou aprovada, o RC gera uma **nova versão** ajustada (`-Rn`) que reentra no fluxo de aprovação; a original vira "Substituída". |
-| **Aprovação Vertho** | Nada vai ao cliente sem curadoria interna (`/admin/comercial`); comissão por tipo (aquisição 9% · recorrente 12% · renovação 6%). |
+| **Aprovação Vertho** | Nada vai ao cliente sem curadoria interna (`/admin/comercial`); comissão por tipo e por modelo do RC (sem ajuda de custo: aquisição 8% · recorrente 10% · renovação 5%; com ajuda de custo: recorrente 10% · renovação 5%, sem aquisição). |
 | **Ambiente de demo** | `/representante/demo` e o tenant `acme-demo` com personas prontas para a demonstração. |
 
 Docs: `docs/PORTAL-REPRESENTANTE.md` (canal e proposta) · `docs/ORCAMENTO.md` (preço) · `docs/AMBIENTE-DEMO.md` (demo).

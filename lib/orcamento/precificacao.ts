@@ -299,7 +299,10 @@ export const CONTEUDO_PADRAO: Readonly<ConteudoPorFormato> = { video: 12, podcas
 
 /** Canais mutuamente exclusivos usados para calcular o custo comercial. */
 export const OPCOES_COMISSAO_ORCAMENTO = [
-  { key: 'rc', label: 'RC', percentual: 20 },
+  // RC = 8% do contrato + 10% ao mês (modelo sem ajuda de custo, decisão do
+  // dono de 21/10/2026; era 20%). Cenário salvo guarda só a CHAVE do canal,
+  // então reabrir um orçamento com RC recalcula com o percentual atual.
+  { key: 'rc', label: 'RC', percentual: 18 },
   { key: 'indicacao', label: 'Indicação', percentual: 10 },
   { key: 'indicador', label: 'Indicador', percentual: 12 },
   { key: 'venda_direta', label: 'Venda Direta', percentual: 0 },
