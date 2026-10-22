@@ -1126,8 +1126,13 @@ export const TTS_RETAKE_TAXA_CRITICA = 0.7;
  *
  * O critério é a feature ser de instrumentação, não o quanto ela reprova: um
  * experimento que reprova 0 % também não é evidência de saúde da produção.
+ *
+ * `experimento` vale em QUALQUER posição do nome: até 22/10/2026 o filtro só pegava o
+ * sufixo (`_experimento$`), e `tts_experimento_registro` — os 78 takes de 18-19/10 que
+ * MEDIRAM o registro da Aoede por tipo de cena — acendeu a R18 como crítico ("40/78
+ * reprovadas, 51 %"), enquanto a pior feature real da semana estava em 31 %.
  */
-export const TTS_FEATURES_INSTRUMENTACAO = [/^tts_calibracao/, /_experimento$/] as const;
+export const TTS_FEATURES_INSTRUMENTACAO = [/^tts_calibracao/, /experimento/] as const;
 
 /** `false` para calibração e experimento — o que a R18 não deve somar como produção. */
 export function ehFeatureDeProducao(feature: string | null | undefined): boolean {

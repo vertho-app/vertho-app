@@ -64,6 +64,15 @@ describe('R18 · o que NÃO é produção não entra na conta', () => {
     expect(ehFeatureDeProducao('tts_podcast')).toBe(true);
   });
 
+  // 22/10/2026: os takes de 18-19/10 que mediram o registro da Aoede por tipo de cena
+  // gravaram `tts_experimento_registro` — `experimento` no MEIO do nome — e o filtro, que
+  // só pegava o sufixo, os somou como produção: R18 crítica com "40/78 reprovadas, 51 %".
+  it('experimento em qualquer posição do nome também fica FORA', () => {
+    expect(ehFeatureDeProducao('tts_experimento_registro')).toBe(false);
+    expect(ehFeatureDeProducao('tts_experimento')).toBe(false);
+    expect(ehFeatureDeProducao('tts_video_cena')).toBe(true);
+  });
+
   // A âncora mede o FILTRO, não a régua: sem exclusão, este agregado alarma.
   it('o filtro é o que separa — os MESMOS números alarmam como produção', () => {
     const numeros = { sinteses: 18, tentativas: 18, reprovadas: 12 };
