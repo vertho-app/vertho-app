@@ -114,3 +114,57 @@ export function FiltroClinica({ opcoes, value, onChange, total, visiveis }: {
     </div>
   );
 }
+
+/**
+ * Relatório das clínicas sob demanda: prévia do e-mail (numa moldura isolada, sem script) e o envio
+ * agora para o RH. O cron manda toda segunda às 07h; na semana de entrada a lista não pode esperar.
+ */
+export function RelatorioClinicasPainel({ onPreview, onEnviar }: {
+  onPreview: () => Promise<{ html: string; clinicas: number; pessoas: number; pendentes: number; destinatarios: string[] } | null>;
+  onEnviar: () => Promise<boolean>;
+}) {
+  const t = useTranslations('AdminCollaborators');
+  const [previa, setPrevia] = useState<{ html: string; clinicas: number; pessoas: number; pendentes: number; destinatarios: string[] } | null>(null);
+  const [carregando, setCarregando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+
+  async function abrir() {
+    setCarregando(true);
+    setPrevia(await onPreview());
+    setCarregando(false);
+  }
+
+  async function enviar() {
+    setEnviando(true);
+    const ok = await onEnviar();
+    setEnviando(false);
+    if (ok) setPrevia(null);
+  }
+
+  if (!previa) {
+    return (
+      <button type="button" onClick={abrir} disabled={carregando}
+        className="mb-3 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-white/10 text-gray-300 hover:border-cyan-400/30 hover:text-cyan-400 transition-all disabled:opacity-40">
+        {carregando && <Loader2 size={12} className="animate-spin" />}
+        {t('actions.clinicReport')}
+      </button>
+    );
+  }
+  return (
+    <div className="mb-3 rounded-xl border border-white/[0.06] p-3" style={{ background: '#0F2A4A' }}>
+      <div className="flex items-center gap-3 flex-wrap mb-2">
+        <span className="text-xs text-gray-300">
+          {t('fields.clinicReportSummary', { clinics: previa.clinicas, people: previa.pessoas, pending: previa.pendentes, recipients: previa.destinatarios.length })}
+        </span>
+        <button type="button" onClick={enviar} disabled={enviando || previa.destinatarios.length === 0}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-green-400/30 text-green-400 hover:bg-green-400/10 disabled:opacity-40">
+          {enviando && <Loader2 size={12} className="animate-spin" />}
+          {t('actions.clinicReportSend')}
+        </button>
+        <button type="button" onClick={() => setPrevia(null)} className="text-xs text-gray-500 hover:text-white">{t('actions.cancel')}</button>
+      </div>
+      <iframe title={t('actions.clinicReport')} sandbox="" srcDoc={previa.html}
+        className="w-full rounded-lg bg-white" style={{ height: 420, border: 0 }} />
+    </div>
+  );
+}

@@ -15,7 +15,7 @@ import { proxyEmailFromPhone, isProxyEmail } from '@/lib/phone-otp';
 import { getLocale } from 'next-intl/server';
 import { TURMA_MEMBRO } from '@/lib/status';
 import { lerTudoPaginado } from '@/lib/paginacao';
-import { pacoteClinicasLigado, erroDoCadastroPacote, papelExigeCadastroDoPacote, MOTIVO_IMPORTACAO_FECHADA, type ReferenciaCadastroPacote } from '@/lib/pacote-clinicas';
+import { pacoteClinicasLigado, erroDoCadastroPacote, papelExigeCadastroDoPacote, MOTIVO_IMPORTACAO_FECHADA, MOTIVO_CARGO_TRAVADO, type ReferenciaCadastroPacote } from '@/lib/pacote-clinicas';
 import { MODELOS_CLINICA } from '@/lib/recepcao/modelos-clinica';
 
 const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
@@ -332,6 +332,46 @@ export async function criarClinica(input: z.infer<typeof CriarClinicaSchema>) {
   return _criarClinica(input);
 }
 
+const RelatorioClinicasSchema = z.object({ empresaId: z.string().uuid() });
+
+/**
+ * Relatório das clínicas sob demanda (o cron é toda segunda às 07h): na semana de entrada a onlabel
+ * precisa da lista de pendentes antes da segunda. A prévia monta o e-mail sem enviar; o envio usa a
+ * mesma deduplicação do cron (um por dia por destinatário).
+ */
+const _previewRelatorioClinicas = protectedAction('assessments.dispatch', RelatorioClinicasSchema, async (ctx, { empresaId }) => {
+  await assertTenantAccessAction(ctx, empresaId);
+  const { executarRelatorioClinicas } = await import('@/lib/relatorio-clinicas/enviar');
+  const r = await executarRelatorioClinicas(await requireAdminSupabase(), { empresaId, enviar: false });
+  const e = r.empresas[0];
+  if (!e) throw new Error('o pacote de clínicas não está ligado nesta empresa');
+  if (e.erro) throw new Error(e.erro);
+  return { assunto: e.assunto, html: e.html, clinicas: e.clinicas, pessoas: e.pessoas, pendentes: e.pendentes, destinatarios: e.destinatarios };
+});
+
+export async function previewRelatorioClinicas(input: z.infer<typeof RelatorioClinicasSchema>) {
+  return _previewRelatorioClinicas(input);
+}
+
+const _enviarRelatorioClinicasAgora = protectedAction('assessments.dispatch', RelatorioClinicasSchema, async (ctx, { empresaId }) => {
+  await assertTenantAccessAction(ctx, empresaId);
+  const { executarRelatorioClinicas } = await import('@/lib/relatorio-clinicas/enviar');
+  const r = await executarRelatorioClinicas(await requireAdminSupabase(), { empresaId, enviar: true });
+  const e = r.empresas[0];
+  if (!e) throw new Error('o pacote de clínicas não está ligado nesta empresa');
+  await logAdminAction({
+    adminEmail: ctx.email, acao: 'relatorio_clinicas.enviar', empresaId, empresaSlug: undefined,
+    alvo: `${e.enviados.length} destinatário(s)`,
+    detalhes: { enviados: e.enviados, jaRecebidosHoje: e.jaRecebidosHoje, falhas: e.falhas, erro: e.erro ?? null, clinicas: e.clinicas, pessoas: e.pessoas },
+  });
+  if (e.erro) throw new Error(e.erro);
+  return { enviados: e.enviados, jaRecebidosHoje: e.jaRecebidosHoje, falhas: e.falhas };
+});
+
+export async function enviarRelatorioClinicasAgora(input: z.infer<typeof RelatorioClinicasSchema>) {
+  return _enviarRelatorioClinicasAgora(input);
+}
+
 /** Export XLSX da base de colaboradores da empresa (base64). Client decodifica → Blob → download. */
 const _exportarColaboradoresXLSX = protectedLoader<[any], { ok: true; base64: string; n: number } | { ok: false; error: string }>(
   { ok: false, error: 'Sessão expirada ou sem permissão' },
@@ -556,14 +596,11 @@ const _atualizarColaborador = protectedAction('users.manage', AtualizarColaborad
   const sbPacote = await requireAdminSupabase();
   const pacote = await referenciaDoPacote(sbPacote, empresaId);
   if (pacote.ligado) {
-    let role = update.role;
-    if (role === undefined) {
-      const { data: atual, error: eR } = await sbPacote.from('colaboradores').select('role')
-        .eq('empresa_id', empresaId).eq('id', id).maybeSingle();
-      if (eR) throw new Error(`não foi possível ler o papel da pessoa: ${eR.message}`);
-      if (!atual) throw new Error('colaborador não encontrado nesta empresa');
-      role = atual.role;
-    }
+    const { data: atual, error: eR } = await sbPacote.from('colaboradores').select('role, cargo')
+      .eq('empresa_id', empresaId).eq('id', id).maybeSingle();
+    if (eR) throw new Error(`não foi possível ler a pessoa: ${eR.message}`);
+    if (!atual) throw new Error('colaborador não encontrado nesta empresa');
+    const role = update.role !== undefined ? update.role : atual.role;
     if (papelExigeCadastroDoPacote(role)) {
       const erro = erroDoCadastroPacote(
         { cargo: campos.cargo, escolaId: campos.escola_id, recepcaoModelo: campos.recepcao_modelo },
@@ -571,6 +608,15 @@ const _atualizarColaborador = protectedAction('users.manage', AtualizarColaborad
         { parcial: true },
       );
       if (erro) throw new Error(erro);
+      // Regra D9 revista (23/10/2026): o cargo só muda ANTES do diagnóstico. Depois da 1ª resposta, o
+      // diagnóstico, o PDI e a trilha já foram montados para o cargo, e ele fica até o fim do programa.
+      const cargoNovo = campos.cargo !== undefined ? (campos.cargo || '').trim() : null;
+      if (cargoNovo !== null && cargoNovo !== String(atual.cargo || '').trim()) {
+        const { count, error: eResp } = await sbPacote.from('respostas').select('id', { count: 'exact', head: true })
+          .eq('empresa_id', empresaId).eq('colaborador_id', id);
+        if (eResp) throw new Error(`não foi possível conferir o diagnóstico da pessoa: ${eResp.message}`);
+        if ((count || 0) > 0) throw new Error(MOTIVO_CARGO_TRAVADO);
+      }
       if (campos.escola_id !== undefined) {
         update.escola_id = campos.escola_id;
         update.area_depto = pacote.nomeDaClinica.get(campos.escola_id as string) || null;

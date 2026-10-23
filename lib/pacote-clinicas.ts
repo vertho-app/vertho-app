@@ -46,6 +46,14 @@ export const MOTIVO_IMPORTACAO_FECHADA =
 export const MOTIVO_UNIDADES_FECHADAS =
   'Nesta empresa (pacote de clínicas) a clínica de cada secretária é definida no cadastro (Gerenciar colaboradores), não por esta tela.';
 
+/**
+ * Regra D9 revista em 23/10/2026: depois da 1ª resposta do diagnóstico, o cargo da secretária fica até o
+ * fim do programa (o diagnóstico, o PDI e a trilha foram montados para ele). O modelo do simulador
+ * continua mudando a qualquer momento.
+ */
+export const MOTIVO_CARGO_TRAVADO =
+  'O cargo só pode ser trocado antes do diagnóstico. Esta secretária já respondeu, então o cargo fica até o fim do programa.';
+
 /** Os campos do cadastro que o pacote exige da secretária. */
 export interface CadastroPacote {
   cargo?: string | null;

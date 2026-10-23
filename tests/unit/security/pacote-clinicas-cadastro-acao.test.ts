@@ -12,15 +12,17 @@ const EMPRESA = '22222222-2222-4222-8222-222222222222';
 
 let sysConfig: Record<string, unknown> | null = { pacote_clinicas: true };
 let papelAtual = 'colaborador';
+let respostasDaPessoa = 0;
 
 const sb = criarSupabaseMock({
   resolver: (tabela: string) => {
     if (tabela === 'empresas') return { sys_config: sysConfig };
-    if (tabela === 'colaboradores') return { id: 'p1', role: papelAtual };
+    if (tabela === 'colaboradores') return { id: 'p1', role: papelAtual, cargo: 'Secretária de convênios' };
     return null;
   },
+  contagem: (tabela: string) => (tabela === 'respostas' ? respostasDaPessoa : null),
   lista: (tabela: string) => {
-    if (tabela === 'cargos_empresa') return [{ nome: 'Secretária de convênios' }];
+    if (tabela === 'cargos_empresa') return [{ nome: 'Secretária de convênios' }, { nome: 'Secretária de procedimentos' }];
     if (tabela === 'escolas') return [{ id: 'clinica-1', nome: 'Clínica Sol' }];
     return [];
   },
@@ -59,6 +61,37 @@ beforeEach(() => {
   sb.reset();
   sysConfig = { pacote_clinicas: true };
   papelAtual = 'colaborador';
+  respostasDaPessoa = 0;
+});
+
+describe('regra D9 revista: o cargo só muda antes do diagnóstico', () => {
+  const ID = '33333333-3333-4333-8333-333333333333';
+
+  it('antes da 1ª resposta, trocar o cargo é aceito', async () => {
+    const r = await atualizarColaborador({ empresaId: EMPRESA, id: ID, campos: { cargo: 'Secretária de procedimentos' } });
+    expect(r.success).toBe(true);
+    expect(atualizacoes()[0].cargo).toBe('Secretária de procedimentos');
+  });
+
+  it('depois da 1ª resposta, trocar o cargo é recusado, sem gravar nada', async () => {
+    respostasDaPessoa = 1;
+    const r = await atualizarColaborador({ empresaId: EMPRESA, id: ID, campos: { cargo: 'Secretária de procedimentos' } });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/só pode ser trocado antes do diagnóstico/);
+    expect(atualizacoes()).toHaveLength(0);
+  });
+
+  it('o formulário reenviando o MESMO cargo não trava (a edição manda todos os campos)', async () => {
+    respostasDaPessoa = 1;
+    const r = await atualizarColaborador({ empresaId: EMPRESA, id: ID, campos: { cargo: 'Secretária de convênios', nome_completo: 'Ana S.' } });
+    expect(r.success).toBe(true);
+  });
+
+  it('o modelo do simulador continua mudando depois do diagnóstico', async () => {
+    respostasDaPessoa = 3;
+    const r = await atualizarColaborador({ empresaId: EMPRESA, id: ID, campos: { recepcao_modelo: null } });
+    expect(r.success).toBe(true);
+  });
 });
 
 describe('criarColaborador no pacote de clínicas', () => {

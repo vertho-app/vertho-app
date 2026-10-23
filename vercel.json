@@ -61,6 +61,10 @@
       "schedule": "0 7 * * 1"
     },
     {
+      "path": "/api/cron?action=relatorio_clinicas",
+      "schedule": "0 10 * * 1"
+    },
+    {
       "path": "/api/cron?action=dre_fechamento_semanal",
       "schedule": "30 7 * * 1"
     },

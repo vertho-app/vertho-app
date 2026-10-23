@@ -14,9 +14,9 @@ import {
   criarColaborador, exportarColaboradoresXLSX,
   loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores, importarCargosLote,
   derivarGestorEmailPorNome,
-  loadOpcoesCadastro, criarClinica,
+  loadOpcoesCadastro, criarClinica, previewRelatorioClinicas, enviarRelatorioClinicasAgora,
 } from './actions';
-import { CampoClinica, CampoModelo, FiltroClinica, OPCOES_VAZIAS, SEM_CLINICA, nomeDaClinica, nomeDoModelo, type OpcoesCadastro } from './campos-pacote';
+import { CampoClinica, CampoModelo, FiltroClinica, RelatorioClinicasPainel, OPCOES_VAZIAS, SEM_CLINICA, nomeDaClinica, nomeDoModelo, type OpcoesCadastro } from './campos-pacote';
 import SeletorTurma, { SEM_TURMA } from '@/components/admin/seletor-turma';
 import { listarTurmasDaEmpresa } from '@/actions/escopo-turma';
 import { podeEntrarComoPessoa, entrarComoPessoa } from '@/actions/acesso-assistido';
@@ -134,6 +134,24 @@ export default function GerenciarPage() {
       loadOpcoesCadastro(tenantId).then((o) => setOpcoes(o || OPCOES_VAZIAS)).catch(() => setOpcoes(OPCOES_VAZIAS));
     } else { setResumo(null); setColabs([]); setCargos([]); setOpcoes(OPCOES_VAZIAS); }
   }, [tenantId]);
+
+  /** Prévia do relatório das clínicas (o mesmo e-mail que o cron manda às segundas). */
+  async function previaDoRelatorio() {
+    if (!tenantId) return null;
+    const r = await previewRelatorioClinicas({ empresaId: tenantId });
+    if (!r.success) { notify(t('messages.error', { error: r.error }), 'error'); return null; }
+    return r.data;
+  }
+
+  /** Envia agora; o servidor não repete para quem já recebeu hoje. */
+  async function enviarRelatorio(): Promise<boolean> {
+    if (!tenantId) return false;
+    const r = await enviarRelatorioClinicasAgora({ empresaId: tenantId });
+    if (!r.success) { notify(t('messages.error', { error: r.error }), 'error'); return false; }
+    const { enviados, jaRecebidosHoje, falhas } = r.data;
+    notify(t('messages.clinicReportSent', { sent: enviados.length, already: jaRecebidosHoje.length, failed: falhas.length }), falhas.length ? 'error' : 'success');
+    return true;
+  }
 
   /** Cadastra a clínica pelo campo do formulário e recarrega a lista de clínicas. Devolve o id ou null. */
   async function criarClinicaNoFormulario(nome: string): Promise<string | null> {
@@ -478,7 +496,10 @@ export default function GerenciarPage() {
             <p className="mb-3 text-xs text-red-400">{t('messages.optionsError', { error: opcoes.erro })}</p>
           )}
           {tab === 'lista' && opcoes.pacote && (
-            <FiltroClinica opcoes={opcoes} value={clinicaSel} onChange={setClinicaSel} total={colabsDaTurma.length} visiveis={colabsDaClinica.length} />
+            <>
+              <RelatorioClinicasPainel onPreview={previaDoRelatorio} onEnviar={enviarRelatorio} />
+              <FiltroClinica opcoes={opcoes} value={clinicaSel} onChange={setClinicaSel} total={colabsDaTurma.length} visiveis={colabsDaClinica.length} />
+            </>
           )}
           {tab === 'lista' && (
             <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>

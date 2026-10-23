@@ -406,6 +406,24 @@ async function executarAcao(req, authHeader, cronSecret) {
         delete (result as { relatorio?: unknown }).relatorio;
         break;
       }
+      // Pacote de clínicas (onlabel): toda segunda às 07h BRT o RH de cada empresa com a chave
+      // `pacote_clinicas` recebe a situação das secretárias por clínica. `empresa=<id>` restringe;
+      // `dry=1` só monta. Empresa com chave e sem e-mail entregue é falha (500), como o de custo.
+      case 'relatorio_clinicas': {
+        const { executarRelatorioClinicas } = await import('@/lib/relatorio-clinicas/enviar');
+        const dry = searchParams.get('dry') === '1';
+        const r = await executarRelatorioClinicas(clienteCron(), {
+          empresaId: searchParams.get('empresa') || undefined,
+          enviar: !dry,
+        });
+        const semEntrega = dry ? [] : r.empresas.filter((e) => !e.enviados.length && !e.jaRecebidosHoje.length);
+        if (semEntrega.length) {
+          throw new Error(`relatório das clínicas não chegou a ninguém: ${JSON.stringify(semEntrega.map((e) => ({ empresa: e.empresa, erro: e.erro, falhas: e.falhas })))}`);
+        }
+        // O HTML não vai para o log do cron: o e-mail é o destino.
+        result = { hoje: r.hoje, empresas: r.empresas.map(({ html: _h, blocos: _b, ...resto }) => resto) };
+        break;
+      }
       // DRE por tenant (mig 276): fecha o custo de IA da semana que acabou e
       // auto-cura as 12 anteriores sem fechamento. 04:30 BRT, depois do e-mail de
       // custo das 04:00, que lê a mesma RPC. Falha do BANCO ou da RPC vira
