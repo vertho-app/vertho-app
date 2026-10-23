@@ -29,7 +29,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // (login, bookmark ou link direto), leva ao portal comercial dele. Exceção:
   // quem é RC E platform admin (ex.: o dono testando) segue no dashboard/admin e
   // acessa /representante por URL quando quiser.
-  const rep = await getRepresentativeContext();
+  // Aqui é só ROTEAMENTO, não concede nada: falha de leitura do canal comercial
+  // vira "não é RC" e o dashboard abre. Sem isso, um soluço do banco nas tabelas
+  // de representante derrubava o /dashboard de todo colaborador (o resolvedor
+  // lança de propósito, para as actions do portal fecharem no erro).
+  const rep = await getRepresentativeContext().catch((e) => {
+    console.error('[dashboard] contexto de representante não lido:', e?.message);
+    return null;
+  });
   if (rep?.rep.status === 'active' && !(await isPlatformAdmin(rep.email))) {
     redirect('/representante');
   }
