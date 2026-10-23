@@ -28,7 +28,7 @@ import {
   type ProposalStatus,
 } from '@/lib/sales/constants';
 import { protectionDaysLeft } from '@/lib/sales/protection';
-import { fmtBRL, fmtBRLExact, fmtDate, fmtDateTime, fmtPercent } from '@/lib/sales/formatters';
+import { fmtBRL, fmtBRLExact, fmtDate, fmtDateTime, fmtDia, fmtPercent } from '@/lib/sales/formatters';
 import type { SalesActivityNote, SalesOpportunity } from '@/lib/sales/types';
 
 type RelatedProposal = {
@@ -513,7 +513,7 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
                 <>
                   <p className="text-sm text-white">Até {fmtDate(opp.protection_end_date)}</p>
                   <p className="text-[11px] text-gray-500 mt-0.5">
-                    Última movimentação: {fmtDate(opp.last_movement_at || opp.protection_start_date)}
+                    Última movimentação: {fmtDia(opp.last_movement_at || opp.protection_start_date)}
                   </p>
                 </>
               )}

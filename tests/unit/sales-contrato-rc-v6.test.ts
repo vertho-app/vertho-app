@@ -66,6 +66,8 @@ import { getAtividadeSemanal } from '@/actions/sales/atividade';
 import { gerarApresentacao, getApresentacaoPublica } from '@/actions/sales/apresentacoes';
 import { TOKEN_APRESENTACAO, buildApresentacao } from '@/lib/sales/apresentacao';
 import { conteudoInstitucional } from '@/lib/sales/proposal-document';
+import { getMinhaMeta, salvarMeta } from '@/actions/sales/metas';
+import { mesesCompletos, metaEditavel, progressoDaMeta, provisaoDeIndenizacao } from '@/lib/sales/metas';
 import { approveProposal, markProposalAccepted, markProposalSentToClient, registrarAceitePropostaDoRC, submitProposalForApproval } from '@/actions/sales/proposals';
 
 const escritasEm = (tabela: string, op: string) => sb.escritas.filter((e) => e.tabela === tabela && e.op === op);
@@ -838,5 +840,69 @@ describe('apresentação personalizada que o RC gera', () => {
     expect(sql).toMatch(/ENABLE ROW LEVEL SECURITY/);
     expect(sql).toMatch(/REVOKE ALL ON public\.sales_apresentacoes FROM anon, authenticated/);
     expect(sql).toMatch(/opportunity_id\s+uuid REFERENCES public\.sales_opportunities\(id\) ON DELETE CASCADE/);
+  });
+});
+
+// ── Metas (Anexo IV) e provisão da indenização (cláusula 19) ────────────────
+
+describe('metas: marcos trimestrais acumulados sobre o valor contratado', () => {
+  const meta = { periodo_inicio: '2026-11-03', meta_anual: 400000, marco_t1: 50000, marco_t2: 150000, marco_t3: 250000, ativacao_pipeline: 100000, primeiro_contrato_meses: 4 };
+  const aceita = (valor: number, em: string, carteira = false) => ({ total_contract_value: valor, accepted_recorded_at: em, carteira });
+
+  it('acumula desde o início, só dentro do período, e marca o que já encerrou', () => {
+    const p = progressoDaMeta(meta, [
+      aceita(30000, '2026-12-10T15:00:00Z'),
+      aceita(40000, '2027-02-02T23:30:00Z'), // 02/02 20h30 em Brasília: 1º trimestre (até 02/02)
+      aceita(90000, '2027-04-15T12:00:00Z', true),
+      aceita(999999, '2026-10-01T12:00:00Z'), // antes do período
+    ], new Date('2027-05-20T12:00:00Z'));
+    expect(p.fim).toBe('2027-11-02');
+    expect(p.trimestres.map((t) => [t.ate, t.realizado, t.atingido])).toEqual([
+      ['2027-02-02', 70000, true],
+      ['2027-05-02', 160000, true],
+      ['2027-08-02', 160000, null],
+      ['2027-11-02', 160000, null],
+    ]);
+    expect(p).toMatchObject({ realizadoNoAno: 160000, contratos: 3, contratosDaCarteira: 1 });
+    expect(p.ativacao.primeiroContrato).toMatchObject({ ate: '2027-03-02', fechadoEm: '2026-12-10', atingido: true });
+    expect(p.ativacao.pipeline).toMatchObject({ ate: '2027-01-31', aberto: false });
+  });
+
+  it('trimestre encerrado abaixo do marco fica marcado; a meta só muda antes do período (9.10)', () => {
+    const p = progressoDaMeta(meta, [aceita(10000, '2026-12-01T12:00:00Z')], new Date('2027-02-10T12:00:00Z'));
+    expect(p.trimestres[0].atingido).toBe(false);
+    expect(metaEditavel('2026-11-03', new Date('2026-11-02T12:00:00Z'))).toBe(true);
+    expect(metaEditavel('2026-11-03', new Date('2026-11-03T12:00:00Z'))).toBe(false);
+  });
+
+  it('provisão: 1/12 de comissões pagas e ajuda de custo dos meses completos', () => {
+    expect(mesesCompletos('2026-11-03', new Date('2027-02-02T12:00:00Z'))).toBe(2);
+    expect(mesesCompletos('2026-11-03', new Date('2027-02-03T12:00:00Z'))).toBe(3);
+    expect(provisaoDeIndenizacao(12000, 3000, 3)).toEqual({ comissoes: 12000, ajudaDeCusto: 9000, base: 21000, provisao: 1750 });
+  });
+
+  it('salvarMeta: marcos acumulados, período iniciado não muda, novo entra', async () => {
+    const montar = (existente: any) => { sb = criarSupabaseMock({ resolver: (tabela) => (tabela === 'sales_metas' ? existente : null) }); };
+    const base = { representanteId: '11111111-1111-4111-8111-111111111111', periodoInicio: '2026-11-03', metaAnual: '400000', marcoT1: '50000', marcoT2: '40000' };
+    montar(null);
+    expect((await salvarMeta(base)).success).toBe(false); // T2 < T1
+    montar({ id: 'm1' });
+    expect((await salvarMeta({ ...base, periodoInicio: '2020-01-01', marcoT2: '150000' })).success).toBe(false); // já começou
+    expect(escritasEm('sales_metas', 'update')).toHaveLength(0);
+    montar(null);
+    expect((await salvarMeta({ ...base, marcoT2: '150000' })).success).toBe(true);
+    expect(escritasEm('sales_metas', 'insert')[0]?.payload).toMatchObject({ meta_anual: 400000, marco_t1: 50000, marco_t2: 150000, marco_t3: null });
+  });
+
+  it('o portal do RC não recebe a ajuda de custo', async () => {
+    sb = criarSupabaseMock({
+      lista: (tabela) => (tabela === 'sales_commission_events' ? [{ amount: 1200 }, { amount: -200 }] : tabela === 'sales_metas' ? [meta] : []),
+    });
+    const r = await getMinhaMeta();
+    expect(r).toMatchObject({ success: true, provisaoSobreComissoes: 83.33 });
+    expect(JSON.stringify(r)).not.toMatch(/ajuda/i);
+    expect(sb.usou('sales_remuneracao_rc', 'select')).toBe(false);
+    const src = readFileSync('components/sales/minha-meta-card.tsx', 'utf8');
+    expect(src).not.toMatch(/sales_remuneracao_rc|ajuda_custo_mensal/);
   });
 });

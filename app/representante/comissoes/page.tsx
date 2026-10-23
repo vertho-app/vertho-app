@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Coins, Loader2, FileText, Check, X } from 'lucide-react';
 import { getMinhaComissaoLedger, marcarNotaFiscalEmitida } from '@/actions/sales/commissions';
 import SalesMetricCard from '@/components/sales/sales-metric-card';
+import MinhaMetaCard from '@/components/sales/minha-meta-card';
 import {
   COMMISSION_STATUS_COLORS,
   COMMISSION_STATUS_LABELS,
@@ -107,6 +108,9 @@ export default function ComissoesPage() {
           Acompanhe suas comissões previstas, a receber e pagas.
         </p>
       </div>
+
+      {/* Meta do período (Anexo IV) e provisão da indenização (cláusula 19) */}
+      <MinhaMetaCard />
 
       {/* Cards de total */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">

@@ -16,6 +16,18 @@ export function fmtDate(d: string | null | undefined): string {
   return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('pt-BR');
 }
 
+/**
+ * Dia de uma data pura ("2026-10-23") OU de um instante ("2026-10-24T01:30:00Z"),
+ * no fuso de quem lê. `fmtDate` corta o texto do instante e mostraria o dia UTC:
+ * uma movimentação às 22h30 de Brasília sairia com a data do dia seguinte.
+ */
+export function fmtDia(d: string | null | undefined): string {
+  if (!d) return '—';
+  if (d.length <= 10) return fmtDate(d);
+  const date = new Date(d);
+  return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('pt-BR');
+}
+
 export function fmtDateTime(d: string | null | undefined): string {
   if (!d) return '—';
   const date = new Date(d);

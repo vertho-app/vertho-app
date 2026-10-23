@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { getAtividadeSemanal, type AtividadeDoRc } from '@/actions/sales/atividade';
-import { fmtDate } from '@/lib/sales/formatters';
+import { fmtDia } from '@/lib/sales/formatters';
 
 const ddmm = (iso: string) => iso.slice(5, 10).split('-').reverse().join('/');
 
@@ -60,7 +60,7 @@ export default function AtividadeSemanal() {
                   </td>
                 );
               })}
-              <td className="px-3 py-2 text-right text-gray-400">{l.ultimaMovimentacao ? fmtDate(l.ultimaMovimentacao) : '—'}</td>
+              <td className="px-3 py-2 text-right text-gray-400">{l.ultimaMovimentacao ? fmtDia(l.ultimaMovimentacao) : '—'}</td>
             </tr>
           ))}
         </tbody>

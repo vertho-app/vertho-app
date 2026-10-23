@@ -134,6 +134,7 @@
     "actions/sales/escolas.ts": 1,
     "lib/auth/acesso-assistido.ts": 1,
     "actions/sales/materials.ts": 5,
+    "actions/sales/metas.ts": 4,
     "actions/sales/opportunities.ts": 11,
     "actions/sales/proposal-share.ts": 3,
     "actions/sales/proposals.ts": 15,
