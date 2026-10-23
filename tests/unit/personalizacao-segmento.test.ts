@@ -28,8 +28,8 @@ describe('lente de escola só no segmento educação', () => {
     const fim = source.indexOf('export async function prepararAudioPersonalizado', inicio);
     const funcao = source.slice(inicio, fim);
 
-    expect(funcao).toMatch(/select\('sys_config, segmento'\)/);
-    const trava = funcao.indexOf('contextoDeEscolaVale(emp?.segmento)');
+    expect(funcao).toMatch(/select\('segmento'\)/);
+    const trava = funcao.indexOf('contextoDeEscolaVale(seg?.segmento)');
     expect(trava, 'a trava do segmento sumiu do PDF personalizado').toBeGreaterThan(-1);
     expect(trava, 'o brief manual não pode ser lido antes da trava').toBeLessThan(funcao.indexOf('video_escola'));
     expect(trava, 'o contexto da empresa não pode ser resolvido antes da trava').toBeLessThan(funcao.indexOf('resolverContextoEmpresa('));

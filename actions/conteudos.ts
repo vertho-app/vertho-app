@@ -998,14 +998,18 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
       // `empresa_id` de OUTRO — lendo o PPP alheio e gravando o PDF no cache
       // dele. A gêmea do áudio já relia do banco; esta não. Agora as duas releem.
       const { data: doBanco } = await sb.from('colaboradores')
-        .select('id, empresa_id, perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo, locale')
+        .select('id, empresa_id, perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo')
         .eq('id', colab.id)
         .maybeSingle();
       if (!doBanco) return { success: false, error: 'colaborador não encontrado' };
       if (c.empresa_id && doBanco.empresa_id !== c.empresa_id) {
         return { success: false, error: 'colaborador de outro tenant' };
       }
-      colab = doBanco;
+      // O idioma de quem lê vem à parte, com o `error` checado: o texto da leitura acima é a identidade dela no
+      // guard E11 e não muda. Sem idioma, a camada sai em pt-BR, como o resto do conteúdo.
+      const { data: idioma, error: errIdioma } = await sb.from('colaboradores').select('locale').eq('id', colab.id).maybeSingle();
+      if (errIdioma) console.warn('[gerarConteudoFinalPersonalizado] idioma da pessoa não lido:', errIdioma.message);
+      colab = { ...doBanco, locale: idioma?.locale ?? null };
     } else {
       const { findColabByEmail } = await import('@/lib/authz');
       colab = await findColabByEmail(
@@ -1035,10 +1039,13 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
     let contextoAssinatura = 'sem-ppp';
     if (empresaId) {
       try {
-        const { data: emp } = await sb.from('empresas').select('sys_config, segmento').eq('id', empresaId).maybeSingle();
         // A lente institucional é de ESCOLA (`contextoDeEscolaVale`). Fora da educação o PDF leva só a do perfil,
-        // e a chave cai em `sem-ppp`: o PDF antigo, gerado com a escola inventada, deixa de ser servido.
-        if (contextoDeEscolaVale(emp?.segmento)) {
+        // e a chave cai em `sem-ppp`: o PDF antigo, gerado com a escola inventada, deixa de ser servido. Segmento
+        // não lido = sem lente (o `throw` cai no `catch` abaixo), que é o lado seguro.
+        const { data: seg, error: errSeg } = await sb.from('empresas').select('segmento').eq('id', empresaId).maybeSingle();
+        if (errSeg) throw new Error(`segmento não lido: ${errSeg.message}`);
+        if (contextoDeEscolaVale(seg?.segmento)) {
+          const { data: emp } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
           const salvo = (emp?.sys_config as any)?.video_escola || null;
           if (briefPreenchido(salvo)) {
             escolaBrief = salvo;                 // brief manual da empresa tem precedência
