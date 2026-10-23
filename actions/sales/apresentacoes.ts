@@ -54,12 +54,13 @@ export async function gerarApresentacao(opportunityId: string, input: { contexto
   const contexto = String(input?.contexto ?? '').trim().slice(0, CONTEXTO_MAX) || null;
   const sb = createSupabaseAdmin();
   const { data: opp, error: erroOpp } = await sb.from('sales_opportunities')
-    .select('id, representante_id, account_id, attribution_status, account:sales_accounts (legal_name, trade_name, segment)')
+    .select('id, representante_id, account_id, status, attribution_status, account:sales_accounts (legal_name, trade_name, segment)')
     .eq('id', opportunityId).maybeSingle();
   if (erroOpp) return { success: false as const, error: erroOpp.message };
   if (!opp) return { success: false as const, error: 'Oportunidade não encontrada' };
   assertRepresentativeOwnership(ctx, opp.representante_id);
   if (opp.attribution_status === 'recusada') return { success: false as const, error: 'O registro desta oportunidade foi recusado: não dá para gerar apresentação.' };
+  if (opp.status !== 'open') return { success: false as const, error: 'A oportunidade não está mais aberta.' };
 
   const { data: atual, error: erroAtual } = await sb.from('sales_apresentacoes')
     .select('id, token').eq('opportunity_id', opportunityId).is('revogada_em', null)
@@ -103,19 +104,25 @@ export async function revogarApresentacao(apresentacaoId: string) {
 
 /**
  * Leitura PÚBLICA por token (sem sessão). null quando o token não tem o formato,
- * não existe ou foi revogado. Conta a abertura (best-effort, como a proposta).
+ * não existe, foi revogado, o registro da oportunidade foi recusado ou o RC não
+ * está mais ativo no canal: a página não pode apresentar como contato quem não
+ * representa mais aquele cliente. Conta a abertura (best-effort, como a proposta).
  */
 export async function getApresentacaoPublica(token: string): Promise<ApresentacaoVM | null> {
   if (typeof token !== 'string' || !TOKEN_APRESENTACAO.test(token)) return null;
   const sb = createSupabaseAdmin();
   const { data: a, error } = await sb.from('sales_apresentacoes')
-    .select('id, representante_id, cliente_nome, segmento, contexto, view_count, first_viewed_at, revogada_em')
+    .select('id, representante_id, cliente_nome, segmento, contexto, view_count, first_viewed_at, revogada_em, opportunity:sales_opportunities (attribution_status)')
     .eq('token', token).maybeSingle();
   if (error || !a || a.revogada_em) return null;
+  const opp: any = Array.isArray(a.opportunity) ? a.opportunity[0] : a.opportunity;
+  if (opp?.attribution_status === 'recusada') return null;
 
-  // Sem o RC (falha de leitura), a página sai com o contato genérico em vez de cair.
-  const { data: rep, error: erroRep } = await sb.from('sales_representatives').select('name, email, phone').eq('id', a.representante_id).maybeSingle();
-  if (erroRep) console.error('[sales] contato do RC da apresentação não lido:', erroRep.message);
+  const { data: rep, error: erroRep } = await sb.from('sales_representatives').select('name, email, phone, status').eq('id', a.representante_id).maybeSingle();
+  if (erroRep || !rep || rep.status !== 'active') {
+    if (erroRep) console.error('[sales] RC da apresentação não lido:', erroRep.message);
+    return null;
+  }
   const agora = new Date().toISOString();
   const { error: erroAbertura } = await sb.from('sales_apresentacoes').update({
     first_viewed_at: a.first_viewed_at || agora,
@@ -124,5 +131,5 @@ export async function getApresentacaoPublica(token: string): Promise<Apresentaca
   }).eq('id', a.id);
   if (erroAbertura) console.error('[sales] abertura da apresentação não registrada:', erroAbertura.message);
 
-  return buildApresentacao(a, rep ?? null);
+  return buildApresentacao(a, rep);
 }

@@ -292,6 +292,10 @@ export async function recusarRegistroOportunidade(opportunityId: string, motivo:
     status: 'lost', rejection_reason: `Registro ${revogacao ? 'revogado' : 'recusado'} pela vertho.ai: ${texto}`, updated_at: agora,
   }).eq('opportunity_id', opportunityId).in('status', ['draft', 'submitted_for_approval', 'changes_requested', 'approved', 'sent_to_client']);
   if (erroPropostas) console.error('[sales] propostas do registro recusado não foram encerradas:', erroPropostas.message);
+  // A apresentação pública também sai do ar: ela mostra o RC como contato de um cliente que não é dele.
+  const { error: erroApresentacao } = await sb.from('sales_apresentacoes').update({ revogada_em: agora })
+    .eq('opportunity_id', opportunityId).is('revogada_em', null);
+  if (erroApresentacao) console.error('[sales] apresentação do registro recusado não foi desativada:', erroApresentacao.message);
 
   await registrarNota(sb, {
     representante_id: opp.representante_id, opportunity_id: opportunityId, account_id: opp.account_id,
