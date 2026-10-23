@@ -46,7 +46,9 @@ vi.mock('@/lib/repositories/colaboradores-repo', async (orig) => ({
   emailExistsInTenant: async () => false,
 }));
 
-const { criarColaborador, atualizarColaborador } = await import('@/app/admin/empresas/gerenciar/actions');
+const { criarColaborador, atualizarColaborador, importarColaboradoresLote } = await import('@/app/admin/empresas/gerenciar/actions');
+const onboarding = await import('@/actions/onboarding');
+const escolas = await import('@/actions/escolas');
 
 const inseridas = () => sb.escritas.filter((e) => e.tabela === 'colaboradores' && e.op === 'insert').flatMap((e) => e.payload);
 const atualizacoes = () => sb.escritas.filter((e) => e.tabela === 'colaboradores' && e.op === 'update').map((e) => e.payload);
@@ -122,5 +124,38 @@ describe('atualizarColaborador no pacote de clínicas', () => {
     papelAtual = 'rh';
     const r = await atualizarColaborador({ empresaId: EMPRESA, id: '33333333-3333-4333-8333-333333333333', campos: { nome_completo: 'Carla' } });
     expect(r.success).toBe(true);
+  });
+});
+
+describe('caminhos que gravariam pessoa ou clínica sem a conferência do pacote', () => {
+  const PLANILHA = [{ nome: 'Bia', email: 'bia@clinica.com', cargo: 'Qualquer' }];
+
+  it('a importação por planilha do cadastro é recusada com a chave ligada, sem gravar ninguém', async () => {
+    const r = await importarColaboradoresLote({ empresaId: EMPRESA, colabs: PLANILHA });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/importação por planilha está desligada/);
+    expect(inseridas()).toHaveLength(0);
+  });
+
+  it('o import do onboarding também é recusado com a chave ligada', async () => {
+    const r = await onboarding.importarColaboradoresLote(EMPRESA, PLANILHA);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/importação por planilha está desligada/);
+    expect(inseridas()).toHaveLength(0);
+  });
+
+  it('sem a chave, a importação do cadastro segue como antes', async () => {
+    sysConfig = {};
+    const r = await importarColaboradoresLote({ empresaId: EMPRESA, colabs: PLANILHA });
+    expect(r.success).toBe(true);
+  });
+
+  it('"Normalizar" e a troca avulsa de unidade não reescrevem a clínica com a chave ligada', async () => {
+    const n = await escolas.normalizarEscolasDaEmpresa(EMPRESA);
+    expect(n.success).toBe(false);
+    expect(n.error).toMatch(/definida no cadastro/);
+    const d = await escolas.definirEscolaColaborador(EMPRESA, 'p1', 'clinica-1');
+    expect(d.success).toBe(false);
+    expect(atualizacoes()).toHaveLength(0);
   });
 });

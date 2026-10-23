@@ -15,7 +15,7 @@ import { proxyEmailFromPhone, isProxyEmail } from '@/lib/phone-otp';
 import { getLocale } from 'next-intl/server';
 import { TURMA_MEMBRO } from '@/lib/status';
 import { lerTudoPaginado } from '@/lib/paginacao';
-import { pacoteClinicasLigado, erroDoCadastroPacote, papelExigeCadastroDoPacote, type ReferenciaCadastroPacote } from '@/lib/pacote-clinicas';
+import { pacoteClinicasLigado, erroDoCadastroPacote, papelExigeCadastroDoPacote, MOTIVO_IMPORTACAO_FECHADA, type ReferenciaCadastroPacote } from '@/lib/pacote-clinicas';
 import { MODELOS_CLINICA } from '@/lib/recepcao/modelos-clinica';
 
 const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
@@ -125,6 +125,8 @@ const ImportarLoteSchema = z.object({
 const _importarColaboradoresLote = protectedAction('users.manage', ImportarLoteSchema, async (ctx, { empresaId, colabs }) => {
   await assertTenantAccessAction(ctx, empresaId);
   const sb = await requireAdminSupabase();
+  // Pacote de clínicas: a planilha gravaria cargo em texto livre, sem clínica e sem modelo.
+  if ((await referenciaDoPacote(sb, empresaId)).ligado) throw new Error(MOTIVO_IMPORTACAO_FECHADA);
   const emailsExistentes = new Set(await listEmailsInTenant(sb, empresaId));
   const emailsArquivo = new Set<string>();
   // Telefones que já logam por WhatsApp (banco + linhas deste arquivo): o índice único parcial

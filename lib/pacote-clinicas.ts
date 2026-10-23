@@ -33,6 +33,19 @@ export function pacoteClinicasLigado(sysConfig: unknown): boolean {
  */
 export const MOTIVO_RH_FORA_DO_LOTE = 'conta de RH: recebe só os relatórios';
 
+/**
+ * Caminhos que gravam pessoa ou clínica SEM a conferência do pacote, fechados com a chave ligada
+ * (decisão de 23/10/2026: a secretária entra só pelo formulário do admin):
+ *  - importação por planilha (`/admin/empresas/gerenciar` e `actions/onboarding.ts`): cargo em texto
+ *    livre, sem clínica e sem modelo;
+ *  - "Normalizar" e a troca avulsa de unidade das redes de ensino (`actions/escolas.ts`): reescrevem
+ *    `escola_id` a partir da área e anulam a clínica cujo nome lembra "secretaria" ou "núcleo".
+ */
+export const MOTIVO_IMPORTACAO_FECHADA =
+  'Nesta empresa (pacote de clínicas) a secretária entra só pelo formulário, com clínica, cargo e modelo do simulador. A importação por planilha está desligada.';
+export const MOTIVO_UNIDADES_FECHADAS =
+  'Nesta empresa (pacote de clínicas) a clínica de cada secretária é definida no cadastro (Gerenciar colaboradores), não por esta tela.';
+
 /** Os campos do cadastro que o pacote exige da secretária. */
 export interface CadastroPacote {
   cargo?: string | null;

@@ -1,6 +1,7 @@
 'use server';
 
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
+import { MOTIVO_IMPORTACAO_FECHADA, pacoteClinicasLigado } from '@/lib/pacote-clinicas';
 
 // ── Criar nova empresa com auto-slug ────────────────────────────────────────
 
@@ -60,6 +61,11 @@ export async function importarColaboradoresLote(empresaId: string, colaboradores
     if (!Array.isArray(colaboradores) || !colaboradores.length) {
       return { success: false, error: 'Lista de colaboradores vazia' };
     }
+
+    // Pacote de clínicas (lib/pacote-clinicas.ts): a secretária entra só pelo formulário do admin.
+    const { data: empresaPacote, error: errPacote } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+    if (errPacote) return { success: false, error: `não foi possível ler a configuração da empresa: ${errPacote.message}` };
+    if (pacoteClinicasLigado(empresaPacote?.sys_config)) return { success: false, error: MOTIVO_IMPORTACAO_FECHADA };
 
     // Fetch existing emails for dedup
     const { data: existentes } = await sb.from('colaboradores')

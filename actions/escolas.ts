@@ -2,6 +2,19 @@
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { tenantDb } from '@/lib/tenant-db';
+import { MOTIVO_UNIDADES_FECHADAS, pacoteClinicasLigado } from '@/lib/pacote-clinicas';
+
+/**
+ * Pacote de clínicas (lib/pacote-clinicas.ts): a clínica de cada secretária é definida no cadastro do
+ * admin, conferida contra a empresa. "Normalizar" e a troca avulsa daqui reescreveriam `escola_id` sem
+ * essa conferência (e o Normalizar anula a clínica cujo nome lembra "secretaria" ou "núcleo").
+ * Devolve a mensagem de recusa, ou null quando a empresa não usa o pacote.
+ */
+async function recusaDoPacote(sb: any, empresaId: string): Promise<string | null> {
+  const { data, error } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+  if (error) return `não foi possível ler a configuração da empresa: ${error.message}`;
+  return pacoteClinicasLigado(data?.sys_config) ? MOTIVO_UNIDADES_FECHADAS : null;
+}
 
 // ── Normalização de nomes ─────────────────────────────────────────────────────
 function foldKey(s: string): string {
@@ -38,8 +51,10 @@ function casaPPP(escolaKey: string, pppKey: string): boolean {
  * popula o registro e o vínculo sugerido para revisão humana.
  */
 export async function normalizarEscolasDaEmpresa(empresaId: string) {
-  await requireAdminSupabase('companies.manage');
+  const sbAdmin = await requireAdminSupabase('companies.manage');
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
+  const recusa = await recusaDoPacote(sbAdmin, empresaId);
+  if (recusa) return { success: false, error: recusa };
   const tdb = tenantDb(empresaId);
 
   const { data: colabs } = await tdb.from('colaboradores').select('id, area_depto');
@@ -105,9 +120,11 @@ export async function loadEscolas(empresaId: string) {
 
 /** Revisão: reatribui a escola de um colaborador (null = rede). */
 export async function definirEscolaColaborador(empresaId: string, colaboradorId: string, escolaId: string | null) {
-  await requireAdminSupabase('companies.manage');
+  const sbAdmin = await requireAdminSupabase('companies.manage');
   const tdb = tenantDb(empresaId);
   if (!colaboradorId) return { success: false, error: 'colaboradorId obrigatório' };
+  const recusa = await recusaDoPacote(sbAdmin, empresaId);
+  if (recusa) return { success: false, error: recusa };
   const { error } = await tdb.from('colaboradores').update({ escola_id: escolaId || null }).eq('id', colaboradorId);
   if (error) return { success: false, error: error.message };
   return { success: true };
