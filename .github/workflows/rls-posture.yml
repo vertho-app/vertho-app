@@ -51,6 +51,9 @@ on:
       - 'migrations/**'
       - 'tests/unit/security/rls-posture.test.ts'
 
+permissions:
+  contents: read
+
 jobs:
   rls-posture:
     name: Postura de RLS contra o banco
@@ -58,8 +61,8 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           # `engines` do package.json exige >=24.13.1 — com Node 20 o `npm ci`
           # recusa (`notsup`) e o job falha ANTES de rodar o teste. Um job que
