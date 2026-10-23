@@ -12,6 +12,7 @@ import PendingProposalsTable from '@/components/sales/pending-proposals-table';
 import PendingRegistrationsTable from '@/components/sales/pending-registrations-table';
 import CommissionExposureTable from '@/components/sales/commission-exposure-table';
 import ReservasPanel from '@/components/sales/reservas-panel';
+import AtividadeSemanal from '@/components/sales/atividade-semanal';
 import { fmtBRL, fmtDate } from '@/lib/sales/formatters';
 
 type DashboardResult = Awaited<ReturnType<typeof getCommercialAdminDashboard>>;
@@ -136,6 +137,15 @@ export default function ComercialDashboardPage() {
             <section className="mb-6">
               <h2 className="text-sm font-bold text-white mb-2">Performance por representante</h2>
               <RepresentativePerformanceTable rows={data.byRep} />
+            </section>
+
+            {/* Atividade semanal (só admin; acompanhamento, não meta) */}
+            <section className="mb-6">
+              <h2 className="text-sm font-bold text-white mb-1">Atividade semanal</h2>
+              <p className="text-[11px] text-gray-500 mb-2">
+                Contatos registrados, registros, mudanças de estágio e propostas de cada representante nas últimas 4 semanas. Para acompanhar o canal: não é meta de atividade nem controle de jornada (cláusulas 9.2 e 9.4), e o representante não vê este painel.
+              </p>
+              <AtividadeSemanal />
             </section>
 
             {/* Fila de aprovação */}

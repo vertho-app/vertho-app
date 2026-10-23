@@ -5,9 +5,10 @@
 // (validateOpportunityInput) e score de qualidade recalculado AO VIVO ao lado.
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Plus, X } from 'lucide-react';
+import { Loader2, Plus, Search, X } from 'lucide-react';
 import { createSalesAccount, listSalesAccounts, updateSalesAccount } from '@/actions/sales/accounts';
 import { createSalesContact, listContactsByAccount } from '@/actions/sales/contacts';
+import { buscarEscolasDoMercado, type EscolaDoMercado } from '@/actions/sales/escolas';
 import { validateOpportunityInput } from '@/lib/sales/validation';
 import {
   CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS,
@@ -38,6 +39,12 @@ function Field({ label, error, hint, required, children }: {
 }
 
 export type OpportunityFormValues = Record<string, any>;
+
+const PALAVRAS_MINUSCULAS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em']);
+/** "COLEGIO SAO JOSE DE CAMPINAS" → "Colegio Sao Jose de Campinas" (o Censo grava em maiúsculas). */
+function nomeLegivel(nome: string): string {
+  return nome.toLowerCase().split(' ').map((p, i) => (i > 0 && PALAVRAS_MINUSCULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1))).join(' ');
+}
 
 export default function OpportunityForm({ initial, onSubmit, submitting }: {
   initial?: Partial<SalesOpportunity>;
@@ -72,9 +79,15 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
 
   // Mini-form: nova conta
   const [showNewAccount, setShowNewAccount] = useState(false);
-  const CONTA_VAZIA = { legal_name: '', trade_name: '', cnpj: '', codigo_inep: '', segment: '', city: '', state: '' };
+  const CONTA_VAZIA = { legal_name: '', trade_name: '', cnpj: '', codigo_inep: '', segment: '', city: '', state: '', number_of_employees: '' };
   const [newAccount, setNewAccount] = useState(CONTA_VAZIA);
   const [savingAccount, setSavingAccount] = useState(false);
+
+  // Busca de escola na base do Mercado Potencial (rede privada): preenche a conta nova.
+  const [buscaEscola, setBuscaEscola] = useState({ nome: '', uf: '', cidade: '' });
+  const [escolas, setEscolas] = useState<EscolaDoMercado[] | null>(null);
+  const [buscandoEscola, setBuscandoEscola] = useState(false);
+  const [escolaEscolhida, setEscolaEscolhida] = useState<EscolaDoMercado | null>(null);
 
   // Conta antiga sem CNPJ: o registro exige (contrato, 7.2), então dá para completar aqui.
   const [cnpjDaConta, setCnpjDaConta] = useState('');
@@ -132,8 +145,32 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
     setValues((prev) => ({ ...prev, account_id: r.data.id, primary_contact_id: '' }));
     setShowNewAccount(false);
     setNewAccount(CONTA_VAZIA);
+    setEscolaEscolhida(null);
+    setEscolas(null);
     if (r.aviso) toast.warning(r.aviso, { duration: 10000 });
     else toast.success('Conta criada');
+  }
+
+  async function handleBuscarEscola() {
+    setBuscandoEscola(true);
+    const r = await buscarEscolasDoMercado({ termo: buscaEscola.nome, uf: buscaEscola.uf, municipio: buscaEscola.cidade });
+    setBuscandoEscola(false);
+    if (!r.success) { toast.error(r.error); return; }
+    setEscolas(r.escolas);
+  }
+
+  function escolherEscola(e: EscolaDoMercado) {
+    setEscolaEscolhida(e);
+    setEscolas(null);
+    setNewAccount((p) => ({
+      ...p,
+      legal_name: nomeLegivel(e.nome),
+      codigo_inep: e.codigo_inep,
+      segment: 'escola',
+      city: e.municipio ?? '',
+      state: e.uf ?? '',
+      number_of_employees: e.professores ? String(e.professores) : '',
+    }));
   }
 
   async function handleSalvarCnpj() {
@@ -256,6 +293,55 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
           {showNewAccount && (
             <div className="rounded-lg bg-cyan-400/5 border border-cyan-400/20 p-3 space-y-3">
               <p className="text-[11px] font-bold text-cyan-400">Nova conta</p>
+
+              {/* Escola: busca na base do Censo (rede privada) e preenche os dados */}
+              <div className="rounded-lg bg-white/[0.03] border border-white/10 p-2.5 space-y-2">
+                <p className="text-[11px] text-gray-400">É escola? Busque na base de escolas privadas do Censo Escolar e os dados vêm preenchidos.</p>
+                <div className="grid gap-2 sm:grid-cols-[1fr_70px_1fr_auto]">
+                  <input value={buscaEscola.nome} onChange={(e) => setBuscaEscola((b) => ({ ...b, nome: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleBuscarEscola(); } }}
+                    placeholder="Nome da escola" className={INPUT_CLS} />
+                  <input value={buscaEscola.uf} maxLength={2} onChange={(e) => setBuscaEscola((b) => ({ ...b, uf: e.target.value.toUpperCase() }))}
+                    placeholder="UF" className={INPUT_CLS} />
+                  <input value={buscaEscola.cidade} onChange={(e) => setBuscaEscola((b) => ({ ...b, cidade: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleBuscarEscola(); } }}
+                    placeholder="Cidade (opcional)" className={INPUT_CLS} />
+                  <button type="button" onClick={handleBuscarEscola} disabled={buscandoEscola}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50">
+                    {buscandoEscola ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />} Buscar
+                  </button>
+                </div>
+                {escolas && (
+                  escolas.length === 0 ? (
+                    <p className="text-[11px] text-gray-500">Nenhuma escola privada com esse nome nessa UF. Confira a grafia ou cadastre à mão.</p>
+                  ) : (
+                    <ul className="max-h-56 overflow-y-auto divide-y divide-white/5 rounded-lg border border-white/10">
+                      {escolas.map((e) => (
+                        <li key={e.codigo_inep}>
+                          <button type="button" onClick={() => escolherEscola(e)} className="w-full text-left px-2.5 py-2 hover:bg-white/5">
+                            <p className="text-xs text-white">{nomeLegivel(e.nome)}</p>
+                            <p className="text-[10px] text-gray-500">
+                              {e.municipio}/{e.uf} · INEP {e.codigo_inep}
+                              {e.professores ? ` · ${e.professores} professores` : ''}
+                              {e.coordenadores ? ` · ${e.coordenadores} coordenação` : ''}
+                              {e.diretores ? ` · ${e.diretores} direção` : ''}
+                            </p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                )}
+                {escolaEscolhida && (
+                  <p className="text-[11px] text-emerald-300">
+                    {nomeLegivel(escolaEscolhida.nome)} (INEP {escolaEscolhida.codigo_inep})
+                    {escolaEscolhida.professores ? `: ${escolaEscolhida.professores} professores` : ''}
+                    {escolaEscolhida.coordenadores ? `, ${escolaEscolhida.coordenadores} na coordenação` : ''}
+                    {escolaEscolhida.diretores ? `, ${escolaEscolhida.diretores} na direção` : ''}. Complete o CNPJ.
+                  </p>
+                )}
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Razão social" required>
                   <input value={newAccount.legal_name} onChange={(e) => setNewAccount((p) => ({ ...p, legal_name: e.target.value }))} className={INPUT_CLS} />

@@ -14,7 +14,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { criarSupabaseMock, type Chamada, type SupabaseMock } from '../helpers/supabase-mock';
-import { dataBRT, somarDias } from '@/lib/dre/semana';
+import { dataBRT, segundaDaSemana, somarDias } from '@/lib/dre/semana';
 
 let sb: SupabaseMock = criarSupabaseMock();
 const enviados: any[] = [];
@@ -61,6 +61,8 @@ import { createOpportunity, getOpportunity, moveOpportunityStage, recusarRegistr
 import * as permissoes from '@/lib/sales/permissions';
 import { createSalesAccount, criarOportunidadeExpansao, updateSalesAccount } from '@/actions/sales/accounts';
 import { registrarComissaoIndicacao } from '@/actions/sales/commissions-admin';
+import { buscarEscolasDoMercado } from '@/actions/sales/escolas';
+import { getAtividadeSemanal } from '@/actions/sales/atividade';
 import { approveProposal, markProposalAccepted, markProposalSentToClient, registrarAceitePropostaDoRC, submitProposalForApproval } from '@/actions/sales/proposals';
 
 const escritasEm = (tabela: string, op: string) => sb.escritas.filter((e) => e.tabela === tabela && e.op === op);
@@ -691,5 +693,63 @@ describe('sigilo da fila: o RC não recebe o motivo enquanto o registro aguarda'
 
   it('recusada: o recado do admin chega ao RC', () => {
     expect(paraORepresentante({ attribution_status: 'recusada', attribution_note: 'Cliente da vertho.ai' }).attribution_note).toBe('Cliente da vertho.ai');
+  });
+});
+
+// ── CRM com a base de escolas e atividade semanal (decisões 6 e 7) ──────────
+
+describe('busca de escola na base do Mercado Potencial', () => {
+  it('só rede privada da UF, cada palavra sem acento no nome, cidade com curinga de acento', async () => {
+    sb = criarSupabaseMock({ lista: (tabela) => (tabela === 'diag_mv_mercado_escola' ? [{ codigo_inep: '35000001', nome: 'COLEGIO SAO JOSE', municipio: 'São Paulo', uf: 'SP', qt_professores: 40, qt_coord_pedag: 3, qt_diretor_proxy: 1, etapas: ['EF'] }] : []) });
+    const r = await buscarEscolasDoMercado({ termo: 'Colégio São', uf: 'sp', municipio: 'sao paulo' });
+    expect(r).toMatchObject({ success: true, escolas: [{ codigo_inep: '35000001', professores: 40, coordenadores: 3, diretores: 1 }] });
+    expect(sb.usou('diag_mv_mercado_escola', 'eq', 'rede')).toBe(true);
+    const ilikes = sb.chamadas.filter((c) => c.metodo === 'ilike').map((c) => c.args);
+    expect(ilikes).toContainEqual(['nome', '%COLEGIO%']);
+    expect(ilikes).toContainEqual(['nome', '%SAO%']);
+    expect(ilikes).toContainEqual(['municipio', '%s__ p__l_%']);
+  });
+
+  it('sem UF válida ou com menos de 3 letras não busca', async () => {
+    sb = criarSupabaseMock();
+    expect((await buscarEscolasDoMercado({ termo: 'Colégio', uf: 'XX' })).success).toBe(false);
+    expect((await buscarEscolasDoMercado({ termo: 'ab', uf: 'SP' })).success).toBe(false);
+    expect(sb.chamadas).toHaveLength(0);
+  });
+
+  it('nunca lê os contatos enriquecidos nem diz se a escola está com outro RC', () => {
+    const src = readFileSync('actions/sales/escolas.ts', 'utf8').replace(/\/\/.*$/gm, '');
+    expect(src).not.toMatch(/mercado_escola_contatos|sales_accounts|sales_opportunities/);
+  });
+});
+
+describe('atividade semanal (só admin)', () => {
+  it('conta contatos, registros, estágios e propostas na semana de Brasília', async () => {
+    const segunda = segundaDaSemana(dataBRT(new Date()));
+    const terca = `${somarDias(segunda, 1)}T15:00:00Z`;
+    sb = criarSupabaseMock({
+      lista: (tabela) => {
+        if (tabela === 'sales_representatives') return [{ id: 'rc-1', name: 'Angélica', status: 'active' }];
+        if (tabela === 'sales_activity_notes') return [
+          { representante_id: 'rc-1', kind: 'contato', note: 'WhatsApp: ...', created_at: terca },
+          { representante_id: 'rc-1', kind: 'nota', note: 'Estágio: a → b', created_at: terca },
+          { representante_id: 'rc-2', kind: 'contato', note: 'outro RC', created_at: terca },
+        ];
+        if (tabela === 'sales_opportunities') return [{ representante_id: 'rc-1', created_at: terca, last_movement_at: terca }];
+        if (tabela === 'sales_proposals') return [{ representante_id: 'rc-1', created_at: terca, sent_to_client_at: terca }];
+        return [];
+      },
+    });
+    const r = await getAtividadeSemanal(4) as any;
+    expect(r.success).toBe(true);
+    expect(r.inicios).toHaveLength(4);
+    expect(r.linhas[0].semanas[3]).toMatchObject({ inicio: segunda, contatos: 1, registros: 1, mudancasDeEstagio: 1, propostasCriadas: 1, propostasEnviadas: 1 });
+    expect(r.linhas[0].semanas[0]).toMatchObject({ contatos: 0, registros: 0 });
+  });
+
+  it('leitura que falha não vira semana vazia', async () => {
+    sb = criarSupabaseMock();
+    sb.falharEm({ tabela: 'sales_activity_notes', op: 'select', mensagem: 'timeout' });
+    expect((await getAtividadeSemanal(4)).success).toBe(false);
   });
 });
