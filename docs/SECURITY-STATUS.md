@@ -1,8 +1,126 @@
 # Estado atual de seguranca — Vertho Mentor IA
 
-> Última revisão: 2026-10-19: o refresh das views do Mercado Potencial deixou de ser executável por `anon` e `authenticated` (mig 294; ver "19/10"). Antes: 2026-10-13: recontagem da nota, **6,9** ("Sem limite de tentativas" passa a protegido, depois do segundo fator para todos os admins); ver "13/10". Antes: 2026-10-10: nova análise dos 8 ataques sobre `76e3466d`, **nota 6,3** (nenhuma categoria mudou), e as 3 correções de risco baixo (mig 284 em `escolas`, INV7 sem lista fixa, chave crítica só para escopo de plataforma, mig 285 no bucket `logos`); ver "10/10". Antes: 2026-10-06 — dependências e Trigger.dev (item 3), autorização dos envios de WhatsApp e correções de baixo risco (INV2 e CA PostgreSQL), nota 6,3; ver "06/10". Antes: 2026-10-05: **análise dos 8 ataques (nota 4,4) e as correções do plano no mesmo dia**, entre elas a mig 278 que tirou a escrita de `anon` e `authenticated` (ver "05/10"). Antes: 2026-09-18: **secret scanning e push protection ligados no GitHub**; estavam desligados num repo público (ver "18/09"). Antes: 2026-08-30 — **dois guards de tenant estavam cegos e foram corrigidos**: `tenant-mutation-guard` passava verde com 0 arquivos varridos (`ec4d3fdd`) e `tenant-isolation` não alcançava a comparação de tenant em 2 de 9 casos (`26ef9db5`), os dois validados por mutação. **13 dos 35** arquivos de `tests/unit/security/` que tocam isolamento de tenant foram auditados; 22 seguem sem auditoria (ver "Manutenção 30/08"). Antes: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
+> Última revisão: 2026-10-23: **auditoria de dependências, runtimes, supply chain, segredos e LGPD** (branch local `security/2026-10-23-audit`): next 16.4.1 e React 19.2.9 (RCE crítico de 22/10), runtimes declarados em Node 24.22.1/22.23.4, `ws` do worker, Trigger 4.7.7, actions por SHA, Dependabot e `npm audit` no CI; sem malware nem segredo; um achado de LGPD pendente de decisão, com o inventário fora do repo (ver "Auditoria 2026-10-23"). Antes: 2026-10-19: o refresh das views do Mercado Potencial deixou de ser executável por `anon` e `authenticated` (mig 294; ver "19/10"). Antes: 2026-10-13: recontagem da nota, **6,9** ("Sem limite de tentativas" passa a protegido, depois do segundo fator para todos os admins); ver "13/10". Antes: 2026-10-10: nova análise dos 8 ataques sobre `76e3466d`, **nota 6,3** (nenhuma categoria mudou), e as 3 correções de risco baixo (mig 284 em `escolas`, INV7 sem lista fixa, chave crítica só para escopo de plataforma, mig 285 no bucket `logos`); ver "10/10". Antes: 2026-10-06 — dependências e Trigger.dev (item 3), autorização dos envios de WhatsApp e correções de baixo risco (INV2 e CA PostgreSQL), nota 6,3; ver "06/10". Antes: 2026-10-05: **análise dos 8 ataques (nota 4,4) e as correções do plano no mesmo dia**, entre elas a mig 278 que tirou a escrita de `anon` e `authenticated` (ver "05/10"). Antes: 2026-09-18: **secret scanning e push protection ligados no GitHub**; estavam desligados num repo público (ver "18/09"). Antes: 2026-08-30 — **dois guards de tenant estavam cegos e foram corrigidos**: `tenant-mutation-guard` passava verde com 0 arquivos varridos (`ec4d3fdd`) e `tenant-isolation` não alcançava a comparação de tenant em 2 de 9 casos (`26ef9db5`), os dois validados por mutação. **13 dos 35** arquivos de `tests/unit/security/` que tocam isolamento de tenant foram auditados; 22 seguem sem auditoria (ver "Manutenção 30/08"). Antes: 2026-07-26 — **os 2 guards de tenant voltaram ao verde** (`3367efb7`; ver "Manutenção 26/07"). Antes: 2026-07-23 — **auditoria 23/07 (workflow multi-agente, 29 achados confirmados) REMEDIADA por completo** (ver "Fechamento da auditoria 23/07" abaixo). Antes: 2026-07-22 — **os 3 achados altos de 17/07 estao FECHADOS** (ver "Fechamento dos altos 22/07" abaixo).
 > Antes: 2026-07-17 (auditoria geral — detalhes em `docs/LEVANTAMENTO-2026-07.md` §4. **3 achados altos NOVOS**, hoje fechados: (1) `api/bunny-videos` + `api/video-download` sem auth — enumeracao + download anonimo de videos, PII potencial nos personalizados; (2) header `x-tenant-slug` forjavel no apex/vercel.app — enumeracao de e-mails cross-tenant e signup em tenant alheio; (3) open redirect de `token_hash` de sessao em `api/auth/phone-otp/verify`. Numeros corrigidos: service-role = **130 arquivos / 299 usos** (nao 91/168); residuo `internal` = **5 entradas** (nao 8; fase1/fase3 removidos 10/07). As 4 classes criticas de 03/07 seguem confirmadas fechadas.)
 > Anterior: 2026-07-07 (defense-in-depth de tenant nas ações internas + filtro de contas internas demo-aware; ver seção "Endurecimento 06-07/07"). Anterior: 2026-07-03 (auditoria de segurança — RCE/RLS/IDOR/search_path/MVs fechados; ver seção "Auditoria de segurança 03/07")
+
+## Auditoria 2026-10-23: dependências, runtimes, supply chain, segredos e dados pessoais
+
+Feita sobre `origin/master` `e40ddf11`, num worktree isolado (`.worktrees/seg-auditoria-2310`), na branch local `security/2026-10-23-audit`. Nada foi publicado: sem push, sem deploy, sem mudança em GitHub, Vercel, Supabase, Trigger.dev ou npm, sem rotação de segredo. Os números de CVE e as versões mínimas vieram do pedido do dono e foram conferidos na fonte antes de usar: `nodejs.org/dist/index.json`, `npm view`, a API de advisories do GitHub (global e do repositório `facebook/react`), o release do Trigger.dev e o Docker Hub. Os achados de dado pessoal estão contados, não transcritos: o repositório é público.
+
+### 1. Stack e versões encontradas
+
+| Componente | Onde está declarado | Versão encontrada | Gerenciador |
+|---|---|---|---|
+| Node do app (Vercel) | `package.json` `engines` `>=24.13.1 <25.0.0`; `.nvmrc` 24.13.1; projeto Vercel `nodeVersion: 24.x` | produção: **v24.21.0** (tag `runtime` do Sentry, evento de 21/10 15:54 BRT). A Vercel só deixa escolher o major | npm, `package-lock.json` v3; `.npmrc` só `engine-strict=true` |
+| Node das tasks (Trigger.dev) | `trigger.config.ts` `runtime: 'node-22'` (sem patch) | **22.16.0**: imagem `triggerdotdev/node:22-bookworm@3d1b59a1…` (12/08), fixada pelos CLIs 4.4.6 a 4.7.6. O CLI 4.7.7 (22/10) troca para 22.23.4 | `npx trigger.dev deploy`, **sem versão** (docs e CLAUDE.md) |
+| Node do worker de render (Hetzner) | `worker-hetzner/Dockerfile` `FROM node:22-bookworm-slim` | tag móvel: a versão real depende do dia do último rebuild (não verificável do repo) | npm, `worker-hetzner/package-lock.json` |
+| Worker legado de extração | `workers/extracao-video/Dockerfile` `FROM node:20-slim` | Node 20 (fim de vida); sem lockfile; nenhum chamador no código (a extração roda no Trigger desde junho) | `npm install` sem lock |
+| Node do CI | `.github/workflows/*.yml` (`setup-node@v4`) | 24.13.1 (3 workflows) e **20** (`smoke-test.yml`) | |
+| Node local (máquina do dono) | fnm (sessões) e instalação do sistema | **24.13.1** (npm 11.8.0) e **26.12.0** em `Program Files` (npm 11.20.0) | |
+| next / react / react-dom | `package.json` | 16.3.8 / 19.2.4 / 19.2.4 | |
+| sharp | transitiva do next | 0.35.5 (mínimo exigido: 0.35.5) | |
+| @trigger.dev/sdk e /build | `package.json` (versão exata) | 4.7.3 | |
+| Postgres (Supabase) | `supabase/config.toml` | 15 | |
+| Python local | `C:\Python314` (o pipeline RadarEmpresas chama `python` do sistema; não há venv) | 3.14.8, `certifi` 2026.7.22, `litellm` ausente | pip |
+| Python do Copiloto (sidecar) | `tools/copiloto-whisper/pyproject.toml` | sem `certifi`/`litellm` diretos; sem lock versionado | uv |
+| PHP, Composer, Laravel | nenhum arquivo no repo; `php` e `composer` ausentes na máquina | não se aplica | |
+
+### 2. O que foi verificado, e o que não pôde ser
+
+Verificado:
+- **FASE 3, malware e IoCs** (antes de qualquer `npm install`): as versões maliciosas da lista (tensorlake, @subql/common, onda ChainDrop de keyv/flat-cache/file-entry-cache/cacheable*, node-ipc, plain-crypto-js e qualquer `@keyv/*`/`@cacheable/*`) nos 2 lockfiles atuais, nos **20 commits de lockfile desde 01/07** em todas as refs, em ~2.400 pacotes instalados (`nextjs-app/node_modules` e `C:\vertho-nm-master\node_modules`) e nos 241 tarballs do índice do cache do npm. Só aparecem `keyv` 4.5.4, `flat-cache` 4.0.1 e `file-entry-cache` 8.0.0 (cadeia do ESLint), fora da lista. Nenhum arquivo `setup.mjs`/`Math_Symbol.js`/`math_init.js`/`opensearch_init.js`/`ai_init.js`/`node-ipc.cjs` em node_modules, nenhum hash da lista, nenhuma das strings/domínios (`iseekaigogo.com`, `Shai-Hulud`, a carteira `0xE1f2…` etc.) no repo, nos node_modules, nos `.claude/` e `.vscode/` (raiz e repo) e nos settings do usuário. Os hooks de `SessionStart` da raiz são os da casa (`sha-producao`, `junctions-claude`, `worktrees-limpar`); não há `.vscode/tasks.json`.
+- **Persistência**: os caminhos Linux/macOS do worm não existem no perfil; no Windows (pedido do dono), chaves `Run`/`RunOnce` (HKCU, HKLM, WOW6432Node), as duas pastas Inicializar e as tarefas agendadas que chamam node/script: nada do worm. A tarefa `Vertho - Board worker` é a do repositório (`scripts/painel/worker-oculto.vbs`, versionado, sem diferença para o HEAD).
+- **Git**: 8 branches remotas, nenhuma `dependabot/github_actions/format/setup-formatter`; 0 commits de `claude <claude@users.noreply.github.com>`; nenhum workflow "Run Copilot", `toJSON(secrets)`, `pull_request_target`, `write-all` ou `curl | sh` no histórico de `.github/workflows`.
+- **FASE 4**: `npm audit --package-lock-only` (app inteiro, app `--omit=dev`, worker) e conferência manual dos advisories do next, React RSC e sharp.
+- **FASE 5**: scripts de instalação no lockfile (10 no app, 3 no worker), origem dos pacotes (0 fora de `registry.npmjs.org`, 0 sem `integrity`, 0 git/tarball/caminho local), dependências que entraram em 90 dias, workflows e `.npmrc`.
+- **FASE 6**: varredura própria de segredos (17 regras: AWS, Anthropic, OpenAI, Stripe, GitHub, npm, GitLab, chave privada, JWT, URL Postgres/SMTP com senha, Google, Slack, SendGrid, `whsec_`, Resend, service_role) no HEAD e no histórico inteiro (`git log --all -G`), com saída mascarada; `.env*` no índice e no histórico; dados pessoais versionados, conferidos contra o banco só por CONTAGEM (sem ler nome, e-mail ou telefone de volta); logs no código.
+- Evidências (varreduras, saídas do `npm audit`, logs de build e testes, inventário de dado pessoal): `C:GASVertho Appauditauditoria-2026-10-23`, fora do repositório.
+- **GitHub (API, só leitura)**: `default_workflow_permissions: read`; secret scanning e push protection ligados, **0 alertas**; padrões fora de provedor e checagem de validade desligados; **alertas do Dependabot desligados**.
+
+Não verificado, e por quê:
+- `gitleaks`, `trufflehog` e `osv-scanner` não estão instalados; a varredura de segredos foi a regex própria acima. Instalar: `winget install gitleaks.gitleaks`, `winget install trufflesecurity.trufflehog`, `go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest`.
+- **Versão do Node que a Vercel serve AGORA**: a amostra do Sentry é de 21/10 (1 evento em 14 dias); não há endpoint que exponha `process.version`.
+- **Versão do Node das tasks do Trigger em produção**: inferida (CLI usado nos deploys desta máquina e a imagem que ele fixa); o painel do Trigger não foi consultado.
+- **Se o Cloud Run Job de `workers/extracao-video` ainda existe no GCP**: não há `gcloud` na máquina. No código, nada o chama.
+- **Imagem real do worker Hetzner** (data do último rebuild): fora do alcance do repo.
+- O cache do npm foi lido só pelo índice (`_cacache/index-v5`).
+
+### 3. Achados
+
+**CRÍTICO**
+
+- **C1. `next` 16.3.8 com RCE sem autenticação** (`package.json:63`, lock `node_modules/next`). GHSA-2464-fhr4-w9xw (otimizador de imagem com SVG, crítico, sem CVE), GHSA-673q-mjm6-r5xr (`use cache`, crítico, sem CVE; o app tem 0 usos de `use cache`) e GHSA-p3m5-59mp-jv5r / CVE-2026-94482 (DoS via Server Actions, alto; 152 arquivos `'use server'`). Exposição medida: `/_next/image` responde 200 em produção; não há SVG em `public/` nem `images.remotePatterns`, o que reduz o alcance do primeiro sem zerá-lo. E os advisories do React de 14/10 (GHSA-xqc2-xf4c-x3h3, RCE crítico, e GHSA-h3gv-c5rc-p453, DoS), publicados só no repositório `facebook/react` e por isso **invisíveis ao `npm audit`**. Classificado como crítico pela severidade do GHSA; exploração ativa não verificada. **Corrigido na branch** (`6806dea7`): next 16.4.1, react e react-dom 19.2.9.
+- **C2. Node 20 (fim de vida) declarado em dois lugares**: `smoke-test.yml:22` (**corrigido**, `3baf7a80`; é CI que só faz `fetch` contra produção, sem `npm ci`) e `workers/extracao-video/Dockerfile:4` (**pendente, decisão**: worker legado sem chamador; ver §5).
+
+**ALTO**
+
+- **A1. Vercel em Node 24.21.0**, abaixo do 24.22.1 de 20/10 (CVE-2026-111497 Brotli e mais 9). 60 arquivos de `app/`, `lib/`, `actions/` e `trigger/` fazem `fetch` para APIs externas (IA, WhatsApp, HeyGen, Bunny), e `lib/pdf-marca.ts:44` busca a URL do logo cadastrada pelo admin: a exposição ao Brotli é real. **Pendente, infraestrutura**: o patch é escolhido pela Vercel. `engines` NÃO subiu de propósito: com `engine-strict=true`, um piso `>=24.22.1` quebraria o install da Vercel enquanto ela servir 24.21.
+- **A2. Tasks do Trigger.dev em Node 22.16.0** (imagem de agosto, muitos patches de segurança atrás). Confirmado pelo release do Trigger 4.7.7: "Existing deployments keep the old runtime until you redeploy". **Corrigido na branch só a declaração** ({H_TRIGGER}: SDK e build 4.7.7); **pendente o redeploy manual** com `npx trigger.dev@4.7.7 deploy`.
+- **A3. Dado pessoal real de colaboradores de clientes versionado neste repositório público** (e-mails e telefones em scripts, testes e docs). Confirmado contra o banco só por contagem, sem ler o dado de volta. O inventário (arquivos, contagens, método e o script de conferência) fica FORA do repositório, pela mesma regra do CLAUDE.md para inventário de lacunas: `C:GASVertho Appauditauditoria-2026-10-23`. **Pendente, decisão** (§5).
+- **A4. `ws` 8.20.1 no worker de render** (GHSA-96hv-2xvq-fx4p, alto), trazido pelo `@remotion/renderer` 4.0.476; o app já tinha o override, o worker não. **Corrigido na branch** (`50f64ced`); vale no próximo rebuild da imagem.
+- **A5. Node da máquina de desenvolvimento abaixo do corrigido**: fnm 24.13.1 (usado pelas sessões) e 26.12.0 do sistema. **Pendente, local**: `fnm install 24.22.1` e atualizar o instalador do sistema para 26.12.1.
+
+**MÉDIO**
+
+- **M1. Alertas do Dependabot desligados no GitHub** (e "security updates" também), num repositório público. **Pendente, Settings** (§5). Foi por isso que o crítico do next de 22/10 só apareceu nesta auditoria.
+- **M2. Actions por tag móvel e sem `permissions` no arquivo.** **Corrigido na branch** (`09fec9df`). O padrão do repositório já era leitura.
+- **M3. Deploy do Trigger por `npx trigger.dev deploy` sem versão**: cada deploy baixa o CLI publicado naquele dia, sem janela de espera nem revisão. **Pendente, processo**: fixar a versão no comando (docs, CLAUDE.md, skill `trigger-dev`).
+- **M4. `certifi` 2026.7.22** (mínimo 2026.10.19, caso eMudhra) no Python local que o pipeline RadarEmpresas usa e num venv local. **Pendente, local**: `python -m pip install -U "certifi>=2026.10.19"`. `litellm` não está instalado em lugar nenhum (e a 1.107.0 já foi retirada do PyPI).
+- **M5. `deepmerge-ts` <8 (GHSA-ggr8-5vv4-36mx, alto, só desenvolvimento)** via `@prisma/config` 6.19.3 ← `@trigger.dev/build`. A correção exige `@prisma/config` 7 (major fora da faixa do builder). Sem caminho em runtime; segue registrado, como em 06/10.
+
+**BAIXO**
+
+- **B1. `@google/genai` declarado e não usado** (`package.json:45`): 0 imports no código versionado; entrou de carona no commit `09cdbde9` (27/07, "docs: docs/ vira o único lugar de .md"); tem `preinstall` (um `echo` inofensivo) e não tem atestado de proveniência. **Pendente, decisão** (pode haver script local fora do git que o use).
+- **B2. Nome de colaborador em log**: `trigger/render-video.ts:137` e `:139` (`nome` da personalização) e `lib/ia4-avaliacao.ts:636` (`nome_completo`), indo para os logs do Trigger e da Vercel. Proposta: logar `colaborador_id`. **Pendente** (zona 🟡: `trigger/` e núcleo de IA). Os demais logs com e-mail são de admin ou representante, e o do WhatsApp já mascara o telefone (`***` + 4 dígitos).
+- **B3. `workers/extracao-video`**: além do Node 20, baixa o `yt-dlp` de `releases/latest` sem checksum e instala sem lockfile. Some junto com a decisão de C2.
+- **B4. `mammoth → argparse → sprintf-js`** (moderado, DoS), sem patch; o app usa a API, não a CLI. Já registrado em 06/10.
+- Dois itens fora do escopo do repositório (autoria de commits e software da máquina) estão no inventário local.
+
+**Sem achado**: malware e IoCs (§2), segredos (1 ocorrência no HEAD e no histórico, falso positivo: URL `postgresql://` montada com variável em `scripts/_setup-ci-rls-audit.mjs:68`), `.env` (só `.env.example` e `worker-hetzner/.env.example`, com placeholders; `.gitignore` cobre `.env*.local`, `.env.local*` e `worker-hetzner/.env`), pacote fora do registry oficial, segredo em job de PR, `.npmrc` com token (repo e perfil), dependências dos últimos 90 dias (todas usadas no código, nomes canônicos, exceto B1), `sharp` (0.35.5), PHP/Laravel/Composer (não se aplica).
+
+### 4. O que foi corrigido na branch `security/2026-10-23-audit`
+
+| Commit | O quê | Validação |
+|---|---|---|
+| `3baf7a80` | Runtimes declarados: `.nvmrc` e os 4 workflows em 24.22.1, `smoke-test.yml` sai do Node 20, `worker-hetzner/Dockerfile` em `node:22.23.4-bookworm-slim` | Configuração lida por Vercel/CI/Docker, fora do build local; YAML validado; suíte da linha de base verde |
+| `50f64ced` | `ws` 8.22.0 no worker de render (override escopado, como o do app) | `npm audit` do worker: 2 altos para 0; suíte verde (inclui os guards do Dockerfile e do lock do worker) |
+| `09fec9df` | Actions pinadas por SHA (o commit da `v4` de hoje) e `permissions: contents: read` nos 4 workflows | YAML validado; nenhum passo, gatilho ou secret mudou |
+| `6806dea7` | next 16.4.1, react e react-dom 19.2.9 (12 entradas do lock, todas next/@next/react) | `npm ci --ignore-scripts`; `tsc` 0 erros; vitest 1.031 arquivos e 12.942 testes verdes (77 pulados, igual à base); `next build` exit 0 em 4min03s (envs dummy, como o CI); `npm audit --omit=dev`: 1 crítico para 0 |
+{LINHA_TRIGGER}
+| `c6168eb5` | `.github/dependabot.yml` (cooldown) e `.github/workflows/supply-chain.yml` (`npm audit` em PR, push e diário) | Os comandos do job rodados localmente: exit 0 nos dois lockfiles; antes das correções, exit 1 |
+| (este) | Esta seção | |
+
+Linha de base, no mesmo worktree antes das mudanças de dependência (sem `.env.local`, como o CI): `tsc` 0 erros; vitest 1.031 arquivos e 12.942 testes verdes, 77 pulados. **Lint** (`eslint . --quiet`, que o CI não roda): 14 erros, todos pré-existentes. São 13 testes com `react/no-children-prop` (`React.createElement(X, { children })`) e `components/ipi/ipi-access.tsx:8` (JSX dentro de `try/catch`). Nenhum desses arquivos foi tocado e nenhum pacote do ESLint mudou no lock. O lint não rodou na linha de base, só depois das mudanças. Ficam fora desta branch.
+
+Não foi para a branch, de propósito:
+- **`engines >=24.22.1`**: quebraria o deploy enquanto a Vercel servir 24.21 (`engine-strict=true`). Subir quando o Sentry mostrar `node v24.22.1`.
+- **`min-release-age=7` no `.npmrc`**: o npm 11.8 (o do Node 24.13.1) não conhece a chave e a ignora com aviso; o npm 11.20+ a aplica, e nesse caso um pacote recém-publicado (como o Trigger 4.7.7, de 22/10) pararia o install. A janela de espera ficou no Dependabot (`cooldown`). Para a máquina local, com npm ≥11.20: `min-release-age=7` no `~/.npmrc` do usuário, com `min-release-age-exclude` quando um patch de segurança precisar entrar antes.
+- **`ignore-scripts=true` no `.npmrc` do repo**: o mesmo arquivo vale para o install da Vercel e do Trigger, e 10 pacotes do lock têm script. `@sentry/cli` baixa o binário que o `@sentry/nextjs` usa no build para subir source maps; `youtube-dl-exec` baixa o yt-dlp; `@swc/core`, `esbuild`, `unrs-resolver` e `@parcel/watcher` conferem ou montam binário nativo; `protobufjs` é aviso de versão; `@google/genai` é um `echo`; `fsevents` é só macOS. Sem validar num preview da Vercel, não dá para afirmar que o build segue igual. Proposta para quando houver esse teste: `ignore-scripts=true` e, depois do install, `npm rebuild @sentry/cli esbuild @swc/core unrs-resolver` (a allowlist documentada). Na máquina local é seguro desde já, no `~/.npmrc`.
+- **Job de gitleaks no CI**: o secret scanning e o push protection do GitHub já cobrem os padrões de provedor no histórico e no push. O que falta é ligar os padrões fora de provedor (§5).
+
+### 5. O que depende de decisão humana
+
+1. **Dado pessoal no repositório público (A3)**: (a) tirar do HEAD os arquivos e trechos do inventário local, trocando por valores sintéticos; (b) avaliar com quem cuida da LGPD se é incidente a comunicar ao controlador (o cliente) e à ANPD; (c) reescrever o histórico (`git filter-repo`) exige force-push no `master` e não apaga cópias já feitas (forks, clones, caches): decisão do dono, não feita.
+2. **Trigger.dev (A2)**: aceitar o commit do SDK 4.7.7 (publicado há 1 dia) ou esperar a janela, e fazer o redeploy manual com `npx trigger.dev@4.7.7 deploy`. Até lá, as tasks seguem em Node 22.16.0.
+3. **Vercel (A1)**: acompanhar até o runtime virar 24.22.1 (tag `runtime` dos eventos do Sentry, ou um log de `process.version`); depois disso, subir o piso de `engines` para `>=24.22.1`. A Vercel não oferece escolha de patch.
+4. **Worker Hetzner (A4 e Dockerfile)**: rebuild da imagem a partir desta branch (já no master) e restart do serviço.
+5. **`workers/extracao-video` (C2, B3)**: apagar a pasta (sem chamador desde junho) e conferir no console do GCP que o Cloud Run Job e algum agendador dele não existem mais.
+6. **GitHub Settings (M1)**: ligar "Dependabot alerts" e "Dependabot security updates", e "Non-provider patterns" e "Validity checks" do secret scanning.
+7. **Máquina local (A5, M4)**: `fnm install 24.22.1`; atualizar o Node 26 do sistema para 26.12.1; `python -m pip install -U "certifi>=2026.10.19"` nos Pythons locais.
+8. **`@google/genai` (B1)**: remover se nenhum script local o usar.
+9. **Segredos a rotacionar**: nenhum. A varredura não achou segredo real no HEAD nem no histórico, e o secret scanning do GitHub tem 0 alertas.
+10. **Upgrades major**: nenhum foi necessário nesta rodada. Fica registrado que `@prisma/config` 7 (M5) seria major.
+
+### 6. Hardening contínuo
+
+- Dependabot com `cooldown` (nesta branch) e os alertas ligados nas Settings.
+- Actions pinadas por SHA (nesta branch), com o Dependabot de `github-actions` propondo os bumps.
+- `npm audit` diário e em PR no CI (nesta branch). Lembrete do que ele NÃO vê: advisories publicados só no repositório do projeto, como os do React de 14/10. Para esses, assinar os avisos de segurança do Next.js, React e Node (`nodejs-sec`) e conferir o CISA KEV e o CERT.br.
+- Versão do CLI do Trigger sempre explícita no comando de deploy.
+- Scripts de instalação desligados e `min-release-age` no `~/.npmrc` local; no repo, só depois do teste em preview descrito no §4.
+- 2FA e tokens granulares (escopo mínimo, validade curta) no npm e no GitHub; secret scanning e push protection já ligados desde 18/09.
+- Dado de pessoa real nunca em teste, doc ou script versionado: número e e-mail fictícios (domínio `.example`/`.invalid`, telefone `55XX9XXXXXXXX` sintético). Um guard que reprove e-mail de provedor pessoal (gmail, hotmail) e domínios de cliente em `tests/` e `scripts/` versionados fecharia a classe.
 
 ## 19/10: refresh do Mercado Potencial só pelo servidor (mig 294, `c9944c68`)
 
