@@ -68,20 +68,20 @@ describe('de quem é o telefone — a decisão sobre TODAS as linhas', () => {
   /**
    * 🔴 O caso que a caixa não reconhecia — medido em 17/08/2026.
    *
-   * A pílula saiu às 11:00:28 para `5574999225966` (o cadastro), a professora
-   * respondeu às 11:00:40 de `557499225966` (o `wa_id`, sem o nono dígito), e o
+   * A pílula saiu às 11:00:28 para `5574990000966` (o cadastro), a professora
+   * respondeu às 11:00:40 de `557490000966` (o `wa_id`, sem o nono dígito), e o
    * app gravou `telefone-desconhecido`: não reconheceu o próprio destinatário
    * doze segundos depois de entregar. Valia para as 50 pessoas de Ibipeba com
    * DDD ≥ 31, ou seja, para a turma inteira.
    */
   it('🔴 o wa_id SEM o nono dígito casa com o cadastro que TEM', () => {
-    const v = variantesDoTelefone('557499225966');
-    expect(v).toContain('5574999225966');
-    expect(v).toContain('557499225966');
+    const v = variantesDoTelefone('557490000966');
+    expect(v).toContain('5574990000966');
+    expect(v).toContain('557490000966');
 
-    const f = filtroDeTelefone('557499225966');
-    expect(f).toContain('telefone.eq.5574999225966');
-    expect(f).toContain('whatsapp.eq.5574999225966');
+    const f = filtroDeTelefone('557490000966');
+    expect(f).toContain('telefone.eq.5574990000966');
+    expect(f).toContain('whatsapp.eq.5574990000966');
   });
 
   it('e o espelho: cadastro na forma antiga casa com o wa_id que tem o nono', () => {

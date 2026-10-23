@@ -31,7 +31,7 @@ const sb = criarSupabaseMock({
     if (tabela === 'colaboradores') {
       if (emailJaCadastrado) return { id: 'col-1' };
       return colabExiste
-        ? { id: 'col-1', nome_completo: 'Geane Souza', telefone: '5522997612255', empresa_id: 'emp-1', email: 'geane@escola.rj.gov.br' }
+        ? { id: 'col-1', nome_completo: 'Geane Souza', telefone: '5522990000255', empresa_id: 'emp-1', email: 'geane@escola.rj.gov.br' }
         : null;
     }
     if (tabela === 'empresas') return { id: 'emp-1', nome: 'Macaé', slug: 'macae', sys_config: { allow_open_signup: abertoParaCadastro } };
@@ -139,21 +139,21 @@ describe('o link por WhatsApp', () => {
 
   it('canal indisponível mantém o 503 e traz o código próprio', async () => {
     envio = async () => ({ anySent: false, whatsapp: 'failed', whatsappReason: 'Z-API não configurado' });
-    const r = await pedirTelefone({ telefone: '22997612255', redirectTo: `https://${HOST}/dashboard` });
+    const r = await pedirTelefone({ telefone: '22990000255', redirectTo: `https://${HOST}/dashboard` });
     expect(r.status).toBe(503);
     expect((await r.json()).codigo).toBe(login.CODIGO_CANAL_INDISPONIVEL);
   });
 
   it('falha de envio mantém o 502 e traz o código genérico', async () => {
     envio = async () => ({ anySent: false, whatsapp: 'failed', whatsappReason: 'timeout' });
-    const r = await pedirTelefone({ telefone: '22997612255', redirectTo: `https://${HOST}/dashboard` });
+    const r = await pedirTelefone({ telefone: '22990000255', redirectTo: `https://${HOST}/dashboard` });
     expect(r.status).toBe(502);
     expect((await r.json()).codigo).toBe(login.CODIGO_FALHA_NO_ENVIO);
   });
 
   it('falha do Supabase ao gerar o link', async () => {
     falhaDoLink = { message: 'rate limit exceeded' };
-    const r = await pedirTelefone({ telefone: '22997612255', redirectTo: `https://${HOST}/dashboard` });
+    const r = await pedirTelefone({ telefone: '22990000255', redirectTo: `https://${HOST}/dashboard` });
     expect(r.status).toBe(500);
     expect((await r.json()).codigo).toBe(login.CODIGO_FALHA_NO_ENVIO);
   });

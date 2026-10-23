@@ -82,9 +82,9 @@ beforeEach(() => {
 describe('R-76 · 1. WhatsApp no endereço genérico', () => {
   it('🔴 número sem cadastro: a mesma resposta do host de tenant, e nada é enviado', async () => {
     slugDoHost = 'macae';
-    const noTenant = await telefoneLink.POST(req('macae.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22997612255' }));
+    const noTenant = await telefoneLink.POST(req('macae.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22990000255' }));
     slugDoHost = null;
-    const noGenerico = await telefoneLink.POST(req('app.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22997612255' }));
+    const noGenerico = await telefoneLink.POST(req('app.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22990000255' }));
     expect(noGenerico.status).toBe(200);
     expect(await noGenerico.json()).toEqual(await noTenant.json());
     expect(enviados).toHaveLength(0);
@@ -97,10 +97,10 @@ describe('R-76 · 1. WhatsApp no endereço genérico', () => {
 
 describe('R-76 · 2. telefone sem cadastro para WhatsApp', () => {
   it('a rota segue anti-enumeração: mesma resposta para número cadastrado e não cadastrado', async () => {
-    const semCadastro = await (await telefoneLink.POST(req('macae.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22997612255' }))).json();
+    const semCadastro = await (await telefoneLink.POST(req('macae.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22990000255' }))).json();
     expect(enviados).toHaveLength(0);
     colabDoTelefone = { id: 'col-1', nome_completo: 'Geane Souza', email: 'geane@escola.rj.gov.br' };
-    const comCadastro = await (await telefoneLink.POST(req('macae.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22997612255' }))).json();
+    const comCadastro = await (await telefoneLink.POST(req('macae.vertho.ai', '/api/auth/phone-magic-link/request', { telefone: '22990000255' }))).json();
     expect(enviados).toHaveLength(1);
     expect(comCadastro).toEqual(semCadastro);
   });
@@ -130,7 +130,7 @@ describe('R-76 · 2. telefone sem cadastro para WhatsApp', () => {
 });
 
 describe('R-76 · 3. auto-cadastro', () => {
-  const corpo = { email: 'nova@escola.br', nome_completo: 'Nova Pessoa', telefone: '22997612255', redirectTo: 'https://macae.vertho.ai/dashboard' };
+  const corpo = { email: 'nova@escola.br', nome_completo: 'Nova Pessoa', telefone: '22990000255', redirectTo: 'https://macae.vertho.ai/dashboard' };
 
   it('🔴 cria a conta no Auth ANTES de gerar o link, e o link sai', async () => {
     const r = await cadastro.POST(req('macae.vertho.ai', '/api/auth/signup', corpo));

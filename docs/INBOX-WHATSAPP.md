@@ -881,19 +881,19 @@ tamanho: `HBgN` = 13 dígitos, `HBgM` = 12):
 | DDD | forma do `wa_id` | envios medidos |
 |---|---|---|
 | 11 | `5511973882303` — **com** o nono | 8 |
-| 74 / 77 | `557499225966` — **sem** o nono | 36 |
+| 74 / 77 | `557490000966` — **sem** o nono | 36 |
 
 O cadastro está em E.164 **com** o nono (294 de 298 telefones BR), porque é assim que se disca.
 
-1. **A resposta não casava com o cadastro.** Pílula entregue às 11:00:28 para `5574999225966`;
-   resposta às 11:00:40 de `557499225966` gravada como `telefone-desconhecido`. O app não reconheceu
+1. **A resposta não casava com o cadastro.** Pílula entregue às 11:00:28 para `5574990000966`;
+   resposta às 11:00:40 de `557490000966` gravada como `telefone-desconhecido`. O app não reconheceu
    o próprio destinatário doze segundos depois de entregar. Exposição: **50 pessoas** de Ibipeba com
    DDD ≥ 31 — a turma que estava recebendo a cadência naquela manhã.
    Correção: `lib/whatsapp/nono-digito.ts` + `variantesDoTelefone`. O que destravou a decisão que
    estava congelada desde 15/08 foi a medição que faltava: normalizando o nono dígito, **0 dos ~350
    telefones do cadastro** passam a colidir com outro que hoje é distinto. E o risco residual
    continua contido por `decidirDono`, que não escolhe no empate.
-2. **Responder falharia depois de resolvida a identidade.** `normalizePhone('557499225966')` devolve
+2. **Responder falharia depois de resolvida a identidade.** `normalizePhone('557490000966')` devolve
    **null** — a forma que a Cloud API usa não existe no plano de numeração atual do Brasil. O envio
    morreria em *"telefone inválido"*, e só no instante em que alguém tentasse responder.
    Correção: `foneParaMeta()` em `cloud-api.ts` — tenta o número como veio e cai na outra forma.

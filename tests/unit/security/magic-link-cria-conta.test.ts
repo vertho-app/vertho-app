@@ -26,7 +26,7 @@ let erroCreateUser: { message: string } | null = null;
 const sb = criarSupabaseMock({
   resolver: (tabela: string) => {
     if (tabela === 'colaboradores') {
-      return temColab ? { nome_completo: 'Geane', telefone: '5522997612255', empresa_id: 'emp-1' } : null;
+      return temColab ? { nome_completo: 'Geane', telefone: '5522990000255', empresa_id: 'emp-1' } : null;
     }
     if (tabela === 'empresas') return { id: 'emp-1', nome: 'Macaé', slug: 'macae' };
     if (tabela === 'platform_admins') return null;

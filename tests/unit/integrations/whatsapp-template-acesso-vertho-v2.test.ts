@@ -76,7 +76,7 @@ beforeEach(() => {
 afterEach(limparEnv);
 
 const base = {
-  telefone: '5574999225966', nome: 'Ana', semana: 1, tema: '', slug: '', baseUrl: '',
+  telefone: '5574990000966', nome: 'Ana', semana: 1, tema: '', slug: '', baseUrl: '',
   formato: null, pilula: null, empresaId: 'e1', colaboradorId: 'c1',
 };
 

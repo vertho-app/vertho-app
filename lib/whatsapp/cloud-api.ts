@@ -175,7 +175,7 @@ export interface EnvioTemplateMeta {
 /**
  * E.164 para a Meta, tolerando o `wa_id` sem o nono dígito.
  *
- * 🔴 MEDIDO EM 17/08/2026: `normalizePhone('557499225966')` devolve **null** —
+ * 🔴 MEDIDO EM 17/08/2026: `normalizePhone('557490000966')` devolve **null** —
  * o número que a própria Cloud API usa para os DDDs ≥ 31 é recusado pela nossa
  * validação, porque não existe no plano de numeração atual do Brasil. Sem esta
  * função, responder na caixa de entrada a quem escreveu daquela faixa falharia

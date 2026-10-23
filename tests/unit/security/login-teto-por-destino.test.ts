@@ -22,7 +22,7 @@ const sb = criarSupabaseMock({
   resolver: (tabela: string) => {
     if (tabela === 'colaboradores') {
       return temColab
-        ? { id: 'col-1', nome_completo: 'Geane Souza', telefone: '5522997612255', empresa_id: 'emp-1', email: 'geane@escola.rj.gov.br' }
+        ? { id: 'col-1', nome_completo: 'Geane Souza', telefone: '5522990000255', empresa_id: 'emp-1', email: 'geane@escola.rj.gov.br' }
         : null;
     }
     if (tabela === 'empresas') return { id: 'emp-1', nome: 'Macaé', slug: 'macae' };
@@ -139,9 +139,9 @@ describe('R-79 · teto por destinatário', () => {
 
   it('a chave guardada no Redis não carrega o e-mail nem o telefone', async () => {
     const chaveEmail = await chaveDoDestino('email', 'geane@escola.rj.gov.br');
-    const chaveTel = await chaveDoDestino('telefone', '5522997612255');
+    const chaveTel = await chaveDoDestino('telefone', '5522990000255');
     expect(chaveEmail).not.toContain('geane');
-    expect(chaveTel).not.toContain('997612255');
+    expect(chaveTel).not.toContain('990000255');
     expect(chaveEmail).not.toBe(await chaveDoDestino('email', 'outra@escola.rj.gov.br'));
   });
 });
@@ -182,11 +182,11 @@ describe('R-79 · as rotas usam o teto antes de gerar link', () => {
 
   it('🔴 WhatsApp: o 6º pedido para o mesmo número volta 429 e não dispara template', async () => {
     for (let i = 0; i < LINKS_POR_DESTINO_HORA; i++) {
-      const r: any = await pedirPorTelefone('22997612255');
+      const r: any = await pedirPorTelefone('22990000255');
       expect(r.status).toBe(200);
     }
     expect(enviados).toHaveLength(LINKS_POR_DESTINO_HORA);
-    const r: any = await pedirPorTelefone('22997612255');
+    const r: any = await pedirPorTelefone('22990000255');
     expect(r.status).toBe(429);
     expect((await r.json()).codigo).toBe(CODIGO_LIMITE_DESTINO);
     expect(enviados).toHaveLength(LINKS_POR_DESTINO_HORA);

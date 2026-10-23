@@ -114,7 +114,7 @@ beforeEach(() => {
     id: 'col-ana',
     nome_completo: 'Ana Souza',
     email: 'ana@escola.gov.br',
-    telefone: '5574999225966',
+    telefone: '5574990000966',
     whatsapp: null,
     login_por_whatsapp: true,
   };
@@ -242,7 +242,7 @@ describe('colaborador comum (Beto aberto para todos)', () => {
     empresaBaseId: 'emp-tenant',
     email: 'ana@escola.gov.br',
     nome: 'Ana Souza',
-    telefone: '5574999225966',
+    telefone: '5574990000966',
     vinculos: [{ id: 'col-ana', empresaId: 'emp-tenant', loginPorWhatsapp: true }],
     origem: 'colaborador',
   };
@@ -266,7 +266,7 @@ describe('colaborador comum (Beto aberto para todos)', () => {
 
   it('phone-only: grava o proxy no cadastro ANTES de criar a conta', async () => {
     h.platformAdmin = false;
-    const proxy = proxyEmailFromPhone('emp-tenant', '5574999225966');
+    const proxy = proxyEmailFromPhone('emp-tenant', '5574990000966');
     const r = await enviarLinkAcessoBeto({ ...colab, email: proxy, gravarEmailProxyEm: 'col-ana' }, AGORA);
     expect(r.enviou).toBe(true);
     expect(h.updates).toEqual([{
@@ -277,7 +277,7 @@ describe('colaborador comum (Beto aberto para todos)', () => {
   it('falha ao gravar o proxy: não cria conta nem manda link', async () => {
     h.platformAdmin = false;
     h.erroUpdate = 'violação de índice';
-    const proxy = proxyEmailFromPhone('emp-tenant', '5574999225966');
+    const proxy = proxyEmailFromPhone('emp-tenant', '5574990000966');
     const r = await enviarLinkAcessoBeto({ ...colab, email: proxy, gravarEmailProxyEm: 'col-ana' }, AGORA);
     expect(r).toEqual({ enviou: false, motivo: 'falha-gravar-email-proxy', detalhe: 'violação de índice' });
     expect(h.createCalls).toHaveLength(0);
@@ -293,7 +293,7 @@ describe('colaborador comum (Beto aberto para todos)', () => {
 
 describe('identidade de acesso do colaborador', () => {
   it('cadastro com e-mail real: usa o e-mail, sem gravar nada', async () => {
-    const r = await identidadeDeAcessoDoColaborador('emp-tenant', 'col-ana', '557499225966');
+    const r = await identidadeDeAcessoDoColaborador('emp-tenant', 'col-ana', '557490000966');
     expect(r).toEqual({
       ok: true,
       email: 'ana@escola.gov.br',
@@ -305,17 +305,17 @@ describe('identidade de acesso do colaborador', () => {
 
   it('phone-only: proxy do telefone de LOGIN, marcado para gravação', async () => {
     h.colaborador = { ...h.colaborador, email: null };
-    const r = await identidadeDeAcessoDoColaborador('emp-tenant', 'col-ana', '557499225966');
+    const r = await identidadeDeAcessoDoColaborador('emp-tenant', 'col-ana', '557490000966');
     expect(r).toEqual(expect.objectContaining({
       ok: true,
-      email: proxyEmailFromPhone('emp-tenant', '5574999225966'),
+      email: proxyEmailFromPhone('emp-tenant', '5574990000966'),
       gravarEmailProxyEm: 'col-ana',
     }));
   });
 
   it('login por WhatsApp desabilitado: sem acesso por aqui (mesma regra das rotas de telefone)', async () => {
     h.colaborador = { ...h.colaborador, login_por_whatsapp: false };
-    expect(await identidadeDeAcessoDoColaborador('emp-tenant', 'col-ana', '5574999225966'))
+    expect(await identidadeDeAcessoDoColaborador('emp-tenant', 'col-ana', '5574990000966'))
       .toEqual({ ok: false, motivo: 'login-whatsapp-desabilitado' });
   });
 
@@ -326,7 +326,7 @@ describe('identidade de acesso do colaborador', () => {
 
   it('colaborador fora deste tenant não é encontrado', async () => {
     h.colaborador = null;
-    expect(await identidadeDeAcessoDoColaborador('emp-tenant', 'col-outro', '5574999225966'))
+    expect(await identidadeDeAcessoDoColaborador('emp-tenant', 'col-outro', '5574990000966'))
       .toEqual({ ok: false, motivo: 'colaborador-nao-encontrado' });
   });
 });

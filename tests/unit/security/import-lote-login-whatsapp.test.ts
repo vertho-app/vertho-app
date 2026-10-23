@@ -57,11 +57,11 @@ describe('import em lote × login por WhatsApp', () => {
   it('🔴 e-mail REAL + telefone liga login_por_whatsapp (era false: a rota de telefone não enviava nada)', async () => {
     await importarColaboradoresLote({
       empresaId: EMPRESA,
-      colabs: [{ nome: 'Priscila', email: 'priscila@ab.com', telefone: '92985973968' }],
+      colabs: [{ nome: 'Priscila', email: 'priscila@ab.com', telefone: '92980000968' }],
     });
     const [linha] = linhasInseridas();
     expect(linha.email).toBe('priscila@ab.com');
-    expect(linha.telefone).toBe('5592985973968');
+    expect(linha.telefone).toBe('5592980000968');
     expect(linha.login_por_whatsapp).toBe(true);
   });
 
@@ -73,18 +73,18 @@ describe('import em lote × login por WhatsApp', () => {
   });
 
   it('só WhatsApp (sem e-mail) segue ligado, com e-mail proxy', async () => {
-    await importarColaboradoresLote({ empresaId: EMPRESA, colabs: [{ nome: 'So Zap', telefone: '92981110845' }] });
+    await importarColaboradoresLote({ empresaId: EMPRESA, colabs: [{ nome: 'So Zap', telefone: '92980000845' }] });
     const [linha] = linhasInseridas();
     expect(linha.login_por_whatsapp).toBe(true);
-    expect(linha.telefone).toBe('5592981110845');
+    expect(linha.telefone).toBe('5592980000845');
   });
 
   it('🔴 mesmo telefone em duas linhas do arquivo: a 2ª NÃO liga a flag (o índice único derrubaria o lote)', async () => {
     const r: any = await importarColaboradoresLote({
       empresaId: EMPRESA,
       colabs: [
-        { nome: 'Ana', email: 'ana@ab.com', telefone: '92984562758' },
-        { nome: 'Ana Outra', email: 'outra@ab.com', telefone: '92984562758' },
+        { nome: 'Ana', email: 'ana@ab.com', telefone: '92980000758' },
+        { nome: 'Ana Outra', email: 'outra@ab.com', telefone: '92980000758' },
       ],
     });
     const [a, b] = linhasInseridas();
@@ -96,10 +96,10 @@ describe('import em lote × login por WhatsApp', () => {
   });
 
   it('🔴 telefone que já loga por WhatsApp no banco: a linha nova NÃO liga a flag', async () => {
-    telefonesComLoginNoBanco = ['5592984562758'];
+    telefonesComLoginNoBanco = ['5592980000758'];
     await importarColaboradoresLote({
       empresaId: EMPRESA,
-      colabs: [{ nome: 'Ana Nova', email: 'nova@ab.com', telefone: '92984562758' }],
+      colabs: [{ nome: 'Ana Nova', email: 'nova@ab.com', telefone: '92980000758' }],
     });
     expect(linhasInseridas()[0].login_por_whatsapp).toBe(false);
   });
@@ -109,8 +109,8 @@ describe('import em lote × login por WhatsApp', () => {
     await importarColaboradoresLote({
       empresaId: EMPRESA,
       colabs: [
-        { nome: 'Dup', email: 'ja@ab.com', telefone: '92984562758' },
-        { nome: 'Vale', email: 'vale@ab.com', telefone: '92984562758' },
+        { nome: 'Dup', email: 'ja@ab.com', telefone: '92980000758' },
+        { nome: 'Vale', email: 'vale@ab.com', telefone: '92980000758' },
       ],
     });
     const linhas = linhasInseridas();
@@ -123,7 +123,7 @@ describe('import em lote × login por WhatsApp', () => {
     sb.falharEm({ tabela: 'colaboradores', op: 'select', mensagem: 'timeout no pool' });
     const r: any = await importarColaboradoresLote({
       empresaId: EMPRESA,
-      colabs: [{ nome: 'X', email: 'x@ab.com', telefone: '92984562758' }],
+      colabs: [{ nome: 'X', email: 'x@ab.com', telefone: '92980000758' }],
     });
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/timeout no pool/);

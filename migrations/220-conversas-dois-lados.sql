@@ -8,8 +8,8 @@
 -- havia onde ver o que foi enviado, nem para quem o canal está mudo.
 --
 -- 🔴 E A CHAVE NÃO PODE SER O TELEFONE CRU. Medido em 17/08/2026: o `wa_id` que a
--- Meta usa vem SEM o nono dígito nos DDDs ≥ 31 (`557499225966`), enquanto o envio
--- vai para o cadastro, COM o nono (`5574999225966`). Agrupar pelo texto do
+-- Meta usa vem SEM o nono dígito nos DDDs ≥ 31 (`557490000966`), enquanto o envio
+-- vai para o cadastro, COM o nono (`5574990000966`). Agrupar pelo texto do
 -- telefone partiria a mesma pessoa em DUAS conversas lado a lado na tela — uma
 -- com o que ela escreveu, outra com o que mandamos. Daí `wa_fone_canonico`.
 --

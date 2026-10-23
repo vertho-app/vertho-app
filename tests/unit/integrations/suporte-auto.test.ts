@@ -168,7 +168,7 @@ const base: EntradaSuporte = {
 /** Colaborador comum: o telefone não tem vínculo `@vertho.ai`. */
 const colab: EntradaSuporte = {
   ...base,
-  fromPhone: '5574999225966',
+  fromPhone: '5574990000966',
   waMessageId: 'wamid.C1',
   texto: 'o vídeo da semana não carrega',
   empresaId: 'emp-ibipeba',

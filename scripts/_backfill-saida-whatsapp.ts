@@ -14,7 +14,7 @@
  * devolve carrega o número REAL para onde a mensagem foi: base64, terceiro byte =
  * tamanho, seguido dos dígitos em ASCII. Ler do cadastro seria inferir "deve ter
  * ido para o telefone atual dele" — e é justamente essa suposição que falha,
- * porque a Meta normaliza o nono dígito (`5574999225966` → `557499225966`).
+ * porque a Meta normaliza o nono dígito (`5574990000966` → `557490000966`).
  *
  * ⚠️ SEM TEXTO, DE PROPÓSITO. Os parâmetros do template não foram guardados, e
  * reconstruir a frase a partir do nome/semana/tema de hoje produziria uma

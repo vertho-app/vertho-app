@@ -18,8 +18,8 @@ describe('metadata do libphonenumber (canário do interop)', () => {
 
   it('distingue DDI errado de número válido (caso real: 597=Suriname vs 55=BR)', () => {
     // Um dígito trocado no cadastro tirou uma pessoa do WhatsApp por 2 semanas.
-    expect(normalizePhone('5574988079827')).toBe('5574988079827'); // BR, DDD 74
-    expect(normalizePhone('5974988079827')).toBeNull();            // DDI 597
+    expect(normalizePhone('5574980000827')).toBe('5574980000827'); // BR, DDD 74
+    expect(normalizePhone('5974980000827')).toBeNull();            // DDI 597
   });
 });
 

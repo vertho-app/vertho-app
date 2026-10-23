@@ -24,8 +24,8 @@ import { criarSupabaseMock, type Chamada } from '../../helpers/supabase-mock';
 
 type Linha = Record<string, any>;
 
-const TEL_DIGITOS = '22997612255';
-const TEL = '5522997612255'; // E.164 sem o "+", como o cadastro guarda
+const TEL_DIGITOS = '22990000255';
+const TEL = '5522990000255'; // E.164 sem o "+", como o cadastro guarda
 
 const banco: { empresas: Linha[]; colaboradores: Linha[] } = { empresas: [], colaboradores: [] };
 let slugDoHost: string | null = null;
@@ -575,7 +575,7 @@ describe('o log não imprime o telefone inteiro', () => {
     expect(logs.length).toBeGreaterThanOrEqual(3);
     for (const linha of logs) expect(inteiro(linha), linha).toBe(false);
     // O sufixo continua no log: serve para o operador reconhecer o caso.
-    expect(logs.some((l) => l.includes('2255'))).toBe(true);
+    expect(logs.some((l) => l.includes('0255'))).toBe(true);
   });
 
   it('nenhuma linha de log do fluxo feliz, da lista ou da falha de banco traz o número', async () => {

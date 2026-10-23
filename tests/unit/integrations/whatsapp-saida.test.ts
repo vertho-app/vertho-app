@@ -61,9 +61,9 @@ afterEach(() => {
 
 describe('a régua do nono dígito', () => {
   it('vai e volta entre as duas formas do mesmo celular', () => {
-    expect(alternarNonoDigito('5574999225966')).toBe('557499225966');
-    expect(alternarNonoDigito('557499225966')).toBe('5574999225966');
-    expect(formasDoTelefone('557499225966')).toEqual(['557499225966', '5574999225966']);
+    expect(alternarNonoDigito('5574990000966')).toBe('557490000966');
+    expect(alternarNonoDigito('557490000966')).toBe('5574990000966');
+    expect(formasDoTelefone('557490000966')).toEqual(['557490000966', '5574990000966']);
   });
 
   it('não inventa dígito onde não cabe', () => {
@@ -77,14 +77,14 @@ describe('a régua do nono dígito', () => {
 
 describe('🔴 o telefone que vai para a Meta', () => {
   it('o wa_id sem o nono dígito é aceito e sai na forma que valida', async () => {
-    // `normalizePhone('557499225966')` devolve null — é o formato que a própria
+    // `normalizePhone('557490000966')` devolve null — é o formato que a própria
     // Cloud API usa e que o plano de numeração brasileiro não reconhece mais.
     // Sem a tolerância, responder a quem escreveu daquele DDD nem chegava à rede.
     novoMock();
-    const r = await enviarTextoCloud({ phone: '557499225966', texto: 'oi' });
+    const r = await enviarTextoCloud({ phone: '557490000966', texto: 'oi' });
 
     expect(r.ok).toBe(true);
-    expect(corpos[0].to).toBe('5574999225966');
+    expect(corpos[0].to).toBe('5574990000966');
   });
 
   it('número que não existe em plano nenhum continua recusado antes da rede', async () => {
@@ -100,7 +100,7 @@ describe('🔴 o que a cadência manda vira linha na conversa', () => {
   it('template grava o CORPO renderizado, não só o nome', async () => {
     const sb = novoMock();
     await enviarTemplateCloud(
-      { phone: '5574999225966', template: 'conteudo_semana', params: ['Ana', '5', 'Escuta ativa', 'https://x/5'] },
+      { phone: '5574990000966', template: 'conteudo_semana', params: ['Ana', '5', 'Escuta ativa', 'https://x/5'] },
       { motivo: 'pilula', empresaId: 'e1', colaboradorId: 'c1' },
     );
 
@@ -191,7 +191,7 @@ describe('🔴 o que a cadência manda vira linha na conversa', () => {
     const sb = novoMock();
     const credencial = 'ibipeba~pkce_segredo_de_teste';
     await enviarTemplateCloud(
-      { phone: '5574999225966', template: 'acesso_vertho', params: [], botaoParam: credencial },
+      { phone: '5574990000966', template: 'acesso_vertho', params: [], botaoParam: credencial },
       { motivo: 'acesso', empresaId: 'e1', colaboradorId: 'c1', origem: 'suporte-auto' },
     );
 

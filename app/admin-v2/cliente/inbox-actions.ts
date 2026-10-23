@@ -122,8 +122,8 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
   /*
    * 🔴 `.in(...)` E NÃO `.eq(...)`: os dois lados da conversa chegam com formas
    * DIFERENTES do mesmo telefone. O que a pessoa manda vem no `wa_id` da Meta
-   * (`557499225966`, sem o nono dígito nos DDDs ≥ 31); o que a cadência manda vai
-   * para o número do CADASTRO (`5574999225966`). Com igualdade exata, a thread de
+   * (`557490000966`, sem o nono dígito nos DDDs ≥ 31); o que a cadência manda vai
+   * para o número do CADASTRO (`5574990000966`). Com igualdade exata, a thread de
    * quem respondeu mostraria só o lado dela — a conversa apareceria pela metade,
    * sem nenhum erro na tela. Ver `lib/whatsapp/nono-digito.ts`.
    */

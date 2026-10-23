@@ -6,7 +6,7 @@
  * O `wa_id` que a Cloud API usa para um celular brasileiro depende do DDD:
  *
  *   DDD 11  → `5511973882303` (13 dígitos, COM o nono)     — 8 envios
- *   DDD 74  → `557499225966`  (12 dígitos, SEM o nono)     — 35 envios
+ *   DDD 74  → `557490000966`  (12 dígitos, SEM o nono)     — 35 envios
  *   DDD 77  → idem                                          — 1 envio
  *
  * (Lido do próprio `wamid`: os quatro primeiros caracteres codificam o tamanho do
@@ -14,7 +14,7 @@
  *
  * O cadastro está em E.164 COM o nono (294 de 298 telefones brasileiros), porque é
  * assim que se disca. Resultado: **enviamos a pílula às 11:00:28 para
- * `5574999225966`, a pessoa respondeu às 11:00:40 de `557499225966`, e o app não
+ * `5574990000966`, a pessoa respondeu às 11:00:40 de `557490000966`, e o app não
  * reconheceu o próprio destinatário** — `ambiguidade = 'telefone-desconhecido'`.
  *
  * Exposição no dia em que isto foi escrito: **50 pessoas** com DDD ≥ 31 em
@@ -32,7 +32,7 @@
  * pagaria cold start em todo evento recebido.
  */
 
-/** Só dígitos. `+55 (74) 99922-5966` → `5574999225966`. */
+/** Só dígitos. `+55 (74) 99000-0966` → `5574990000966`. */
 function digitos(telefone: unknown): string {
   return String(telefone ?? '').replace(/\D/g, '');
 }
@@ -40,7 +40,7 @@ function digitos(telefone: unknown): string {
 /**
  * A OUTRA forma do mesmo celular brasileiro, ou `null` quando não existe.
  *
- *   `5574999225966` (13) ⇄ `557499225966` (12)
+ *   `5574990000966` (13) ⇄ `557490000966` (12)
  *
  * As duas direções importam: o `wa_id` chega sem o nono nos DDDs ≥ 31, e o
  * cadastro tem 4 telefones gravados na forma antiga, de 12 dígitos — esses são o
