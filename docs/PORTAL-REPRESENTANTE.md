@@ -18,6 +18,8 @@ A reunião de 23/10 mudou a 7ª cláusula, e o portal acompanhou (mig 298,
 | 7.5 | Proteção enquanto houver movimentação: aviso aos 60 dias, fim aos 90 | `registrarMovimentacao` (contato com canal e evidência em `registrarContato`, mudança de estágio, proposta criada, submetida, enviada ou revisada) leva `protection_end_date` a hoje + 90, sem encurtar janela maior. Aviso no painel do RC (`semMovimentacao`) e e-mail diário `alerta_protecao_rc` (`lib/sales/alerta-protecao.ts`, `aviso_60_em` marca o ciclo) |
 | 7.6 | Depois de 90 dias sem movimentação o cliente fica livre; o próximo RC vê só que foi prospectado, a data e o estágio | `jaProspectado` no retorno de `createOpportunity`. Movimentação sobre proteção vencida só renova se ninguém pegou o cliente |
 | 10.6 | Mesmo cliente = CNPJ básico (matriz e filiais) ou INEP | `classificarCarteira` olha as contas do RC com a mesma raiz ou INEP; `mesmaInstituicao` (duplicidade) também |
+| 10.2, 10.3 | Comissão por Parcela Mensal Equivalente (total ÷ vigência), devida com o pagamento do cliente que a cobre; aquisição com o 1º pagamento | A aprovação grava `payment_count` (null = mensal) e `first_payment_offset_months` (painel de aprovação, com prévia dos meses). `eventosDoPlano(plano, inicio, cronograma)` lança uma linha por PAGAMENTO com as parcelas que ele cobre (`pagamentosDoCronograma`); os valores não mudam, só as datas. Ex.: 6 meses, 60 mil à vista = 4.800 + 5.000 no 1º pagamento |
+| Indicação | Consultor de indicação (Salvador): 10% de cada pagamento recebido, cliente a cliente | Modelo `indicacao` em `COMPENSATION_MODELS` (10% desde a 1ª parcela, sem aquisição). A vertho.ai lança cada recebimento em `/admin/comercial/comissoes` ("Lançar indicação", `registrarComissaoIndicacao`): evento `indicacao` já "a receber", pago no dia 15 do mês seguinte |
 
 CNPJ aceito no formato numérico e no alfanumérico da Receita (julho/2026), com o
 dígito verificador conferido (`normalizarCnpj`; a coluna gerada
@@ -25,6 +27,16 @@ dígito verificador conferido (`normalizarCnpj`; a coluna gerada
 registrada exige cliente livre de verdade (senão a reserva seria contornada), e a
 proposta de quem perdeu o cliente pela 7.6 não é submetida nem aprovada. Datas de
 proteção em dias de Brasília (`dataBRT`).
+
+Sigilo e travas (revisão de segurança de 23/10): na fila, o RC lê a mesma frase
+para a lista de reserva e para a conferência que falhou (`MENSAGEM_FILA`), e o
+motivo de verdade fica em `attribution_note` (`MOTIVOS_DA_FILA`), que só o admin vê
+enquanto o registro aguarda; conta nova com CNPJ reservado é criada sem aviso, e
+completar o CNPJ de conta registrada com cliente reservado devolve o registro à
+fila sem dizer por quê. Cliente ativo de outro RC só segura com proposta ACEITA
+(o "Fechado" do funil, sozinho, não trava ninguém). Registro recusado ou revogado
+encerra as propostas abertas (`lost`), e envio e aceite de proposta passam pelo
+mesmo `bloqueioDoRegistro`.
 O formulário de oportunidade passou a pedir CNPJ (e INEP, opcional) na conta nova e
 a completar o CNPJ de conta antiga: até aqui o RC não tinha onde digitar o CNPJ que
 o registro exigia. `accepted_recorded_at` marca o aceite das propostas de RC (base

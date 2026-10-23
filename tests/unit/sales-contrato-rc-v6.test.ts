@@ -43,6 +43,7 @@ import { normalizarCnpj, mesmaInstituicao } from '@/lib/sales/duplicidade';
 import {
   AVISO_SEM_MOVIMENTO_DIAS,
   DECISOR_AUTOMATICO,
+  MENSAGEM_FILA,
   cnpjRaiz,
   conferirRegistro,
   decidirRegistro,
@@ -52,10 +53,13 @@ import {
   revogavel,
 } from '@/lib/sales/registro';
 import { classificarCarteira } from '@/lib/sales/aceite-rc';
+import { eventosDoPlano, pagamentosDoCronograma, planoDeComissao } from '@/lib/sales/commissions';
+import { commissionRatesFor } from '@/lib/sales/constants';
 import { ehRcFicticio, emailDoAviso, enviarAvisosDeProtecao } from '@/lib/sales/alerta-protecao';
 import { createOpportunity, moveOpportunityStage, recusarRegistroOportunidade, registrarContato } from '@/actions/sales/opportunities';
 import { createSalesAccount, criarOportunidadeExpansao, updateSalesAccount } from '@/actions/sales/accounts';
-import { markProposalSentToClient, registrarAceitePropostaDoRC, submitProposalForApproval } from '@/actions/sales/proposals';
+import { registrarComissaoIndicacao } from '@/actions/sales/commissions-admin';
+import { approveProposal, markProposalAccepted, markProposalSentToClient, registrarAceitePropostaDoRC, submitProposalForApproval } from '@/actions/sales/proposals';
 
 const escritasEm = (tabela: string, op: string) => sb.escritas.filter((e) => e.tabela === tabela && e.op === op);
 const temElo = (cadeia: Chamada[], metodo: string) => cadeia.some((c) => c.metodo === metodo);
@@ -113,6 +117,8 @@ type Cenario = {
   /** Contas de OUTRO RC com o mesmo CNPJ básico ou INEP. */
   outrasContas?: { id: string; status: string }[] | ((chamada: number) => { id: string; status: string }[]);
   oppsDasOutras?: any[];
+  /** Propostas aceitas nas contas de outro RC (cliente ativo de verdade). */
+  aceitasDasOutras?: any[];
 };
 
 function montarRegistro(c: Cenario = {}) {
@@ -130,6 +136,7 @@ function montarRegistro(c: Cenario = {}) {
         return typeof c.outrasContas === 'function' ? c.outrasContas(conferencias) : (c.outrasContas ?? []);
       }
       if (tabela === 'sales_opportunities') return c.oppsDasOutras ?? [];
+      if (tabela === 'sales_proposals') return c.aceitasDasOutras ?? [];
       return [];
     },
     escrita: (tabela, op) => (tabela === 'sales_opportunities' && op === 'update' ? [{ id: 'opp-new' }] : null),
@@ -168,8 +175,10 @@ describe('7.1: registro de cliente livre é aceito na hora', () => {
     expect(escritasEm('sales_opportunities', 'insert')[0]?.payload).toMatchObject({
       attribution_status: 'aguardando', protection_start_date: null, protection_end_date: null, attribution_note: expect.stringMatching(/7\.3/),
     });
-    // o RC não fica sabendo que é a lista de reserva (sondagem de quem a vertho.ai negocia)
-    expect((r as any).mensagem).not.toMatch(/reserva/i);
+    // o RC não fica sabendo que é a lista de reserva (sondagem de quem a vertho.ai negocia):
+    // a frase é a mesma da conferência que falhou
+    expect((r as any).mensagem).not.toMatch(/reserva|7\.3/i);
+    expect((r as any).mensagem).toBe(MENSAGEM_FILA);
   });
 
   it('cliente com outro RC e proteção em vigor: fila, sem dizer quem é o outro', async () => {
@@ -180,9 +189,15 @@ describe('7.1: registro de cliente livre é aceito na hora', () => {
     expect((r as any).mensagem).toMatch(/outro representante/);
   });
 
-  it('cliente que é cliente ativo de outro RC: fila', async () => {
-    montarRegistro({ outrasContas: [{ id: 'acc-9', status: 'active_client' }] });
+  it('cliente ativo de outro RC, com proposta aceita: fila', async () => {
+    montarRegistro({ outrasContas: [{ id: 'acc-9', status: 'active_client' }], aceitasDasOutras: [{ id: 'p9' }] });
     expect(await createOpportunity(input)).toMatchObject({ success: true, aceito: false });
+    expect(sb.usou('sales_proposals', 'eq', 'status')).toBe(true);
+  });
+
+  it('"Fechado" no funil sem proposta aceita não trava o cliente para os outros', async () => {
+    montarRegistro({ outrasContas: [{ id: 'acc-9', status: 'active_client' }], aceitasDasOutras: [] });
+    expect(await createOpportunity(input)).toMatchObject({ success: true, aceito: true });
   });
 
   it('proteção do outro RC acabou: aceito, e o RC vê só a data e o estágio (7.6)', async () => {
@@ -198,7 +213,7 @@ describe('7.1: registro de cliente livre é aceito na hora', () => {
     montarRegistro();
     sb.falharEm({ tabela: 'sales_reservas', op: 'select', mensagem: 'timeout' });
     const r = await createOpportunity(input);
-    expect(r).toMatchObject({ success: true, aceito: false });
+    expect(r).toMatchObject({ success: true, aceito: false, mensagem: MENSAGEM_FILA });
     expect(escritasEm('sales_opportunities', 'insert')[0]?.payload).toMatchObject({ attribution_status: 'aguardando', attribution_note: expect.stringMatching(/não rodou/) });
   });
 
@@ -268,16 +283,35 @@ describe('conta: o cliente com outro RC não entra', () => {
     expect(escritasEm('sales_accounts', 'update')).toHaveLength(0);
   });
 
-  it('completar o CNPJ de conta JÁ registrada com cliente reservado: barra (não contorna a reserva)', async () => {
+  it('completar o CNPJ de conta JÁ registrada com cliente reservado: o registro volta para a fila, sem dizer por quê', async () => {
     sb = criarSupabaseMock({
       resolver: (tabela) => (tabela === 'sales_accounts' ? { id: 'acc-1', representante_id: 'rc-1', cnpj: null, codigo_inep: null } : null),
       contagem: (tabela) => (tabela === 'sales_opportunities' ? 1 : 0),
       lista: (tabela) => (tabela === 'sales_reservas' ? [{ id: 'r1' }] : []),
     });
     const r = await updateSalesAccount('acc-1', { cnpj: '12.345.678/0001-95' });
+    expect(r.success).toBe(true);
+    expect((r as any).aviso).not.toMatch(/reserva|7\.3/i);
+    const fila = escritasEm('sales_opportunities', 'update')[0]?.payload;
+    expect(fila).toMatchObject({ attribution_status: 'aguardando', protection_end_date: null, attribution_note: expect.stringMatching(/reserva/) });
+    expect(sb.usou('sales_opportunities', 'eq', 'account_id')).toBe(true);
+  });
+
+  it('completar o CNPJ de conta registrada com cliente de outro RC: barra', async () => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_accounts' ? { id: 'acc-1', representante_id: 'rc-1', cnpj: null, codigo_inep: null } : null),
+      contagem: (tabela) => (tabela === 'sales_opportunities' ? 1 : 0),
+      lista: (tabela, _c, cadeia) => (tabela === 'sales_accounts' && temElo(cadeia, 'or') ? [{ id: 'acc-9', status: 'prospect' }] : tabela === 'sales_opportunities' ? [oppProtegida] : []),
+    });
+    const r = await updateSalesAccount('acc-1', { cnpj: '12.345.678/0001-95' });
     expect(r.success).toBe(false);
-    expect((r as any).error).toMatch(/7\.3/);
     expect(escritasEm('sales_accounts', 'update')).toHaveLength(0);
+  });
+
+  it('conta nova com CNPJ reservado: criada, sem aviso nenhum', async () => {
+    montarRegistro({ reservado: true });
+    const r = await createSalesAccount({ legal_name: 'Colégio X', cnpj: '12.345.678/0001-95' });
+    expect(r).toMatchObject({ success: true, aviso: null });
   });
 
   it('expansão só de cliente ativo da carteira', async () => {
@@ -443,10 +477,12 @@ describe('7.1: a vertho.ai revoga o aceite automático em até 10 dias', () => {
     });
   };
 
-  it('dentro da janela: revoga, só se ainda for o aceite automático', async () => {
+  it('dentro da janela: revoga, só se ainda for o aceite automático, e as propostas abertas caem junto', async () => {
     montar({});
     expect((await recusarRegistroOportunidade('opp-1', 'Cliente em negociação direta (7.3)')).success).toBe(true);
     expect(escritasEm('sales_opportunities', 'update')[0]?.payload).toMatchObject({ attribution_status: 'recusada', status: 'expired' });
+    expect(escritasEm('sales_proposals', 'update')[0]?.payload).toMatchObject({ status: 'lost' });
+    expect(sb.usou('sales_proposals', 'eq', 'opportunity_id')).toBe(true);
     expect(sb.usou('sales_opportunities', 'eq', 'attribution_decided_by')).toBe(true);
     expect(escritasEm('sales_activity_notes', 'insert')[0]?.payload.note).toMatch(/revogado/);
   });
@@ -487,6 +523,21 @@ describe('7.6: proposta de quem perdeu o cliente não segue', () => {
     montar([]);
     expect((await submitProposalForApproval('p1')).success).toBe(true);
   });
+
+  it('registro revogado: a proposta aprovada não é enviada nem aceita', async () => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_proposals' ? { ...proposta, status: 'approved' }
+        : tabela === 'sales_opportunities' ? { attribution_status: 'recusada' } : null),
+    });
+    expect((await markProposalSentToClient('p1')).success).toBe(false);
+    expect(escritasEm('sales_proposals', 'update')).toHaveLength(0);
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_proposals' ? { ...proposta, status: 'sent_to_client' }
+        : tabela === 'sales_opportunities' ? { attribution_status: 'recusada' } : null),
+    });
+    expect((await markProposalAccepted('p1')).success).toBe(false);
+    expect(escritasEm('sales_commission_events', 'insert')).toHaveLength(0);
+  });
 });
 
 // ── Carteira (10.6) e aceite ────────────────────────────────────────────────
@@ -521,5 +572,101 @@ describe('10.6: carteira pelo CNPJ básico ou INEP', () => {
     });
     expect((await registrarAceitePropostaDoRC('p1')).success).toBe(true);
     expect(escritasEm('sales_proposals', 'update')[0]?.payload).toMatchObject({ status: 'accepted', accepted_recorded_at: expect.any(String) });
+  });
+});
+
+// ── Cronograma de pagamento (10.2 e 10.3) ───────────────────────────────────
+
+describe('10.3: comissão por Parcela Mensal Equivalente, na data do pagamento que a cobre', () => {
+  const sem = commissionRatesFor('sem_ajuda');
+  const com = commissionRatesFor('com_ajuda');
+  const soma = (ev: { amount: number }[]) => Math.round(ev.reduce((t, e) => t + e.amount, 0) * 100) / 100;
+
+  it('cada pagamento cobre um bloco igual de parcelas, adiantado', () => {
+    expect(pagamentosDoCronograma(12, { pagamentos: 4 })).toEqual([
+      { numero: 1, mes: 0, pmeDe: 1, pmeAte: 3 }, { numero: 2, mes: 3, pmeDe: 4, pmeAte: 6 },
+      { numero: 3, mes: 6, pmeDe: 7, pmeAte: 9 }, { numero: 4, mes: 9, pmeDe: 10, pmeAte: 12 },
+    ]);
+    expect(pagamentosDoCronograma(6, { pagamentos: 1, primeiroEmMeses: 2 })).toEqual([{ numero: 1, mes: 2, pmeDe: 1, pmeAte: 6 }]);
+    expect(pagamentosDoCronograma(6)).toHaveLength(6); // sem cronograma: mensal
+  });
+
+  it('exemplo do Anexo II: 6 meses, 60 mil à vista = 4.800 de aquisição + 5.000 das parcelas 2 a 6, no 1º pagamento', () => {
+    const ev = eventosDoPlano(planoDeComissao(60000, 6, sem), '2026-11-10', { pagamentos: 1 });
+    expect(ev.map((e) => [e.type, e.amount, e.reference_month])).toEqual([
+      ['aquisicao', 4800, '2026-11-01'],
+      ['recorrente', 5000, '2026-11-01'],
+    ]);
+    expect(ev[1].base_value).toBe(50000);
+  });
+
+  it('com ajuda, à vista: 10% de tudo no 1º pagamento (6.000)', () => {
+    const ev = eventosDoPlano(planoDeComissao(60000, 6, com), '2026-11-10', { pagamentos: 1 });
+    expect(ev.map((e) => [e.type, e.amount])).toEqual([['recorrente', 6000]]);
+  });
+
+  it('o prazo do cliente empurra as datas, e a soma é sempre o plano', () => {
+    const plano = planoDeComissao(48000, 24, sem);
+    const mensal = eventosDoPlano(plano, '2026-11-10');
+    const trimestral = eventosDoPlano(plano, '2026-11-10', { pagamentos: 8, primeiroEmMeses: 1 });
+    expect(soma(mensal)).toBe(plano.total); // 1.920 + 4.600
+    expect(soma(trimestral)).toBe(plano.total);
+    expect(trimestral[0]).toMatchObject({ type: 'aquisicao', amount: 1920, reference_month: '2026-12-01', expected_payment_date: '2027-01-15' });
+    // 1º pagamento cobre as parcelas 1 a 3; a 1ª dispara a aquisição, então 2 parcelas comissionadas
+    expect(trimestral[1]).toMatchObject({ type: 'recorrente', amount: 400, reference_month: '2026-12-01' });
+    expect(trimestral[2]).toMatchObject({ amount: 600, reference_month: '2027-03-01' });
+  });
+
+  it('a aprovação grava o cronograma, e número fora da vigência não passa', async () => {
+    const proposta = {
+      id: 'p1', representante_id: 'rc-1', account_id: 'acc-1', opportunity_id: 'opp-1', status: 'submitted_for_approval',
+      monthly_value: 2000, contract_duration_months: 12, discount_requested: 0, customer_type: 'escola', number_of_users: 30,
+      product_package: 'onboarding', payment_terms: 'Trimestral', included_scope: 'Jornada', compensation_model: 'sem_ajuda', carteira: false,
+    };
+    const montar = () => {
+      sb = criarSupabaseMock({
+        resolver: (tabela) => (tabela === 'sales_proposals' ? proposta
+          : tabela === 'sales_opportunities' ? { attribution_status: 'validada' }
+          : tabela === 'sales_representatives' ? { compensation_model: 'sem_ajuda' } : null),
+      });
+    };
+    montar();
+    expect((await approveProposal('p1', { pagamentos: 13 })).success).toBe(false);
+    expect(escritasEm('sales_proposals', 'update')).toHaveLength(0);
+    montar();
+    expect((await approveProposal('p1', { pagamentos: 4, primeiroPagamentoEmMeses: 1 })).success).toBe(true);
+    expect(escritasEm('sales_proposals', 'update')[0]?.payload).toMatchObject({ payment_count: 4, first_payment_offset_months: 1 });
+    montar();
+    expect((await approveProposal('p1', { pagamentos: 12 })).success).toBe(true);
+    expect(escritasEm('sales_proposals', 'update')[0]?.payload).toMatchObject({ payment_count: null }); // mensal
+  });
+});
+
+// ── Modelo de indicação (consultor, 10% de cada recebimento) ────────────────
+
+describe('indicação: a vertho.ai lança 10% de cada pagamento recebido, cliente a cliente', () => {
+  const montar = (modelo: string) => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_representatives' ? { id: 'rc-9', name: 'Consultor Salvador', compensation_model: modelo } : null),
+    });
+  };
+
+  it('lança a receber, com competência do recebimento e pagamento no dia 15 do mês seguinte', async () => {
+    montar('indicacao');
+    const r = await registrarComissaoIndicacao({ representanteId: 'rc-9', cliente: 'Clínica Bem Estar', valorRecebido: 1234.5, recebidoEm: '2026-10-07' });
+    expect(r).toMatchObject({ success: true, comissao: 123.45 });
+    expect(escritasEm('sales_commission_events', 'insert')[0]?.payload).toMatchObject({
+      type: 'indicacao', status: 'accrued', base_value: 1234.5, percent: 10, amount: 123.45,
+      reference_month: '2026-10-01', expected_payment_date: '2026-11-15', notes: expect.stringContaining('Clínica Bem Estar'),
+    });
+  });
+
+  it('representante de outro modelo, cliente em branco ou data futura: não lança', async () => {
+    montar('sem_ajuda');
+    expect((await registrarComissaoIndicacao({ representanteId: 'rc-9', cliente: 'Clínica', valorRecebido: 100, recebidoEm: '2026-10-07' })).success).toBe(false);
+    montar('indicacao');
+    expect((await registrarComissaoIndicacao({ representanteId: 'rc-9', cliente: '  ', valorRecebido: 100, recebidoEm: '2026-10-07' })).success).toBe(false);
+    expect((await registrarComissaoIndicacao({ representanteId: 'rc-9', cliente: 'Clínica', valorRecebido: 100, recebidoEm: daquiA(3) })).success).toBe(false);
+    expect(escritasEm('sales_commission_events', 'insert')).toHaveLength(0);
   });
 });

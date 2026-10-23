@@ -101,10 +101,23 @@ export type ConferenciaRegistro =
   | { livre: true; jaProspectado: { em: string; estagio: string } | null; motivo?: undefined; mensagem?: undefined }
   | { livre: false; motivo: 'reserva' | 'outro_rc'; mensagem: string; jaProspectado?: undefined };
 
-// Neutra de propósito: dizer "lista de reserva" ao RC entregaria, CNPJ por CNPJ,
-// quem a vertho.ai negocia direto. O admin lê "7.3" e sabe que é a reserva.
-export const MENSAGEM_RESERVA = 'Este cliente precisa da conferência da vertho.ai (cláusula 7.3). O registro vai para a validação.';
+// O que o RC lê quando o registro vai para a fila sem ser por outro RC. A MESMA
+// frase para a lista de reserva e para a conferência que falhou, de propósito:
+// uma frase própria da reserva deixaria sondar, CNPJ por CNPJ, quem a vertho.ai
+// negocia direto. O motivo de verdade fica em `attribution_note`, que só o admin lê
+// enquanto o registro aguarda (ver MOTIVOS_DA_FILA).
+export const MENSAGEM_FILA = 'O registro vai para a validação da vertho.ai antes de valer.';
+export const MENSAGEM_RESERVA = MENSAGEM_FILA;
 export const MENSAGEM_OUTRO_RC = 'Este cliente já está com outro representante. Ele fica livre se passar 90 dias sem movimentação (cláusula 7.6).';
+
+/** Por que o registro foi para a fila: texto do admin, em `attribution_note`. */
+export const MOTIVOS_DA_FILA = {
+  reserva: 'Lista de reserva da vertho.ai (cláusula 7.3).',
+  outro_rc: 'Cliente com outro representante: proteção em vigor, registro aguardando ou cliente ativo (cláusula 7.4).',
+  sem_conferencia: 'A conferência automática não rodou (erro de leitura).',
+  sem_identificador: 'Sem CNPJ nem INEP para conferir.',
+  corrida: 'Outro registro do mesmo cliente chegou no mesmo instante (cláusula 7.4).',
+} as const;
 
 type OppOcupacao = { status: string; attribution_status: string; protection_end_date: string | null; stage: string; updated_at: string; last_movement_at: string | null };
 
@@ -142,7 +155,16 @@ export async function conferirRegistro(
   const outras = (contas || []) as { id: string; status: string }[];
   if (!outras.length) return { livre: true, jaProspectado: null };
 
-  if (outras.some((c) => c.status === 'active_client')) return { livre: false, motivo: 'outro_rc', mensagem: MENSAGEM_OUTRO_RC };
+  // Cliente ativo de outro RC só segura com proposta ACEITA: o "Fechado" do funil
+  // marca a conta como cliente ativo sem passar pela vertho.ai, e sem esta
+  // conferência um RC travaria o cliente para sempre arrastando o cartão.
+  const ativas = outras.filter((c) => c.status === 'active_client').map((c) => c.id);
+  if (ativas.length) {
+    const { data: aceitas, error: erroAceitas } = await sb.from('sales_proposals')
+      .select('id').in('account_id', ativas).eq('status', 'accepted').limit(1);
+    if (erroAceitas) throw new Error(`Não foi possível conferir a carteira de outro representante: ${erroAceitas.message}`);
+    if ((aceitas || []).length) return { livre: false, motivo: 'outro_rc', mensagem: MENSAGEM_OUTRO_RC };
+  }
 
   const { data: opps, error: erroOpps } = await sb.from('sales_opportunities')
     .select('status, attribution_status, protection_end_date, stage, updated_at, last_movement_at')
@@ -164,7 +186,7 @@ export type DecisaoDoRegistro = {
     attribution_status: 'validada' | 'aguardando';
     attribution_decided_at: string | null;
     attribution_decided_by: string | null;
-    /** Na fila, o motivo (o RC e o admin leem; sem nome de outro representante). */
+    /** Na fila, o motivo para o ADMIN (`MOTIVOS_DA_FILA`); o RC lê `mensagem`. */
     attribution_note: string | null;
     protection_start_date: string | null;
     protection_end_date: string | null;
@@ -176,7 +198,6 @@ export type DecisaoDoRegistro = {
   jaProspectado: { em: string; estagio: string } | null;
 };
 
-const MENSAGEM_SEM_CONFERENCIA = 'A conferência automática não rodou agora. O registro vai para a validação da vertho.ai.';
 const MENSAGEM_SEM_IDENTIFICADOR = 'Sem CNPJ nem INEP, o portal não tem como conferir o cliente. O registro vai para a validação da vertho.ai.';
 
 /**
@@ -217,22 +238,25 @@ export async function decidirRegistro(
       jaProspectado: conferencia.jaProspectado,
     };
   }
-  const motivo = !temIdentificador ? MENSAGEM_SEM_IDENTIFICADOR
+  const motivoAdmin = !temIdentificador ? MOTIVOS_DA_FILA.sem_identificador
+    : conferencia && !conferencia.livre ? MOTIVOS_DA_FILA[conferencia.motivo]
+    : MOTIVOS_DA_FILA.sem_conferencia;
+  const mensagem = !temIdentificador ? MENSAGEM_SEM_IDENTIFICADOR
     : conferencia && !conferencia.livre ? conferencia.mensagem
-    : MENSAGEM_SEM_CONFERENCIA;
+    : MENSAGEM_FILA;
   return {
     aceito: false,
     campos: {
       attribution_status: 'aguardando',
       attribution_decided_at: null,
       attribution_decided_by: null,
-      attribution_note: motivo,
+      attribution_note: motivoAdmin,
       protection_start_date: null,
       protection_end_date: null,
       protection_status: 'active',
       last_movement_at: null,
     },
-    mensagem: motivo,
+    mensagem,
     jaProspectado: null,
   };
 }
@@ -259,12 +283,14 @@ export async function reconferirRegistroAceito(
     return null;
   }
   if (conferencia.livre) return null;
-  const mensagem = `${conferencia.mensagem} Outro registro do mesmo cliente chegou junto com o seu; a vertho.ai decide.`;
+  const mensagem = conferencia.motivo === 'outro_rc'
+    ? 'Outro registro do mesmo cliente chegou junto com o seu. O registro vai para a validação da vertho.ai, que decide pelo primeiro válido (cláusula 7.4).'
+    : MENSAGEM_FILA;
   const { error } = await sb.from('sales_opportunities').update({
     attribution_status: 'aguardando',
     attribution_decided_at: null,
     attribution_decided_by: null,
-    attribution_note: mensagem,
+    attribution_note: conferencia.motivo === 'outro_rc' ? MOTIVOS_DA_FILA.corrida : MOTIVOS_DA_FILA[conferencia.motivo],
     protection_start_date: null,
     protection_end_date: null,
     last_movement_at: null,

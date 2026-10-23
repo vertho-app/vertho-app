@@ -85,6 +85,7 @@ export default function ProposalFinancialSummary({ input, className, compensatio
       <div className="mt-2 space-y-1 text-[10px] text-gray-500">
         {termos?.carteira && <p>Cliente da carteira: 50% dos percentuais do modelo (cláusula 10.6 do contrato).</p>}
         {termos?.modelo === 'com_ajuda' && <p>Modelo com ajuda de custo: sem comissão de aquisição.</p>}
+        {termos?.modelo === 'indicacao' && <p>Modelo de indicação: 10% de cada parcela, sem comissão de aquisição.</p>}
         {temAquisicao && <p>A aquisição é paga inteira depois do 1º pagamento do cliente.</p>}
         <p>Comissão devida conforme o cliente paga, até o dia 15 do mês seguinte, mediante nota fiscal.</p>
       </div>

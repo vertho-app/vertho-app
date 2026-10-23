@@ -284,6 +284,12 @@ export async function recusarRegistroOportunidade(opportunityId: string, motivo:
   if (error) return { success: false as const, error: error.message };
   if (!mudou || mudou.length === 0) return { success: false as const, error: 'Este registro já foi decidido' };
 
+  // Proposta aberta de registro recusado ou revogado não pode mais ser enviada nem aceita.
+  const { error: erroPropostas } = await sb.from('sales_proposals').update({
+    status: 'lost', rejection_reason: `Registro ${revogacao ? 'revogado' : 'recusado'} pela vertho.ai: ${texto}`, updated_at: agora,
+  }).eq('opportunity_id', opportunityId).in('status', ['draft', 'submitted_for_approval', 'changes_requested', 'approved', 'sent_to_client']);
+  if (erroPropostas) console.error('[sales] propostas do registro recusado não foram encerradas:', erroPropostas.message);
+
   await registrarNota(sb, {
     representante_id: opp.representante_id, opportunity_id: opportunityId, account_id: opp.account_id,
     note: revogacao ? `Aceite automático revogado pela vertho.ai (cláusula 7.1): ${texto}` : `Registro recusado pela vertho.ai: ${texto}`,

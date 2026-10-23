@@ -86,8 +86,13 @@ const MSG_CLIENTE_COM_OUTRO =
  * de quem o perdeu não é submetida nem aprovada; se ninguém pegou, segue (e a
  * submissão, como movimentação, renova a proteção).
  */
-async function bloqueioDoRegistro(sb: ReturnType<typeof createSupabaseAdmin>, opportunityId: string | null | undefined): Promise<string | null> {
-  if (!opportunityId) return MSG_REGISTRO_NAO_VALIDADO;
+async function bloqueioDoRegistro(
+  sb: ReturnType<typeof createSupabaseAdmin>,
+  opportunityId: string | null | undefined,
+  { semOportunidadePassa = false }: { semOportunidadePassa?: boolean } = {},
+): Promise<string | null> {
+  // Envio e aceite de proposta antiga sem oportunidade (antes do contrato v5) seguem.
+  if (!opportunityId) return semOportunidadePassa ? null : MSG_REGISTRO_NAO_VALIDADO;
   const { data, error } = await sb.from('sales_opportunities')
     .select('attribution_status, representante_id, protection_end_date, account:sales_accounts (cnpj, codigo_inep)')
     .eq('id', opportunityId).maybeSingle();
@@ -265,7 +270,10 @@ export async function submitProposalForApproval(proposalId: string) {
  * já tem proposta aceita do RC); o admin confirma ou corrige, com motivo,
  * porque grupo econômico e mantenedora só ele enxerga.
  */
-export async function approveProposal(proposalId: string, decisao?: { carteira?: boolean; motivo?: string | null }) {
+export async function approveProposal(
+  proposalId: string,
+  decisao?: { carteira?: boolean; motivo?: string | null; pagamentos?: number | null; primeiroPagamentoEmMeses?: number | null },
+) {
   const admin = await requireCommercialAdminAction();
   const sb = createSupabaseAdmin();
   const { data: p, error: erroLeitura } = await sb.from('sales_proposals').select('*').eq('id', proposalId).maybeSingle();
@@ -295,9 +303,23 @@ export async function approveProposal(proposalId: string, decisao?: { carteira?:
     ? `Classificação do admin (${admin.email}): ${observacao}`
     : automatica.motivo;
 
+  // Cronograma do cliente (10.2 e 10.3): quantos pagamentos e em que mês sai o 1º.
+  // A comissão continua por Parcela Mensal Equivalente; muda só QUANDO ela é devida.
+  const vigencia = Number(p.contract_duration_months) || 0;
+  const pagamentos = decisao?.pagamentos == null ? null : Number(decisao.pagamentos);
+  if (pagamentos != null && (!Number.isInteger(pagamentos) || pagamentos < 1 || pagamentos > Math.max(1, vigencia))) {
+    return { success: false as const, error: `O número de pagamentos do cliente vai de 1 (à vista) a ${vigencia} (um por mês).` };
+  }
+  const atraso = decisao?.primeiroPagamentoEmMeses == null ? 0 : Number(decisao.primeiroPagamentoEmMeses);
+  if (!Number.isInteger(atraso) || atraso < 0 || atraso > 24) {
+    return { success: false as const, error: 'O 1º pagamento do cliente vai de 0 a 24 meses depois do aceite.' };
+  }
+
   const agora = new Date().toISOString();
   const { error } = await sb.from('sales_proposals').update({
     ...proposalPatchFromInput(p, rep.compensation_model as CompensationModel, { carteira, motivo }),
+    payment_count: pagamentos != null && pagamentos < vigencia ? pagamentos : null,
+    first_payment_offset_months: atraso,
     status: 'approved', approved_by: admin.email, approved_at: agora,
     rejection_reason: null, updated_at: agora,
   }).eq('id', proposalId).eq('status', 'submitted_for_approval');
@@ -352,6 +374,9 @@ export async function markProposalSentToClient(proposalId: string) {
   if (!p) return { success: false as const, error: 'Proposta não encontrada' };
   assertRepresentativeOwnership(ctx, p.representante_id);
   if (p.status !== 'approved') return { success: false as const, error: 'Só propostas aprovadas pela Vertho podem ser enviadas ao cliente' };
+  // Registro revogado ou cliente perdido pela 7.6 depois da aprovação: a proposta não sai.
+  const bloqueio = await bloqueioDoRegistro(sb, p.opportunity_id, { semOportunidadePassa: true });
+  if (bloqueio) return { success: false as const, error: bloqueio };
   // `sent_to_client_at` é o marco da 18.7: proposta enviada antes do término do
   // contrato do RC e aceita dentro da validade continua comissionada.
   const agora = new Date().toISOString();
@@ -440,6 +465,8 @@ export async function markProposalAccepted(proposalId: string) {
   if (!p) return { success: false as const, error: 'Proposta não encontrada' };
   assertRepresentativeOwnership(ctx, p.representante_id);
   if (p.status !== 'sent_to_client') return { success: false as const, error: 'Só propostas enviadas ao cliente podem ser marcadas como aceitas' };
+  const bloqueio = await bloqueioDoRegistro(sb, p.opportunity_id, { semOportunidadePassa: true });
+  if (bloqueio) return { success: false as const, error: bloqueio };
 
   const r = await concluirAceiteDoRC(sb, p, { modeloAtualDoRc: ctx.rep.compensation_model, comComissao: true });
   return 'error' in r ? { success: false as const, error: r.error } : { success: true as const };
@@ -465,6 +492,8 @@ export async function registrarAceitePropostaDoRC(proposalId: string) {
     .select('status, compensation_model, contract_ended_at').eq('id', p.representante_id).maybeSingle();
   if (erroRc) return { success: false as const, error: erroRc.message };
   if (!rep) return { success: false as const, error: 'Representante da proposta não encontrado' };
+  const bloqueio = await bloqueioDoRegistro(sb, p.opportunity_id, { semOportunidadePassa: true });
+  if (bloqueio) return { success: false as const, error: bloqueio };
 
   const direito = comissaoDevidaNoAceite(rep, p);
   const r = await concluirAceiteDoRC(sb, p, { modeloAtualDoRc: rep.compensation_model, comComissao: direito.devida });

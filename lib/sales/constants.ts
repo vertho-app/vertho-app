@@ -169,12 +169,18 @@ export const CONTRACT_DURATIONS: readonly number[] = Array.from(
 //     contratou pelo RC, seja renovação, nova Jornada ou ampliação, paga 50% dos
 //     percentuais do modelo, com a mesma mecânica. Não existe mais taxa própria
 //     de renovação ou de expansão.
+//   • indicacao (consultor de indicação, decisão do dono de 23/10/2026; mig 298):
+//     10% de cada pagamento recebido de cada cliente indicado, sem aquisição e
+//     sem ajuda de custo. A vertho.ai lança um evento `indicacao` a cada
+//     recebimento (`registrarComissaoIndicacao`); se o consultor fizer proposta
+//     pelo portal, a régua é a mesma: 10% desde a 1ª parcela.
 // O modelo que vale é o da APROVAÇÃO da proposta (10.5), gravado nela (mig 296).
-export const COMPENSATION_MODELS = ['sem_ajuda', 'com_ajuda'] as const;
+export const COMPENSATION_MODELS = ['sem_ajuda', 'com_ajuda', 'indicacao'] as const;
 export type CompensationModel = typeof COMPENSATION_MODELS[number];
 export const COMPENSATION_MODEL_LABELS: Record<CompensationModel, string> = {
   sem_ajuda: 'Sem ajuda de custo',
   com_ajuda: 'Com ajuda de custo',
+  indicacao: 'Indicação (consultor, 10%)',
 };
 
 export type CommissionRates = {
@@ -189,6 +195,7 @@ export type CommissionRates = {
 export const COMMISSION_RATES_BY_MODEL: Record<CompensationModel, CommissionRates> = {
   sem_ajuda: { acquisition: 0.08, recurring: 0.10, firstCommissionedInstallment: 2 },
   com_ajuda: { acquisition: 0, recurring: 0.10, firstCommissionedInstallment: 1 },
+  indicacao: { acquisition: 0, recurring: 0.10, firstCommissionedInstallment: 1 },
 };
 
 /** A aquisição incide só sobre as parcelas dos primeiros 12 meses (cláusula 10.3a). */
@@ -199,7 +206,9 @@ export const CARTEIRA_FACTOR = 0.5;
 
 /** Taxas do modelo pedido. Valor ausente ou desconhecido cai no padrão do canal (sem ajuda). */
 export function commissionRatesFor(model: string | null | undefined): CommissionRates {
-  return model === 'com_ajuda' ? COMMISSION_RATES_BY_MODEL.com_ajuda : COMMISSION_RATES_BY_MODEL.sem_ajuda;
+  if (model === 'com_ajuda') return COMMISSION_RATES_BY_MODEL.com_ajuda;
+  if (model === 'indicacao') return COMMISSION_RATES_BY_MODEL.indicacao;
+  return COMMISSION_RATES_BY_MODEL.sem_ajuda;
 }
 
 /** Taxas do modelo padrão (sem ajuda de custo). Para um RC, use `commissionRatesFor(rep.compensation_model)`. */
@@ -209,7 +218,7 @@ export const COMMISSION_RATES = COMMISSION_RATES_BY_MODEL.sem_ajuda;
 // proposta de cliente da carteira gera aquisição e parcelas a 50%.
 export const COMMISSION_TYPE_LABELS: Record<string, string> = {
   aquisicao: 'Aquisição', recorrente: 'Sobre parcelas', renovacao: 'Renovação',
-  expansao: 'Expansão', chargeback: 'Estorno',
+  expansao: 'Expansão', chargeback: 'Estorno', indicacao: 'Indicação',
 };
 
 // Validação do registro da oportunidade pela vertho.ai (contrato, 7.1 e 7.5; mig 296).

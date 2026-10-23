@@ -54,16 +54,20 @@ describe('taxas por modelo', () => {
     expect(commissionRatesFor('outro')).toBe(COMMISSION_RATES);
   });
 
-  it('as CHECKs das migs 295 e 296 aceitam exatamente os modelos do código', () => {
-    const daMig = (arquivo: string, coluna: RegExp) => {
-      const sql = readFileSync(arquivo, 'utf8');
+  it('as CHECKs vigentes (mig 298, que redefine as das 295 e 296) aceitam exatamente os modelos do código', () => {
+    const sql = readFileSync('migrations/298-rc-contrato-v6.sql', 'utf8');
+    const daMig = (coluna: RegExp) => {
       const lista = coluna.exec(sql)?.[1] ?? '';
       return lista.split(',').map((s) => s.trim().replace(/'/g, '')).filter(Boolean).sort();
     };
-    expect(daMig('migrations/295-rc-modelo-remuneracao.sql', /CHECK \(compensation_model IN \(([^)]*)\)\)/))
+    expect(daMig(/sales_representatives_compensation_model_check\s+CHECK \(compensation_model IN \(([^)]*)\)\)/))
       .toEqual([...COMPENSATION_MODELS].sort());
-    expect(daMig('migrations/296-rc-contrato-v5.sql', /CHECK \(compensation_model IS NULL OR compensation_model IN \(([^)]*)\)\)/))
+    expect(daMig(/sales_proposals_compensation_model_check\s+CHECK \(compensation_model IS NULL OR compensation_model IN \(([^)]*)\)\)/))
       .toEqual([...COMPENSATION_MODELS].sort());
+  });
+
+  it('indicação: 10% desde a 1ª parcela, sem aquisição', () => {
+    expect(commissionRatesFor('indicacao')).toEqual({ acquisition: 0, recurring: 0.10, firstCommissionedInstallment: 1 });
   });
 });
 

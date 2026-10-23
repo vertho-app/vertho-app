@@ -246,7 +246,7 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
           )}
           {opp.attribution_status === 'aguardando' && (
             <p className="mt-2 text-[11px] text-amber-300">
-              {opp.attribution_note ? `${opp.attribution_note} ` : ''}A proteção começa na validação, e a proposta só pode ser submetida depois dela.
+              A vertho.ai está conferindo este registro. A proteção começa na validação, e a proposta só pode ser submetida depois dela.
             </p>
           )}
           {opp.attribution_status === 'recusada' && (

@@ -176,13 +176,15 @@ export async function concluirAceiteDoRC(
       : { success: true, eventos: 0 };
   }
 
-  // Eventos previstos: aquisição (1º pagamento) + uma linha por parcela
-  // comissionada, nas regras gravadas na proposta. A granularidade por parcela
+  // Eventos previstos: aquisição (1º pagamento) + uma linha por pagamento do
+  // cliente com as parcelas mensais equivalentes que ele cobre, nas regras e no
+  // cronograma gravados na aprovação (10.3). A granularidade por pagamento
   // permite ao financeiro reconhecer/pagar cada competência e ao RC emitir NF.
   const { rates, carteira } = termosDaProposta(p, modeloAtualDoRc);
   const plano = planoDeComissao(Number(p.total_contract_value) || 0, Number(p.contract_duration_months) || 0, rates, carteira);
   const base = { representante_id: p.representante_id, proposal_id: p.id, account_id: p.account_id };
-  const eventos = eventosDoPlano(plano, agora).map((e) => ({ ...base, ...e }));
+  const cronograma = { pagamentos: p.payment_count ?? null, primeiroEmMeses: p.first_payment_offset_months ?? 0 };
+  const eventos = eventosDoPlano(plano, agora, cronograma).map((e) => ({ ...base, ...e }));
   if (eventos.length > 0) {
     const { error: erroEventos } = await sb.from('sales_commission_events').insert(eventos);
     // O aceite já foi gravado; sem os eventos o extrato do RC e o financeiro

@@ -164,6 +164,10 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
                 carteiraMotivo={proposal.carteira_motivo}
                 carteira={carteira}
                 onCarteiraChange={setCarteira}
+                vigencia={proposal.contract_duration_months}
+                condicaoInformada={proposal.payment_terms}
+                pagamentosGravados={proposal.payment_count ?? null}
+                primeiroPagamentoGravado={proposal.first_payment_offset_months ?? 0}
                 onDone={carregar}
               />
             ) : (

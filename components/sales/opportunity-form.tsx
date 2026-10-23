@@ -146,7 +146,8 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
     if (lista.success) setAccounts(lista.data);
     setCnpjDaConta('');
     set('account_id', values.account_id);
-    toast.success('CNPJ salvo na conta');
+    if (r.aviso) toast.warning(r.aviso, { duration: 10000 });
+    else toast.success('CNPJ salvo na conta');
   }
 
   async function handleCreateContact() {

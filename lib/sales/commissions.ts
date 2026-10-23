@@ -1,6 +1,6 @@
 // Cálculo de comissão do canal — NUNCA dentro de componentes React.
 //
-// Régua: o contrato de representação comercial v5 (cláusulas 10ª e 11ª, Anexo
+// Régua: o contrato de representação comercial v6 (cláusulas 10ª e 11ª, Anexo
 // II). As taxas dependem do MODELO de remuneração do RC
 // (`commissionRatesFor(model)`, em constants.ts) e de a proposta ser de cliente
 // da carteira (50% dos percentuais, 10.6). `planoDeComissao` é a fonte ÚNICA:
@@ -131,7 +131,7 @@ export function calculateProposalFinancials(
 // ── Eventos (sales_commission_events) ───────────────────────────────────────
 
 export type CommissionEventDraft = {
-  type: 'aquisicao' | 'recorrente' | 'renovacao' | 'expansao' | 'chargeback';
+  type: 'aquisicao' | 'recorrente' | 'renovacao' | 'expansao' | 'chargeback' | 'indicacao';
   status: 'potencial' | 'forecast' | 'accrued' | 'paid' | 'cancelled';
   base_value: number;
   percent: number;
@@ -162,43 +162,95 @@ export function dataPrevistaPagamentoComissao(competencia: Date): string {
 const NOTA_CARTEIRA = 'Cliente da carteira (cláusula 10.6): 50% dos percentuais do modelo.';
 
 /**
+ * Como o cliente paga (contrato v6, 10.2 e 10.3), informado pela vertho.ai na
+ * aprovação da proposta (`sales_proposals.payment_count` e
+ * `first_payment_offset_months`, mig 298). Sem nada, um pagamento por mês de
+ * vigência, o primeiro no mês do aceite.
+ */
+export type CronogramaPagamento = {
+  /** Quantos pagamentos o cliente faz (1 = à vista); null = um por mês de vigência. */
+  pagamentos?: number | null;
+  /** Meses entre o aceite e o 1º pagamento (o prazo do cliente). */
+  primeiroEmMeses?: number | null;
+};
+
+export type PagamentoDoCliente = {
+  numero: number;
+  /** Meses depois do aceite em que o pagamento cai. */
+  mes: number;
+  /** Parcelas Mensais Equivalentes que ele cobre (1 = a primeira), inclusive. */
+  pmeDe: number;
+  pmeAte: number;
+};
+
+/**
+ * Os pagamentos do cliente e as Parcelas Mensais Equivalentes que cada um cobre.
+ * Pagamentos iguais, cada um adiantado do período que cobre: 12 meses em 4
+ * pagamentos caem nos meses 0, 3, 6 e 9 e cobrem 1-3, 4-6, 7-9 e 10-12.
+ */
+export function pagamentosDoCronograma(parcelas: number, cronograma: CronogramaPagamento = {}): PagamentoDoCliente[] {
+  const n = Math.max(0, Math.floor(Number(parcelas) || 0));
+  if (!n) return [];
+  const k = Math.min(n, Math.max(1, Math.floor(Number(cronograma.pagamentos) || n)));
+  const atraso = Math.min(24, Math.max(0, Math.floor(Number(cronograma.primeiroEmMeses) || 0)));
+  return Array.from({ length: k }, (_, i) => {
+    const pmeDe = Math.floor((i * n) / k) + 1;
+    return { numero: i + 1, mes: atraso + pmeDe - 1, pmeDe, pmeAte: Math.floor(((i + 1) * n) / k) };
+  });
+}
+
+/**
  * Eventos previstos (`forecast`) que o aceite lança, um por fato que gera
- * comissão: a aquisição, ligada ao 1º pagamento, e uma linha por parcela
- * comissionada, na competência do mês em que a parcela vence. A parcela k
- * (1 = a do mês do aceite) cai em início + (k − 1) meses. O direito nasce com o
- * pagamento do cliente (11.1): o financeiro passa cada evento para "a receber"
- * quando a parcela é paga.
+ * comissão: a aquisição, com o 1º pagamento, e uma linha por PAGAMENTO do
+ * cliente com a comissão das Parcelas Mensais Equivalentes que ele cobre (10.3:
+ * a parcela conta quando é coberta por um pagamento). Sem cronograma, um
+ * pagamento por mês: a parcela k (1 = a do mês do aceite) cai em início + (k − 1)
+ * meses, e cada linha é uma parcela. O direito nasce com o pagamento do cliente
+ * (11.1): o financeiro passa cada evento para "a receber" quando ele é pago.
+ * Os valores não mudam com o cronograma, só a data: a soma é sempre o plano.
  */
 export function eventosDoPlano(
   plano: PlanoComissao,
   inicio: Date | string,
+  cronograma: CronogramaPagamento = {},
 ): Array<CommissionEventDraft & { reference_month: string; expected_payment_date: string }> {
   const start = typeof inicio === 'string' ? new Date(`${inicio.slice(0, 10)}T00:00:00Z`) : inicio;
-  const competencia = (k: number) => new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + k - 1, 1));
-  const notas = plano.carteira ? { notes: NOTA_CARTEIRA } : {};
+  const competencia = (mes: number) => new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + mes, 1));
+  const pagamentos = pagamentosDoCronograma(plano.parcelas, cronograma);
+  const agrupado = pagamentos.length > 0 && pagamentos.length < plano.parcelas;
   const eventos: Array<CommissionEventDraft & { reference_month: string; expected_payment_date: string }> = [];
+  if (!pagamentos.length) return eventos;
+
+  const notasDe = (extra?: string) => {
+    const partes = [extra, plano.carteira ? NOTA_CARTEIRA : null].filter(Boolean);
+    return partes.length ? { notes: partes.join(' ') } : {};
+  };
 
   if (plano.aquisicao.valor > 0) {
-    const ref = competencia(1);
+    const ref = competencia(pagamentos[0].mes);
     eventos.push({
       type: 'aquisicao', status: 'forecast',
       base_value: plano.aquisicao.base, percent: plano.aquisicao.percent, amount: plano.aquisicao.valor,
       reference_month: ref.toISOString().slice(0, 10),
       expected_payment_date: dataPrevistaPagamentoComissao(ref),
-      ...notas,
+      ...notasDe(agrupado ? `Com o 1º de ${pagamentos.length} pagamentos do cliente.` : undefined),
     });
   }
 
   const p = plano.sobreParcelas;
   if (p.valorPorParcela > 0) {
-    for (let k = p.primeira; k <= plano.parcelas; k++) {
-      const ref = competencia(k);
+    for (const pg of pagamentos) {
+      const cobertas = Math.max(0, pg.pmeAte - Math.max(pg.pmeDe, p.primeira) + 1);
+      if (!cobertas) continue;
+      const ref = competencia(pg.mes);
       eventos.push({
         type: 'recorrente', status: 'forecast',
-        base_value: plano.valorParcela, percent: p.percent, amount: p.valorPorParcela,
+        base_value: round2(plano.valorParcela * cobertas), percent: p.percent, amount: round2(p.valorPorParcela * cobertas),
         reference_month: ref.toISOString().slice(0, 10),
         expected_payment_date: dataPrevistaPagamentoComissao(ref),
-        ...notas,
+        ...notasDe(agrupado
+          ? `Pagamento ${pg.numero} de ${pagamentos.length}: ${cobertas === 1 ? 'parcela mensal equivalente' : `${cobertas} parcelas mensais equivalentes`} (cláusula 10.3).`
+          : undefined),
       });
     }
   }

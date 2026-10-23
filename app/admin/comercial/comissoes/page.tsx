@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Coins, Download, Loader2, RotateCcw } from 'lucide-react';
+import { Coins, Download, HandCoins, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   getCommissionEventsAdmin,
@@ -11,6 +11,7 @@ import {
   cancelarComissao,
   registrarNotaFiscalPeloAdmin,
   registrarEstorno,
+  registrarComissaoIndicacao,
   exportComissoesCSV,
 } from '@/actions/sales/commissions-admin';
 import { listRepresentativesForAdmin } from '@/actions/sales/representatives';
@@ -35,6 +36,7 @@ const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: 'paid', label: 'Paga' },
   { value: 'cancelled', label: 'Cancelada' },
   { value: 'chargeback', label: 'Estorno' },
+  { value: 'indicacao', label: 'Indicação' },
 ];
 
 function TotalCard({ label, value, accent }: { label: string; value: string; accent: string }) {
@@ -82,6 +84,15 @@ export default function ComissoesAdminPage() {
   const [estMotivo, setEstMotivo] = useState('');
   const [estSaving, setEstSaving] = useState(false);
 
+  // Comissão de indicação (consultor, 10% de cada recebimento, cliente a cliente)
+  const [indOpen, setIndOpen] = useState(false);
+  const [indRep, setIndRep] = useState('');
+  const [indCliente, setIndCliente] = useState('');
+  const [indValor, setIndValor] = useState('');
+  const [indData, setIndData] = useState('');
+  const [indObs, setIndObs] = useState('');
+  const [indSaving, setIndSaving] = useState(false);
+
   // Refs para inputs opcionais dentro dos diálogos de confirmação (uncontrolled).
   const paidAtRef = useRef<HTMLInputElement>(null);
   const receiveDateRef = useRef<HTMLInputElement>(null);
@@ -94,7 +105,7 @@ export default function ComissoesAdminPage() {
   const eventFilters = useMemo(() => {
     const f: { representanteId?: string; status?: string; tipo?: string; mes?: string } = {};
     if (repFilter) f.representanteId = repFilter;
-    if (statusFilter === 'chargeback') f.tipo = 'chargeback';
+    if (statusFilter === 'chargeback' || statusFilter === 'indicacao') f.tipo = statusFilter;
     else if (statusFilter) f.status = statusFilter;
     const mes = mesToRef(mesFilter);
     if (mes) f.mes = mes;
@@ -257,7 +268,7 @@ export default function ComissoesAdminPage() {
     setExporting(true);
     const exportFilters: { representanteId?: string; status?: string; mes?: string } = {};
     if (repFilter) exportFilters.representanteId = repFilter;
-    if (statusFilter && statusFilter !== 'chargeback') exportFilters.status = statusFilter;
+    if (statusFilter && statusFilter !== 'chargeback' && statusFilter !== 'indicacao') exportFilters.status = statusFilter;
     const mes = mesToRef(mesFilter);
     if (mes) exportFilters.mes = mes;
     const r = await exportComissoesCSV(exportFilters);
@@ -277,6 +288,29 @@ export default function ComissoesAdminPage() {
 
   function resetEstorno() {
     setEstRep(''); setEstValor(''); setEstMotivo('');
+  }
+
+  function resetIndicacao() {
+    setIndRep(''); setIndCliente(''); setIndValor(''); setIndData(''); setIndObs('');
+  }
+
+  const consultores = reps.filter((r) => r.compensation_model === 'indicacao');
+  const indValorNum = Number(String(indValor).replace(',', '.'));
+  const indComissao = isFinite(indValorNum) && indValorNum > 0 ? Math.round(indValorNum * 10) / 100 : 0;
+
+  async function handleRegistrarIndicacao() {
+    if (!indRep) { toast.error('Selecione o consultor'); return; }
+    if (!indCliente.trim()) { toast.error('Informe o cliente indicado'); return; }
+    if (!(indComissao > 0)) { toast.error('Informe o valor recebido do cliente'); return; }
+    if (!indData) { toast.error('Informe a data do recebimento'); return; }
+    setIndSaving(true);
+    const r = await registrarComissaoIndicacao({ representanteId: indRep, cliente: indCliente.trim(), valorRecebido: indValorNum, recebidoEm: indData, observacao: indObs.trim() });
+    setIndSaving(false);
+    if (!r.success) { toast.error(r.error || 'Falha ao lançar a comissão'); return; }
+    toast.success(`Comissão de indicação lançada: ${fmtBRLExact(r.comissao)} a receber`);
+    setIndOpen(false);
+    resetIndicacao();
+    reloadAll();
   }
 
   async function handleRegistrarEstorno() {
@@ -307,6 +341,12 @@ export default function ComissoesAdminPage() {
           backHref="/admin/comercial"
           actions={
             <>
+              <button
+                onClick={() => setIndOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-emerald-300 border border-emerald-400/30 hover:bg-emerald-400/10"
+              >
+                <HandCoins size={14} /> Lançar indicação
+              </button>
               <button
                 onClick={() => setEstornoOpen(true)}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-red-300 border border-red-400/30 hover:bg-red-400/10"
@@ -554,6 +594,113 @@ export default function ComissoesAdminPage() {
                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-white border border-red-400/40 bg-red-500/20 hover:bg-red-500/30 disabled:opacity-50"
               >
                 {estSaving && <Loader2 size={13} className="animate-spin" />} Registrar estorno
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {indOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0"
+            style={{ background: 'rgba(3,12,26,.72)', backdropFilter: 'blur(3px)' }}
+            onClick={() => { if (!indSaving) { setIndOpen(false); resetIndicacao(); } }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative w-full max-w-md rounded-2xl p-5"
+            style={{ background: 'rgba(9,29,53,.97)', border: '1px solid rgba(52,211,153,.4)', boxShadow: '0 24px 64px rgba(0,0,0,.5)' }}
+          >
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <HandCoins size={16} className="text-emerald-300" /> Lançar comissão de indicação
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              10% do pagamento recebido de um cliente indicado. Um lançamento por recebimento, cliente a cliente. Nasce a receber, com pagamento até o dia 15 do mês seguinte.
+            </p>
+
+            <label className="block mt-4 text-[11px] text-gray-400">
+              Consultor *
+              <select
+                value={indRep}
+                onChange={(e) => setIndRep(e.target.value)}
+                className="mt-1 w-full rounded-lg px-3 py-2 text-sm text-white outline-none bg-[#091D35]"
+                style={{ border: '1px solid rgba(255,255,255,.14)' }}
+              >
+                <option value="">{consultores.length ? 'Selecione…' : 'Nenhum representante no modelo de indicação'}</option>
+                {consultores.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block mt-3 text-[11px] text-gray-400">
+              Cliente indicado *
+              <input
+                value={indCliente}
+                onChange={(e) => setIndCliente(e.target.value)}
+                placeholder="Ex.: Clínica Bem Estar (Salvador)"
+                className="mt-1 w-full rounded-lg px-3 py-2 text-sm text-white outline-none"
+                style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.14)' }}
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block mt-3 text-[11px] text-gray-400">
+                Valor recebido (R$) *
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={indValor}
+                  onChange={(e) => setIndValor(e.target.value)}
+                  placeholder="0,00"
+                  className="mt-1 w-full rounded-lg px-3 py-2 text-sm text-white outline-none"
+                  style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.14)' }}
+                />
+              </label>
+              <label className="block mt-3 text-[11px] text-gray-400">
+                Recebido em *
+                <input
+                  type="date"
+                  value={indData}
+                  onChange={(e) => setIndData(e.target.value)}
+                  className="mt-1 w-full rounded-lg px-3 py-2 text-sm text-white outline-none"
+                  style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.14)' }}
+                />
+              </label>
+            </div>
+
+            <label className="block mt-3 text-[11px] text-gray-400">
+              Observação
+              <input
+                value={indObs}
+                onChange={(e) => setIndObs(e.target.value)}
+                placeholder="Ex.: mensalidade de novembro"
+                className="mt-1 w-full rounded-lg px-3 py-2 text-sm text-white outline-none"
+                style={{ background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.14)' }}
+              />
+            </label>
+
+            <p className="mt-3 text-xs text-gray-300">
+              Comissão: <strong className="text-emerald-300">{fmtBRLExact(indComissao)}</strong>
+            </p>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => { setIndOpen(false); resetIndicacao(); }}
+                disabled={indSaving}
+                className="px-3 py-2 rounded-lg text-xs font-bold text-gray-300 border border-white/10 hover:bg-white/5 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleRegistrarIndicacao}
+                disabled={indSaving}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-white border border-emerald-400/40 bg-emerald-500/20 hover:bg-emerald-500/30 disabled:opacity-50"
+              >
+                {indSaving && <Loader2 size={13} className="animate-spin" />} Lançar comissão
               </button>
             </div>
           </div>

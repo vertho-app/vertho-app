@@ -11,7 +11,10 @@
 // si mesmo nem muda o status (só emite NF numa comissão "a receber").
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireCommercialAdminAction } from '@/lib/sales/permissions';
-import { draftChargebackEvent } from '@/lib/sales/commissions';
+import { dataPrevistaPagamentoComissao, draftChargebackEvent } from '@/lib/sales/commissions';
+import { commissionRatesFor } from '@/lib/sales/constants';
+import { dataBRT } from '@/lib/dre/semana';
+import { logAdminAction } from '@/lib/audit';
 import type { SalesCommissionEvent } from '@/lib/sales/types';
 import { celulaCsv } from '@/lib/simuladores/csv';
 
@@ -145,6 +148,60 @@ export async function registrarEstorno(input: { representanteId: string; account
   });
   if (error) return { success: false as const, error: error.message };
   return { success: true as const };
+}
+
+/**
+ * Comissão de INDICAÇÃO (consultor no modelo `indicacao`, decisão do dono de
+ * 23/10/2026): 10% de cada pagamento recebido de cada cliente indicado, lançada
+ * pela vertho.ai a cada recebimento, cliente a cliente. Nasce "a receber" (o
+ * cliente já pagou) e é paga até o dia 15 do mês seguinte ao recebimento (11.2).
+ */
+export async function registrarComissaoIndicacao(input: {
+  representanteId: string; cliente: string; valorRecebido: number; recebidoEm: string; observacao?: string;
+}) {
+  const admin = await requireCommercialAdminAction();
+  const cliente = String(input?.cliente || '').trim();
+  const valor = Math.round(Number(input?.valorRecebido) * 100) / 100;
+  const recebidoEm = String(input?.recebidoEm || '').slice(0, 10);
+  if (!input?.representanteId) return { success: false as const, error: 'Selecione o consultor' };
+  if (!cliente) return { success: false as const, error: 'Informe o cliente indicado (a comissão é cliente a cliente)' };
+  if (!isFinite(valor) || valor <= 0) return { success: false as const, error: 'O valor recebido do cliente deve ser positivo' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(recebidoEm) || Number.isNaN(Date.parse(`${recebidoEm}T12:00:00Z`))) {
+    return { success: false as const, error: 'Informe a data do recebimento' };
+  }
+  if (recebidoEm > dataBRT(new Date())) return { success: false as const, error: 'A comissão de indicação é lançada depois do recebimento, não antes' };
+
+  const sb = createSupabaseAdmin();
+  const { data: rep, error: erroRep } = await sb.from('sales_representatives')
+    .select('id, name, compensation_model').eq('id', input.representanteId).maybeSingle();
+  if (erroRep) return { success: false as const, error: erroRep.message };
+  if (!rep) return { success: false as const, error: 'Consultor não encontrado' };
+  if (rep.compensation_model !== 'indicacao') {
+    return { success: false as const, error: `${rep.name} não está no modelo de indicação: a comissão dele sai das propostas aceitas no portal.` };
+  }
+
+  const percentual = commissionRatesFor('indicacao').recurring;
+  const competencia = new Date(`${recebidoEm.slice(0, 7)}-01T00:00:00Z`);
+  const obs = String(input?.observacao || '').trim();
+  const { data, error } = await sb.from('sales_commission_events').insert({
+    representante_id: rep.id,
+    account_id: null,
+    proposal_id: null,
+    type: 'indicacao',
+    status: 'accrued',
+    base_value: valor,
+    percent: Math.round(percentual * 10000) / 100,
+    amount: Math.round(valor * percentual * 100) / 100,
+    reference_month: competencia.toISOString().slice(0, 10),
+    expected_payment_date: dataPrevistaPagamentoComissao(competencia),
+    notes: `Indicação: ${cliente}. Pagamento recebido em ${recebidoEm.split('-').reverse().join('/')}.${obs ? ` ${obs}` : ''}`,
+  }).select('id, amount').single();
+  if (error) return { success: false as const, error: error.message };
+  await logAdminAction({
+    adminEmail: admin.email, acao: 'sales_comissao.indicacao', alvo: `${rep.name} (${data.id})`,
+    detalhes: { cliente, valor_recebido: valor, recebido_em: recebidoEm, comissao: data.amount },
+  });
+  return { success: true as const, comissao: Number(data.amount) };
 }
 
 /** Export financeiro (CSV) dos eventos filtrados. Gera string; a UI baixa. */

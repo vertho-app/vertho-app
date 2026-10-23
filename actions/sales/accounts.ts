@@ -16,7 +16,7 @@ import {
 import { numOrNull } from '@/lib/sales/validation';
 import { logAdminAction } from '@/lib/audit';
 import { coincidenciasDeOutrosRcs, normalizarCnpj, type ContaComparavel } from '@/lib/sales/duplicidade';
-import { codigoInepValido, conferirRegistro, decidirRegistro, reconferirRegistroAceito } from '@/lib/sales/registro';
+import { MENSAGEM_FILA, MOTIVOS_DA_FILA, codigoInepValido, conferirRegistro, decidirRegistro, reconferirRegistroAceito } from '@/lib/sales/registro';
 import { termosDaProposta } from '@/lib/sales/aceite-rc';
 import { planoDeComissao } from '@/lib/sales/commissions';
 import type { SalesAccount, SalesProposal } from '@/lib/sales/types';
@@ -109,9 +109,10 @@ function accountPatchFromInput(input: Record<string, any>): { patch: Record<stri
 
 /**
  * O cliente (CNPJ básico ou INEP) pode ficar nesta conta do RC? Bloqueia o que
- * está com outro representante (contrato, 7.1); a lista de reserva não bloqueia
- * a conta, só manda o registro para a validação. Falha de leitura não bloqueia:
- * o registro da oportunidade confere de novo e, sem conferência, vai para a fila.
+ * está com outro representante (contrato, 7.1). A lista de reserva não bloqueia
+ * a conta nem gera aviso (o RC não pode descobrir quem está nela): é o registro
+ * da oportunidade que vai para a fila. Falha de leitura não bloqueia: o registro
+ * confere de novo e, sem conferência, vai para a fila.
  */
 async function conferirClienteDaConta(
   sb: ReturnType<typeof createSupabaseAdmin>,
@@ -121,8 +122,8 @@ async function conferirClienteDaConta(
 ): Promise<{ bloqueio: string | null; aviso: string | null }> {
   try {
     const c = await conferirRegistro(sb, { representanteId, cnpj, codigoInep });
-    if (c.livre) return { bloqueio: null, aviso: null };
-    return c.motivo === 'outro_rc' ? { bloqueio: c.mensagem, aviso: null } : { bloqueio: null, aviso: c.mensagem };
+    if (c.livre || c.motivo === 'reserva') return { bloqueio: null, aviso: null };
+    return { bloqueio: c.mensagem, aviso: null };
   } catch {
     return { bloqueio: null, aviso: 'Não foi possível conferir agora se este cliente está com outro representante. O registro da oportunidade confere de novo.' };
   }
@@ -182,6 +183,7 @@ export async function updateSalesAccount(accountId: string, input: Record<string
 
   const trocaCnpj = 'cnpj' in patch && normalizarCnpj(patch.cnpj) !== normalizarCnpj(existing.cnpj);
   const trocaInep = 'codigo_inep' in patch && (patch.codigo_inep ?? null) !== (existing.codigo_inep ?? null);
+  let voltaParaFila: string | null = null;
   if (trocaCnpj || trocaInep) {
     const cnpjNovo = 'cnpj' in patch ? patch.cnpj : existing.cnpj;
     const inepNovo = 'codigo_inep' in patch ? patch.codigo_inep : existing.codigo_inep;
@@ -194,20 +196,18 @@ export async function updateSalesAccount(accountId: string, input: Record<string
       const sobrescreve = (trocaCnpj && !!normalizarCnpj(existing.cnpj)) || (trocaInep && !!existing.codigo_inep);
       if (sobrescreve) return { success: false as const, error: 'Esta conta já tem registro de oportunidade: o CNPJ e o INEP só mudam pela vertho.ai. Escreva para o seu contato no canal.' };
       // Completar o vazio de conta já registrada: o registro foi aceito sem esse
-      // identificador, então o cliente precisa estar livre DE VERDADE (reserva
-      // e conferência que falhou também barram), ou a lista de reserva seria
-      // contornada registrando primeiro e informando o CNPJ depois.
+      // identificador, então o cliente precisa estar livre DE VERDADE. Outro RC
+      // barra; conferência que falhou barra (tente de novo); lista de reserva
+      // salva o CNPJ e devolve o registro para a fila, sem dizer por quê, ou a
+      // reserva seria contornada registrando primeiro e informando o CNPJ depois.
       let c: Awaited<ReturnType<typeof conferirRegistro>>;
       try {
         c = await conferirRegistro(sb, { representanteId: ctx.rep.id, cnpj: cnpjNovo, codigoInep: inepNovo });
       } catch {
         return { success: false as const, error: 'Não foi possível conferir agora se este cliente está livre. Tente de novo em instantes.' };
       }
-      if (!c.livre) {
-        return { success: false as const, error: c.motivo === 'reserva'
-          ? 'Este cliente precisa da conferência da vertho.ai (cláusula 7.3). Escreva para o seu contato no canal para completar o CNPJ.'
-          : c.mensagem };
-      }
+      if (!c.livre && c.motivo === 'outro_rc') return { success: false as const, error: c.mensagem };
+      if (!c.livre) voltaParaFila = MOTIVOS_DA_FILA.reserva;
     } else {
       const conferencia = await conferirClienteDaConta(sb, ctx.rep.id, cnpjNovo, inepNovo);
       if (conferencia.bloqueio) return { success: false as const, error: conferencia.bloqueio };
@@ -236,7 +236,17 @@ export async function updateSalesAccount(accountId: string, input: Record<string
   patch.updated_at = new Date().toISOString();
   const { error } = await sb.from('sales_accounts').update(patch).eq('id', accountId);
   if (error) return { success: false as const, error: error.message };
-  return { success: true as const };
+
+  if (voltaParaFila) {
+    const { error: erroFila } = await sb.from('sales_opportunities').update({
+      attribution_status: 'aguardando', attribution_decided_at: null, attribution_decided_by: null,
+      attribution_note: `CNPJ ou INEP informado depois do registro. ${voltaParaFila}`,
+      protection_start_date: null, protection_end_date: null, last_movement_at: null, updated_at: patch.updated_at,
+    }).eq('account_id', accountId).eq('status', 'open').in('attribution_status', ['aguardando', 'validada']);
+    if (erroFila) return { success: false as const, error: `CNPJ salvo, mas o registro não voltou para a validação: ${erroFila.message}. Avise a vertho.ai.` };
+    return { success: true as const, aviso: `CNPJ salvo. ${MENSAGEM_FILA}` as string | null };
+  }
+  return { success: true as const, aviso: null as string | null };
 }
 
 /** Conta linhas de uma tabela ligadas à conta. Erro de leitura NÃO vira zero (E11). */
