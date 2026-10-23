@@ -10,7 +10,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "3.1152.0",
     "@aws-sdk/client-sfn": "3.1152.0",
-    "@hyperframes/aws-lambda": "0.8.140",
+    "@hyperframes/aws-lambda": "0.8.166",
     "@remotion/renderer": "4.0.476",
     "pg": "^8.13.0"
   },
