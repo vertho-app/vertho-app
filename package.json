@@ -44,9 +44,9 @@
     "@breezystack/lamejs": "^1.2.7",
     "@google/genai": "^2.13.0",
     "@react-pdf/renderer": "^4.4.0",
-    "@sentry/core": "10.76.1",
-    "@sentry/nextjs": "10.76.1",
-    "@sentry/node": "10.76.1",
+    "@sentry/core": "10.76.2",
+    "@sentry/nextjs": "10.76.2",
+    "@sentry/node": "10.76.2",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.110.7",
     "@trigger.dev/sdk": "4.7.7",
@@ -57,10 +57,10 @@
     "@upstash/redis": "^1.38.2",
     "@vercel/functions": "^3.6.1",
     "exceljs": "^4.4.0",
-    "libphonenumber-js": "^1.13.8",
+    "libphonenumber-js": "^1.13.15",
     "lucide-react": "^1.7.0",
     "mammoth": "^1.12.0",
-    "next": "^16.4.1",
+    "next": "^16.4.2",
     "next-intl": "^4.12.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^2.4.5",
@@ -71,11 +71,11 @@
     "react-markdown": "^10.1.0",
     "read-excel-file": "^8.0.3",
     "resend": "^6.12.0",
-    "sonner": "^2.0.7",
+    "sonner": "^2.0.8",
     "undici": "^8.11.2",
     "unpdf": "^1.6.0",
     "web-push": "^3.6.7",
-    "youtube-dl-exec": "^3.1.7"
+    "youtube-dl-exec": "^3.1.17"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
@@ -95,7 +95,7 @@
     "remotion": "^4.0.476",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.9.3",
-    "vitest": "4.1.11",
+    "vitest": "4.1.12",
     "zod": "4.3.6"
   },
   "overrides": {
