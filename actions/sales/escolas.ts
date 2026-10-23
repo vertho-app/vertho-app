@@ -33,14 +33,6 @@ function semAcento(s: string): string {
 }
 
 /**
- * O município vem do Censo COM acento ("São Paulo"): cada letra que pode levar
- * acento vira o curinga de um caractere do LIKE, e "sao paulo" acha "São Paulo".
- */
-function padraoDeMunicipio(s: string): string {
-  return escaparLike(semAcento(s).toLowerCase()).replace(/[aeiouc]/g, '_');
-}
-
-/**
  * Escolas privadas da UF cujo nome contém todas as palavras digitadas (e, se
  * informado, do município). Até 20, as de mais professores primeiro.
  */
@@ -57,7 +49,9 @@ export async function buscarEscolasDoMercado(input: { termo: string; uf: string;
     .eq('uf', uf).eq('rede', 'PRIVADA');
   for (const p of palavras.slice(0, 5)) q = q.ilike('nome', `%${escaparLike(p)}%`);
   const municipio = String(input?.municipio || '').trim();
-  if (municipio) q = q.ilike('municipio', `%${padraoDeMunicipio(municipio)}%`);
+  // O município vem do Censo COM acento ("São Paulo"): depois do escape, cada letra
+  // que pode levar acento vira o curinga de um caractere, e "sao paulo" acha "São Paulo".
+  if (municipio) q = q.ilike('municipio', `%${escaparLike(semAcento(municipio).toLowerCase()).replace(/[aeiouc]/g, '_')}%`);
   const { data, error } = await q.order('qt_professores', { ascending: false, nullsFirst: false }).limit(LIMITE);
   if (error) return { success: false as const, error: `Não foi possível buscar na base de escolas: ${error.message}` };
 

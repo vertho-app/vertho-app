@@ -9,6 +9,7 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireCommercialAdminAction } from '@/lib/sales/permissions';
 import { dataBRT, segundaDaSemana, somarDias } from '@/lib/dre/semana';
+import { valorDeFiltro } from '@/lib/postgrest-valor';
 
 export type SemanaDeAtividade = {
   inicio: string;
@@ -44,7 +45,7 @@ export async function getAtividadeSemanal(quantas = 4) {
     sb.from('sales_activity_notes').select('representante_id, kind, note, created_at').gte('created_at', desde),
     sb.from('sales_opportunities').select('representante_id, created_at').gte('created_at', desde),
     sb.from('sales_proposals').select('representante_id, created_at, sent_to_client_at')
-      .not('representante_id', 'is', null).or(`created_at.gte.${desde},sent_to_client_at.gte.${desde}`),
+      .not('representante_id', 'is', null).or(`created_at.gte.${valorDeFiltro(desde)},sent_to_client_at.gte.${valorDeFiltro(desde)}`),
     sb.from('sales_opportunities').select('representante_id, last_movement_at').not('last_movement_at', 'is', null),
   ]);
   for (const r of [reps, notas, registros, propostas, movimentos]) {
