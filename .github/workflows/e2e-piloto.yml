@@ -28,7 +28,11 @@ jobs:
     # ubuntu26.04-x64"); o job ficou vermelho por ambiente, sem rodar nenhum teste.
     # Voltar para `ubuntu-latest` junto com um Playwright que suporte a 26.04.
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    # 12 -> 20 (23/10/2026): a 1ª rodada em 24.04 passou nos 14 testes e mesmo assim saiu
+    # `cancelled`, porque o `playwright install --with-deps` levou 645 s com o espelho apt
+    # da Azure lento nas fontes (um pacote de 7 MB levou 182 s). O normal é o job inteiro
+    # em 2 a 3 min; o limite só segura o caso lento sem virar vermelho falso.
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
