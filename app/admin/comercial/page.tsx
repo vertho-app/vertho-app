@@ -110,6 +110,17 @@ export default function ComercialDashboardPage() {
               <PendingRegistrationsTable rows={data.pendingRegistrations} onDone={carregar} />
             </section>
 
+            {/* Aceitos na hora: a vertho.ai ainda revoga em até 10 dias (7.1) */}
+            <section className="mb-6">
+              <h2 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+                <ClipboardCheck size={15} className="text-cyan-400" /> Aceitos na hora (últimos 10 dias)
+              </h2>
+              <p className="text-[11px] text-gray-500 mb-2">
+                Registros que o portal aceitou porque o cliente estava livre. Revogue os que esbarram na 7.3 (cliente ou negociação da vertho.ai que não está na lista de reserva) em até 10 dias. O aviso em amarelo compara só o nome: pode ser o mesmo cliente com outro CNPJ.
+              </p>
+              <PendingRegistrationsTable rows={data.aceitosNaHora} onDone={carregar} modo="aceitos" />
+            </section>
+
             {/* Lista de reserva da vertho.ai (7.3) */}
             <section className="mb-6">
               <h2 className="text-sm font-bold text-white mb-1 flex items-center gap-2">

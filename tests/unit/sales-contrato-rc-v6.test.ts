@@ -14,6 +14,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { criarSupabaseMock, type Chamada, type SupabaseMock } from '../helpers/supabase-mock';
+import { dataBRT, somarDias } from '@/lib/dre/semana';
 
 let sb: SupabaseMock = criarSupabaseMock();
 const enviados: any[] = [];
@@ -44,19 +45,23 @@ import {
   DECISOR_AUTOMATICO,
   cnpjRaiz,
   conferirRegistro,
+  decidirRegistro,
   precisaDeMovimentacao,
+  protecaoAPartirDe,
   registrarMovimentacao,
+  revogavel,
 } from '@/lib/sales/registro';
 import { classificarCarteira } from '@/lib/sales/aceite-rc';
 import { ehRcFicticio, emailDoAviso, enviarAvisosDeProtecao } from '@/lib/sales/alerta-protecao';
-import { createOpportunity, moveOpportunityStage, registrarContato } from '@/actions/sales/opportunities';
-import { createSalesAccount, updateSalesAccount } from '@/actions/sales/accounts';
-import { markProposalSentToClient, registrarAceitePropostaDoRC } from '@/actions/sales/proposals';
+import { createOpportunity, moveOpportunityStage, recusarRegistroOportunidade, registrarContato } from '@/actions/sales/opportunities';
+import { createSalesAccount, criarOportunidadeExpansao, updateSalesAccount } from '@/actions/sales/accounts';
+import { markProposalSentToClient, registrarAceitePropostaDoRC, submitProposalForApproval } from '@/actions/sales/proposals';
 
 const escritasEm = (tabela: string, op: string) => sb.escritas.filter((e) => e.tabela === tabela && e.op === op);
 const temElo = (cadeia: Chamada[], metodo: string) => cadeia.some((c) => c.metodo === metodo);
-const hoje = () => new Date().toISOString().slice(0, 10);
-const daquiA = (dias: number) => new Date(Date.now() + dias * 86_400_000).toISOString().slice(0, 10);
+// Dias de Brasília, como o código: às 22h o dia ainda é o de hoje.
+const hoje = () => dataBRT(new Date());
+const daquiA = (dias: number) => somarDias(hoje(), dias);
 
 beforeEach(() => {
   enviados.length = 0;
@@ -65,18 +70,25 @@ beforeEach(() => {
 
 describe('CNPJ básico, INEP e CNPJ alfanumérico', () => {
   it('CNPJ com pontuação, em minúsculas ou alfanumérico vira 14 posições; o resto não serve', () => {
-    expect(normalizarCnpj('12.345.678/0001-90')).toBe('12345678000190');
-    expect(normalizarCnpj('12.abc.345/01de-35')).toBe('12ABC34501DE35');
+    expect(normalizarCnpj('12.345.678/0001-95')).toBe('12345678000195');
+    expect(normalizarCnpj('12.abc.345/01de-35')).toBe('12ABC34501DE35'); // exemplo oficial da Receita
     expect(normalizarCnpj('12.ABC.345/01DE-3X')).toBeNull(); // verificador é sempre número
     expect(normalizarCnpj('123')).toBeNull();
     expect(cnpjRaiz('12.ABC.345/01DE-35')).toBe('12ABC345');
   });
 
+  it('o dígito verificador é conferido (erro de digitação não passa como outro cliente)', () => {
+    expect(normalizarCnpj('12.345.678/0001-90')).toBeNull();
+    expect(normalizarCnpj('12.ABC.345/01DE-36')).toBeNull();
+    expect(normalizarCnpj('11.222.333/0001-81')).toBe('11222333000181');
+    expect(normalizarCnpj('00.000.000/0000-00')).toBeNull(); // sequência repetida
+  });
+
   it('matriz e filial são o mesmo cliente; INEP decide quando as duas têm', () => {
     const conta = (o: Record<string, any>) => ({ id: Math.random().toString(), representante_id: 'x', legal_name: null, trade_name: null, cnpj: null, city: null, ...o });
-    expect(mesmaInstituicao(conta({ cnpj: '12.345.678/0001-90' }), conta({ cnpj: '12.345.678/0002-71' }))).toBe(true);
-    expect(mesmaInstituicao(conta({ cnpj: '12.345.678/0001-90' }), conta({ cnpj: '87.654.321/0001-90' }))).toBe(false);
-    expect(mesmaInstituicao(conta({ codigo_inep: '35000001', cnpj: '12.345.678/0001-90' }), conta({ codigo_inep: '35000002', cnpj: '12.345.678/0002-71' }))).toBe(false);
+    expect(mesmaInstituicao(conta({ cnpj: '12.345.678/0001-95' }), conta({ cnpj: '12.345.678/0002-76' }))).toBe(true);
+    expect(mesmaInstituicao(conta({ cnpj: '12.345.678/0001-95' }), conta({ cnpj: '87.654.321/0001-98' }))).toBe(false);
+    expect(mesmaInstituicao(conta({ codigo_inep: '35000001', cnpj: '12.345.678/0001-95' }), conta({ codigo_inep: '35000002', cnpj: '12.345.678/0002-76' }))).toBe(false);
   });
 
   it('a coluna gerada da mig 298 usa a mesma regra do código', () => {
@@ -107,7 +119,7 @@ function montarRegistro(c: Cenario = {}) {
   let conferencias = 0;
   sb = criarSupabaseMock({
     resolver: (tabela) => {
-      if (tabela === 'sales_accounts') return { id: 'acc-1', representante_id: 'rc-1', cnpj: '12.345.678/0001-90', codigo_inep: '35000001' };
+      if (tabela === 'sales_accounts') return { id: 'acc-1', representante_id: 'rc-1', cnpj: '12.345.678/0001-95', codigo_inep: '35000001' };
       if (tabela === 'sales_contacts') return { id: 'ct-1', representante_id: 'rc-1', account_id: 'acc-1', role: 'Diretora' };
       return null;
     },
@@ -201,9 +213,22 @@ describe('7.1: registro de cliente livre é aceito na hora', () => {
     expect(sb.usou('sales_opportunities', 'eq', 'attribution_decided_by')).toBe(true);
   });
 
+  it('sem CNPJ nem INEP não há o que conferir: fila, nunca o aceite automático', async () => {
+    sb = criarSupabaseMock();
+    const d = await decidirRegistro(sb.client, { representanteId: 'rc-1', cnpj: null, codigoInep: null });
+    expect(d.aceito).toBe(false);
+    expect(d.campos.attribution_status).toBe('aguardando');
+    expect(d.mensagem).toMatch(/Sem CNPJ nem INEP/);
+  });
+
+  it('a janela de proteção conta em dias de Brasília (22h30 de BRT ainda é o mesmo dia)', () => {
+    const j = protecaoAPartirDe(new Date('2026-10-24T01:30:00Z')); // 23/10, 22h30 em Brasília
+    expect(j).toEqual({ start: '2026-10-23', end: '2027-01-21' });
+  });
+
   it('a conferência pura: oportunidade aguardando também segura o cliente', async () => {
     montarRegistro({ outrasContas: [{ id: 'acc-9', status: 'prospect' }], oppsDasOutras: [{ ...oppProtegida, attribution_status: 'aguardando', protection_end_date: null }] });
-    const c = await conferirRegistro(sb.client, { representanteId: 'rc-1', cnpj: '12.345.678/0001-90' });
+    const c = await conferirRegistro(sb.client, { representanteId: 'rc-1', cnpj: '12.345.678/0001-95' });
     expect(c.livre).toBe(false);
   });
 });
@@ -213,7 +238,7 @@ describe('7.1: registro de cliente livre é aceito na hora', () => {
 describe('conta: o cliente com outro RC não entra', () => {
   it('CNPJ de cliente protegido de outro RC: a conta não é criada', async () => {
     montarRegistro({ outrasContas: [{ id: 'acc-9', status: 'prospect' }], oppsDasOutras: [oppProtegida] });
-    const r = await createSalesAccount({ legal_name: 'Colégio X', cnpj: '12.345.678/0003-52' });
+    const r = await createSalesAccount({ legal_name: 'Colégio X', cnpj: '12.345.678/0003-57' });
     expect(r.success).toBe(false);
     expect(escritasEm('sales_accounts', 'insert')).toHaveLength(0);
   });
@@ -227,20 +252,40 @@ describe('conta: o cliente com outro RC não entra', () => {
 
   it('CNPJ livre: a conta é criada com o CNPJ formatado', async () => {
     montarRegistro();
-    const r = await createSalesAccount({ legal_name: 'Colégio X', cnpj: '12345678000190', codigo_inep: '35000001' });
+    const r = await createSalesAccount({ legal_name: 'Colégio X', cnpj: '12345678000195', codigo_inep: '35000001' });
     expect(r.success).toBe(true);
-    expect(escritasEm('sales_accounts', 'insert')[0]?.payload).toMatchObject({ cnpj: '12.345.678/0001-90', codigo_inep: '35000001' });
+    expect(escritasEm('sales_accounts', 'insert')[0]?.payload).toMatchObject({ cnpj: '12.345.678/0001-95', codigo_inep: '35000001' });
   });
 
   it('trocar o CNPJ de conta com registro: só pela vertho.ai', async () => {
     sb = criarSupabaseMock({
-      resolver: (tabela) => (tabela === 'sales_accounts' ? { id: 'acc-1', representante_id: 'rc-1', cnpj: '12.345.678/0001-90', codigo_inep: null } : null),
+      resolver: (tabela) => (tabela === 'sales_accounts' ? { id: 'acc-1', representante_id: 'rc-1', cnpj: '12.345.678/0001-95', codigo_inep: null } : null),
       contagem: (tabela) => (tabela === 'sales_opportunities' ? 1 : 0),
     });
-    const r = await updateSalesAccount('acc-1', { cnpj: '87.654.321/0001-90' });
+    const r = await updateSalesAccount('acc-1', { cnpj: '87.654.321/0001-98' });
     expect(r.success).toBe(false);
     expect((r as any).error).toMatch(/vertho\.ai/);
     expect(escritasEm('sales_accounts', 'update')).toHaveLength(0);
+  });
+
+  it('completar o CNPJ de conta JÁ registrada com cliente reservado: barra (não contorna a reserva)', async () => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_accounts' ? { id: 'acc-1', representante_id: 'rc-1', cnpj: null, codigo_inep: null } : null),
+      contagem: (tabela) => (tabela === 'sales_opportunities' ? 1 : 0),
+      lista: (tabela) => (tabela === 'sales_reservas' ? [{ id: 'r1' }] : []),
+    });
+    const r = await updateSalesAccount('acc-1', { cnpj: '12.345.678/0001-95' });
+    expect(r.success).toBe(false);
+    expect((r as any).error).toMatch(/7\.3/);
+    expect(escritasEm('sales_accounts', 'update')).toHaveLength(0);
+  });
+
+  it('expansão só de cliente ativo da carteira', async () => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_accounts' ? { id: 'acc-1', representante_id: 'rc-1', status: 'prospect', cnpj: null, codigo_inep: null, legal_name: 'X' } : null),
+    });
+    expect((await criarOportunidadeExpansao('acc-1')).success).toBe(false);
+    expect(escritasEm('sales_opportunities', 'insert')).toHaveLength(0);
   });
 
   it('completar o CNPJ que estava vazio continua livre', async () => {
@@ -248,8 +293,8 @@ describe('conta: o cliente com outro RC não entra', () => {
       resolver: (tabela) => (tabela === 'sales_accounts' ? { id: 'acc-1', representante_id: 'rc-1', cnpj: null, codigo_inep: null } : null),
       contagem: () => 1,
     });
-    expect((await updateSalesAccount('acc-1', { cnpj: '12.345.678/0001-90' })).success).toBe(true);
-    expect(escritasEm('sales_accounts', 'update')[0]?.payload.cnpj).toBe('12.345.678/0001-90');
+    expect((await updateSalesAccount('acc-1', { cnpj: '12.345.678/0001-95' })).success).toBe(true);
+    expect(escritasEm('sales_accounts', 'update')[0]?.payload.cnpj).toBe('12.345.678/0001-95');
   });
 });
 
@@ -258,7 +303,7 @@ describe('conta: o cliente com outro RC não entra', () => {
 function montarOpp(opp: Record<string, any>, outras: Cenario = {}) {
   sb = criarSupabaseMock({
     resolver: (tabela) => (tabela === 'sales_opportunities'
-      ? { id: 'opp-1', representante_id: 'rc-1', account_id: 'acc-1', status: 'open', attribution_status: 'validada', stage: 'contato_iniciado', account: { cnpj: '12.345.678/0001-90', codigo_inep: null }, ...opp }
+      ? { id: 'opp-1', representante_id: 'rc-1', account_id: 'acc-1', status: 'open', attribution_status: 'validada', stage: 'contato_iniciado', account: { cnpj: '12.345.678/0001-95', codigo_inep: null }, ...opp }
       : tabela === 'sales_proposals' ? { id: 'p1', representante_id: 'rc-1', status: 'approved', opportunity_id: 'opp-1' } : null),
     lista: (tabela, _c, cadeia) => {
       if (tabela === 'sales_accounts' && temElo(cadeia, 'or')) return (outras.outrasContas as any[]) ?? [];
@@ -383,6 +428,64 @@ describe('e-mail de 60 dias (cron alerta_protecao_rc)', () => {
   it('o cron chama a action e o vercel.json agenda', () => {
     expect(readFileSync('app/api/cron/route.ts', 'utf8')).toContain("case 'alerta_protecao_rc'");
     expect(readFileSync('vercel.json', 'utf8')).toContain('/api/cron?action=alerta_protecao_rc');
+  });
+});
+
+// ── Revogação do aceite automático (7.1) e proposta de quem perdeu o cliente (7.6) ──
+
+describe('7.1: a vertho.ai revoga o aceite automático em até 10 dias', () => {
+  const ha = (dias: number) => new Date(Date.now() - dias * 86_400_000).toISOString();
+  const opp = (o: Record<string, any>) => ({ id: 'opp-1', representante_id: 'rc-1', account_id: 'acc-1', status: 'open', attribution_status: 'validada', attribution_decided_by: DECISOR_AUTOMATICO, attribution_decided_at: ha(3), ...o });
+  const montar = (o: Record<string, any>) => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_opportunities' ? opp(o) : null),
+      escrita: (tabela, op) => (tabela === 'sales_opportunities' && op === 'update' ? [{ id: 'opp-1' }] : null),
+    });
+  };
+
+  it('dentro da janela: revoga, só se ainda for o aceite automático', async () => {
+    montar({});
+    expect((await recusarRegistroOportunidade('opp-1', 'Cliente em negociação direta (7.3)')).success).toBe(true);
+    expect(escritasEm('sales_opportunities', 'update')[0]?.payload).toMatchObject({ attribution_status: 'recusada', status: 'expired' });
+    expect(sb.usou('sales_opportunities', 'eq', 'attribution_decided_by')).toBe(true);
+    expect(escritasEm('sales_activity_notes', 'insert')[0]?.payload.note).toMatch(/revogado/);
+  });
+
+  it('depois de 10 dias, ou validado pelo admin: não revoga', async () => {
+    montar({ attribution_decided_at: ha(11) });
+    expect((await recusarRegistroOportunidade('opp-1', 'tarde demais')).success).toBe(false);
+    montar({ attribution_decided_by: 'admin@vertho.ai' });
+    expect((await recusarRegistroOportunidade('opp-1', 'decisão do admin')).success).toBe(false);
+    expect(escritasEm('sales_opportunities', 'update')).toHaveLength(0);
+    expect(revogavel(opp({ status: 'won' }))).toBe(false);
+  });
+});
+
+describe('7.6: proposta de quem perdeu o cliente não segue', () => {
+  const proposta = {
+    id: 'p1', representante_id: 'rc-1', opportunity_id: 'opp-1', status: 'draft',
+    customer_type: 'escola', number_of_users: 30, product_package: 'onboarding', contract_duration_months: 12,
+    payment_terms: 'Mensal', included_scope: 'Jornada', monthly_value: 2000, total_contract_value: 24000,
+  };
+  const montar = (outrasContas: any[]) => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_proposals' ? proposta
+        : tabela === 'sales_opportunities' ? { attribution_status: 'validada', representante_id: 'rc-1', protection_end_date: daquiA(-5), account: { cnpj: '12.345.678/0001-95', codigo_inep: null } } : null),
+      lista: (tabela, _c, cadeia) => (tabela === 'sales_accounts' && temElo(cadeia, 'or') ? outrasContas : tabela === 'sales_opportunities' ? [oppProtegida] : []),
+    });
+  };
+
+  it('proteção vencida e cliente com outro RC: não submete', async () => {
+    montar([{ id: 'acc-9', status: 'prospect' }]);
+    const r = await submitProposalForApproval('p1');
+    expect(r.success).toBe(false);
+    expect((r as any).error).toMatch(/7\.6/);
+    expect(escritasEm('sales_proposals', 'update')).toHaveLength(0);
+  });
+
+  it('proteção vencida e cliente ainda livre: submete', async () => {
+    montar([]);
+    expect((await submitProposalForApproval('p1')).success).toBe(true);
   });
 });
 

@@ -28,7 +28,8 @@ import { validateProposalDraft, validateProposalForSubmission, numOrNull } from 
 import { calculateProposalFinancials } from '@/lib/sales/commissions';
 import { commissionRatesFor, type CompensationModel } from '@/lib/sales/constants';
 import { classificarCarteira, comissaoDevidaNoAceite, concluirAceiteDoRC } from '@/lib/sales/aceite-rc';
-import { registrarMovimentacao } from '@/lib/sales/registro';
+import { conferirRegistro, registrarMovimentacao } from '@/lib/sales/registro';
+import { dataBRT } from '@/lib/dre/semana';
 import type { SalesProposal } from '@/lib/sales/types';
 
 const PROPOSAL_SELECT = `*,
@@ -73,16 +74,36 @@ function proposalPatchFromInput(
   return { ...patch, ...fin, compensation_model: modelo, carteira: carteira.carteira, carteira_motivo: carteira.motivo };
 }
 
+const MSG_CLIENTE_COM_OUTRO =
+  'A proteção desta oportunidade acabou (90 dias sem movimentação) e o cliente está agora com outro representante (cláusula 7.6). A proposta não segue.';
+
 /**
- * O registro da oportunidade foi validado pela vertho.ai (7.1)? Devolve o
- * motivo de NÃO seguir, ou `null` quando pode. Sem oportunidade, não pode; falha
- * de leitura também não vira "validado".
+ * O registro da oportunidade foi validado pela vertho.ai (7.1) e o cliente
+ * ainda é do RC? Devolve o motivo de NÃO seguir, ou `null` quando pode. Sem
+ * oportunidade, não pode; falha de leitura também não vira "validado".
+ *
+ * Proteção vencida (7.6): o cliente ficou livre. Se outro RC o pegou, a proposta
+ * de quem o perdeu não é submetida nem aprovada; se ninguém pegou, segue (e a
+ * submissão, como movimentação, renova a proteção).
  */
 async function bloqueioDoRegistro(sb: ReturnType<typeof createSupabaseAdmin>, opportunityId: string | null | undefined): Promise<string | null> {
   if (!opportunityId) return MSG_REGISTRO_NAO_VALIDADO;
-  const { data, error } = await sb.from('sales_opportunities').select('attribution_status').eq('id', opportunityId).maybeSingle();
+  const { data, error } = await sb.from('sales_opportunities')
+    .select('attribution_status, representante_id, protection_end_date, account:sales_accounts (cnpj, codigo_inep)')
+    .eq('id', opportunityId).maybeSingle();
   if (error) return `Não foi possível conferir o registro da oportunidade: ${error.message}`;
-  return data?.attribution_status === 'validada' ? null : MSG_REGISTRO_NAO_VALIDADO;
+  if (data?.attribution_status !== 'validada') return MSG_REGISTRO_NAO_VALIDADO;
+  if (!data.protection_end_date || data.protection_end_date >= dataBRT(new Date())) return null;
+  const conta: any = Array.isArray(data.account) ? data.account[0] : data.account;
+  try {
+    const c = await conferirRegistro(sb, { representanteId: data.representante_id, cnpj: conta?.cnpj, codigoInep: conta?.codigo_inep });
+    if (c.livre) return null;
+    return c.motivo === 'reserva'
+      ? 'A proteção desta oportunidade acabou (90 dias sem movimentação) e o cliente agora precisa da conferência da vertho.ai (cláusula 7.3).'
+      : MSG_CLIENTE_COM_OUTRO;
+  } catch (e: any) {
+    return `Não foi possível conferir se o cliente segue livre: ${e?.message || 'erro de leitura'}`;
+  }
 }
 
 /**

@@ -183,22 +183,35 @@ export async function updateSalesAccount(accountId: string, input: Record<string
   const trocaCnpj = 'cnpj' in patch && normalizarCnpj(patch.cnpj) !== normalizarCnpj(existing.cnpj);
   const trocaInep = 'codigo_inep' in patch && (patch.codigo_inep ?? null) !== (existing.codigo_inep ?? null);
   if (trocaCnpj || trocaInep) {
+    const cnpjNovo = 'cnpj' in patch ? patch.cnpj : existing.cnpj;
+    const inepNovo = 'codigo_inep' in patch ? patch.codigo_inep : existing.codigo_inep;
     // Depois do registro, o identificador é o que a proteção protege: trocar
-    // levaria a proteção para outro cliente sem passar pela conferência. Só
-    // completar o que estava vazio continua livre.
-    const sobrescreve = (trocaCnpj && !!normalizarCnpj(existing.cnpj)) || (trocaInep && !!existing.codigo_inep);
-    if (sobrescreve) {
-      const { count, error: erroRegistro } = await sb.from('sales_opportunities').select('id', { count: 'exact', head: true })
-        .eq('account_id', accountId).in('attribution_status', ['aguardando', 'validada']);
-      if (erroRegistro) return { success: false as const, error: erroRegistro.message };
-      if (count) return { success: false as const, error: 'Esta conta já tem registro de oportunidade: o CNPJ e o INEP só mudam pela vertho.ai. Escreva para o seu contato no canal.' };
+    // levaria a proteção para outro cliente sem passar pela conferência.
+    const { count, error: erroRegistro } = await sb.from('sales_opportunities').select('id', { count: 'exact', head: true })
+      .eq('account_id', accountId).in('attribution_status', ['aguardando', 'validada']);
+    if (erroRegistro) return { success: false as const, error: erroRegistro.message };
+    if (count) {
+      const sobrescreve = (trocaCnpj && !!normalizarCnpj(existing.cnpj)) || (trocaInep && !!existing.codigo_inep);
+      if (sobrescreve) return { success: false as const, error: 'Esta conta já tem registro de oportunidade: o CNPJ e o INEP só mudam pela vertho.ai. Escreva para o seu contato no canal.' };
+      // Completar o vazio de conta já registrada: o registro foi aceito sem esse
+      // identificador, então o cliente precisa estar livre DE VERDADE (reserva
+      // e conferência que falhou também barram), ou a lista de reserva seria
+      // contornada registrando primeiro e informando o CNPJ depois.
+      let c: Awaited<ReturnType<typeof conferirRegistro>>;
+      try {
+        c = await conferirRegistro(sb, { representanteId: ctx.rep.id, cnpj: cnpjNovo, codigoInep: inepNovo });
+      } catch {
+        return { success: false as const, error: 'Não foi possível conferir agora se este cliente está livre. Tente de novo em instantes.' };
+      }
+      if (!c.livre) {
+        return { success: false as const, error: c.motivo === 'reserva'
+          ? 'Este cliente precisa da conferência da vertho.ai (cláusula 7.3). Escreva para o seu contato no canal para completar o CNPJ.'
+          : c.mensagem };
+      }
+    } else {
+      const conferencia = await conferirClienteDaConta(sb, ctx.rep.id, cnpjNovo, inepNovo);
+      if (conferencia.bloqueio) return { success: false as const, error: conferencia.bloqueio };
     }
-    const conferencia = await conferirClienteDaConta(
-      sb, ctx.rep.id,
-      'cnpj' in patch ? patch.cnpj : existing.cnpj,
-      'codigo_inep' in patch ? patch.codigo_inep : existing.codigo_inep,
-    );
-    if (conferencia.bloqueio) return { success: false as const, error: conferencia.bloqueio };
   }
 
   if ('legal_name' in input) {
@@ -482,6 +495,7 @@ export async function criarOportunidadeExpansao(accountId: string, nome?: string
   const r = await ownAccount(sb, ctx, accountId);
   if ('error' in r) return { success: false as const, error: r.error };
   const account = r.account;
+  if (account.status !== 'active_client') return { success: false as const, error: 'Expansão é para cliente ativo da sua carteira. Para um cliente novo, registre uma oportunidade.' };
 
   // contato principal (se houver) + produto da proposta aceita mais recente
   const [{ data: contato }, { data: prop }] = await Promise.all([

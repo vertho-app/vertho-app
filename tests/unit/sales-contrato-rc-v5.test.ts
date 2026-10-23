@@ -15,6 +15,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { criarSupabaseMock, type SupabaseMock } from '../helpers/supabase-mock';
 import { classificarCarteira, comissaoDevidaNoAceite } from '@/lib/sales/aceite-rc';
+import { dataBRT } from '@/lib/dre/semana';
 
 let sb: SupabaseMock = criarSupabaseMock();
 
@@ -209,7 +210,7 @@ describe('7.2 e 7.5: registro da oportunidade', () => {
   it('registro completo de cliente na lista de reserva nasce aguardando e SEM proteção', async () => {
     sb = criarSupabaseMock({
       resolver: (tabela) => {
-        if (tabela === 'sales_accounts') return { id: 'acc-1', representante_id: 'rc-1', cnpj: '12.345.678/0001-90' };
+        if (tabela === 'sales_accounts') return { id: 'acc-1', representante_id: 'rc-1', cnpj: '12.345.678/0001-95' };
         if (tabela === 'sales_contacts') return { id: 'ct-1', representante_id: 'rc-1', account_id: 'acc-1', role: 'Diretora' };
         return null;
       },
@@ -232,7 +233,7 @@ describe('7.2 e 7.5: registro da oportunidade', () => {
     expect(patch).toMatchObject({ attribution_status: 'validada', attribution_decided_by: 'admin@vertho.ai' });
     const dias = (Date.parse(patch.protection_end_date) - Date.parse(patch.protection_start_date)) / 86_400_000;
     expect(dias).toBe(90);
-    expect(patch.protection_start_date).toBe(new Date().toISOString().slice(0, 10));
+    expect(patch.protection_start_date).toBe(dataBRT(new Date())); // dia de Brasília
     expect(patch.last_movement_at).toBeTruthy();
   });
 

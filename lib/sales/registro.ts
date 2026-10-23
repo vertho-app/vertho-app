@@ -13,6 +13,7 @@
 //
 // Fica em lib/ (e não num arquivo 'use server', onde todo export vira endpoint).
 import type { createSupabaseAdmin } from '@/lib/supabase';
+import { dataBRT, somarDias } from '@/lib/dre/semana';
 import { PROTECTION_DAYS } from './constants';
 import { normalizarCnpj } from './duplicidade';
 
@@ -20,6 +21,9 @@ type Sb = ReturnType<typeof createSupabaseAdmin>;
 
 /** Dias sem movimentação que disparam o aviso ao RC (7.5). */
 export const AVISO_SEM_MOVIMENTO_DIAS = 60;
+
+/** Janela em que a vertho.ai ainda revoga um registro aceito na hora (7.1). */
+export const JANELA_REVOGACAO_DIAS = 10;
 
 /** Quem decidiu um registro aceito na hora (`attribution_decided_by`). */
 export const DECISOR_AUTOMATICO = 'portal (aceite automático)';
@@ -49,11 +53,19 @@ export function codigoInepValido(inep: string | null | undefined): string | null
 }
 
 const DIA_MS = 24 * 60 * 60 * 1000;
-const ymd = (d: Date) => d.toISOString().slice(0, 10);
+/** Dia de calendário em Brasília: uma movimentação às 22h não vira o dia seguinte. */
+const ymd = dataBRT;
 
-/** Janela de proteção a partir de uma movimentação: até ela + 90 dias. */
+/** "2026-10-23" ou um instante ISO → "23/10/2026", no dia de Brasília. */
+export function dataCurtaBRT(valor: string): string {
+  const dia = valor.length > 10 ? dataBRT(new Date(valor)) : valor;
+  return dia.split('-').reverse().join('/');
+}
+
+/** Janela de proteção a partir de uma movimentação: até ela + 90 dias (dias de Brasília). */
 export function protecaoAPartirDe(movimento: Date): { start: string; end: string } {
-  return { start: ymd(movimento), end: ymd(new Date(movimento.getTime() + PROTECTION_DAYS * DIA_MS)) };
+  const inicio = ymd(movimento);
+  return { start: inicio, end: somarDias(inicio, PROTECTION_DAYS) };
 }
 
 /** Dias inteiros desde a última movimentação; null se não houver registro. */
@@ -165,6 +177,7 @@ export type DecisaoDoRegistro = {
 };
 
 const MENSAGEM_SEM_CONFERENCIA = 'A conferência automática não rodou agora. O registro vai para a validação da vertho.ai.';
+const MENSAGEM_SEM_IDENTIFICADOR = 'Sem CNPJ nem INEP, o portal não tem como conferir o cliente. O registro vai para a validação da vertho.ai.';
 
 /**
  * Decide o registro na hora (7.1): cliente livre é aceito e a proteção começa
@@ -175,11 +188,16 @@ export async function decidirRegistro(
   quem: { representanteId: string; cnpj?: string | null; codigoInep?: string | null },
   agora: Date = new Date(),
 ): Promise<DecisaoDoRegistro> {
+  // Sem identificador a conferência daria "livre" por não ter o que comparar:
+  // nesse caso quem decide é a vertho.ai, nunca o aceite automático.
+  const temIdentificador = !!cnpjRaiz(quem.cnpj) || !!codigoInepValido(quem.codigoInep);
   let conferencia: ConferenciaRegistro | null = null;
-  try {
-    conferencia = await conferirRegistro(sb, quem, agora);
-  } catch (e: any) {
-    console.error('[sales] conferência do registro falhou:', e?.message);
+  if (temIdentificador) {
+    try {
+      conferencia = await conferirRegistro(sb, quem, agora);
+    } catch (e: any) {
+      console.error('[sales] conferência do registro falhou:', e?.message);
+    }
   }
   if (conferencia?.livre) {
     const janela = protecaoAPartirDe(agora);
@@ -195,11 +213,13 @@ export async function decidirRegistro(
         protection_status: 'active',
         last_movement_at: agora.toISOString(),
       },
-      mensagem: `Registro aceito: o cliente estava livre. Proteção comercial até ${janela.end.split('-').reverse().join('/')}, renovada a cada movimentação.`,
+      mensagem: `Registro aceito: o cliente estava livre. Proteção comercial até ${dataCurtaBRT(janela.end)}, renovada a cada movimentação.`,
       jaProspectado: conferencia.jaProspectado,
     };
   }
-  const motivo = conferencia && !conferencia.livre ? conferencia.mensagem : MENSAGEM_SEM_CONFERENCIA;
+  const motivo = !temIdentificador ? MENSAGEM_SEM_IDENTIFICADOR
+    : conferencia && !conferencia.livre ? conferencia.mensagem
+    : MENSAGEM_SEM_CONFERENCIA;
   return {
     aceito: false,
     campos: {
@@ -255,6 +275,20 @@ export async function reconferirRegistroAceito(
     return null;
   }
   return mensagem;
+}
+
+/**
+ * O registro aceito na hora ainda pode ser revogado pela vertho.ai? Até 10 dias
+ * depois do aceite (7.1), e só o automático: a validação do admin é decisão e
+ * não se desfaz por aqui.
+ */
+export function revogavel(
+  o: { attribution_status: string; attribution_decided_by?: string | null; attribution_decided_at?: string | null; status?: string },
+  agora: Date = new Date(),
+): boolean {
+  if (o.attribution_status !== 'validada' || o.attribution_decided_by !== DECISOR_AUTOMATICO || !o.attribution_decided_at) return false;
+  if (o.status && o.status !== 'open') return false;
+  return agora.getTime() - new Date(o.attribution_decided_at).getTime() <= JANELA_REVOGACAO_DIAS * DIA_MS;
 }
 
 export type ResultadoMovimentacao =

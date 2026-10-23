@@ -10,7 +10,8 @@ import type { createSupabaseAdmin } from '@/lib/supabase';
 import { sendEmail } from '@/lib/email-provider';
 import { APP_URL, EMAIL_FROM_DEFAULT } from '@/lib/domain';
 import { escaparHtml } from '@/lib/i18n-email-templates';
-import { AVISO_SEM_MOVIMENTO_DIAS } from './registro';
+import { dataBRT } from '@/lib/dre/semana';
+import { AVISO_SEM_MOVIMENTO_DIAS, dataCurtaBRT } from './registro';
 
 type Sb = ReturnType<typeof createSupabaseAdmin>;
 
@@ -33,11 +34,7 @@ type OppDoAviso = {
   account: { legal_name: string | null; trade_name: string | null } | { legal_name: string | null; trade_name: string | null }[] | null;
 };
 
-const dataBR = (iso: string | null | undefined) => {
-  if (!iso) return '';
-  const [a, m, d] = iso.slice(0, 10).split('-');
-  return `${d}/${m}/${a}`;
-};
+const dataBR = (valor: string | null | undefined) => (valor ? dataCurtaBRT(valor) : '');
 
 /** Corpo do e-mail ao RC. Puro, para o teste ler o texto que sai. */
 export function emailDoAviso(nome: string, opps: OppDoAviso[]): { subject: string; html: string; text: string } {
@@ -73,7 +70,7 @@ export type ResultadoAvisoProtecao = { representantes: number; oportunidades: nu
  */
 export async function enviarAvisosDeProtecao(sb: Sb, agora: Date = new Date()): Promise<ResultadoAvisoProtecao> {
   const limite = new Date(agora.getTime() - AVISO_SEM_MOVIMENTO_DIAS * DIA_MS).toISOString();
-  const hoje = agora.toISOString().slice(0, 10);
+  const hoje = dataBRT(agora);
   const { data, error } = await sb.from('sales_opportunities')
     .select('id, representante_id, opportunity_name, last_movement_at, protection_end_date, account:sales_accounts (legal_name, trade_name)')
     .eq('status', 'open').eq('attribution_status', 'validada')

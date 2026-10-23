@@ -21,22 +21,28 @@ import {
 } from '@/lib/sales/permissions';
 import { validateOpportunityInput, numOrNull } from '@/lib/sales/validation';
 import { calculateQualityScore } from '@/lib/sales/quality-score';
-import { computeProtectionWindow, computeProtectionStatus, protectionAlertLabel } from '@/lib/sales/protection';
+import { computeProtectionStatus, protectionAlertLabel } from '@/lib/sales/protection';
 import { groupByStage, oportunidadesSemProximaAcao, pipelinePonderado, pipelineQualificado, pipelineTotal } from '@/lib/sales/kpis';
 import { PIPELINE_STAGES, STAGE_LABELS, type PipelineStage } from '@/lib/sales/constants';
 import { normalizarCnpj } from '@/lib/sales/duplicidade';
 import {
   CANAIS_DE_CONTATO,
   CANAL_LABELS,
+  DECISOR_AUTOMATICO,
+  JANELA_REVOGACAO_DIAS,
+  dataCurtaBRT,
   decidirRegistro,
   diasSemMovimento,
   precisaDeMovimentacao,
+  protecaoAPartirDe,
   reconferirRegistroAceito,
+  revogavel,
   registrarMovimentacao,
   type CanalDeContato,
 } from '@/lib/sales/registro';
 import type { SalesOpportunity } from '@/lib/sales/types';
 import { escaparLike } from '@/lib/sql-like';
+import { dataBRT } from '@/lib/dre/semana';
 
 const OPP_SELECT = `*,
   account:sales_accounts (id, legal_name, trade_name, segment, city, state),
@@ -158,7 +164,7 @@ export async function createOpportunity(input: Record<string, any>) {
   const mensagem = voltouParaFila ?? decisao.mensagem;
   // 7.6: quem registra depois vê só que o cliente já foi prospectado, a data e o estágio.
   const jaProspectado = aceito && decisao.jaProspectado
-    ? `Este cliente já foi prospectado por outro representante (última movimentação em ${fmtDataCurta(decisao.jaProspectado.em)}, estágio ${STAGE_LABELS[decisao.jaProspectado.estagio as PipelineStage] ?? decisao.jaProspectado.estagio}). A proteção dele acabou e o registro agora é seu.`
+    ? `Este cliente já foi prospectado por outro representante (última movimentação em ${dataCurtaBRT(decisao.jaProspectado.em)}, estágio ${STAGE_LABELS[decisao.jaProspectado.estagio as PipelineStage] ?? decisao.jaProspectado.estagio}). A proteção dele acabou e o registro agora é seu.`
     : null;
 
   await registrarNota(sb, {
@@ -170,10 +176,6 @@ export async function createOpportunity(input: Record<string, any>) {
   return { success: true as const, id: data.id, aceito, mensagem, jaProspectado };
 }
 
-/** "2026-10-23T..." → "23/10/2026". */
-function fmtDataCurta(iso: string): string {
-  return iso.slice(0, 10).split('-').reverse().join('/');
-}
 
 /**
  * Nota do histórico da oportunidade. É rastro, não a decisão: a falha não
@@ -217,7 +219,7 @@ export async function validarRegistroOportunidade(opportunityId: string, observa
   if (opp.status !== 'open') return { success: false as const, error: 'A oportunidade não está mais aberta' };
 
   const agora = new Date();
-  const protection = computeProtectionWindow(agora);
+  const protection = protecaoAPartirDe(agora);
   const nota = observacao?.trim() || null;
   const { data: mudou, error } = await sb.from('sales_opportunities').update({
     attribution_status: 'validada',
@@ -236,16 +238,17 @@ export async function validarRegistroOportunidade(opportunityId: string, observa
 
   await registrarNota(sb, {
     representante_id: opp.representante_id, opportunity_id: opportunityId, account_id: opp.account_id,
-    note: `Registro validado pela vertho.ai: proteção comercial até ${fmtDataCurta(protection.end)}, renovada a cada movimentação.${nota ? ` ${nota}` : ''}`,
+    note: `Registro validado pela vertho.ai: proteção comercial até ${dataCurtaBRT(protection.end)}, renovada a cada movimentação.${nota ? ` ${nota}` : ''}`,
     created_by_email: admin.email,
   });
   return { success: true as const, protecaoAte: protection.end };
 }
 
 /**
- * Recusa o registro (7.3: cliente já ativo ou em negociação com a vertho.ai,
- * lead próprio, indicação de terceiro; 7.4: outro RC registrou antes). A
- * oportunidade sai do funil como "sem avanço" e não gera comissão. O RC lê o motivo.
+ * Recusa o registro da fila (7.3: cliente já ativo ou em negociação com a
+ * vertho.ai, lead próprio, indicação de terceiro; 7.4: outro RC registrou
+ * antes) ou REVOGA o aceite automático nos 10 dias da 7.1. A oportunidade sai
+ * do funil como "sem avanço" e não gera comissão. O RC lê o motivo.
  */
 export async function recusarRegistroOportunidade(opportunityId: string, motivo: string) {
   const admin = await requireCommercialAdminAction();
@@ -253,13 +256,18 @@ export async function recusarRegistroOportunidade(opportunityId: string, motivo:
   if (!texto) return { success: false as const, error: 'Informe o motivo da recusa: o representante vai ler' };
   const sb = createSupabaseAdmin();
   const { data: opp, error: erroLeitura } = await sb.from('sales_opportunities')
-    .select('id, representante_id, account_id, attribution_status').eq('id', opportunityId).maybeSingle();
+    .select('id, representante_id, account_id, status, attribution_status, attribution_decided_by, attribution_decided_at').eq('id', opportunityId).maybeSingle();
   if (erroLeitura) return { success: false as const, error: erroLeitura.message };
   if (!opp) return { success: false as const, error: 'Oportunidade não encontrada' };
-  if (opp.attribution_status !== 'aguardando') return { success: false as const, error: 'Este registro já foi decidido' };
+  const revogacao = revogavel(opp);
+  if (opp.attribution_status !== 'aguardando' && !revogacao) {
+    return { success: false as const, error: opp.attribution_decided_by === DECISOR_AUTOMATICO
+      ? `O aceite automático só pode ser revogado em até ${JANELA_REVOGACAO_DIAS} dias (cláusula 7.1).`
+      : 'Este registro já foi decidido' };
+  }
 
   const agora = new Date().toISOString();
-  const { data: mudou, error } = await sb.from('sales_opportunities').update({
+  let q = sb.from('sales_opportunities').update({
     attribution_status: 'recusada',
     attribution_decided_at: agora,
     attribution_decided_by: admin.email,
@@ -267,13 +275,18 @@ export async function recusarRegistroOportunidade(opportunityId: string, motivo:
     status: 'expired',
     stage: 'sem_avanco_expirado',
     updated_at: agora,
-  }).eq('id', opportunityId).eq('attribution_status', 'aguardando').select('id');
+  }).eq('id', opportunityId);
+  // Update condicional: só a transição que o admin viu vale (outro admin, ou a validação, pode ter chegado antes).
+  q = revogacao
+    ? q.eq('attribution_status', 'validada').eq('attribution_decided_by', DECISOR_AUTOMATICO)
+    : q.eq('attribution_status', 'aguardando');
+  const { data: mudou, error } = await q.select('id');
   if (error) return { success: false as const, error: error.message };
   if (!mudou || mudou.length === 0) return { success: false as const, error: 'Este registro já foi decidido' };
 
   await registrarNota(sb, {
     representante_id: opp.representante_id, opportunity_id: opportunityId, account_id: opp.account_id,
-    note: `Registro recusado pela vertho.ai: ${texto}`,
+    note: revogacao ? `Aceite automático revogado pela vertho.ai (cláusula 7.1): ${texto}` : `Registro recusado pela vertho.ai: ${texto}`,
     created_by_email: admin.email,
   });
   return { success: true as const };
@@ -399,7 +412,7 @@ export async function registrarContato(opportunityId: string, input: { canal: st
   if (error) return { success: false as const, error: error.message };
 
   const mov = await registrarMovimentacao(sb, opportunityId);
-  if (mov.renovada) return { success: true as const, mensagem: `Contato registrado. Proteção comercial até ${fmtDataCurta(mov.protecaoAte)}.` };
+  if (mov.renovada) return { success: true as const, mensagem: `Contato registrado. Proteção comercial até ${dataCurtaBRT(mov.protecaoAte)}.` };
   if (mov.motivo === 'cliente_com_outro') {
     return { success: true as const, mensagem: 'Contato registrado. A proteção já tinha acabado e o cliente está com outro representante (cláusula 7.6).' };
   }
@@ -440,13 +453,13 @@ export async function getOpportunityAlerts() {
     success: true as const,
     semProximaAcao: oportunidadesSemProximaAcao(opps).map((o) => ({ id: o.id, nome: o.opportunity_name, conta: o.account?.trade_name || o.account?.legal_name || '' })),
     semMovimentacao: opps.filter((o) => precisaDeMovimentacao(o, hoje)).map((o) => {
-      const vencida = !!o.protection_end_date && o.protection_end_date < hoje.toISOString().slice(0, 10);
+      const vencida = !!o.protection_end_date && o.protection_end_date < dataBRT(hoje);
       const dias = diasSemMovimento(o.last_movement_at || o.protection_start_date, hoje);
       return {
         id: o.id, nome: o.opportunity_name, conta: o.account?.trade_name || o.account?.legal_name || '',
         alerta: vencida
           ? 'Proteção encerrada: o cliente ficou livre'
-          : `${dias} dias sem movimentação · ${protectionAlertLabel(o.protection_end_date) ?? `proteção até ${fmtDataCurta(o.protection_end_date!)}`}`,
+          : `${dias} dias sem movimentação · ${protectionAlertLabel(o.protection_end_date) ?? `proteção até ${dataCurtaBRT(o.protection_end_date!)}`}`,
         fim: o.protection_end_date,
       };
     }),

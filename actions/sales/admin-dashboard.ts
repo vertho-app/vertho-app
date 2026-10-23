@@ -15,7 +15,8 @@ import {
   protecoesVencendo,
 } from '@/lib/sales/kpis';
 import { protectionDaysLeft } from '@/lib/sales/protection';
-import { coincidenciasDeOutrosRcs, gruposEmMaisDeUmRc, type ContaComparavel } from '@/lib/sales/duplicidade';
+import { coincidenciasDeOutrosRcs, gruposEmMaisDeUmRc, mesmoNome, type ContaComparavel } from '@/lib/sales/duplicidade';
+import { revogavel } from '@/lib/sales/registro';
 import type { SalesOpportunity, SalesProposal, SalesRepresentative } from '@/lib/sales/types';
 
 export type RepDashboardRow = {
@@ -129,6 +130,37 @@ export async function getCommercialAdminDashboard() {
       };
     });
 
+  // Aceitos na hora pelo portal que a vertho.ai ainda pode revogar (7.1, 10 dias).
+  // `outrosRcs` aqui é pelo NOME, ignorando CNPJ e INEP: um CNPJ digitado diferente
+  // para um cliente que outro RC já tem passa pela conferência, mas não por aqui.
+  const aceitosNaHora = allOpps
+    .filter((o) => revogavel(o))
+    .sort((a, b) => String(b.attribution_decided_at).localeCompare(String(a.attribution_decided_at)))
+    .map((o) => {
+      const conta = contasComparaveis.find((c) => c.id === o.account_id);
+      const mesmoNomeOutroRc = conta
+        ? contasComparaveis.filter((c) => c.id !== conta.id && c.representante_id && c.representante_id !== conta.representante_id && mesmoNome(conta, c))
+        : [];
+      const acc = o.account as (SalesOpportunity['account'] & { cnpj?: string | null; codigo_inep?: string | null }) | null | undefined;
+      return {
+        id: o.id,
+        nome: o.opportunity_name,
+        repName: repName.get(o.representante_id) || '—',
+        cliente: acc?.trade_name || acc?.legal_name || '—',
+        cnpj: acc?.cnpj ?? null,
+        inep: acc?.codigo_inep ?? null,
+        motivo: null,
+        cidade: acc?.city ?? null,
+        contato: o.primary_contact ? `${o.primary_contact.name}${o.primary_contact.role ? ` (${o.primary_contact.role})` : ''}` : null,
+        origem: o.origin,
+        necessidade: o.identified_need,
+        evidencia: o.interaction_evidence,
+        created_at: o.created_at,
+        aceitoEm: o.attribution_decided_at,
+        outrosRcs: mesmoNomeOutroRc.map((c) => (c.representante_id && repName.get(c.representante_id)) || '—'),
+      };
+    });
+
   // A mesma instituição com mais de um RC (regra de 08/10: vale o primeiro
   // registro válido, e a vertho.ai decide). Ordem de cadastro dentro do grupo.
   const contasEmMaisDeUmRc = gruposEmMaisDeUmRc(contasComparaveis).map((grupo) =>
@@ -145,6 +177,7 @@ export async function getCommercialAdminDashboard() {
     byRep,
     pendingProposals,
     pendingRegistrations,
+    aceitosNaHora,
     expiringProtections,
     contasEmMaisDeUmRc,
     totals: {

@@ -13,13 +13,18 @@ A reunião de 23/10 mudou a 7ª cláusula, e o portal acompanhou (mig 298,
 | Cláusula | Regra | No portal |
 |---|---|---|
 | 7.1, 7.3 | Registro de cliente LIVRE vale como aceite da vertho.ai na hora | `decidirRegistro`: livre = CNPJ básico (8 posições) e INEP fora de outro RC (conta cliente ativo, ou oportunidade aguardando ou com proteção em vigor) e fora da lista de reserva (`sales_reservas`, painel em `/admin/comercial`). Livre nasce `validada` com `attribution_decided_by = 'portal (aceite automático)'`; reserva, outro RC ou conferência que falhou vão para a fila, com o motivo em `attribution_note`. Depois do insert, `reconferirRegistroAceito` devolve para a fila os dois registros simultâneos do mesmo cliente |
+| 7.1 | A vertho.ai revoga o aceite automático em até 10 dias | Seção "Aceitos na hora (últimos 10 dias)" em `/admin/comercial`; `recusarRegistroOportunidade` revoga só o aceite automático (`revogavel`) e mostra quando o NOME bate com cliente de outro RC (CNPJ digitado diferente). Sem CNPJ nem INEP, nunca há aceite automático |
 | 7.1 | O mesmo cliente não fica com dois RCs | `createSalesAccount`/`updateSalesAccount` recusam CNPJ ou INEP de cliente que está com outro RC; trocar o CNPJ ou o INEP de conta com registro só pela vertho.ai (completar o vazio continua livre) |
 | 7.5 | Proteção enquanto houver movimentação: aviso aos 60 dias, fim aos 90 | `registrarMovimentacao` (contato com canal e evidência em `registrarContato`, mudança de estágio, proposta criada, submetida, enviada ou revisada) leva `protection_end_date` a hoje + 90, sem encurtar janela maior. Aviso no painel do RC (`semMovimentacao`) e e-mail diário `alerta_protecao_rc` (`lib/sales/alerta-protecao.ts`, `aviso_60_em` marca o ciclo) |
 | 7.6 | Depois de 90 dias sem movimentação o cliente fica livre; o próximo RC vê só que foi prospectado, a data e o estágio | `jaProspectado` no retorno de `createOpportunity`. Movimentação sobre proteção vencida só renova se ninguém pegou o cliente |
 | 10.6 | Mesmo cliente = CNPJ básico (matriz e filiais) ou INEP | `classificarCarteira` olha as contas do RC com a mesma raiz ou INEP; `mesmaInstituicao` (duplicidade) também |
 
-CNPJ aceito no formato numérico e no alfanumérico da Receita (julho/2026):
-`normalizarCnpj` e a coluna gerada `sales_accounts.cnpj_raiz` usam a mesma regra.
+CNPJ aceito no formato numérico e no alfanumérico da Receita (julho/2026), com o
+dígito verificador conferido (`normalizarCnpj`; a coluna gerada
+`sales_accounts.cnpj_raiz` confere só o formato). Completar o CNPJ de conta já
+registrada exige cliente livre de verdade (senão a reserva seria contornada), e a
+proposta de quem perdeu o cliente pela 7.6 não é submetida nem aprovada. Datas de
+proteção em dias de Brasília (`dataBRT`).
 O formulário de oportunidade passou a pedir CNPJ (e INEP, opcional) na conta nova e
 a completar o CNPJ de conta antiga: até aqui o RC não tinha onde digitar o CNPJ que
 o registro exigia. `accepted_recorded_at` marca o aceite das propostas de RC (base

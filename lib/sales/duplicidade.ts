@@ -34,12 +34,32 @@ export function normalizarNomeConta(nome: string | null | undefined): string {
 /**
  * CNPJ sem pontuação e em maiúsculas: 12 posições de letra ou dígito (o CNPJ
  * alfanumérico que a Receita emite desde julho de 2026) mais os 2 dígitos
- * verificadores. Qualquer outra coisa não serve para comparar. A coluna gerada
- * `sales_accounts.cnpj_raiz` (mig 298) segue a mesma regra.
+ * verificadores, CONFERIDOS. Qualquer outra coisa não serve para comparar: um
+ * erro de digitação passaria pela conferência de registro como outro cliente. A
+ * coluna gerada `sales_accounts.cnpj_raiz` (mig 298) confere só o formato; quem
+ * grava `cnpj` (accounts.ts) passa por aqui antes.
  */
 export function normalizarCnpj(cnpj: string | null | undefined): string | null {
   const s = String(cnpj || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
-  return /^[0-9A-Z]{12}\d{2}$/.test(s) ? s : null;
+  if (!/^[0-9A-Z]{12}\d{2}$/.test(s) || /^(\d)\1{13}$/.test(s)) return null;
+  return s.slice(12) === `${digitoCnpj(s.slice(0, 12))}${digitoCnpj(s.slice(0, 13))}` ? s : null;
+}
+
+/**
+ * Dígito verificador do CNPJ (módulo 11, pesos de 2 a 9 da direita para a
+ * esquerda). Cada posição vale o código ASCII menos 48: os dígitos valem eles
+ * mesmos, e as letras do CNPJ alfanumérico valem de 17 (A) a 42 (Z), como a
+ * Receita definiu (IN RFB 2.229/2024).
+ */
+function digitoCnpj(base: string): number {
+  let soma = 0;
+  let peso = 2;
+  for (let i = base.length - 1; i >= 0; i--) {
+    soma += (base.charCodeAt(i) - 48) * peso;
+    peso = peso === 9 ? 2 : peso + 1;
+  }
+  const resto = soma % 11;
+  return resto < 2 ? 0 : 11 - resto;
 }
 
 /** Nome curto demais ("Escola", "Colégio", "ABC") casaria com muita coisa: fica fora. */
@@ -65,6 +85,15 @@ export function mesmaInstituicao(a: ContaComparavel, b: ContaComparavel): boolea
   const ca = normalizarCnpj(a.cnpj);
   const cb = normalizarCnpj(b.cnpj);
   if (ca && cb) return ca.slice(0, 8) === cb.slice(0, 8);
+  return mesmoNome(a, b);
+}
+
+/**
+ * Só o nome: razão social ou fantasia igual e, se as duas informam cidade, a
+ * mesma cidade. Ignora CNPJ e INEP de propósito: é o sinal, no registro aceito
+ * na hora, de um CNPJ digitado diferente para um cliente que outro RC já tem.
+ */
+export function mesmoNome(a: ContaComparavel, b: ContaComparavel): boolean {
   const nomesB = new Set(nomesDa(b));
   if (!nomesDa(a).some((n) => nomesB.has(n))) return false;
   const cidadeA = normalizarNomeConta(a.city);
