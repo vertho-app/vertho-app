@@ -1007,7 +1007,8 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
       }
       // O idioma de quem lê vem à parte, com o `error` checado: o texto da leitura acima é a identidade dela no
       // guard E11 e não muda. Sem idioma, a camada sai em pt-BR, como o resto do conteúdo.
-      const { data: idioma, error: errIdioma } = await sb.from('colaboradores').select('locale').eq('id', colab.id).maybeSingle();
+      const { data: idioma, error: errIdioma } = await sb.from('colaboradores').select('locale')
+        .eq('id', colab.id).eq('empresa_id', doBanco.empresa_id).maybeSingle();
       if (errIdioma) console.warn('[gerarConteudoFinalPersonalizado] idioma da pessoa não lido:', errIdioma.message);
       colab = { ...doBanco, locale: idioma?.locale ?? null };
     } else {
