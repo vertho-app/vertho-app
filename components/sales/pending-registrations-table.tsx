@@ -1,8 +1,10 @@
 'use client';
 
-// Fila de validação do registro de oportunidades (contrato do RC, 7.1 a 7.5).
-// Validar atribui a oportunidade ao RC e começa os 90 dias de proteção; recusar
-// tira a oportunidade do funil, e o RC lê o motivo.
+// Fila de validação do registro de oportunidades (contrato do RC v6, 7.1 a 7.5).
+// Só chega aqui o que não foi aceito na hora: lista de reserva, cliente com outro
+// RC ou conferência que falhou. Validar atribui a oportunidade ao RC e começa a
+// proteção (90 dias a partir da última movimentação); recusar tira a
+// oportunidade do funil, e o RC lê o motivo.
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Check, Loader2, X } from 'lucide-react';
@@ -17,6 +19,9 @@ export type PendingRegistrationRow = {
   repName: string;
   cliente: string;
   cnpj: string | null;
+  inep: string | null;
+  /** O que mandou o registro para a fila (gravado no registro). */
+  motivo: string | null;
   cidade: string | null;
   contato: string | null;
   origem: string | null;
@@ -135,11 +140,12 @@ export default function PendingRegistrationsTable({ rows, onDone }: { rows: Pend
             </div>
           </div>
           <div className="mt-2 grid gap-x-4 gap-y-1 text-[11px] sm:grid-cols-2">
-            <p className="text-gray-400">CNPJ: <span className="text-gray-200">{r.cnpj || 'não informado'}</span></p>
+            <p className="text-gray-400">CNPJ: <span className="text-gray-200">{r.cnpj || 'não informado'}</span>{r.inep && <> · INEP: <span className="text-gray-200">{r.inep}</span></>}</p>
             <p className="text-gray-400">Cidade: <span className="text-gray-200">{r.cidade || '—'}</span></p>
             <p className="text-gray-400">Contato: <span className="text-gray-200">{r.contato || 'não informado'}</span></p>
             <p className="text-gray-400">Origem: <span className="text-gray-200">{r.origem ? (ORIGIN_LABELS[r.origem] || r.origem) : '—'}</span></p>
           </div>
+          {r.motivo && <p className="mt-1.5 text-[11px] text-amber-300">Na fila porque: {r.motivo}</p>}
           {r.necessidade && <p className="mt-1.5 text-[11px] text-gray-400">Necessidade: <span className="text-gray-200">{r.necessidade}</span></p>}
           {r.evidencia && <p className="mt-1 text-[11px] text-gray-400">Evidência de interação: <span className="text-gray-200">{r.evidencia}</span></p>}
           {r.outrosRcs.length > 0 && (

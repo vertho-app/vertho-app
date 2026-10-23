@@ -43,7 +43,7 @@ type DashboardData = {
   kpis: { pipelineTotal: number; pipelineQualificado: number; pipelinePonderado: number };
   stages: StageGroup[];
   semProximaAcao: SalesAlertItem[];
-  protecoesVencendo: SalesAlertItem[];
+  semMovimentacao: SalesAlertItem[];
   aguardandoAprovacao: SalesAlertItem[];
   renovacoesProximas: SalesAlertItem[];
   receitaTrimestre: number;
@@ -122,8 +122,8 @@ export default function RepresentanteDashboardPage() {
                 href: `/representante/crm/${o.id}`,
               }))
             : [],
-          protecoesVencendo: alertsRes.success
-            ? alertsRes.protecoesVencendo.map((o) => ({
+          semMovimentacao: alertsRes.success
+            ? alertsRes.semMovimentacao.map((o) => ({
                 texto: `${o.nome}${o.conta ? ` · ${o.conta}` : ''}${o.alerta ? ` — ${o.alerta}` : ''}`,
                 href: `/representante/crm/${o.id}`,
               }))
@@ -217,11 +217,11 @@ export default function RepresentanteDashboardPage() {
             emptyText="Tudo em dia — todas com próxima ação definida"
           />
           <SalesAlertCard
-            title="Proteções vencendo"
+            title="Sem movimentação há 60 dias"
             icon={Shield}
             accent="#EF4444"
-            items={data.protecoesVencendo}
-            emptyText="Tudo em dia — proteções de oportunidade vigentes"
+            items={data.semMovimentacao}
+            emptyText="Tudo em dia: oportunidades com movimentação recente"
           />
           <SalesAlertCard
             title="Propostas aguardando aprovação"

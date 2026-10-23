@@ -182,7 +182,8 @@ export default function ContaDetalhePage({ params }: { params: Promise<{ account
     const r = await criarOportunidadeExpansao(accountId);
     setCreatingOpp(false);
     if (!r.success) { toast.error(r.error); return; }
-    toast.success('Oportunidade de expansão criada');
+    if (r.aceito) toast.success(`Oportunidade de expansão criada. ${r.mensagem}`, { duration: 8000 });
+    else toast.warning(`Oportunidade de expansão criada. ${r.mensagem}`, { duration: 12000 });
     router.push(`/representante/crm/${r.opportunityId}`);
   }
 

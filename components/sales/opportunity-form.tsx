@@ -6,7 +6,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Plus, X } from 'lucide-react';
-import { createSalesAccount, listSalesAccounts } from '@/actions/sales/accounts';
+import { createSalesAccount, listSalesAccounts, updateSalesAccount } from '@/actions/sales/accounts';
 import { createSalesContact, listContactsByAccount } from '@/actions/sales/contacts';
 import { validateOpportunityInput } from '@/lib/sales/validation';
 import {
@@ -72,8 +72,13 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
 
   // Mini-form: nova conta
   const [showNewAccount, setShowNewAccount] = useState(false);
-  const [newAccount, setNewAccount] = useState({ legal_name: '', trade_name: '', segment: '', city: '', state: '' });
+  const CONTA_VAZIA = { legal_name: '', trade_name: '', cnpj: '', codigo_inep: '', segment: '', city: '', state: '' };
+  const [newAccount, setNewAccount] = useState(CONTA_VAZIA);
   const [savingAccount, setSavingAccount] = useState(false);
+
+  // Conta antiga sem CNPJ: o registro exige (contrato, 7.2), então dá para completar aqui.
+  const [cnpjDaConta, setCnpjDaConta] = useState('');
+  const [savingCnpj, setSavingCnpj] = useState(false);
 
   // Mini-form: novo contato
   const [showNewContact, setShowNewContact] = useState(false);
@@ -118,6 +123,7 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
 
   async function handleCreateAccount() {
     if (!newAccount.legal_name.trim()) { toast.error('Informe a razão social da conta'); return; }
+    if (!newAccount.cnpj.trim()) { toast.error('Informe o CNPJ: o registro da oportunidade exige, e é por ele que o portal confere se o cliente está livre'); return; }
     setSavingAccount(true);
     const r = await createSalesAccount(newAccount);
     setSavingAccount(false);
@@ -125,9 +131,22 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
     setAccounts((prev) => [...prev, r.data].sort((a, b) => a.legal_name.localeCompare(b.legal_name)));
     setValues((prev) => ({ ...prev, account_id: r.data.id, primary_contact_id: '' }));
     setShowNewAccount(false);
-    setNewAccount({ legal_name: '', trade_name: '', segment: '', city: '', state: '' });
+    setNewAccount(CONTA_VAZIA);
     if (r.aviso) toast.warning(r.aviso, { duration: 10000 });
     else toast.success('Conta criada');
+  }
+
+  async function handleSalvarCnpj() {
+    if (!values.account_id || !cnpjDaConta.trim()) return;
+    setSavingCnpj(true);
+    const r = await updateSalesAccount(values.account_id, { cnpj: cnpjDaConta });
+    setSavingCnpj(false);
+    if (!r.success) { toast.error(r.error); return; }
+    const lista = await listSalesAccounts();
+    if (lista.success) setAccounts(lista.data);
+    setCnpjDaConta('');
+    set('account_id', values.account_id);
+    toast.success('CNPJ salvo na conta');
   }
 
   async function handleCreateContact() {
@@ -176,6 +195,8 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
   }
 
   const selectedContact = contacts.find((c) => c.id === values.primary_contact_id);
+  const selectedAccount = accounts.find((a) => a.id === values.account_id);
+  const contaSemCnpj = !isEdit && !!selectedAccount && !selectedAccount.cnpj;
   const qualityInput = {
     account_id: values.account_id || null,
     primary_contact_id: values.primary_contact_id || null,
@@ -218,6 +239,19 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
             </div>
           </Field>
 
+          {contaSemCnpj && !showNewAccount && (
+            <div className="rounded-lg bg-amber-400/5 border border-amber-400/20 p-3 space-y-2">
+              <p className="text-[11px] text-amber-300">Esta conta está sem CNPJ. O registro exige o CNPJ, e é por ele que o portal confere se o cliente está livre.</p>
+              <div className="flex items-center gap-2">
+                <input value={cnpjDaConta} onChange={(e) => setCnpjDaConta(e.target.value)} placeholder="00.000.000/0000-00" className={INPUT_CLS} />
+                <button type="button" onClick={handleSalvarCnpj} disabled={savingCnpj || !cnpjDaConta.trim()}
+                  className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50">
+                  {savingCnpj && <Loader2 size={14} className="animate-spin" />} Salvar CNPJ
+                </button>
+              </div>
+            </div>
+          )}
+
           {showNewAccount && (
             <div className="rounded-lg bg-cyan-400/5 border border-cyan-400/20 p-3 space-y-3">
               <p className="text-[11px] font-bold text-cyan-400">Nova conta</p>
@@ -227,6 +261,14 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
                 </Field>
                 <Field label="Nome fantasia">
                   <input value={newAccount.trade_name} onChange={(e) => setNewAccount((p) => ({ ...p, trade_name: e.target.value }))} className={INPUT_CLS} />
+                </Field>
+                <Field label="CNPJ" required hint="Matriz e filiais contam como o mesmo cliente (8 primeiras posições)">
+                  <input value={newAccount.cnpj} onChange={(e) => setNewAccount((p) => ({ ...p, cnpj: e.target.value }))}
+                    placeholder="00.000.000/0000-00" className={INPUT_CLS} />
+                </Field>
+                <Field label="Código INEP (escolas)" hint="Opcional: identifica a escola no Censo Escolar">
+                  <input value={newAccount.codigo_inep} inputMode="numeric" maxLength={9}
+                    onChange={(e) => setNewAccount((p) => ({ ...p, codigo_inep: e.target.value.replace(/\D/g, '') }))} className={INPUT_CLS} />
                 </Field>
                 <Field label="Segmento">
                   <select value={newAccount.segment} onChange={(e) => setNewAccount((p) => ({ ...p, segment: e.target.value }))} className={SELECT_CLS}>
@@ -394,7 +436,7 @@ export default function OpportunityForm({ initial, onSubmit, submitting }: {
             {isEdit ? 'Salvar alterações' : 'Registrar oportunidade'}
           </button>
           {!isEdit && (
-            <p className="text-[11px] text-gray-500">A vertho.ai valida o registro; a proteção comercial de 90 dias começa na validação.</p>
+            <p className="text-[11px] text-gray-500">Cliente livre é aceito na hora. A proteção vale 90 dias a partir da última movimentação.</p>
           )}
         </div>
       </div>

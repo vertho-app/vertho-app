@@ -10,28 +10,31 @@ import type { createSupabaseAdmin } from '@/lib/supabase';
 import { commissionRatesFor, type CompensationModel } from './constants';
 import { eventosDoPlano, planoDeComissao } from './commissions';
 import { PROPOSAL_VALIDITY_DAYS } from './proposal-document';
+import { codigoInepValido } from './registro';
 
 type Sb = ReturnType<typeof createSupabaseAdmin>;
 
 export type ClassificacaoCarteira = { carteira: boolean; motivo: string | null };
 
 /**
- * Cliente da carteira (10.6): a conta já tem proposta ACEITA do mesmo RC, além
- * da que está sendo avaliada. Versões substituídas não contam (nunca foram
- * aceitas). NÃO usa `contract_start_date` nem `active_client`: o próprio aceite
- * e o "Fechado" do funil carimbam esses campos, e a primeira venda viraria
- * carteira. Grupo econômico e mantenedora não se detectam por aqui: o admin
- * marca na aprovação.
+ * Cliente da carteira (10.6): o mesmo cliente já tem proposta ACEITA do mesmo
+ * RC, além da que está sendo avaliada. "Mesmo cliente" = a mesma conta ou outra
+ * conta do RC com o mesmo CNPJ básico (matriz e filiais) ou o mesmo INEP (v6,
+ * 10.6). Versões substituídas não contam (nunca foram aceitas). NÃO usa
+ * `contract_start_date` nem `active_client`: o próprio aceite e o "Fechado" do
+ * funil carimbam esses campos, e a primeira venda viraria carteira. Grupo
+ * econômico e mantenedora não se detectam por aqui: o admin marca na aprovação.
  */
 export async function classificarCarteira(
   sb: Sb,
   { representanteId, accountId, excluirProposalId }: { representanteId: string; accountId: string | null; excluirProposalId?: string | null },
 ): Promise<ClassificacaoCarteira> {
   if (!accountId) return { carteira: false, motivo: null };
+  const contas = await contasDoMesmoCliente(sb, representanteId, accountId);
   let q = sb.from('sales_proposals')
     .select('id, proposal_number')
     .eq('representante_id', representanteId)
-    .eq('account_id', accountId)
+    .in('account_id', contas)
     .eq('status', 'accepted');
   if (excluirProposalId) q = q.neq('id', excluirProposalId);
   const { data, error } = await q.order('created_at', { ascending: true }).limit(1);
@@ -39,8 +42,27 @@ export async function classificarCarteira(
   if (error) throw new Error(`Não foi possível conferir a carteira do cliente: ${error.message}`);
   const anterior = (data || [])[0] as { proposal_number?: string } | undefined;
   return anterior
-    ? { carteira: true, motivo: `Cliente da carteira: a conta já tem a proposta aceita ${anterior.proposal_number ?? ''}`.trim() }
+    ? { carteira: true, motivo: `Cliente da carteira: o cliente já tem a proposta aceita ${anterior.proposal_number ?? ''}`.trim() }
     : { carteira: false, motivo: null };
+}
+
+/** A conta e as outras contas do RC com o mesmo CNPJ básico ou INEP. Erro de leitura lança. */
+async function contasDoMesmoCliente(sb: Sb, representanteId: string, accountId: string): Promise<string[]> {
+  const { data: conta, error } = await sb.from('sales_accounts').select('cnpj_raiz, codigo_inep').eq('id', accountId).maybeSingle();
+  if (error) throw new Error(`Não foi possível conferir a carteira do cliente: ${error.message}`);
+  const raiz = cnpjRaizGravada(conta?.cnpj_raiz);
+  const inep = codigoInepValido(conta?.codigo_inep);
+  if (!raiz && !inep) return [accountId];
+  const filtro = [raiz ? `cnpj_raiz.eq.${raiz}` : null, inep ? `codigo_inep.eq.${inep}` : null].filter(Boolean).join(',');
+  const { data: irmas, error: erroIrmas } = await sb.from('sales_accounts').select('id')
+    .eq('representante_id', representanteId).or(filtro);
+  if (erroIrmas) throw new Error(`Não foi possível conferir a carteira do cliente: ${erroIrmas.message}`);
+  return [...new Set([accountId, ...((irmas || []) as { id: string }[]).map((c) => c.id)])];
+}
+
+/** A raiz gravada pela coluna gerada; entra num filtro do PostgREST, então só o formato esperado passa. */
+function cnpjRaizGravada(raiz: string | null | undefined): string | null {
+  return raiz && /^[0-9A-Z]{8}$/.test(raiz) ? raiz : null;
 }
 
 /** Modelo e taxas que valem para a proposta: o gravado nela (10.5) ou, em proposta antiga, o atual do RC. */
@@ -107,7 +129,7 @@ export async function concluirAceiteDoRC(
   // Só uma transição vale: dois cliques (ou RC e admin ao mesmo tempo) não
   // podem lançar a comissão duas vezes.
   const { data: mudou, error } = await sb.from('sales_proposals')
-    .update({ status: 'accepted', updated_at: agora.toISOString() })
+    .update({ status: 'accepted', accepted_recorded_at: agora.toISOString(), updated_at: agora.toISOString() })
     .eq('id', p.id).eq('status', 'sent_to_client')
     .select('id');
   if (error) return { success: false, error: error.message };

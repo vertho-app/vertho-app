@@ -2,12 +2,14 @@
 
 // Portal do Representante — detalhe da oportunidade.
 // Cabeçalho com badges, grid de dados, proteção, score, propostas relacionadas,
-// timeline de notas e ações (editar, mover estágio, fechar ganho/perdido).
+// contato registrado (renova a proteção, contrato 7.5), timeline de notas e
+// ações (editar, mover estágio, fechar ganho/perdido).
 import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { FileText, Loader2, Pencil, Plus, RefreshCw, Shield, Sparkles, X } from 'lucide-react';
-import { addActivityNote, getOpportunity, moveOpportunityStage, updateOpportunity } from '@/actions/sales/opportunities';
+import { addActivityNote, getOpportunity, moveOpportunityStage, registrarContato, updateOpportunity } from '@/actions/sales/opportunities';
+import { CANAIS_DE_CONTATO, CANAL_LABELS } from '@/lib/sales/registro';
 import { prepararReuniao } from '@/actions/sales/ai-assistant';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import BackButton from '@/components/back-button';
@@ -77,6 +79,10 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
 
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+
+  const [canal, setCanal] = useState('');
+  const [evidencia, setEvidencia] = useState('');
+  const [savingContato, setSavingContato] = useState(false);
 
   const [preparingReuniao, setPreparingReuniao] = useState(false);
   const [reuniao, setReuniao] = useState<ReuniaoBriefing | null>(null);
@@ -170,6 +176,18 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
     await load();
   }
 
+  async function handleRegistrarContato() {
+    if (!canal || !evidencia.trim()) return;
+    setSavingContato(true);
+    const r = await registrarContato(opportunityId, { canal, evidencia });
+    setSavingContato(false);
+    if (!r.success) { toast.error(r.error); return; }
+    toast.success(r.mensagem);
+    setCanal('');
+    setEvidencia('');
+    await load();
+  }
+
   async function handlePrepararReuniao() {
     setPreparingReuniao(true);
     setReuniaoOpen(true);
@@ -228,7 +246,7 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
           )}
           {opp.attribution_status === 'aguardando' && (
             <p className="mt-2 text-[11px] text-amber-300">
-              A vertho.ai está conferindo este registro. A proteção de 90 dias começa na validação, e a proposta só pode ser submetida depois dela.
+              {opp.attribution_note ? `${opp.attribution_note} ` : ''}A proteção começa na validação, e a proposta só pode ser submetida depois dela.
             </p>
           )}
           {opp.attribution_status === 'recusada' && (
@@ -412,6 +430,38 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
               )}
             </section>
 
+            {/* Contato registrado: é movimentação e renova a proteção (7.5) */}
+            {isOpen && opp.attribution_status === 'validada' && (
+              <section className="rounded-xl bg-white/[0.03] border border-white/10 p-4">
+                <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-1">Registrar contato</h2>
+                <p className="text-[11px] text-gray-500 mb-3">
+                  Contato com evidência renova a proteção por 90 dias. A nota simples, abaixo, não renova.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-[180px_1fr]">
+                  <select value={canal} onChange={(e) => setCanal(e.target.value)} className={SELECT_CLS}>
+                    <option value="">Canal</option>
+                    {CANAIS_DE_CONTATO.map((c) => <option key={c} value={c}>{CANAL_LABELS[c]}</option>)}
+                  </select>
+                  <textarea
+                    value={evidencia}
+                    onChange={(e) => setEvidencia(e.target.value)}
+                    rows={2}
+                    placeholder="Com quem falou, o que foi tratado e o próximo passo"
+                    className={INPUT_CLS}
+                  />
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <button
+                    onClick={handleRegistrarContato}
+                    disabled={savingContato || !canal || !evidencia.trim()}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
+                  >
+                    {savingContato ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Registrar contato
+                  </button>
+                </div>
+              </section>
+            )}
+
             {/* Timeline de notas */}
             <section className="rounded-xl bg-white/[0.03] border border-white/10 p-4">
               <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Notas de atividade</h2>
@@ -459,15 +509,23 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
               ) : opp.attribution_status === 'recusada' ? (
                 <p className="text-xs text-red-300">Sem proteção: o registro foi recusado.</p>
               ) : (
-                <p className="text-sm text-white">
-                  {fmtDate(opp.protection_start_date)} → {fmtDate(opp.protection_end_date)}
-                </p>
+                <>
+                  <p className="text-sm text-white">Até {fmtDate(opp.protection_end_date)}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Última movimentação: {fmtDate(opp.last_movement_at || opp.protection_start_date)}
+                  </p>
+                </>
               )}
               {opp.attribution_status === 'validada' && daysLeft != null && (
                 <p className={`text-[11px] mt-1 font-semibold ${daysLeft < 0 ? 'text-red-400' : daysLeft <= 15 ? 'text-amber-400' : 'text-emerald-400'}`}>
                   {daysLeft < 0
                     ? 'Proteção vencida'
                     : `${daysLeft} dia${daysLeft === 1 ? '' : 's'} restante${daysLeft === 1 ? '' : 's'}`}
+                </p>
+              )}
+              {opp.attribution_status === 'validada' && (
+                <p className="text-[10px] text-gray-500 mt-2">
+                  Renova a cada contato registrado, mudança de estágio ou proposta criada, submetida ou enviada. Aos 90 dias sem movimentação, o cliente fica livre.
                 </p>
               )}
             </div>

@@ -296,6 +296,14 @@ async function executarAcao(req, authHeader, cronSecret) {
         if (resultados.some(r => r.semBrief > 0)) throw new Error(result.message);
         break;
       }
+      // Portal do Representante: aviso de 60 dias sem movimentação (contrato do RC, 7.5).
+      // E-mail que falhou vira 500, para o monitor do cron enxergar; os outros já saíram.
+      case 'alerta_protecao_rc': {
+        const { enviarAvisosDeProtecao } = await import('@/lib/sales/alerta-protecao');
+        result = await enviarAvisosDeProtecao(clienteCron());
+        if (result.falhas.length) throw new Error(`${result.message}: ${result.falhas.join('; ')}`);
+        break;
+      }
       case 'horizonte_kits': {
         const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
         result = await executarHealthCheck('horizonte', { diagnostico: searchParams.get('diagnostico') === '1', persistir: searchParams.get('persistir') === '1' });

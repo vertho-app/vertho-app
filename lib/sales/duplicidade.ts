@@ -1,11 +1,11 @@
 // Portal do Representante — a mesma escola (ou empresa) registrada por mais de um RC.
 //
 // Regra do canal (dono, 08/10/2026): vale o primeiro registro válido, e a
-// vertho.ai decide o conflito. O portal NÃO bloqueia (decisão de 21/10/2026,
-// "só escola duplicada"): avisa o RC que cadastrou depois e lista os casos no
-// admin. Não bloqueia porque a comparação por nome erra para os dois lados
-// (homônimos em cidades diferentes, abreviações), e um bloqueio errado tiraria
-// do RC uma escola que é dele.
+// vertho.ai decide o conflito. Desde o contrato v6 (23/10/2026), o BLOQUEIO
+// por CNPJ básico ou INEP mora em `lib/sales/registro.ts`; este módulo segue
+// com o aviso por nome e o painel de casos do admin. O nome não bloqueia
+// porque erra para os dois lados (homônimos em cidades diferentes,
+// abreviações), e um bloqueio errado tiraria do RC uma escola que é dele.
 //
 // Módulo puro: a action (accounts.ts) e o painel do admin (admin-dashboard.ts)
 // usam as mesmas funções.
@@ -17,6 +17,7 @@ export type ContaComparavel = {
   trade_name: string | null;
   cnpj: string | null;
   city: string | null;
+  codigo_inep?: string | null;
   created_at?: string | null;
 };
 
@@ -30,10 +31,15 @@ export function normalizarNomeConta(nome: string | null | undefined): string {
     .trim();
 }
 
-/** Só os 14 dígitos; qualquer outra coisa não serve para comparar. */
+/**
+ * CNPJ sem pontuação e em maiúsculas: 12 posições de letra ou dígito (o CNPJ
+ * alfanumérico que a Receita emite desde julho de 2026) mais os 2 dígitos
+ * verificadores. Qualquer outra coisa não serve para comparar. A coluna gerada
+ * `sales_accounts.cnpj_raiz` (mig 298) segue a mesma regra.
+ */
 export function normalizarCnpj(cnpj: string | null | undefined): string | null {
-  const d = String(cnpj || '').replace(/\D/g, '');
-  return d.length === 14 ? d : null;
+  const s = String(cnpj || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+  return /^[0-9A-Z]{12}\d{2}$/.test(s) ? s : null;
 }
 
 /** Nome curto demais ("Escola", "Colégio", "ABC") casaria com muita coisa: fica fora. */
@@ -47,15 +53,18 @@ function nomesDa(conta: ContaComparavel): string[] {
 
 /**
  * As duas contas parecem a mesma instituição?
- *   · com CNPJ válido nas duas, só o CNPJ decide (rede com várias unidades tem
- *     o mesmo nome e CNPJs diferentes);
+ *   · com INEP nas duas, o INEP decide (é a escola do Censo Escolar);
+ *   · com CNPJ válido nas duas, o CNPJ BÁSICO (8 primeiros dígitos) decide:
+ *     matriz e filiais são o mesmo cliente (contrato do RC, 10.6), e escolas
+ *     diferentes de uma rede têm raízes diferentes;
  *   · sem isso, algum nome (razão social ou fantasia) igual e, se as duas
  *     informam cidade, a mesma cidade.
  */
 export function mesmaInstituicao(a: ContaComparavel, b: ContaComparavel): boolean {
+  if (a.codigo_inep && b.codigo_inep) return a.codigo_inep === b.codigo_inep;
   const ca = normalizarCnpj(a.cnpj);
   const cb = normalizarCnpj(b.cnpj);
-  if (ca && cb) return ca === cb;
+  if (ca && cb) return ca.slice(0, 8) === cb.slice(0, 8);
   const nomesB = new Set(nomesDa(b));
   if (!nomesDa(a).some((n) => nomesB.has(n))) return false;
   const cidadeA = normalizarNomeConta(a.city);

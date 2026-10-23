@@ -11,10 +11,11 @@
 // Só admin (sales_channel.manage) aprova/recusa/pede ajustes. Financeiro é
 // SEMPRE recalculado no server (lib/sales/commissions) — nunca confiamos no valor do client.
 //
-// Contrato de representação v5 (22/10/2026): a proposta só é submetida depois
-// que a vertho.ai valida o registro da oportunidade (7.1); a aprovação grava o
-// modelo de remuneração que vale para ela (10.5) e a classificação de cliente
-// da carteira (10.6); o aceite lança a comissão nas regras gravadas.
+// Contrato de representação v6 (23/10/2026): a proposta só é submetida com o
+// registro da oportunidade validado (7.1, na hora ou pela fila); a aprovação grava
+// o modelo de remuneração que vale para ela (10.5) e a classificação de cliente
+// da carteira (10.6); o aceite lança a comissão nas regras gravadas. Proposta
+// criada, submetida ou enviada é movimentação e renova a proteção (7.5).
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { isPlatformAdmin } from '@/lib/authz';
 import {
@@ -27,6 +28,7 @@ import { validateProposalDraft, validateProposalForSubmission, numOrNull } from 
 import { calculateProposalFinancials } from '@/lib/sales/commissions';
 import { commissionRatesFor, type CompensationModel } from '@/lib/sales/constants';
 import { classificarCarteira, comissaoDevidaNoAceite, concluirAceiteDoRC } from '@/lib/sales/aceite-rc';
+import { registrarMovimentacao } from '@/lib/sales/registro';
 import type { SalesProposal } from '@/lib/sales/types';
 
 const PROPOSAL_SELECT = `*,
@@ -178,6 +180,7 @@ export async function createProposalDraft(input: Record<string, any>) {
     ...proposalPatchFromInput(input, ctx.rep.compensation_model, carteira),
   }).select('id').single();
   if (error) return { success: false as const, error: error.message };
+  await registrarMovimentacao(sb, opp.id);
   return { success: true as const, id: data.id };
 }
 
@@ -221,11 +224,13 @@ export async function submitProposalForApproval(proposalId: string) {
     .eq('id', proposalId);
   if (error) return { success: false as const, error: error.message };
 
-  // Reflete no funil: proposta em aprovação interna.
+  // Reflete no funil: proposta em aprovação interna. O funil é rastro; a falha vai para o log.
   if (p.opportunity_id) {
-    await sb.from('sales_opportunities')
+    const { error: erroFunil } = await sb.from('sales_opportunities')
       .update({ stage: 'aguardando_aceite_vertho', updated_at: new Date().toISOString() })
       .eq('id', p.opportunity_id).eq('status', 'open');
+    if (erroFunil) console.error('[sales] estágio da oportunidade não atualizado:', erroFunil.message);
+    await registrarMovimentacao(sb, p.opportunity_id);
   }
   return { success: true as const };
 }
@@ -332,8 +337,10 @@ export async function markProposalSentToClient(proposalId: string) {
   const { error } = await sb.from('sales_proposals').update({ status: 'sent_to_client', sent_to_client_at: agora, updated_at: agora }).eq('id', proposalId);
   if (error) return { success: false as const, error: error.message };
   if (p.opportunity_id) {
-    await sb.from('sales_opportunities').update({ stage: 'contrato_enviado', updated_at: new Date().toISOString() })
+    const { error: erroFunil } = await sb.from('sales_opportunities').update({ stage: 'contrato_enviado', updated_at: new Date().toISOString() })
       .eq('id', p.opportunity_id).eq('status', 'open');
+    if (erroFunil) console.error('[sales] estágio da oportunidade não atualizado:', erroFunil.message);
+    await registrarMovimentacao(sb, p.opportunity_id);
   }
   return { success: true as const };
 }
@@ -394,6 +401,7 @@ export async function revisarProposta(proposalId: string) {
   if (error) return { success: false as const, error: error.message };
 
   await sb.from('sales_proposals').update({ status: 'superseded', updated_at: new Date().toISOString() }).eq('id', p.id);
+  await registrarMovimentacao(sb, p.opportunity_id);
 
   return { success: true as const, proposalId: nova.id };
 }

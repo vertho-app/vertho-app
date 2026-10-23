@@ -4,6 +4,27 @@
 > comerciais autônomos): CRM/pipeline, proteção de oportunidade, propostas com
 > aprovação interna Vertho, comissão estimada, carteira e materiais aprovados.
 
+## Estado em 23/10/2026: contrato v6 (reunião de sócios), registro na hora e proteção por movimentação
+
+A reunião de 23/10 mudou a 7ª cláusula, e o portal acompanhou (mig 298,
+`lib/sales/registro.ts`). Texto da v6 em `Downloads/Contrato_RC_Vertho_v6_revisao.docx`
+(marcas de revisão) e `_limpo.docx`.
+
+| Cláusula | Regra | No portal |
+|---|---|---|
+| 7.1, 7.3 | Registro de cliente LIVRE vale como aceite da vertho.ai na hora | `decidirRegistro`: livre = CNPJ básico (8 posições) e INEP fora de outro RC (conta cliente ativo, ou oportunidade aguardando ou com proteção em vigor) e fora da lista de reserva (`sales_reservas`, painel em `/admin/comercial`). Livre nasce `validada` com `attribution_decided_by = 'portal (aceite automático)'`; reserva, outro RC ou conferência que falhou vão para a fila, com o motivo em `attribution_note`. Depois do insert, `reconferirRegistroAceito` devolve para a fila os dois registros simultâneos do mesmo cliente |
+| 7.1 | O mesmo cliente não fica com dois RCs | `createSalesAccount`/`updateSalesAccount` recusam CNPJ ou INEP de cliente que está com outro RC; trocar o CNPJ ou o INEP de conta com registro só pela vertho.ai (completar o vazio continua livre) |
+| 7.5 | Proteção enquanto houver movimentação: aviso aos 60 dias, fim aos 90 | `registrarMovimentacao` (contato com canal e evidência em `registrarContato`, mudança de estágio, proposta criada, submetida, enviada ou revisada) leva `protection_end_date` a hoje + 90, sem encurtar janela maior. Aviso no painel do RC (`semMovimentacao`) e e-mail diário `alerta_protecao_rc` (`lib/sales/alerta-protecao.ts`, `aviso_60_em` marca o ciclo) |
+| 7.6 | Depois de 90 dias sem movimentação o cliente fica livre; o próximo RC vê só que foi prospectado, a data e o estágio | `jaProspectado` no retorno de `createOpportunity`. Movimentação sobre proteção vencida só renova se ninguém pegou o cliente |
+| 10.6 | Mesmo cliente = CNPJ básico (matriz e filiais) ou INEP | `classificarCarteira` olha as contas do RC com a mesma raiz ou INEP; `mesmaInstituicao` (duplicidade) também |
+
+CNPJ aceito no formato numérico e no alfanumérico da Receita (julho/2026):
+`normalizarCnpj` e a coluna gerada `sales_accounts.cnpj_raiz` usam a mesma regra.
+O formulário de oportunidade passou a pedir CNPJ (e INEP, opcional) na conta nova e
+a completar o CNPJ de conta antiga: até aqui o RC não tinha onde digitar o CNPJ que
+o registro exigia. `accepted_recorded_at` marca o aceite das propostas de RC (base
+das metas). Testes: `tests/unit/sales-contrato-rc-v6.test.ts`.
+
 ## Estado em 22/10/2026 — o contrato de representação v5 é a régua
 
 O dono entregou o contrato de representação comercial autônoma (Lei 4.886/65,
@@ -149,15 +170,16 @@ Demonstração"** no portal. Decisões:
 
 ## Regras de negócio implementadas
 
-- **Proteção de oportunidade**: 90 dias contados da VALIDAÇÃO do registro pela
-  vertho.ai (desde 22/10/2026, contrato 7.5; antes contava do registro)
-  (`lib/sales/protection.ts`); status derivado active/expiring (≤15d)/expired;
-  alertas em 15/10/5 dias e vencida. `extended` reservado para prorrogação
-  manual pela Vertho (MVP 2).
+- **Proteção de oportunidade**: desde 23/10/2026 (contrato v6, 7.5), 90 dias a
+  partir da ÚLTIMA MOVIMENTAÇÃO (`last_movement_at`, `lib/sales/registro.ts`); o
+  registro aceito na hora ou validado pela fila é a primeira. Status derivado
+  active/expiring (≤15d)/expired (`lib/sales/protection.ts`); aviso aos 60 dias
+  sem movimentação. `extended` segue reservado para prorrogação manual.
 - **Mesma instituição em mais de um RC** (desde 21/10/2026, `lib/sales/duplicidade.ts`):
   regra do dono de 08/10, vale o primeiro registro válido e a vertho.ai decide.
-  O portal NÃO bloqueia (decisão de 21/10): `createSalesAccount` compara a conta
-  nova com as de outros RCs (CNPJ quando as duas têm; senão razão social ou nome
+  Desde 23/10 o CNPJ básico e o INEP BLOQUEIAM (`lib/sales/registro.ts`); o nome
+  segue só avisando: `createSalesAccount` compara a conta
+  nova com as de outros RCs (INEP ou CNPJ básico quando as duas têm; senão razão social ou nome
   fantasia, com 8+ caracteres, e a mesma cidade quando as duas informam) e
   devolve um `aviso` sem citar o outro RC; o formulário de oportunidade e o
   Copiloto mostram. `/admin/comercial` lista os grupos em ordem de cadastro.

@@ -2,9 +2,10 @@
  * Portal do RC alinhado ao contrato de representação v5 (22/10/2026), além da
  * conta da comissão (essa fica em `sales-comissao-modelos.test.ts`):
  *
- *   · 7.1, 7.2, 7.5: o registro exige CNPJ e cargo do contato, nasce aguardando
- *     a validação da vertho.ai, a proteção de 90 dias conta da validação, e a
- *     proposta só é submetida (e aprovada) com o registro validado;
+ *   · 7.1, 7.2, 7.5: o registro exige CNPJ e cargo do contato, a fila da
+ *     vertho.ai valida ou recusa (o aceite na hora do contrato v6 está em
+ *     `sales-contrato-rc-v6.test.ts`), e a proposta só é submetida (e aprovada)
+ *     com o registro validado;
  *   · 10.5 e 10.6: a aprovação grava o modelo do RC e a classificação de
  *     carteira, que vem do histórico da conta e o admin só muda com motivo;
  *   · 18.7: depois do término do contrato do RC, só gera comissão a proposta
@@ -205,15 +206,22 @@ describe('7.2 e 7.5: registro da oportunidade', () => {
     expect(escritasEm('sales_opportunities', 'insert')).toHaveLength(0);
   });
 
-  it('registro completo nasce aguardando validação e SEM proteção', async () => {
-    montar('12.345.678/0001-90', 'Diretora');
+  it('registro completo de cliente na lista de reserva nasce aguardando e SEM proteção', async () => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) => {
+        if (tabela === 'sales_accounts') return { id: 'acc-1', representante_id: 'rc-1', cnpj: '12.345.678/0001-90' };
+        if (tabela === 'sales_contacts') return { id: 'ct-1', representante_id: 'rc-1', account_id: 'acc-1', role: 'Diretora' };
+        return null;
+      },
+      lista: (tabela) => (tabela === 'sales_reservas' ? [{ id: 'r1' }] : []),
+    });
     expect((await createOpportunity(input)).success).toBe(true);
     expect(escritasEm('sales_opportunities', 'insert')[0]?.payload).toMatchObject({
       attribution_status: 'aguardando', protection_start_date: null, protection_end_date: null,
     });
   });
 
-  it('validar começa a proteção de 90 dias na data da validação', async () => {
+  it('validar começa a proteção de 90 dias na data da validação, como uma movimentação', async () => {
     sb = criarSupabaseMock({
       resolver: (tabela) => (tabela === 'sales_opportunities' ? { id: 'opp-1', representante_id: 'rc-1', account_id: 'acc-1', status: 'open', attribution_status: 'aguardando' } : null),
       escrita: (tabela, op) => (tabela === 'sales_opportunities' && op === 'update' ? [{ id: 'opp-1' }] : null),
@@ -225,6 +233,7 @@ describe('7.2 e 7.5: registro da oportunidade', () => {
     const dias = (Date.parse(patch.protection_end_date) - Date.parse(patch.protection_start_date)) / 86_400_000;
     expect(dias).toBe(90);
     expect(patch.protection_start_date).toBe(new Date().toISOString().slice(0, 10));
+    expect(patch.last_movement_at).toBeTruthy();
   });
 
   it('registro já decidido não é validado de novo', async () => {

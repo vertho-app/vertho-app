@@ -69,6 +69,10 @@
       "schedule": "20 6 * * 1"
     },
     {
+      "path": "/api/cron?action=alerta_protecao_rc",
+      "schedule": "10 12 * * *"
+    },
+    {
       "path": "/api/cron?action=credencial_google",
       "schedule": "45 */6 * * *"
     }

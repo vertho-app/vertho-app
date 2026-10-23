@@ -15,7 +15,8 @@ import {
 } from '@/lib/sales/permissions';
 import { numOrNull } from '@/lib/sales/validation';
 import { logAdminAction } from '@/lib/audit';
-import { coincidenciasDeOutrosRcs, type ContaComparavel } from '@/lib/sales/duplicidade';
+import { coincidenciasDeOutrosRcs, normalizarCnpj, type ContaComparavel } from '@/lib/sales/duplicidade';
+import { codigoInepValido, conferirRegistro, decidirRegistro, reconferirRegistroAceito } from '@/lib/sales/registro';
 import { termosDaProposta } from '@/lib/sales/aceite-rc';
 import { planoDeComissao } from '@/lib/sales/commissions';
 import type { SalesAccount, SalesProposal } from '@/lib/sales/types';
@@ -72,11 +73,30 @@ export async function getSalesAccount(accountId: string) {
   };
 }
 
+/** "12345678000190" → "12.345.678/0001-90" (o CNPJ alfanumérico tem o mesmo desenho). */
+function formatarCnpj(cnpj: string): string {
+  return `${cnpj.slice(0, 2)}.${cnpj.slice(2, 5)}.${cnpj.slice(5, 8)}/${cnpj.slice(8, 12)}-${cnpj.slice(12)}`;
+}
+
 /** Campos editáveis da conta (validação compartilhada create/update). */
 function accountPatchFromInput(input: Record<string, any>): { patch: Record<string, any> } | { error: string } {
   const patch: Record<string, any> = {};
-  const textFields = ['trade_name', 'cnpj', 'segment', 'city', 'state', 'notes'];
+  const textFields = ['trade_name', 'segment', 'city', 'state', 'notes'];
   for (const k of textFields) if (k in input) patch[k] = typeof input[k] === 'string' ? (input[k].trim() || null) : input[k] ?? null;
+  // CNPJ e INEP identificam o cliente na conferência de registro (contrato, 7.1 e 10.6):
+  // valor fora do formato não pode entrar, ou a conferência passaria em branco.
+  if ('cnpj' in input) {
+    const bruto = String(input.cnpj ?? '').trim();
+    const cnpj = normalizarCnpj(bruto);
+    if (bruto && !cnpj) return { error: 'CNPJ inválido: são 14 posições (12 letras ou números e 2 dígitos verificadores).' };
+    patch.cnpj = cnpj ? formatarCnpj(cnpj) : null;
+  }
+  if ('codigo_inep' in input) {
+    const bruto = String(input.codigo_inep ?? '').trim();
+    const inep = codigoInepValido(bruto);
+    if (bruto && !inep) return { error: 'Código INEP inválido: são 8 dígitos.' };
+    patch.codigo_inep = inep;
+  }
   for (const k of ['number_of_employees', 'number_of_units']) {
     if (k in input) {
       const n = numOrNull(input[k]);
@@ -85,6 +105,27 @@ function accountPatchFromInput(input: Record<string, any>): { patch: Record<stri
     }
   }
   return { patch };
+}
+
+/**
+ * O cliente (CNPJ básico ou INEP) pode ficar nesta conta do RC? Bloqueia o que
+ * está com outro representante (contrato, 7.1); a lista de reserva não bloqueia
+ * a conta, só manda o registro para a validação. Falha de leitura não bloqueia:
+ * o registro da oportunidade confere de novo e, sem conferência, vai para a fila.
+ */
+async function conferirClienteDaConta(
+  sb: ReturnType<typeof createSupabaseAdmin>,
+  representanteId: string,
+  cnpj: string | null | undefined,
+  codigoInep: string | null | undefined,
+): Promise<{ bloqueio: string | null; aviso: string | null }> {
+  try {
+    const c = await conferirRegistro(sb, { representanteId, cnpj, codigoInep });
+    if (c.livre) return { bloqueio: null, aviso: null };
+    return c.motivo === 'outro_rc' ? { bloqueio: c.mensagem, aviso: null } : { bloqueio: null, aviso: c.mensagem };
+  } catch {
+    return { bloqueio: null, aviso: 'Não foi possível conferir agora se este cliente está com outro representante. O registro da oportunidade confere de novo.' };
+  }
 }
 
 export async function createSalesAccount(input: Record<string, any>) {
@@ -96,6 +137,9 @@ export async function createSalesAccount(input: Record<string, any>) {
   if ('error' in parsed) return { success: false as const, error: parsed.error };
 
   const sb = createSupabaseAdmin();
+  const conferencia = await conferirClienteDaConta(sb, ctx.rep.id, parsed.patch.cnpj, parsed.patch.codigo_inep);
+  if (conferencia.bloqueio) return { success: false as const, error: conferencia.bloqueio };
+
   const { data, error } = await sb.from('sales_accounts').insert({
     representante_id: ctx.rep.id,
     legal_name: legalName,
@@ -104,19 +148,21 @@ export async function createSalesAccount(input: Record<string, any>) {
   }).select('*').single();
   if (error) return { success: false as const, error: error.message };
 
-  // Mesma instituição com outro RC: avisa e segue (a vertho.ai decide pela regra
-  // do primeiro registro válido; o caso aparece em /admin/comercial). O nome do
-  // outro RC NÃO vai no aviso. Se a conferência falhar, a conta já existe: o
-  // RC é avisado de que ela não rodou, em vez de receber um "sem conflito".
-  let aviso: string | null = null;
-  const { data: outras, error: erroOutras } = await sb.from('sales_accounts')
-    .select('id, representante_id, legal_name, trade_name, cnpj, city')
-    .neq('representante_id', ctx.rep.id)
-    .limit(5000);
-  if (erroOutras) {
-    aviso = 'Conta criada, mas não foi possível conferir se outro representante já registrou esta instituição.';
-  } else if (coincidenciasDeOutrosRcs(data as ContaComparavel, (outras || []) as ContaComparavel[]).length) {
-    aviso = 'Esta instituição já está registrada por outro representante. A conta foi criada, e a vertho.ai vai decidir pela regra do primeiro registro válido.';
+  // Sem CNPJ nem INEP, a comparação é por nome: avisa e segue (a vertho.ai
+  // decide; o caso aparece em /admin/comercial). O nome do outro RC NÃO vai no
+  // aviso. Se a conferência falhar, a conta já existe: o RC é avisado de que
+  // ela não rodou, em vez de receber um "sem conflito".
+  let aviso: string | null = conferencia.aviso;
+  if (!aviso) {
+    const { data: outras, error: erroOutras } = await sb.from('sales_accounts')
+      .select('id, representante_id, legal_name, trade_name, cnpj, city, codigo_inep')
+      .neq('representante_id', ctx.rep.id)
+      .limit(5000);
+    if (erroOutras) {
+      aviso = 'Conta criada, mas não foi possível conferir se outro representante já registrou esta instituição.';
+    } else if (coincidenciasDeOutrosRcs(data as ContaComparavel, (outras || []) as ContaComparavel[]).length) {
+      aviso = 'Uma instituição com este nome já está registrada por outro representante. A conta foi criada; informe o CNPJ para a conferência valer.';
+    }
   }
   return { success: true as const, data: data as SalesAccount, aviso };
 }
@@ -124,13 +170,36 @@ export async function createSalesAccount(input: Record<string, any>) {
 export async function updateSalesAccount(accountId: string, input: Record<string, any>) {
   const ctx = await requireRepresentativeAction();
   const sb = createSupabaseAdmin();
-  const { data: existing } = await sb.from('sales_accounts').select('id, representante_id').eq('id', accountId).maybeSingle();
+  const { data: existing, error: erroLeitura } = await sb.from('sales_accounts')
+    .select('id, representante_id, cnpj, codigo_inep').eq('id', accountId).maybeSingle();
+  if (erroLeitura) return { success: false as const, error: erroLeitura.message };
   if (!existing) return { success: false as const, error: 'Conta não encontrada' };
   assertRepresentativeOwnership(ctx, existing.representante_id);
 
   const parsed = accountPatchFromInput(input);
   if ('error' in parsed) return { success: false as const, error: parsed.error };
   const patch = parsed.patch;
+
+  const trocaCnpj = 'cnpj' in patch && normalizarCnpj(patch.cnpj) !== normalizarCnpj(existing.cnpj);
+  const trocaInep = 'codigo_inep' in patch && (patch.codigo_inep ?? null) !== (existing.codigo_inep ?? null);
+  if (trocaCnpj || trocaInep) {
+    // Depois do registro, o identificador é o que a proteção protege: trocar
+    // levaria a proteção para outro cliente sem passar pela conferência. Só
+    // completar o que estava vazio continua livre.
+    const sobrescreve = (trocaCnpj && !!normalizarCnpj(existing.cnpj)) || (trocaInep && !!existing.codigo_inep);
+    if (sobrescreve) {
+      const { count, error: erroRegistro } = await sb.from('sales_opportunities').select('id', { count: 'exact', head: true })
+        .eq('account_id', accountId).in('attribution_status', ['aguardando', 'validada']);
+      if (erroRegistro) return { success: false as const, error: erroRegistro.message };
+      if (count) return { success: false as const, error: 'Esta conta já tem registro de oportunidade: o CNPJ e o INEP só mudam pela vertho.ai. Escreva para o seu contato no canal.' };
+    }
+    const conferencia = await conferirClienteDaConta(
+      sb, ctx.rep.id,
+      'cnpj' in patch ? patch.cnpj : existing.cnpj,
+      'codigo_inep' in patch ? patch.codigo_inep : existing.codigo_inep,
+    );
+    if (conferencia.bloqueio) return { success: false as const, error: conferencia.bloqueio };
+  }
 
   if ('legal_name' in input) {
     const legalName = String(input.legal_name || '').trim();
@@ -403,9 +472,9 @@ export async function definirRiscoChurn(accountId: string, risco: 'baixo' | 'med
 /**
  * Cria uma oportunidade de EXPANSÃO a partir de uma conta ativa (upsell). Nova
  * oportunidade no funil (origem 'expansao'), pré-ligada à conta e ao contato
- * principal. Como todo registro, nasce aguardando a validação da vertho.ai
- * (contrato, 7.1). A proposta que sair dela é de cliente da carteira (10.6):
- * 50% dos percentuais do modelo.
+ * principal. Como todo registro, passa pela conferência da 7.1: cliente livre
+ * é aceito na hora, o resto vai para a fila da vertho.ai. A proposta que sair
+ * dela é de cliente da carteira (10.6): 50% dos percentuais do modelo.
  */
 export async function criarOportunidadeExpansao(accountId: string, nome?: string) {
   const ctx = await requireRepresentativeAction();
@@ -421,6 +490,9 @@ export async function criarOportunidadeExpansao(accountId: string, nome?: string
   ]);
 
   const nomeConta = account.trade_name || account.legal_name;
+  const agora = new Date();
+  const quem = { representanteId: ctx.rep.id, cnpj: account.cnpj, codigoInep: account.codigo_inep };
+  const decisao = await decidirRegistro(sb, quem, agora);
   const { data, error } = await sb.from('sales_opportunities').insert({
     representante_id: ctx.rep.id,
     account_id: accountId,
@@ -430,14 +502,11 @@ export async function criarOportunidadeExpansao(accountId: string, nome?: string
     product_interest: prop?.product_package ?? null,
     identified_need: 'Expansão/upsell de cliente ativo.',
     stage: 'lead_identificado',
-    // Proteção só depois da validação do registro (contrato, 7.5).
-    attribution_status: 'aguardando',
-    protection_start_date: null,
-    protection_end_date: null,
-    protection_status: 'active',
+    ...decisao.campos,
     status: 'open',
   }).select('id').single();
   if (error) return { success: false as const, error: error.message };
+  const voltouParaFila = decisao.aceito ? await reconferirRegistroAceito(sb, data.id, quem, agora) : null;
 
   await sb.from('sales_activity_notes').insert({
     representante_id: ctx.rep.id, account_id: accountId, opportunity_id: data.id, kind: 'expansao',
@@ -446,7 +515,7 @@ export async function criarOportunidadeExpansao(accountId: string, nome?: string
   // marca a conta como tendo potencial de expansão (sinal na carteira)
   await sb.from('sales_accounts').update({ expansion_potential: true, updated_at: new Date().toISOString() }).eq('id', accountId);
 
-  return { success: true as const, opportunityId: data.id };
+  return { success: true as const, opportunityId: data.id, aceito: decisao.aceito && !voltouParaFila, mensagem: voltouParaFila ?? decisao.mensagem };
 }
 
 export type PortfolioRow = {

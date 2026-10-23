@@ -40,14 +40,14 @@ export async function getCommercialAdminDashboard() {
   ] = await Promise.all([
     sb.from('sales_representatives').select('*').order('name'),
     sb.from('sales_opportunities')
-      .select(`*, account:sales_accounts (id, legal_name, trade_name, segment, city, state, cnpj),
+      .select(`*, account:sales_accounts (id, legal_name, trade_name, segment, city, state, cnpj, codigo_inep),
         primary_contact:sales_contacts!sales_opportunities_primary_contact_id_fkey (id, name, role)`)
       .order('updated_at', { ascending: false }),
     sb.from('sales_proposals')
       .select('*, account:sales_accounts (id, legal_name, trade_name)')
       .order('created_at', { ascending: false }),
     sb.from('sales_accounts')
-      .select('id, representante_id, legal_name, trade_name, cnpj, city, created_at')
+      .select('id, representante_id, legal_name, trade_name, cnpj, city, codigo_inep, created_at')
       .limit(5000),
   ]);
   if (repErr) return { success: false as const, error: repErr.message };
@@ -98,11 +98,11 @@ export async function getCommercialAdminDashboard() {
     daysLeft: protectionDaysLeft(o.protection_end_date),
   }));
 
-  // Registros aguardando a validação da vertho.ai (contrato, 7.1 a 7.5), os
-  // mais antigos primeiro. O admin confere a 7.3 (cliente já ativo ou em
-  // negociação com a vertho.ai, lead próprio, indicação de terceiro) e a 7.4
-  // (outro RC registrou antes): o aviso de coincidência vem da mesma régua do
-  // painel de duplicidade abaixo.
+  // Registros na fila da vertho.ai (contrato v6, 7.1): só os que NÃO foram
+  // aceitos na hora (lista de reserva, outro RC, conferência que falhou), os
+  // mais antigos primeiro. `motivo` é o que mandou para a fila. O admin confere
+  // a 7.3 e a 7.4 (outro RC registrou antes): o aviso de coincidência vem da
+  // mesma régua do painel de duplicidade abaixo.
   const contasComparaveis = (accounts || []) as ContaComparavel[];
   const pendingRegistrations = allOpps
     .filter((o) => o.attribution_status === 'aguardando' && o.status === 'open')
@@ -110,13 +110,15 @@ export async function getCommercialAdminDashboard() {
     .map((o) => {
       const conta = contasComparaveis.find((c) => c.id === o.account_id);
       const coincidencias = conta ? coincidenciasDeOutrosRcs(conta, contasComparaveis) : [];
-      const acc = o.account as (SalesOpportunity['account'] & { cnpj?: string | null }) | null | undefined;
+      const acc = o.account as (SalesOpportunity['account'] & { cnpj?: string | null; codigo_inep?: string | null }) | null | undefined;
       return {
         id: o.id,
         nome: o.opportunity_name,
         repName: repName.get(o.representante_id) || '—',
         cliente: acc?.trade_name || acc?.legal_name || '—',
         cnpj: acc?.cnpj ?? null,
+        inep: acc?.codigo_inep ?? null,
+        motivo: o.attribution_note ?? null,
         cidade: acc?.city ?? null,
         contato: o.primary_contact ? `${o.primary_contact.name}${o.primary_contact.role ? ` (${o.primary_contact.role})` : ''}` : null,
         origem: o.origin,

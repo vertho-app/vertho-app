@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Briefcase, ClipboardCheck, Coins, FileText, FolderOpen, Loader2, ShieldAlert, Users,
+  Briefcase, ClipboardCheck, Coins, FileText, FolderOpen, Loader2, Lock, ShieldAlert, Users,
 } from 'lucide-react';
 import { getCommercialAdminDashboard } from '@/actions/sales/admin-dashboard';
 import AdminPageHeader from '@/components/admin/page-header';
@@ -11,6 +11,7 @@ import RepresentativePerformanceTable from '@/components/sales/representative-pe
 import PendingProposalsTable from '@/components/sales/pending-proposals-table';
 import PendingRegistrationsTable from '@/components/sales/pending-registrations-table';
 import CommissionExposureTable from '@/components/sales/commission-exposure-table';
+import ReservasPanel from '@/components/sales/reservas-panel';
 import { fmtBRL, fmtDate } from '@/lib/sales/formatters';
 
 type DashboardResult = Awaited<ReturnType<typeof getCommercialAdminDashboard>>;
@@ -93,10 +94,10 @@ export default function ComercialDashboardPage() {
               />
             </div>
 
-            {/* Validação do registro (contrato do RC, 7.1 a 7.5): a proteção só começa aqui */}
+            {/* Fila de validação do registro (contrato do RC v6, 7.1): o que não foi aceito na hora */}
             <section className="mb-6">
               <h2 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
-                <ClipboardCheck size={15} className="text-amber-400" /> Registros aguardando validação
+                <ClipboardCheck size={15} className="text-amber-400" /> Registros na fila de validação
                 {data.totals.pendingRegistrationsCount > 0 && (
                   <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-500/15 text-amber-300">
                     {data.totals.pendingRegistrationsCount}
@@ -104,9 +105,20 @@ export default function ComercialDashboardPage() {
                 )}
               </h2>
               <p className="text-[11px] text-gray-500 mb-2">
-                Só a oportunidade validada é comissionável, e os 90 dias de proteção contam da validação. Recuse cliente já ativo ou em negociação com a vertho.ai, lead próprio ou indicação de terceiro (7.3), e o registro que outro representante fez antes (7.4).
+                Cliente livre é aceito na hora pelo portal. Chega aqui o registro que esbarrou na lista de reserva, num cliente com outro representante ou numa conferência que falhou. Recuse cliente já ativo ou em negociação com a vertho.ai, lead próprio ou indicação de terceiro (7.3), e o registro que outro representante fez antes (7.4).
               </p>
               <PendingRegistrationsTable rows={data.pendingRegistrations} onDone={carregar} />
+            </section>
+
+            {/* Lista de reserva da vertho.ai (7.3) */}
+            <section className="mb-6">
+              <h2 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+                <Lock size={15} className="text-cyan-400" /> Lista de reserva da vertho.ai
+              </h2>
+              <p className="text-[11px] text-gray-500 mb-2">
+                Clientes, leads próprios e negociações diretas da vertho.ai (cláusula 7.3). O registro de representante com o mesmo CNPJ básico ou INEP vai para a fila acima em vez de ser aceito na hora. O representante não vê esta lista.
+              </p>
+              <ReservasPanel />
             </section>
 
             {/* Performance por representante */}
@@ -179,7 +191,7 @@ export default function ComercialDashboardPage() {
                 <ShieldAlert size={15} className="text-amber-400" /> Mesma instituição em mais de um representante
               </h2>
               <p className="text-[11px] text-gray-500 mb-2">
-                Comparação por CNPJ ou por nome e cidade. Vale o primeiro registro válido (conta, contato e evidência de interação, dentro dos 90 dias): confira e decida.
+                Comparação por INEP, por CNPJ básico (matriz e filiais) ou por nome e cidade. O portal já bloqueia o cliente que está com outro representante; aqui aparecem os casos por nome e os clientes que mudaram de mãos depois de 90 dias sem movimentação.
               </p>
               {data.contasEmMaisDeUmRc.length === 0 ? (
                 <p className="text-xs text-gray-500 py-4 text-center rounded-xl bg-white/[0.03] border border-white/10">

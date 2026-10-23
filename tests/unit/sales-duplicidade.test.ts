@@ -31,10 +31,11 @@ describe('comparação de instituições', () => {
     expect(normalizarCnpj('123')).toBeNull();
   });
 
-  it('com CNPJ nas duas, só o CNPJ decide (unidades de uma rede têm o mesmo nome)', () => {
+  it('com CNPJ nas duas, só o CNPJ básico decide: filial é o mesmo cliente, outra raiz não (contrato v6, 10.6)', () => {
     const a = conta({ legal_name: 'Colégio Aurora', cnpj: '12.345.678/0001-90' });
     expect(mesmaInstituicao(a, conta({ legal_name: 'Outro nome', cnpj: '12345678000190' }))).toBe(true);
-    expect(mesmaInstituicao(a, conta({ legal_name: 'Colégio Aurora', cnpj: '12345678000270' }))).toBe(false);
+    expect(mesmaInstituicao(a, conta({ legal_name: 'Outro nome', cnpj: '12345678000270' }))).toBe(true);
+    expect(mesmaInstituicao(a, conta({ legal_name: 'Colégio Aurora', cnpj: '87654321000190' }))).toBe(false);
   });
 
   it('sem CNPJ: mesmo nome e mesma cidade; cidade diferente não é a mesma', () => {

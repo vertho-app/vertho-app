@@ -26,6 +26,10 @@ export type SalesAccount = {
   legal_name: string;
   trade_name: string | null;
   cnpj: string | null;
+  /** CNPJ básico (8 posições), coluna gerada a partir de `cnpj` (mig 298). */
+  cnpj_raiz?: string | null;
+  /** Código INEP da escola (mig 298): identifica o cliente junto com o CNPJ básico. */
+  codigo_inep?: string | null;
   segment: string | null;
   city: string | null;
   state: string | null;
@@ -84,6 +88,10 @@ export type SalesOpportunity = {
   attribution_decided_at: string | null;
   attribution_decided_by: string | null;
   attribution_note: string | null;
+  /** Última movimentação (mig 298): a proteção vale até ela + 90 dias (contrato, 7.5). */
+  last_movement_at?: string | null;
+  /** E-mail de 60 dias sem movimentação já enviado neste ciclo (mig 298). */
+  aviso_60_em?: string | null;
   quality_score: number;
   probability: number | null;
   status: OpportunityStatus;
@@ -146,6 +154,12 @@ export type SalesProposal = {
   carteira_motivo: string | null;
   /** Quando o RC marcou como enviada ao cliente (marco da cláusula 18.7). */
   sent_to_client_at: string | null;
+  /** Quantos pagamentos o cliente faz (1 = à vista); null = um por mês de vigência (mig 298). */
+  payment_count?: number | null;
+  /** Meses entre o aceite e o 1º pagamento do cliente (mig 298). */
+  first_payment_offset_months?: number | null;
+  /** Quando o aceite da proposta de RC foi registrado (mig 298; base das metas). */
+  accepted_recorded_at?: string | null;
   status: ProposalStatus;
   /**
    * Admin que criou (mig 254, só no caminho do deal desk). Preenchido junto com
@@ -169,7 +183,7 @@ export type SalesProposal = {
   representante?: Pick<SalesRepresentative, 'id' | 'name' | 'status' | 'compensation_model' | 'contract_ended_at'> | null;
 };
 
-export type CommissionType = 'aquisicao' | 'recorrente' | 'renovacao' | 'expansao' | 'chargeback';
+export type CommissionType = 'aquisicao' | 'recorrente' | 'renovacao' | 'expansao' | 'chargeback' | 'indicacao';
 export type CommissionStatus = 'potencial' | 'forecast' | 'accrued' | 'paid' | 'cancelled';
 
 export type SalesCommissionEvent = {
@@ -211,7 +225,7 @@ export type SalesMaterial = {
   updated_at: string;
 };
 
-export type ActivityNoteKind = 'nota' | 'followup' | 'renovacao' | 'risco' | 'expansao';
+export type ActivityNoteKind = 'nota' | 'followup' | 'renovacao' | 'risco' | 'expansao' | 'contato';
 
 export type SalesActivityNote = {
   id: string;
@@ -220,6 +234,8 @@ export type SalesActivityNote = {
   account_id: string | null;
   note: string;
   kind: ActivityNoteKind;
+  /** Canal do contato registrado (kind 'contato', mig 298). */
+  canal?: string | null;
   created_by_email: string;
   created_at: string;
 };
