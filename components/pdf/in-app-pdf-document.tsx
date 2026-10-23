@@ -9,11 +9,18 @@ import type { ExploracaoDegustacao } from '@/lib/demo/degustacao-metricas';
 
 let workerConfigured = false;
 
+/**
+ * O build `legacy`, não o padrão. O padrão do pdf.js 6 chama `Map.prototype.getOrInsertComputed` e
+ * `Math.sumPrecise` sem checar (medido no pacote 6.4.299 em 23/10/2026), recursos que só os navegadores
+ * do topo têm: num iPhone com Safari mais antigo ou num WebView Android desatualizado o leitor
+ * falharia inteiro. O `legacy` traz os polyfills (core-js) e custa ~65 KB a mais. Desde 23/10 este
+ * leitor abre também o texto e o case da trilha, lidos sobretudo no celular.
+ */
 async function loadPdfJs() {
-  const pdfjs = await import('pdfjs-dist');
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   if (!workerConfigured) {
     pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.min.mjs',
+      'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
       import.meta.url,
     ).toString();
     workerConfigured = true;

@@ -101,6 +101,19 @@ describe('leitor de PDF da semana: todas as páginas, em qualquer aparelho', () 
     expect(semana).toContain('<FormatoIndisponivel');
   });
 
+  it('🔴 o leitor carrega o pdf.js `legacy` (com polyfills): o padrão chama recursos que celular antigo não tem', () => {
+    expect(leitor).toContain("import('pdfjs-dist/legacy/build/pdf.mjs')");
+    expect(leitor).toContain("'pdfjs-dist/legacy/build/pdf.worker.min.mjs'");
+    expect(leitor).not.toMatch(/import\('pdfjs-dist'\)/);
+    expect(leitor).not.toContain("'pdfjs-dist/build/pdf.worker.min.mjs'");
+    // Alvo vivo: o build padrão segue sem polyfill (se um dia ganhar, a troca deixa de ser necessária).
+    const padrao = readFileSync('node_modules/pdfjs-dist/build/pdf.mjs', 'utf-8');
+    const legado = readFileSync('node_modules/pdfjs-dist/legacy/build/pdf.mjs', 'utf-8');
+    expect(padrao).toContain('.getOrInsertComputed(');
+    expect(padrao).not.toContain('core-js/modules/es.map.get-or-insert-computed');
+    expect(legado).toContain('core-js/modules/es.map.get-or-insert-computed');
+  });
+
   it('a rolagem é da caixa da semana, não do documento (sem ela o leitor também só mostraria a capa)', () => {
     expect(semana).toMatch(/max-h-\[760px\] overflow-y-auto[^"]*">\s*<InAppPdfDocument/);
   });

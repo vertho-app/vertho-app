@@ -172,7 +172,8 @@ describe('central de relatórios do RH', () => {
     expect(view).toContain('<InAppPdfDocument');
     expect(view).not.toContain('<iframe');
     expect(view).not.toContain('target="_blank"');
-    expect(reader).toContain("import('pdfjs-dist')");
+    // Build `legacy` (polyfills) desde 23/10/2026: ver `loadPdfJs` e formatos-que-falham.test.ts.
+    expect(reader).toContain("import('pdfjs-dist/legacy/build/pdf.mjs')");
     expect(reader).toContain('<canvas');
     expect(home).toContain('/dashboard/relatorios?document=organization-rh');
     expect(home).not.toContain('target="_blank"');
