@@ -13,5 +13,10 @@
     "@hyperframes/aws-lambda": "0.8.140",
     "@remotion/renderer": "4.0.476",
     "pg": "^8.13.0"
+  },
+  "overrides": {
+    "@remotion/renderer": {
+      "ws": "8.22.0"
+    }
   }
 }
