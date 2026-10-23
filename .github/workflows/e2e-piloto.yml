@@ -23,7 +23,11 @@ permissions:
 jobs:
   e2e:
     name: Fluxos críticos (login, navegação, telas)
-    runs-on: ubuntu-latest
+    # Fixado em 24.04 (23/10/2026): o `ubuntu-latest` virou Ubuntu 26.04 em ~22/10 e o
+    # Playwright 1.59 recusa instalar o Chromium nele ("does not support chromium on
+    # ubuntu26.04-x64"); o job ficou vermelho por ambiente, sem rodar nenhum teste.
+    # Voltar para `ubuntu-latest` junto com um Playwright que suporte a 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
 
     steps:
