@@ -1,0 +1,86 @@
+# Atualizações de versão propostas pelo Dependabot (auditoria de segurança 23/10/2026).
+#
+# `cooldown`: a versão nova só vira PR depois de N dias publicada. Pacote sequestrado
+# costuma ser retirado do registry em horas ou poucos dias (Shai-Hulud, ChainDrop,
+# node-ipc em 2026), então esperar é a defesa mais barata contra a versão envenenada.
+# Isto NÃO atrasa alerta de segurança: os "Dependabot alerts" e os "security updates"
+# são ligados à parte, em Settings → Code security, e não obedecem ao cooldown.
+#
+# Cada PR roda o typecheck.yml (pull_request, sem secrets) e gera um preview na Vercel.
+# Por isso os grupos: um PR por ecossistema por semana, não um por pacote.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+    groups:
+      # Trigger.dev em PR próprio: o SDK do app e o worker publicado andam juntos, e o
+      # deploy do worker é MANUAL (`npx trigger.dev@<versão> deploy`); ver CLAUDE.md.
+      trigger-dev:
+        patterns:
+          - '@trigger.dev/*'
+      npm-menores:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Família Remotion travada em 4.0.476: o bundle do worker Hetzner e o app têm de
+      # usar a mesma versão (docs/SECURITY-STATUS.md, 06/10). Sobe à mão, junto.
+      - dependency-name: remotion
+      - dependency-name: '@remotion/*'
+
+  - package-ecosystem: npm
+    directory: /worker-hetzner
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+    groups:
+      worker-menores:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: '@remotion/*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Sao_Paulo
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - '*'
+
+  - package-ecosystem: docker
+    directory: /worker-hetzner
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Sao_Paulo
+    cooldown:
+      default-days: 3
+    ignore:
+      # Troca de linha do Node (22 → 24/26) é decisão, não atualização: só patch/minor.
+      - dependency-name: node
+        update-types:
+          - version-update:semver-major

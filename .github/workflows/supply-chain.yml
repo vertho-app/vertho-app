@@ -1,0 +1,58 @@
+name: Supply chain (npm audit)
+
+# Auditoria de segurança 23/10/2026. Até aqui `npm audit` só rodava à mão, nas
+# análises de 05, 06 e 10/10; um advisory crítico novo (o do `next` de 22/10)
+# ficava invisível até a próxima análise.
+#
+# Lê só os lockfiles (`--package-lock-only`): não instala nada, não roda script
+# de pacote nenhum e não recebe secret, então pode rodar em PR com segurança.
+# `--omit=dev` + `--audit-level=high`: o que vai para produção, alto ou crítico.
+# Os de desenvolvimento conhecidos (deepmerge-ts via @trigger.dev/build) estão
+# no docs/SECURITY-STATUS.md e ficariam vermelhos sem caminho em runtime.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'worker-hetzner/package.json'
+      - 'worker-hetzner/package-lock.json'
+      - '.github/workflows/supply-chain.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'worker-hetzner/package.json'
+      - 'worker-hetzner/package-lock.json'
+      - '.github/workflows/supply-chain.yml'
+  # Advisory novo sai sem ninguém mexer no lock: roda toda manhã também.
+  schedule:
+    - cron: '15 9 * * *'   # 06:15 BRT
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    name: npm audit (produção, alto ou crítico)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24.22.1'
+
+      - name: app (Vercel + Trigger.dev)
+        run: npm audit --package-lock-only --omit=dev --audit-level=high
+
+      - name: worker de render (Hetzner)
+        working-directory: worker-hetzner
+        run: npm audit --package-lock-only --omit=dev --audit-level=high
