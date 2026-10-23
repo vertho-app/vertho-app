@@ -12,7 +12,7 @@ import { resolverModuloBaseParaConteudo, enriquecerPromptComModuloBase } from '@
 import { getModelForTask } from '@/lib/ai-tasks';
 import { resolveAppLocale } from '@/lib/i18n';
 import { derivarArquetipo } from '@/lib/disc-arquetipos';
-import { resumirPPP, extracaoParaTexto, briefPreenchido, assinaturaCurta, type EscolaBrief } from '@/lib/escola-brief';
+import { resumirPPP, extracaoParaTexto, briefPreenchido, assinaturaCurta, contextoDeEscolaVale, type EscolaBrief } from '@/lib/escola-brief';
 import { buildPersonalizacaoPrompt } from '@/lib/season-engine/prompts/personalizacao';
 import { resolverPerfilPublicoDaEmpresa } from '@/lib/season-engine/perfil-publico';
 import { anexarFichaCargo, carregarFichaCargo } from '@/lib/cargo-contexto';
@@ -998,7 +998,7 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
       // `empresa_id` de OUTRO — lendo o PPP alheio e gravando o PDF no cache
       // dele. A gêmea do áudio já relia do banco; esta não. Agora as duas releem.
       const { data: doBanco } = await sb.from('colaboradores')
-        .select('id, empresa_id, perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo')
+        .select('id, empresa_id, perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo, locale')
         .eq('id', colab.id)
         .maybeSingle();
       if (!doBanco) return { success: false, error: 'colaborador não encontrado' };
@@ -1010,7 +1010,7 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
       const { findColabByEmail } = await import('@/lib/authz');
       colab = await findColabByEmail(
         auth.email,
-        'perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo, empresa_id',
+        'perfil_dominante, d_natural, i_natural, s_natural, c_natural, tp_introvertido_extrovertido, tp_sensor_intuitivo, empresa_id, locale',
       );
     }
     const empresaId: string | null = colab?.empresa_id || null;
@@ -1035,22 +1035,26 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
     let contextoAssinatura = 'sem-ppp';
     if (empresaId) {
       try {
-        const { data: emp } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
-        const salvo = (emp?.sys_config as any)?.video_escola || null;
-        if (briefPreenchido(salvo)) {
-          escolaBrief = salvo;                 // brief manual da empresa tem precedência
-          temContextoInstitucional = true;
-          contextoAssinatura = 'brief-manual';
-        } else {
-          const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
-          const contexto = await resolverContextoEmpresa(sb, empresaId);
-          if (contexto) {
-            // A assinatura depende do CONTEXTO, não do resumo produzido por IA.
-            // Portanto já sabemos a chave do cache sem pagar `resumirPPP`.
-            // O resumo só é necessário num cache miss, para construir o prompt.
-            contextoParaResumir = contexto;
+        const { data: emp } = await sb.from('empresas').select('sys_config, segmento').eq('id', empresaId).maybeSingle();
+        // A lente institucional é de ESCOLA (`contextoDeEscolaVale`). Fora da educação o PDF leva só a do perfil,
+        // e a chave cai em `sem-ppp`: o PDF antigo, gerado com a escola inventada, deixa de ser servido.
+        if (contextoDeEscolaVale(emp?.segmento)) {
+          const salvo = (emp?.sys_config as any)?.video_escola || null;
+          if (briefPreenchido(salvo)) {
+            escolaBrief = salvo;                 // brief manual da empresa tem precedência
             temContextoInstitucional = true;
-            contextoAssinatura = assinaturaCurta(contexto);
+            contextoAssinatura = 'brief-manual';
+          } else {
+            const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
+            const contexto = await resolverContextoEmpresa(sb, empresaId);
+            if (contexto) {
+              // A assinatura depende do CONTEXTO, não do resumo produzido por IA.
+              // Portanto já sabemos a chave do cache sem pagar `resumirPPP`.
+              // O resumo só é necessário num cache miss, para construir o prompt.
+              contextoParaResumir = contexto;
+              temContextoInstitucional = true;
+              contextoAssinatura = assinaturaCurta(contexto);
+            }
           }
         }
       } catch (e: any) {
@@ -1108,8 +1112,9 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
       competencia: c.competencia, descritor: c.descritor, conteudoCore: c.conteudo_inline,
       arquetipoNome: arq.nome, arquetipoDesc: arq.desc, escolaBrief,
     });
+    // Idioma de quem LÊ, do banco: a pré-geração em lote roda com o cookie da operação, não o da pessoa.
     const layer = (await callAI(system, user, { model }, 3000, {
-      temperature: 0.5, taskKey: 'conteudo_personalizacao', empresaId,
+      temperature: 0.5, taskKey: 'conteudo_personalizacao', empresaId, locale: resolveAppLocale(colab?.locale),
     })).trim();
     if (!layer) return { success: true, url: generico, personalized: false };
     const full = `${c.conteudo_inline}\n\n${layer}`;

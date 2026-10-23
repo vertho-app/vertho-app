@@ -33,7 +33,7 @@ export function buildPersonalizacaoPrompt(p: PersonalizacaoParams): { system: st
 
 REGRAS ABSOLUTAS:
 - NÃO reescreva, resuma, repita nem contradiga o conteúdo-núcleo. Ele continua intacto antes da sua camada. Você só ACRESCENTA uma leitura personalizada.
-- Escreva em português do Brasil, markdown válido, tom de mentor — direto, prático, sem jargão de teste psicológico.
+- Escreva em português do Brasil, markdown válido, tom de mentor: direto, prático, sem jargão de teste psicológico.
 - Use os dados de perfil/escola como LENTE de aplicação, não como assunto. Nunca explique o que é DISC, nem cite siglas (D/I/S/C) ou pontuações. Nunca invente nomes próprios, marcas ou dados da escola.
 - Cada seção: 1-2 parágrafos curtos + (opcional) uma lista de 2-4 itens acionáveis. Nada de encher linguiça.
 
@@ -48,7 +48,7 @@ Traga UM exemplo ou ajuste concreto de como aplicar o conteúdo na realidade des
   const partes: string[] = [];
   if (p.competencia) partes.push(`COMPETÊNCIA: ${p.competencia}`);
   if (p.descritor) partes.push(`DESCRITOR: ${p.descritor}`);
-  partes.push(`PERFIL DO LEITOR: ${p.arquetipoNome} — ${p.arquetipoDesc}`);
+  partes.push(`PERFIL DO LEITOR: ${p.arquetipoNome} (${p.arquetipoDesc})`);
   if (temBrief) partes.push(`BRIEF DA ESCOLA (use como contexto real):\n${briefParaPrompt(p.escolaBrief as EscolaBrief)}`);
   partes.push(`CONTEÚDO-NÚCLEO (NÃO repita; só use pra não dizer o óbvio de novo):\n${p.conteudoCore.slice(0, 12000)}`);
   partes.push(`Escreva agora ${temBrief ? 'as duas seções' : 'a seção'} de personalização.`);

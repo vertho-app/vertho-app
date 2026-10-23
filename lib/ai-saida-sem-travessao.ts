@@ -184,6 +184,9 @@ export const SAIDAS_AO_CLIENTE: Readonly<Record<string, FormaDaSaida>> = {
   beto: 'texto',
   // Roteiro de áudio da devolutiva comportamental (vai para a voz)
   devolutiva_comportamental: 'texto',
+  // Camada "Para o seu perfil" anexada ao PDF de texto e case (markdown): a pessoa lê no app. Não ecoa nem cita a
+  // entrada. Fora dela, o núcleo do Kit vem do lote (`lib/ai-batch.ts`) e não passa por aqui.
+  conteudo_personalizacao: 'texto',
   // Documentos e mensagens em JSON
   sem14_redacao: 'json',
   // A devolutiva da IA4 reescrita no idioma da pessoa (só os três textos que ela lê; a nota não passa por aqui).

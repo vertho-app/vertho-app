@@ -147,6 +147,16 @@ export function assinaturaCurta(texto: string): string {
   return h.toString(36).slice(0, 8);   // só [0-9a-z] — seguro como nome de arquivo
 }
 
+/**
+ * O brief tem molde de ESCOLA (etapas de ensino, rede, pátio, biblioteca) e o resumo manda inferir o que faltar.
+ * Fora da educação ele inventa uma escola: na Amazon Bowling (23/10/2026) o PDF personalizado de quem trabalha num
+ * boliche ganhou "No contexto da sua escola", com estudantes, sala de aula e laboratório. Só o segmento `educacao`
+ * usa esta lente; segmento corporativo ou não informado fica sem ela (decisão do dono, 23/10/2026).
+ */
+export function contextoDeEscolaVale(segmento?: string | null): boolean {
+  return segmento === 'educacao';
+}
+
 /** True se o brief tem ao menos um campo preenchido (vale a pena injetar). */
 export function briefPreenchido(b?: Partial<EscolaBrief> | null): boolean {
   return !!b && Object.values(b).some((v) => typeof v === 'string' && v.trim());
