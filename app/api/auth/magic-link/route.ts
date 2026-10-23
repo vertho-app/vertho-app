@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { representantePorEmail } from '@/lib/sales/equipe';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { authLimiter, limitarPorDestino } from '@/lib/rate-limit';
 import { resolveAppLocale } from '@/lib/i18n';
@@ -89,11 +90,16 @@ export async function POST(req: NextRequest) {
     // Representante comercial (RC): não é colaborador de tenant nem platform
     // admin, mas é um login legítimo (Portal do Representante). Elegível quando
     // ativo. Sem tenant/telefone → link por e-mail, redirect para /representante.
+    // Integrante da equipe de um RC ativo (21.4) também entra, pelo mesmo
+    // resolvedor do portal (`representantePorEmail`): as duas portas não podem
+    // discordar sobre quem é representante.
     let rep: { name: string | null } | null = null;
     if (!colab && !platformAdmin) {
-      const { data } = await sb.from('sales_representatives')
-        .select('name').eq('email', trimmed).eq('status', 'active').maybeSingle();
-      rep = data as typeof rep;
+      const r = await representantePorEmail(sb, trimmed).catch((e) => {
+        console.error('[magic-link] representante não resolvido:', e?.message);
+        return null;
+      });
+      if (r && r.rep.status === 'active') rep = { name: r.integrante?.name ?? r.rep.name };
     }
 
     const baseRecipient = recipientFromLookup(colab, platformAdmin);

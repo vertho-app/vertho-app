@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Plus, Users, X } from 'lucide-react';
 import {
@@ -10,6 +10,7 @@ import { COMPENSATION_MODELS, COMPENSATION_MODEL_LABELS, type CompensationModel 
 import AdminPageHeader from '@/components/admin/page-header';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { fmtDate } from '@/lib/sales/formatters';
+import EquipeRepresentante from '@/components/sales/equipe-representante';
 import type { SalesRepresentative } from '@/lib/sales/types';
 
 type RepStatus = SalesRepresentative['status'];
@@ -32,6 +33,7 @@ const EMPTY_FORM = {
 };
 
 export default function RepresentantesAdminPage() {
+  const [equipeAberta, setEquipeAberta] = useState<string | null>(null);
   const confirmDialog = useConfirm();
   const [reps, setReps] = useState<SalesRepresentative[]>([]);
   const [loading, setLoading] = useState(true);
@@ -218,11 +220,13 @@ export default function RepresentantesAdminPage() {
                   <th className="px-3 py-2">Remuneração</th>
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Criado em</th>
+                  <th className="px-3 py-2">Equipe</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {reps.map((r) => (
-                  <tr key={r.id} className="hover:bg-white/[0.02]">
+                  <Fragment key={r.id}>
+                  <tr className="hover:bg-white/[0.02]">
                     <td className="px-3 py-2 font-semibold text-white">{r.name}</td>
                     <td className="px-3 py-2 text-gray-300">{r.email}</td>
                     <td className="px-3 py-2 text-gray-400">
@@ -254,7 +258,20 @@ export default function RepresentantesAdminPage() {
                       </select>
                     </td>
                     <td className="px-3 py-2 text-gray-400">{fmtDate(r.created_at)}</td>
+                    <td className="px-3 py-2">
+                      <button onClick={() => setEquipeAberta(equipeAberta === r.id ? null : r.id)} className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300">
+                        {equipeAberta === r.id ? 'Fechar' : 'Equipe'}
+                      </button>
+                    </td>
                   </tr>
+                  {equipeAberta === r.id && (
+                    <tr>
+                      <td colSpan={8} className="px-3 py-2 bg-white/[0.02]">
+                        <EquipeRepresentante repId={r.id} repNome={r.name} />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

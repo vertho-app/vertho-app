@@ -7,6 +7,8 @@ import {
   requireCommercialAdminAction,
 } from '@/lib/sales/permissions';
 import { COMPENSATION_MODELS, type CompensationModel } from '@/lib/sales/constants';
+import { normalizarEmail } from '@/lib/sales/equipe';
+import { logAdminAction } from '@/lib/audit';
 import type { SalesRepresentative } from '@/lib/sales/types';
 
 const modeloValido = (m: unknown): m is CompensationModel =>
@@ -48,6 +50,10 @@ export async function createRepresentative(input: {
   const sb = createSupabaseAdmin();
   const { data: existing } = await sb.from('sales_representatives').select('id').eq('email', email).maybeSingle();
   if (existing) return { success: false as const, error: 'Já existe representante com este e-mail' };
+  // Um e-mail opera um representante só: integrante de equipe não vira RC por cima.
+  const { data: integrante, error: erroIntegrante } = await sb.from('sales_representative_users').select('id').eq('email', email).maybeSingle();
+  if (erroIntegrante) return { success: false as const, error: erroIntegrante.message };
+  if (integrante) return { success: false as const, error: 'Este e-mail já é de um integrante da equipe de outro representante' };
 
   // Se o e-mail já tem usuário auth, vincula o user_id (login imediato).
   let userId: string | null = null;
@@ -111,5 +117,65 @@ export async function updateRepresentativeStatus(repId: string, status: 'active'
     .eq('id', repId);
   if (error) return { success: false as const, error: error.message };
   console.log(`[sales] RC ${repId} → ${status} por ${admin.email}`);
+  return { success: true as const };
+}
+
+// ── Equipe do representante (contrato v6, 21.4; mig 298) ───────────────────
+
+export type IntegranteRow = { id: string; name: string; email: string; status: 'active' | 'inactive'; created_at: string };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Integrantes da equipe de um RC (só admin). */
+export async function listarEquipe(repId: string) {
+  await requireCommercialAdminAction(false);
+  const sb = createSupabaseAdmin();
+  const { data, error } = await sb.from('sales_representative_users')
+    .select('id, name, email, status, created_at').eq('representante_id', repId).order('name');
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const, data: (data || []) as IntegranteRow[] };
+}
+
+/**
+ * Dá login a um integrante da equipe do RC (21.4): ele opera o mesmo portal, e o
+ * que faz sai assinado com o e-mail dele. A comissão continua do representante.
+ * Um e-mail opera um representante só.
+ */
+export async function adicionarIntegrante(repId: string, input: { name: string; email: string }) {
+  const admin = await requireCommercialAdminAction(true);
+  const email = normalizarEmail(input?.email);
+  const name = String(input?.name || '').trim();
+  if (!name) return { success: false as const, error: 'Informe o nome' };
+  if (!EMAIL_RE.test(email)) return { success: false as const, error: 'E-mail inválido' };
+  const sb = createSupabaseAdmin();
+  const [{ data: rep, error: erroRep }, { data: ehRc, error: erroRc }, { data: jaEsta, error: erroJa }] = await Promise.all([
+    sb.from('sales_representatives').select('id, name').eq('id', repId).maybeSingle(),
+    sb.from('sales_representatives').select('id').eq('email', email).maybeSingle(),
+    sb.from('sales_representative_users').select('id, representante_id, status').eq('email', email).maybeSingle(),
+  ]);
+  const erro = erroRep || erroRc || erroJa;
+  if (erro) return { success: false as const, error: erro.message };
+  if (!rep) return { success: false as const, error: 'Representante não encontrado' };
+  if (ehRc) return { success: false as const, error: 'Este e-mail já é de um representante' };
+  if (jaEsta && jaEsta.representante_id !== repId) return { success: false as const, error: 'Este e-mail já é da equipe de outro representante' };
+
+  const { error } = jaEsta
+    ? await sb.from('sales_representative_users').update({ name, status: 'active' }).eq('id', jaEsta.id)
+    : await sb.from('sales_representative_users').insert({ representante_id: repId, email, name, status: 'active', criado_por: admin.email });
+  if (error) return { success: false as const, error: error.message };
+  await logAdminAction({ adminEmail: admin.email, acao: 'sales_equipe.adicionar', alvo: `${rep.name} (${repId})`, detalhes: { email, name } });
+  return { success: true as const };
+}
+
+/** Tira o acesso de um integrante (o histórico do que ele fez fica). */
+export async function desativarIntegrante(integranteId: string) {
+  const admin = await requireCommercialAdminAction(true);
+  const sb = createSupabaseAdmin();
+  const { data, error } = await sb.from('sales_representative_users').update({ status: 'inactive' })
+    .eq('id', integranteId).select('email, representante_id');
+  if (error) return { success: false as const, error: error.message };
+  const linha = (data || [])[0] as { email: string; representante_id: string } | undefined;
+  if (!linha) return { success: false as const, error: 'Integrante não encontrado' };
+  await logAdminAction({ adminEmail: admin.email, acao: 'sales_equipe.desativar', alvo: linha.representante_id, detalhes: { email: linha.email } });
   return { success: true as const };
 }

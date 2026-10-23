@@ -85,6 +85,10 @@ export async function enviarAvisosDeProtecao(sb: Sb, agora: Date = new Date()): 
   const { data: reps, error: erroReps } = await sb.from('sales_representatives')
     .select('id, name, email, status').in('id', repIds);
   if (erroReps) throw new Error(`alerta_protecao_rc: leitura dos representantes falhou: ${erroReps.message}`);
+  // A equipe ativa do RC (21.4) recebe junto: quem opera o portal precisa saber.
+  const { data: equipe, error: erroEquipe } = await sb.from('sales_representative_users')
+    .select('representante_id, email').in('representante_id', repIds).eq('status', 'active');
+  if (erroEquipe) throw new Error(`alerta_protecao_rc: leitura da equipe falhou: ${erroEquipe.message}`);
 
   const falhas: string[] = [];
   let enviados = 0;
@@ -93,7 +97,9 @@ export async function enviarAvisosDeProtecao(sb: Sb, agora: Date = new Date()): 
     if (rep.status !== 'active' || !rep.email || ehRcFicticio(rep.email)) continue;
     const doRep = opps.filter((o) => o.representante_id === rep.id);
     const email = emailDoAviso(rep.name.split(' ')[0] || rep.name, doRep);
-    const r = await sendEmail({ from: EMAIL_FROM_DEFAULT, to: rep.email, ...email });
+    const destinatarios = [rep.email, ...((equipe || []) as { representante_id: string; email: string }[])
+      .filter((m) => m.representante_id === rep.id && !ehRcFicticio(m.email)).map((m) => m.email)];
+    const r = await sendEmail({ from: EMAIL_FROM_DEFAULT, to: destinatarios, ...email });
     if (!r.ok) { falhas.push(`${rep.id}: ${r.error || 'falha no envio'}`); continue; }
     enviados++;
     const { error: erroMarca } = await sb.from('sales_opportunities')

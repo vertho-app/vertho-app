@@ -68,6 +68,8 @@ import { TOKEN_APRESENTACAO, buildApresentacao } from '@/lib/sales/apresentacao'
 import { conteudoInstitucional } from '@/lib/sales/proposal-document';
 import { getMinhaMeta, salvarMeta } from '@/actions/sales/metas';
 import { mesesCompletos, metaEditavel, progressoDaMeta, provisaoDeIndenizacao } from '@/lib/sales/metas';
+import { representantePorEmail } from '@/lib/sales/equipe';
+import { adicionarIntegrante } from '@/actions/sales/representatives';
 import { approveProposal, markProposalAccepted, markProposalSentToClient, registrarAceitePropostaDoRC, submitProposalForApproval } from '@/actions/sales/proposals';
 
 const escritasEm = (tabela: string, op: string) => sb.escritas.filter((e) => e.tabela === tabela && e.op === op);
@@ -904,5 +906,69 @@ describe('metas: marcos trimestrais acumulados sobre o valor contratado', () => 
     expect(sb.usou('sales_remuneracao_rc', 'select')).toBe(false);
     const src = readFileSync('components/sales/minha-meta-card.tsx', 'utf8');
     expect(src).not.toMatch(/sales_remuneracao_rc|ajuda_custo_mensal/);
+  });
+});
+
+// ── Equipe do representante (21.4) ──────────────────────────────────────────
+
+describe('equipe do representante: vários logins para o mesmo RC', () => {
+  const rc = { id: 'rc-1', email: 'angelica@exemplo.com', name: 'Angélica', status: 'active' };
+
+  it('o e-mail do RC resolve o RC; o do integrante ativo resolve o RC dele', async () => {
+    sb = criarSupabaseMock({
+      resolver: (tabela, _c, cadeia) => {
+        const email = cadeia.find((e) => e.metodo === 'eq' && e.args[0] === 'email')?.args[1];
+        if (tabela === 'sales_representatives') return email === rc.email || cadeia.some((e) => e.metodo === 'eq' && e.args[0] === 'id') ? rc : null;
+        if (tabela === 'sales_representative_users') return email === 'sdr@exemplo.com' ? { id: 'u1', name: 'SDR', email, representante_id: 'rc-1' } : null;
+        return null;
+      },
+    });
+    expect(await representantePorEmail(sb.client, ' Angelica@Exemplo.com ')).toMatchObject({ rep: { id: 'rc-1' }, integrante: null });
+    expect(await representantePorEmail(sb.client, 'sdr@exemplo.com')).toMatchObject({ rep: { id: 'rc-1' }, integrante: { id: 'u1' } });
+    expect(sb.usou('sales_representative_users', 'eq', 'status')).toBe(true);
+    expect(await representantePorEmail(sb.client, 'ninguem@exemplo.com')).toBeNull();
+  });
+
+  it('erro de leitura lança: o gate não vira "não é representante"', async () => {
+    sb = criarSupabaseMock();
+    sb.falharEm({ tabela: 'sales_representative_users', op: 'select', mensagem: 'timeout' });
+    await expect(representantePorEmail(sb.client, 'sdr@exemplo.com')).rejects.toThrow(/equipe/);
+  });
+
+  it('o portal, o Copiloto e o magic link usam o mesmo resolvedor', () => {
+    for (const arquivo of ['lib/sales/permissions.ts', 'lib/copiloto/auth.ts', 'app/api/auth/magic-link/route.ts']) {
+      expect(readFileSync(arquivo, 'utf8')).toContain('representantePorEmail(');
+    }
+  });
+
+  it('dar acesso: um e-mail opera um representante só', async () => {
+    const montar = (ehRc: any, jaEsta: any) => {
+      sb = criarSupabaseMock({
+        resolver: (tabela, _c, cadeia) => {
+          if (tabela === 'sales_representatives') return cadeia.some((e) => e.metodo === 'eq' && e.args[0] === 'id') ? { id: 'rc-1', name: 'Angélica' } : ehRc;
+          if (tabela === 'sales_representative_users') return jaEsta;
+          return null;
+        },
+      });
+    };
+    montar({ id: 'rc-2' }, null);
+    expect((await adicionarIntegrante('rc-1', { name: 'SDR', email: 'outro-rc@exemplo.com' })).success).toBe(false);
+    montar(null, { id: 'u9', representante_id: 'rc-2', status: 'active' });
+    expect((await adicionarIntegrante('rc-1', { name: 'SDR', email: 'sdr@exemplo.com' })).success).toBe(false);
+    expect(escritasEm('sales_representative_users', 'insert')).toHaveLength(0);
+    montar(null, null);
+    expect(await adicionarIntegrante('rc-1', { name: 'SDR', email: ' SDR@Exemplo.com ' })).toEqual({ success: true });
+    expect(escritasEm('sales_representative_users', 'insert')[0]?.payload).toMatchObject({ representante_id: 'rc-1', email: 'sdr@exemplo.com', status: 'active' });
+  });
+
+  it('o aviso de 60 dias vai também para a equipe ativa', async () => {
+    const opp = { id: 'opp-1', representante_id: 'rc-1', opportunity_name: 'Colégio Aurora', last_movement_at: '2026-08-20T10:00:00Z', protection_end_date: '2026-11-18', account: null };
+    sb = criarSupabaseMock({
+      lista: (tabela) => (tabela === 'sales_opportunities' ? [opp]
+        : tabela === 'sales_representatives' ? [rc]
+        : tabela === 'sales_representative_users' ? [{ representante_id: 'rc-1', email: 'sdr@exemplo.com' }, { representante_id: 'rc-9', email: 'alheio@exemplo.com' }] : []),
+    });
+    await enviarAvisosDeProtecao(sb.client);
+    expect(enviados[0]?.to).toEqual(['angelica@exemplo.com', 'sdr@exemplo.com']);
   });
 });

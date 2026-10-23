@@ -1,7 +1,8 @@
 // Guards de acesso do Portal do Representante — enforcement 100% server-side.
 //
 // Modelo: RC é usuário Supabase Auth ligado a sales_representatives por e-mail
-// (user_id opcional). NÃO é colaborador de tenant — por isso não passa por
+// (user_id opcional), ou integrante ativo da equipe dele (21.4, mig 298,
+// `lib/sales/equipe.ts`). NÃO é colaborador de tenant — por isso não passa por
 // getUserContext/requireUserAction. Admin comercial = platform admin com as
 // chaves sales_channel.* (sócio enxerga em leitura; escrita é master).
 //
@@ -9,25 +10,27 @@
 // query; nunca confiar em filtro client-side.
 import { getAuthenticatedEmailFromAction, requireAdminAction } from '@/lib/auth/action-context';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { representantePorEmail, type IntegranteDaEquipe } from './equipe';
 import type { SalesRepresentative } from './types';
 
 export type RepresentativeContext = {
   rep: SalesRepresentative;
+  /** E-mail de QUEM está logado (o RC ou o integrante da equipe): assina notas e registros. */
   email: string;
+  /** Integrante da equipe do RC (21.4); null quando é o próprio RC. */
+  integrante?: IntegranteDaEquipe | null;
 };
 
-/** Contexto do RC logado (null se o usuário não é representante). */
+/**
+ * Contexto do RC logado (null se o usuário não é representante nem integrante
+ * ativo da equipe de um). Erro de leitura lança: o gate não vira "não é RC".
+ */
 export async function getRepresentativeContext(): Promise<RepresentativeContext | null> {
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return null;
-  const sb = createSupabaseAdmin();
-  const { data } = await sb
-    .from('sales_representatives')
-    .select('*')
-    .eq('email', email)
-    .maybeSingle();
-  if (!data) return null;
-  return { rep: data as SalesRepresentative, email };
+  const r = await representantePorEmail(createSupabaseAdmin(), email);
+  if (!r) return null;
+  return { rep: r.rep, email, integrante: r.integrante };
 }
 
 /** Exige RC ativo. Suspenso/inativo não opera o portal. */

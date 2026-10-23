@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getUserContext } from '@/lib/authz';
 import { getAuthenticatedEmail } from '@/lib/auth/request-context';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { representantePorEmail } from '@/lib/sales/equipe';
 import type { SalesRepresentative } from '@/lib/sales/types';
 
 export type CopilotAccess =
@@ -12,18 +13,12 @@ export type CopilotAccess =
 export async function resolveCopilotAccess(email: string | null): Promise<CopilotAccess | null> {
   if (!email) return null;
   const normalized = email.trim().toLowerCase();
-  const sb = createSupabaseAdmin();
-  const { data: rep, error } = await sb
-    .from('sales_representatives')
-    .select('*')
-    .eq('email', normalized)
-    .maybeSingle();
-  // Gate de acesso: falha de leitura não pode virar "sem acesso" (403 para
-  // quem tem) — nem pular para o ramo de admin com o lookup morto (E11).
-  if (error) throw new Error('falha ao resolver representante: ' + error.message);
-
-  if (rep?.status === 'active') {
-    return { kind: 'representative', email: normalized, rep: rep as SalesRepresentative };
+  // RC ou integrante ativo da equipe dele (21.4). Gate de acesso: falha de
+  // leitura LANÇA, não vira "sem acesso" (403 para quem tem) nem pula para o
+  // ramo de admin com o lookup morto (E11).
+  const r = await representantePorEmail(createSupabaseAdmin(), normalized);
+  if (r?.rep.status === 'active') {
+    return { kind: 'representative', email: normalized, rep: r.rep as SalesRepresentative };
   }
 
   const user = await getUserContext(normalized);
