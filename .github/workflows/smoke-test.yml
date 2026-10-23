@@ -19,7 +19,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Era '20' (fim de vida, sem correção de segurança). Mesmo número do
+          # `.nvmrc` e dos outros workflows.
+          node-version: '24.22.1'
 
       # `sleep 90` não esperava o deploy: o build leva ~2 min (medido 10/08/2026),
       # então o smoke media o deployment ANTERIOR e ficava verde sobre código que

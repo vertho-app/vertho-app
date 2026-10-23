@@ -65,8 +65,9 @@ jobs:
           # recusa (`notsup`) e o job falha ANTES de rodar o teste. Um job que
           # falha pelo motivo errado não é o alarme que ele diz ser: mesmo com o
           # secret configurado, ele continuaria vermelho pelo mesmo erro.
-          # (O `smoke-test.yml` ainda usa 20 e funciona porque não faz `npm ci`.)
-          node-version: '24.13.1'
+          # 24.22.1 = security release de 20/10/2026 (CVE-2026-111497, Brotli);
+          # o mesmo número do `.nvmrc` e dos outros workflows.
+          node-version: '24.22.1'
           cache: 'npm'
 
       - run: npm ci

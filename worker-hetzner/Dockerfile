@@ -1,5 +1,8 @@
 # Worker de render Remotion — Vertho (Hetzner CX33, always-on)
-FROM node:22-bookworm-slim
+# Tag de patch EXATA (23/10/2026): 22.23.4 é o security release de 20/10 (CVE-2026-111497,
+# Brotli). Com a tag móvel `22-bookworm-slim` a versão dependia de quando a imagem foi
+# reconstruída e não aparecia no repo. Subir de patch = editar esta linha e reconstruir.
+FROM node:22.23.4-bookworm-slim
 
 # Dependências de sistema: ffmpeg (encode/concat) + libs do Chrome headless que o
 # Remotion (renderMedia) usa. Mesmas libs do build do trigger.dev.
