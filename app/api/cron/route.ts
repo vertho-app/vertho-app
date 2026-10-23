@@ -424,6 +424,27 @@ async function executarAcao(req, authHeader, cronSecret) {
         result = { hoje: r.hoje, empresas: r.empresas.map(({ html: _h, blocos: _b, ...resto }) => resto) };
         break;
       }
+      // Pacote de clínicas: lembrete automático da entrada (perfil e diagnóstico), 10h BRT, para quem
+      // tem turma começando em 5 ou 3 dias. `dry=1` diz quem receberia o quê. Meta sem resposta, gente
+      // adiada pelo teto do lote ou falha da fila viram 500: lembrete de dia fixo perdido não volta.
+      case 'lembrete_entrada': {
+        const { executarLembreteEntrada } = await import('@/lib/lembrete-entrada/executar');
+        const dry = searchParams.get('dry') === '1';
+        const r = await executarLembreteEntrada(clienteCron(), {
+          empresaId: searchParams.get('empresa') || undefined,
+          enviar: !dry,
+        });
+        if (!dry) {
+          const problemas = r.empresas.flatMap((e) => [
+            ...(e.pulada && !e.pulada.startsWith('envios pausados') ? [`${e.empresa}: ${e.pulada}`] : []),
+            ...e.porTemplate.filter((t) => t.adiadosPorTeto || t.falhas.length)
+              .map((t) => `${e.empresa}/${t.template}: ${t.adiadosPorTeto} adiados, ${t.falhas.length} falhas`),
+          ]);
+          if (problemas.length) throw new Error(`lembrete da entrada incompleto: ${problemas.join(' · ')}`);
+        }
+        result = r;
+        break;
+      }
       // DRE por tenant (mig 276): fecha o custo de IA da semana que acabou e
       // auto-cura as 12 anteriores sem fechamento. 04:30 BRT, depois do e-mail de
       // custo das 04:00, que lê a mesma RPC. Falha do BANCO ou da RPC vira

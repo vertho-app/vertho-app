@@ -15,7 +15,7 @@
 import { APP_WEBHOOK_URL, QSTASH_BASE_URL } from '@/lib/domain';
 import { assertWhatsappAvailable } from '@/lib/whatsapp';
 
-async function publicarQStash(caminho: string, payload: any, delaySec: number): Promise<void> {
+async function publicarQStash(caminho: string, payload: any, delaySec: number, dedupId?: string): Promise<void> {
   const qstashToken = process.env.QSTASH_TOKEN!;
 
   // Usa APP_WEBHOOK_URL (app.{ROOT_DOMAIN}) — APP_URL pode apontar pra raiz
@@ -29,6 +29,10 @@ async function publicarQStash(caminho: string, payload: any, delaySec: number): 
       'Authorization': `Bearer ${qstashToken}`,
       'Content-Type': 'application/json',
       'Upstash-Delay': `${delaySec}s`,
+      // Só quem pede: a fila descarta a 2ª publicação com o mesmo id (o lembrete automático da
+      // entrada usa, para uma 2ª execução do cron no mesmo dia não mandar em dobro). Os lotes
+      // manuais NÃO passam id: o reenvio deles é livre por decisão do dono.
+      ...(dedupId ? { 'Upstash-Deduplication-Id': dedupId } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -69,7 +73,7 @@ export async function publicarWhatsappCis(payload: any, delaySec: number = 0): P
  * Lança, nunca "pula": sucesso implícito num publicador é como uma coorte
  * inteira fica sem mensagem com o banco dizendo que saiu.
  */
-export async function publicarTemplateCloudCis(payload: any, delaySec: number = 0): Promise<void> {
+export async function publicarTemplateCloudCis(payload: any, delaySec: number = 0, opts: { dedupId?: string } = {}): Promise<void> {
   if (!process.env.QSTASH_TOKEN) {
     throw new Error('QSTASH_TOKEN não configurado — canal WhatsApp indisponível');
   }
@@ -77,7 +81,7 @@ export async function publicarTemplateCloudCis(payload: any, delaySec: number = 
   if (!cloudApiConfigurada()) {
     throw new Error('Cloud API não configurada — template não pode ser enfileirado');
   }
-  await publicarQStash('/api/webhooks/qstash/whatsapp-cis', payload, delaySec);
+  await publicarQStash('/api/webhooks/qstash/whatsapp-cis', payload, delaySec, opts.dedupId);
 }
 
 /** Enfileira uma task interna (rota worker própria, sem checagem de WhatsApp). */

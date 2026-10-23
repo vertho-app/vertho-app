@@ -1225,7 +1225,12 @@ export interface ResumoEnfileiramento {
  * O `dispararLoteTemplate` síncrono continua existindo para SCRIPT de bancada,
  * onde não há timeout de HTTP e ver a mensagem sair uma a uma é o que se quer.
  */
-export async function enfileirarLoteTemplate(lote: LotePreparado, empresaId: string): Promise<ResumoEnfileiramento> {
+/**
+ * @param opts.dedupFila usa a `dedupeKey` de cada alvo como id de deduplicação na fila (QStash): uma 2ª
+ *        publicação com a mesma chave é descartada. Só o lembrete automático da entrada usa (a chave dele
+ *        leva o dia). Os lotes manuais não passam: o reenvio deles é livre.
+ */
+export async function enfileirarLoteTemplate(lote: LotePreparado, empresaId: string, opts: { dedupFila?: boolean } = {}): Promise<ResumoEnfileiramento> {
   const { publicarTemplateCloudCis } = await import('@/lib/qstash-publish');
   const { atrasosDoLote, duracaoEstimada } = await import('@/lib/whatsapp/cadencia');
 
@@ -1246,7 +1251,7 @@ export async function enfileirarLoteTemplate(lote: LotePreparado, empresaId: str
         templateDedupeKey: alvo.dedupeKey,
         colaboradorId: alvo.colaboradorId,
         empresaId,
-      }, atrasos[i]);
+      }, atrasos[i], opts.dedupFila ? { dedupId: alvo.dedupeKey } : {});
       enfileirados++;
     } catch (e: any) {
       falhas.push({ nome: alvo.nome, motivo: e?.message || String(e) });
