@@ -240,6 +240,12 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   do envio automático, e anule o `pdf_path`. 20/10/2026: corrigir só o trecho do alerta expôs o erro vizinho, o
   PDI foi de `warn` a `fail`, e `fail` RETÉM o aviso das 9h; a 2ª correção passou. Instrumento: o bloco AUDITORIA
   de `lib/relatorios/individual-core.ts` (evidência = o `user` do gerador, estrutural + 2 rodadas `pdi_check`).
+- 🔴 **Mostrar PDF NA TELA (casa: `<iframe` com `/pdf`, `.pdf` ou `application/pdf` em `app/` ou `components/`):** use
+  `components/pdf/in-app-pdf-document.tsx`, nunca quadro. 23/10/2026: no iPhone o quadro mostrou só a capa do case
+  (§F-I49 do `docs/FMEA-PIPELINE.md`); o guard `formatos-que-falham.test.ts` só cobre a semana e `/dashboard/conteudo/[id]`,
+  então tela NOVA passa calada. Confira também: a caixa de quem usa o leitor tem `overflow-y-auto` (sem ela ele também
+  só mostra a 1ª página), e a largura dela no celular (a memória de canvas cresce com a largura: 24 MB a 390 px, 152 MB a
+  980 px, e ~180 MB já derrubou a aba do iPhone no CONARH).
 
 ## 13. Vídeo
 

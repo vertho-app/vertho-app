@@ -44,7 +44,7 @@
 | **Jobs de fundo** | Trigger.dev (deploy **MANUAL**, nao sai no `git push`) | 4.7.3 | ✅ |
 | **Video** | HeyGen (avatar) + Remotion (render, backend Hetzner) + Bunny Stream (hosting) | Remotion 4.0 | ✅ |
 | **PDF** | @react-pdf/renderer (geracao) | 4.4.0 | ✅ |
-| **PDF Reader** | pdfjs-dist (leitura) | 5.6 | ✅ |
+| **PDF Reader** | pdfjs-dist (leitura, build `legacy`; §6.3) | 6.4 | ✅ |
 | **Embeddings** | Voyage AI (voyage-4-large, 1024d) | — | ✅ |
 | **Spreadsheet parse** | read-excel-file | 8.0 | ✅ |
 | **Filas** | Upstash QStash | 2.10.1 | ✅ |
@@ -1179,6 +1179,13 @@ Dispatch de formularios e relatorios. Status: 🔑 RESEND_API_KEY.
 ### 6.3 PDF — @react-pdf/renderer + pdfjs-dist
 Geracao server-side. Fonte NotoSans. PDFs: Individual, Gestor, RH, Comportamental, **Evolution Report**.
 - `lib/temporada-concluida-pdf.ts` — PDF Evolution Report individual
+- **Leitura no navegador: um leitor só**, `components/pdf/in-app-pdf-document.tsx` (pdf.js em canvas, uma por página,
+  com a escala pela LARGURA disponível). Serve gestor, RH, adequação e, desde 23/10/2026, o texto e o case da trilha
+  (semana e `/dashboard/conteudo/[id]`). 🔴 **NUNCA PDF em `<iframe>` para quem lê no celular:** o Safari do iPhone desenha
+  só a 1ª página do quadro e não deixa rolar (caso real, §F-I49 do `docs/FMEA-PIPELINE.md`). O leitor carrega o build
+  `legacy` do pdf.js: o padrão do 6.4 exige recursos que Safari e WebView Android fora do topo não têm. A rolagem é da
+  caixa de quem o usa (sem ela, ele também só mostraria a 1ª página), e a escala pela largura é o que mantém a memória
+  de canvas baixa no celular (24 MB para 7 páginas a 390 px; a 980 px, 152 MB).
 Status: ✅
 
 ### 6.4 Scraping — Jina AI + Firecrawl

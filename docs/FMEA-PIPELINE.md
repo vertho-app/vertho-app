@@ -652,7 +652,8 @@ já era dita no topo, mas como texto, e a porta ficava a duas telas de rolagem.
 - ⚠️ **Em aberto:** a prova visual pós-deploy não foi feita (os prints são de antes da correção). E
   "case"/"texto" são PDF dentro de `<iframe>` de ~570px: no Playwright o quadro sai branco porque o
   Chromium dele não tem visualizador de PDF, então isso não prova nada; no iPhone, `Suponho:` que
-  também não renderize. Conferir num aparelho antes de concluir.
+  também não renderize. Conferir num aparelho antes de concluir. ✅ **Confirmado por caso real e
+  corrigido em 23/10/2026: o iPhone mostrava só a capa. Ver §F-I49.**
 
 ### F-I40 · Abrir o conteúdo de semana CONCLUÍDA a reabria, e a seguinte trancava ✅ (fechado 25/09/2026, `ea327e35`)
 Vizinho do F-I21 (a `marcarConteudoConsumido` sem gate já estava no "Aberto" de lá) e do F-I23 (o
@@ -947,6 +948,37 @@ Vizinho do F-I43 (o mesmo aviso, do lado da idempotência) e da etapa 2 da jorna
   Enviar) seguem `enterEnvia`.
 - **Aberto:** o chat da Ipi (`components/ipi/ipi-chat.tsx:121`) tem a mesma área de texto com Enter que envia, sem a
   regra do celular. Uma 2ª pessoa que reclamou NÃO é este caso: nenhum pedido à rota da conversa saiu do aparelho dela.
+
+### F-I49 · No iPhone, o case e o texto da semana mostravam só a capa 🟡 (corrigido 23/10/2026, `1c6a8787` + `717b5cff`; não visto em iPhone real)
+Fecha o "Em aberto" do F-I39 (lá era `Suponho:`; aqui é caso real).
+- **Gatilho:** texto e case abriam o PDF num `<iframe>` de altura fixa na semana (`app/dashboard/temporada/semana/[week]/page.tsx`)
+  e em `app/dashboard/conteudo/[id]/content-experience.tsx`. O Safari do iPhone desenha só a 1ª página de um PDF dentro
+  de um quadro e não deixa rolar. O arquivo estava inteiro, e nada no servidor via o problema.
+- **Efeito medido (23/10/2026, 4Life, um diretor):** a queixa foi "concluí o vídeo, tento abrir o case e só vejo a capa".
+  O case dele era o do Kit (overlay, não o id do `temporada_plano`), personalizado CS e completo no Storage: 7 páginas
+  na pílula 1, 5 na pílula 2. A única pista do aparelho foram os relatórios do CSP (`/api/csp-report`, log da Vercel)
+  no minuto da abertura, com `disposicao` e `amostra` vazias, assinatura de navegador não-Chromium.
+- **Correção (`1c6a8787`):** as duas telas usam o leitor do app, `components/pdf/in-app-pdf-document.tsx` (pdf.js em
+  canvas, uma por página, o mesmo do gestor e do RH), com a rolagem na caixa da tela (`page.tsx:1657`,
+  `content-experience.tsx:158`). A rota que responde erro em vez do PDF (R-93) chega como falha do leitor (`onError`,
+  `in-app-pdf-document.tsx:168`) e a semana segue oferecendo os outros formatos; a detecção pelo documento do quadro
+  (`iframeMostrouErroDoApp`) saiu junto com o quadro.
+- **Correção (`717b5cff`):** o leitor carrega o build `legacy` do pdf.js (`in-app-pdf-document.tsx:19`). O build padrão
+  do `pdfjs-dist` 6.4.299 chama `Map.prototype.getOrInsertComputed` e `Math.sumPrecise` sem checar (medido no pacote), e
+  num Safari ou WebView Android fora do topo o leitor falharia inteiro: com um case sem outro formato, pior que a capa.
+  O `legacy` traz os polyfills (core-js) e custa ~65 KB a mais.
+- **Memória de canvas (o alerta do CONARH, `docs/CONARH52-SPRINT-CONSOLIDADO.md`: 10 canvas A4 em DPR 2, ~180 MB,
+  derrubam a aba do iPhone):** o leitor escala pela LARGURA disponível, não por escala fixa. `Medido: 23/10/2026`, Chromium
+  com iPhone 13 emulado e o case real: 390 px de largura, **24,1 MB** para 7 páginas (17,2 MB para 5). A mesma página de
+  teste SEM `<meta viewport>` desenhou em 980 px e ocupou **152 MB**: a escala pela largura é o que protege, e um uso
+  novo do leitor em caixa larga, ou com escala fixa, volta à faixa do CONARH.
+- **Guardas:** `tests/unit/formatos-que-falham.test.ts` (describe "leitor de PDF da semana", linha 81): nenhuma das duas
+  telas desenha PDF em quadro, a rolagem é da caixa, a falha chega à semana, o leitor importa o `legacy` e o build padrão
+  segue sem polyfill (alvo vivo). Mutação medida: tirar a rolagem e o `onError` da semana derrubou 3 testes.
+- **Aberto:** (1) não visto num iPhone real, só no Chromium emulado; (2) em 1 de 34 rodadas da prova (a 1ª, a frio) a capa
+  saiu SEM as imagens, e não se repetiu em 33 (sequencial, paralela e com CPU 6× mais lenta): se alguém relatar capa sem
+  ilustração no leitor, é esse caso; (3) a CSP em modo relatório (`lib/csp-politica.mjs`) não lista `'self'` nem o Storage
+  em `frame-src`: no dia em que for enforçada, todo `<iframe>` de PDF que restar quebra.
 
 ---
 
