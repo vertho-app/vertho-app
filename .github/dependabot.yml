@@ -3,11 +3,19 @@
 # `cooldown`: a versão nova só vira PR depois de N dias publicada. Pacote sequestrado
 # costuma ser retirado do registry em horas ou poucos dias (Shai-Hulud, ChainDrop,
 # node-ipc em 2026), então esperar é a defesa mais barata contra a versão envenenada.
-# Isto NÃO atrasa alerta de segurança: os "Dependabot alerts" e os "security updates"
-# são ligados à parte, em Settings → Code security, e não obedecem ao cooldown.
+# O cooldown NÃO vale para os "security updates" (ligados à parte, em Settings →
+# Code security).
+#
+# Política (ajustada em 23/10, depois da 1ª rodada abrir 4 PRs na hora, um com 30
+# pacotes e dois com major):
+# - patch: um PR agrupado por ecossistema;
+# - minor: um PR por pacote (até `open-pull-requests-limit` abertos), para dar para
+#   ler o changelog de cada um;
+# - major: NÃO vira PR. É decisão do dono, feita à mão. Atenção: a doc do GitHub marca
+#   o `ignore` como opção que também afeta security updates, então uma correção que
+#   só exista em major aparece no ALERTA, não em PR.
 #
 # Cada PR roda o typecheck.yml (pull_request, sem secrets) e gera um preview na Vercel.
-# Por isso os grupos: um PR por ecossistema por semana, não um por pacote.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -20,18 +28,19 @@ updates:
     open-pull-requests-limit: 5
     cooldown:
       default-days: 7
-      semver-major-days: 30
     groups:
       # Trigger.dev em PR próprio: o SDK do app e o worker publicado andam juntos, e o
       # deploy do worker é MANUAL (`npx trigger.dev@<versão> deploy`); ver CLAUDE.md.
       trigger-dev:
         patterns:
           - '@trigger.dev/*'
-      npm-menores:
+      npm-patches:
         update-types:
-          - minor
           - patch
     ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
       # Família Remotion travada em 4.0.476: o bundle do worker Hetzner e o app têm de
       # usar a mesma versão (docs/SECURITY-STATUS.md, 06/10). Sobe à mão, junto.
       - dependency-name: remotion
@@ -47,13 +56,14 @@ updates:
     open-pull-requests-limit: 3
     cooldown:
       default-days: 7
-      semver-major-days: 30
     groups:
-      worker-menores:
+      worker-patches:
         update-types:
-          - minor
           - patch
     ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
       - dependency-name: '@remotion/*'
 
   - package-ecosystem: github-actions
@@ -69,6 +79,10 @@ updates:
       actions:
         patterns:
           - '*'
+    ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: docker
     directory: /worker-hetzner
