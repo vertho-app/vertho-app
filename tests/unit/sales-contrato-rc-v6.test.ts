@@ -63,6 +63,9 @@ import { createSalesAccount, criarOportunidadeExpansao, updateSalesAccount } fro
 import { registrarComissaoIndicacao } from '@/actions/sales/commissions-admin';
 import { buscarEscolasDoMercado } from '@/actions/sales/escolas';
 import { getAtividadeSemanal } from '@/actions/sales/atividade';
+import { gerarApresentacao, getApresentacaoPublica } from '@/actions/sales/apresentacoes';
+import { TOKEN_APRESENTACAO, buildApresentacao } from '@/lib/sales/apresentacao';
+import { conteudoInstitucional } from '@/lib/sales/proposal-document';
 import { approveProposal, markProposalAccepted, markProposalSentToClient, registrarAceitePropostaDoRC, submitProposalForApproval } from '@/actions/sales/proposals';
 
 const escritasEm = (tabela: string, op: string) => sb.escritas.filter((e) => e.tabela === tabela && e.op === op);
@@ -751,5 +754,71 @@ describe('atividade semanal (só admin)', () => {
     sb = criarSupabaseMock();
     sb.falharEm({ tabela: 'sales_activity_notes', op: 'select', mensagem: 'timeout' });
     expect((await getAtividadeSemanal(4)).success).toBe(false);
+  });
+});
+
+// ── Apresentação personalizada (decisão 8, mig 299) ─────────────────────────
+
+describe('apresentação personalizada que o RC gera', () => {
+  it('o VM tem o conteúdo da proposta e nada de preço', () => {
+    const vm = buildApresentacao({ cliente_nome: 'Colégio Aurora', segmento: 'educacao', contexto: '  Coordenação nova  ' }, { name: 'Angélica', email: 'a@x.com', phone: '11999990000' });
+    expect(vm.contexto).toBe('Coordenação nova');
+    expect(vm.pilares).toBe(conteudoInstitucional('educacao').pilares);
+    expect(vm.videos).toEqual([]);
+    expect(JSON.stringify(vm)).not.toMatch(/investimento|monthly|total_contract|comiss/i);
+    expect(buildApresentacao({ cliente_nome: null, segmento: 'xyz', contexto: null }, null)).toMatchObject({ segmento: 'corporativo', contato: { nome: 'Representante vertho.ai' } });
+  });
+
+  it('gera com o contexto confirmado (cortado em 600) e o segmento da conta', async () => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_opportunities' ? { id: 'opp-1', representante_id: 'rc-1', account_id: 'acc-1', attribution_status: 'validada', account: { legal_name: 'Aurora Ltda', trade_name: 'Colégio Aurora', segment: 'escola' } } : null),
+    });
+    const r = await gerarApresentacao('opp-1', { contexto: 'x'.repeat(700) });
+    expect(r).toMatchObject({ success: true, novo: true });
+    const p = escritasEm('sales_apresentacoes', 'insert')[0]?.payload;
+    expect(p).toMatchObject({ segmento: 'educacao', cliente_nome: 'Colégio Aurora', representante_id: 'rc-1' });
+    expect(p.contexto).toHaveLength(600);
+    expect(TOKEN_APRESENTACAO.test(p.token)).toBe(true);
+  });
+
+  it('com link em vigor, só atualiza o contexto (o endereço que o cliente tem continua)', async () => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_opportunities' ? { id: 'opp-1', representante_id: 'rc-1', attribution_status: 'validada', account: null } : null),
+      lista: (tabela) => (tabela === 'sales_apresentacoes' ? [{ id: 'ap-1', token: 'TOKEN_existente_123456' }] : []),
+    });
+    expect(await gerarApresentacao('opp-1', { contexto: 'novo' })).toMatchObject({ success: true, novo: false, token: 'TOKEN_existente_123456' });
+    expect(escritasEm('sales_apresentacoes', 'insert')).toHaveLength(0);
+  });
+
+  it('registro recusado não gera apresentação', async () => {
+    sb = criarSupabaseMock({ resolver: (tabela) => (tabela === 'sales_opportunities' ? { id: 'opp-1', representante_id: 'rc-1', attribution_status: 'recusada' } : null) });
+    expect((await gerarApresentacao('opp-1', {})).success).toBe(false);
+    expect(escritasEm('sales_apresentacoes', 'insert')).toHaveLength(0);
+  });
+
+  it('leitura pública: token fora do formato nem consulta; revogada não abre; aberta conta a visita', async () => {
+    sb = criarSupabaseMock();
+    expect(await getApresentacaoPublica('../../etc')).toBeNull();
+    expect(sb.chamadas).toHaveLength(0);
+
+    sb = criarSupabaseMock({ resolver: (tabela) => (tabela === 'sales_apresentacoes' ? { id: 'ap-1', representante_id: 'rc-1', segmento: 'educacao', revogada_em: '2026-10-20T00:00:00Z' } : null) });
+    expect(await getApresentacaoPublica('TOKEN_valido_abcdefghij')).toBeNull();
+
+    sb = criarSupabaseMock({
+      resolver: (tabela) => (tabela === 'sales_apresentacoes' ? { id: 'ap-1', representante_id: 'rc-1', cliente_nome: 'Colégio Aurora', segmento: 'educacao', contexto: null, view_count: 2, first_viewed_at: '2026-10-20T00:00:00Z', revogada_em: null }
+        : tabela === 'sales_representatives' ? { name: 'Angélica', email: 'a@x.com', phone: null } : null),
+    });
+    const vm = await getApresentacaoPublica('TOKEN_valido_abcdefghij');
+    expect(vm?.cliente.nome).toBe('Colégio Aurora');
+    expect(escritasEm('sales_apresentacoes', 'update')[0]?.payload).toMatchObject({ view_count: 3, first_viewed_at: '2026-10-20T00:00:00Z' });
+  });
+
+  it('a página pública não fala de preço e a mig 299 fecha a tabela', () => {
+    const pagina = readFileSync('app/apresentacao/[token]/page.tsx', 'utf8');
+    expect(pagina).not.toMatch(/fmtBRL|investimento|total_contract|monthly_value/);
+    const sql = readFileSync('migrations/299-rc-apresentacao.sql', 'utf8');
+    expect(sql).toMatch(/ENABLE ROW LEVEL SECURITY/);
+    expect(sql).toMatch(/REVOKE ALL ON public\.sales_apresentacoes FROM anon, authenticated/);
+    expect(sql).toMatch(/opportunity_id\s+uuid REFERENCES public\.sales_opportunities\(id\) ON DELETE CASCADE/);
   });
 });

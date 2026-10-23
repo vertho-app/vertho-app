@@ -541,6 +541,26 @@ function resolverContato(
   return { ...CONTATO_INSTITUCIONAL, origem: 'institucional' };
 }
 
+/**
+ * O conteúdo institucional do segmento, o MESMO do documento da proposta, para a
+ * apresentação que o RC gera antes dela (`lib/sales/apresentacao.ts`, mig 299).
+ * Uma fonte só: a apresentação e a proposta não podem contar histórias diferentes.
+ */
+export function conteudoInstitucional(segmento: ProposalSegmento) {
+  return {
+    pilares: PILARES_PADRAO,
+    curadoria: CURADORIA[segmento],
+    cenario: CENARIO[segmento],
+    personalizacao: PERSONALIZACAO[segmento],
+    fundadores: FUNDADORES,
+    gestao: { perguntas: PERGUNTAS_GESTAO, niveis: NIVEIS_GESTAO[segmento] } as ProposalGestao,
+    entregas: entregasPadrao(segmento),
+    paraPessoa: PARA_PESSOA_PADRAO,
+    paraInstituicao: PARA_INSTITUICAO_PADRAO,
+    cronograma: cronogramaPadrao(segmento),
+  };
+}
+
 /** Constrói o VM cliente-facing a partir da proposta + conta + representante. */
 export function buildProposalDocument(
   proposal: SalesProposal,

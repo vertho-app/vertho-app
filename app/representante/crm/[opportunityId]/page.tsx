@@ -18,6 +18,7 @@ import ProtectionStatusBadge from '@/components/sales/protection-status-badge';
 import ProposalStatusBadge from '@/components/sales/proposal-status-badge';
 import OpportunityForm, { type OpportunityFormValues } from '@/components/sales/opportunity-form';
 import OpportunityQualityScore from '@/components/sales/opportunity-quality-score';
+import ApresentacaoCard from '@/components/sales/apresentacao-card';
 import {
   OPPORTUNITY_STATUS_LABELS,
   ORIGIN_LABELS,
@@ -529,6 +530,7 @@ export default function OportunidadeDetalhePage({ params }: { params: Promise<{ 
                 </p>
               )}
             </div>
+            <ApresentacaoCard opportunityId={opp.id} podeGerar={isOpen && opp.attribution_status !== 'recusada'} />
             <OpportunityQualityScore
               input={{
                 account_id: opp.account_id,

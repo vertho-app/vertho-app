@@ -124,6 +124,7 @@
     "actions/sales/accounts.ts": 11,
     "actions/sales/admin-dashboard.ts": 1,
     "actions/sales/ai-assistant.ts": 3,
+    "actions/sales/apresentacoes.ts": 4,
     "actions/sales/atividade.ts": 1,
     "actions/sales/benchmark.ts": 1,
     "actions/sales/commissions-admin.ts": 8,
