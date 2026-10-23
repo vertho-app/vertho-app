@@ -12,6 +12,19 @@ import type { z } from 'zod';
 import { aplicarMatrizAtendimento } from './matriz-avaliacao';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
 
+/**
+ * Pacote de clínicas (lib/recepcao/modelos-clinica.ts): quem treina vê e inicia só os casos do
+ * próprio modelo de clínica; sem modelo, só os casos sem modelo. Vale na LISTA e no INÍCIO por id
+ * (`cenarioPublicado`): o início é um endpoint, e filtrar só a lista deixaria um caso de outro
+ * modelo ao alcance de quem mandasse o id. Contexto sem a marca (`filtraModelo` diferente de true:
+ * a plataforma, ou um contexto montado fora de `contextoRecepcao`) não filtra.
+ */
+// `any` de propósito: o tipo do construtor do PostgREST, passado por um genérico, estoura o TS (TS2589).
+function escopoDoModelo(q: any, c: ContextoRecepcao): any {
+  if (c.filtraModelo !== true) return q;
+  return c.modeloDaPessoa ? q.eq('conteudo->>modelo', c.modeloDaPessoa) : q.is('conteudo->>modelo', null);
+}
+
 export async function catalogo(c: ContextoRecepcao, editor = false) {
   // Só os casos do segmento da empresa (mig 263): uma loja não recebe caso de clínica.
   // Na biblioteca de edição, a empresa vê todos os estados das PRÓPRIAS versões, mas do
@@ -27,7 +40,7 @@ export async function catalogo(c: ContextoRecepcao, editor = false) {
     .select('*')
     .or(escopo)
     .eq('conteudo->>dominio', c.dominio);
-  if (!editor) q = q.eq('estado', 'publicado');
+  if (!editor) q = escopoDoModelo(q.eq('estado', 'publicado'), c);
   const { data, error } = await q
     .order('created_at', { ascending: false })
     .order('id')
@@ -54,6 +67,7 @@ export async function cenarioPublicado(
     .or(empresaOuGlobal(c.empresaId))
     .eq('conteudo->>dominio', c.dominio)
     .eq('estado', 'publicado');
+  q = escopoDoModelo(q, c);
   if (id) q = q.eq('id', id);
   const { data, error } = await q
     .order('created_at', { ascending: false })

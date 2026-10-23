@@ -15,6 +15,8 @@ import { proxyEmailFromPhone, isProxyEmail } from '@/lib/phone-otp';
 import { getLocale } from 'next-intl/server';
 import { TURMA_MEMBRO } from '@/lib/status';
 import { lerTudoPaginado } from '@/lib/paginacao';
+import { pacoteClinicasLigado, erroDoCadastroPacote, papelExigeCadastroDoPacote, type ReferenciaCadastroPacote } from '@/lib/pacote-clinicas';
+import { MODELOS_CLINICA } from '@/lib/recepcao/modelos-clinica';
 
 const VALID_ROLES = ['colaborador', 'gestor', 'rh'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
@@ -54,6 +56,40 @@ function buildImportMessage(importados: number, duplicados: number, erros: any[]
   if (detalhes.length === 0) return parts.join(' · ');
   const extra = erros.length + avisos.length - detalhes.length;
   return `${parts.join(' · ')}\n${detalhes.join('\n')}${extra > 0 ? `\n... mais ${extra} ocorrência${extra === 1 ? '' : 's'}` : ''}`;
+}
+
+/**
+ * Pacote de clínicas (lib/pacote-clinicas.ts): a chave da empresa e o que existe NELA para conferir o
+ * cadastro de uma secretária (cargos, clínicas) e dar nome à clínica escolhida. Toda leitura com o
+ * `empresa_id` no WHERE (o app roda em service-role). Falha de leitura LANÇA: cadastrar sem conferir
+ * seria aceitar qualquer id que o navegador mandasse.
+ *
+ * Helper local (não exportado): num arquivo `'use server'` todo export vira endpoint HTTP.
+ */
+async function referenciaDoPacote(sb: any, empresaId: string): Promise<{
+  ligado: boolean;
+  ref: ReferenciaCadastroPacote;
+  nomeDaClinica: Map<string, string>;
+}> {
+  const { data: empresa, error: eE } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+  if (eE) throw new Error(`não foi possível ler a configuração da empresa: ${eE.message}`);
+  const ligado = pacoteClinicasLigado(empresa?.sys_config);
+  if (!ligado) return { ligado, ref: { cargos: [], clinicas: [], modelos: [] }, nomeDaClinica: new Map() };
+  const [{ data: cargos, error: eC }, { data: clinicas, error: eL }] = await Promise.all([
+    sb.from('cargos_empresa').select('nome').eq('empresa_id', empresaId),
+    sb.from('escolas').select('id, nome').eq('empresa_id', empresaId),
+  ]);
+  if (eC) throw new Error(`não foi possível ler os cargos da empresa: ${eC.message}`);
+  if (eL) throw new Error(`não foi possível ler as clínicas da empresa: ${eL.message}`);
+  return {
+    ligado,
+    ref: {
+      cargos: (cargos || []).map((c: any) => String(c.nome || '').trim()).filter(Boolean),
+      clinicas: (clinicas || []).map((c: any) => c.id),
+      modelos: MODELOS_CLINICA.map((m) => m.codigo),
+    },
+    nomeDaClinica: new Map((clinicas || []).map((c: any) => [c.id, c.nome])),
+  };
 }
 
 // Loaders chamados no mount de client components: gate via protectedLoader —
@@ -201,7 +237,8 @@ async function turmaAtivaPorColaborador(sb: any, empresaId: string): Promise<Map
 const _loadColaboradores = protectedLoader<[any], any[]>([], async (_ctx, empresaId) => {
   const sb = await requireAdminSupabase();
   const { data: d1, error: e1 } = await sb.from('colaboradores')
-    .select('id, nome_completo, email, cargo, role, area_depto, telefone, gestor_nome, gestor_email, gestor_whatsapp, mapeamento_em, login_por_whatsapp')
+    // `escola_id` (a clínica, no pacote de clínicas) e `recepcao_modelo` (mig 297) vêm para a lista e a edição.
+    .select('id, nome_completo, email, cargo, role, area_depto, telefone, gestor_nome, gestor_email, gestor_whatsapp, mapeamento_em, login_por_whatsapp, escola_id, recepcao_modelo')
     .eq('empresa_id', empresaId)
     .order('nome_completo');
   // sem_email_real = e-mail é o proxy interno (login só por WhatsApp). A UI mostra
@@ -226,6 +263,71 @@ const _loadColaboradores = protectedLoader<[any], any[]>([], async (_ctx, empres
 
 export async function loadColaboradores(empresaId: any) {
   return _loadColaboradores(empresaId);
+}
+
+/**
+ * Opções do cadastro no pacote de clínicas: se a chave está ligada, os cargos e as clínicas da empresa
+ * e os modelos de clínica do simulador. Sem a chave, `pacote: false` e a tela segue como sempre.
+ */
+const _loadOpcoesCadastro = protectedLoader<[any], {
+  pacote: boolean;
+  cargos: string[];
+  clinicas: Array<{ id: string; nome: string }>;
+  modelos: Array<{ codigo: string; nome: string; descricao: string }>;
+  erro?: string;
+}>({ pacote: false, cargos: [], clinicas: [], modelos: [] }, async (_ctx, empresaId) => {
+  const sb = await requireAdminSupabase();
+  try {
+    const { ligado, ref, nomeDaClinica } = await referenciaDoPacote(sb, empresaId);
+    if (!ligado) return { pacote: false, cargos: [], clinicas: [], modelos: [] };
+    const clinicas = [...nomeDaClinica.entries()]
+      .map(([id, nome]) => ({ id, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    return { pacote: true, cargos: [...ref.cargos].sort((a, b) => a.localeCompare(b, 'pt-BR')), clinicas, modelos: MODELOS_CLINICA.map((m) => ({ ...m })) };
+  } catch (e: any) {
+    // Pacote ligado e leitura falhou: a tela avisa em vez de cair no cadastro livre.
+    return { pacote: true, cargos: [], clinicas: [], modelos: [], erro: e?.message || 'falha ao ler as opções do cadastro' };
+  }
+});
+
+export async function loadOpcoesCadastro(empresaId: any) {
+  return _loadOpcoesCadastro(empresaId);
+}
+
+const CriarClinicaSchema = z.object({
+  empresaId: z.string().uuid(),
+  nome: z.string().trim().min(2).max(120),
+});
+
+/**
+ * Cadastra uma clínica (a unidade da secretária, tabela `escolas`) direto pelo admin, sem depender do
+ * "Normalizar" das redes de ensino (que tira prefixos de escola e trata "secretaria" como central).
+ * Nome repetido na empresa, sem diferenciar maiúsculas, devolve a clínica que já existe.
+ */
+const _criarClinica = protectedAction('users.manage', CriarClinicaSchema, async (ctx, { empresaId, nome }) => {
+  await assertTenantAccessAction(ctx, empresaId);
+  const sb = await requireAdminSupabase();
+  const { ligado } = await referenciaDoPacote(sb, empresaId);
+  if (!ligado) throw new Error('o cadastro de clínicas é do pacote de clínicas, que não está ligado nesta empresa');
+  const nomeLimpo = nome.replace(/\s+/g, ' ').trim();
+  const { data: existentes, error: eL } = await sb.from('escolas').select('id, nome').eq('empresa_id', empresaId);
+  if (eL) throw new Error(`não foi possível ler as clínicas da empresa: ${eL.message}`);
+  const chave = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const igual = (existentes || []).find((c: any) => chave(c.nome || '') === chave(nomeLimpo));
+  if (igual) return { id: igual.id, nome: igual.nome, existia: true };
+  const { data: nova, error: eI } = await sb.from('escolas')
+    .insert({ empresa_id: empresaId, nome: nomeLimpo, is_central: false })
+    .select('id, nome').single();
+  if (eI) throw new Error(`não foi possível cadastrar a clínica: ${eI.message}`);
+  await logAdminAction({
+    adminEmail: ctx.email, acao: 'clinica.criar', empresaId, empresaSlug: undefined,
+    alvo: nomeLimpo, detalhes: { escola_id: nova.id },
+  });
+  return { id: nova.id, nome: nova.nome, existia: false };
+});
+
+export async function criarClinica(input: z.infer<typeof CriarClinicaSchema>) {
+  return _criarClinica(input);
 }
 
 /** Export XLSX da base de colaboradores da empresa (base64). Client decodifica → Blob → download. */
@@ -309,6 +411,9 @@ const CriarColaboradorSchema = z.object({
     gestor_email: z.string().nullish(),
     gestor_whatsapp: z.string().nullish(),
     role: z.string().nullish(),
+    // Pacote de clínicas: a clínica (id de `escolas`) e o modelo do simulador. Ignorados sem a chave.
+    escola_id: z.string().max(64).nullish(),
+    recepcao_modelo: z.string().max(40).nullish(),
   }),
 });
 
@@ -345,6 +450,22 @@ const _criarColaborador = protectedAction('users.manage', CriarColaboradorSchema
     throw new Error(loginPorWhatsapp ? 'já existe colaborador com este WhatsApp nesta empresa' : 'já existe colaborador com este email nesta empresa');
   }
 
+  const role = VALID_ROLES.includes(campos.role as string) ? campos.role : 'colaborador';
+  // Pacote de clínicas: a secretária nasce com clínica, cargo da lista e modelo do simulador, conferidos
+  // contra o que existe NA EMPRESA. A área passa a ser o nome da clínica (a lista e a exportação a leem).
+  const pacote = await referenciaDoPacote(sb, empresaId);
+  const extrasDoPacote: Record<string, any> = {};
+  if (pacote.ligado && papelExigeCadastroDoPacote(role)) {
+    const erro = erroDoCadastroPacote(
+      { cargo: campos.cargo, escolaId: campos.escola_id, recepcaoModelo: campos.recepcao_modelo },
+      pacote.ref,
+    );
+    if (erro) throw new Error(erro);
+    extrasDoPacote.escola_id = campos.escola_id;
+    extrasDoPacote.recepcao_modelo = campos.recepcao_modelo || null;
+    extrasDoPacote.area_depto = pacote.nomeDaClinica.get(campos.escola_id as string) || null;
+  }
+
   const novo = await createColaboradorInTenant(sb, empresaId, {
     email,
     nome_completo: campos.nome_completo?.trim() || null,
@@ -354,8 +475,9 @@ const _criarColaborador = protectedAction('users.manage', CriarColaboradorSchema
     gestor_nome: campos.gestor_nome?.trim() || null,
     gestor_email: gestorEmail,
     gestor_whatsapp: gestorWhatsapp,
-    role: VALID_ROLES.includes(campos.role as string) ? campos.role : 'colaborador',
+    role,
     login_por_whatsapp: loginPorWhatsapp,
+    ...extrasDoPacote,
   });
   return { id: novo.id };
 });
@@ -378,6 +500,9 @@ const AtualizarColaboradorSchema = z.object({
     gestor_email: z.string().nullish(),
     gestor_whatsapp: z.string().nullish(),
     role: z.string().nullish(),
+    // Pacote de clínicas: a clínica (id de `escolas`) e o modelo do simulador. Ignorados sem a chave.
+    escola_id: z.string().max(64).nullish(),
+    recepcao_modelo: z.string().max(40).nullish(),
   }),
 });
 
@@ -424,7 +549,35 @@ const _atualizarColaborador = protectedAction('users.manage', AtualizarColaborad
   }
   if (campos.role !== undefined && VALID_ROLES.includes(campos.role as string)) update.role = campos.role;
 
-  const updated = await updateColaboradorInTenant(await requireAdminSupabase(), empresaId, id, update);
+  // Pacote de clínicas: o que vier de clínica, cargo e modelo é conferido contra a EMPRESA (só o que veio:
+  // campo ausente não muda). O papel decide se a regra vale: a conta de RH não tem clínica nem modelo.
+  const sbPacote = await requireAdminSupabase();
+  const pacote = await referenciaDoPacote(sbPacote, empresaId);
+  if (pacote.ligado) {
+    let role = update.role;
+    if (role === undefined) {
+      const { data: atual, error: eR } = await sbPacote.from('colaboradores').select('role')
+        .eq('empresa_id', empresaId).eq('id', id).maybeSingle();
+      if (eR) throw new Error(`não foi possível ler o papel da pessoa: ${eR.message}`);
+      if (!atual) throw new Error('colaborador não encontrado nesta empresa');
+      role = atual.role;
+    }
+    if (papelExigeCadastroDoPacote(role)) {
+      const erro = erroDoCadastroPacote(
+        { cargo: campos.cargo, escolaId: campos.escola_id, recepcaoModelo: campos.recepcao_modelo },
+        pacote.ref,
+        { parcial: true },
+      );
+      if (erro) throw new Error(erro);
+      if (campos.escola_id !== undefined) {
+        update.escola_id = campos.escola_id;
+        update.area_depto = pacote.nomeDaClinica.get(campos.escola_id as string) || null;
+      }
+      if (campos.recepcao_modelo !== undefined) update.recepcao_modelo = campos.recepcao_modelo || null;
+    }
+  }
+
+  const updated = await updateColaboradorInTenant(sbPacote, empresaId, id, update);
   if (!updated) throw new Error('colaborador não encontrado nesta empresa');
   return { id };
 });

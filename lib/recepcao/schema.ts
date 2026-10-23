@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IDS_DOMINIO, dominioAtendimento, dominioExiste } from './dominio';
+import { FORMATO_CODIGO_MODELO } from './modelos-clinica';
 
 const texto = z.string().trim().min(1).max(4000);
 const chave = z.string().regex(/^[a-z][a-z0-9_\-]{1,63}$/);
@@ -79,6 +80,10 @@ export const cenarioSchema = z
     rubricaVersao: z.string().min(1).max(40),
     // Segmento do caso (lib/recepcao/dominio.ts). Até 18/09 era só 'recepcao_medica'.
     dominio: z.enum(IDS_DOMINIO),
+    // Modelo de clínica do pacote de clínicas (lib/recepcao/modelos-clinica.ts, 23/10/2026). Ausente =
+    // caso sem modelo, servido a quem não tem modelo (todos os casos anteriores). Fica FORA do prompt
+    // (`fichaParaPrompt` serializa só `publico`), então não muda a calibração.
+    modelo: z.string().regex(FORMATO_CODIGO_MODELO).optional(),
     statusEditorial: z.string().max(60),
     publico: z
       .object({

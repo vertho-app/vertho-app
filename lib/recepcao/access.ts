@@ -69,7 +69,19 @@ export async function contextoRecepcao(req: Request, solicitada?: string | null,
   // nos casos médicos). Habilitar a equipe exige escolher o segmento (rota de configuração).
   const segmentoDefinido = !!config?.dominio;
   const dominio: string = config?.dominio || DOMINIO_PADRAO;
-  return { auth, empresaId, empresaNome: empresa.nome, habilitado, soAcompanha, sb, owner: auth.email.toLowerCase(), ownerKey, dominio, segmentoDefinido };
+  // Modelo de clínica do simulador (pacote de clínicas, mig 297, lib/recepcao/modelos-clinica.ts): quem
+  // tem modelo vê e inicia só os casos dele; quem não tem, só os casos sem modelo (os outros tenants não
+  // mudam). A plataforma vê todos: é quem testa e edita. Leitura com o tenant no WHERE (service-role).
+  let modeloDaPessoa: string | null = null;
+  if (!auth.isPlatformAdmin && auth.colaborador?.id) {
+    const { data: pessoa, error: errModelo } = await sb.from('colaboradores').select('recepcao_modelo')
+      .eq('id', auth.colaborador.id).eq('empresa_id', empresaId).maybeSingle();
+    // Falha de leitura NÃO vira "sem modelo" (mostraria os casos de outra clínica): 503, tentar de novo.
+    if (errModelo) throw new RecepcaoError(503, 'Não foi possível consultar o seu acesso ao simulador. Tente novamente.');
+    modeloDaPessoa = pessoa?.recepcao_modelo ?? null;
+  }
+  const filtraModelo = !auth.isPlatformAdmin;
+  return { auth, empresaId, empresaNome: empresa.nome, habilitado, soAcompanha, sb, owner: auth.email.toLowerCase(), ownerKey, dominio, segmentoDefinido, modeloDaPessoa, filtraModelo };
 }
 
 export type ContextoRecepcao = Exclude<Awaited<ReturnType<typeof contextoRecepcao>>,Response>;

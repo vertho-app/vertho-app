@@ -14,7 +14,9 @@ import {
   criarColaborador, exportarColaboradoresXLSX,
   loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores, importarCargosLote,
   derivarGestorEmailPorNome,
+  loadOpcoesCadastro, criarClinica,
 } from './actions';
+import { CampoClinica, CampoModelo, FiltroClinica, OPCOES_VAZIAS, SEM_CLINICA, nomeDaClinica, nomeDoModelo, type OpcoesCadastro } from './campos-pacote';
 import SeletorTurma, { SEM_TURMA } from '@/components/admin/seletor-turma';
 import { listarTurmasDaEmpresa } from '@/actions/escopo-turma';
 import { podeEntrarComoPessoa, entrarComoPessoa } from '@/actions/acesso-assistido';
@@ -58,7 +60,15 @@ export default function GerenciarPage() {
     ? colabs.filter((c: any) => (turmaSel === SEM_TURMA ? c.turma_id === null : c.turma_id === turmaSel))
     : colabs;
 
-  const colabsSorted = [...colabsDaTurma].sort((a: any, b: any) => {
+  // Pacote de clínicas (lib/pacote-clinicas.ts): com a chave da empresa ligada, o cadastro pede clínica e
+  // modelo do simulador, e a lista filtra por clínica. Sem a chave, `opcoes.pacote` é false e nada muda.
+  const [opcoes, setOpcoes] = useState<OpcoesCadastro>(OPCOES_VAZIAS);
+  const [clinicaSel, setClinicaSel] = useState('');
+  const colabsDaClinica = opcoes.pacote && clinicaSel
+    ? colabsDaTurma.filter((c: any) => (clinicaSel === SEM_CLINICA ? !c.escola_id : c.escola_id === clinicaSel))
+    : colabsDaTurma;
+
+  const colabsSorted = [...colabsDaClinica].sort((a: any, b: any) => {
     const va = (a?.[sortBy] ?? '').toString().toLowerCase();
     const vb = (b?.[sortBy] ?? '').toString().toLowerCase();
     if (va < vb) return sortDir === 'asc' ? -1 : 1;
@@ -116,12 +126,24 @@ export default function GerenciarPage() {
   }, [empresaParam]);
 
   useEffect(() => {
+    setClinicaSel('');
     if (tenantId) {
       loadResumoEmpresa(tenantId).then(setResumo);
       loadColaboradores(tenantId).then(setColabs);
       loadCargos(tenantId).then(setCargos);
-    } else { setResumo(null); setColabs([]); setCargos([]); }
+      loadOpcoesCadastro(tenantId).then((o) => setOpcoes(o || OPCOES_VAZIAS)).catch(() => setOpcoes(OPCOES_VAZIAS));
+    } else { setResumo(null); setColabs([]); setCargos([]); setOpcoes(OPCOES_VAZIAS); }
   }, [tenantId]);
+
+  /** Cadastra a clínica pelo campo do formulário e recarrega a lista de clínicas. Devolve o id ou null. */
+  async function criarClinicaNoFormulario(nome: string): Promise<string | null> {
+    if (!tenantId) return null;
+    const r = await criarClinica({ empresaId: tenantId, nome });
+    if (!r.success) { notify(t('messages.error', { error: r.error }), 'error'); return null; }
+    setOpcoes(await loadOpcoesCadastro(tenantId));
+    notify(t('messages.clinicAdded', { name: r.data.nome }));
+    return r.data.id;
+  }
 
   // As turmas do seletor. Falhar aqui só esconde o seletor: a lista segue completa.
   useEffect(() => {
@@ -218,7 +240,11 @@ export default function GerenciarPage() {
 
   function startEdit(c) {
     setEditId(c.id);
-    setEditData({ nome_completo: c.nome_completo || '', email: c.sem_email_real ? '' : (c.email || ''), cargo: c.cargo || '', area_depto: c.area_depto || '', role: c.role || 'colaborador', telefone: c.telefone || '', gestor_nome: c.gestor_nome || '', gestor_email: c.gestor_email || '', gestor_whatsapp: c.gestor_whatsapp || '' });
+    setEditData({
+      nome_completo: c.nome_completo || '', email: c.sem_email_real ? '' : (c.email || ''), cargo: c.cargo || '', area_depto: c.area_depto || '', role: c.role || 'colaborador', telefone: c.telefone || '', gestor_nome: c.gestor_nome || '', gestor_email: c.gestor_email || '', gestor_whatsapp: c.gestor_whatsapp || '',
+      // Só no pacote de clínicas: fora dele os dois campos nem vão ao servidor.
+      ...(opcoes.pacote ? { escola_id: c.escola_id || '', recepcao_modelo: c.recepcao_modelo || '' } : {}),
+    });
   }
 
   function startCreate() {
@@ -226,6 +252,7 @@ export default function GerenciarPage() {
     setEditData({
       nome_completo: '', email: '', cargo: '', area_depto: '',
       role: 'colaborador', telefone: '', gestor_nome: '', gestor_email: '', gestor_whatsapp: '',
+      ...(opcoes.pacote ? { escola_id: clinicaSel && clinicaSel !== SEM_CLINICA ? clinicaSel : '', recepcao_modelo: '' } : {}),
     });
   }
 
@@ -447,6 +474,12 @@ export default function GerenciarPage() {
               {turmaSel && <span className="text-[11px] text-gray-400">{colabsDaTurma.length} / {colabs.length}</span>}
             </div>
           )}
+          {tab === 'lista' && opcoes.erro && (
+            <p className="mb-3 text-xs text-red-400">{t('messages.optionsError', { error: opcoes.erro })}</p>
+          )}
+          {tab === 'lista' && opcoes.pacote && (
+            <FiltroClinica opcoes={opcoes} value={clinicaSel} onChange={setClinicaSel} total={colabsDaTurma.length} visiveis={colabsDaClinica.length} />
+          )}
           {tab === 'lista' && (
             <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
               {colabs.length === 0 && editId !== 'new' ? (
@@ -466,7 +499,8 @@ export default function GerenciarPage() {
                         <SortTh col="nome_completo" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>{t('table.name')}</SortTh>
                         <SortTh col="email" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>{t('table.email')}</SortTh>
                         <SortTh col="cargo" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>{t('table.role')}</SortTh>
-                        <SortTh col="area_depto" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>{t('table.area')}</SortTh>
+                        <SortTh col="area_depto" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>{opcoes.pacote ? t('table.clinic') : t('table.area')}</SortTh>
+                        {opcoes.pacote && <th className="px-4 py-2 text-left">{t('table.simulatorModel')}</th>}
                         <SortTh col="role" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>{t('table.access')}</SortTh>
                         <SortTh col="telefone" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>WhatsApp</SortTh>
                         <SortTh col="gestor_nome" sortBy={sortBy} sortDir={sortDir} onClick={toggleSort}>{t('table.manager')}</SortTh>
@@ -498,9 +532,22 @@ export default function GerenciarPage() {
                               </button>
                             )}
                           </td>
-                          <td className="px-4 py-2"><input value={editData.area_depto} onChange={e => setEditData(p => ({ ...p, area_depto: e.target.value }))}
-                            placeholder={t('fields.areaAuto')}
-                            className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                          {opcoes.pacote ? (
+                            <>
+                              <td className="px-4 py-2">
+                                <CampoClinica opcoes={opcoes} value={editData.escola_id} onCriar={criarClinicaNoFormulario}
+                                  onChange={(id) => setEditData(p => ({ ...p, escola_id: id }))} />
+                              </td>
+                              <td className="px-4 py-2">
+                                <CampoModelo opcoes={opcoes} value={editData.recepcao_modelo}
+                                  onChange={(codigo) => setEditData(p => ({ ...p, recepcao_modelo: codigo }))} />
+                              </td>
+                            </>
+                          ) : (
+                            <td className="px-4 py-2"><input value={editData.area_depto} onChange={e => setEditData(p => ({ ...p, area_depto: e.target.value }))}
+                              placeholder={t('fields.areaAuto')}
+                              className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                          )}
                           <td className="px-4 py-2">
                             <select value={editData.role} onChange={e => setEditData(p => ({ ...p, role: e.target.value }))}
                               className="px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
@@ -557,8 +604,21 @@ export default function GerenciarPage() {
                                   {cargos.map(k => <option key={k.id || k.nome} value={k.nome}>{k.nome}</option>)}
                                 </select>
                               </td>
-                              <td className="px-4 py-2"><input value={editData.area_depto} onChange={e => setEditData(p => ({ ...p, area_depto: e.target.value }))}
-                                className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                              {opcoes.pacote ? (
+                                <>
+                                  <td className="px-4 py-2">
+                                    <CampoClinica opcoes={opcoes} value={editData.escola_id} onCriar={criarClinicaNoFormulario}
+                                      onChange={(id) => setEditData(p => ({ ...p, escola_id: id }))} />
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <CampoModelo opcoes={opcoes} value={editData.recepcao_modelo}
+                                      onChange={(codigo) => setEditData(p => ({ ...p, recepcao_modelo: codigo }))} />
+                                  </td>
+                                </>
+                              ) : (
+                                <td className="px-4 py-2"><input value={editData.area_depto} onChange={e => setEditData(p => ({ ...p, area_depto: e.target.value }))}
+                                  className="w-full px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none" /></td>
+                              )}
                               <td className="px-4 py-2">
                                 <select value={editData.role} onChange={e => setEditData(p => ({ ...p, role: e.target.value }))}
                                   className="px-2 py-1 rounded text-xs text-white border border-white/10 bg-[#091D35] outline-none">
@@ -604,7 +664,8 @@ export default function GerenciarPage() {
                                   : (c.email || '—')}
                               </td>
                               <td className="px-4 py-2 text-gray-400 text-xs">{c.cargo || '—'}</td>
-                              <td className="px-4 py-2 text-gray-400 text-xs">{c.area_depto || '—'}</td>
+                              <td className="px-4 py-2 text-gray-400 text-xs">{(opcoes.pacote && nomeDaClinica(opcoes, c.escola_id)) || c.area_depto || '—'}</td>
+                              {opcoes.pacote && <td className="px-4 py-2 text-gray-400 text-xs">{nomeDoModelo(opcoes, c.recepcao_modelo) || '—'}</td>}
                               <td className="px-4 py-2">
                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                                   c.role === 'rh' ? 'bg-purple-400/10 text-purple-400' :
