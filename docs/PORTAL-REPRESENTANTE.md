@@ -30,8 +30,17 @@ Fora do portal, de propósito: a ajuda de custo (valor por região, decisão do 
 de 08/10) e as metas do Anexo IV com a prorrogação automática da 9.11 (decisão de
 22/10: fica para depois). O deal desk segue simulando o custo de RC a 18%, um teto
 acima do que o contrato paga (no modelo sem ajuda, de 13,6% a 17,2% do contrato,
-conforme a vigência). Os dados de demonstração (`scripts/seed-comercial-demo.mjs`)
-ainda geram eventos na regra antiga.
+conforme a vigência).
+
+**Dados de demonstração (23/10/2026):** `scripts/seed-comercial-demo.mjs` usa as
+mesmas funções do portal (`planoDeComissao`, `eventosDoPlano`) e roda com
+`npx tsx --env-file=.env.local scripts/seed-comercial-demo.mjs` (`--ensaio` grava,
+confere que a soma dos eventos é a estimativa e desfaz). Dois RCs fictícios, um em
+cada modelo: Mariana Costa (sem ajuda de custo, com uma proposta de cliente da
+carteira, PROP-2026-D019, aguardando aprovação) e Rafael Lima (com ajuda de custo).
+O calendário sai da data de início de cada contrato: competência vencida vira "a
+receber" ou "paga" conforme a história de cada proposta. O dono SAIU do seed: a
+conta `rodrigo@vertho.ai` tem prospects reais, e o `cleanRep` apagaria tudo.
 
 ## Estado em 12/09/2026 — fluxo preservado, régua comercial compartilhada
 
