@@ -42,6 +42,7 @@ import { cenarioAtendeNotaMinima, notaMinimaDoTenant } from '@/lib/assessment/ce
 import { lerTudoPaginado } from '@/lib/paginacao';
 import { listaEmPortugues } from '@/lib/notifications/lista-em-portugues';
 import { montarCedula, normalizarCargoDaCedula } from '@/lib/votacao/cedula';
+import { MOTIVO_RH_FORA_DO_LOTE, pacoteClinicasLigado } from '@/lib/pacote-clinicas';
 
 const FUSO_BRASILIA = 'America/Sao_Paulo';
 
@@ -132,6 +133,11 @@ export interface ColaboradorAlvo {
   telefone: string | null;
   whatsapp?: string | null;
   perfil_dominante?: string | null;
+  /**
+   * Papel na empresa. Só pesa com o pacote de clínicas ligado (`lib/pacote-clinicas.ts`): lá a conta
+   * de RH recebe só os relatórios e sai de todo lote. Ausente = não é RH (a tela sempre o seleciona).
+   */
+  role?: string | null;
 }
 
 /** Args montados, ou o motivo de a pessoa NÃO poder receber este template. */
@@ -1129,8 +1135,14 @@ export async function prepararLoteTemplate(
   let elegiveisPeloTemplate = 0;
   let removidosPorFiltros = 0;
   let aposRefinamentos = 0;
+  // Pacote de clínicas (onlabel): o RH só recebe os relatórios, nunca a mensagem das secretárias.
+  // Vale para TODO template do lote, inclusive os que não exigem nada da pessoa (boas-vindas e o
+  // convite do perfil comportamental), que eram justamente os que alcançavam o RH. Fora do pacote,
+  // nada muda: em Ibipeba os RH internos recebem o convite de teste de propósito.
+  const rhForaDoLote = pacoteClinicasLigado(empresa.sys_config);
   for (const c of colabs) {
     const nome = c.nome_completo || '(sem nome)';
+    if (rhForaDoLote && c.role === 'rh') { empurra(MOTIVO_RH_FORA_DO_LOTE, nome); continue; }
     const fone = c.whatsapp || c.telefone;
     if (!fone) { empurra('sem telefone/WhatsApp', nome); continue; }
     const r = resolver(c, ctx);

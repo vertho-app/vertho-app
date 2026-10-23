@@ -776,8 +776,9 @@ async function colaboradoresFiltrados(sb: any, empresaId: string, filtros: any) 
     throw e;
   }
 
+  // `role` vai junto para o lote: com o pacote de clínicas ligado, o RH sai do envio com o motivo na prévia.
   const { data, error } = await sb.from('colaboradores')
-    .select('id, nome_completo, email, cargo, telefone, perfil_dominante')
+    .select('id, nome_completo, email, cargo, telefone, perfil_dominante, role')
     .eq('empresa_id', empresaId);
   if (error) throw new Error(`colaboradores: ${error.message}`);
 
