@@ -238,13 +238,17 @@ export async function updateSalesAccount(accountId: string, input: Record<string
   if (error) return { success: false as const, error: error.message };
 
   if (voltaParaFila) {
-    const { error: erroFila } = await sb.from('sales_opportunities').update({
+    // Só o registro ABERTO volta para a fila: o fechado (ganho, perdido) não tem
+    // proteção a conferir, e o próximo registro desta conta já passa pela
+    // conferência com o CNPJ novo. A proposta aprovada ou enviada do registro que
+    // voltou fica parada no `bloqueioDoRegistro` até a vertho.ai validar de novo.
+    const { data: voltaram, error: erroFila } = await sb.from('sales_opportunities').update({
       attribution_status: 'aguardando', attribution_decided_at: null, attribution_decided_by: null,
       attribution_note: `CNPJ ou INEP informado depois do registro. ${voltaParaFila}`,
       protection_start_date: null, protection_end_date: null, last_movement_at: null, updated_at: patch.updated_at,
-    }).eq('account_id', accountId).eq('status', 'open').in('attribution_status', ['aguardando', 'validada']);
+    }).eq('account_id', accountId).eq('status', 'open').in('attribution_status', ['aguardando', 'validada']).select('id');
     if (erroFila) return { success: false as const, error: `CNPJ salvo, mas o registro não voltou para a validação: ${erroFila.message}. Avise a vertho.ai.` };
-    return { success: true as const, aviso: `CNPJ salvo. ${MENSAGEM_FILA}` as string | null };
+    if ((voltaram || []).length) return { success: true as const, aviso: `CNPJ salvo. ${MENSAGEM_FILA}` as string | null };
   }
   return { success: true as const, aviso: null as string | null };
 }

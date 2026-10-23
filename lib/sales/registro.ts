@@ -110,6 +110,16 @@ export const MENSAGEM_FILA = 'O registro vai para a validação da vertho.ai ant
 export const MENSAGEM_RESERVA = MENSAGEM_FILA;
 export const MENSAGEM_OUTRO_RC = 'Este cliente já está com outro representante. Ele fica livre se passar 90 dias sem movimentação (cláusula 7.6).';
 
+/**
+ * A oportunidade como o RC pode lê-la: enquanto aguarda, o `attribution_note` é o
+ * motivo da fila (`MOTIVOS_DA_FILA`), que é do admin. Toda leitura de
+ * `sales_opportunities` que volta ao navegador do RC passa por aqui; validada ou
+ * recusada, a nota é o recado do admin ao RC e segue.
+ */
+export function paraORepresentante<T extends { attribution_status?: string | null; attribution_note?: string | null }>(o: T): T {
+  return o && o.attribution_status === 'aguardando' ? { ...o, attribution_note: null } : o;
+}
+
 /** Por que o registro foi para a fila: texto do admin, em `attribution_note`. */
 export const MOTIVOS_DA_FILA = {
   reserva: 'Lista de reserva da vertho.ai (cláusula 7.3).',

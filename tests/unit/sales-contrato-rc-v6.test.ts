@@ -47,6 +47,7 @@ import {
   cnpjRaiz,
   conferirRegistro,
   decidirRegistro,
+  paraORepresentante,
   precisaDeMovimentacao,
   protecaoAPartirDe,
   registrarMovimentacao,
@@ -56,7 +57,8 @@ import { classificarCarteira } from '@/lib/sales/aceite-rc';
 import { eventosDoPlano, pagamentosDoCronograma, planoDeComissao } from '@/lib/sales/commissions';
 import { commissionRatesFor } from '@/lib/sales/constants';
 import { ehRcFicticio, emailDoAviso, enviarAvisosDeProtecao } from '@/lib/sales/alerta-protecao';
-import { createOpportunity, moveOpportunityStage, recusarRegistroOportunidade, registrarContato } from '@/actions/sales/opportunities';
+import { createOpportunity, getOpportunity, moveOpportunityStage, recusarRegistroOportunidade, registrarContato } from '@/actions/sales/opportunities';
+import * as permissoes from '@/lib/sales/permissions';
 import { createSalesAccount, criarOportunidadeExpansao, updateSalesAccount } from '@/actions/sales/accounts';
 import { registrarComissaoIndicacao } from '@/actions/sales/commissions-admin';
 import { approveProposal, markProposalAccepted, markProposalSentToClient, registrarAceitePropostaDoRC, submitProposalForApproval } from '@/actions/sales/proposals';
@@ -288,9 +290,11 @@ describe('conta: o cliente com outro RC não entra', () => {
       resolver: (tabela) => (tabela === 'sales_accounts' ? { id: 'acc-1', representante_id: 'rc-1', cnpj: null, codigo_inep: null } : null),
       contagem: (tabela) => (tabela === 'sales_opportunities' ? 1 : 0),
       lista: (tabela) => (tabela === 'sales_reservas' ? [{ id: 'r1' }] : []),
+      escrita: (tabela, op) => (tabela === 'sales_opportunities' && op === 'update' ? [{ id: 'opp-1' }] : null),
     });
     const r = await updateSalesAccount('acc-1', { cnpj: '12.345.678/0001-95' });
     expect(r.success).toBe(true);
+    expect((r as any).aviso).toMatch(/validação/);
     expect((r as any).aviso).not.toMatch(/reserva|7\.3/i);
     const fila = escritasEm('sales_opportunities', 'update')[0]?.payload;
     expect(fila).toMatchObject({ attribution_status: 'aguardando', protection_end_date: null, attribution_note: expect.stringMatching(/reserva/) });
@@ -668,5 +672,24 @@ describe('indicação: a vertho.ai lança 10% de cada pagamento recebido, client
     expect((await registrarComissaoIndicacao({ representanteId: 'rc-9', cliente: '  ', valorRecebido: 100, recebidoEm: '2026-10-07' })).success).toBe(false);
     expect((await registrarComissaoIndicacao({ representanteId: 'rc-9', cliente: 'Clínica', valorRecebido: 100, recebidoEm: daquiA(3) })).success).toBe(false);
     expect(escritasEm('sales_commission_events', 'insert')).toHaveLength(0);
+  });
+});
+
+describe('sigilo da fila: o RC não recebe o motivo enquanto o registro aguarda', () => {
+  it('getOpportunity do RC volta sem attribution_note; a do admin, com', async () => {
+    const linha = { id: 'opp-1', representante_id: 'rc-1', status: 'open', attribution_status: 'aguardando', attribution_note: 'Lista de reserva da vertho.ai (cláusula 7.3).', protection_end_date: null, protection_status: 'active' };
+    sb = criarSupabaseMock({ resolver: (tabela) => (tabela === 'sales_opportunities' ? linha : null) });
+    vi.mocked(permissoes.requireRepresentativeOrAdminAction).mockResolvedValueOnce({ kind: 'representative', email: 'rc@teste.vertho', rep: { id: 'rc-1' } } as any);
+    const rc = await getOpportunity('opp-1');
+    expect((rc as any).data.attribution_note).toBeNull();
+    expect(JSON.stringify(rc)).not.toMatch(/reserva/);
+
+    vi.mocked(permissoes.requireRepresentativeOrAdminAction).mockResolvedValueOnce({ kind: 'admin', email: 'admin@vertho.ai' } as any);
+    const admin = await getOpportunity('opp-1');
+    expect((admin as any).data.attribution_note).toMatch(/reserva/);
+  });
+
+  it('recusada: o recado do admin chega ao RC', () => {
+    expect(paraORepresentante({ attribution_status: 'recusada', attribution_note: 'Cliente da vertho.ai' }).attribution_note).toBe('Cliente da vertho.ai');
   });
 });

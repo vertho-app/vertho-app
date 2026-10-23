@@ -33,6 +33,7 @@ import {
   dataCurtaBRT,
   decidirRegistro,
   diasSemMovimento,
+  paraORepresentante,
   precisaDeMovimentacao,
   protecaoAPartirDe,
   reconferirRegistroAceito,
@@ -78,6 +79,7 @@ export async function listOpportunities(filters?: {
   if (error) return { success: false as const, error: error.message };
 
   let list = (data || []).map(withDerivedProtection);
+  if (ctx.kind === 'representative') list = list.map(paraORepresentante);
   if (filters?.protectionStatus) list = list.filter((o) => o.protection_status === filters.protectionStatus);
   return { success: true as const, data: list };
 }
@@ -97,7 +99,8 @@ export async function getOpportunity(opportunityId: string) {
     sb.from('sales_activity_notes').select('*').eq('opportunity_id', opportunityId).order('created_at', { ascending: false }),
   ]);
 
-  return { success: true as const, data: withDerivedProtection(data), proposals: proposals || [], notes: notes || [] };
+  const opp = withDerivedProtection(data);
+  return { success: true as const, data: ctx.kind === 'representative' ? paraORepresentante(opp) : opp, proposals: proposals || [], notes: notes || [] };
 }
 
 /** Score usa o cargo do contato principal — busca quando houver contato. */
@@ -432,7 +435,7 @@ export async function getPipelineSummary() {
   const sb = createSupabaseAdmin();
   const { data, error } = await sb.from('sales_opportunities').select(OPP_SELECT).eq('representante_id', ctx.rep.id);
   if (error) return { success: false as const, error: error.message };
-  const opps = (data || []).map(withDerivedProtection);
+  const opps = (data || []).map(withDerivedProtection).map(paraORepresentante);
   return {
     success: true as const,
     kpis: {
