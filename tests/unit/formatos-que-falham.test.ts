@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createTranslator } from 'next-intl';
-import { resolverFormatoAtivo, iframeMostrouErroDoApp } from '@/lib/season-engine/formato-ativo';
+import { resolverFormatoAtivo } from '@/lib/season-engine/formato-ativo';
+import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
 import { videoPreso, PRAZO_VIDEO_EM_PROCESSAMENTO_MS, STATUS_VIDEO_EM_PROCESSAMENTO } from '@/lib/video/prazo-processamento';
 import FormatoIndisponivel from '@/components/temporada/formato-indisponivel';
 import PlayerPodcast from '@/components/temporada/player-podcast';
@@ -26,6 +27,7 @@ import { resolverCelulaVideo } from '@/actions/gerar-video';
  * R-93 (04/10/2026): os formatos da semana que falham, ditos.
  *
  *  1. PDF sem arquivo: a rota responde JSON na mesma origem e o quadro o desenhava cru.
+ *     (Desde 23/10/2026 não há mais quadro: o leitor do app busca o PDF e trata o erro.)
  *  2. Podcast sem cópia pronta é gerado na hora (p50 de 99 s) com o player mudo; sem
  *     áudio-base a rota dá 404 e o player seguia mudo.
  *  3. Link com formato que a semana não tem: `?formato=audio` abria o player com o id do
@@ -71,25 +73,53 @@ describe('resolverFormatoAtivo: o formato aberto é sempre um dos que existem', 
   });
 });
 
-describe('iframeMostrouErroDoApp: a página de erro do app dentro do quadro do PDF', () => {
-  it('🔴 o JSON de erro da rota (mesma origem) é detectado, pelo tipo ou pelo texto', () => {
-    expect(iframeMostrouErroDoApp({ contentDocument: { contentType: 'application/json', body: { textContent: '' } } })).toBe(true);
-    expect(iframeMostrouErroDoApp({ contentDocument: { contentType: 'text/html', body: { textContent: ' {"error":"conteúdo indisponível"} ' } } })).toBe(true);
+/**
+ * 🔴 23/10/2026: o case abria num quadro (iframe) e, no iPhone, o Safari desenha só a 1ª página de um PDF
+ * dentro de um quadro, sem rolar. A pessoa via a capa e mais nada, com o arquivo inteiro (7 páginas)
+ * no Storage. Texto e case passaram para o leitor do app, que desenha todas as páginas em canvas.
+ */
+describe('leitor de PDF da semana: todas as páginas, em qualquer aparelho', () => {
+  const leitor = readFileSync('components/pdf/in-app-pdf-document.tsx', 'utf-8');
+  const semana = readFileSync('app/dashboard/temporada/semana/[week]/page.tsx', 'utf-8');
+  const conteudo = readFileSync('app/dashboard/conteudo/[id]/content-experience.tsx', 'utf-8');
+
+  it('🔴 nenhuma das duas telas de conteúdo desenha PDF num quadro', () => {
+    for (const fonte of [semana, conteudo]) {
+      expect(fonte).toContain('<InAppPdfDocument');
+      expect(fonte).not.toContain('/pdf#view=FitH');
+    }
+    // O único <iframe> que sobra na semana é o do player de vídeo (Bunny).
+    expect(semana.match(/<iframe\b/g)).toHaveLength(1);
+    expect(semana).toContain('<iframe key={`video-${mediaSession}`}');
+    expect(conteudo).not.toMatch(/<iframe\b/);
   });
 
-  it('o PDF de verdade (outra origem) lança SecurityError ao ler o documento: carregou bem', () => {
-    const iframe = { get contentDocument() { throw new DOMException('Blocked a frame', 'SecurityError'); } };
-    expect(iframeMostrouErroDoApp(iframe as any)).toBe(false);
+  it('🔴 a rota que responde erro em vez do PDF (R-93) vira falha do leitor, e a semana oferece os outros formatos', () => {
+    expect(leitor).toContain('if (!response.ok) throw');
+    expect(leitor).toContain('onErrorRef.current?.()');
+    expect(semana).toContain('onError={() => setPdfFalhou(chavePdf)}');
+    expect(semana).toContain('<FormatoIndisponivel');
   });
 
-  it('documento ilegível (null) ou PDF same-origin não é erro', () => {
-    expect(iframeMostrouErroDoApp({ contentDocument: null })).toBe(false);
-    expect(iframeMostrouErroDoApp(null)).toBe(false);
-    expect(iframeMostrouErroDoApp({ contentDocument: { contentType: 'application/pdf', body: { textContent: '' } } })).toBe(false);
+  it('a rolagem é da caixa da semana, não do documento (sem ela o leitor também só mostraria a capa)', () => {
+    expect(semana).toMatch(/max-h-\[760px\] overflow-y-auto[^"]*">\s*<InAppPdfDocument/);
   });
 
-  it('texto que só COMEÇA parecido não é erro (um HTML com "error" no meio)', () => {
-    expect(iframeMostrouErroDoApp({ contentDocument: { contentType: 'text/html', body: { textContent: 'Relatório de error handling' } } })).toBe(false);
+  it('conteúdo da trilha não conta como "relatório" na telemetria da degustação', () => {
+    expect(semana).toMatch(/<InAppPdfDocument[\s\S]*?exploracao=\{null\}/);
+    expect(conteudo).toMatch(/<InAppPdfDocument[\s\S]*?exploracao=\{null\}/);
+    // Quem já usava o leitor (gestor, RH, adequação) segue contando como antes.
+    expect(leitor).toContain("exploracao = 'relatorio'");
+  });
+
+  it('com quem cuida da falha, o leitor não desenha a tela de erro dele; antes da rede responder, carrega', () => {
+    expect(leitor).toContain('if (onError) return null;');
+    const html = renderToStaticMarkup(createElement(InAppPdfDocument, {
+      src: '/api/conteudo/a1/pdf', title: 'case: x', loadingLabel: 'Abrindo o material', errorLabel: 'e', retryLabel: 'r',
+      onError: () => {}, exploracao: null,
+    }));
+    expect(html).toContain('role="status"');
+    expect(html).toContain('Abrindo o material');
   });
 });
 
@@ -225,7 +255,7 @@ describe('o visualizador da semana usa o que foi decidido aqui', () => {
   });
 
   it('o PDF, o podcast e o vídeo preso têm saída; a copy do vídeo saiu do código', () => {
-    expect(fonte).toContain('iframeMostrouErroDoApp(e.currentTarget)');
+    expect(fonte).toContain('onError={() => setPdfFalhou(chavePdf)}');
     expect(fonte).toContain('<PlayerPodcast');
     expect(fonte).toContain('<FormatoIndisponivel');
     expect(fonte).toContain('vid?.preso');

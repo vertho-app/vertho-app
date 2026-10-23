@@ -49,23 +49,3 @@ export function resolverFormatoAtivo(args: {
   const aindaSemSaber = pedido === 'video' && !!args.videoResolvendo;
   return { ativo: reserva, pedidoIndisponivel: pedido && !aindaSemSaber ? pedido : null };
 }
-
-/**
- * O iframe do PDF abriu uma página de ERRO do app, e não o arquivo?
- *
- * A rota `/api/conteudo/<id>/pdf` redireciona (302) para o Storage, que é outra origem.
- * Quando não há PDF ela responde um JSON `{ error }` NA MESMA origem, e o iframe o
- * desenhava como texto cru. Mesma origem deixa o pai ler o documento do iframe; outra
- * origem (o PDF de verdade) lança `SecurityError`, que aqui significa "carregou bem".
- */
-export function iframeMostrouErroDoApp(iframe: { contentDocument?: any } | null | undefined): boolean {
-  try {
-    const doc = iframe?.contentDocument;
-    if (!doc) return false;
-    if (typeof doc.contentType === 'string' && doc.contentType.includes('json')) return true;
-    const texto = String(doc.body?.textContent ?? '').trim();
-    return /^\{\s*"error"\s*:/.test(texto);
-  } catch {
-    return false;
-  }
-}

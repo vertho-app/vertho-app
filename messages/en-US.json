@@ -713,6 +713,10 @@
       "pdf": "PDF",
       "content": "Content"
     },
+    "contentReader": {
+      "error": "We could not open this material right now.",
+      "retry": "Try again"
+    },
     "missingCollaborator": "We could not find your registration in this organization.",
     "missingCollaboratorBody": "You are signed in, but your account is not linked to a person here. If you take part through more than one organization, sign out and sign in again with the access link, choosing the organization. If this persists, talk to HR.",
     "missingCollaboratorAction": "Sign out and sign in again",
@@ -2488,6 +2492,7 @@
         "case": "case study"
       },
       "pdfFailed": "We could not open this material right now.",
+      "pdfLoading": "Opening the material",
       "audioFailed": "We could not load the audio right now.",
       "audioGenerating": "We are generating your podcast with your name. The first time it can take up to 2 minutes.",
       "requestedUnavailable": "The {requested} format is not available this week. We opened the {opened} format.",

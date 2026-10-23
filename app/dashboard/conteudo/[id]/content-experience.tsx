@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowLeft, FileText, Headphones, Loader2, Play } from 'lucide-react';
+import { ArrowLeft, FileText, Headphones, Play } from 'lucide-react';
 import { BunnyVideoPlayer } from '@/components/bunny-video-player';
+import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
 
 export type ContentExperienceData = {
   id: string;
@@ -57,14 +57,13 @@ export default function ContentExperience({
   const router = useRouter();
   const common = useTranslations('Common');
   const home = useTranslations('DashboardHome');
-  const [documentLoading, setDocumentLoading] = useState(true);
 
   const formatLabel = home(`contentFormats.${FORMAT_LABEL_KEY[content.format]}`);
   const duration = content.durationMinutes && content.durationMinutes > 0
     ? `${Math.max(1, Math.round(content.durationMinutes))} min`
     : null;
   const pdfSource = content.format === 'texto' || content.format === 'case'
-    ? `/api/conteudo/${encodeURIComponent(content.id)}/pdf#view=FitH&navpanes=0`
+    ? `/api/conteudo/${encodeURIComponent(content.id)}/pdf`
     : content.url;
   const audioSource = `/api/conteudo/${encodeURIComponent(content.id)}/podcast`;
 
@@ -153,20 +152,16 @@ export default function ContentExperience({
       ) : null}
 
       {(content.format === 'texto' || content.format === 'case' || content.format === 'pdf') && pdfSource ? (
-        <div className="relative min-h-0 flex-1 bg-[#020811] p-2 md:p-4">
-          {documentLoading ? (
-            <div className="absolute inset-0 z-0 grid place-items-center text-[var(--phase-accent,#9ae2e6)]" role="status">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 size={24} className="animate-spin" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">{formatLabel}</span>
-              </div>
-            </div>
-          ) : null}
-          <iframe
+        // Leitor do app, não quadro: no iPhone o Safari desenha só a 1ª página de um PDF num
+        // iframe (23/10/2026, ver a semana). A rolagem é desta caixa.
+        <div className="relative min-h-0 flex-1 overflow-y-auto bg-[#020811] p-2 md:p-4">
+          <InAppPdfDocument
             src={pdfSource}
             title={`${formatLabel}: ${content.title}`}
-            onLoad={() => setDocumentLoading(false)}
-            className="relative z-[1] h-full w-full rounded-xl border border-white/10 bg-white"
+            loadingLabel={formatLabel}
+            errorLabel={home('contentReader.error')}
+            retryLabel={home('contentReader.retry')}
+            exploracao={null}
           />
         </div>
       ) : null}

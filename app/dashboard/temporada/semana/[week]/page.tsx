@@ -31,7 +31,8 @@ import ErroDaConversa from '@/components/temporada/erro-da-conversa';
 import FormatoIndisponivel from '@/components/temporada/formato-indisponivel';
 import PlayerPodcast from '@/components/temporada/player-podcast';
 import SemanaMapeamento from '@/components/temporada/semana-mapeamento';
-import { resolverFormatoAtivo, iframeMostrouErroDoApp } from '@/lib/season-engine/formato-ativo';
+import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
+import { resolverFormatoAtivo } from '@/lib/season-engine/formato-ativo';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 // Os formatos que têm rótulo traduzido (`SeasonWeek.content.formats`). O chip mostrava a chave crua
@@ -1444,8 +1445,8 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
   // aos outros. Não dispara geração (gerar=false) — só reusa pronto/em-preparo.
   const [vid, setVid] = useState<any>(null);
   const [mediaSession, setMediaSession] = useState(0);
-  // O PDF que abriu uma página de ERRO em vez do arquivo (R-93): guarda de qual fonte foi, e
-  // `tentativaPdf` remonta o quadro no "tentar de novo".
+  // O PDF que não abriu (R-93: a rota respondeu erro em vez do arquivo): guarda de qual fonte foi,
+  // e `tentativaPdf` remonta o leitor no "tentar de novo".
   const [pdfFalhou, setPdfFalhou] = useState<string | null>(null);
   const [tentativaPdf, setTentativaPdf] = useState(0);
   const videoIframeRef = useRef(null);
@@ -1646,18 +1647,22 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
           t={t}
         />
       ) : (
-        <div className="h-[68dvh] min-h-[480px] max-h-[760px] overflow-hidden rounded-xl border border-white/10 bg-white">
-          {/* Sem PDF a rota responde um JSON de erro NA MESMA origem e o quadro o desenhava como
-              texto cru (R-93). O PDF de verdade vem de outra origem (Storage): ler o documento do
-              quadro só é possível no caso do erro, que é exatamente o que se quer pegar. */}
-          <iframe
+        // 🔴 Era um quadro (iframe) com o PDF, e no iPhone o Safari desenha só a 1ª página do PDF dentro
+        // de um quadro, sem rolar: a pessoa via a capa e mais nada (caso real em 23/10/2026, com o
+        // case de 7 páginas inteiro no Storage). O leitor do app desenha todas as páginas em canvas
+        // em qualquer aparelho, e a rolagem é desta caixa (a mesma lição do PDF do gestor). A rota
+        // que responde erro em vez do arquivo (R-93) chega como falha do leitor, e a saída continua
+        // sendo os outros formatos.
+        <div className="h-[68dvh] min-h-[480px] max-h-[760px] overflow-y-auto rounded-[22px]">
+          <InAppPdfDocument
             key={`pdf-${tentativaPdf}`}
-            src={fonteId
-              ? `/api/conteudo/${encodeURIComponent(fonteId)}/pdf#view=FitH&navpanes=0`
-              : `${item.url}#view=FitH&navpanes=0`}
+            src={fonteId ? `/api/conteudo/${encodeURIComponent(fonteId)}/pdf` : item.url}
             title={`${ativo}: ${item?.titulo || conteudo.core_titulo || ''}`}
-            className="h-full w-full border-0 bg-white"
-            onLoad={(e) => { if (iframeMostrouErroDoApp(e.currentTarget)) setPdfFalhou(chavePdf); }}
+            loadingLabel={t('formats.pdfLoading')}
+            errorLabel={t('formats.pdfFailed')}
+            retryLabel={t('formats.retry')}
+            onError={() => setPdfFalhou(chavePdf)}
+            exploracao={null}
           />
         </div>
       ))}

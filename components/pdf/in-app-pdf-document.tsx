@@ -5,6 +5,7 @@ import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beaco
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, Loader2, RotateCcw } from 'lucide-react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
+import type { ExploracaoDegustacao } from '@/lib/demo/degustacao-metricas';
 
 let workerConfigured = false;
 
@@ -106,18 +107,30 @@ export default function InAppPdfDocument({
   loadingLabel,
   errorLabel,
   retryLabel,
+  onError,
+  exploracao = 'relatorio',
 }: {
   src: string;
   title: string;
   loadingLabel: string;
   errorLabel: string;
   retryLabel: string;
+  /**
+   * Quem tem a própria saída para a falha (a semana oferece os OUTROS formatos) recebe o aviso e
+   * desenha a tela de erro dela; sem isto, o leitor mostra a dele, com "tentar de novo".
+   */
+  onError?: () => void;
+  /** O que a degustação conta quando a 1ª página aparece. `null` = não conta (conteúdo da trilha não é relatório). */
+  exploracao?: ExploracaoDegustacao | null;
 }) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [firstPageReady, setFirstPageReady] = useState(false);
   const markFirstPageReady = useCallback(() => setFirstPageReady(true), []);
+  // Em ref: o pai passa uma função nova a cada render, e ela no array do efeito recarregaria o PDF.
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -145,6 +158,7 @@ export default function InAppPdfDocument({
       if (!cancelled && loadError?.name !== 'AbortError') {
         console.error('[pdf-reader] documento:', loadError);
         setError(true);
+        onErrorRef.current?.();
       }
     });
 
@@ -158,6 +172,7 @@ export default function InAppPdfDocument({
   }, [attempt, src]);
 
   if (error) {
+    if (onError) return null;
     return (
       <div className="grid min-h-[420px] place-items-center rounded-[22px] border border-white/[0.08] bg-[#071829] px-6 text-center">
         <div>
@@ -191,7 +206,7 @@ export default function InAppPdfDocument({
       className="space-y-8 rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(34,211,238,.07),transparent_34%),#061421] p-3 sm:p-6 lg:p-8"
       aria-label={title}
     >
-      {firstPageReady && <DemoExplorationBeacon alvo="relatorio" />}
+      {firstPageReady && exploracao && <DemoExplorationBeacon alvo={exploracao} />}
       {Array.from({ length: pdf.numPages }, (_, index) => (
         <PdfCanvasPage
           key={index + 1}

@@ -713,6 +713,10 @@
       "pdf": "PDF",
       "content": "Conteúdo"
     },
+    "contentReader": {
+      "error": "Não conseguimos abrir este material agora.",
+      "retry": "Tentar de novo"
+    },
     "missingCollaborator": "Não encontramos o seu cadastro nesta organização.",
     "missingCollaboratorBody": "Você entrou, mas a sua conta não está ligada a uma pessoa aqui. Se você participa por mais de uma organização, saia e entre de novo pelo link de acesso, escolhendo a organização. Se continuar assim, fale com o RH.",
     "missingCollaboratorAction": "Sair e entrar de novo",
@@ -2488,6 +2492,7 @@
         "case": "estudo de caso"
       },
       "pdfFailed": "Não conseguimos abrir este material agora.",
+      "pdfLoading": "Abrindo o material",
       "audioFailed": "Não conseguimos carregar o áudio agora.",
       "audioGenerating": "Estamos gerando o seu podcast com o seu nome. Na primeira vez isso pode levar até 2 minutos.",
       "requestedUnavailable": "O formato {requested} não está disponível nesta semana. Abrimos o formato {opened}.",
