@@ -19,7 +19,8 @@
  *      precisa dizer com quem falar.
  */
 import { describe, expect, it } from 'vitest';
-import { buildProposalDocument } from '@/lib/sales/proposal-document';
+import { readFileSync } from 'node:fs';
+import { AMBIENTE_NO_AR, buildProposalDocument } from '@/lib/sales/proposal-document';
 import { extrairProgramaDoOrcamento } from '@/lib/sales/proposal-programa';
 import { validarAceite } from '@/lib/sales/proposal-aceite';
 
@@ -776,5 +777,22 @@ describe('"meses de programa" na capa é o número de prestações (05/10/2026)'
   it('sem orçamento (fluxo do RC) continua sem programa: nada de duração inventada', () => {
     const doc = buildProposalDocument(propostaBase({ contract_duration_months: 11 }), null, null, {});
     expect(doc.programa).toBeNull();
+  });
+});
+
+describe('prazo de implantação: imediato, uma fonte só (decisão de 24/10/2026)', () => {
+  it('o cronograma e os próximos passos dizem o mesmo prazo', () => {
+    const doc = buildProposalDocument(propostaBase(), null, null, {});
+    expect(doc.cronograma[0]).toMatchObject({ fase: 'Setup', duracao: 'imediato', entrega: `Ambiente no ar ${AMBIENTE_NO_AR}.` });
+    expect(doc.proximosPassos.some((p) => p.includes(AMBIENTE_NO_AR))).toBe(true);
+    expect(JSON.stringify(doc)).not.toMatch(/dias úteis|semana de setup|~1 semana/);
+  });
+
+  it('a página pública e o PDF leem a mesma constante, sem prazo escrito à mão', () => {
+    for (const arquivo of ['app/proposta/[token]/page.tsx', 'components/pdf/PropostaComercialPDF.tsx']) {
+      const src = readFileSync(arquivo, 'utf8');
+      expect(src).toContain('{AMBIENTE_NO_AR}');
+      expect(src).not.toMatch(/dias úteis/);
+    }
   });
 });

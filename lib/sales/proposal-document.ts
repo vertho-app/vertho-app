@@ -23,6 +23,14 @@ import { cenarioDoExemplo, fechamentoDoExemplo } from './cenario-exemplo';
 
 export const PROPOSAL_VALIDITY_DAYS = 30;
 
+/**
+ * Quando o ambiente do cliente entra no ar (decisão do dono de 24/10/2026:
+ * "imediato"; antes o documento dizia "até 2 dias úteis" e o material do RC,
+ * "cerca de uma semana"). Fonte ÚNICA: o cronograma, os próximos passos, a página
+ * pública e o PDF da proposta leem daqui, para não voltarem a divergir.
+ */
+export const AMBIENTE_NO_AR = 'imediatamente após o recebimento do material completo';
+
 /** Canais públicos da Vertho (os mesmos da sala de imprensa, vertho.ai). */
 export const CONTATO_INSTITUCIONAL = {
   nome: 'Equipe Vertho',
@@ -440,9 +448,9 @@ const PREMISSAS_PADRAO = [
 const cronogramaPadrao = (segmento: ProposalSegmento): ProposalEtapa[] => [
   {
     fase: 'Setup',
-    duracao: '~1 semana',
+    duracao: 'imediato',
     descricao: `Configuração do ambiente dedicado: cargos, colaboradores e identidade visual da ${ENTIDADE[segmento]}.`,
-    entrega: 'Ambiente no ar em até 2 dias úteis após o material completo.',
+    entrega: `Ambiente no ar ${AMBIENTE_NO_AR}.`,
   },
   {
     fase: 'Diagnóstico',
@@ -469,7 +477,7 @@ const cronogramaPadrao = (segmento: ProposalSegmento): ProposalEtapa[] => [
 const PROXIMOS_PASSOS_PADRAO = [
   'Aprovação desta proposta.',
   'Envio da planilha de setup preenchida + logo + documentos institucionais.',
-  'A Vertho configura o ambiente em até 2 dias úteis após o recebimento completo.',
+  `A Vertho coloca o ambiente no ar ${AMBIENTE_NO_AR}.`,
   'Disparo do diagnóstico na data combinada.',
 ];
 

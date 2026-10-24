@@ -16,6 +16,7 @@
  *    folha de decisão que alguém vai usar para negociar.
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
@@ -49,7 +50,8 @@ describe('entradasPadrao — os defaults com que a tela abre', () => {
       matrizNovas: 3,
       ciclosPorAno: 1,
       metodo: 'votacao',
-      tipoComissao: 'rc',
+      // Venda direta, sem comissão (decisão do dono de 24/10/2026; era RC a 18%).
+      tipoComissao: 'venda_direta',
       preset: 'atual',
       jornada: 'jornada',
       jornadaCustom: { semanas: 1, numCompetencias: 1, fechamento: false },
@@ -79,9 +81,19 @@ describe('entradasPadrao — os defaults com que a tela abre', () => {
     expect(ORCAMENTO_DEFAULTS.cotacao).not.toBe(999);
   });
 
-  it('o default de comissão é o conservador (RC), e a jornada é a de 7 semanas', () => {
-    expect(BASE.tipoComissao).toBe(OPCOES_COMISSAO_ORCAMENTO[0].key);
+  it('orçamento novo abre em venda direta, sem comissão (decisão de 24/10/2026), e a jornada é a de 7 semanas', () => {
+    expect(BASE.tipoComissao).toBe('venda_direta');
+    expect(OPCOES_COMISSAO_ORCAMENTO.find((o) => o.key === BASE.tipoComissao)?.percentual).toBe(0);
     expect(BASE.jornada).toBe('jornada');
+  });
+
+  it('valor gravado que não se reconhece continua caindo no RC (custo maior protege a margem)', () => {
+    expect(normalizarEntradas({ ...BASE, tipoComissao: undefined }, LISTAS)!.tipoComissao).toBe('rc');
+  });
+
+  it('a tela do orçamento abre com o mesmo padrão do cenário', () => {
+    const tela = readFileSync('app/admin/vertho/orcamento/page.tsx', 'utf8');
+    expect(tela).toContain('useState<TipoComissaoOrcamento>(COMISSAO_PADRAO_ORCAMENTO)');
   });
 });
 

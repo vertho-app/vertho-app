@@ -21,12 +21,12 @@
  */
 import {
   CONTEUDO_PADRAO,
-  OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
   ROTULO_SIMULADOR,
   SIMULADORES_DEFAULT,
   configSimuladoresPadrao,
   obterComissaoOrcamento,
+  COMISSAO_PADRAO_ORCAMENTO,
   semSimuladores,
   type ConfigSimulador,
   type ConfigSimuladores,
@@ -150,7 +150,7 @@ export function entradasPadrao(listas: ListasValidas): EntradasOrcamento {
     matrizNovas: 3,
     ciclosPorAno: 1,
     metodo: 'votacao',
-    tipoComissao: OPCOES_COMISSAO_ORCAMENTO[0].key,
+    tipoComissao: COMISSAO_PADRAO_ORCAMENTO,
     preset: listas.presets[0] ?? 'atual',
     jornada: listas.jornadas[0] ?? 'jornada',
     jornadaCustom: { semanas: 1, numCompetencias: 1, fechamento: false },

@@ -145,7 +145,7 @@ RESET E ACESSO: antes da demo, acme-demo.vertho.ai/admin/demo → "Resetar demo 
     description: 'Visão da jornada completa (Setup → Diagnóstico → Trilha → Fechamento → Resultados) com o "wow" de cada fase.',
     content: `MAPA DA JORNADA VERTHO: o colaborador é diagnosticado, desenvolve competências com conteúdo personalizado e é reavaliado, tudo na mesma plataforma, com evidência.
 
-0. SETUP (~1 sem). RH/Admin: planilha de cargos+colaboradores, upload de logo/docs, Vertho configura o tenant. Wow: tenant pronto em 1 dia útil.
+0. SETUP (imediato). RH/Admin: planilha de cargos+colaboradores, upload de logo/docs, Vertho configura o tenant. Wow: ambiente no ar imediatamente após o material completo.
 1. DIAGNÓSTICO (1 a 2 sem). Colaborador: mapeamento DISC, cenários situacionais (chat IA), mapeamento de competências, DNA + Fit v2. Wow: perfil DISC completo com narrativa rica ("nunca tinham me descrito assim").
 2. TRILHA (sem 1 a 6). Colaborador: conteúdo semanal personalizado (vídeo/texto/podcast/case), desafio prático, tira-dúvidas com IA e conversa de evidências no fim da semana. RH: painel de engajamento. Wow: conteúdo gerado por IA no formato preferido, contextualizado por cargo e PPP.
 3. FECHAMENTO (sem 7). Colaborador: cenário final, arguição oral (defesa com IA) e reavaliação, com as evidências das seis semanas na leitura. A avaliação final passa por uma segunda IA. Wow: arguição em tempo real, em que a IA sonda e extrai evidência.
@@ -168,7 +168,7 @@ DICA: o portal já gera este documento pronto (página + PDF) a partir da propos
 6. Premissas (cliente envia planilha de setup + docs; ponto focal disponível; participantes com smartphone/PC + internet; envio de links por WhatsApp/e-mail).
 7. Investimento (valores + condições: à vista / Pix / boleto).
 8. Cronograma (Setup → Diagnóstico → Trilha → Fechamento).
-9. Próximos passos (aprovação → envio da planilha/logo/docs → Vertho configura em até 2 dias úteis → disparo do diagnóstico).
+9. Próximos passos (aprovação → envio da planilha/logo/docs → ambiente no ar imediatamente após o material completo → disparo do diagnóstico).
 10. Validade (30 dias a partir da emissão).`,
   },
   // ── One-pagers por segmento (client-facing) ───────────────────────────────

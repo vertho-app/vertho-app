@@ -1,7 +1,7 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet, Font, Svg, Path, Line } from '@react-pdf/renderer';
 import { fmtBRL, fmtDate, fmtDateTime, fmtTelefone } from '@/lib/sales/formatters';
-import type { ProposalDocumentVM } from '@/lib/sales/proposal-document';
+import { AMBIENTE_NO_AR, type ProposalDocumentVM } from '@/lib/sales/proposal-document';
 import { brand, neutralRamps } from '@/components/pdf/tokens';
 
 // PDF do documento da proposta. Consome o MESMO VM da página pública
@@ -853,8 +853,7 @@ export default function PropostaComercialPDF({
               <Text style={s.chamadaTitulo}>Vamos começar?</Text>
               <Text style={s.chamadaTexto}>
                 O aceite pode ser registrado na própria página desta proposta, ou respondendo ao seu
-                contato na Vertho. O ambiente {doc.termos.deEntidade} fica no ar em até 2 dias úteis após o
-                recebimento do material de setup.
+                contato na Vertho. O ambiente {doc.termos.deEntidade} fica no ar {AMBIENTE_NO_AR}.
               </Text>
             </View>
           ) : null}

@@ -310,7 +310,16 @@ export const OPCOES_COMISSAO_ORCAMENTO = [
 
 export type TipoComissaoOrcamento = (typeof OPCOES_COMISSAO_ORCAMENTO)[number]['key'];
 
-/** Retorna a política do canal; RC é o fallback seguro do orçamento. */
+/**
+ * Canal com que um orçamento NOVO abre: venda direta, sem comissão (decisão do
+ * dono de 24/10/2026: o deal desk é a venda da própria vertho.ai; o canal de RC
+ * se escolhe quando a venda é de representante). Até então o padrão era RC (18%).
+ * Valor gravado que não se reconhece continua caindo no RC (`obterComissaoOrcamento`):
+ * na dúvida sobre um cenário salvo, o custo maior protege a margem.
+ */
+export const COMISSAO_PADRAO_ORCAMENTO: TipoComissaoOrcamento = 'venda_direta';
+
+/** Retorna a política do canal; RC é o fallback seguro para valor gravado que não se reconhece. */
 export function obterComissaoOrcamento(tipo: string) {
   // Orçamentos anteriores preservam a alíquota com o nome atual do canal.
   const canal = tipo === 'consultor_parceiro' ? 'indicacao'

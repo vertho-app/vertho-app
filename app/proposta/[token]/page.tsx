@@ -17,6 +17,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import localFont from 'next/font/local';
 import { getPropostaPublica } from '@/actions/sales/proposal-share';
+import { AMBIENTE_NO_AR } from '@/lib/sales/proposal-document';
 import { brand, neutralRamps, statusPalettes } from '@/components/pdf/tokens';
 import { fmtBRL, fmtDate, fmtDateTime, fmtTelefone, linkWhatsApp } from '@/lib/sales/formatters';
 import AceiteForm from './aceite-form';
@@ -1090,7 +1091,7 @@ export default async function PropostaPublicaPage(
                 </h2>
                 <p style={{ fontSize: 14.5, lineHeight: 1.6, color: C.ink2, margin: '0 0 20px', maxWidth: '58ch' }}>
                   Ao aceitar, a Vertho envia a planilha de setup e o ambiente {doc.termos.deEntidade} fica no
-                  ar em até 2 dias úteis após o recebimento do material.
+                  ar {AMBIENTE_NO_AR}.
                 </p>
                 <div style={{ background: C.cardSoft, borderRadius: 12, padding: '20px 20px 18px' }}>
                   <AceiteForm token={token} cores={C} fontes={FONTES} emNomeDe={doc.termos.emNomeDe} />

@@ -55,6 +55,7 @@ import {
   custoConteudoComReuso,
   distribuirMatrizes,
   obterComissaoOrcamento,
+  COMISSAO_PADRAO_ORCAMENTO,
   OPCOES_COMISSAO_ORCAMENTO,
   mesesDoPrograma,
   PARCELAS_ALEM_DO_PROGRAMA,
@@ -305,7 +306,7 @@ export default function OrcamentoPage() {
     setMatrizNovas((atuais) => Math.min(v, atuais));
   }
   const [ciclosPorAno, setCiclosPorAno] = useState(1); // ciclos de programa entregues
-  const [tipoComissao, setTipoComissao] = useState<TipoComissaoOrcamento>('rc');
+  const [tipoComissao, setTipoComissao] = useState<TipoComissaoOrcamento>(COMISSAO_PADRAO_ORCAMENTO);
   const [preset, setPreset] = useState<PresetKey>('atual');
   const [jornada, setJornada] = useState<string>('jornada');
   const [jornadaCustom, setJornadaCustom] = useState<ProgramaCustomInputs>({
