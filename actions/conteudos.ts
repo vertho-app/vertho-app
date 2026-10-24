@@ -19,6 +19,8 @@ import { anexarFichaCargo, carregarFichaCargo } from '@/lib/cargo-contexto';
 import { ehClienteDoServidor } from '@/lib/auth/cliente-do-servidor';
 import { empresaOuGlobal } from '@/lib/postgrest-valor';
 import { configDaChamadaDeTags, validarSugestaoTags } from '@/lib/conteudo-tags';
+import { REGRA_PONTUACAO_DA_SAIDA } from '@/lib/ai-language';
+import { tirarTravessaoDeConteudo, REGRA_DIALOGO_ENTRE_ASPAS } from '@/lib/ai-saida-sem-travessao';
 
 /** Mínimo de caracteres para conteúdo que vira PDF (texto/case): leitura de
  *  ~5-8 min. Aplicado tanto na geração do conteúdo quanto na hora do PDF.
@@ -207,6 +209,13 @@ export async function gerarConteudoIA({
     const blocoFicha = fichaCargo !== undefined ? fichaCargo : await carregarFichaCargo(sb, empresaId, cargo);
     ({ system, user } = anexarFichaCargo({ system, user }, blocoFicha));
 
+    // Texto e case viram o PDF que a pessoa lê: regra de pontuação no system (1ª camada) e, depois da geração,
+    // `tirarTravessaoDeConteudo` (a rede). O lote não passa pelo wrapper; em 23/10/2026 todos os textos e cases do
+    // Kit dos últimos 45 dias tinham travessão. Áudio e vídeo ficam de fora: o roteiro vai para a voz.
+    if (formato === 'texto' || formato === 'case') {
+      system = `${system}\n\n${REGRA_PONTUACAO_DA_SAIDA}${formato === 'case' ? `\n${REGRA_DIALOGO_ENTRE_ASPAS}` : ''}`;
+    }
+
     // Usa modelo configurado por tarefa (fallback: modelo padrão da empresa → default)
     const { getModelForTask } = await import('@/lib/ai-tasks');
     const taskKey = formato === 'video' ? 'conteudo_video'
@@ -248,6 +257,7 @@ export async function gerarConteudoIA({
     // faz UMA expansão mantendo estilo/estrutura. Falha não quebra a geração.
     if (formato === 'texto' || formato === 'case') {
       conteudoGerado = await garantirMinimoPdf(conteudoGerado, system, aiConfig, model || aiConfig?.model, perfilPublico.minCharsPdf, empresaId);
+      conteudoGerado = tirarTravessaoDeConteudo(conteudoGerado);
     }
 
     const titulo = extrairTitulo(conteudoGerado, descritor, formato);

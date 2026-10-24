@@ -254,3 +254,75 @@ export function resumoSemTravessao<T>(resumo: T): T {
       : {}),
   } as T;
 }
+
+// ── Conteúdo do Kit: texto, case e desafio (24/10/2026) ──────────────────────
+
+/**
+ * O Kit sai do LOTE (`lib/ai-batch.ts`), que não passa pelo wrapper, então o registro acima nunca o cobriu.
+ * `Medido: 23/10/2026`: 100% dos textos e cases do Kit dos últimos 45 dias com travessão, em todas as empresas
+ * (média de 18 por texto na Amazon), e 122 de 122 desafios de kit. Este é o sanitizador do conteúdo LONGO, aplicado
+ * por quem grava (`gerarConteudoIA`, `gerarKitDesafio`), com duas regras que o de cima não tem:
+ *
+ *   1. Linha que COMEÇA com travessão é FALA de diálogo (75 de 75 nos cases; nenhuma em texto). Vira aspas, com a
+ *      narração fora delas: `— Fala — disse ela.` → `"Fala", disse ela.` O sanitizador de cima a leria como item de
+ *      lista e o markdown desenharia um marcador.
+ *   2. Par de travessões na mesma frase é inciso: vai entre parênteses. Com vírgula, uma enumeração no meio da frase
+ *      embaralha ("afetar outro setor, caixa, cozinha, o próximo turno, essa informação").
+ *
+ * O resto é o `tirarTravessao` sem proteção de aspas: aqui o que está entre aspas é fala escrita pelo modelo, não
+ * citação da pessoa. É a rede de segurança; a 1ª camada é a regra de pontuação no prompt.
+ */
+/** Para o case (que tem diálogo): a fala vai entre aspas desde a geração, e o sanitizador quase não trabalha. */
+export const REGRA_DIALOGO_ENTRE_ASPAS = 'Diálogo vai entre aspas, nunca aberto com travessão: "Fala da pessoa", disse Fulano.';
+
+const LINHA_DE_FALA = new RegExp(`^([ \\t]*)${D}[ \\t]*(\\S.*)$`);
+const SEPARA_FALA = new RegExp(`[ \\t]*${D}[ \\t]*`);
+const PAR_NA_FRASE = new RegExp(`[ \\t]+${D}[ \\t]+([^\\u2013\\u2014\\u2015.!?\\n"\\u201C\\u201D]+?)[ \\t]+${D}(?=[\\s,;:)])`, 'gu');
+
+/** `— Fala — narração. — Mais fala` → `"Fala", narração. "Mais fala"`. Partes pares são fala; ímpares, narração. */
+function falaEntreAspas(linha: string): string {
+  const m = linha.match(LINHA_DE_FALA);
+  if (!m) return linha;
+  const partes = m[2].split(SEPARA_FALA);
+  let out = '';
+  let antesDaNarracao = ', ';
+  for (let i = 0; i < partes.length; i++) {
+    let t = partes[i].trim();
+    if (i % 2 === 1) {
+      if (!t) continue;
+      out += `${antesDaNarracao}${t}`;
+      continue;
+    }
+    t = t.replace(/^[,;][ \t]*/, '').replace(/"/g, "'").replace(/[“”]/g, "'");
+    if (!t) continue;
+    const narracao = i + 1 < partes.length ? partes[i + 1].trim() : '';
+    // Narração com maiúscula depois de fala fechada é FRASE NOVA (uma ação): "Entendo." Rafael abre o notebook.
+    // Com minúscula, ou depois de fala sem ponto, é a marca de quem fala: "Bom", ele disse.
+    const fraseNova = /^\p{Lu}/u.test(narracao) && /[.!?]$/.test(t);
+    if (narracao && !fraseNova) t = t.replace(/[.,]$/, '');
+    antesDaNarracao = fraseNova ? ' ' : ', ';
+    if (out) out += /[.!?:]$/.test(out) ? ' ' : ', ';
+    out += `"${t}"`;
+  }
+  return m[1] + out;
+}
+
+/** Texto e case do Kit (markdown) e os campos do desafio: sem travessão. Idempotente. */
+export function tirarTravessaoDeConteudo(md: string): string {
+  if (typeof md !== 'string' || !TEM_TRAVESSAO.test(md)) return md;
+  return md.split(/(\r\n|\n|\r)/).map((p, i) => {
+    if (i % 2 || !TEM_TRAVESSAO.test(p)) return p;
+    // Régua horizontal e valor "sem dado" seguem a regra de sempre.
+    if (new RegExp(`^\\s*${D}+\\s*$`).test(p)) return tirarTravessao(p, { semProtecao: true });
+    const linha = LINHA_DE_FALA.test(p) ? falaEntreAspas(p) : p.replace(PAR_NA_FRASE, ' ($1)');
+    return tirarTravessao(linha, { semProtecao: true });
+  }).join('');
+}
+
+/** Os campos de texto de um desafio (objeto plano de strings), sem travessão. As chaves não mudam. */
+export function desafioSemTravessao<T extends Record<string, any>>(desafio: T): T {
+  if (!desafio || typeof desafio !== 'object') return desafio;
+  return Object.fromEntries(
+    Object.entries(desafio).map(([k, v]) => [k, typeof v === 'string' ? tirarTravessaoDeConteudo(v) : v]),
+  ) as T;
+}

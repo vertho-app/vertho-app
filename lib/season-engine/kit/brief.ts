@@ -12,6 +12,8 @@ import { parseDesafioResponse, type DesafioStructured } from '@/lib/season-engin
 import { ARQUETIPOS } from '@/lib/disc-arquetipos';
 import { blocoCalibracaoPublico, type RegistroPublico } from '@/lib/season-engine/perfil-publico';
 import { BLOCO_EVIDENCIA_E_RELATO } from './regra-evidencia';
+import { REGRA_PONTUACAO_DA_SAIDA } from '@/lib/ai-language';
+import { desafioSemTravessao } from '@/lib/ai-saida-sem-travessao';
 
 export type DiscLetter = 'D' | 'I' | 'S' | 'C';
 
@@ -298,17 +300,20 @@ CONTEXTO:
 - Competência: ${p.competencia} · Descritor: ${p.descritor}
 - Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'} · Nível: ${p.nivelMin ?? 1}/4${p.pppBrief ? `\n\nCONTEXTO DA INSTITUIÇÃO (ancore a ação na realidade dela, sem citar o nome):\n${p.pppBrief}` : ''}${p.fichaCargo ? `\n\n${p.fichaCargo}` : ''}`;
 
-  const sysJson = `${system}\n\nIMPORTANTE: responda SOMENTE com o objeto JSON, sem texto antes ou depois, sem markdown.`;
+  // A pessoa lê o desafio: regra de pontuação no system (1ª camada) e `desafioSemTravessao` no retorno (a rede).
+  // O lote não passa pelo wrapper, e em 23/10/2026 122 de 122 desafios de kit tinham travessão.
+  const systemComRegra = `${system}\n\n${REGRA_PONTUACAO_DA_SAIDA}`;
+  const sysJson = `${systemComRegra}\n\nIMPORTANTE: responda SOMENTE com o objeto JSON, sem texto antes ou depois, sem markdown.`;
   let desafio = null;
   for (let i = 0; i < 3 && !desafio; i++) {
     // 1ª tentativa pode ir no batch (aiRun); retries por JSON inválido = síncrono.
     const ai = i === 0 && p.aiRun ? p.aiRun : callAI;
-    const raw = (await ai(i === 0 ? system : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 800, {
+    const raw = (await ai(i === 0 ? systemComRegra : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 800, {
       taskKey: 'kit_desafio', empresaId: p.empresaId ?? null,
     })).trim();
     desafio = parseDesafioResponse(raw) || parseDesafioFallback(raw);
     if (!desafio) console.warn(`[kit/desafio] inválido DISC ${disc} (tentativa ${i + 1}/3): ${raw.slice(0, 120)}`);
   }
   if (!desafio) throw new Error(`desafio inválido retornado pela IA (DISC ${disc})`);
-  return desafio;
+  return desafioSemTravessao(desafio);
 }
