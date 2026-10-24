@@ -98,6 +98,13 @@ export interface ContextoEnvio {
   cadenciaPorColab: Map<string, ContextoCadenciaEnvio>;
   /** Estado da votação — só carregado para os `TEMPLATES_VOTACAO`. */
   votacao?: ContextoVotacao | null;
+  /**
+   * Pacote de clínicas (decisão do dono, 24/10/2026): a "instituição" das mensagens ("no programa da …")
+   * é o CONSULTÓRIO da secretária, que ela conhece, e não a empresa (a onlabel). Mapa pessoa → nome do
+   * consultório; ausente = a instituição é a empresa, como sempre. Secretária sem consultório fica com a
+   * instituição vazia e sai do lote pelo "parâmetro do template ficou vazio", nos templates que a usam.
+   */
+  instituicaoPorColab?: Map<string, string> | null;
 }
 
 interface ContextoVotacao {
@@ -464,7 +471,7 @@ function base(c: ColaboradorAlvo, ctx: ContextoEnvio, extra: Partial<PilulaTempl
     tema: '',
     slug: ctx.empresaSlug,
     baseUrl: tenantUrl(ctx.empresaSlug),
-    instituicao: ctx.empresaNome,
+    instituicao: ctx.instituicaoPorColab ? (ctx.instituicaoPorColab.get(c.id) || '') : ctx.empresaNome,
     empresaId: ctx.empresaId,
     colaboradorId: c.id,
     ...extra,
@@ -1042,6 +1049,27 @@ export interface LotePreparado {
 }
 
 /**
+ * Pacote de clínicas: o consultório de cada secretária (`colaboradores.escola_id` → `escolas.nome`), para
+ * a "instituição" das mensagens. Leitura da empresa inteira, paginada (sem `.in` de ids, que estoura a URL
+ * com centenas de pessoas). Falha de leitura LANÇA: mandar "no programa da onlabel" por engano é
+ * exatamente o que esta leitura existe para evitar.
+ */
+async function carregarConsultorios(sb: any, empresaId: string): Promise<Map<string, string>> {
+  const { data: escolas, error: eE } = await sb.from('escolas').select('id, nome').eq('empresa_id', empresaId);
+  if (eE) throw new Error(`escolas: ${eE.message}`);
+  const nomePorEscola = new Map<string, string>((escolas || []).map((e: any) => [e.id, String(e.nome || '').trim()]));
+  const pessoas = await lerTudoPaginado((de, ate) => sb.from('colaboradores')
+    .select('id, escola_id').eq('empresa_id', empresaId).order('id').range(de, ate));
+  if (pessoas.error) throw new Error(`colaboradores (consultório): ${pessoas.error}`);
+  const out = new Map<string, string>();
+  for (const p of pessoas.data) {
+    const nome = p.escola_id ? nomePorEscola.get(p.escola_id) : null;
+    if (nome) out.set(p.id, nome);
+  }
+  return out;
+}
+
+/**
  * Monta o lote SEM enviar: é a prévia da tela e o dry-run do script.
  *
  * `colabs` é TODO o universo do escopo. A regra obrigatória pertence ao
@@ -1100,6 +1128,7 @@ export async function prepararLoteTemplate(
     votacao: TEMPLATES_VOTACAO.has(template)
       ? await carregarVotacao(sb, empresaId, agora)
       : null,
+    instituicaoPorColab: pacoteClinicasLigado(empresa.sys_config) ? await carregarConsultorios(sb, empresaId) : null,
   };
 
   // Idempotência só nos templates com SLOT (cadência semanal e votação diária):
